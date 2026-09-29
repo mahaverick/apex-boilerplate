@@ -128,16 +128,12 @@ export async function waitForApi(timeoutMs = 60_000): Promise<void> {
  */
 export async function logIn(page: Page, email: string): Promise<void> {
   await page.goto('/login')
-  await page.getByLabel(/email/i).fill(email)
-  await page.getByLabel(/password/i).fill(PASSWORD)
-  await page.getByRole('button', { name: /sign in|log in/i }).click()
+  // Exact and form-scoped: a loose /email/i label also matches the dev server's router devtools.
+  const form = page.locator('form')
+  await form.getByRole('textbox', { name: 'Email', exact: true }).fill(email)
+  await form.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await form.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page).not.toHaveURL(/login/, { timeout: 15_000 })
-}
-
-/** Registers, verifies and signs in through the real UI. */
-export async function signIn(page: Page, email: string): Promise<void> {
-  await createVerifiedUser(email)
-  await logIn(page, email)
 }
 
 /**
@@ -194,22 +190,6 @@ export async function grantPlatformRole(email: string, role: MembershipRole): Pr
 /** A slug no earlier run has taken: lowercase, hyphenated, 3 to 100 characters. */
 export function freshSlug(): string {
   return `e2e-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`
-}
-
-/**
- * Registers through the API as Apex does, so the verification link is minted
- * for `APEX_URL` rather than `WEB_URL`.
- * @param email - A fresh address.
- */
-export async function registerFromApex(email: string): Promise<void> {
-  const registered = await json(`${API_ORIGIN}/api/v1/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: PASSWORD, app: 'apex' }),
-  })
-  if (registered.status !== 202) {
-    throw new Error(`register failed: ${registered.status} ${JSON.stringify(registered.body)}`)
-  }
 }
 
 /** The newest `/${page}?token=` link mailed to `email`, or '' while none has arrived. */

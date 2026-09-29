@@ -9,7 +9,6 @@ import {
   logIn,
   mailedLink,
   PASSWORD,
-  registerFromApex,
 } from './helpers'
 
 /**
@@ -59,9 +58,10 @@ test('a verified user who is not staff lands on /no-access, and a reload keeps t
   await expect(page.getByText(`Signed in as ${email}.`)).toBeVisible()
 })
 
-test('an invited newcomer registers, verifies from an Apex link, and joins the platform', async ({
+test('an invited newcomer registers from the accept page, verifies from an Apex link, and joins the platform', async ({
   page,
 }) => {
+  // Two accounts set up through the API and a platform grant script, three mailpit polls of up to 15s each, then the UI flow.
   test.setTimeout(90_000)
   const owner = freshEmail()
   await createVerifiedUser(owner)
@@ -77,20 +77,31 @@ test('an invited newcomer registers, verifies from an Apex link, and joins the p
   })
   expect(invited.status).toBe(202)
 
-  await registerFromApex(invitee)
+  // Express decides this one: a platform invitation always links to APEX_URL.
+  const accept = new URL(await mailedLink(invitee, 'invitations/accept'))
+  expect(accept.origin).toBe(APEX_ORIGIN)
+
+  // Signed out, the accept page offers a way to register with the invited address.
+  await page.goto(accept.pathname + accept.search)
+  await page.getByRole('link', { name: 'Create account' }).click()
+  await expect(page).toHaveURL(/\/register\?invitation=/)
+  const form = page.locator('form')
+  const email = form.getByRole('textbox', { name: 'Email', exact: true })
+  await expect(email).toHaveValue(invitee)
+  await expect(email).toHaveAttribute('readonly', '')
+  await form.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await form.getByRole('button', { name: 'Create account', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Check your email', level: 1 })).toBeVisible()
+
   const verify = new URL(await mailedLink(invitee, 'verify-email'))
   expect(verify.origin).toBe(APEX_ORIGIN)
-
   await page.goto(verify.pathname + verify.search)
-  await page.getByLabel('Password').fill(PASSWORD)
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
   await page.getByRole('button', { name: 'Verify email' }).click()
   await expect(page).toHaveURL(/\/login/)
   await logIn(page, invitee)
   await expect(page).toHaveURL(/\/no-access$/)
 
-  // Express decides this one: a platform invitation always links to APEX_URL.
-  const accept = new URL(await mailedLink(invitee, 'invitations/accept'))
-  expect(accept.origin).toBe(APEX_ORIGIN)
   await page.goto(accept.pathname + accept.search)
   await page.getByRole('button', { name: 'Accept invitation' }).click()
   await expect(page).toHaveURL(/\/overview(\?|$)/)

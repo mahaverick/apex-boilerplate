@@ -24,6 +24,7 @@ test.beforeAll(async () => {
 })
 
 test('the overview charts draw under the production CSP', async ({ page }) => {
+  // Registering and verifying through mailpit (a poll of up to 15s), the grant script, then a cold production bundle.
   test.setTimeout(90_000)
   const email = freshEmail()
   await createVerifiedUser(email)
