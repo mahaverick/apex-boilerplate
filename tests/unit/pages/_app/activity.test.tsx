@@ -162,6 +162,32 @@ describe('platform activity page', () => {
     expect(screen.getByRole('heading', { name: 'Activity', level: 1 })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Page not available' })).not.toBeInTheDocument()
+    // A platform 404 is a role verdict, not a session verdict: the user stays signed in.
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+  })
+
+  it('shows a 500 as a load failure with a retry, not as the role-denied state', async () => {
+    signInAs('admin')
+    let calls = 0
+    mockLog(() => {
+      calls += 1
+      return calls <= 2
+        ? fail('Something went wrong', 500)
+        : ok({ entries: [STAFF_VISIT], nextCursor: null }, 'Audit log retrieved.')
+    })
+    const user = userEvent.setup()
+    renderPlatformActivity()
+
+    const retry = await screen.findByRole('button', { name: 'Try again' })
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByText(/Your role can’t see this any more/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reload' })).not.toBeInTheDocument()
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+
+    await user.click(retry)
+    expect(
+      await screen.findByText('opened this tenant as platform staff (Viewer)')
+    ).toBeInTheDocument()
   })
 
   it('narrows to what staff did or saw with the Staff only switch', async () => {
