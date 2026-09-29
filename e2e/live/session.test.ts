@@ -4,8 +4,9 @@ import {
   apiIsReady,
   createVerifiedUser,
   freshEmail,
+  grantPlatformRole,
+  logIn,
   PASSWORD,
-  signIn,
   waitForApi,
 } from './helpers'
 
@@ -33,11 +34,18 @@ test.beforeAll(async () => {
  * The access token is memory-only by design (CLAUDE.md), so a reload starts
  * unauthenticated and the root route's beforeLoad has to restore the
  * session from the refresh cookie before any guard runs. If that ordering
- * is wrong the reader is bounced to /login, which is the whole risk this
- * pins.
+ * is wrong the reader is bounced to /login. The user is staff so that the
+ * test can assert the overview itself: a non-staff user lands on /no-access
+ * either way, which says less.
  */
-test('a reload keeps you signed in, and refreshes exactly once', async ({ page }) => {
-  await signIn(page, freshEmail())
+test('a reload keeps a staff user signed in on the overview, and refreshes exactly once', async ({
+  page,
+}) => {
+  const email = freshEmail()
+  await createVerifiedUser(email)
+  await grantPlatformRole(email, 'viewer')
+  await logIn(page, email)
+  await expect(page).toHaveURL(/\/overview(\?|$)/)
 
   const refreshes: string[] = []
   page.on('request', (request) => {
@@ -45,7 +53,10 @@ test('a reload keeps you signed in, and refreshes exactly once', async ({ page }
   })
 
   await page.reload()
-  await expect(page).not.toHaveURL(/login/, { timeout: 15_000 })
+  await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page).toHaveURL(/\/overview(\?|$)/)
 
   // EXACTLY one: `ensureSession()` is the only caller of /auth/refresh, and its single-flight wrapper is what makes N concurrent 401s produce one refresh.
   expect(refreshes).toHaveLength(1)

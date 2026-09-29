@@ -195,3 +195,61 @@ export async function grantPlatformRole(email: string, role: MembershipRole): Pr
 export function freshSlug(): string {
   return `e2e-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`
 }
+
+/**
+ * Registers through the API as Apex does, so the verification link is minted
+ * for `APEX_URL` rather than `WEB_URL`.
+ * @param email - A fresh address.
+ */
+export async function registerFromApex(email: string): Promise<void> {
+  const registered = await json(`${API_ORIGIN}/api/v1/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: PASSWORD, app: 'apex' }),
+  })
+  if (registered.status !== 202) {
+    throw new Error(`register failed: ${registered.status} ${JSON.stringify(registered.body)}`)
+  }
+}
+
+/** The newest `/${page}?token=` link mailed to `email`, or '' while none has arrived. */
+async function linkInMailpit(email: string, page: string): Promise<string> {
+  const search = await fetch(
+    `${MAILPIT_ORIGIN}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`
+  )
+  const found = (await search.json()) as { messages?: { ID: string }[] }
+  const pattern = new RegExp(`https?://[^\\s"'<>]+/${page}\\?token=[A-Za-z0-9_-]+`)
+  for (const { ID } of found.messages ?? []) {
+    const message = await fetch(`${MAILPIT_ORIGIN}/api/v1/message/${ID}`)
+    const body = (await message.json()) as { Text?: string }
+    const match = pattern.exec(body.Text ?? '')
+    if (match) return match[0]
+  }
+  return ''
+}
+
+/**
+ * Polls mailpit for the newest `/${page}?token=` link sent to `email`. The
+ * whole link, not only its token, so a test can assert which frontend it
+ * points at.
+ * @param email - The recipient.
+ * @param page - `verify-email` or `invitations/accept`.
+ * @returns The absolute link.
+ */
+export async function mailedLink(email: string, page: string): Promise<string> {
+  let link = ''
+  await expect
+    .poll(
+      async () => {
+        link = await linkInMailpit(email, page)
+        return link
+      },
+      {
+        message: `no ${page} email arrived for ${email} — is mailpit up on ${MAILPIT_ORIGIN}?`,
+        intervals: [500],
+        timeout: 15_000,
+      }
+    )
+    .not.toBe('')
+  return link
+}
