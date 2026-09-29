@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation, useMatches, type LinkProps } from '@tanstack/react-router'
 import { Search } from 'lucide-react'
-import { Fragment, useEffect } from 'react'
+import { Fragment, useEffect, type ReactNode } from 'react'
 import { CommandPalette } from '@/components/features/command-palette'
 import { MAIN_CONTENT_ID, SkipLink } from '@/components/features/skip-link'
 import { StepUpProvider } from '@/components/features/step-up/step-up-provider'
@@ -41,34 +41,35 @@ import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
 
 interface Crumb {
-  /** Stable across renders: one crumb per matched route. */
+  /** Stable across renders: one crumb per matched route, and one per parent crumb. */
   key: string
-  label: string
+  label: ReactNode
   /** The resolved path of that match, with its params filled in. */
   to: LinkProps['to']
 }
 
 /**
  * The trail for the current location, in route order, read off each match's
- * `staticData.crumb` (see the augmentation in `@/router`). Pathless layout
- * matches (`__root__`, `/_app`) declare no crumb and drop out. An index
- * match's trailing slash is trimmed, so `/tenants/` and the nav's `/tenants`
- * are one href.
+ * `staticData.crumb` and `crumbParent` (see the augmentation in `@/router`).
+ * Pathless layout matches (`__root__`, `/_app`) declare no crumb and drop
+ * out. An index match's trailing slash is trimmed, so `/tenants/` and the
+ * nav's `/tenants` are one href.
  */
 function useBreadcrumbs(): Crumb[] {
   const matches = useMatches()
   return matches.flatMap((match) => {
-    const crumb = match.staticData.crumb
-    if (crumb === undefined) return []
+    const { crumb: Label, crumbParent } = match.staticData
+    if (Label === undefined) return []
     const params = match.params as Record<string, string>
     const path = match.pathname.replace(/(.)\/+$/, '$1')
-    return [
-      {
-        key: match.routeId,
-        label: typeof crumb === 'function' ? crumb(params) : crumb,
-        to: path as LinkProps['to'],
-      },
-    ]
+    const own: Crumb = {
+      key: match.routeId,
+      label: typeof Label === 'string' ? Label : <Label params={params} />,
+      to: path as LinkProps['to'],
+    }
+    return crumbParent === undefined
+      ? [own]
+      : [{ key: `${match.routeId}:parent`, label: crumbParent.label, to: crumbParent.to }, own]
   })
 }
 
@@ -170,16 +171,16 @@ export function AppLayout() {
           <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger aria-label="Toggle sidebar" />
             <Separator orientation="vertical" className="mr-2 h-4" />
-            <Breadcrumb>
-              <BreadcrumbList>
+            <Breadcrumb className="min-w-0">
+              <BreadcrumbList className="flex-nowrap">
                 {crumbs.map((crumb, index) => (
                   <Fragment key={crumb.key}>
                     {index > 0 && <BreadcrumbSeparator />}
-                    <BreadcrumbItem>
+                    <BreadcrumbItem className="min-w-0">
                       {index === crumbs.length - 1 ? (
-                        <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                        <BreadcrumbPage className="truncate">{crumb.label}</BreadcrumbPage>
                       ) : (
-                        <BreadcrumbLink render={<Link to={crumb.to} />}>
+                        <BreadcrumbLink className="truncate" render={<Link to={crumb.to} />}>
                           {crumb.label}
                         </BreadcrumbLink>
                       )}
@@ -191,7 +192,7 @@ export function AppLayout() {
             <Button
               variant="outline"
               size="sm"
-              className="ml-auto w-56 justify-between font-normal text-muted-foreground"
+              className="ml-auto w-56 shrink-0 justify-between font-normal text-muted-foreground"
               onClick={() => openPalette(true)}
             >
               <span className="flex items-center gap-2">

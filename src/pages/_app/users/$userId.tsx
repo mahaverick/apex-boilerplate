@@ -22,9 +22,15 @@ export const Route = createFileRoute('/_app/users/$userId')({
     void context.queryClient.prefetchQuery(platformUserQueryOptions(params.userId))
   },
   head: () => ({ meta: [{ title: pageTitle('User') }] }),
-  staticData: { crumb: 'User' },
+  staticData: { crumb: UserCrumb, crumbParent: { label: 'Users', to: ROUTES.users } },
   component: UserDetailPage,
 })
+
+/** The user's name, else their email, in the trail once their detail has loaded. */
+function UserCrumb({ params }: { params: Record<string, string> }) {
+  const { data } = useQuery(platformUserQueryOptions(params.userId ?? ''))
+  return data === undefined ? 'User' : (fullName(data) ?? data.email)
+}
 
 /** A sign-in provider's label; an unknown one renders as the API names it. */
 const PROVIDER_LABELS: Record<string, string> = { email: 'Email', google: 'Google' }

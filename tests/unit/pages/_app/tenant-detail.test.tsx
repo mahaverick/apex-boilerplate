@@ -119,6 +119,15 @@ describe('/tenants/$tenantId', () => {
     expect(internal).toEqual([])
   })
 
+  it('gives the page its one h1 while the tenant is still loading', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => new Promise<never>(() => {}))
+    )
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    expect(await screen.findByRole('heading', { name: 'Tenant', level: 1 })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+  })
+
   it('shows a not-found panel for an unknown tenant', async () => {
     server.use(http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => fail('Not found', 404)))
     renderAppAt(`/tenants/${TENANT_ID}`)

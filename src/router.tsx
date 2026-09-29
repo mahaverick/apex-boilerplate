@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
-import { createRouter } from '@tanstack/react-router'
+import { createRouter, type LinkProps } from '@tanstack/react-router'
+import type { ComponentType } from 'react'
 import { RouteError } from '@/components/features/route-error'
 import { RouteNotFound } from '@/components/features/route-not-found'
 import { RoutePending } from '@/components/features/route-pending'
@@ -49,12 +50,18 @@ declare module '@tanstack/react-router' {
   }
 
   /**
-   * A route's breadcrumb label, declared on the route so each route names
-   * itself in the trail (`/activity` is `Activity`). A function receives the
-   * match's path params, so a route with params can name itself after what
-   * it shows.
+   * A route's breadcrumb, declared on the route so each route names itself in
+   * the trail (`/activity` is `Activity`). A component receives the match's
+   * path params, so a route with params can name itself after the record it
+   * shows (a tenant's or a user's name) once that has loaded.
    */
   interface StaticDataRouteOption {
-    crumb?: string | ((params: Record<string, string>) => string)
+    crumb?: string | ComponentType<{ params: Record<string, string> }>
+    /**
+     * A crumb placed before this route's own, for a record page whose list is
+     * a sibling route rather than a parent (`/tenants/$tenantId` follows
+     * `Tenants`).
+     */
+    crumbParent?: { label: string; to: LinkProps['to'] }
   }
 }

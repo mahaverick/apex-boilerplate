@@ -20,9 +20,15 @@ export const Route = createFileRoute('/_app/tenants/$tenantId')({
     void context.queryClient.prefetchQuery(platformTenantQueryOptions(params.tenantId))
   },
   head: () => ({ meta: [{ title: pageTitle('Tenant') }] }),
-  staticData: { crumb: 'Tenant' },
+  staticData: { crumb: TenantCrumb, crumbParent: { label: 'Tenants', to: ROUTES.tenants } },
   component: TenantLayout,
 })
+
+/** The tenant's name in the trail, once its detail has loaded. */
+function TenantCrumb({ params }: { params: Record<string, string> }) {
+  const { data } = useQuery(platformTenantQueryOptions(params.tenantId ?? ''))
+  return data?.name ?? 'Tenant'
+}
 
 /**
  * One tenant, in any lifecycle state: its header (name, state, actions) and a
@@ -56,6 +62,7 @@ function TenantLayout() {
   if (tenant.data === undefined) {
     return (
       <div className="grid gap-4">
+        <h1 className="sr-only">Tenant</h1>
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-64 w-full" />
       </div>
