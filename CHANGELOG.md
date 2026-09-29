@@ -22,5 +22,3 @@
 * **shell:** harden the command palette's reset, shortcut and tenant states ([8cb80d9](https://github.com/mahaverick/apex-boilerplate/commit/8cb80d98bcd3f6a3a8d218bb378e2c462ae5e5d6))
 * **tenants:** keep in-flight keystrokes, honest page counter, way back from a failed page ([72752b7](https://github.com/mahaverick/apex-boilerplate/commit/72752b771306d2f7936c6dbd1c5d86edf31b33d9))
 * **theme:** darken --chart-3 to 3:1 on the card; measure no-access, the palette and chart series ([580dddc](https://github.com/mahaverick/apex-boilerplate/commit/580dddcdc178267b14aa06090ec44589aa16b77f))
-
-## Changelog
