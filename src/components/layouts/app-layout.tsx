@@ -33,6 +33,7 @@ import {
 import { APP_NAME } from '@/constants/app'
 import { navGroupsFor } from '@/constants/navigation'
 import { ROUTES } from '@/constants/routes'
+import { paletteShortcutHint } from '@/lib/shortcut'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
@@ -123,7 +124,7 @@ export function AppLayout() {
                     aria-hidden
                     className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground"
                   >
-                    A
+                    {APP_NAME.charAt(0)}
                   </span>
                   <span className="font-semibold">{APP_NAME}</span>
                 </SidebarMenuButton>
@@ -191,7 +192,7 @@ export function AppLayout() {
               <Search aria-hidden className="size-4" />
               Search…
             </span>
-            <Kbd>⌘K</Kbd>
+            <Kbd>{paletteShortcutHint()}</Kbd>
           </Button>
         </header>
         <div className="flex-1 overflow-auto p-4 md:p-6">

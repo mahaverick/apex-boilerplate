@@ -3,6 +3,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { LoadError } from '@/components/features/load-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -20,6 +21,7 @@ import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
+import { statusFrom } from '@/lib/api-error'
 import { useRegister, useResendVerification } from '@/queries/auth.queries'
 import { useInvitationPreview } from '@/queries/invitation.queries'
 import { registerSchema, type RegisterInput } from '@/schemas/auth.schemas'
@@ -40,12 +42,32 @@ export const Route = createFileRoute('/_auth/register')({
   component: RegisterPage,
 })
 
-/** Looks the invitation up, then shows the form for its address, or says it cannot be used. */
+/**
+ * Looks the invitation up, then shows the form for its address. A 404 says the
+ * invitation cannot be used; any other failure offers a retry.
+ */
 function RegisterPage() {
   const { invitation: token } = Route.useSearch()
   const preview = useInvitationPreview(token)
 
   if (preview.isPending) return <RegisterSkeleton />
+  if (preview.isError && statusFrom(preview.error) !== 404) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h1>Create an account</h1>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LoadError
+            message="We could not check your invitation."
+            onRetry={() => void preview.refetch()}
+          />
+        </CardContent>
+      </Card>
+    )
+  }
   if (preview.isError) {
     return (
       <Card>

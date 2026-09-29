@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
+import { useAuthStore } from '@/states/auth.store'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -342,5 +343,6 @@ describe('/tenants', () => {
     server.use(http.get('/api/v1/platform/tenants', () => fail('Not found', 404)))
     renderAppAt('/tenants')
     expect(await screen.findByText(/Your role can’t see this any more/)).toBeInTheDocument()
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
   })
 })

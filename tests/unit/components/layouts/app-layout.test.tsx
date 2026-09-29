@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { APP_NAME } from '@/constants/app'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
@@ -75,6 +76,22 @@ describe('AppLayout', () => {
     renderAppAt('/overview')
     await user.click(await screen.findByRole('button', { name: /Search…/ }))
     expect(await screen.findByRole('dialog', { name: 'Command palette' })).toBeInTheDocument()
+  })
+
+  it('marks the brand with the first letter of the app name', async () => {
+    renderAppAt('/overview')
+    const brand = await screen.findByRole('link', { name: APP_NAME })
+    expect(brand).toHaveTextContent(`${APP_NAME.charAt(0)}${APP_NAME}`)
+  })
+
+  it.each([
+    ['MacIntel', '⌘K'],
+    ['Win32', 'Ctrl K'],
+  ])('spells the search shortcut for %s as %s', async (platform, hint) => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform)
+    renderAppAt('/overview')
+    const button = await screen.findByRole('button', { name: /Search…/ })
+    expect(within(button).getByText(hint)).toBeInTheDocument()
   })
 
   it('gives every icon-only control its own accessible name', async () => {

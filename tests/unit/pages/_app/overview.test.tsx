@@ -155,10 +155,15 @@ describe('/overview', () => {
     await waitFor(() => expect(router.state.location.search).toEqual({ range: '30d' }))
 
     // The 30-day request is held open, so this is the in-between state.
-    expect(screen.getByRole('region', { name: 'Key figures' })).toBeInTheDocument()
+    const kpis = screen.getByRole('region', { name: 'Key figures' })
+    expect(kpis).toBeInTheDocument()
     expect(screen.getByText('Send attempts (7 days)')).toBeInTheDocument()
+    expect(kpis.closest('[aria-busy]')).toHaveAttribute('aria-busy', 'true')
     release()
     expect(await screen.findByText('Send attempts (30 days)')).toBeInTheDocument()
+    expect(
+      screen.getByRole('region', { name: 'Key figures' }).closest('[aria-busy]')
+    ).toHaveAttribute('aria-busy', 'false')
   })
 
   it('keeps the current range when the pressed toggle is pressed again', async () => {

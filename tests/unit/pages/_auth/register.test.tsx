@@ -51,6 +51,21 @@ describe('/register (invitation only)', () => {
     expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
   })
 
+  it('offers a retry, not "can’t be used", when the preview fails for any other reason', async () => {
+    let calls = 0
+    server.use(
+      http.post('/api/v1/invitations/preview', () => {
+        calls += 1
+        return calls <= 2 ? fail('Boom', 500) : ok(testInvitationPreview, 'Invitation found.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(PATH)
+    await user.click(await screen.findByRole('button', { name: 'Try again' }))
+    expect(screen.queryByText('This invitation can’t be used')).not.toBeInTheDocument()
+    expect(await screen.findByLabelText('Password')).toBeInTheDocument()
+  })
+
   it('registers and shows the check-your-email card', async () => {
     const user = userEvent.setup()
     renderAppAt(`/register?invitation=${TEST_INVITATION_TOKEN}`)

@@ -35,7 +35,9 @@ export const PLATFORM_PAGE_SIZE = 20
 /**
  * Whether a platform endpoint refused the caller's role. `/platform/*` answers
  * 404, not 403, to non-staff and to staff below the route's role, so a 404 here
- * means "not available to you", never "missing".
+ * means "not available to you", never "missing". Against express before 1.1.0
+ * `/platform/stats` does not exist and 404s, so it reads as role-denied: Apex
+ * needs express 1.1.0 or newer.
  * @param error - A query or mutation error.
  * @returns True for a 404.
  */

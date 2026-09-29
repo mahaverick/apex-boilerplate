@@ -61,7 +61,7 @@ test('a verified user who is not staff lands on /no-access, and a reload keeps t
 test('an invited newcomer registers from the accept page, verifies from an Apex link, and joins the platform', async ({
   page,
 }) => {
-  // Two accounts set up through the API and a platform grant script, three mailpit polls of up to 15s each, then the UI flow.
+  // One account (the owner) set up through the API and a platform grant script, three mailpit polls of up to 15s each, then the UI flow; the invitee registers through the UI.
   test.setTimeout(90_000)
   const owner = freshEmail()
   await createVerifiedUser(owner)

@@ -44,8 +44,9 @@ function OverviewSkeleton() {
 
 /**
  * The staff Overview. The window lives in the URL, so a view can be shared.
- * One request feeds every widget; each widget still renders its own loading
- * state and is its own error boundary.
+ * One request feeds every widget, so there is one skeleton shaped like the
+ * loaded layout and one page-level error or role-denied state; `WidgetBoundary`
+ * isolates only a render error, per widget.
  */
 function OverviewPage() {
   const { range } = Route.useSearch()
@@ -83,7 +84,7 @@ function OverviewPage() {
       ) : stats.data === undefined ? (
         <OverviewSkeleton />
       ) : (
-        <>
+        <div className="grid gap-6" aria-busy={stats.isPlaceholderData}>
           <WidgetBoundary name="Key figures">
             <KpiCards stats={stats.data} />
           </WidgetBoundary>
@@ -95,7 +96,7 @@ function OverviewPage() {
               <EmailsChart emails={stats.data.emails} range={stats.data.range} />
             </WidgetBoundary>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

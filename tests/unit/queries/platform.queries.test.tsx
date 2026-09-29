@@ -4,7 +4,11 @@ import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
-import { usePlatformTenantSearch } from '@/queries/platform.queries'
+import {
+  platformStatsQueryOptions,
+  platformTenantsQueryOptions,
+  usePlatformTenantSearch,
+} from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { fail, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -61,5 +65,33 @@ describe('usePlatformTenantSearch', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(calls).toBe(2)
+  })
+
+  /** Serves a 404 at `path`, runs `fetch`, and returns how many requests it took. */
+  async function requestsOn404(path: string, fetch: () => Promise<unknown>): Promise<number> {
+    let calls = 0
+    server.use(
+      http.get(path, () => {
+        calls += 1
+        return fail('Not found', 404)
+      })
+    )
+    await expect(fetch()).rejects.toBeDefined()
+    return calls
+  }
+
+  // Both options gate on who is asking; a 404 is that answer, so a second request could only repeat it.
+  it('platformStatsQueryOptions makes exactly one request on a 404', async () => {
+    const calls = await requestsOn404('/api/v1/platform/stats', () =>
+      client.fetchQuery(platformStatsQueryOptions('7d'))
+    )
+    expect(calls).toBe(1)
+  })
+
+  it('platformTenantsQueryOptions makes exactly one request on a 404', async () => {
+    const calls = await requestsOn404('/api/v1/platform/tenants', () =>
+      client.fetchQuery(platformTenantsQueryOptions('', undefined, 5))
+    )
+    expect(calls).toBe(1)
   })
 })
