@@ -334,7 +334,11 @@ export default tseslint.config(
     },
   },
   {
-    /** Recharts' payload types are `any` in places; upstream's chart.tsx is kept as pulled. */
+    /**
+     * Upstream's chart.tsx is kept as pulled: Recharts' payload types are `any` in places
+     * (the three no-unsafe-* rules), and its type assertions and `dataKey` templating trip
+     * no-unnecessary-type-assertion and restrict-template-expressions.
+     */
     files: ['src/components/ui/chart.tsx'],
     rules: {
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',

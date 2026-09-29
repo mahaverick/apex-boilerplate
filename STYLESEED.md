@@ -54,10 +54,17 @@ These are intentional and must not be "fixed" by a future pass.
 | SS005 | `ui/alert-dialog.tsx` | `outline-none` | `AlertDialogPopup` sets no `tabIndex`; not tab-reachable |
 | SS005 | `ui/dialog.tsx` | `outline-none` | `DialogPopup` sets no `tabIndex`; not tab-reachable |
 | SS005 | `ui/dropdown-menu.tsx` | `outline-none` ×2 | `MenuPositioner` is a wrapper and `MenuPopup` sets no `tabIndex`; neither is tab-reachable |
+| Repo fix | `ui/avatar.tsx` | `AvatarFallback` and `AvatarGroupCount` use `text-foreground`, not the registry's `text-muted-foreground` | Contrast; not covered by `test:contrast` or CI today, so a re-pull regresses it silently |
+| Repo fix | `ui/badge.tsx` | `transition-[color,background-color,border-color,box-shadow]`, not `transition-all` | Explicit property list |
+| Repo fix | `ui/button.tsx` | `transition-[color,background-color,border-color,box-shadow,transform]`, not `transition-all` | Explicit property list |
+| Repo fix | `ui/toggle.tsx` | `transition-[color,background-color,border-color,box-shadow]`, not `transition-all` | Explicit property list, same as badge |
+| Repo fix | `ui/sidebar.tsx` (rail) | `transition-[right,left,transform]`, not `transition-all` | Explicit property list |
+| TS6133 | `ui/scroll-area.tsx` | Registry's unused `import * as React from "react"` removed | `noUnusedLocals` rejects it; remove again after a re-pull |
+| Lint | `ui/chart.tsx` | Five type-aware rules off for this file in `eslint.config.js` | Upstream is kept as pulled; see the comment on that block |
 | SS001 | `features/notification-bell.tsx` | `&#9679;` | HTML entity for a decorative `aria-hidden` bullet, not a colour |
 
-`ui/scroll-area.tsx` drops the registry's unused `import * as React`, which `noUnusedLocals` rejects; drop it again after a re-pull.
-`ui/chart.tsx` is exempt from five type-aware lint rules in `eslint.config.js` (Recharts' payload types are `any`).
+
+`min-w-24` (dropdown-menu sub-content) and `w-0.5` (sidebar rail) are spellings of the registry's `min-w-[96px]` and `w-[2px]`: a re-pull diff there is cosmetic.
 
 Rounding any of the SS002 values to the nearest scale step changes how the control renders.
 **Appearance wins over rule compliance** — the rule exists to prevent *unintentional* drift.
