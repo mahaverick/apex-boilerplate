@@ -4,11 +4,13 @@ import {
   canActorModifyTarget,
   canChangeRoles,
   canManageTenant,
+  canPlatformActorModifyTarget,
   canViewActivity,
   isLastOwnerBlocked,
   isStaff,
   MEMBERSHIP_ROLES,
   platformRoleAtLeast,
+  type MembershipRole,
 } from '@/constants/roles'
 
 describe('canActorModifyTarget', () => {
@@ -159,5 +161,25 @@ describe('platformRoleAtLeast', () => {
     [undefined, 'viewer', false],
   ] as const)('%s at least %s → %s', (role, minimum, expected) => {
     expect(platformRoleAtLeast(role, minimum)).toBe(expected)
+  })
+})
+
+describe('canPlatformActorModifyTarget', () => {
+  it.each<[MembershipRole, MembershipRole, boolean]>([
+    ['owner', 'owner', true],
+    ['owner', 'admin', true],
+    ['owner', 'viewer', true],
+    ['admin', 'owner', false],
+    ['admin', 'admin', false],
+    ['admin', 'manager', true],
+    ['admin', 'viewer', true],
+    ['manager', 'viewer', false],
+    ['viewer', 'viewer', false],
+  ])('%s acting on another staff %s → %s', (actor, target, expected) => {
+    expect(canPlatformActorModifyTarget(actor, target, false)).toBe(expected)
+  })
+
+  it('never allows acting on yourself, even as owner', () => {
+    expect(canPlatformActorModifyTarget('owner', 'owner', true)).toBe(false)
   })
 })

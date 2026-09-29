@@ -3,6 +3,7 @@ import { Search } from 'lucide-react'
 import { Fragment, useEffect } from 'react'
 import { CommandPalette } from '@/components/features/command-palette'
 import { MAIN_CONTENT_ID, SkipLink } from '@/components/features/skip-link'
+import { StepUpProvider } from '@/components/features/step-up/step-up-provider'
 import { ThemeToggle } from '@/components/features/theme-toggle'
 import { UserMenu } from '@/components/features/user-menu'
 import {
@@ -87,6 +88,8 @@ function isNavActive(pathname: string, to: string): boolean {
  * `Sidebar` renders plain divs, and the brand link in a `header` (the banner),
  * since axe's `region` rule exempts buttons but not links. `SidebarInset` is
  * the `main` element, so its own `header` is not a second banner.
+ * `StepUpProvider` wraps the shell once, so every staff page's destructive
+ * action shares one step-up dialog.
  */
 export function AppLayout() {
   const user = useAuthStore((s) => s.user)
@@ -108,98 +111,102 @@ export function AppLayout() {
   }, [theme, setTheme])
 
   return (
-    <SidebarProvider open={!isCollapsed} onOpenChange={(open) => setCollapsed(!open)}>
-      <SkipLink />
-      <Sidebar collapsible="icon">
-        <SidebarHeader>
-          <header>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="lg"
-                  tooltip={APP_NAME}
-                  render={<Link to={ROUTES.overview} />}
-                >
-                  <span
-                    aria-hidden
-                    className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground"
+    <StepUpProvider>
+      <SidebarProvider open={!isCollapsed} onOpenChange={(open) => setCollapsed(!open)}>
+        <SkipLink />
+        <Sidebar collapsible="icon">
+          <SidebarHeader>
+            <header>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    size="lg"
+                    tooltip={APP_NAME}
+                    render={<Link to={ROUTES.overview} />}
                   >
-                    {APP_NAME.charAt(0)}
-                  </span>
-                  <span className="font-semibold">{APP_NAME}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </header>
-        </SidebarHeader>
-        <SidebarContent>
-          <nav aria-label="Main">
-            {groups.map(({ group, items }) => (
-              <SidebarGroup key={group}>
-                <SidebarGroupLabel>{group}</SidebarGroupLabel>
-                <SidebarMenu>
-                  {items.map(({ to, label, Icon }) => (
-                    <SidebarMenuItem key={to}>
-                      <SidebarMenuButton
-                        isActive={isNavActive(pathname, to)}
-                        tooltip={label}
-                        render={<Link to={to} />}
-                      >
-                        <Icon />
-                        <span>{label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroup>
-            ))}
-          </nav>
-        </SidebarContent>
-        <SidebarFooter>
-          <UserMenu user={user} />
-          <div className="flex justify-center">
-            <ThemeToggle />
-          </div>
-        </SidebarFooter>
-      </Sidebar>
-      <SidebarInset id={MAIN_CONTENT_ID} tabIndex={-1} className="outline-none">
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger aria-label="Toggle sidebar" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              {crumbs.map((crumb, index) => (
-                <Fragment key={crumb.key}>
-                  {index > 0 && <BreadcrumbSeparator />}
-                  <BreadcrumbItem>
-                    {index === crumbs.length - 1 ? (
-                      <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-                    ) : (
-                      <BreadcrumbLink render={<Link to={crumb.to} />}>{crumb.label}</BreadcrumbLink>
-                    )}
-                  </BreadcrumbItem>
-                </Fragment>
+                    <span
+                      aria-hidden
+                      className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground"
+                    >
+                      {APP_NAME.charAt(0)}
+                    </span>
+                    <span className="font-semibold">{APP_NAME}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </header>
+          </SidebarHeader>
+          <SidebarContent>
+            <nav aria-label="Main">
+              {groups.map(({ group, items }) => (
+                <SidebarGroup key={group}>
+                  <SidebarGroupLabel>{group}</SidebarGroupLabel>
+                  <SidebarMenu>
+                    {items.map(({ to, label, Icon }) => (
+                      <SidebarMenuItem key={to}>
+                        <SidebarMenuButton
+                          isActive={isNavActive(pathname, to)}
+                          tooltip={label}
+                          render={<Link to={to} />}
+                        >
+                          <Icon />
+                          <span>{label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroup>
               ))}
-            </BreadcrumbList>
-          </Breadcrumb>
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto w-56 justify-between font-normal text-muted-foreground"
-            onClick={() => openPalette(true)}
-          >
-            <span className="flex items-center gap-2">
-              <Search aria-hidden className="size-4" />
-              Search…
-            </span>
-            <Kbd>{paletteShortcutHint()}</Kbd>
-          </Button>
-        </header>
-        <div className="flex-1 overflow-auto p-4 md:p-6">
-          <Outlet />
-        </div>
-      </SidebarInset>
-      <CommandPalette />
-    </SidebarProvider>
+            </nav>
+          </SidebarContent>
+          <SidebarFooter>
+            <UserMenu user={user} />
+            <div className="flex justify-center">
+              <ThemeToggle />
+            </div>
+          </SidebarFooter>
+        </Sidebar>
+        <SidebarInset id={MAIN_CONTENT_ID} tabIndex={-1} className="outline-none">
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger aria-label="Toggle sidebar" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <Breadcrumb>
+              <BreadcrumbList>
+                {crumbs.map((crumb, index) => (
+                  <Fragment key={crumb.key}>
+                    {index > 0 && <BreadcrumbSeparator />}
+                    <BreadcrumbItem>
+                      {index === crumbs.length - 1 ? (
+                        <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink render={<Link to={crumb.to} />}>
+                          {crumb.label}
+                        </BreadcrumbLink>
+                      )}
+                    </BreadcrumbItem>
+                  </Fragment>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto w-56 justify-between font-normal text-muted-foreground"
+              onClick={() => openPalette(true)}
+            >
+              <span className="flex items-center gap-2">
+                <Search aria-hidden className="size-4" />
+                Search…
+              </span>
+              <Kbd>{paletteShortcutHint()}</Kbd>
+            </Button>
+          </header>
+          <div className="flex-1 overflow-auto p-4 md:p-6">
+            <Outlet />
+          </div>
+        </SidebarInset>
+        <CommandPalette />
+      </SidebarProvider>
+    </StepUpProvider>
   )
 }

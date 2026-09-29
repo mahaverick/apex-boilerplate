@@ -125,3 +125,22 @@ export function useLogout({ returnTo = ROUTES.login }: { returnTo?: string } = {
     },
   })
 }
+
+/**
+ * Confirms the signed-in user's password for a step-up (express
+ * `POST /auth/reauthenticate`) and swaps in the fresh access token it
+ * returns, which carries a new `auth_time`. A wrong password is a 400, never
+ * a 401, so the interceptor never reads it as a verdict on the session.
+ */
+export function useReauthenticate() {
+  const setToken = useAuthStore((s) => s.setToken)
+  return useMutation({
+    mutationFn: async (password: string) =>
+      unwrap(
+        await apiClient.post<ApiSuccess<{ accessToken: string }>>('/auth/reauthenticate', {
+          password,
+        })
+      ),
+    onSuccess: (data) => setToken(data.accessToken),
+  })
+}
