@@ -4,6 +4,7 @@ import { PLATFORM_TENANT_SLUG } from '@/constants/routes'
 import { apiClient, unwrap } from '@/http/client'
 import { codeFrom, statusFrom } from '@/lib/api-error'
 import { fullName } from '@/lib/format'
+import { invalidateDirectory } from '@/queries/platform.queries'
 import { refreshProfile } from '@/queries/profile.queries'
 import type { InviteMemberInput, UpdateTenantInput } from '@/schemas/tenant.schemas'
 import { useAuthStore } from '@/states/auth.store'
@@ -221,11 +222,12 @@ export function useRevokeInvitation(slug: string, tenantId?: string) {
 }
 
 /**
- * Changes a member's role. The caller may have changed their own, which the
- * detail carries, so it refreshes too; a self change in the platform tenant
- * also refreshes the stored user's platformRole.
+ * Changes a member's role. The staff directory refreshes: the member list and
+ * the tenant's detail (the caller may have changed their own role, which it
+ * carries), the member's user page and the tenant's owners. A self change in
+ * the platform tenant also refreshes the stored user's platformRole.
  */
-export function useUpdateMemberRole(slug: string, tenantId?: string) {
+export function useUpdateMemberRole(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: MembershipRole }) =>
@@ -235,11 +237,7 @@ export function useUpdateMemberRole(slug: string, tenantId?: string) {
         })
       ),
     onSuccess: async (_data, { userId }) => {
-      await queryClient.invalidateQueries({ queryKey: tenantKeys.members(slug, tenantId) })
-      await queryClient.invalidateQueries({
-        queryKey: tenantKeys.detail(slug, tenantId),
-        exact: true,
-      })
+      await invalidateDirectory(queryClient)
       if (slug === PLATFORM_TENANT_SLUG && userId === useAuthStore.getState().user?.id) {
         await refreshProfile(queryClient)
       }
@@ -251,19 +249,18 @@ export function useUpdateMemberRole(slug: string, tenantId?: string) {
  * Removes a member. Removing yourself drops the tenant's whole cache prefix
  * rather than refetching queries a former member cannot read, and a self
  * removal from the platform tenant refreshes the stored user's platformRole.
+ * Either way the rest of the staff directory refreshes (the member's user
+ * page, the tenant's owners).
  */
-export function useRemoveMember(slug: string, tenantId?: string) {
+export function useRemoveMember(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (userId: string) =>
       apiClient.delete<ApiSuccess<null>>(`/tenants/${slug}/members/${userId}`),
     onSuccess: async (_data, userId) => {
       const isSelf = userId === useAuthStore.getState().user?.id
-      if (isSelf) {
-        queryClient.removeQueries({ queryKey: ['tenants', slug] })
-      } else {
-        await queryClient.invalidateQueries({ queryKey: tenantKeys.members(slug, tenantId) })
-      }
+      if (isSelf) queryClient.removeQueries({ queryKey: ['tenants', slug] })
+      await invalidateDirectory(queryClient)
       if (isSelf && slug === PLATFORM_TENANT_SLUG) {
         await refreshProfile(queryClient)
       }

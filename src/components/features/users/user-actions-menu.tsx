@@ -64,7 +64,9 @@ export function UserActionsMenu({
   const reactivate = useReactivateUser()
   const signOut = useSignOutUser()
   const remove = useDeleteUser()
-  const purge = usePurgeUser()
+  const purge = usePurgeUser({
+    onPurged: () => navigate({ to: ROUTES.users, search: { status: 'deleted' } }),
+  })
   const passwordSetup = useSendPasswordSetup()
   const resendVerification = useResendVerification()
 
@@ -224,7 +226,6 @@ export function UserActionsMenu({
         onConfirm={async (reason) => {
           await stepUp.run(() => purge.mutateAsync({ userId: user.id, reason }))
           toast.success('Account permanently deleted.')
-          void navigate({ to: ROUTES.users, search: { status: 'deleted' } })
         }}
       />
     </>

@@ -1,11 +1,12 @@
 /**
  * @file Staff reads and writes on user accounts across the platform
- * (`/platform/users*`). Every write refreshes the lists and the platform
- * audit log, which the user's History card reads.
+ * (`/platform/users*`). Every write marks the staff directory stale
+ * (`invalidateDirectory`): the user shows on tenant and Staff pages too, and
+ * each write is a platform audit entry, which the History card reads.
  */
 import { keepPreviousData, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
-import { isRoleDenied } from '@/queries/platform.queries'
+import { invalidateDirectory, isRoleDenied } from '@/queries/platform.queries'
 import type { CreateUserInput, UpdateUserNameInput } from '@/schemas/user-admin.schemas'
 import type {
   ApiSuccess,
@@ -91,21 +92,10 @@ export function platformUserQueryOptions(userId: string) {
   })
 }
 
-/**
- * Refetch every list and, when given, one user's detail, and the platform
- * audit log: each write adds an entry the user's History card shows.
- */
+/** Marks the staff directory stale; the user's own page is part of it. */
 function useInvalidateUsers() {
   const queryClient = useQueryClient()
-  return async (userId?: string) => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: userAdminKeys.all }),
-      queryClient.invalidateQueries({ queryKey: ['platform', 'audit-log'] }),
-      userId
-        ? queryClient.invalidateQueries({ queryKey: userAdminKeys.detail(userId) })
-        : undefined,
-    ])
-  }
+  return () => invalidateDirectory(queryClient)
 }
 
 export function useCreateUser() {
@@ -129,7 +119,7 @@ export function useUpdateUser() {
       unwrap(
         await apiClient.patch<ApiSuccess<PlatformUserRow>>(`/platform/users/${userId}`, input)
       ),
-    onSuccess: (_row, { userId }) => invalidate(userId),
+    onSuccess: () => invalidate(),
   })
 }
 
@@ -143,7 +133,7 @@ function useReasonedChange(action: 'deactivate' | 'reactivate') {
           reason,
         })
       ),
-    onSuccess: (_row, { userId }) => invalidate(userId),
+    onSuccess: () => invalidate(),
   })
 }
 
@@ -161,7 +151,7 @@ export function useSignOutUser() {
     mutationFn: async ({ userId, reason }: { userId: string; reason: string }) => {
       await apiClient.post(`/platform/users/${userId}/sign-out`, { reason })
     },
-    onSuccess: (_data, { userId }) => invalidate(userId),
+    onSuccess: () => invalidate(),
   })
 }
 
@@ -176,7 +166,7 @@ function useMailAction(action: 'password-setup' | 'resend-verification') {
           {}
         )
       ),
-    onSuccess: (_data, { userId }) => invalidate(userId),
+    onSuccess: () => invalidate(),
   })
 }
 
@@ -195,27 +185,27 @@ export function useDeleteUser() {
     mutationFn: async ({ userId, reason }: { userId: string; reason: string }) => {
       await apiClient.delete(`/platform/users/${userId}`, { data: { reason } })
     },
-    onSuccess: (_data, { userId }) => invalidate(userId),
+    onSuccess: () => invalidate(),
   })
 }
 
 /**
  * Permanent deletion of a soft-deleted account (owner; behind step-up). There
- * is nothing left to show, so its cached detail is dropped rather than
- * refetched into a 404; the lists and the platform audit log refresh.
+ * is nothing left to show, so `onPurged` leaves the page first, and only then
+ * is its cached detail dropped: dropped while the page still showed it, the
+ * page would refetch it into a 404. The rest of the directory then refreshes.
+ * @param onPurged - Leaves the purged account's page; resolves once it has.
  */
-export function usePurgeUser() {
+export function usePurgeUser({ onPurged }: { onPurged: () => Promise<unknown> }) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ userId, reason }: { userId: string; reason: string }) => {
       await apiClient.post(`/platform/users/${userId}/purge`, { reason })
     },
     onSuccess: async (_data, { userId }) => {
+      await onPurged()
       queryClient.removeQueries({ queryKey: userAdminKeys.detail(userId) })
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: userAdminKeys.all }),
-        queryClient.invalidateQueries({ queryKey: ['platform', 'audit-log'] }),
-      ])
+      await invalidateDirectory(queryClient)
     },
   })
 }

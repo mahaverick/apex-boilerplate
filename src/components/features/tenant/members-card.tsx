@@ -107,7 +107,6 @@ function RoleCell({
   isSelf,
   isLastOwner,
   reasonId,
-  tenantId,
 }: {
   slug: string
   member: TenantMember
@@ -116,9 +115,8 @@ function RoleCell({
   isLastOwner: boolean
   /** The row's one last-owner explanation, which this cell renders. */
   reasonId: string
-  tenantId?: string
 }) {
-  const updateRole = useUpdateMemberRole(slug, tenantId)
+  const updateRole = useUpdateMemberRole(slug)
   const stepUp = useStepUp()
   const targetRole = member.membership.role
   const name = memberName(member)
@@ -184,7 +182,6 @@ function RemoveMemberButton({
   isSelf,
   isLastOwner,
   reasonId,
-  tenantId,
 }: {
   slug: string
   member: TenantMember
@@ -192,9 +189,8 @@ function RemoveMemberButton({
   isLastOwner: boolean
   /** The row's one last-owner explanation, rendered by `RoleCell`. */
   reasonId: string
-  tenantId?: string
 }) {
-  const removeMember = useRemoveMember(slug, tenantId)
+  const removeMember = useRemoveMember(slug)
   const stepUp = useStepUp()
   const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
@@ -289,7 +285,6 @@ function MemberRow({
   myUserId,
   owners,
   asCard = false,
-  tenantId,
 }: {
   slug: string
   member: TenantMember
@@ -301,7 +296,6 @@ function MemberRow({
    * scrolling table puts the Actions column off-screen.
    */
   asCard?: boolean
-  tenantId?: string
 }) {
   const targetRole = member.membership.role
   const isSelf = member.user.id === myUserId
@@ -317,7 +311,6 @@ function MemberRow({
       isSelf={isSelf}
       isLastOwner={isLastOwner}
       reasonId={reasonId}
-      tenantId={tenantId}
     />
   )
   const remove = canRemove ? (
@@ -327,7 +320,6 @@ function MemberRow({
       isSelf={isSelf}
       isLastOwner={isLastOwner}
       reasonId={reasonId}
-      tenantId={tenantId}
     />
   ) : null
 
@@ -439,7 +431,6 @@ export function MembersCard({
                 myRole={myRole}
                 myUserId={myUserId}
                 owners={owners}
-                tenantId={tenantId}
               />
             ))}
           </ul>
@@ -462,7 +453,6 @@ export function MembersCard({
                   myRole={myRole}
                   myUserId={myUserId}
                   owners={owners}
-                  tenantId={tenantId}
                 />
               ))}
             </TableBody>

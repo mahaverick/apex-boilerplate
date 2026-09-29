@@ -43,7 +43,9 @@ export function TenantActionsMenu({ tenant }: { tenant: PlatformTenantDetail }) 
   const suspend = useSuspendTenant(tenant.id)
   const reactivate = useReactivateTenant(tenant.id)
   const archive = useArchiveTenant(tenant.id)
-  const purge = usePurgeTenant(tenant.id)
+  const purge = usePurgeTenant(tenant.id, {
+    onPurged: () => navigate({ to: ROUTES.tenants, search: { state: 'archived' } }),
+  })
   const [open, setOpen] = useState<Open>(null)
 
   const isAdmin = platformRoleAtLeast(role, 'admin')
@@ -144,7 +146,6 @@ export function TenantActionsMenu({ tenant }: { tenant: PlatformTenantDetail }) 
         onConfirm={async (reason) => {
           await stepUp.run(() => purge.mutateAsync(reason))
           toast.success(`${tenant.name} permanently deleted.`)
-          void navigate({ to: ROUTES.tenants, search: { state: 'archived' } })
         }}
       />
     </>

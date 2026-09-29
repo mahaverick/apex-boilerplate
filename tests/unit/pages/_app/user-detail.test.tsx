@@ -3,6 +3,11 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { PLATFORM_TENANT_SLUG } from '@/constants/routes'
+import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
+import { tenantKeys } from '@/queries/tenant.queries'
+import { userAdminKeys } from '@/queries/user-admin.queries'
+import { queryClient } from '@/router'
 import {
   AUDIT_ID_1,
   INVITATION_ID,
@@ -195,6 +200,33 @@ describe('/users/$userId', () => {
     expect(screen.getByRole('heading', { name: 'Cleo Doe', level: 1 })).toBeInTheDocument()
   })
 
+  it('deactivating a staff owner marks the Staff members list and a tenant’s owners stale', async () => {
+    signIn({ ...testUser, platformRole: 'owner' })
+    answer({ ...DETAIL, platformRole: 'owner', hasPassword: true })
+    server.use(
+      http.post(`/api/v1/platform/users/${USER_ID_2}/deactivate`, () =>
+        ok({ ...DETAIL, active: false }, 'User deactivated.')
+      )
+    )
+    const staffMembers = tenantKeys.members(PLATFORM_TENANT_SLUG)
+    const tenantDetail = tenantAdminKeys.detail(TENANT_ID)
+    const tenantMembers = tenantKeys.members('acme', TENANT_ID)
+    queryClient.setQueryData(staffMembers, [])
+    queryClient.setQueryData(tenantDetail, { id: TENANT_ID })
+    queryClient.setQueryData(tenantMembers, [])
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Deactivate' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Deactivate account' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Left the company')
+    await user.click(within(dialog).getByRole('button', { name: 'Deactivate' }))
+
+    await waitFor(() => expect(queryClient.getQueryState(staffMembers)?.isInvalidated).toBe(true))
+    expect(queryClient.getQueryState(tenantDetail)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(tenantMembers)?.isInvalidated).toBe(true)
+  })
+
   it('keeps the reason dialog open with a 409 in it', async () => {
     // The page still shows the account inactive, but someone reactivated it meanwhile.
     answer({ ...DETAIL, active: false })
@@ -261,14 +293,22 @@ describe('/users/$userId', () => {
 
   it('lets an owner permanently delete a deleted account, behind step-up, then lists deleted users', async () => {
     signIn({ ...testUser, platformRole: 'owner' })
-    answer({ ...DETAIL, deletedAt: '2026-09-29T00:00:00.000Z', active: false })
     const bodies: unknown[] = []
+    let purged = false
+    let readsAfterPurge = 0
     server.use(
+      http.get(`/api/v1/platform/users/${USER_ID_2}`, () => {
+        if (purged) {
+          readsAfterPurge += 1
+          return fail('User not found', 404)
+        }
+        return ok({ ...DETAIL, deletedAt: '2026-09-29T00:00:00.000Z', active: false }, 'ok')
+      }),
       http.post(`/api/v1/platform/users/${USER_ID_2}/purge`, async ({ request }) => {
         bodies.push(await request.json())
-        return bodies.length === 1
-          ? fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
-          : ok(null, 'User permanently deleted.')
+        if (bodies.length === 1) return fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
+        purged = true
+        return ok(null, 'User permanently deleted.')
       }),
       http.post('/api/v1/auth/reauthenticate', () =>
         ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
@@ -302,6 +342,12 @@ describe('/users/$userId', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/users'))
     expect(router.state.location.search).toEqual({ status: 'deleted' })
     expect(bodies).toEqual([{ reason: 'Erasure request' }, { reason: 'Erasure request' }])
+    // The page left before its cached detail was dropped, so nothing asked for the purged account again.
+    await waitFor(() =>
+      expect(queryClient.getQueryState(userAdminKeys.detail(USER_ID_2))).toBeUndefined()
+    )
+    expect(readsAfterPurge).toBe(0)
+    expect(screen.queryByRole('heading', { name: 'User not found' })).not.toBeInTheDocument()
   })
 
   it('sends the set-password link from the menu and says whether it went', async () => {

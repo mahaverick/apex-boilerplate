@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
+import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
+import { queryClient } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
 import {
   AUDIT_ID_1,
@@ -336,12 +338,21 @@ describe('/tenants/$tenantId', () => {
       signIn({ ...testUser, platformRole: 'owner' })
       serve(detail({ lifecycleState: 'archived', deletedAt: '2026-09-01T00:00:00.000Z' }))
       const bodies: unknown[] = []
+      let purged = false
+      let readsAfterPurge = 0
       server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => {
+          if (purged) {
+            readsAfterPurge += 1
+            return fail('Not found', 404)
+          }
+          return ok(detail({ lifecycleState: 'archived', deletedAt: '2026-09-01T00:00:00.000Z' }))
+        }),
         http.post(`/api/v1/platform/tenants/${TENANT_ID}/purge`, async ({ request }) => {
           bodies.push(await request.json())
-          return bodies.length === 1
-            ? fail('Recent sign-in required', 401, REAUTH_REQUIRED)
-            : ok(null, 'Tenant permanently deleted.')
+          if (bodies.length === 1) return fail('Recent sign-in required', 401, REAUTH_REQUIRED)
+          purged = true
+          return ok(null, 'Tenant permanently deleted.')
         }),
         http.post('/api/v1/auth/reauthenticate', () =>
           ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
@@ -367,6 +378,11 @@ describe('/tenants/$tenantId', () => {
       await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
       expect(router.state.location.search).toEqual({ state: 'archived' })
       expect(bodies).toEqual([{ reason: 'contract ended' }, { reason: 'contract ended' }])
+      // The page left before its cached detail was dropped, so nothing asked for the purged tenant again.
+      await waitFor(() =>
+        expect(queryClient.getQueryState(tenantAdminKeys.detail(TENANT_ID))).toBeUndefined()
+      )
+      expect(readsAfterPurge).toBe(0)
     })
 
     it('never shows an archived tenant’s cached members under a new tenant that reuses its slug', async () => {

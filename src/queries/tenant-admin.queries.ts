@@ -14,7 +14,7 @@ import {
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
-import { isRoleDenied, PLATFORM_PAGE_SIZE } from '@/queries/platform.queries'
+import { invalidateDirectory, isRoleDenied, PLATFORM_PAGE_SIZE } from '@/queries/platform.queries'
 import type { CreatePlatformTenantInput } from '@/schemas/tenant.schemas'
 import type {
   ApiSuccess,
@@ -43,8 +43,9 @@ export interface TenantPageParams {
 
 /**
  * `all` prefixes every list and page key, so a write that changes what lists
- * show invalidates it once. A detail is outside that prefix: a list refresh
- * never refetches an open detail, and each write updates its own detail.
+ * show invalidates it once. A detail is outside that prefix, so refreshing
+ * the lists alone never refetches an open detail; `invalidateDirectory`
+ * reaches both.
  */
 export const tenantAdminKeys = {
   all: ['platform', 'tenants'] as const,
@@ -178,9 +179,10 @@ type LifecycleAction = 'suspend' | 'reactivate' | 'archive'
 
 /**
  * A lifecycle transition with its audit reason. The API answers the tenant as
- * it now is, which replaces the cached detail; lists refresh, since the
- * tenant may have left the current filter. A 409 means the cached state was
- * already stale, so the detail is refetched to show the real one.
+ * it now is, which replaces the cached detail; the rest of the directory
+ * refreshes, since the tenant may have left the current filter and its
+ * members' pages show its state. A 409 means the cached state was already
+ * stale, so the detail is refetched to show the real one.
  */
 function useLifecycle(id: string, action: LifecycleAction) {
   const queryClient = useQueryClient()
@@ -194,11 +196,7 @@ function useLifecycle(id: string, action: LifecycleAction) {
       ),
     onSuccess: async (tenant) => {
       queryClient.setQueryData(tenantAdminKeys.detail(id), tenant)
-      // The transition is a new audit entry, so the tenant's History card and cached platform audit pages are stale.
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all }),
-        queryClient.invalidateQueries({ queryKey: ['platform', 'audit-log'] }),
-      ])
+      await invalidateDirectory(queryClient, tenantAdminKeys.detail(id))
     },
     onError: async (error) => {
       if (statusFrom(error) === 409) {
@@ -238,32 +236,30 @@ export function useReissueOwnerInvitation(id: string) {
           input
         )
       ),
-    // A refusal may mean the cached detail was stale; a success is an audit entry, shown on the Activity page and the tenant's History card.
-    onSettled: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: tenantAdminKeys.detail(id) }),
-        queryClient.invalidateQueries({ queryKey: ['platform', 'audit-log'] }),
-      ]),
+    // A refusal may mean the cached detail was stale; a success is an audit entry and a pending invitation on the invitee's page.
+    onSettled: () => invalidateDirectory(queryClient),
   })
 }
 
 /**
  * Permanently delete an archived tenant (platform owner; behind step-up).
- * Nothing about it is left to show, so its cached detail is dropped rather
- * than refetched into a 404; the lists and the platform audit log refresh.
+ * Nothing about it is left to show, so `onPurged` leaves the page first, and
+ * only then is its cached detail dropped: dropped while the page still showed
+ * it, the page would refetch it into a 404. The rest of the directory then
+ * refreshes.
+ * @param id - The tenant's id.
+ * @param onPurged - Leaves the purged tenant's page; resolves once it has.
  */
-export function usePurgeTenant(id: string) {
+export function usePurgeTenant(id: string, { onPurged }: { onPurged: () => Promise<unknown> }) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (reason: string) => {
       await apiClient.post(`/platform/tenants/${id}/purge`, { reason })
     },
     onSuccess: async () => {
+      await onPurged()
       queryClient.removeQueries({ queryKey: tenantAdminKeys.detail(id) })
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all }),
-        queryClient.invalidateQueries({ queryKey: ['platform', 'audit-log'] }),
-      ])
+      await invalidateDirectory(queryClient)
     },
   })
 }

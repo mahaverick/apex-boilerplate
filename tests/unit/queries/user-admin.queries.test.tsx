@@ -82,7 +82,9 @@ describe('user-admin queries', () => {
     const client = new QueryClient()
     client.setQueryData(userAdminKeys.detail(USER_ID_2), { id: USER_ID_2 })
     client.setQueryData(AUDIT_KEY, { pages: [], pageParams: [] })
-    const { result } = renderHook(() => usePurgeUser(), { wrapper: wrapperWith(client) })
+    const { result } = renderHook(() => usePurgeUser({ onPurged: async () => {} }), {
+      wrapper: wrapperWith(client),
+    })
     result.current.mutate({ userId: USER_ID_2, reason: 'Erasure request' })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(body).toEqual({ reason: 'Erasure request' })
