@@ -1,12 +1,89 @@
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { z } from 'zod'
+import { LoadError } from '@/components/features/load-error'
+import { EmailsChart } from '@/components/features/overview/emails-chart'
+import { KpiCards } from '@/components/features/overview/kpi-cards'
+import { SignupsChart } from '@/components/features/overview/signups-chart'
+import { RoleDenied } from '@/components/features/role-denied'
+import { WidgetBoundary } from '@/components/features/widget-boundary'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { pageTitle } from '@/constants/app'
+import { isRoleDenied, platformStatsQueryOptions, STATS_RANGES } from '@/queries/platform.queries'
+
+const RANGE_LABELS = { '7d': '7 days', '30d': '30 days' } as const
 
 export const Route = createFileRoute('/_app/overview')({
+  validateSearch: z.object({ range: z.enum(STATS_RANGES).default('7d').catch('7d') }),
+  loaderDeps: ({ search }) => ({ range: search.range }),
+  // Started, not awaited: the page renders its skeletons while this runs.
+  loader: ({ context, deps }) => {
+    void context.queryClient.prefetchQuery(platformStatsQueryOptions(deps.range))
+  },
   head: () => ({ meta: [{ title: pageTitle('Overview') }] }),
   staticData: { crumb: 'Overview' },
   component: OverviewPage,
 })
 
+/**
+ * The staff Overview. The window lives in the URL, so a view can be shared.
+ * One request feeds every widget; each widget still renders its own loading
+ * state and is its own error boundary.
+ */
 function OverviewPage() {
-  return <h1 className="text-2xl font-semibold">Overview</h1>
+  const { range } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const stats = useQuery(platformStatsQueryOptions(range))
+
+  return (
+    <div className="grid gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold">Overview</h1>
+        <ToggleGroup
+          aria-label="Time range"
+          value={[range]}
+          onValueChange={(value: string[]) => {
+            const next = STATS_RANGES.find((option) => value.includes(option))
+            if (next) void navigate({ search: { range: next }, replace: true })
+          }}
+        >
+          {STATS_RANGES.map((option) => (
+            <ToggleGroupItem key={option} value={option}>
+              {RANGE_LABELS[option]}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
+      {stats.isError ? (
+        isRoleDenied(stats.error) ? (
+          <RoleDenied />
+        ) : (
+          <LoadError
+            message="We could not load the platform figures."
+            onRetry={() => void stats.refetch()}
+          />
+        )
+      ) : stats.data === undefined ? (
+        <div className="grid gap-4">
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      ) : (
+        <>
+          <WidgetBoundary name="Key figures">
+            <KpiCards stats={stats.data} />
+          </WidgetBoundary>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <WidgetBoundary name="Sign-ups">
+              <SignupsChart signups={stats.data.signups} />
+            </WidgetBoundary>
+            <WidgetBoundary name="Emails">
+              <EmailsChart emails={stats.data.emails} />
+            </WidgetBoundary>
+          </div>
+        </>
+      )}
+    </div>
+  )
 }

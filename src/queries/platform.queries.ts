@@ -6,7 +6,13 @@ import {
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
-import type { ApiSuccess, PlatformTenantPage, PlatformTenantRow } from '@/types/api.types'
+import type {
+  ApiSuccess,
+  PlatformStats,
+  PlatformTenantPage,
+  PlatformTenantRow,
+  StatsRange,
+} from '@/types/api.types'
 
 /** How long a tenant search box waits for typing to stop before asking the API. */
 export const SEARCH_DEBOUNCE_MS = 250
@@ -103,4 +109,24 @@ export function flattenTenantPages(
   data: InfiniteData<PlatformTenantPage> | undefined
 ): PlatformTenantRow[] {
   return data?.pages.flatMap((page) => page.tenants) ?? []
+}
+
+/** The windows the Overview offers, in toggle order. */
+export const STATS_RANGES = ['7d', '30d'] as const satisfies readonly StatsRange[]
+
+/**
+ * The staff Overview for one window.
+ * @param range - The window.
+ * @returns Query options for `useQuery` and the route loader.
+ */
+export function platformStatsQueryOptions(range: StatsRange) {
+  return queryOptions({
+    queryKey: platformKeys.stats(range),
+    queryFn: async () =>
+      unwrap(
+        await apiClient.get<ApiSuccess<PlatformStats>>('/platform/stats', { params: { range } })
+      ),
+    /** A 404 answers who is asking, so a retry changes nothing. */
+    retry: (failureCount, error) => !isRoleDenied(error) && failureCount < 1,
+  })
 }

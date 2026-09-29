@@ -72,11 +72,38 @@ const testUser = {
   platformRole: 'admin' as const,
 }
 
+/**
+ * The Overview's figures: the same seven days as `testStats` in
+ * `tests/mocks/handlers.ts`, restated because that file's `@/tests` imports
+ * do not resolve under Vite. One failed attempt, so both bar series draw.
+ */
+const STATS = {
+  range: '7d' as const,
+  totals: { tenants: 1284, users: 9730, staff: 18 },
+  signups: ['23', '24', '25', '26', '27', '28', '29'].map((day, index) => ({
+    date: `2026-09-${day}`,
+    users: 20 + index * 3,
+    tenants: 2 + (index % 3),
+  })),
+  emails: ['23', '24', '25', '26', '27', '28', '29'].map((day, index) => ({
+    date: `2026-09-${day}`,
+    sent: 500 + index * 10,
+    failed: index === 3 ? 1 : 0,
+  })),
+}
+
 function ok<T>(data: T, message = 'OK', statusCode = 200) {
   return Response.json({ success: true, message, statusCode, data })
 }
 
 const worker = setupWorker(
+  // The overview, the harness's default route: its KPI cards and both charts.
+  http.get('/api/v1/platform/stats', ({ request }) =>
+    ok(
+      { ...STATS, range: new URL(request.url).searchParams.get('range') ?? STATS.range },
+      'Platform stats retrieved.'
+    )
+  ),
   // The activity page: the platform log, its actor filter's staff list and its tenant filter's search.
   http.get('/api/v1/platform/audit-log', () =>
     ok(

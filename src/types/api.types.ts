@@ -143,3 +143,23 @@ export interface AuthProviders {
   providers: AuthProviderLink[]
   hasPassword: boolean
 }
+
+/** A window the staff Overview offers. Mirrors express's STATS_RANGES. */
+export type StatsRange = '7d' | '30d'
+
+/** `GET /platform/stats`: live totals and one zero-filled entry per UTC day, oldest first. */
+export interface PlatformStats {
+  range: StatsRange
+  /** Live counts. `users` is active users only; `staff` is the platform tenant's members. */
+  totals: { tenants: number; users: number; staff: number }
+  /**
+   * Per UTC day. `users` counts every non-deleted user created that day, inactive and staff
+   * included, so it does not sum to `totals.users`.
+   */
+  signups: { date: string; users: number; tenants: number }[]
+  /**
+   * Per UTC day, one count per send attempt. `failed` counts failed attempts, not failed
+   * emails: a mail retried then sent contributes to both `failed` and `sent`.
+   */
+  emails: { date: string; sent: number; failed: number }[]
+}

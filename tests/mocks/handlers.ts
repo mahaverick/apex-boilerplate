@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import { USER_ID } from '@/tests/fixtures/ids'
-import type { InvitationPreview, User } from '@/types/api.types'
+import type { InvitationPreview, PlatformStats, User } from '@/types/api.types'
 
 /** A platform admin: every in-app surface is staff-only, so a test about non-staff says `platformRole: null`. */
 export const testUser: User = {
@@ -21,6 +21,22 @@ export const testInvitationPreview: InvitationPreview = {
   role: 'editor',
   invitedBy: { firstName: 'Ada', lastName: 'Lovelace' },
   email: testUser.email,
+}
+
+/** Seven days ending 2026-09-29, with one failed send attempt, so every widget has something to draw. */
+export const testStats: PlatformStats = {
+  range: '7d',
+  totals: { tenants: 1284, users: 9730, staff: 18 },
+  signups: ['23', '24', '25', '26', '27', '28', '29'].map((day, index) => ({
+    date: `2026-09-${day}`,
+    users: 20 + index * 3,
+    tenants: 2 + (index % 3),
+  })),
+  emails: ['23', '24', '25', '26', '27', '28', '29'].map((day, index) => ({
+    date: `2026-09-${day}`,
+    sent: 500 + index * 10,
+    failed: index === 3 ? 1 : 0,
+  })),
 }
 
 export function ok<T>(data: T, message = 'OK', statusCode = 200) {
@@ -61,12 +77,7 @@ export const handlers = [
     )
   ),
   // The shell lands on Overview after every sign-in, and Overview reads these. A test about the stats overrides it.
-  http.get('/api/v1/platform/stats', () =>
-    ok(
-      { range: '7d', totals: { tenants: 0, users: 0, staff: 1 }, signups: [], emails: [] },
-      'Platform stats retrieved.'
-    )
-  ),
+  http.get('/api/v1/platform/stats', () => ok(testStats, 'Platform stats retrieved.')),
   // The platform audit log, empty. A test about activity overrides it.
   http.get('/api/v1/platform/audit-log', () =>
     ok({ entries: [], nextCursor: null }, 'Audit log retrieved.')

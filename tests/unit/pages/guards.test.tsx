@@ -183,8 +183,8 @@ describe('route guards', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/login')
     })
-    // Asserted by VALUE, not merely by presence. Nothing consumes this param until the login page, so this assertion is the only thing holding it in place.
-    expect(router.state.location.search).toEqual({ redirect: '/overview' })
+    // Asserted by VALUE, not merely by presence. Nothing consumes this param until the login page, so this assertion is the only thing holding it in place. The guard reads the validated location, so Overview's defaulted `range` rides along.
+    expect(router.state.location.search).toEqual({ redirect: '/overview?range=7d' })
     expectGuardSawSettledStore()
   })
 

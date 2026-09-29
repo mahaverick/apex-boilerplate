@@ -17,6 +17,19 @@ export function formatDateTime(iso: string): string | null {
   )
 }
 
+/**
+ * A UTC day bucket as a short label: `2026-09-29` → `Sep 29`. Formatted in UTC
+ * and a fixed locale, so the label names the same day the API bucketed,
+ * whatever the reader's time zone.
+ */
+export function shortDate(date: string): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
 /** The name parts a person may have on file. */
 export interface NameParts {
   firstName?: string | null
