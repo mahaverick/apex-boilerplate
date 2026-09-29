@@ -304,7 +304,8 @@ projects (`fixtures`, `live`, `contrast`, `nginx`), and three conventions that a
 same fixtures `tests/unit/a11y.test.tsx` uses, so it needs no backend. It exists for the
 checks jsdom cannot make, because jsdom has no layout: whether the webfont actually resolved,
 whether anything overflows the viewport at 390px, whether a state renders as more than a bare
-header. `?path=` picks the route; the default is `/overview`, and the harness user is a platform admin.
+header. `?path=` picks the route; the default is `/overview`, and the harness user is a platform admin —
+or, with `?role=none`, a signed-in user with no platform role, which is the only way `/no-access` renders there.
 
 One harness trap makes a test measure the wrong thing: **any endpoint left unmocked
 falls through** (`onUnhandledRequest: 'bypass'`) and 401s. Under Playwright, the `fixtures` and

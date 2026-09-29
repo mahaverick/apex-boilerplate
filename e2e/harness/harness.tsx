@@ -7,7 +7,8 @@
  * actual router with MSW answering the same fixtures `tests/unit/a11y.test.tsx`
  * uses, and the same signed-in store state.
  *
- * The harness user is a platform admin, so every staff page renders.
+ * The harness user is a platform admin, so every staff page renders, unless
+ * `?role=none` signs them in with no platform role (see `platformRole`).
  */
 import '@/lib/zod-jitless'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -65,13 +66,20 @@ const MEMBERS = [
 /** The one current password the change-password handler below accepts. */
 const HARNESS_PASSWORD = 'current-password'
 
+/**
+ * `?role=none` is the one other value accepted: a signed-in user who is not
+ * staff, so /no-access renders instead of redirecting to the overview.
+ */
+const platformRole =
+  new URLSearchParams(location.search).get('role') === 'none' ? null : ('admin' as const)
+
 const testUser = {
   id: USER_ID,
   email: 'a@b.com',
   firstName: 'A',
   lastName: 'B',
   createdAt: '2026-01-01T00:00:00.000Z',
-  platformRole: 'admin' as const,
+  platformRole,
 }
 
 /**

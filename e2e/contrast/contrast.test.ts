@@ -90,6 +90,12 @@ const SURFACES = [
   { name: 'profile', url: '/e2e/harness/?path=/profile', heading: 'Sign-in methods' },
   { name: 'tenants', url: '/e2e/harness/?path=/tenants', heading: 'Tenants' },
   { name: 'activity', url: '/e2e/harness/?path=/activity', heading: 'Activity' },
+  // Signed in without a platform role: the harness's `?role=none`, or /no-access would redirect its admin to the overview.
+  {
+    name: 'no-access',
+    url: '/e2e/harness/?path=/no-access&role=none',
+    heading: 'This account has no platform access',
+  },
 ] as const
 
 const THEMES = ['light', 'dark'] as const
@@ -341,6 +347,97 @@ test.describe('chart legends', () => {
         expect(await item.evaluate((el) => getComputedStyle(el).color)).toBe(titleColour)
         expect(await item.evaluate(cardBackground)).toBe(titleSurface)
       }
+    })
+  }
+})
+
+/**
+ * The ⌘K palette: its own dialog surface and its highlighted-option pair
+ * (`--accent` on `--popover`), neither of which any page above renders.
+ */
+test.describe('command palette', () => {
+  for (const theme of THEMES) {
+    test(`the open command palette meets WCAG AA contrast in ${theme}`, async ({ page }) => {
+      await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+      await page.goto('/e2e/harness/?path=/overview')
+      await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible({
+        timeout: COLD_TRANSFORM_BUDGET_MS,
+      })
+
+      await page.keyboard.press('ControlOrMeta+k')
+      const palette = page.getByRole('dialog', { name: 'Command palette' })
+      await expect(palette).toBeVisible()
+      // Populated, with one option highlighted: an empty palette grades clean and proves nothing.
+      await expect(palette.getByRole('option').first()).toBeVisible()
+      await expect(palette.locator('[data-highlighted]')).toHaveCount(1)
+
+      await afterAnimations(palette)
+      await afterFontsAndFrames(page)
+      await page.addScriptTag({ path: AXE_PATH })
+
+      const result = await runAxe(page, '[role="dialog"]')
+      expect(report('palette', theme, result), report('palette', theme, result)).toBe('')
+    })
+  }
+})
+
+/** WCAG 1.4.11: a chart mark needs 3:1 against what it is drawn on. */
+const NON_TEXT_MINIMUM = 3
+
+/**
+ * The chart series tokens against the card the charts sit on (WCAG 1.4.11,
+ * non-text contrast). axe grades text only, so a series colour too pale to
+ * tell from its card would pass every other test here. All five are measured,
+ * not only the ones the overview uses today: they are the palette the next
+ * chart picks from. Each colour is resolved to sRGB by painting it on a canvas,
+ * since Chromium reports `oklch()` tokens back as `oklch()`.
+ */
+test.describe('chart series', () => {
+  for (const theme of THEMES) {
+    test(`each --chart-N has 3:1 against the chart card in ${theme}`, async ({ page }) => {
+      await contrastOf(page, '/e2e/harness/', theme, 'Overview')
+      const chart = page
+        .getByRole('figure', { name: 'Sign-ups per day' })
+        .locator('[data-slot="chart"]')
+      await expect(chart).toBeVisible()
+
+      const ratios = await chart.evaluate((element) => {
+        const canvas = document.createElement('canvas')
+        canvas.width = 1
+        canvas.height = 1
+        const context = canvas.getContext('2d', { willReadFrequently: true })!
+        /** The sRGB bytes of `colours` painted in order over the page background. */
+        const paint = (...colours: string[]) => {
+          context.clearRect(0, 0, 1, 1)
+          for (const colour of [getComputedStyle(document.body).backgroundColor, ...colours]) {
+            context.fillStyle = colour
+            context.fillRect(0, 0, 1, 1)
+          }
+          return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)]
+        }
+        const luminance = (rgb: number[]) => {
+          const [r, g, b] = rgb.map((byte) => {
+            const c = byte / 255
+            return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+          })
+          return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+        }
+        const card = getComputedStyle(element.closest('[data-slot="card"]')!).backgroundColor
+        const cardLuminance = luminance(paint(card))
+        const style = getComputedStyle(element)
+        return [1, 2, 3, 4, 5].map((n) => {
+          const token = style.getPropertyValue(`--chart-${n}`).trim()
+          const series = luminance(paint(card, token))
+          const [lighter, darker] = [series, cardLuminance].sort((a, b) => b - a)
+          return { token: `--chart-${n}: ${token}`, ratio: (lighter! + 0.05) / (darker! + 0.05) }
+        })
+      })
+
+      expect(ratios).toHaveLength(5)
+      const failing = ratios
+        .filter(({ ratio }) => ratio < NON_TEXT_MINIMUM)
+        .map(({ token, ratio }) => `${token} is ${ratio.toFixed(2)}:1`)
+      expect(failing, `series under ${NON_TEXT_MINIMUM}:1 on the card in ${theme}`).toEqual([])
     })
   }
 })
