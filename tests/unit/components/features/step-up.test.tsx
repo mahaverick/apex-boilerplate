@@ -12,12 +12,25 @@ import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import { REAUTH_REQUIRED } from '@/types/api.types'
 
-// No router is mounted here, and `Link` needs one.
+// No router is mounted here, and `Link` needs one. The stand-in fills path params as the router would.
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  Link: ({ children, onClick }: { children: ReactNode; onClick?: () => void }) => (
+  Link: ({
+    children,
+    onClick,
+    to,
+    params,
+  }: {
+    children: ReactNode
+    onClick?: () => void
+    to: string
+    params?: Record<string, string>
+  }) => (
     <a
-      href="/profile"
+      href={Object.entries(params ?? {}).reduce(
+        (path, [name, value]) => path.replace(`$${name}`, value),
+        to
+      )}
       onClick={(event) => {
         event.preventDefault()
         onClick?.()
@@ -264,7 +277,16 @@ describe('useStepUp', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('tells an account without a password to set one, and offers no Google path', async () => {
+  it('opens with focus on the Password field, so typing starts at once', async () => {
+    dangerRoute(1)
+    const user = userEvent.setup()
+    renderHarness()
+    await user.click(screen.getByRole('button', { name: 'Do it' }))
+    const password = await screen.findByLabelText('Password')
+    await waitFor(() => expect(password).toHaveFocus())
+  })
+
+  it('sends an account without a password to its own user page for a set-password link, and offers no Google path', async () => {
     dangerRoute(1)
     server.use(
       http.get('/api/v1/auth/providers', () =>
@@ -281,12 +303,17 @@ describe('useStepUp', () => {
     renderHarness()
     await user.click(screen.getByRole('button', { name: 'Do it' }))
     expect(
-      await screen.findByText(/Set a password to confirm sensitive actions/)
+      await screen.findByText(
+        'Your account has no password. Open your user page and use Send set-password link, set a password from the email, then repeat this action.'
+      )
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Google/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Forgot password/)).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('link', { name: 'Go to profile' }))
+    const link = screen.getByRole('link', { name: 'Open your user page' })
+    expect(link).toHaveAttribute('href', `/users/${testUser.id}`)
+    await user.click(link)
     expect(await screen.findByText('outcome: failed')).toBeInTheDocument()
   })
 

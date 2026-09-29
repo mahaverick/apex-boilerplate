@@ -1,6 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { Link } from '@tanstack/react-router'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { z } from 'zod'
 import { LoadError } from '@/components/features/load-error'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -28,6 +28,7 @@ import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { messageFrom, statusFrom } from '@/lib/api-error'
 import { useAuthProviders, useReauthenticate } from '@/queries/auth.queries'
+import { useAuthStore } from '@/states/auth.store'
 
 const passwordSchema = z.object({ password: z.string().min(1, 'Enter your password.') })
 
@@ -120,6 +121,11 @@ function StepUpBody({
   )
 }
 
+/**
+ * The password form. It focuses its field on mount: the popup took focus when
+ * it opened, while the sign-in methods were still loading, so without this a
+ * keyboard user would have to Tab to the field first.
+ */
 function PasswordStepUp({
   onConfirmed,
   onDismissed,
@@ -129,6 +135,8 @@ function PasswordStepUp({
 }) {
   const reauthenticate = useReauthenticate()
   const serverErrors = useServerErrors()
+  const password = useRef<HTMLInputElement>(null)
+  useEffect(() => password.current?.focus(), [])
   const form = useForm({
     defaultValues: { password: '' },
     validators: { onSubmit: passwordSchema },
@@ -156,6 +164,7 @@ function PasswordStepUp({
             <FormLabel>Password</FormLabel>
             <FormControl>
               <Input
+                ref={password}
                 type="password"
                 autoComplete="current-password"
                 value={fieldValue(field.state.value)}
@@ -182,23 +191,33 @@ function PasswordStepUp({
 
 /**
  * An account without a password can't confirm who it is here: the API
- * confirms by password only. Forgot password on the sign-in page sets one;
- * Profile lists the account's sign-in methods and says the same.
+ * confirms by password only. Only admins and owners reach a step-up, and they
+ * may mail themselves a set-password link from their own user page (the
+ * link opens Apex's reset page, which works while signed in). Forgot
+ * password is no route for them: the sign-in pages send a signed-in user away.
  */
 function NoPasswordStepUp({ onDismissed }: { onDismissed: () => void }) {
+  const userId = useAuthStore((state) => state.user?.id)
   return (
     <div className="grid gap-4">
       <p className="text-sm text-muted-foreground">
-        This account signs in with Google and has no password. Set a password to confirm sensitive
-        actions: use Forgot password on the sign-in page, then repeat the action.
+        Your account has no password. Open your user page and use Send set-password link, set a
+        password from the email, then repeat this action.
       </p>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onDismissed}>
           Close
         </Button>
-        <Link to={ROUTES.profile} className={buttonVariants()} onClick={onDismissed}>
-          Go to profile
-        </Link>
+        {userId !== undefined && (
+          <Link
+            to={ROUTES.user}
+            params={{ userId }}
+            className={buttonVariants()}
+            onClick={onDismissed}
+          >
+            Open your user page
+          </Link>
+        )}
       </DialogFooter>
     </div>
   )

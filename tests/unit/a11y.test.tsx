@@ -1214,7 +1214,9 @@ describe('open overlays', () => {
     await user.type(within(reason).getByLabelText('Reason'), 'x')
     await user.click(within(reason).getByRole('button', { name: 'Suspend' }))
     const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    expect(await within(stepUp).findByRole('link', { name: 'Go to profile' })).toBeInTheDocument()
+    expect(
+      await within(stepUp).findByRole('link', { name: 'Open your user page' })
+    ).toBeInTheDocument()
     await expectNoViolations()
   })
 
