@@ -76,7 +76,7 @@ function mockTenantSearch(respond: (q: string | null) => Response | Promise<Resp
 }
 
 function tenantPage(tenants: PlatformTenantRow[]) {
-  return ok({ tenants, nextCursor: null }, 'Tenants retrieved.')
+  return ok({ tenants, nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
 }
 
 function renderPlatformActivity() {
@@ -389,7 +389,7 @@ describe('platform activity page', () => {
     server.use(
       http.get('/api/v1/platform/tenants', ({ request }) => {
         seen.push(new URL(request.url))
-        return ok({ tenants: [], nextCursor: null }, 'Tenants retrieved.')
+        return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()

@@ -99,7 +99,10 @@ describe('CommandPalette', () => {
     server.use(
       http.get('/api/v1/platform/tenants', ({ request }) => {
         const q = new URL(request.url).searchParams.get('q')
-        return ok({ tenants: q === 'acme' ? [ACME] : [], nextCursor: null }, 'Tenants retrieved.')
+        return ok(
+          { tenants: q === 'acme' ? [ACME] : [], nextCursor: null, prevCursor: null },
+          'Tenants retrieved.'
+        )
       })
     )
     const user = userEvent.setup()
@@ -123,9 +126,9 @@ describe('CommandPalette', () => {
           await new Promise<void>((resolve) => {
             release = resolve
           })
-          return ok({ tenants: [], nextCursor: null }, 'Tenants retrieved.')
+          return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
         }
-        return ok({ tenants: [ACME], nextCursor: null }, 'Tenants retrieved.')
+        return ok({ tenants: [ACME], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()
@@ -211,7 +214,7 @@ describe('CommandPalette', () => {
     server.use(
       http.get('/api/v1/platform/tenants', () => {
         calls += 1
-        return ok({ tenants: [ACME], nextCursor: null }, 'Tenants retrieved.')
+        return ok({ tenants: [ACME], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       })
     )
     useAuthStore.setState({ user: { ...testUser, platformRole: null } })
@@ -247,7 +250,9 @@ describe('CommandPalette', () => {
     server.use(
       http.get('/api/v1/platform/tenants', ({ request }) => {
         const q = new URL(request.url).searchParams.get('q')
-        return q === 'o' ? fail('Boom', 500) : ok({ tenants: [], nextCursor: null })
+        return q === 'o'
+          ? fail('Boom', 500)
+          : ok({ tenants: [], nextCursor: null, prevCursor: null })
       })
     )
     const user = userEvent.setup()
@@ -269,7 +274,7 @@ describe('CommandPalette', () => {
         await new Promise<void>((resolve) => {
           release = resolve
         })
-        return ok({ tenants: [], nextCursor: null }, 'Tenants retrieved.')
+        return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()
@@ -290,7 +295,7 @@ describe('CommandPalette', () => {
   it('ignores Enter typed before the new term is searched', async () => {
     server.use(
       http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [ACME], nextCursor: null }, 'Tenants retrieved.')
+        ok({ tenants: [ACME], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       )
     )
     const user = userEvent.setup()

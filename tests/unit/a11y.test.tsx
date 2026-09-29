@@ -498,7 +498,7 @@ describe('signed-in pages', () => {
     }))
     server.use(
       http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: rows, nextCursor: 'next' }, 'Tenants retrieved.')
+        ok({ tenants: rows, nextCursor: 'next', prevCursor: null }, 'Tenants retrieved.')
       )
     )
     renderAppAt('/tenants')
@@ -509,10 +509,22 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
+  it('tenants filtered to archived with the admin controls has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () =>
+        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+      )
+    )
+    renderAppAt('/tenants?state=archived')
+    await screen.findByText('No tenants in this state.')
+    expect(screen.getByRole('button', { name: 'New tenant' })).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
   it('tenants with nothing matching has no axe violations', async () => {
     server.use(
       http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null }, 'Tenants retrieved.')
+        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       )
     )
     renderAppAt('/tenants?q=zzz')
@@ -621,6 +633,21 @@ describe('invitation accept states', () => {
  * rather than trusting the closed markup.
  */
 describe('open overlays', () => {
+  it('has no violations with the New tenant dialog open', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () =>
+        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt('/tenants')
+    await screen.findByText('No tenants yet.')
+    await user.click(screen.getByRole('button', { name: 'New tenant' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+    expect(within(dialog).getByLabelText('Owner email')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
   beforeEach(() => {
     signIn()
   })

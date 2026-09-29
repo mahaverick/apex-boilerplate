@@ -17,11 +17,8 @@ import { navItemsFor, type NavPath } from '@/constants/navigation'
 import { isStaff } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import {
-  isRoleDenied,
-  platformTenantsQueryOptions,
-  SEARCH_DEBOUNCE_MS,
-} from '@/queries/platform.queries'
+import { isRoleDenied, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
+import { platformTenantsQueryOptions } from '@/queries/tenant-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
 
@@ -63,7 +60,7 @@ export function CommandPalette() {
   const current = query.trim()
   const term = useDebouncedValue(current, SEARCH_DEBOUNCE_MS)
   const tenants = useQuery({
-    ...platformTenantsQueryOptions(term, undefined, TENANT_RESULTS),
+    ...platformTenantsQueryOptions({ q: term, limit: TENANT_RESULTS }),
     enabled: open && staff && term !== '',
   })
 

@@ -19,12 +19,12 @@ import { Route as VerifyEmailRouteImport } from './pages/verify-email'
 import { Route as AppActivityRouteImport } from './pages/_app/activity'
 import { Route as AppOverviewRouteImport } from './pages/_app/overview'
 import { Route as AppProfileRouteImport } from './pages/_app/profile'
-import { Route as AppTenantsRouteImport } from './pages/_app/tenants'
 import { Route as AuthForgotPasswordRouteImport } from './pages/_auth/forgot-password'
 import { Route as AuthLoginRouteImport } from './pages/_auth/login'
 import { Route as AuthRegisterRouteImport } from './pages/_auth/register'
 import { Route as AuthCallbackRouteImport } from './pages/auth/callback'
 import { Route as InvitationsAcceptRouteImport } from './pages/invitations/accept'
+import { Route as AppTenantsIndexRouteImport } from './pages/_app/tenants/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -74,11 +74,6 @@ const AppProfileRoute = AppProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AppRoute,
 } as any)
-const AppTenantsRoute = AppTenantsRouteImport.update({
-  id: '/tenants',
-  path: '/tenants',
-  getParentRoute: () => AppRoute,
-} as any)
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
@@ -104,6 +99,11 @@ const InvitationsAcceptRoute = InvitationsAcceptRouteImport.update({
   path: '/invitations/accept',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppTenantsIndexRoute = AppTenantsIndexRouteImport.update({
+  id: '/tenants/',
+  path: '/tenants/',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -114,12 +114,12 @@ export interface FileRoutesByFullPath {
   '/activity': typeof AppActivityRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
-  '/tenants': typeof AppTenantsRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
+  '/tenants/': typeof AppTenantsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -130,12 +130,12 @@ export interface FileRoutesByTo {
   '/activity': typeof AppActivityRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
-  '/tenants': typeof AppTenantsRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
+  '/tenants': typeof AppTenantsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -149,12 +149,12 @@ export interface FileRoutesById {
   '/_app/activity': typeof AppActivityRoute
   '/_app/overview': typeof AppOverviewRoute
   '/_app/profile': typeof AppProfileRoute
-  '/_app/tenants': typeof AppTenantsRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
+  '/_app/tenants/': typeof AppTenantsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -167,12 +167,12 @@ export interface FileRouteTypes {
     | '/activity'
     | '/overview'
     | '/profile'
-    | '/tenants'
     | '/forgot-password'
     | '/login'
     | '/register'
     | '/auth/callback'
     | '/invitations/accept'
+    | '/tenants/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -183,12 +183,12 @@ export interface FileRouteTypes {
     | '/activity'
     | '/overview'
     | '/profile'
-    | '/tenants'
     | '/forgot-password'
     | '/login'
     | '/register'
     | '/auth/callback'
     | '/invitations/accept'
+    | '/tenants'
   id:
     | '__root__'
     | '/'
@@ -201,12 +201,12 @@ export interface FileRouteTypes {
     | '/_app/activity'
     | '/_app/overview'
     | '/_app/profile'
-    | '/_app/tenants'
     | '/_auth/forgot-password'
     | '/_auth/login'
     | '/_auth/register'
     | '/auth/callback'
     | '/invitations/accept'
+    | '/_app/tenants/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -293,13 +293,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProfileRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/tenants': {
-      id: '/_app/tenants'
-      path: '/tenants'
-      fullPath: '/tenants'
-      preLoaderRoute: typeof AppTenantsRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_auth/forgot-password': {
       id: '/_auth/forgot-password'
       path: '/forgot-password'
@@ -335,6 +328,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvitationsAcceptRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/tenants/': {
+      id: '/_app/tenants/'
+      path: '/tenants'
+      fullPath: '/tenants/'
+      preLoaderRoute: typeof AppTenantsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -342,14 +342,14 @@ interface AppRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
   AppOverviewRoute: typeof AppOverviewRoute
   AppProfileRoute: typeof AppProfileRoute
-  AppTenantsRoute: typeof AppTenantsRoute
+  AppTenantsIndexRoute: typeof AppTenantsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppActivityRoute: AppActivityRoute,
   AppOverviewRoute: AppOverviewRoute,
   AppProfileRoute: AppProfileRoute,
-  AppTenantsRoute: AppTenantsRoute,
+  AppTenantsIndexRoute: AppTenantsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

@@ -33,12 +33,8 @@ import {
   usePlatformAuditLog,
   type PlatformAuditFilters,
 } from '@/queries/audit.queries'
-import {
-  flattenTenantPages,
-  isRoleDenied,
-  SEARCH_DEBOUNCE_MS,
-  usePlatformTenantSearch,
-} from '@/queries/platform.queries'
+import { isRoleDenied, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
+import { flattenTenantPages, usePlatformTenantSearch } from '@/queries/tenant-admin.queries'
 import { memberName, useMembers } from '@/queries/tenant.queries'
 import { useAuthStore } from '@/states/auth.store'
 import type { PlatformTenantRow } from '@/types/api.types'
