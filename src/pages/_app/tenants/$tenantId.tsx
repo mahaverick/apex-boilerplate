@@ -26,9 +26,9 @@ export const Route = createFileRoute('/_app/tenants/$tenantId')({
 /**
  * One tenant, in any lifecycle state: its header (name, state, actions) and a
  * section nav over the tabs. Everything here reads `GET /platform/tenants/:id`;
- * only the Members, Invitations and Activity tabs reach the tenant's own
- * routes, and only while it is active. A 404 is an unknown tenant; it never
- * signs out.
+ * only the Members, Invitations and Activity tabs and the Edit details action
+ * reach the tenant's own routes, and only while it is active. A 404 is an
+ * unknown tenant; it never signs out.
  */
 function TenantLayout() {
   const { tenantId } = Route.useParams()

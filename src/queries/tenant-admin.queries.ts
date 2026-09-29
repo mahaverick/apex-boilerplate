@@ -1,7 +1,8 @@
 /**
  * @file Staff reads and writes on tenants across the platform
  * (`/platform/tenants*`). A single tenant's internals (members, invitations,
- * settings, its audit log) go through `/tenants/:slug/*` in tenant.queries.ts.
+ * settings) go through `/tenants/:slug/*` in tenant.queries.ts, its audit log
+ * in audit.queries.ts.
  */
 import {
   keepPreviousData,
