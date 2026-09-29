@@ -1,9 +1,16 @@
-# React Boilerplate
+# Apex
 
-A React 19 + TypeScript single-page app, built to talk to the
-`express-boilerplate` API. Session handling, routing guards, forms, tenant
-management and a live notification stream are already wired up; the intent is
-that a new project starts here rather than at `create-vite`.
+The staff admin dashboard boilerplate: a React 19 + TypeScript single-page app
+for the people who run a product, not the people who use it. Its sibling,
+`react-boilerplate`, is the customer app; both are built on the
+`express-boilerplate` API. Apex ships a sign-in, a grouped-sidebar shell, a
+⌘K command palette and three staff pages: Overview (KPI cards and charts),
+Tenants (every customer tenant, keyset-paged) and Activity (the audit log).
+
+Only platform staff get in. A signed-in user with no platform role lands on
+`/no-access`, and the API answers `/platform/*` with **404** to anyone below
+the role a route needs, which Apex renders as "your role can't see this" rather
+than signing anyone out.
 
 ## Stack
 
@@ -12,6 +19,8 @@ that a new project starts here rather than at `create-vite`.
 | Build   | Vite 8, React Compiler via Babel                          |
 | Routing | TanStack Router, file-based from `src/pages/`             |
 | Data    | TanStack Query, axios with a single-flight refresh        |
+| Tables  | TanStack Table 9                                          |
+| Charts  | recharts 3, through shadcn's `chart` wrapper              |
 | Forms   | TanStack Form + Zod v4 schemas                            |
 | State   | Zustand (`src/states/`)                                   |
 | UI      | Tailwind v4, shadcn components on Base UI, lucide, sonner |
@@ -20,52 +29,78 @@ that a new project starts here rather than at `create-vite`.
 ## Prerequisites
 
 - **Node 24** and **pnpm 12** (`npm i -g corepack@0.36.0 && corepack enable` — pnpm's version comes from `packageManager` in package.json; Node 25+ does not ship Corepack, so this works on 24 and 26 alike). `pnpm install` refuses an older Node.
-- The **API running on `:4040`** — see below
-- **react 1.x works with express 1.x.**
+- **express-boilerplate 1.1.0 or newer**, running on `:4040` with `APEX_URL` set. Older versions have no `APEX_URL` and no `/platform/stats`, so Overview and every Apex email link would break.
 
 ## Getting started
+
+Start express with Apex's origin in its `.env`:
+
+```bash
+# express-boilerplate/.env
+APEX_URL=http://localhost:5174
+```
+
+Then, here:
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-The dev server listens on <http://localhost:5173>. There is no `.env` step:
-nothing in the app reads a `VITE_*` variable, and `.env.example` holds
-only the comments explaining why — see [Environment](#environment).
+The dev server listens on <http://localhost:5174> (react-boilerplate
+uses :5173, so both can run at once). There is no `.env` step:
+nothing in the app reads a `VITE_*` variable, and `.env.example` holds only the
+comments explaining why — see [Environment](#environment).
+
+`APEX_URL` is what makes the invitation, verification and password-reset links
+express emails, and the Google sign-in callback, point at Apex instead of the
+customer app. Apex asks for that by sending `app: "apex"` (a fixed enum,
+`web` or `apex`; the API never accepts a URL from a client).
+
+### Becoming staff locally
+
+Staff are the members of express's platform tenant. Two ways in:
+
+- **`pnpm platform:grant -- <email> <role>`**, run in `express-boilerplate`,
+  gives an existing, verified user a role in the platform tenant. It is how the
+  first platform owner is made, since nobody can invite before one exists.
+- **`PLATFORM_EMAIL_DOMAINS`** in express's `.env` (for example `example.com`)
+  joins every verified address on those domains as a **viewer**. It never
+  changes an existing member's role.
+
+Further staff are invited through the API's platform-tenant invitations; with
+`APEX_URL` set, the invitation email links to Apex's `/invitations/accept`. A viewer sees Overview and Tenants; the Activity
+log needs admin.
 
 ### The API must be running on :4040
 
 The dev server proxies `/api` to `http://localhost:4040` (`vite.config.ts`).
 Nothing that touches the backend works without it — sign-in, the session
-bootstrap on page load, and the notification stream all fail immediately.
+bootstrap on page load, and every staff page fail immediately.
 
 That proxy is not a convenience. The API path is a **relative** one
-(`/api/v1`) because the SPA and the API are served from one origin, which is
-the only topology this app supports (see [Deploying](#deploying)). In
-development that origin is the Vite proxy; in the container it is nginx.
+(`/api/v1`) because Apex and the API are served from one origin, which is the
+only topology this app supports (see [Deploying](#deploying)). In development
+that origin is the Vite proxy; in the container it is nginx. Because `/api` is
+same-origin, **no CORS entry is needed** for Apex.
 
 ### The API prefix is fixed
 
 `/api/v1` is not configurable, and there is no environment variable that
 moves it. It is written once, as `API_PREFIX` in `src/constants/routes.ts`,
-and everything on the JavaScript side derives from it: the axios base
-(`src/http/client.ts`), the notification stream's `fetch` URL
-(`src/hooks/use-notifications.ts`, which ignores axios entirely), and the
-Google OAuth anchor (`GOOGLE_OAUTH_PATH`).
+and the JavaScript side derives from it: the axios base
+(`src/http/client.ts`) and the Google OAuth anchor (`GOOGLE_OAUTH_PATH`).
 
 `nginx.conf` hardcodes it as well, which is why it is fixed rather than a
-knob: `location /api/v1/notifications/stream` — its SSE buffering and its
-query-stripping log format (defence in depth: the token travels in a header)
-hang off that exact prefix. `nginx.conf`'s `location /api/` and the Vite dev
-proxy in `vite.config.ts` match only the `/api` segment.
+knob: `location /api/v1/notifications/stream` is an SSE location (buffering
+off, a 24h read timeout, a query-stripping log format) that hangs off that
+exact prefix. Apex opens no stream today; the location is kept for the
+notification stream a later sub-project adds. `nginx.conf`'s `location /api/`
+and the Vite dev proxy in `vite.config.ts` match only the `/api` segment.
 
 Moving the API to another prefix under `/api` therefore means changing
 `API_PREFIX` and that SSE `location` together, in one change; a prefix outside
-`/api` also moves `location /api/` and the Vite proxy. Changing `API_PREFIX`
-alone sends the notification stream through the general `location /api/`,
-which lacks the SSE location's 24h read timeout, its `crit` error log and its
-empty `Connection` header.
+`/api` also moves `location /api/` and the Vite proxy.
 
 ### Environment
 
@@ -80,11 +115,29 @@ proxies `/api`. It defaults to `http://api:4040` and must be
 restarting the container, not rebuilding the image. The dev server ignores
 it: `pnpm dev` always proxies to `http://localhost:4040`.
 
+## Adding a page to the navigation
+
+`src/constants/navigation.ts` is the one extension point. The sidebar and the
+⌘K palette both read `NAV_ITEMS`, so an entry there shows up in both:
+
+```ts
+{ label: 'Tenants', to: ROUTES.tenants, Icon: Building2, minRole: 'viewer', group: 'Directory' }
+```
+
+`group` is one of `NAV_GROUPS` (General, Directory, Operations, Security),
+which is the sidebar's section order. `minRole` is the least platform role that
+sees the item; an item above the signed-in user's role is hidden, never shown
+disabled. The API enforces the same bar, so `minRole` is only about what to
+show. A new route also widens the `NavPath` union in that file, and needs a
+file under `src/pages/_app/`. The guard for the whole shell lives in
+`src/pages/_app.tsx`: signed-out goes to `/login`, signed-in without a platform
+role goes to `/no-access`.
+
 ## Scripts
 
 | Script                | What it does                                                                                                                         |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm dev`            | Dev server on :5173 with the `/api` proxy                                                                                            |
+| `pnpm dev`            | Dev server on :5174 with the `/api` proxy                                                                                            |
 | `pnpm build`          | `tsc -b` then `vite build` → `dist/`                                                                                                 |
 | `pnpm preview`        | Serve the built bundle locally                                                                                                       |
 | `pnpm lint`           | eslint **and** `prettier --check` — both must pass                                                                                   |
@@ -93,8 +146,8 @@ it: `pnpm dev` always proxies to `http://localhost:4040`.
 | `pnpm test:coverage`  | Vitest + coverage; fails under 88/82/86/89 % (stmts/branches/funcs/lines). CI runs it                                                |
 | `pnpm test:watch`     | Vitest in watch mode                                                                                                                 |
 | `pnpm format`         | `prettier --write`                                                                                                                   |
-| `pnpm check:bundle`   | Builds in memory; fails on one JS chunk, first-visit JS over budget, or devtools in a chunk. CI runs it                              |
-| `pnpm lint:docs`      | History phrasing and broken links in markdown and config comments. CI runs it                                                        |
+| `pnpm check:bundle`   | Builds in memory; fails on one JS chunk, first-visit JS over budget, or devtools in a chunk                                          |
+| `pnpm lint:docs`      | History phrasing and broken links in markdown and config comments                                                                    |
 | `pnpm test:e2e`       | Playwright `fixtures` project against the MSW harness; no backend needed. CI runs it                                                 |
 | `pnpm test:e2e:live`  | Playwright `live` project; needs express-boilerplate on :4040                                                                        |
 | `pnpm test:e2e:nginx` | Builds the production image and runs the Playwright `nginx` project against it on :8088; all but the `@no-api` tests need a live API |
@@ -109,10 +162,10 @@ CI holds eslint to **zero warnings** as well as zero errors
 src/
   components/
     dev/        dev-only tools, mounted from main.tsx
-    features/   composed, app-specific pieces (theme toggle, user menu, …)
-    layouts/    the auth shell and the app shell
+    features/   composed, app-specific pieces (command palette, overview cards, tenants table, …)
+    layouts/    the auth shell and the app shell (sidebar, header)
     ui/         vendored shadcn output — see CLAUDE.md before editing
-  constants/    routes, roles, app name
+  constants/    routes, roles, navigation, app name
   hooks/        use-* hooks
   http/         axios client, interceptors, the single-flight session refresh
   lib/          small helpers with no app knowledge
@@ -141,12 +194,13 @@ pnpm test
 ```
 
 `tests/unit/a11y.test.tsx` is an **accessibility gate**: every routed page — plus
-an open dialog and an open sheet, which a default-state sweep never sees — must
-come back clean, with no rule disabled to get there. A violation is fixed in the
-markup, never suppressed. It runs axe-core over the whole `document`, because
-axe treats its page-level rules as inapplicable to anything smaller, and it
-asserts the one-`<main>`/one-`<h1>` invariants by hand, because jsdom's selector
-engine stops axe evaluating those two rules at all.
+the open mobile sheet, the tenant filter, the ⌘K palette and the open menus,
+which a default-state sweep never sees — must come back clean, with no rule
+disabled to get there. A violation is fixed in the markup, never suppressed. It
+runs axe-core over the whole `document`, because axe treats its page-level
+rules as inapplicable to anything smaller, and it asserts the
+one-`<main>`/one-`<h1>` invariants by hand, because jsdom's selector engine
+stops axe evaluating those two rules at all.
 
 It does **not** check colour contrast. Those rules are switched off under jsdom,
 which has no layout and no cascade, so a green run says nothing about them.
@@ -157,8 +211,8 @@ overflowing the viewport at 390px. See CLAUDE.md's end-to-end section.
 ## Docker
 
 ```bash
-docker build -t react-boilerplate .
-docker run --rm -p 8080:8080 --read-only --tmpfs /tmp --add-host=api:127.0.0.1 react-boilerplate
+docker build -t apex-boilerplate .
+docker run --rm -p 8080:8080 --read-only --tmpfs /tmp --add-host=api:127.0.0.1 apex-boilerplate
 ```
 
 The image builds the bundle with Node and serves `dist/` from the unprivileged
@@ -172,7 +226,7 @@ real API is there). Under compose, name the API service `api` and nothing else
 is needed. To point it elsewhere, set the variable at start:
 
 ```bash
-docker run --rm -p 8080:8080 -e API_UPSTREAM=http://my-api:8080 --read-only --tmpfs /tmp react-boilerplate
+docker run --rm -p 8080:8080 -e API_UPSTREAM=http://my-api:8080 --read-only --tmpfs /tmp apex-boilerplate
 ```
 
 `API_UPSTREAM` is checked at start: `http://` or `https://`, a host (or a
@@ -262,12 +316,14 @@ nginx sends an **enforced** policy on every response:
   for. Its name is not content-hashed, so it is served `no-store`, like
   `index.html`.
 - **`style-src 'unsafe-inline'`** is there because sonner injects a `<style>`
-  element at runtime.
+  element at runtime, and because recharts sets inline styles and shadcn's
+  `ChartStyle` renders a `<style>` element for the series colours.
 - **`connect-src 'self'`** holds because the API is same-origin: nginx proxies
   `/api`. Calling another origin from the browser means widening it here.
 - The `nginx` Playwright project asserts zero violations: on the sign-in page
-  and for the theme script in CI (the `@no-api` tests), and on the signed-in
-  app with a live stream and a tenant page locally (`pnpm test:e2e:nginx`).
+  and for the theme script in CI (the `@no-api` tests), and on the
+  signed-in shell, the Activity page and the Overview charts with real data
+  locally (`pnpm test:e2e:nginx`).
 
 ### Known gaps
 
@@ -295,13 +351,26 @@ reviewers — before replacing the placeholder `deploy` step with a real
 deployment target. Until then, anything merged to `main` would deploy
 unreviewed the moment that step does something real.
 
-**Serve the SPA and the API from one origin.** The image's nginx proxies
-`/api` to `API_UPSTREAM`, so the browser only ever calls the origin that
-served the page. A split-origin deployment, with the SPA on one host calling
-the API on another, is not supported. The API does send CORS headers, for
-other frontends, but this app depends on same-origin: its API client uses
-relative URLs, its Content-Security-Policy allows `connect-src 'self'` only,
-and the refresh cookie is set on whichever origin answers `/api`.
+**Serve Apex and the API from one origin.** The image's nginx proxies `/api`
+to `API_UPSTREAM`, so the browser only ever calls the origin that served the
+page. A split-origin deployment, with Apex on one host calling the API on
+another, is not supported: its API client uses relative URLs, its
+Content-Security-Policy allows `connect-src 'self'` only, and the refresh
+cookie is set on whichever origin answers `/api`. Because the calls are
+same-origin, express needs no CORS entry for Apex.
+
+The production topology, then: Apex on **its own origin** (for example
+`https://admin.example.com`), the customer app on another, and one express
+behind both, each frontend proxying `/api` to it. On express:
+
+- Set **`APEX_URL`** to Apex's public origin. It may carry a path; it may not
+  carry a query or a fragment. Unset, every link goes to `WEB_URL`.
+- If Google sign-in is on (`GOOGLE_CLIENT_ID`) and Apex's host differs from
+  express's `APP_URL` host, set **`COOKIE_DOMAIN`** to a parent domain of both
+  hosts. express refuses to boot otherwise: a Google sign-in started in Apex
+  would lose its session on the way back.
+- `/platform/*` answers **404**, not 403, to a caller below the role a route
+  needs, and Apex treats that 404 as "not available to your role".
 
 ## Releases
 
@@ -322,6 +391,8 @@ App needs Contents and Pull requests read/write. GitHub never starts workflows
 from events `GITHUB_TOKEN` creates, so its release PRs would get no CI and its
 tags no image promotion — don't fall back to it.
 
+### One-time setup
+
 Three manual steps, once:
 
 - **Create and install the release GitHub App** on this repository, then set
@@ -339,6 +410,10 @@ Three manual steps, once:
   merges the release PR without waiting for CI; without the blank squash
   message, each squash body would carry the branch's commit list, which
   release-please reads as extra conventional commits.
+
+The first release is pinned by `"release-as": "1.0.0"` in
+`release-please-config.json`. Once release-please has cut it, remove that line
+in a follow-up PR so later releases follow the commits again.
 
 With those rules, the squashed commit on `main` is the PR's title alone, not
 any of its individual commit messages — so PR titles must themselves be

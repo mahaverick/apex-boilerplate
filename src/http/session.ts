@@ -15,11 +15,11 @@ import type { ApiSuccess, User } from '@/types/api.types'
  * inactive. Every other failure judges nobody, and treating it as a verdict
  * signs out a user whose session is good:
  *
- * - **5xx**: nginx answers 502/503 through a rolling restart, and the SSE
- *   stream reconnects through `ensureSession()`, so every open tab would sign
- *   out on every deploy.
- * - **429**: `/auth/refresh` is rate limited, and the stream calls
- *   `ensureSession()` on a schedule across every tab.
+ * - **5xx**: nginx answers 502/503 through a rolling restart, and every open
+ *   tab's 401 interceptor and page-load bootstrap refresh through
+ *   `ensureSession()`, so every tab would sign out on every deploy.
+ * - **429**: `/auth/refresh` is rate limited, and every tab's interceptor and
+ *   bootstrap share that limit.
  * - **A malformed 200**: `rejectMalformedJsonResponse` throws an `AxiosError`
  *   that carries a response.
  * - **No response**: a network error, DNS failure, axios timeout or abort.
@@ -106,8 +106,8 @@ export function installAuthBroadcastListener(): () => void {
 }
 
 /**
- * The single in-flight refresh. Every caller (bootstrap, the 401 interceptor,
- * the SSE reconnect) awaits this same promise, because POST /auth/refresh
+ * The single in-flight refresh. Every caller (`bootstrapSession()` and the 401
+ * interceptor) awaits this same promise, because POST /auth/refresh
  * rotates the refresh cookie and a second call presents the rotated token.
  * The API answers that with a sibling token within its 10s reuse grace window,
  * and revokes the whole session after it.

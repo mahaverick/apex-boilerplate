@@ -26,11 +26,10 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # No build ARGs, deliberately. The API prefix is FIXED at /api/v1 — it lives in
-# src/constants/routes.ts as API_PREFIX, and nginx.conf's SSE location, the
-# notification stream's `fetch` URL and the Google OAuth anchor all derive
-# from or hardcode it. A build arg that moved only the axios base would ship
-# an image whose notification stream and Google sign-in are broken with
-# nothing in any log to say so.
+# src/constants/routes.ts as API_PREFIX, and nginx.conf's SSE location and the
+# Google OAuth anchor derive from or hardcode it. A build arg that moved only
+# the axios base would ship an image whose Google sign-in and SSE location are
+# broken with nothing in any log to say so.
 RUN pnpm build
 
 # The unprivileged nginx image runs as uid 101 and listens on 8080. Both base

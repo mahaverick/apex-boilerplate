@@ -2,9 +2,10 @@
  * The API's path prefix, fixed rather than configurable, and the one place the
  * JavaScript side writes it: the axios base and the Google OAuth anchor both
  * derive from it. nginx.conf hardcodes it too, in
- * `location /api/v1/notifications/stream` (the stream's buffering and its
- * query-stripping log format), so moving the API means changing this constant
- * and nginx.conf in one change. The dev proxy forwards all of `/api`.
+ * `location /api/v1/notifications/stream`, an SSE location kept for the
+ * notification stream a later sub-project adds (Apex opens no stream yet), so
+ * moving the API means changing this constant and nginx.conf in one change.
+ * The dev proxy forwards all of `/api`.
  */
 export const API_PREFIX = '/api/v1'
 

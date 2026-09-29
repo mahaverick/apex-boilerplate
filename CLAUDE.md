@@ -9,9 +9,36 @@ of these is a deliberate act, not a tidy-up.
 
 ## What this is
 
-A React 19 + TypeScript SPA that talks to the `express-boilerplate` API. Vite,
-TanStack Router (file-based), TanStack Query, TanStack Form, Zustand, Tailwind
-v4, Base UI via shadcn, axios, Zod v4, Vitest + Testing Library + MSW.
+Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
+`express-boilerplate` API (1.1.0 or newer, run with `APEX_URL` set to this app's
+origin, `http://localhost:5174` locally). `react-boilerplate`, the customer app,
+is its sibling. Vite, TanStack Router (file-based), TanStack Query, TanStack
+Form, TanStack Table 9, Zustand, Tailwind v4, Base UI via shadcn, recharts,
+axios, Zod v4, Vitest + Testing Library + MSW.
+
+The staff navigation is one typed list, `src/constants/navigation.ts`; the
+sidebar and the ⌘K palette both read it, so a new page is an entry there plus a
+file under `src/pages/_app/`.
+
+## Sibling sync
+
+`react-boilerplate` (the customer app) and this repo share a starting point.
+These paths hold the same behaviour in both; a change to one here means
+checking the other in the same PR, and the PR description says what happened
+there ("ported in react#N", or "not applicable because …").
+
+| Path                                                              | Why it must stay in step                                           |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `src/http/*`                                                      | Session refresh single-flight, 401-verdict sign-out, SSE transport |
+| `src/lib/api-error.ts`                                            | Error envelope parsing                                             |
+| `src/schemas/auth.schemas.ts`, `src/schemas/safe-text.schemas.ts` | Mirror the backend validators                                      |
+| `src/components/ui/form.tsx`, `src/components/ui/sonner.tsx`      | Hand-written, shared behaviour                                     |
+| `nginx.conf` security headers and CSP                             | Same threat model                                                  |
+| `public/theme-init.js`, `src/lib/zod-jitless.ts`                  | CSP compatibility                                                  |
+| `eslint.config.js` rule set (not its file lists)                  | Same conventions                                                   |
+
+Apex is the home of staff screens; the customer app keeps only the staff paths
+that live on tenant pages.
 
 ## Commands
 
@@ -73,16 +100,28 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
 - **The API prefix is fixed and relative** (`/api/v1`), written once as
   `API_PREFIX` in `src/constants/routes.ts`. This SPA's own traffic is same-origin
   by design — the dev server proxies `/api`, and the container's nginx does the
-  same — so an absolute URL fails at runtime in a way no test catches. Do not add an
-  environment variable for it: one that moves only the axios base leaves the
-  stream's URL, the Google OAuth anchor and nginx's SSE `location` on the old
-  prefix. Moving the prefix means changing `API_PREFIX` and `nginx.conf`'s SSE
+  same — so an absolute URL fails at runtime in a way no test catches, and
+  express needs no CORS entry for Apex. Do not add an environment variable for
+  it: one that moves only the axios base leaves the Google OAuth anchor and
+  nginx's SSE `location` on the old prefix. That `location` is kept for the
+  notification stream a later sub-project adds; Apex opens no stream today.
+  Moving the prefix means changing `API_PREFIX` and `nginx.conf`'s SSE
   `location` together; `vite.config.ts` proxies all of `/api`, so it changes
   only for a prefix outside `/api`. **The backend is not actually CORS-blind** — its
   `src/configs/cors.config.ts` (express-boilerplate) answers a cross-origin
-  caller, and its `allowedHeaders` entry for `Last-Event-ID` is the only reason
-  a second, cross-origin frontend's stream can replay on reconnect at all —
-  same-origin is simply what this particular SPA ships as.
+  caller; same-origin is simply what this particular SPA ships as.
+- **The staff guard lives in `src/pages/_app.tsx`.** Its `beforeLoad` sends a
+  signed-out visitor to `/login` and a signed-in user with no platform role to
+  `/no-access`. The API is the real gate: `/platform/*` answers **404**, not
+  403, to non-staff and to staff below a route's role. `isRoleDenied`
+  (`src/queries/platform.queries.ts`) recognises that 404 and each staff page
+  renders `RoleDenied` instead of an error, without signing the user out (a
+  404 is not an auth verdict); a reload re-runs the guard and lands a demoted
+  user on `/no-access`. Do not turn that 404 into a sign-out or a retry loop.
+- **Google sign-in and `COOKIE_DOMAIN`.** The Google anchor
+  (`GOOGLE_OAUTH_PATH`) sends `app=apex`, so express returns the callback to
+  `APEX_URL`. When that host differs from express's `APP_URL` host, express
+  refuses to boot unless `COOKIE_DOMAIN` covers both.
 - **The access token is memory-only.** It lives in `auth.store` and nowhere
   else. Never write it to `localStorage`, `sessionStorage`, a cookie or a query
   string, and never add a `persist` middleware to that store. The refresh token
@@ -224,8 +263,8 @@ pin in `Dockerfile` and `README.md` is tracked via a custom regex manager.
   `src/queries/`, `*.schemas.ts` → `src/schemas/`, `*.types.ts` → `src/types/`,
   `use-*` → `src/hooks/`.
 - **`src/pages/**` is exempt** from all of it. TanStack Router's file-based
-  routing needs `__root.tsx`, `_auth.tsx` and `$slug.members.tsx`, which are not
-  kebab-case by design.
+  routing needs `__root.tsx`, `_app.tsx` and `_auth.tsx`, and `$.tsx` for the
+  splat route, which are not kebab-case by design.
 - **No test file lives under `src/`.** Vitest suites go in `tests/unit/`,
   mirroring the src/ path of their subject (`src/http/session.ts` →
   `tests/unit/http/session.test.ts`); cross-cutting suites (`a11y.test.tsx`)
@@ -307,6 +346,13 @@ whether anything overflows the viewport at 390px, whether a state renders as mor
 header. `?path=` picks the route; the default is `/overview`, and the harness user is a platform admin —
 or, with `?role=none`, a signed-in user with no platform role, which is the only way `/no-access` renders there.
 
+`playwright.config.ts` starts the dev server as `vite --force`, and that is load-bearing:
+Vite trusts a dependency cache whose lockfile and config hashes still match, so a source
+change that imports a package the cache predates is found mid-run, and Vite re-optimises and
+reloads the page. The reload drops the memory-only access token and lands the test on `/login`.
+`--force` re-scans every import first. A server that is reused (`reuseExistingServer` outside CI)
+is not restarted, so it keeps whatever cache it has.
+
 One harness trap makes a test measure the wrong thing: **any endpoint left unmocked
 falls through** (`onUnhandledRequest: 'bypass'`) and 401s. Under Playwright, the `fixtures` and
 `contrast` projects take `test` from `e2e/hermetic.ts`, which answers every `/api` request that
@@ -319,7 +365,8 @@ signs the harness user out — any non-expiry 401 on a token-bearing request is 
 only the one being asserted on. If a fixtures test starts landing on `/login`, that is why,
 and the teardown message names the endpoint.
 
-**`live`** needs a real express-boilerplate on `:4040` and its docker services, and is skipped
+**`live`** needs a real express-boilerplate (1.1.0 or newer) on `:4040`, started with
+`APEX_URL=http://localhost:5174`, and its docker services, and is skipped
 unless `E2E_LIVE=1`. Accounts are registered and verified through mailpit — login stays 401
 until the address is verified, and the link only exists in the email. Each run uses a **fresh
 address**, because the login limiter is keyed `ip:email` at five attempts per fifteen minutes
@@ -331,9 +378,10 @@ tears it down. The tests tagged `@no-api` (headers, the CSP, the theme script, t
 need no backend and also run in CI's `e2e` job, against the image with nothing behind `/api`;
 the rest need a live API and run only locally. The project exists first for a reason worth
 keeping: **the Vite dev proxy does not propagate an upstream close.**
-A `curl -N` at it stays open after the API is killed, so the reading side of the client's
-`fetch` body stream never sees `done: true`, `parseSseStream`'s generator never returns, and
-the SSE reconnect path is unreachable from a dev-server browser. The same curl against nginx
+A `curl -N` at it stays open after the API is killed, so the reading side of a `fetch` body
+stream never sees `done: true` and `parseSseStream`'s generator (`src/http/sse.ts`, kept for the
+notification stream Apex will open) never returns; a reconnect path is unreachable from a
+dev-server browser. The same curl against nginx
 exits on the second the API dies. Anything that depends on noticing a dropped upstream has to
 be tested here, not against `pnpm dev`.
 
@@ -358,7 +406,8 @@ token moves. **Do not eyeball a contrast change — run the script.**
 ## Accessibility
 
 `tests/unit/a11y.test.tsx` is a gate, not a smoke test: every routed page, plus
-an open dialog, an open sheet and all four open menus, must come back clean. If
+the open mobile sheet, the tenant filter, the ⌘K palette and the open menus,
+must come back clean. If
 something trips a rule, **fix the markup** — no rule is disabled to make it pass.
 
 **Menus are graded at menu scope, not document scope, and that is the one place
