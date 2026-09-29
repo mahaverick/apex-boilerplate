@@ -126,6 +126,8 @@ export function platformStatsQueryOptions(range: StatsRange) {
       unwrap(
         await apiClient.get<ApiSuccess<PlatformStats>>('/platform/stats', { params: { range } })
       ),
+    /** Switching the window keeps the current figures up until the new ones land, rather than flashing skeletons. */
+    placeholderData: keepPreviousData,
     /** A 404 answers who is asking, so a retry changes nothing. */
     retry: (failureCount, error) => !isRoleDenied(error) && failureCount < 1,
   })

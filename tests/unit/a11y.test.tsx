@@ -441,7 +441,16 @@ describe('signed-in pages', () => {
   })
 
   it.each([
-    ['overview', '/overview', () => screen.findByRole('heading', { name: 'Overview', level: 1 })],
+    [
+      'overview',
+      '/overview',
+      // The h1 renders before the stats land; grade the loaded widgets, not their skeletons.
+      async () => {
+        await screen.findByRole('region', { name: 'Key figures' })
+        await screen.findByRole('figure', { name: 'Sign-ups per day' })
+        await screen.findByRole('figure', { name: 'Emails per day' })
+      },
+    ],
     ['profile', '/profile', () => screen.findByRole('button', { name: 'Change password' })],
     ['tenants', '/tenants', () => screen.findByRole('heading', { name: 'Tenants', level: 1 })],
     [

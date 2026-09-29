@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { LoadError } from '@/components/features/load-error'
 import { EmailsChart } from '@/components/features/overview/emails-chart'
 import { KpiCards } from '@/components/features/overview/kpi-cards'
+import { RANGE_LABELS } from '@/components/features/overview/range'
 import { SignupsChart } from '@/components/features/overview/signups-chart'
 import { RoleDenied } from '@/components/features/role-denied'
 import { WidgetBoundary } from '@/components/features/widget-boundary'
@@ -11,8 +12,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { pageTitle } from '@/constants/app'
 import { isRoleDenied, platformStatsQueryOptions, STATS_RANGES } from '@/queries/platform.queries'
-
-const RANGE_LABELS = { '7d': '7 days', '30d': '30 days' } as const
 
 export const Route = createFileRoute('/_app/overview')({
   validateSearch: z.object({ range: z.enum(STATS_RANGES).default('7d').catch('7d') }),
@@ -25,6 +24,23 @@ export const Route = createFileRoute('/_app/overview')({
   staticData: { crumb: 'Overview' },
   component: OverviewPage,
 })
+
+/** The loaded layout's shape: four KPI cards, then two chart cards, so nothing jumps when the data lands. */
+function OverviewSkeleton() {
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((card) => (
+          <Skeleton key={card} className="h-30 rounded-xl" />
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Skeleton className="h-74 rounded-xl" />
+        <Skeleton className="h-74 rounded-xl" />
+      </div>
+    </>
+  )
+}
 
 /**
  * The staff Overview. The window lives in the URL, so a view can be shared.
@@ -65,10 +81,7 @@ function OverviewPage() {
           />
         )
       ) : stats.data === undefined ? (
-        <div className="grid gap-4">
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
+        <OverviewSkeleton />
       ) : (
         <>
           <WidgetBoundary name="Key figures">
@@ -76,10 +89,10 @@ function OverviewPage() {
           </WidgetBoundary>
           <div className="grid gap-4 xl:grid-cols-2">
             <WidgetBoundary name="Sign-ups">
-              <SignupsChart signups={stats.data.signups} />
+              <SignupsChart signups={stats.data.signups} range={stats.data.range} />
             </WidgetBoundary>
             <WidgetBoundary name="Emails">
-              <EmailsChart emails={stats.data.emails} />
+              <EmailsChart emails={stats.data.emails} range={stats.data.range} />
             </WidgetBoundary>
           </div>
         </>

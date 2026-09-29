@@ -41,6 +41,55 @@ describe('/overview', () => {
     expect(within(kpis).getByText('No send attempts')).toBeInTheDocument()
   })
 
+  it('never rounds a real failure down to 0.00%', async () => {
+    server.use(
+      http.get('/api/v1/platform/stats', () =>
+        ok(
+          {
+            ...testStats,
+            emails: testStats.emails.map((day, index) => ({
+              ...day,
+              sent: 5000,
+              failed: index === 0 ? 1 : 0,
+            })),
+          },
+          'Platform stats retrieved.'
+        )
+      )
+    )
+    renderAppAt('/overview')
+    const kpis = await screen.findByRole('region', { name: 'Key figures' })
+    expect(within(kpis).getByText('<0.01% of send attempts failed')).toBeInTheDocument()
+  })
+
+  it('keeps each chart named, and says the window was empty, on a fresh install', async () => {
+    server.use(
+      http.get('/api/v1/platform/stats', ({ request }) => {
+        const range = new URL(request.url).searchParams.get('range') ?? '7d'
+        return ok(
+          {
+            range,
+            totals: { tenants: 0, users: 0, staff: 1 },
+            signups: testStats.signups.map((day) => ({ ...day, users: 0, tenants: 0 })),
+            emails: testStats.emails.map((day) => ({ ...day, sent: 0, failed: 0 })),
+          },
+          'Platform stats retrieved.'
+        )
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    const signups = await screen.findByRole('figure', { name: 'Sign-ups per day' })
+    const emails = screen.getByRole('figure', { name: 'Emails per day' })
+    expect(within(signups).getByText('No sign-ups in the last 7 days')).toBeInTheDocument()
+    expect(within(emails).getByText('No send attempts in the last 7 days')).toBeInTheDocument()
+    expect(within(signups).queryByRole('table')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '30 days' }))
+    expect(await within(signups).findByText('No sign-ups in the last 30 days')).toBeInTheDocument()
+    expect(within(emails).getByText('No send attempts in the last 30 days')).toBeInTheDocument()
+  })
+
   it('names both charts and gives each a data table for screen readers', async () => {
     renderAppAt('/overview')
     const signups = await screen.findByRole('figure', { name: 'Sign-ups per day' })
@@ -49,22 +98,20 @@ describe('/overview', () => {
     expect(screen.queryByText(/could not be shown/)).not.toBeInTheDocument()
     expect(signups.querySelector('svg.recharts-surface')).not.toBeNull()
     expect(emails.querySelector('svg.recharts-surface')).not.toBeNull()
-    const signupTable = within(signups).getByRole('table', { hidden: true })
-    const emailTable = within(emails).getByRole('table', { hidden: true })
+    const signupTable = within(signups).getByRole('table')
+    const emailTable = within(emails).getByRole('table')
     expect(
       within(signupTable)
-        .getAllByRole('columnheader', { hidden: true })
+        .getAllByRole('columnheader')
         .map((cell) => cell.textContent)
     ).toEqual(['Day', 'Users', 'Tenants'])
     // A failed attempt may be retried and then sent, so the column never claims failed emails.
     expect(
       within(emailTable)
-        .getAllByRole('columnheader', { hidden: true })
+        .getAllByRole('columnheader')
         .map((cell) => cell.textContent)
     ).toEqual(['Day', 'Sent', 'Failed attempts'])
-    expect(
-      within(emailTable).getByRole('rowheader', { name: 'Sep 26', hidden: true })
-    ).toBeInTheDocument()
+    expect(within(emailTable).getByRole('rowheader', { name: 'Sep 26' })).toBeInTheDocument()
   })
 
   it('asks for 30 days when the toggle is switched, and keeps it in the URL', async () => {
@@ -86,6 +133,32 @@ describe('/overview', () => {
     expect(router.state.location.search).toEqual({ range: '30d' })
     expect(await screen.findByText('Send attempts (30 days)')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '30 days' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('keeps the current figures up, not skeletons, while the next window loads', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    server.use(
+      http.get('/api/v1/platform/stats', async ({ request }) => {
+        const range = new URL(request.url).searchParams.get('range') ?? ''
+        if (range === '30d') await gate
+        return ok({ ...testStats, range }, 'Platform stats retrieved.')
+      })
+    )
+    const user = userEvent.setup()
+    const router = renderAppAt('/overview')
+    await screen.findByRole('region', { name: 'Key figures' })
+
+    await user.click(screen.getByRole('button', { name: '30 days' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ range: '30d' }))
+
+    // The 30-day request is held open, so this is the in-between state.
+    expect(screen.getByRole('region', { name: 'Key figures' })).toBeInTheDocument()
+    expect(screen.getByText('Send attempts (7 days)')).toBeInTheDocument()
+    release()
+    expect(await screen.findByText('Send attempts (30 days)')).toBeInTheDocument()
   })
 
   it('keeps the current range when the pressed toggle is pressed again', async () => {

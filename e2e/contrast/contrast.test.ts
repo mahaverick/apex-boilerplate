@@ -38,6 +38,13 @@ const AXE_PATH = require.resolve('axe-core/axe.min.js')
 const COLD_TRANSFORM_BUDGET_MS = 20_000
 
 /**
+ * A chart legend's text. recharts positions its legend wrapper absolutely
+ * over the chart's SVG, so axe cannot resolve the background behind it and
+ * files it as incomplete; the 'chart legends' test measures it another way.
+ */
+const LEGEND_ITEM = '.recharts-legend-wrapper'
+
+/**
  * Every surface reachable without a backend, with a selector proving the page
  * actually rendered.
  *
@@ -73,8 +80,13 @@ const SURFACES = [
     url: '/verify-email?token=contrast-probe',
     heading: 'Verify your email',
   },
-  // Authenticated — mounted through the harness.
-  { name: 'overview', url: '/e2e/harness/', heading: 'Overview' },
+  // Authenticated — mounted through the harness. The overview is strict: any axe incomplete fails, except the chart legends, which 'chart legends' below proves instead.
+  {
+    name: 'overview',
+    url: '/e2e/harness/',
+    heading: 'Overview',
+    provenIncomplete: LEGEND_ITEM,
+  },
   { name: 'profile', url: '/e2e/harness/?path=/profile', heading: 'Sign-in methods' },
   { name: 'tenants', url: '/e2e/harness/?path=/tenants', heading: 'Tenants' },
   { name: 'activity', url: '/e2e/harness/?path=/activity', heading: 'Activity' },
@@ -205,7 +217,14 @@ for (const theme of THEMES) {
        * Surfaced rather than asserted, because a false alarm here should
        * not block.
        */
-      if (result.incomplete.length > 0) {
+      if ('provenIncomplete' in surface) {
+        const unproven = result.incomplete.flatMap((i) =>
+          i.nodes
+            .map((n) => n.target.join(' '))
+            .filter((target) => !target.includes(surface.provenIncomplete))
+        )
+        expect(unproven, `${surface.name} · ${theme}: nodes axe could not resolve`).toEqual([])
+      } else if (result.incomplete.length > 0) {
         const targets = result.incomplete.flatMap((i) => i.nodes.map((n) => n.target.join(' ')))
         console.warn(
           `[contrast] ${surface.name} · ${theme}: ${targets.length} node(s) axe could not resolve — check by eye:\n  ${targets.join('\n  ')}`
@@ -290,6 +309,38 @@ test.describe('popups that are not menus', () => {
 
       const result = await runAxe(page, '[role="dialog"]')
       expect(report('mobile sheet', theme, result), report('mobile sheet', theme, result)).toBe('')
+    })
+  }
+})
+
+/**
+ * The chart legends axe files as incomplete on the overview. Their text is
+ * held to the KPI card titles, which axe does grade: the same colour on the
+ * same card background is the same contrast ratio. Both are compared, so a
+ * legend restyled onto another token, or a chart card moved onto another
+ * surface, fails here.
+ */
+test.describe('chart legends', () => {
+  for (const theme of THEMES) {
+    test(`use the graded KPI title colours in ${theme}`, async ({ page }) => {
+      await contrastOf(page, '/e2e/harness/', theme, 'Overview')
+      const items = page.locator(`${LEGEND_ITEM} > div > div`)
+      // Two series per chart: an empty legend would compare nothing.
+      await expect(items).toHaveCount(4)
+
+      const title = page
+        .getByRole('region', { name: 'Key figures' })
+        .locator('[data-slot="card-title"]')
+        .first()
+      const titleColour = await title.evaluate((el) => getComputedStyle(el).color)
+      const cardBackground = (el: Element) =>
+        getComputedStyle(el.closest('[data-slot="card"]')!).backgroundColor
+      const titleSurface = await title.evaluate(cardBackground)
+
+      for (const item of await items.all()) {
+        expect(await item.evaluate((el) => getComputedStyle(el).color)).toBe(titleColour)
+        expect(await item.evaluate(cardBackground)).toBe(titleSurface)
+      }
     })
   }
 })
