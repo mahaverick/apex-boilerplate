@@ -2,14 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { NAV_ITEMS, navGroupsFor, navItemsFor } from '@/constants/navigation'
 
 describe('navigation', () => {
-  it('gives a viewer Overview and Tenants, not the activity log', () => {
-    expect(navItemsFor('viewer').map((item) => item.label)).toEqual(['Overview', 'Tenants'])
+  it('gives a viewer Overview, Tenants and Users, not the activity log', () => {
+    expect(navItemsFor('viewer').map((item) => item.label)).toEqual([
+      'Overview',
+      'Tenants',
+      'Users',
+    ])
   })
 
   it('gives an admin every item', () => {
     expect(navItemsFor('admin').map((item) => item.label)).toEqual([
       'Overview',
       'Tenants',
+      'Users',
       'Activity log',
     ])
   })

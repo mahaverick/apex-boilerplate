@@ -13,6 +13,8 @@ import type {
 export interface PlatformAuditFilters {
   tenantId?: string
   actorUserId?: string
+  /** The user or tenant the entries act on; the History card's filter. */
+  targetId?: string
   action?: AuditAction
   access?: AuditAccess
 }

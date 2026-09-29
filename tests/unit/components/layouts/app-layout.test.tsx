@@ -56,8 +56,12 @@ describe('AppLayout', () => {
   })
 
   it.each([
-    ['viewer', ['Overview', 'Tenants'], ['General', 'Directory']],
-    ['admin', ['Overview', 'Tenants', 'Activity log'], ['General', 'Directory', 'Security']],
+    ['viewer', ['Overview', 'Tenants', 'Users'], ['General', 'Directory']],
+    [
+      'admin',
+      ['Overview', 'Tenants', 'Users', 'Activity log'],
+      ['General', 'Directory', 'Security'],
+    ],
   ] as const)('shows a %s their items, grouped', async (platformRole, labels, groups) => {
     signIn({ ...testUser, platformRole })
     renderAppAt('/overview')

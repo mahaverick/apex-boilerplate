@@ -194,7 +194,7 @@ function useLifecycle(id: string, action: LifecycleAction) {
       ),
     onSuccess: async (tenant) => {
       queryClient.setQueryData(tenantAdminKeys.detail(id), tenant)
-      // The transition is a new audit entry, so cached platform audit pages are stale.
+      // The transition is a new audit entry, so the tenant's History card and cached platform audit pages are stale.
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all }),
         queryClient.invalidateQueries({ queryKey: ['platform', 'audit-log'] }),
@@ -238,14 +238,19 @@ export function useReissueOwnerInvitation(id: string) {
           input
         )
       ),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: tenantAdminKeys.detail(id) }),
+    // A refusal may still mean the detail was stale; a success is also a new audit entry for the History card.
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: tenantAdminKeys.detail(id) }),
+        queryClient.invalidateQueries({ queryKey: ['platform', 'audit-log'] }),
+      ]),
   })
 }
 
 /**
  * Permanently delete an archived tenant (platform owner; behind step-up).
  * Nothing about it is left to show, so its cached detail is dropped rather
- * than refetched into a 404, and the lists refresh.
+ * than refetched into a 404; the lists and the platform audit log refresh.
  */
 export function usePurgeTenant(id: string) {
   const queryClient = useQueryClient()
@@ -255,7 +260,10 @@ export function usePurgeTenant(id: string) {
     },
     onSuccess: async () => {
       queryClient.removeQueries({ queryKey: tenantAdminKeys.detail(id) })
-      await queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ['platform', 'audit-log'] }),
+      ])
     },
   })
 }
