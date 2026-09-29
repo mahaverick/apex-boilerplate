@@ -124,7 +124,7 @@ function RegisterForm({ invitedEmail, tenantName }: { invitedEmail: string; tena
           </CardTitle>
           <CardDescription>
             We sent a verification link to {registeredEmail}. Open it to finish setting up your
-            account.
+            account, then open your invitation link again to join.
           </CardDescription>
         </CardHeader>
         <CardContent>
