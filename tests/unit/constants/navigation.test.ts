@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { NAV_ITEMS, navGroupsFor, navItemsFor } from '@/constants/navigation'
 
 describe('navigation', () => {
-  it('gives a viewer Overview, Tenants and Users, not the activity log', () => {
+  it('gives a viewer the Directory pages, not the activity log', () => {
     expect(navItemsFor('viewer').map((item) => item.label)).toEqual([
       'Overview',
       'Tenants',
       'Users',
+      'Staff',
     ])
   })
 
@@ -15,6 +16,7 @@ describe('navigation', () => {
       'Overview',
       'Tenants',
       'Users',
+      'Staff',
       'Activity log',
     ])
   })

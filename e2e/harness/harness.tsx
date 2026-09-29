@@ -37,7 +37,7 @@ import {
 /** The one tenant the activity rows and the tenant filter name. */
 const ACME = { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' }
 
-/** The platform tenant's staff, for the activity page's actor filter. */
+/** The platform tenant's staff, for the Staff page and the activity page's actor filter. */
 const MEMBERS = [
   {
     membership: {
@@ -145,7 +145,29 @@ const worker = setupWorker(
       'Audit log retrieved.'
     )
   ),
+  // The Staff page: the harness admin's platform role, the staff list (shared with the activity page's actor filter) and no pending invitations.
+  http.get('/api/v1/tenants/platform', () =>
+    ok(
+      {
+        id: PLATFORM_TENANT_ID,
+        name: 'Platform',
+        slug: 'platform',
+        description: null,
+        logo: null,
+        website: null,
+        lifecycleState: 'active',
+        deletedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        isPlatform: true,
+        role: 'admin',
+        access: 'member',
+      },
+      'Tenant retrieved.'
+    )
+  ),
   http.get('/api/v1/tenants/platform/members', () => ok(MEMBERS, 'Members retrieved.')),
+  http.get('/api/v1/tenants/platform/invitations', () => ok([], 'Invitations retrieved.')),
   // The Tenants table, the palette and the activity tenant filter: one tenant in each status, so every badge renders.
   http.get('/api/v1/platform/tenants', () =>
     ok(
@@ -208,8 +230,8 @@ useAuthStore.setState({
  * Which in-app route to mount. Defaults to the overview. `?path=` exists for
  * the contrast suite and `fixtures/security.test.ts`, which need the other
  * authenticated surfaces: the handlers above answer /profile,
- * /auth/providers, the tenants page's search and the activity page's three
- * requests, so those pages render without a backend.
+ * /auth/providers, the tenants page's search, the activity page's three
+ * requests and the Staff page's three, so those pages render without a backend.
  *
  * Only a same-origin absolute path is accepted. This harness is not
  * shipped (nothing in `src/` imports it, and `index.html` is the only Vite

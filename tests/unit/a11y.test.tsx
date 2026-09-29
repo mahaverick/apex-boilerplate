@@ -120,6 +120,24 @@ const MEMBERS = [
   },
 ]
 
+/** The platform tenant's staff, as the Staff page lists them: me an admin, Cleo a viewer. */
+const STAFF_MEMBERS = MEMBERS.map((member, index) => ({
+  ...member,
+  membership: {
+    ...member.membership,
+    tenantId: PLATFORM_TENANT_ID,
+    role: index === 0 ? 'admin' : 'viewer',
+  },
+}))
+
+/** The Staff page's two requests beyond the platform tenant the top-level `beforeEach` answers. */
+function serveStaff() {
+  server.use(
+    http.get('/api/v1/tenants/platform/members', () => ok(STAFF_MEMBERS, 'Members retrieved.')),
+    http.get('/api/v1/tenants/platform/invitations', () => ok([], 'Invitations retrieved.'))
+  )
+}
+
 /** One member action and one staff action, so the Staff badge is graded too. */
 const AUDIT_ENTRIES: AuditEntry[] = [
   {
@@ -688,6 +706,14 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
+  it('staff has no axe violations', async () => {
+    serveStaff()
+    renderAppAt('/staff')
+    await screen.findByText('Cleo D')
+    await screen.findByText('No invitations are waiting to be accepted.')
+    await expectNoViolations()
+  })
+
   it('users with a row in every status has no axe violations', async () => {
     const base: PlatformUserRow = { ...USER_DETAIL, email: 'a@example.com' }
     const rows: PlatformUserRow[] = [
@@ -976,6 +1002,16 @@ describe('open overlays', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
     expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the remove-staff dialog open', async () => {
+    serveStaff()
+    const user = userEvent.setup()
+    renderAppAt('/staff')
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove Cleo D?' })
+    expect(within(dialog).getByRole('link', { name: 'Open Cleo D in Users' })).toBeInTheDocument()
     await expectNoViolations()
   })
 

@@ -3,7 +3,14 @@
  * palette both read. Later sub-projects add entries here; an item above the
  * user's role is hidden, never shown disabled.
  */
-import { Building2, History, LayoutDashboard, Users, type LucideIcon } from 'lucide-react'
+import {
+  Building2,
+  History,
+  LayoutDashboard,
+  ShieldCheck,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
 import { platformRoleAtLeast, type MembershipRole } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 
@@ -14,7 +21,11 @@ export type NavGroup = (typeof NAV_GROUPS)[number]
 
 /** Every route the navigation can point at; a new page widens this union. */
 export type NavPath =
-  typeof ROUTES.overview | typeof ROUTES.tenants | typeof ROUTES.users | typeof ROUTES.activity
+  | typeof ROUTES.overview
+  | typeof ROUTES.tenants
+  | typeof ROUTES.users
+  | typeof ROUTES.staff
+  | typeof ROUTES.activity
 
 export interface NavItem {
   label: string
@@ -35,6 +46,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   { label: 'Tenants', to: ROUTES.tenants, Icon: Building2, minRole: 'viewer', group: 'Directory' },
   { label: 'Users', to: ROUTES.users, Icon: Users, minRole: 'viewer', group: 'Directory' },
+  { label: 'Staff', to: ROUTES.staff, Icon: ShieldCheck, minRole: 'viewer', group: 'Directory' },
   {
     label: 'Activity log',
     to: ROUTES.activity,

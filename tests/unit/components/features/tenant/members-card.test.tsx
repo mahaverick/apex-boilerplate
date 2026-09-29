@@ -297,7 +297,7 @@ describe('members tab permissions', () => {
 
     expect(
       await screen.findByText(
-        'No one has access to this tenant yet. Invite someone from the Invitations tab.'
+        'No one has access to this tenant yet. An accepted invitation gives someone access.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()

@@ -3,7 +3,7 @@
  * by slug so the Staff page reuses it for the platform tenant. Its states: an
  * error per failed request, a skeleton, empty, cards on a phone, otherwise the table.
  */
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
@@ -221,11 +221,24 @@ function RemoveMemberButton({
         <AlertDialogHeader>
           <AlertDialogTitle>{isSelf ? 'Leave this tenant?' : `Remove ${name}?`}</AlertDialogTitle>
           <AlertDialogDescription>
-            {isSelf
-              ? 'You will lose access to this tenant immediately. An owner or admin will have to invite you back.'
-              : slug === PLATFORM_TENANT_SLUG
-                ? `${name} loses staff access immediately. If their address is on an auto-join domain (PLATFORM_EMAIL_DOMAINS), they rejoin as a viewer at their next sign-in: deactivate their account from Users to offboard them.`
-                : `${name} will lose access to this tenant immediately.`}
+            {isSelf ? (
+              'You will lose access to this tenant immediately. An owner or admin will have to invite you back.'
+            ) : slug === PLATFORM_TENANT_SLUG ? (
+              <>
+                {name} loses staff access immediately. If their address is on an auto-join domain
+                (PLATFORM_EMAIL_DOMAINS), they rejoin as a viewer at their next sign-in: deactivate
+                their account from Users to offboard them.{' '}
+                <Link
+                  to={ROUTES.user}
+                  params={{ userId: member.user.id }}
+                  className="underline underline-offset-4"
+                >
+                  Open {name} in Users
+                </Link>
+              </>
+            ) : (
+              `${name} will lose access to this tenant immediately.`
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -413,7 +426,7 @@ export function MembersCard({
           </div>
         ) : (members.data ?? []).length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No one has access to this tenant yet. Invite someone from the Invitations tab.
+            No one has access to this tenant yet. An accepted invitation gives someone access.
           </p>
         ) : isMobile ? (
           <ul className="grid gap-3">

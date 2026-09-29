@@ -90,6 +90,8 @@ const SURFACES = [
   { name: 'profile', url: '/e2e/harness/?path=/profile', heading: 'Sign-in methods' },
   { name: 'tenants', url: '/e2e/harness/?path=/tenants', heading: 'Tenants' },
   { name: 'activity', url: '/e2e/harness/?path=/activity', heading: 'Activity' },
+  // Exact: the page's own h2s ('Staff members', 'Invite staff') also contain the word.
+  { name: 'staff', url: '/e2e/harness/?path=/staff', heading: /^Staff$/ },
   // Signed in without a platform role: the harness's `?role=none`, or /no-access would redirect its admin to the overview.
   {
     name: 'no-access',

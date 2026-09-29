@@ -61,8 +61,9 @@ function History({ filters, subjectId, title, emptyMessage }: HistoryCardProps) 
 }
 
 /**
- * Every entry whose target is this user: staff actions on the account, and
- * whatever else targets it, such as a tenant's member changes.
+ * Every entry whose target is this user: staff actions on the account
+ * (`user.*`) and the user's own step-up confirmations. A tenant's member
+ * changes target the membership, not the user, so they are not listed here.
  */
 export function UserHistoryCard({ userId }: { userId: string }) {
   return (

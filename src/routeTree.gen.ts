@@ -19,6 +19,7 @@ import { Route as VerifyEmailRouteImport } from './pages/verify-email'
 import { Route as AppActivityRouteImport } from './pages/_app/activity'
 import { Route as AppOverviewRouteImport } from './pages/_app/overview'
 import { Route as AppProfileRouteImport } from './pages/_app/profile'
+import { Route as AppStaffRouteImport } from './pages/_app/staff'
 import { Route as AuthForgotPasswordRouteImport } from './pages/_auth/forgot-password'
 import { Route as AuthLoginRouteImport } from './pages/_auth/login'
 import { Route as AuthRegisterRouteImport } from './pages/_auth/register'
@@ -79,6 +80,11 @@ const AppOverviewRoute = AppOverviewRouteImport.update({
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStaffRoute = AppStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
   getParentRoute: () => AppRoute,
 } as any)
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
@@ -159,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/activity': typeof AppActivityRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
+  '/staff': typeof AppStaffRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
@@ -182,6 +189,7 @@ export interface FileRoutesByTo {
   '/activity': typeof AppActivityRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
+  '/staff': typeof AppStaffRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
@@ -207,6 +215,7 @@ export interface FileRoutesById {
   '/_app/activity': typeof AppActivityRoute
   '/_app/overview': typeof AppOverviewRoute
   '/_app/profile': typeof AppProfileRoute
+  '/_app/staff': typeof AppStaffRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
@@ -232,6 +241,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/overview'
     | '/profile'
+    | '/staff'
     | '/forgot-password'
     | '/login'
     | '/register'
@@ -255,6 +265,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/overview'
     | '/profile'
+    | '/staff'
     | '/forgot-password'
     | '/login'
     | '/register'
@@ -279,6 +290,7 @@ export interface FileRouteTypes {
     | '/_app/activity'
     | '/_app/overview'
     | '/_app/profile'
+    | '/_app/staff'
     | '/_auth/forgot-password'
     | '/_auth/login'
     | '/_auth/register'
@@ -376,6 +388,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/staff': {
+      id: '/_app/staff'
+      path: '/staff'
+      fullPath: '/staff'
+      preLoaderRoute: typeof AppStaffRouteImport
       parentRoute: typeof AppRoute
     }
     '/_auth/forgot-password': {
@@ -493,6 +512,7 @@ interface AppRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
   AppOverviewRoute: typeof AppOverviewRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppStaffRoute: typeof AppStaffRoute
   AppTenantsTenantIdRoute: typeof AppTenantsTenantIdRouteWithChildren
   AppUsersUserIdRoute: typeof AppUsersUserIdRoute
   AppTenantsIndexRoute: typeof AppTenantsIndexRoute
@@ -503,6 +523,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppActivityRoute: AppActivityRoute,
   AppOverviewRoute: AppOverviewRoute,
   AppProfileRoute: AppProfileRoute,
+  AppStaffRoute: AppStaffRoute,
   AppTenantsTenantIdRoute: AppTenantsTenantIdRouteWithChildren,
   AppUsersUserIdRoute: AppUsersUserIdRoute,
   AppTenantsIndexRoute: AppTenantsIndexRoute,
