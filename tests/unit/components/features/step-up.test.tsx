@@ -100,6 +100,20 @@ describe('useStepUp', () => {
     }
   })
 
+  it('with no dialog open beneath, closing leaves focus to the default: back on what asked', async () => {
+    dangerRoute(1)
+    const user = userEvent.setup()
+    renderHarness()
+    const trigger = screen.getByRole('button', { name: 'Do it' })
+    await user.click(trigger)
+    await screen.findByLabelText('Password')
+
+    await user.keyboard('{Escape}')
+
+    expect(await screen.findByText('outcome: failed')).toBeInTheDocument()
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
   it('runs the action straight through when no step-up is needed', async () => {
     const calls = dangerRoute(0)
     const user = userEvent.setup()

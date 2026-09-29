@@ -310,3 +310,54 @@ export async function backdateStepUp(email: string): Promise<void> {
     { cwd: API_DIR, timeout: 30_000 }
   )
 }
+
+/**
+ * Fails before any test runs, naming the misconfiguration, when the API cannot run the
+ * staff directory suite: express older than 1.2.0 (no
+ * `POST /auth/reauthenticate`, which answers 401 without a token on 1.2.0 and
+ * 404 before it), an email worker that delivers nothing to mailpit, or
+ * `APEX_URL`/`WEB_URL` pointing somewhere other than `APEX_ORIGIN` and
+ * `WEB_ORIGIN`. The origins are read from the verification links two fresh
+ * registrations are mailed, one per `app`.
+ */
+export async function assertApiServesApex(): Promise<void> {
+  const reauthenticate = await json(`${API_ORIGIN}/api/v1/auth/reauthenticate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  })
+  if (reauthenticate.status === 404) {
+    throw new Error(
+      `The API at ${API_ORIGIN} has no POST /auth/reauthenticate: it is older than express 1.2.0, which the staff directory needs.`
+    )
+  }
+
+  for (const [app, expected, variable] of [
+    ['apex', APEX_ORIGIN, 'APEX_URL'],
+    ['web', WEB_ORIGIN, 'WEB_URL'],
+  ] as const) {
+    const email = freshEmail()
+    const registered = await json(`${API_ORIGIN}/api/v1/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: PASSWORD, app }),
+    })
+    if (registered.status !== 202 && registered.status !== 201) {
+      throw new Error(`register failed: ${registered.status} ${JSON.stringify(registered.body)}`)
+    }
+    let link: string
+    try {
+      link = await mailedLink(email, 'verify-email')
+    } catch {
+      throw new Error(
+        `The API at ${API_ORIGIN} mailed nothing to ${MAILPIT_ORIGIN} within 15s: its email worker is not delivering (check its SMTP_* settings and that its workers started).`
+      )
+    }
+    const origin = new URL(link).origin
+    if (origin !== expected) {
+      throw new Error(
+        `The API at ${API_ORIGIN} links app "${app}" to ${origin}: start it with ${variable}=${expected}.`
+      )
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import { expect, test } from '../hermetic'
+import { afterAnimations } from '../timing'
 
 /**
  * The directory pages in a real browser: what jsdom cannot measure is layout
@@ -22,6 +23,7 @@ for (const [name, path, ready] of [
   ['a tenant’s members', `${ACME_PAGE}/members`, 'Acme Corp'],
   ['a tenant’s invitations', `${ACME_PAGE}/invitations`, 'Acme Corp'],
   ['a tenant’s activity', `${ACME_PAGE}/activity`, 'Acme Corp'],
+  ['a suspended tenant', BETA_PAGE, 'Beta Ltd'],
   ['a suspended tenant’s frozen tab', `${BETA_PAGE}/members`, 'Beta Ltd'],
 ] as const) {
   test(`${name} does not scroll sideways at 390px`, async ({ page }) => {
@@ -76,7 +78,18 @@ test('the tenant actions menu, the suspend reason dialog and the stacked step-up
   await reason.getByRole('button', { name: 'Suspend' }).click()
   const stepUp = page.getByRole('dialog', { name: 'Confirm it’s you' })
   await expect(stepUp.getByLabel('Password')).toBeVisible()
+  await afterAnimations(stepUp)
 
+  // Both dialogs are fixed-position, so they never widen the page: measure their own boxes. The reason dialog is aria-hidden under the step-up, so a role query no longer finds it.
+  for (const [label, dialog] of [
+    ['reason dialog', page.locator('[role="alertdialog"]')],
+    ['step-up dialog', stepUp],
+  ] as const) {
+    const box = await dialog.boundingBox()
+    expect(box, `${label} has a box`).not.toBeNull()
+    expect(box!.x, `${label} left edge`).toBeGreaterThanOrEqual(0)
+    expect(box!.x + box!.width, `${label} right edge`).toBeLessThanOrEqual(390)
+  }
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth
   )
@@ -106,7 +119,7 @@ for (const [name, path, trigger, item, dialogName, action] of [
     const stepUp = page.getByRole('dialog', { name: 'Confirm it’s you' })
     await expect(stepUp.getByLabel('Password')).toBeVisible()
     await expect
-      .poll(() => page.evaluate(() => document.activeElement?.closest('[role="dialog"]') !== null))
+      .poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]'))))
       .toBe(true)
 
     await page.keyboard.press('Escape')
@@ -116,7 +129,7 @@ for (const [name, path, trigger, item, dialogName, action] of [
     // Not <body>: a keyboard user must be able to Tab on inside the dialog that is still open.
     await expect
       .poll(() =>
-        page.evaluate(() => document.activeElement?.closest('[role="alertdialog"]') !== null)
+        page.evaluate(() => Boolean(document.activeElement?.closest('[role="alertdialog"]')))
       )
       .toBe(true)
     await expect(reason.getByLabel('Reason')).toHaveValue('focus check')

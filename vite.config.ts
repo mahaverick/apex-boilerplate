@@ -41,6 +41,13 @@ export default defineConfig({
   resolve: { alias: { '@': path.resolve(import.meta.dirname, './src') } },
   server: {
     port: 5174,
-    proxy: { '/api': { target: 'http://localhost:4040', changeOrigin: true } },
+    /**
+     * `E2E_API_ORIGIN` moves the proxy with the live e2e helpers, so one
+     * variable points the browser and the test's own API calls at the same
+     * express. Unset, it is the local default.
+     */
+    proxy: {
+      '/api': { target: process.env.E2E_API_ORIGIN ?? 'http://localhost:4040', changeOrigin: true },
+    },
   },
 })

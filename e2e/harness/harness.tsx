@@ -234,27 +234,57 @@ function userDetail(userId: string) {
   }
 }
 
-/** A tenant's page: Acme is active with a long description; Beta is suspended, so its tabs render frozen. */
+/** The fields every tenant page reads beyond the ones that name the tenant. */
+const TENANT_DETAIL_BASE = {
+  logo: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-02-01T00:00:00.000Z',
+  deletedAt: null,
+  settings: { timezone: 'Europe/London', locale: 'en' },
+  pendingOwnerInvitation: null,
+}
+
+/**
+ * A tenant's page. Acme is active, with a long description and an inactive
+ * owner; Beta is suspended, with its own details and one owner, so its tabs
+ * render frozen and nothing on its page is Acme's.
+ */
 function tenantDetail(tenantId: string) {
+  if (tenantId === TENANT_ID_2) {
+    return {
+      ...TENANT_DETAIL_BASE,
+      id: TENANT_ID_2,
+      name: 'Beta Ltd',
+      slug: 'beta',
+      lifecycleState: 'suspended',
+      description: 'Beta’s own description, suspended while its billing is reviewed.',
+      website: 'https://beta.example-company-domain.com',
+      memberCount: 1,
+      owners: [
+        {
+          userId: USER_ID_3,
+          email: 'a-very-long-address-for-overflow@example-company-domain.com',
+          firstName: 'Evangeline',
+          lastName: 'Featherstonehaugh',
+          active: true,
+        },
+      ],
+      pendingInvitationCount: 0,
+    }
+  }
   return {
-    ...(tenantId === TENANT_ID_2
-      ? { id: TENANT_ID_2, name: 'Beta Ltd', slug: 'beta', lifecycleState: 'suspended' }
-      : { ...ACME, lifecycleState: 'active' }),
+    ...TENANT_DETAIL_BASE,
+    ...ACME,
+    lifecycleState: 'active',
     description:
       'A deliberately long description, so the overview card wraps at phone width rather than scrolling sideways.',
     website: 'https://acme.example-company-domain.com',
-    logo: null,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-02-01T00:00:00.000Z',
-    deletedAt: null,
-    settings: { timezone: 'Europe/London', locale: 'en' },
     memberCount: 2,
     owners: [
       { userId: USER_ID, email: 'a@b.com', firstName: 'A', lastName: 'B', active: true },
       { userId: USER_ID_2, email: 'c@d.com', firstName: 'Cleo', lastName: 'D', active: false },
     ],
     pendingInvitationCount: 1,
-    pendingOwnerInvitation: null,
   }
 }
 

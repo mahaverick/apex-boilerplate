@@ -6,6 +6,7 @@ import {
   apiIsReady,
   apiLogin,
   apiRequest,
+  assertApiServesApex,
   backdateStepUp,
   createVerifiedUser,
   freshEmail,
@@ -28,9 +29,11 @@ import {
 test.skip(process.env.E2E_LIVE !== '1', 'live backend required — run pnpm test:e2e:live')
 
 test.beforeAll(async () => {
+  test.setTimeout(60_000)
   if (!(await apiIsReady())) {
     throw new Error(`No API at ${API_ORIGIN}. Start express with APEX_URL=${APEX_ORIGIN}.`)
   }
+  await assertApiServesApex()
 })
 
 /** A fresh staff member at `role`, signed in through the UI. */

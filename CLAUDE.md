@@ -10,7 +10,7 @@ of these is a deliberate act, not a tidy-up.
 ## What this is
 
 Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
-`express-boilerplate` API (1.1.0 or newer, run with `APEX_URL` set to this app's
+`express-boilerplate` API (1.2.0 or newer, run with `APEX_URL` set to this app's
 origin, `http://localhost:5174` locally). `react-boilerplate`, the customer app,
 is its sibling. Vite, TanStack Router (file-based), TanStack Query, TanStack
 Form, TanStack Table 9, Zustand, Tailwind v4, Base UI via shadcn, recharts,
@@ -44,7 +44,7 @@ that live on tenant pages.
 
 | Command              | What it does                                                                                       |
 | -------------------- | -------------------------------------------------------------------------------------------------- |
-| `pnpm dev`           | Dev server on :5174, proxying `/api` to `:4040`                                                    |
+| `pnpm dev`           | Dev server on :5174, proxying `/api` to `:4040` (or `E2E_API_ORIGIN`)                              |
 | `pnpm build`         | `tsc -b` then `vite build`                                                                         |
 | `pnpm lint`          | eslint **and** `prettier --check` — both must be clean                                             |
 | `pnpm typecheck`     | `tsc --noEmit` over `tsconfig.app.json`, then `e2e/tsconfig.json`                                  |
@@ -365,12 +365,28 @@ signs the harness user out — any non-expiry 401 on a token-bearing request, `R
 only the one being asserted on. If a fixtures test starts landing on `/login`, that is why,
 and the teardown message names the endpoint.
 
-**`live`** needs a real express-boilerplate (1.1.0 or newer) on `:4040`, started with
-`APEX_URL=http://localhost:5174`, and its docker services, and is skipped
-unless `E2E_LIVE=1`. Accounts are registered and verified through mailpit — login stays 401
+**`live`** is skipped unless `E2E_LIVE=1`, and needs:
+
+- **express-boilerplate 1.2.0 or newer** (the staff directory routes and password step-up),
+  migrated, with its email worker delivering to mailpit;
+- that API started with **`APEX_URL=http://localhost:5174`** and **`WEB_URL=http://localhost:5173`**:
+  the suites assert which of the two each mailed link opens;
+- its docker compose project (postgres, redis, mailpit) reachable from `E2E_API_DIR`, because
+  `platform:grant` and the step-up backdating (`docker compose exec postgres psql`) run there.
+
+The variables, with their defaults: `E2E_API_ORIGIN` (`http://localhost:4040`, which the dev
+server's `/api` proxy also follows, so one variable points the browser and the helpers at the
+same API; a dev server that is already running keeps the target it started with),
+`E2E_API_DIR` (`../express-boilerplate`), `E2E_MAILPIT_ORIGIN` (`http://localhost:8025`) and
+`E2E_WEB_ORIGIN` (`http://localhost:5173`). The directory suite's `beforeAll`
+(`assertApiServesApex`) fails before any test runs, naming the problem, on an older API, an email worker
+that delivers nothing, or a wrong `APEX_URL`/`WEB_URL`.
+
+Accounts are registered and verified through mailpit — login stays 401
 until the address is verified, and the link only exists in the email. Each run uses a **fresh
 address**, because the login limiter is keyed `ip:email` at five attempts per fifteen minutes
-and a fixed address would rate-limit every rerun.
+and a fixed address would rate-limit every rerun. Nothing is cleaned up: every run **leaves
+its fresh accounts, tenants, invitations and audit entries in the dev database**.
 
 **`nginx`** runs against the PRODUCTION image — `pnpm test:e2e:nginx` builds it, runs it on
 :8088 (container port 8080, read-only root) with `--add-host=api:host-gateway`, tests, and
