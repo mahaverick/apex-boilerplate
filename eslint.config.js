@@ -251,7 +251,7 @@ export default tseslint.config(
   {
     /** One import path for the class merger in our own code; vendored shadcn files keep theirs. */
     files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', 'e2e/**/*.{ts,tsx}'],
-    ignores: ['src/lib/utils.ts', 'src/components/ui/!(form|sonner).tsx'],
+    ignores: ['src/lib/utils.ts', 'src/components/ui/!(form|sonner|command).tsx'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -374,7 +374,11 @@ export default tseslint.config(
      * `cssConfigPath` ignores this directory, and without it the plugin throws
      * ENOENT on 'src/style.css'.
      */
-    files: ['src/components/ui/sonner.tsx', 'src/components/ui/form.tsx'],
+    files: [
+      'src/components/ui/sonner.tsx',
+      'src/components/ui/form.tsx',
+      'src/components/ui/command.tsx',
+    ],
     settings: { tailwindcss: { cssConfigPath: './src/styles/globals.css' } },
     rules: {
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
@@ -396,7 +400,7 @@ export default tseslint.config(
      * them, and their JSDoc must be checked too.
      */
     files: ['**/*.{ts,tsx,js,mjs}', 'scripts/**/*.d.mts'],
-    ignores: ['src/components/ui/!(form|sonner).tsx'],
+    ignores: ['src/components/ui/!(form|sonner|command).tsx'],
     plugins: { local: { rules: { 'comment-style': commentStyleRule } } },
     rules: { 'local/comment-style': 'error' },
   },

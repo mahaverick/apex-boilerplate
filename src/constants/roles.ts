@@ -112,3 +112,18 @@ export function isStaff(platformRole: MembershipRole | null | undefined): boolea
 export function canViewPlatformActivity(platformRole: MembershipRole | null | undefined): boolean {
   return platformRole === 'owner' || platformRole === 'admin'
 }
+
+/**
+ * Whether a platform role is at or above `minimum`. MEMBERSHIP_ROLES runs from
+ * most to least authority. Not staff (`null`/`undefined`) is never enough.
+ * @param role - The signed-in user's platform role.
+ * @param minimum - The least role that qualifies.
+ * @returns True when `role` qualifies.
+ */
+export function platformRoleAtLeast(
+  role: MembershipRole | null | undefined,
+  minimum: MembershipRole
+): boolean {
+  if (role === null || role === undefined) return false
+  return MEMBERSHIP_ROLES.indexOf(role) <= MEMBERSHIP_ROLES.indexOf(minimum)
+}

@@ -155,13 +155,15 @@ otherwise churn the diff on every `shadcn add`:
   `ignores: ['src/components/ui/**']` on the Tailwind _settings_ block is
   exactly what makes it easy to misread.
 
-**`form.tsx` and `sonner.tsx` are ours, not upstream's.** Both are fully linted
-and formatted, and both are named explicitly in four lists: in
+**`form.tsx`, `sonner.tsx` and `command.tsx` are ours, not upstream's.**
+`command.tsx` is hand-written because the registry's is built on cmdk, which
+pulls in Radix; ours composes Base UI's Autocomplete. All three are fully linted
+and formatted, and all three are named explicitly in four lists: in
 `eslint.config.js`, the block that re-enables the Tailwind and
-`react-refresh` rules (`files: ['src/components/ui/sonner.tsx', 'src/components/ui/form.tsx']`)
+`react-refresh` rules (its `files` list)
 and the `ignores` of the `cn` import-restriction and comment-style blocks
-(`src/components/ui/!(form|sonner).tsx`); and the `!` negations in
-`.prettierignore`. If you add a third hand-written file to that directory, add
+(`src/components/ui/!(form|sonner|command).tsx`); and the `!` negations in
+`.prettierignore`. If you add another hand-written file to that directory, add
 it to all four in the same change or it will sit there unchecked.
 `coverage.exclude` in `vitest.config.ts` does not name them: it is the inverse
 list, naming the vendored files, so a new vendored one goes there and a

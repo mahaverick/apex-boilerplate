@@ -9,6 +9,7 @@ import {
   isLastOwnerBlocked,
   isStaff,
   MEMBERSHIP_ROLES,
+  platformRoleAtLeast,
 } from '@/constants/roles'
 
 describe('canActorModifyTarget', () => {
@@ -157,5 +158,18 @@ describe('canViewPlatformActivity', () => {
     ])
     expect(canViewPlatformActivity(null)).toBe(false)
     expect(canViewPlatformActivity(undefined)).toBe(false)
+  })
+})
+
+describe('platformRoleAtLeast', () => {
+  it.each([
+    ['owner', 'admin', true],
+    ['admin', 'admin', true],
+    ['manager', 'admin', false],
+    ['viewer', 'viewer', true],
+    [null, 'viewer', false],
+    [undefined, 'viewer', false],
+  ] as const)('%s at least %s → %s', (role, minimum, expected) => {
+    expect(platformRoleAtLeast(role, minimum)).toBe(expected)
   })
 })

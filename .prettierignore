@@ -22,6 +22,7 @@ src/components/ui/*
 # code would sit in the directory unformatted and unchecked.
 !src/components/ui/sonner.tsx
 !src/components/ui/form.tsx
+!src/components/ui/command.tsx
 
 # StyleSeed's compiled output. resolve-context.mjs records a sha256 for the
 # bundle and both palette files in .styleseed/manifests/, and the scanner
