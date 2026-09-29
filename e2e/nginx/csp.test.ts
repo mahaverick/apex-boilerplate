@@ -85,11 +85,12 @@ test(
     await page.goto('/login')
     let chunk404s = 0
     await page.route(/\/assets\/.*\.js$/, (route) => {
-      if (!route.request().url().includes('register')) return route.continue()
+      if (!route.request().url().includes('forgot-password')) return route.continue()
       chunk404s += 1
       return route.fulfill({ status: 404, body: '' })
     })
-    await page.getByRole('link', { name: /create an account|sign up|register/i }).click()
+    // The sign-in page's one link to another lazily loaded route: registration is invitation-only, so it links to no sign-up page.
+    await page.getByRole('link', { name: 'Forgot password?' }).click()
     await expect(page.getByText('A new version is available')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
     // The reload screen came from the 404 this route served, not from some other failure.
