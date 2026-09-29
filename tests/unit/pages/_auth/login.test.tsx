@@ -73,6 +73,16 @@ function arriveSignedOut() {
 describe('login page', () => {
   beforeEach(arriveSignedOut)
 
+  it('offers no public sign-up, and Google sign-in returns to Apex', async () => {
+    renderLoginAt('/login')
+    await screen.findByRole('heading', { name: 'Sign in', level: 1 })
+    expect(screen.queryByRole('link', { name: /create an account/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /google/i })).toHaveAttribute(
+      'href',
+      '/api/v1/auth/google?app=apex'
+    )
+  })
+
   it('reports both fields when submitted empty', async () => {
     renderLoginAt('/login')
     const user = userEvent.setup()

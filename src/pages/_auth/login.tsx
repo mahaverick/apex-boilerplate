@@ -181,9 +181,6 @@ function LoginPage() {
           <Link to={ROUTES.forgotPassword} className="underline underline-offset-4">
             Forgot password?
           </Link>
-          <Link to={ROUTES.register} className="underline underline-offset-4">
-            Create an account
-          </Link>
         </div>
       </CardContent>
     </Card>

@@ -53,7 +53,9 @@ function VerifyEmailPage() {
       try {
         await verifyEmail.mutateAsync(verifyEmailSchema.parse(value))
         setFailed(false)
-        toast.success('Your email is verified. Sign in to continue.')
+        toast.success(
+          'Your email is verified. Sign in, then open your invitation link again to join.'
+        )
         await navigate({ to: ROUTES.login })
       } catch (submitError) {
         setFailed(true)

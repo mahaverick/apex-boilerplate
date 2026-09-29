@@ -21,6 +21,9 @@ interface AuthPayload {
   user: User
 }
 
+/** Which frontend the API should link back to: this one. The API accepts only 'web' or 'apex'. */
+const APP = 'apex' as const
+
 export const authKeys = { providers: ['auth', 'providers'] as const }
 
 export function useLogin() {
@@ -36,14 +39,14 @@ export function useLogin() {
 export function useRegister() {
   return useMutation({
     mutationFn: async (input: RegisterInput) =>
-      unwrap(await apiClient.post<ApiSuccess<null>>('/auth/register', input)),
+      unwrap(await apiClient.post<ApiSuccess<null>>('/auth/register', { ...input, app: APP })),
   })
 }
 
 export function useForgotPassword() {
   return useMutation({
     mutationFn: async (input: ForgotPasswordInput) =>
-      apiClient.post<ApiSuccess<unknown>>('/auth/forgot-password', input),
+      apiClient.post<ApiSuccess<unknown>>('/auth/forgot-password', { ...input, app: APP }),
   })
 }
 
@@ -68,7 +71,7 @@ export function useVerifyEmail() {
 export function useResendVerification() {
   return useMutation({
     mutationFn: async (input: ResendVerificationInput) =>
-      apiClient.post<ApiSuccess<unknown>>('/auth/resend-verification', input),
+      apiClient.post<ApiSuccess<unknown>>('/auth/resend-verification', { ...input, app: APP }),
   })
 }
 

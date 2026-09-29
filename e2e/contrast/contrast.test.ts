@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module'
 import type { Page } from '@playwright/test'
-import { expect, test } from '../hermetic'
+import { expect, FALLBACK_HEADER, test } from '../hermetic'
 import { afterAnimations, afterFontsAndFrames } from '../timing'
 
 /**
@@ -55,7 +55,12 @@ const COLD_TRANSFORM_BUDGET_MS = 20_000
 const SURFACES = [
   // Public — straight URLs, no harness needed.
   { name: 'sign-in', url: '/login', heading: 'Sign in' },
-  { name: 'register', url: '/register', heading: 'Create an account' },
+  // Invitation-only: without `?invitation=` the route redirects to /login, and the form waits on the preview, which `answerInvitationPreview` supplies.
+  {
+    name: 'register',
+    url: '/register?invitation=contrast-probe',
+    heading: 'Create an account',
+  },
   { name: 'forgot-password', url: '/forgot-password', heading: 'Forgot your password?' },
   // Both of these routes read a token out of the query. Without one, reset-password renders its "This link is incomplete" branch instead — a real surface, but not the one worth measuring, and the heading assertion is what keeps that swap from passing unnoticed.
   {
@@ -80,6 +85,27 @@ const THEMES = ['light', 'dark'] as const
 type ContrastResult = {
   violations: { id: string; nodes: { target: string[]; failureSummary?: string }[] }[]
   incomplete: { id: string; nodes: { target: string[]; failureSummary?: string }[] }[]
+}
+
+/** Answer the invitation preview the register page waits on, stamped so the hermetic teardown counts it as answered here. */
+async function answerInvitationPreview(page: Page): Promise<void> {
+  await page.route('**/api/v1/invitations/preview', (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { [FALLBACK_HEADER]: '1' },
+      json: {
+        success: true,
+        message: 'Invitation retrieved.',
+        statusCode: 200,
+        data: {
+          tenant: { name: 'Acme Corp', slug: 'acme' },
+          role: 'viewer',
+          invitedBy: null,
+          email: 'invitee@example.com',
+        },
+      },
+    })
+  )
 }
 
 /**
@@ -169,6 +195,7 @@ function report(surface: string, theme: string, result: ContrastResult): string 
 for (const theme of THEMES) {
   for (const surface of SURFACES) {
     test(`${surface.name} meets WCAG AA contrast in ${theme}`, async ({ page }) => {
+      if (surface.url.startsWith('/register')) await answerInvitationPreview(page)
       const result = await contrastOf(page, surface.url, theme, surface.heading)
 
       /**

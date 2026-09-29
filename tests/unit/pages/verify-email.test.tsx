@@ -83,6 +83,22 @@ describe('verify-email page', () => {
     })
   })
 
+  it('tells an invitee to sign in and reopen their invitation', async () => {
+    const toastSuccess = vi.spyOn(toast, 'success')
+    server.use(http.post('/api/v1/auth/verify-email', () => ok(null, 'Email verified.')))
+    renderAt('/verify-email?token=tok-abc')
+
+    const user = userEvent.setup()
+    await user.type(await screen.findByLabelText('Password'), 'secret123')
+    await user.click(screen.getByRole('button', { name: 'Verify email' }))
+
+    await waitFor(() => {
+      expect(toastSuccess).toHaveBeenCalledWith(
+        'Your email is verified. Sign in, then open your invitation link again to join.'
+      )
+    })
+  })
+
   it('will not submit a token without the account password', async () => {
     let called = false
     server.use(
@@ -120,7 +136,7 @@ describe('verify-email page', () => {
 
     await waitFor(() => {
       // Normalised by the schema on the way out, like every other address.
-      expect(resendBody).toEqual({ email: 'ada@b.com' })
+      expect(resendBody).toEqual({ email: 'ada@b.com', app: 'apex' })
     })
   })
 

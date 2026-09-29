@@ -387,7 +387,11 @@ describe('signed-out pages', () => {
 
   it.each([
     ['login', '/login', () => screen.findByRole('button', { name: 'Sign in' })],
-    ['register', '/register', () => screen.findByRole('button', { name: 'Create account' })],
+    [
+      'register, from an invitation',
+      `/register?invitation=${TEST_INVITATION_TOKEN}`,
+      () => screen.findByRole('button', { name: 'Create account' }),
+    ],
     [
       'forgot-password',
       '/forgot-password',
@@ -404,11 +408,6 @@ describe('signed-out pages', () => {
       () => screen.findByRole('button', { name: 'Verify email' }),
     ],
     [
-      'register, prefilled from an invitation',
-      '/register?email=a%40b.com',
-      () => screen.findByDisplayValue('a@b.com'),
-    ],
-    [
       'invitation accept',
       `/invitations/accept?token=${TEST_INVITATION_TOKEN}`,
       () => screen.findByRole('link', { name: 'Log in' }),
@@ -421,6 +420,17 @@ describe('signed-out pages', () => {
   ])('%s has no axe violations', async (_name, path, ready) => {
     renderAppAt(path)
     await ready()
+    await expectNoViolations()
+  })
+
+  it('register with an unusable invitation has no axe violations', async () => {
+    server.use(
+      http.post('/api/v1/invitations/preview', () =>
+        fail('Invalid invitation', 404, 'invitation_invalid')
+      )
+    )
+    renderAppAt(`/register?invitation=${TEST_INVITATION_TOKEN}`)
+    await screen.findByRole('heading', { name: 'This invitation can’t be used', level: 1 })
     await expectNoViolations()
   })
 })
@@ -730,7 +740,6 @@ describe('keyboard', () => {
       // A plain anchor to a same-origin API route, not a button with a click handler — so it is in the tab order for free.
       screen.getByRole('link', { name: 'Continue with Google' }),
       screen.getByRole('link', { name: 'Forgot password?' }),
-      screen.getByRole('link', { name: 'Create an account' }),
     ]
     expect(screen.getByRole('link', { name: 'Continue with Google' })).toHaveAttribute(
       'href',

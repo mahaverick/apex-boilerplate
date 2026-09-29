@@ -109,7 +109,7 @@ function SignedOut({ token, invitation }: { token: string; invitation: Invitatio
         </Link>
         <Link
           to={ROUTES.register}
-          search={{ email: invitation.email }}
+          search={{ invitation: token }}
           className={cn(buttonVariants({ variant: 'outline' }), 'w-full')}
         >
           Create account

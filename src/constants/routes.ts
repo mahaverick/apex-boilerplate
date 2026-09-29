@@ -21,8 +21,8 @@ export const ROUTES = {
   invitationAccept: '/invitations/accept',
 } as const
 
-/** The API path for the Google OAuth start. Same-origin, so a plain anchor. */
-export const GOOGLE_OAUTH_PATH = `${API_PREFIX}/auth/google`
+/** The API path for the Google OAuth start. Same-origin, so a plain anchor; `app=apex` brings the callback back here. */
+export const GOOGLE_OAUTH_PATH = `${API_PREFIX}/auth/google?app=apex`
 
 /**
  * The platform tenant's slug, seeded by express migration 0016 and reserved

@@ -13,6 +13,7 @@ import { resetSessionForTests } from '@/http/session'
 import { queryClient } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
+import { signIn as signInAs } from '@/tests/fixtures/render-app'
 import {
   fail,
   ok,
@@ -175,16 +176,18 @@ describe('accept page, signed out', () => {
     expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument()
   })
 
-  it('sends "Create account" to /register with the invited address prefilled', async () => {
+  it('sends "Create account" to /register with the invitation token', async () => {
     const user = userEvent.setup()
     const router = renderAt(ACCEPT_PATH)
 
-    await user.click(await screen.findByRole('link', { name: 'Create account' }))
+    const link = await screen.findByRole('link', { name: 'Create account' })
+    expect(link).toHaveAttribute('href', `/register?invitation=${TEST_INVITATION_TOKEN}`)
+    await user.click(link)
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/register')
     })
-    expect(router.state.location.search).toEqual({ email: testInvitationPreview.email })
+    expect(router.state.location.search).toEqual({ invitation: TEST_INVITATION_TOKEN })
     expect(await screen.findByLabelText('Email')).toHaveValue(testInvitationPreview.email)
   })
 })
@@ -220,6 +223,27 @@ describe('accept page, signed in', () => {
     await screen.findByRole('heading', { name: 'Overview', level: 1 })
     expect(body).toEqual({ token: TEST_INVITATION_TOKEN })
     expect(authorization).toBe('Bearer access-token')
+  })
+
+  it('re-reads the profile after accepting, then opens the overview', async () => {
+    signInAs({ ...testUser, platformRole: null })
+    let accepted = false
+    server.use(
+      http.post('/api/v1/invitations/accept', () => {
+        accepted = true
+        return ok({ tenant: testInvitationPreview.tenant, role: 'viewer' }, 'Invitation accepted.')
+      }),
+      // Staff only once the membership exists, as the API would answer.
+      http.get('/api/v1/profile', () =>
+        ok({ ...testUser, platformRole: accepted ? 'viewer' : null }, 'Profile retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    const router = renderAt(ACCEPT_PATH)
+    await user.click(await screen.findByRole('button', { name: 'Accept invitation' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/overview'))
+    await screen.findByRole('heading', { name: 'Overview', level: 1 })
+    expect(useAuthStore.getState().user?.platformRole).toBe('viewer')
   })
 
   it('lands an existing member on the overview, without claiming the invited role', async () => {
