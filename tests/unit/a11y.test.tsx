@@ -28,7 +28,7 @@ import {
   USER_ID_3,
 } from '@/tests/fixtures/ids'
 import { renderAppAt } from '@/tests/fixtures/render-app'
-import { fail, ok, TEST_INVITATION_TOKEN, testUser } from '@/tests/mocks/handlers'
+import { fail, ok, TEST_INVITATION_TOKEN, testInvitation, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type {
   AuditEntry,
@@ -1036,6 +1036,52 @@ describe('open overlays', () => {
     await user.click(await screen.findByRole('button', { name: 'Remove' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Remove Cleo D?' })
     expect(within(dialog).getByRole('link', { name: 'Open Cleo D in Users' })).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the leave dialog open', async () => {
+    // Leave is an owner's own action, offered only while another owner remains.
+    serveTenant('active')
+    server.use(
+      http.get('/api/v1/tenants/acme', () =>
+        ok(
+          { ...ACME_DETAIL, isPlatform: false, role: 'owner', access: 'member' },
+          'Tenant retrieved.'
+        )
+      ),
+      http.get('/api/v1/tenants/acme/members', () =>
+        ok(
+          MEMBERS.map((member) => ({
+            ...member,
+            membership: { ...member.membership, role: 'owner' },
+          })),
+          'Members retrieved.'
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
+    expect(within(dialog).getByRole('button', { name: 'Leave' })).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the revoke-invitation dialog open', async () => {
+    serveTenant('active')
+    server.use(
+      http.get('/api/v1/tenants/acme/invitations', () =>
+        ok([testInvitation], 'Invitations retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await user.click(
+      await screen.findByRole('button', { name: `Revoke invitation to ${testInvitation.email}` })
+    )
+    await screen.findByRole('alertdialog', {
+      name: `Revoke the invitation to ${testInvitation.email}?`,
+    })
     await expectNoViolations()
   })
 

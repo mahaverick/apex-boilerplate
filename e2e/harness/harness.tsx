@@ -283,7 +283,7 @@ const worker = setupWorker(
   // The activity page (the platform log, its actor filter's staff list and its tenant filter's search), and the History cards: a user's by `targetId`, a tenant's by `tenantId` with `access=platform`.
   http.get('/api/v1/platform/audit-log', ({ request }) => {
     const params = new URL(request.url).searchParams
-    if (params.has('targetId') || params.has('tenantId')) {
+    if (params.has('targetId') || (params.has('tenantId') && params.get('access') === 'platform')) {
       return ok({ entries: historyOf(params), nextCursor: null }, 'Audit log retrieved.')
     }
     return ok(
