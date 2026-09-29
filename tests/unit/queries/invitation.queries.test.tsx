@@ -164,6 +164,7 @@ describe('invitation queries', () => {
     })
 
     it('refreshes the profile, so a role gained by accepting is live without a reload', async () => {
+      useAuthStore.setState({ user: { ...testUser, platformRole: null } })
       server.use(
         http.get('/api/v1/profile', () => ok({ ...testUser, platformRole: 'viewer' }, 'Profile.'))
       )

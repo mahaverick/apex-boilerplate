@@ -232,12 +232,19 @@ describe('route guards', () => {
     signedInAs('viewer')
     const router = renderAt('/no-access')
     await waitFor(() => expect(router.state.location.pathname).toBe('/overview'))
+    expectGuardSawSettledStore()
   })
 
   it('sends a signed-out visitor from /no-access to /login', async () => {
-    server.use(http.post('/api/v1/auth/refresh', () => fail('Unauthorized', 401)))
+    server.use(
+      http.post('/api/v1/auth/refresh', async () => {
+        await delay(20)
+        return fail('Unauthorized', 401)
+      })
+    )
     const router = renderAt('/no-access')
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+    expectGuardSawSettledStore()
   })
 })
 

@@ -62,12 +62,12 @@ import type { AuditEntry, PlatformAuditEntry } from '@/types/api.types'
  *    no level-one heading at all.
  *
  * 4. NO RULE IS TURNED OFF beyond contrast. jest-axe's defaults are used as they
- *    come, `region` included: `region` exempts a `button` but NOT an `a`, so the
- *    sidebar footer's controls (buttons) pass as they are, while the brand link
- *    in the sidebar header sits inside a `header` landmark, and the
- *    rule genuinely runs (a stray `<p>` appended to `document.body` IS
- *    flagged, which the first test below asserts). If something starts
- *    tripping a rule, fix the markup.
+ *    come, `region` included. `region` exempts a `button` but NOT an `a`: the
+ *    sidebar footer's controls are buttons and pass as they are, and the brand
+ *    link in the sidebar header passes because it sits inside a `header`
+ *    (banner) landmark. The rule genuinely runs (a stray `<p>` appended to
+ *    `document.body` IS flagged, which the first test below asserts). If
+ *    something starts tripping a rule, fix the markup.
  *
  * 5. THE DOCUMENT SHELL IS MIRRORED FROM `index.html`. jsdom's blank document
  *    has no `lang` and no `<title>`, so `html-has-lang` and `document-title`

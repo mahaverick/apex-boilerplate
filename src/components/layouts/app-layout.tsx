@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/sidebar'
 import { APP_NAME } from '@/constants/app'
 import { navGroupsFor } from '@/constants/navigation'
+import { ROUTES } from '@/constants/routes'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
@@ -113,7 +114,11 @@ export function AppLayout() {
           <header>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton size="lg" render={<Link to="/overview" />}>
+                <SidebarMenuButton
+                  size="lg"
+                  tooltip={APP_NAME}
+                  render={<Link to={ROUTES.overview} />}
+                >
                   <span
                     aria-hidden
                     className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground"
