@@ -32,7 +32,7 @@ than signing anyone out.
 ## Prerequisites
 
 - **Node 24** and **pnpm 12** (`npm i -g corepack@0.36.0 && corepack enable` — pnpm's version comes from `packageManager` in package.json; Node 25+ does not ship Corepack, so this works on 24 and 26 alike). `pnpm install` refuses an older Node.
-- **express-boilerplate 1.2.0 or newer**, running on `:4040` with `APEX_URL` set. Apex reads what 1.2.0 added: `/platform/users`, `/platform/tenants/:id` and the staff actions under both, the tenant list's `prevCursor`, and `/auth/reauthenticate` for step-up. An older API answers those routes 404, which Apex reads as a role refusal or a missing record rather than a missing route: the Users page says "your role can't see this", a tenant's or a user's page says it was not found, and the staff actions say your role can't do them. Before 1.1.0 there is also no `APEX_URL` and no `/platform/stats`, so Overview and every Apex email link break too.
+- **express-boilerplate 1.2.0 or newer**, running on `:4040` with `APEX_URL` set. Apex calls routes 1.2.0 added: `/platform/users`, `/platform/tenants/:id` and the staff actions under both. An older API answers those 404, which Apex reads as a role refusal or a missing record rather than a missing route: the Users page says "your role can't see this", a tenant's or a user's page says it was not found, and the staff actions say your role can't do them. The Tenants list's Previous button also needs the `prevCursor` field 1.2.0 added, and step-up needs its `/auth/reauthenticate`. Before 1.1.0 there is also no `APEX_URL` and no `/platform/stats`, so Overview and every Apex email link break too.
 
 ## Getting started
 
