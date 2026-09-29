@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -126,6 +126,80 @@ describe('/tenants', () => {
     expect(await screen.findByText('Tenant 01')).toBeInTheDocument()
     expect(screen.queryByText('Tenant 21')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
+  })
+
+  it('keeps a keystroke typed while its own search navigation is still landing', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/tenants')
+    await screen.findByText('Tenant 01')
+    const box = screen.getByRole('searchbox', { name: 'Search tenants' })
+    // Typed in the gap between the debounce's navigate and the new `?q` reaching the page.
+    const unsubscribe = router.subscribe('onBeforeNavigate', ({ toLocation }) => {
+      if ((toLocation.search as { q?: string }).q !== 'acme') return
+      unsubscribe()
+      // The navigate is called from an effect; React must finish that commit before the keystroke.
+      queueMicrotask(() => fireEvent.change(box, { target: { value: 'acmex' } }))
+    })
+
+    await user.type(box, 'acme')
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ q: 'acmex' }))
+    expect(box).toHaveValue('acmex')
+    await waitFor(() => expect(seen.at(-1)?.get('q')).toBe('acmex'))
+  })
+
+  it('numbers the page whose rows are on screen while the next one loads', async () => {
+    const pageTwo = deferred()
+    server.use(
+      http.get('/api/v1/platform/tenants', async ({ request }) => {
+        if (new URL(request.url).searchParams.get('cursor') === 'page-2') {
+          await pageTwo.promise
+          return ok({ tenants: [row(21)], nextCursor: null }, 'Tenants retrieved.')
+        }
+        return ok({ tenants: PAGE_ONE, nextCursor: 'page-2' }, 'Tenants retrieved.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt('/tenants')
+    await screen.findByText('Tenant 01')
+
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+    expect(screen.getByText('Page 1')).toBeInTheDocument()
+    expect(screen.getByText('Tenant 01')).toBeInTheDocument()
+
+    pageTwo.release()
+    expect(await screen.findByText('Tenant 21')).toBeInTheDocument()
+    expect(screen.getByText('Page 2')).toBeInTheDocument()
+  })
+
+  it('keeps a way back to the first page when a later page fails', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', ({ request }) =>
+        new URL(request.url).searchParams.get('cursor') === 'page-2'
+          ? fail('Boom', 500)
+          : ok({ tenants: PAGE_ONE, nextCursor: 'page-2' }, 'Tenants retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt('/tenants')
+    await screen.findByText('Tenant 01')
+
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Previous page' }))
+    expect(await screen.findByText('Tenant 01')).toBeInTheDocument()
+    expect(screen.getByText('Page 1')).toBeInTheDocument()
+  })
+
+  it('offers no way back from a failed first page', async () => {
+    server.use(http.get('/api/v1/platform/tenants', () => fail('Boom', 500)))
+    renderAppAt('/tenants')
+    await screen.findByRole('button', { name: 'Try again' })
+    expect(screen.queryByRole('button', { name: 'Previous page' })).not.toBeInTheDocument()
   })
 
   it('drops ?q when the search is cleared', async () => {

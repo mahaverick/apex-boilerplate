@@ -47,12 +47,13 @@ function TenantsPage() {
   const [followed, setFollowed] = useState(q)
   const term = useDebouncedValue(draft, SEARCH_DEBOUNCE_MS)
   const [paging, setPaging] = useState({ q, cursors: FIRST_PAGE })
+  const [shownPage, setShownPage] = useState(1)
 
-  // Any new `?q` starts again from page one; one set under the page (the palette, Back) also fills the box, and the debounced term waits to catch up rather than navigating back.
+  // Any new `?q` starts again from page one. One this page navigated to is the debounced term, and the box may already hold keystrokes typed since; only one set under the page (the palette, Back) fills the box.
   if (q !== followed) {
     setFollowed(q)
     setPaging({ q, cursors: FIRST_PAGE })
-    if (q !== draft.trim()) setDraft(q)
+    if (q !== draft.trim() && q !== term.trim()) setDraft(q)
   }
 
   const cursors = paging.q === q ? paging.cursors : FIRST_PAGE
@@ -60,6 +61,13 @@ function TenantsPage() {
     ...platformTenantsQueryOptions(q, cursors.at(-1)),
     placeholderData: keepPreviousData,
   })
+
+  // The counter names the page whose rows are on screen, so it moves only once they have been replaced.
+  if (page.data !== undefined && !page.isPlaceholderData && shownPage !== cursors.length) {
+    setShownPage(cursors.length)
+  }
+
+  const previous = () => setPaging({ q, cursors: cursors.slice(0, -1) })
 
   useEffect(() => {
     const next = term.trim()
@@ -88,7 +96,18 @@ function TenantsPage() {
         isRoleDenied(page.error) ? (
           <RoleDenied />
         ) : (
-          <LoadError message="We could not load the tenants." onRetry={() => void page.refetch()} />
+          <div className="grid justify-items-start gap-2">
+            <LoadError
+              message="We could not load the tenants."
+              onRetry={() => void page.refetch()}
+            />
+            {cursors.length > 1 && (
+              <Button variant="ghost" size="sm" onClick={previous}>
+                <ChevronLeft aria-hidden />
+                Previous page
+              </Button>
+            )}
+          </div>
         )
       ) : !settled || page.data === undefined ? (
         <Skeleton className="h-96 w-full" />
@@ -109,13 +128,13 @@ function TenantsPage() {
             <TenantsTable rows={page.data.tenants} />
           </div>
           <nav aria-label="Pagination" className="flex items-center justify-end gap-2">
-            <span className="text-sm text-muted-foreground">Page {cursors.length}</span>
+            <span className="text-sm text-muted-foreground">Page {shownPage}</span>
             <Button
               variant="outline"
               size="sm"
               aria-label="Previous page"
               disabled={cursors.length === 1 || page.isPlaceholderData}
-              onClick={() => setPaging({ q, cursors: cursors.slice(0, -1) })}
+              onClick={previous}
             >
               <ChevronLeft aria-hidden />
             </Button>
