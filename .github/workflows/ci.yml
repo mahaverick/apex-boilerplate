@@ -1,0 +1,212 @@
+name: CI
+
+on:
+  # Every PR, whatever its base, so a stacked PR already carries the
+  # required checks when GitHub retargets it to main.
+  pull_request:
+  # Called by deploy.yml as the gate before an image is built. `push: main`
+  # lives in deploy.yml, so main isn't tested twice.
+  workflow_call:
+  workflow_dispatch:
+
+# PR runs are grouped per PR, and a newer push cancels the older run.
+# Push and dispatch runs, including deploy.yml's call, are grouped per commit,
+# so no commit's gate is ever dropped.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # Four parallel jobs: lint, test, e2e and docker. lint and test split the
+  # way express-boilerplate's do. Actions are pinned to commit SHAs, and
+  # Renovate keeps the pins current. actions/cache and actions/upload-artifact
+  # need an Actions Runner of at least 2.327.1, which matters only for
+  # self-hosted runners; these jobs run on ubuntu-latest.
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # BEFORE setup-node, not after: `cache: pnpm` needs the pnpm binary on
+      # PATH to resolve the store directory, and fails the job without it.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # `pnpm lint` runs eslint AND `prettier --check`; formatting drift fails
+      # CI as loudly as a lint error does. `--max-warnings 0` is the gate the
+      # eslint half is held to.
+      - run: pnpm exec eslint . --max-warnings 0
+      - run: pnpm lint
+      - run: pnpm lint:docs
+      - run: pnpm typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # This runs tests/unit/a11y.test.tsx with the rest, which is what makes
+      # the accessibility criteria a gate rather than an aspiration.
+      - run: pnpm test:coverage
+      - run: pnpm build
+      # A second, in-memory build: fails on a single JS chunk, first-visit JS
+      # over budget, or a devtools module in any chunk.
+      - run: pnpm check:bundle
+      - run: pnpm audit --prod --audit-level high
+
+  # Two Playwright runs.
+  #
+  # The `fixtures` project drives the MSW harness in e2e/harness/, so it needs
+  # the dev server and nothing else — playwright.config.ts's `webServer` starts
+  # one, and `reuseExistingServer` is off under CI so it always gets a clean
+  # boot.
+  #
+  # Then the `nginx` tests tagged `@no-api`, against the PRODUCTION image built
+  # here and started as it ships — read-only root, a tmpfs /tmp — with nothing
+  # listening behind /api, so every API call answers 502. They check what only
+  # the real bundle behind the real nginx.conf shows: the security headers, the
+  # enforced Content-Security-Policy and the pre-paint theme script. The rest of
+  # `nginx` needs a live API and stays local (`pnpm test:e2e:nginx`).
+  #
+  # `live` is deliberately NOT here. It needs a real express-boilerplate plus
+  # postgres, redis and mailpit, and registers accounts through the verification
+  # email; that is a service-container job of its own, not a flag on this one.
+  # It stays opt-in behind `E2E_LIVE=1` (`pnpm test:e2e:live`).
+  #
+  # This job exists because the checks it makes are the ones jsdom cannot:
+  # jsdom has no layout and no cascade, so "the webfont actually loaded",
+  # "nothing overflows the viewport at 390px" and "the empty state renders as
+  # more than a bare table header" are all invisible to `pnpm test`.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # The browser is ~100MB and is not in the pnpm store, so setup-node's
+      # cache does not cover it. Keyed on the lockfile: a Playwright bump
+      # changes the lockfile and must fetch a matching browser build.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      # `--with-deps` installs the system libraries the browser needs, which a
+      # bare runner does not have. On a cache hit only those are needed; the
+      # browser binary is already there.
+      - run: pnpm exec playwright install --with-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - run: pnpm exec playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+      - run: pnpm test:e2e
+      # `api` resolves to the container's own loopback, where nothing listens.
+      - name: Start the image with no API behind it
+        run: |
+          docker build -t apex-boilerplate:e2e .
+          docker run -d --name apex-e2e -p 8088:8080 --read-only --tmpfs /tmp \
+            --add-host=api:127.0.0.1 -e API_UPSTREAM=http://api:4040 apex-boilerplate:e2e
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://localhost:8088/ && exit 0
+            sleep 1
+          done
+          docker logs apex-e2e
+          exit 1
+      # E2E_NGINX stops playwright.config.ts starting the dev server.
+      - run: pnpm exec playwright test --project=nginx --grep @no-api
+        env:
+          E2E_NGINX: '1'
+      - if: failure()
+        run: docker logs apex-e2e 2>&1 | tail -n 100 || true
+      # Only on failure, and only for a week: the report is how you find out
+      # what a red run actually saw, and it is useless once the branch moves on.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+      - if: always()
+        run: docker rm -f apex-e2e >/dev/null 2>&1 || true
+
+  # The image and its nginx template, checked before deploy rather than at it —
+  # a broken proxy_pass or a typo'd directive would otherwise surface there.
+  # Built, never pushed (deploy.yml does that): this job proves the image
+  # builds, the default render passes `nginx -t`, a custom API_UPSTREAM renders
+  # without touching nginx's own variables, and docker/check-image.sh passes:
+  # uid 101 on 8080, a read-only root, API_UPSTREAM validation, the security
+  # headers on pages, assets and a 404, and a real 404 for a missing asset.
+  #
+  # Plain `docker` rather than docker/build-push-action, so this adds no action
+  # pins to keep current. The runner ships with docker already.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build -t apex-boilerplate:ci .
+      # `nginx -t` inside the built image. nginx resolves `api` when it LOADS
+      # the config, so the hostname has to exist for the parse to succeed —
+      # the same reason running this image standalone needs `--add-host`.
+      - run: docker run --rm --add-host=api:127.0.0.1 apex-boilerplate:ci nginx -t
+      # The entrypoint renders nginx.conf with envsubst, limited by
+      # NGINX_ENVSUBST_FILTER to API_UPSTREAM. The lowercase `host`, `scheme`,
+      # `uri`, `cache_control`, `forwarded_proto` and `http_x_forwarded_proto`
+      # collide with nginx's own variables: without the filter envsubst
+      # replaces them, and the checks below fail.
+      - name: Render with a custom API_UPSTREAM
+        run: |
+          docker run --rm --add-host=example:127.0.0.1 \
+            -e API_UPSTREAM=http://example:1234 \
+            -e host=clobbered -e scheme=clobbered -e uri=clobbered -e cache_control=clobbered \
+            -e forwarded_proto=clobbered -e http_x_forwarded_proto=clobbered \
+            apex-boilerplate:ci nginx -T > rendered.conf 2>&1 || { cat rendered.conf; exit 1; }
+          fail=0
+          expect() {
+            n=$(grep -cF -- "$2" rendered.conf || true)
+            if [ "$n" != "$1" ]; then echo "expected $1 of: $2 (found $n)"; fail=1; fi
+          }
+          # Counts directive lines only, so a comment that names the directive
+          # does not count.
+          expect_directive() {
+            n=$(grep -cE -- "^\s*$2" rendered.conf || true)
+            if [ "$n" != "$1" ]; then echo "expected $1 directive(s): $2 (found $n)"; fail=1; fi
+          }
+          expect 2 'proxy_pass http://example:1234;'
+          expect_directive 2 'proxy_pass '
+          expect 2 "proxy_set_header Host \$host;"
+          expect 2 "proxy_set_header X-Forwarded-Proto \$forwarded_proto;"
+          expect 1 "add_header Cache-Control \$cache_control;"
+          expect 0 "add_header Cache-Control \$cache_control always;"
+          expect 1 "try_files \$uri =404;"
+          expect 1 "try_files \$uri /index.html;"
+          expect 0 'clobbered'
+          expect 0 'API_UPSTREAM}'
+          expect_directive 1 'listen 8080;'
+          expect 1 '# configuration file /tmp/nginx/conf.d/default.conf:'
+          expect_directive 1 'include /tmp/nginx/conf\.d/\*\.conf;'
+          expect_directive 1 'server_tokens off;'
+          expect_directive 1 'add_header Content-Security-Policy '
+          expect_directive 1 'add_header Permissions-Policy '
+          if [ "$fail" != 0 ]; then cat rendered.conf; exit 1; fi
+      # The image from outside, the way it ships. docker/check-image.sh says
+      # what it checks; run it locally with the same command.
+      - run: bash docker/check-image.sh apex-boilerplate:ci

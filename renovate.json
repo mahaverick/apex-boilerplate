@@ -1,0 +1,76 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits", "helpers:pinGitHubActionDigests"],
+  "schedule": ["before 6am on monday"],
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "minimumReleaseAge": null,
+    "schedule": ["at any time"]
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on the first day of the month"]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track the explicit Corepack pin in the Dockerfile and README install instructions; no built-in manager sees a version inside a shell command or prose.",
+      "managerFilePatterns": ["/^Dockerfile$/", "/^README\\.md$/"],
+      "matchStrings": ["corepack@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "corepack",
+      "datasourceTemplate": "npm"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "typescript-eslint peers typescript <6.1.0; TS 7 breaks type-aware lint (see CLAUDE.md Versions)",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<6.1.0"
+    },
+    {
+      "description": "Stay on Node 24 LTS until the planned move to Node 26 after 2026-10-28. Covers every Node version pin: the docker `node` image (Dockerfile), `.nvmrc` and `actions/setup-node`'s `node-version:` (node-version datasource, depName `node`).",
+      "matchDepNames": ["node"],
+      "allowedVersions": "<25"
+    },
+    {
+      "description": "nginx's odd minor versions are mainline releases. Keep the unprivileged image on the stable line (even minor), which is what its stable-alpine tag tracks.",
+      "matchDepNames": ["nginxinc/nginx-unprivileged"],
+      "allowedVersions": "/^\\d+\\.\\d*[02468]\\.\\d+-alpine$/"
+    },
+    {
+      "groupName": "dev tooling",
+      "matchPackageNames": [
+        "eslint",
+        "eslint-*",
+        "@eslint/*",
+        "typescript-eslint",
+        "prettier",
+        "prettier-*",
+        "@ianvs/prettier-plugin-sort-imports",
+        "vitest",
+        "@vitest/*"
+      ]
+    },
+    { "groupName": "tanstack", "matchPackageNames": ["@tanstack/*"] },
+    { "groupName": "types", "matchPackageNames": ["@types/*"] },
+    {
+      "description": "Minor, patch and digest updates merge themselves once the required checks pass.",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pinDigest"],
+      "automerge": true,
+      "platformAutomerge": true
+    },
+    {
+      "description": "Majors always wait for a human.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "description": "The pinned toolchain always waits for a human.",
+      "matchDepNames": ["node", "typescript"],
+      "automerge": false
+    }
+  ]
+}

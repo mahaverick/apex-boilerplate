@@ -1,0 +1,300 @@
+import { createRequire } from 'node:module'
+import type { Page } from '@playwright/test'
+import { expect, test } from '../hermetic'
+import { afterAnimations, afterFontsAndFrames } from '../timing'
+
+/**
+ * COLOUR CONTRAST, measured.
+ *
+ * `tests/unit/a11y.test.tsx` disables every `cat.color` rule, and says so in its
+ * header: jest-axe turns them off by default under jsdom because jsdom has no
+ * layout and no cascade, so a contrast ratio cannot be computed there at all.
+ * A green run of the a11y gate therefore says **nothing** about contrast, and
+ * the Phase B renders only made it *visible*, not *checked*.
+ *
+ * A real browser can compute it. This suite injects the same axe-core the unit
+ * gate uses — already a devDependency, no new package — and runs the one rule
+ * that needs pixels, in both themes.
+ *
+ * Deliberately NOT in CI and not part of `pnpm test`: run it with
+ * `pnpm test:contrast` when tokens or surfaces change. Contrast is a property
+ * of the palette, which moves rarely and deliberately.
+ *
+ * No surface depends on a backend. `test` comes from `../hermetic`, which
+ * answers every `/api` request that would leave the browser with a 401, so the
+ * public pages' session bootstrap cannot reach whatever runs on :4040, nor hang
+ * on it while it restarts.
+ */
+
+const require = createRequire(import.meta.url)
+const AXE_PATH = require.resolve('axe-core/axe.min.js')
+
+/**
+ * The dev server transforms a lazily loaded route's modules on first
+ * request, which has taken past 7s under load, and `goto` resolves on
+ * `load` before that. Below the 30s test timeout, so a hang is reported by
+ * the heading assertion.
+ */
+const COLD_TRANSFORM_BUDGET_MS = 20_000
+
+/**
+ * Every surface reachable without a backend, with a selector proving the page
+ * actually rendered.
+ *
+ * `expect` is not optional decoration. A route that silently redirected — an
+ * authenticated page losing its session, a `validateSearch` rejecting a token
+ * and bouncing to /login — would still produce a fully painted page with
+ * perfectly good contrast, and this suite would report it green while
+ * measuring something else entirely. Each entry therefore names something only
+ * THAT surface renders, asserted before axe runs.
+ *
+ * The `/e2e/harness/` entries mount an in-app route with MSW answering and the
+ * auth store pre-populated (e2e/harness/harness.tsx). `?path=` picks which
+ * route; without it the harness mounts the overview.
+ */
+const SURFACES = [
+  // Public — straight URLs, no harness needed.
+  { name: 'sign-in', url: '/login', heading: 'Sign in' },
+  { name: 'register', url: '/register', heading: 'Create an account' },
+  { name: 'forgot-password', url: '/forgot-password', heading: 'Forgot your password?' },
+  // Both of these routes read a token out of the query. Without one, reset-password renders its "This link is incomplete" branch instead — a real surface, but not the one worth measuring, and the heading assertion is what keeps that swap from passing unnoticed.
+  {
+    name: 'reset-password',
+    url: '/reset-password?token=contrast-probe',
+    heading: 'Choose a new password',
+  },
+  {
+    name: 'verify-email',
+    url: '/verify-email?token=contrast-probe',
+    heading: 'Verify your email',
+  },
+  // Authenticated — mounted through the harness.
+  { name: 'overview', url: '/e2e/harness/', heading: 'Overview' },
+  { name: 'profile', url: '/e2e/harness/?path=/profile', heading: 'Sign-in methods' },
+  { name: 'tenants', url: '/e2e/harness/?path=/tenants', heading: 'Tenants' },
+  { name: 'activity', url: '/e2e/harness/?path=/activity', heading: 'Activity' },
+] as const
+
+const THEMES = ['light', 'dark'] as const
+
+type ContrastResult = {
+  violations: { id: string; nodes: { target: string[]; failureSummary?: string }[] }[]
+  incomplete: { id: string; nodes: { target: string[]; failureSummary?: string }[] }[]
+}
+
+/**
+ * The theme must be set BEFORE the document runs: index.html loads a
+ * pre-paint script that reads localStorage and toggles `.dark` before the
+ * bundle loads, so setting it afterwards would measure a repaint rather
+ * than the real render.
+ *
+ * Loading the surface is proved, not assumed, BEFORE measuring it: a route
+ * that redirected — an authenticated page without a session, a
+ * `validateSearch` rejecting the probe token — still paints a perfectly
+ * legible page, so contrast over it would come back green while saying
+ * nothing about the surface this entry names.
+ */
+async function contrastOf(
+  page: Page,
+  url: string,
+  theme: string,
+  heading: string | RegExp,
+  scope?: string
+): Promise<ContrastResult> {
+  await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+  await page.goto(url)
+  await expect(page.getByRole('heading', { name: heading })).toBeVisible({
+    timeout: COLD_TRANSFORM_BUDGET_MS,
+  })
+  // The heading can render outside each page's data conditional, so it can show while the data behind it is still a skeleton. Grade the loaded page.
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0)
+
+  // Fonts change glyph coverage, not colour, but a late swap can move text over a different background. Sample only once it has reflowed.
+  await afterFontsAndFrames(page)
+
+  await page.addScriptTag({ path: AXE_PATH })
+
+  return runAxe(page, scope)
+}
+
+/**
+ * Run axe's contrast rule over the whole document, or over one element.
+ *
+ * Scoping matters for the popup surfaces: the page behind an open menu is
+ * already graded by its own entry above, so running the whole document again
+ * would report the same nodes twice and make a popup failure harder to see,
+ * not easier.
+ * @param page - The page, with axe already injected.
+ * @param scope - A selector to grade instead of the whole document.
+ * @returns axe's violations and incompletes.
+ */
+async function runAxe(page: Page, scope?: string): Promise<ContrastResult> {
+  return page.evaluate(async (selector) => {
+    // `color-contrast` ONLY. Everything else about these pages is already gated by tests/unit/a11y.test.tsx, and re-running it here would mean two sources of truth for the same finding.
+    const results = await (
+      window as unknown as {
+        axe: { run: (ctx: Document | Element, opts: unknown) => Promise<ContrastResult> }
+      }
+    ).axe.run((selector ? document.querySelector(selector) : document) ?? document, {
+      runOnly: { type: 'rule', values: ['color-contrast'] },
+      resultTypes: ['violations'],
+    })
+    return {
+      violations: results.violations.map((v) => ({
+        id: v.id,
+        nodes: v.nodes.map((n) => ({ target: n.target, failureSummary: n.failureSummary })),
+      })),
+      incomplete: results.incomplete.map((v) => ({
+        id: v.id,
+        nodes: v.nodes.map((n) => ({ target: n.target, failureSummary: n.failureSummary })),
+      })),
+    }
+  }, scope)
+}
+
+/** axe's failureSummary carries the ratio and both colours; keep it readable. */
+function report(surface: string, theme: string, result: ContrastResult): string {
+  const lines: string[] = []
+  for (const violation of result.violations) {
+    for (const node of violation.nodes) {
+      lines.push(`  ✘ ${node.target.join(' ')}`)
+      for (const detail of (node.failureSummary ?? '').split('\n')) {
+        if (detail.trim() && !detail.startsWith('Fix any')) lines.push(`      ${detail.trim()}`)
+      }
+    }
+  }
+  return lines.length ? `${surface} · ${theme}\n${lines.join('\n')}` : ''
+}
+
+for (const theme of THEMES) {
+  for (const surface of SURFACES) {
+    test(`${surface.name} meets WCAG AA contrast in ${theme}`, async ({ page }) => {
+      const result = await contrastOf(page, surface.url, theme, surface.heading)
+
+      /**
+       * `incomplete` is not a pass. axe files a node here when it cannot
+       * resolve the background — a gradient, an image, an overlapped
+       * element — and those are exactly the cases a human has to look at.
+       * Surfaced rather than asserted, because a false alarm here should
+       * not block.
+       */
+      if (result.incomplete.length > 0) {
+        const targets = result.incomplete.flatMap((i) => i.nodes.map((n) => n.target.join(' ')))
+        console.warn(
+          `[contrast] ${surface.name} · ${theme}: ${targets.length} node(s) axe could not resolve — check by eye:\n  ${targets.join('\n  ')}`
+        )
+      }
+
+      expect(report(surface.name, theme, result), report(surface.name, theme, result)).toBe('')
+    })
+  }
+}
+
+/**
+ * Popup surfaces — menus and the mobile sheet.
+ *
+ * These carry their own `--popover` / `--popover-foreground` pair (and the
+ * sheet its own background), so a failure on one is invisible to every page
+ * test above: axe only sees what is in the DOM, and a closed menu is not.
+ * That makes them the surfaces most likely to hide a bad token pair, and the
+ * ones a palette change is least likely to be checked against by eye.
+ *
+ * Selectors are ported from `tests/unit/a11y.test.tsx`'s "open overlays" and
+ * menu blocks, which already drive each of these open — deliberately reused
+ * rather than reinvented, so the two suites cannot drift on what "the user
+ * menu" means.
+ */
+const POPUPS = [
+  {
+    name: 'user menu',
+    path: '/overview',
+    trigger: /^Account menu for/,
+    triggerRole: 'button',
+    role: 'menu',
+    itemRole: 'menuitem',
+  },
+] as const
+
+for (const theme of THEMES) {
+  for (const popup of POPUPS) {
+    test(`${popup.name} meets WCAG AA contrast in ${theme}`, async ({ page }) => {
+      await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+      await page.goto(`/e2e/harness/?path=${popup.path}`)
+      await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible({
+        timeout: COLD_TRANSFORM_BUDGET_MS,
+      })
+
+      await page.getByRole(popup.triggerRole, { name: popup.trigger }).click()
+      const menu = page.getByRole(popup.role)
+      await expect(menu).toBeVisible()
+      // A menu that opened EMPTY would grade clean while saying nothing about the items this test exists for — the same guard the a11y gate states for its own menu block.
+      await expect(menu.getByRole(popup.itemRole).first()).toBeVisible()
+
+      await afterAnimations(menu)
+      await afterFontsAndFrames(page)
+      await page.addScriptTag({ path: AXE_PATH })
+
+      const result = await runAxe(page, `[role="${popup.role}"]`)
+      expect(report(popup.name, theme, result), report(popup.name, theme, result)).toBe('')
+    })
+  }
+}
+
+test.describe('popups that are not menus', () => {
+  for (const theme of THEMES) {
+    test(`the mobile navigation sheet meets WCAG AA contrast in ${theme}`, async ({ page }) => {
+      // The sheet carries its own background token, and it only exists below the desktop breakpoint — so the desktop shell tests above can never reach it however many pages they visit.
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+      await page.goto('/e2e/harness/?path=/overview')
+      await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible({
+        timeout: COLD_TRANSFORM_BUDGET_MS,
+      })
+
+      await page.getByRole('button', { name: 'Toggle sidebar' }).click()
+      const sheet = page.getByRole('dialog')
+      await expect(sheet).toBeVisible()
+      // Opened AND populated: an empty sheet grades clean and proves nothing.
+      await expect(sheet.getByRole('link').first()).toBeVisible()
+
+      await afterAnimations(sheet)
+      await afterFontsAndFrames(page)
+      await page.addScriptTag({ path: AXE_PATH })
+
+      const result = await runAxe(page, '[role="dialog"]')
+      expect(report('mobile sheet', theme, result), report('mobile sheet', theme, result)).toBe('')
+    })
+  }
+})
+
+/**
+ * The staff surfaces: the Staff badge on an Activity row, asserted present,
+ * because a page without it grades clean and proves nothing about it.
+ */
+test.describe('staff surfaces', () => {
+  for (const theme of THEMES) {
+    test(`the Activity Staff badge meets WCAG AA contrast in ${theme}`, async ({ page }) => {
+      const result = await contrastOf(page, '/e2e/harness/?path=/activity', theme, 'Activity')
+      const row = page.getByRole('listitem').filter({ hasText: 'Sam Staff' })
+      await expect(row.getByText('Staff', { exact: true })).toBeVisible()
+      expect(report('staff badge', theme, result), report('staff badge', theme, result)).toBe('')
+    })
+  }
+})
+
+/**
+ * The suite's own isolation. Without the fallback in `../hermetic` this
+ * refresh goes through the Vite proxy: `answered` stays empty, and the
+ * fixture's teardown reports the unstamped response.
+ */
+test('a public page gets its bootstrap refresh from the fallback, not the dev server proxy', async ({
+  page,
+  apiFallback,
+}) => {
+  await page.goto('/login')
+  // The root beforeLoad awaits the refresh, so the heading means it has settled.
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible({
+    timeout: COLD_TRANSFORM_BUDGET_MS,
+  })
+  expect(apiFallback.answered).toContain('POST /api/v1/auth/refresh')
+})

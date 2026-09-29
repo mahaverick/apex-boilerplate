@@ -1,0 +1,118 @@
+{
+  "name": "apex-boilerplate",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@12.4.1",
+  "engines": {
+    "node": ">=24"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=24",
+      "onFail": "error"
+    }
+  },
+  "description": "Staff admin dashboard boilerplate for Mahaverick Labs projects",
+  "author": {
+    "name": "Mahaverick Labs",
+    "email": "support@mahaverick.com"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . && prettier --check \"**/*.{ts,tsx,js,jsx,mjs,css,json,md,html}\"",
+    "lint:docs": "node scripts/lint-docs.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && pnpm typecheck:e2e",
+    "typecheck:e2e": "tsc --noEmit -p e2e/tsconfig.json",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,css,json,md,html}\"",
+    "test": "vitest --watch=false",
+    "test:coverage": "vitest --watch=false --coverage",
+    "test:watch": "vitest",
+    "prepare": "husky",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,css,json,md,html}\"",
+    "test:e2e": "playwright test --project=fixtures",
+    "test:e2e:live": "E2E_LIVE=1 playwright test --project=live",
+    "test:e2e:nginx": "docker rm -f apex-e2e >/dev/null 2>&1; docker build -t apex-boilerplate:e2e . && docker run -d --name apex-e2e -p 8088:8080 --read-only --tmpfs /tmp --add-host=api:host-gateway apex-boilerplate:e2e >/dev/null && for i in $(seq 1 60); do curl -sf http://localhost:8088 >/dev/null && break; sleep 0.5; done && E2E_LIVE=1 E2E_NGINX=1 playwright test --project=nginx; code=$?; docker rm -f apex-e2e >/dev/null 2>&1; exit $code",
+    "test:contrast": "playwright test --project=contrast",
+    "check:bundle": "node scripts/check-bundle.mjs"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.8.0",
+    "@fontsource-variable/geist": "5.3.0",
+    "@tanstack/react-form": "1.33.5",
+    "@tanstack/react-query": "5.103.2",
+    "@tanstack/react-router": "1.170.38",
+    "axios": "1.20.0",
+    "class-variance-authority": "0.7.1",
+    "cn": "0.4.0",
+    "lucide-react": "1.47.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "sonner": "2.0.8",
+    "tw-animate-css": "1.4.0",
+    "zod": "4.6.5",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.3",
+    "@commitlint/config-conventional": "21.2.3",
+    "@eslint/js": "10.0.1",
+    "@ianvs/prettier-plugin-sort-imports": "4.7.1",
+    "@playwright/test": "^1.63.0",
+    "@rolldown/plugin-babel": "0.2.4",
+    "@tailwindcss/vite": "4.3.3",
+    "@tanstack/eslint-plugin-router": "1.162.0",
+    "@tanstack/react-query-devtools": "5.103.2",
+    "@tanstack/react-router-devtools": "1.167.2",
+    "@tanstack/router-plugin": "1.168.40",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/jest-axe": "3.5.9",
+    "@types/node": "26.6.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "@vitest/coverage-v8": "5.0.1",
+    "axe-core": "4.13.0",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "10.11.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-check-file": "3.3.2",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "eslint-plugin-tailwindcss": "4.4.0",
+    "globals": "17.12.0",
+    "husky": "9.1.7",
+    "jest-axe": "11.0.0",
+    "jsdom": "30.1.1",
+    "lint-staged": "17.5.1",
+    "msw": "2.15.0",
+    "playwright": "^1.63.0",
+    "prettier": "3.9.8",
+    "prettier-plugin-tailwindcss": "0.8.1",
+    "shadcn": "4.21.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "8.70.1",
+    "vite": "8.3.0",
+    "vitest": "5.0.1"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix --max-warnings 0 --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{js,jsx,mjs}": [
+      "eslint --fix --max-warnings 0 --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{css,json,md,html}": [
+      "prettier --write"
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+allowBuilds:
+  msw: true
+# Minutes (3 days). Matches renovate.json.
+minimumReleaseAge: 4320
