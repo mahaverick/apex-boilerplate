@@ -59,6 +59,9 @@ const LEGEND_ITEM = '.recharts-legend-wrapper'
  * auth store pre-populated (e2e/harness/harness.tsx). `?path=` picks which
  * route; without it the harness mounts the overview.
  */
+const ACME_PAGE = '/tenants/10000000-0000-4000-8000-000000000001'
+const CLEO_PAGE = '/users/20000000-0000-4000-8000-000000000002'
+
 const SURFACES = [
   // Public — straight URLs, no harness needed.
   { name: 'sign-in', url: '/login', heading: 'Sign in' },
@@ -92,6 +95,41 @@ const SURFACES = [
   { name: 'activity', url: '/e2e/harness/?path=/activity', heading: 'Activity' },
   // Exact: the page's own h2s ('Staff members', 'Invite staff') also contain the word.
   { name: 'staff', url: '/e2e/harness/?path=/staff', heading: /^Staff$/ },
+  { name: 'users', url: '/e2e/harness/?path=/users', heading: /^Users$/ },
+  // A live account with its History card, and a deleted one with its read-only notice and Deleted badge.
+  { name: 'user', url: `/e2e/harness/?path=${CLEO_PAGE}`, heading: 'Cleo D' },
+  {
+    name: 'deleted user',
+    url: '/e2e/harness/?path=/users/20000000-0000-4000-8000-000000000003',
+    heading: 'Evangeline Featherstonehaugh',
+  },
+  // The section nav's active tab, the inactive owner's badge and the History card.
+  {
+    name: 'tenant',
+    url: `/e2e/harness/?path=${ACME_PAGE}`,
+    heading: 'Staff actions on this tenant',
+  },
+  {
+    name: 'tenant members',
+    url: `/e2e/harness/?path=${ACME_PAGE}/members`,
+    heading: 'Members',
+  },
+  {
+    name: 'tenant invitations',
+    url: `/e2e/harness/?path=${ACME_PAGE}/invitations`,
+    heading: 'Pending invitations',
+  },
+  {
+    name: 'tenant activity',
+    url: `/e2e/harness/?path=${ACME_PAGE}/activity`,
+    heading: 'Acme Corp',
+  },
+  // Frozen: the Suspended badge and the frozen notice.
+  {
+    name: 'suspended tenant',
+    url: '/e2e/harness/?path=/tenants/10000000-0000-4000-8000-000000000002/members',
+    heading: 'Beta Ltd',
+  },
   // Signed in without a platform role: the harness's `?role=none`, or /no-access would redirect its admin to the overview.
   {
     name: 'no-access',
@@ -379,6 +417,97 @@ test.describe('command palette', () => {
 
       const result = await runAxe(page, '[role="dialog"]')
       expect(report('palette', theme, result), report('palette', theme, result)).toBe('')
+    })
+  }
+})
+
+/**
+ * The tenant actions menu and the two dialogs a lifecycle action stacks: the
+ * reason dialog, then the step-up the harness's suspend always asks for.
+ * Each carries its own token pairs (the destructive item, the alert dialog's
+ * surface, the step-up over it), and none renders until driven open.
+ */
+test.describe('tenant actions and their dialogs', () => {
+  for (const theme of THEMES) {
+    test(`the tenant actions menu, the reason dialog and the step-up dialog meet WCAG AA contrast in ${theme}`, async ({
+      page,
+    }) => {
+      await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+      await page.goto(`/e2e/harness/?path=${ACME_PAGE}`)
+      await expect(page.getByRole('heading', { name: 'Acme Corp', level: 1 })).toBeVisible({
+        timeout: COLD_TRANSFORM_BUDGET_MS,
+      })
+
+      await page.getByRole('button', { name: 'Actions', exact: true }).click()
+      const menu = page.getByRole('menu')
+      // Archive is the destructive item, with its own token pair: opened AND populated, or this grades nothing.
+      await expect(menu.getByRole('menuitem', { name: 'Archive' })).toBeVisible()
+      await afterAnimations(menu)
+      await afterFontsAndFrames(page)
+      await page.addScriptTag({ path: AXE_PATH })
+      const menuResult = await runAxe(page, '[role="menu"]')
+      expect(
+        report('tenant actions menu', theme, menuResult),
+        report('tenant actions menu', theme, menuResult)
+      ).toBe('')
+
+      await menu.getByRole('menuitem', { name: 'Suspend' }).click()
+      const reason = page.getByRole('alertdialog', { name: 'Suspend Acme Corp?' })
+      await expect(reason.getByLabel('Reason')).toBeVisible()
+      await afterAnimations(reason)
+      const reasonResult = await runAxe(page, '[role="alertdialog"]')
+      expect(
+        report('reason dialog', theme, reasonResult),
+        report('reason dialog', theme, reasonResult)
+      ).toBe('')
+
+      await reason.getByLabel('Reason').fill('contrast check')
+      await reason.getByRole('button', { name: 'Suspend' }).click()
+      const stepUp = page.getByRole('dialog', { name: 'Confirm it’s you' })
+      await expect(stepUp.getByLabel('Password')).toBeVisible()
+      await afterAnimations(stepUp)
+      const stepUpResult = await runAxe(page, '[role="dialog"]')
+      expect(
+        report('step-up dialog', theme, stepUpResult),
+        report('step-up dialog', theme, stepUpResult)
+      ).toBe('')
+
+      // Dismissed: the reason dialog now shows its form error, a token pair of its own.
+      await page.keyboard.press('Escape')
+      await expect(reason.getByText('Confirm it’s you to continue.')).toBeVisible()
+      await afterAnimations(reason)
+      const errorResult = await runAxe(page, '[role="alertdialog"]')
+      expect(
+        report('reason dialog error', theme, errorResult),
+        report('reason dialog error', theme, errorResult)
+      ).toBe('')
+    })
+  }
+})
+
+test.describe('user actions menu', () => {
+  for (const theme of THEMES) {
+    test(`the open user actions menu meets WCAG AA contrast in ${theme}`, async ({ page }) => {
+      await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+      await page.goto(`/e2e/harness/?path=${CLEO_PAGE}`)
+      await expect(page.getByRole('heading', { name: 'Cleo D', level: 1 })).toBeVisible({
+        timeout: COLD_TRANSFORM_BUDGET_MS,
+      })
+
+      await page.getByRole('button', { name: 'Actions for c@d.com' }).click()
+      const menu = page.getByRole('menu')
+      // The destructive item carries its own token pair; opened AND populated, or this grades nothing.
+      await expect(menu.getByRole('menuitem', { name: 'Delete', exact: true })).toBeVisible()
+
+      await afterAnimations(menu)
+      await afterFontsAndFrames(page)
+      await page.addScriptTag({ path: AXE_PATH })
+
+      const result = await runAxe(page, '[role="menu"]')
+      expect(
+        report('user actions menu', theme, result),
+        report('user actions menu', theme, result)
+      ).toBe('')
     })
   }
 })

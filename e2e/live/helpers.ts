@@ -213,7 +213,7 @@ async function linkInMailpit(email: string, page: string): Promise<string> {
  * whole link, not only its token, so a test can assert which frontend it
  * points at.
  * @param email - The recipient.
- * @param page - `verify-email` or `invitations/accept`.
+ * @param page - `verify-email`, `reset-password` or `invitations/accept`.
  * @returns The absolute link.
  */
 export async function mailedLink(email: string, page: string): Promise<string> {
@@ -232,4 +232,81 @@ export async function mailedLink(email: string, page: string): Promise<string> {
     )
     .not.toBe('')
   return link
+}
+
+/** Where express sends customer-facing links (its `WEB_URL`), locally the react app. */
+export const WEB_ORIGIN = process.env.E2E_WEB_ORIGIN ?? 'http://localhost:5173'
+
+/** Where express sends Apex's links (its `APEX_URL`): this dev server. */
+export const APEX_ORIGIN = 'http://localhost:5174'
+
+/**
+ * Redeems a mailed set-password or reset link through the API. The link
+ * points at the customer app, which this suite does not run, so the token is
+ * posted straight to `/auth/reset-password` as that page would.
+ * @param link - The absolute `/reset-password?token=` link from the email.
+ * @param password - The new password.
+ */
+export async function resetPasswordWith(link: string, password: string): Promise<void> {
+  const token = new URL(link).searchParams.get('token')
+  const response = await json(`${API_ORIGIN}/api/v1/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password }),
+  })
+  if (response.status !== 200) {
+    throw new Error(`reset failed: ${response.status} ${JSON.stringify(response.body)}`)
+  }
+}
+
+/**
+ * Accepts an invitation as a verified account, through the API: for a
+ * customer tenant the link points at the customer app, which this suite does
+ * not run.
+ * @param email - The invitee, already registered and verified.
+ * @param link - The absolute `/invitations/accept?token=` link from the email.
+ */
+export async function acceptInvitationAs(email: string, link: string): Promise<void> {
+  const token = new URL(link).searchParams.get('token')
+  const accepted = await apiRequest(await apiLogin(email), 'POST', '/invitations/accept', {
+    token,
+  })
+  if (accepted.status !== 200) {
+    throw new Error(`accept failed: ${accepted.status} ${JSON.stringify(accepted.body)}`)
+  }
+}
+
+/**
+ * Makes a user's step-up stale by moving their refresh tokens'
+ * `authenticated_at` an hour back in express's database. An access token
+ * carries `auth_time` from that column, so the NEXT one (a full page load,
+ * which refreshes) is stale. Runs psql in the compose project's postgres
+ * service with the compose file's credentials.
+ * @param email - The user whose sessions to age.
+ */
+export async function backdateStepUp(email: string): Promise<void> {
+  const sql =
+    "update user_tokens set authenticated_at = now() - interval '1 hour' " +
+    "where purpose = 'refresh' and user_id = (select id from users where lower(email) = lower($$" +
+    email.replaceAll('$', '') +
+    '$$) and deleted_at is null)'
+  await execFile(
+    'docker',
+    [
+      'compose',
+      'exec',
+      '-T',
+      'postgres',
+      'psql',
+      '-U',
+      'boilerplate',
+      '-d',
+      'boilerplate',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      sql,
+    ],
+    { cwd: API_DIR, timeout: 30_000 }
+  )
 }

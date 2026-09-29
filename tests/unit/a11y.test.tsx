@@ -984,6 +984,30 @@ describe('open overlays', () => {
     await expectNoViolations()
   })
 
+  it('has no violations with the command palette showing a user', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () =>
+        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+      ),
+      http.get('/api/v1/platform/users', () =>
+        ok({ users: [USER_DETAIL], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    await screen.findByRole('heading', { name: 'Overview', level: 1 })
+
+    await user.click(screen.getByRole('button', { name: /Search…/ }))
+    const palette = await screen.findByRole('dialog', { name: 'Command palette' })
+    await user.keyboard('cleo')
+
+    // The user group is what this grades: a palette without the row would repeat the test above.
+    expect(
+      await within(palette).findByRole('option', { name: /cleo@example\.com/ })
+    ).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
   it('has no violations with the tenant actions menu open', async () => {
     serveTenant('active')
     const user = userEvent.setup()
@@ -1092,6 +1116,59 @@ describe('open overlays', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Delete user' })
     expect(within(dialog).getByLabelText('Type cleo@example.com to confirm')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the Deactivate account dialog open', async () => {
+    serveUser()
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions for cleo@example.com' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Deactivate' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Deactivate account' })
+    expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the permanent-delete dialog open on a deleted account', async () => {
+    useAuthStore.setState({ user: { ...testUser, platformRole: 'owner' } })
+    serveUser({ deletedAt: '2026-09-29T00:00:00.000Z', active: false })
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions for cleo@example.com' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete permanently' }))
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Permanently delete this account?',
+    })
+    expect(within(dialog).getByLabelText('Type cleo@example.com to confirm')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the step-up dialog open for an account without a password', async () => {
+    serveTenant('active')
+    server.use(
+      http.post(`/api/v1/platform/tenants/${TENANT_ID}/suspend`, () =>
+        fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
+      ),
+      http.get('/api/v1/auth/providers', () =>
+        ok(
+          {
+            providers: [{ provider: 'google', linkedAt: '2026-01-01T00:00:00.000Z' }],
+            hasPassword: false,
+          },
+          'Auth providers retrieved.'
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }))
+    const reason = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
+    await user.type(within(reason).getByLabelText('Reason'), 'x')
+    await user.click(within(reason).getByRole('button', { name: 'Suspend' }))
+    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+    expect(await within(stepUp).findByRole('link', { name: 'Go to profile' })).toBeInTheDocument()
     await expectNoViolations()
   })
 
