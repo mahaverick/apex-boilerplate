@@ -108,11 +108,6 @@ export function isStaff(platformRole: MembershipRole | null | undefined): boolea
   return platformRole !== null && platformRole !== undefined
 }
 
-/** `GET /platform/audit-log` and its page: platform owner or admin. */
-export function canViewPlatformActivity(platformRole: MembershipRole | null | undefined): boolean {
-  return platformRole === 'owner' || platformRole === 'admin'
-}
-
 /**
  * Whether a platform role is at or above `minimum`. MEMBERSHIP_ROLES runs from
  * most to least authority. Not staff (`null`/`undefined`) is never enough.

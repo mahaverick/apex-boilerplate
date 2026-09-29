@@ -5,7 +5,6 @@ import {
   canChangeRoles,
   canManageTenant,
   canViewActivity,
-  canViewPlatformActivity,
   isLastOwnerBlocked,
   isStaff,
   MEMBERSHIP_ROLES,
@@ -147,17 +146,6 @@ describe('isStaff', () => {
   it('is false for null and for a missing field', () => {
     expect(isStaff(null)).toBe(false)
     expect(isStaff(undefined)).toBe(false)
-  })
-})
-
-describe('canViewPlatformActivity', () => {
-  it('allows platform owners and admins only', () => {
-    expect(MEMBERSHIP_ROLES.filter((role) => canViewPlatformActivity(role))).toEqual([
-      'owner',
-      'admin',
-    ])
-    expect(canViewPlatformActivity(null)).toBe(false)
-    expect(canViewPlatformActivity(undefined)).toBe(false)
   })
 })
 

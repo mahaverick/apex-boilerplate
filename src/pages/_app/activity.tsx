@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useId, useState } from 'react'
 import { ActivityList } from '@/components/features/activity/activity-list'
+import { RoleDenied } from '@/components/features/role-denied'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -23,10 +24,9 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { pageTitle } from '@/constants/app'
 import { AUDIT_ACTION_LABELS, AUDIT_ACTIONS, isAuditAction } from '@/constants/audit-actions'
-import { canViewPlatformActivity } from '@/constants/roles'
+import { platformRoleAtLeast } from '@/constants/roles'
 import { PLATFORM_TENANT_SLUG, ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import { statusFrom } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
 import {
   flattenAuditPages,
@@ -35,6 +35,7 @@ import {
 } from '@/queries/audit.queries'
 import {
   flattenTenantPages,
+  isRoleDenied,
   SEARCH_DEBOUNCE_MS,
   usePlatformTenantSearch,
 } from '@/queries/platform.queries'
@@ -52,8 +53,8 @@ export const Route = createFileRoute('/_app/activity')({
 const ANY = 'any'
 
 /**
- * The same panel for "not staff", "staff below admin" and the API's own 404,
- * matching the API: the page never confirms it exists to someone it refuses.
+ * The panel for staff below admin, matching the API: the page never confirms it
+ * exists to someone it refuses.
  */
 function PlatformNotFound() {
   return (
@@ -173,7 +174,7 @@ function TenantFilter({
 /**
  * Every tenant's activity, with tenant, action, actor and staff-only filters;
  * the actor filter offers the platform tenant's members. A 404 from the log
- * (the viewer was demoted since the profile loaded) gets the not-found panel.
+ * (the viewer was demoted since the profile loaded) gets the role-denied state.
  */
 function PlatformActivity() {
   const staffOnlyId = useId()
@@ -197,7 +198,14 @@ function PlatformActivity() {
     return match ? memberName(match) : 'A staff member'
   }
 
-  if (log.isError && statusFrom(log.error) === 404) return <PlatformNotFound />
+  if (log.isError && isRoleDenied(log.error)) {
+    return (
+      <div className="grid max-w-4xl gap-4">
+        <h1 className="text-2xl font-semibold">Activity</h1>
+        <RoleDenied />
+      </div>
+    )
+  }
 
   return (
     <div className="grid max-w-4xl gap-4 xl:max-w-6xl">
@@ -280,5 +288,5 @@ function PlatformActivity() {
 /** Below platform admin the API answers 404, so the page says the same without asking. */
 function PlatformActivityPage() {
   const platformRole = useAuthStore((state) => state.user?.platformRole)
-  return canViewPlatformActivity(platformRole) ? <PlatformActivity /> : <PlatformNotFound />
+  return platformRoleAtLeast(platformRole, 'admin') ? <PlatformActivity /> : <PlatformNotFound />
 }

@@ -152,17 +152,16 @@ describe('platform activity page', () => {
     expect(seen).toHaveLength(0)
   })
 
-  // Demoted after the profile loaded: the API's 404 gets the same panel.
-  it('turns a 404 from the API into the not-found panel', async () => {
+  // Demoted after the profile loaded: the API's 404 gets the role-denied state, under the page's own h1.
+  it('turns a 404 from the API into the role-denied state', async () => {
     signInAs('admin')
     mockLog(() => fail('Not found', 404))
     renderPlatformActivity()
 
-    expect(await screen.findByRole('heading', { name: 'Page not available' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to the overview' })).toHaveAttribute(
-      'href',
-      '/overview'
-    )
+    expect(await screen.findByText(/Your role can’t see this any more/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Activity', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Page not available' })).not.toBeInTheDocument()
   })
 
   it('narrows to what staff did or saw with the Staff only switch', async () => {
