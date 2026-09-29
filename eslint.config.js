@@ -366,8 +366,10 @@ export default tseslint.config(
   },
   {
     /**
-     * The two hand-written files under src/components/ui/: sonner.tsx (the
-     * registry one imports next-themes) and form.tsx. The rules the vendored
+     * The three hand-written files under src/components/ui/: sonner.tsx (the
+     * registry one imports next-themes), form.tsx (the registry one is built on
+     * react-hook-form) and command.tsx (the registry one is built on cmdk,
+     * which pulls in Radix). The rules the vendored
      * block turns off come back on at the plugin's recommended severities;
      * `classnames-order` stays off because prettier-plugin-tailwindcss owns
      * ordering. `settings` is repeated because the block that sets

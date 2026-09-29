@@ -33,8 +33,8 @@ export default defineConfig({
       reporter: ['text', 'lcov'],
       /**
        * Excludes the generated route tree, the mount-only entry, the dev-only
-       * devtools and the vendored shadcn files, by name: form.tsx and sonner.tsx
-       * in ui/ are ours and measured.
+       * devtools and the vendored shadcn files, by name: form.tsx, sonner.tsx
+       * and command.tsx in ui/ are ours and measured.
        */
       include: ['src/**/*.{ts,tsx}'],
       exclude: [

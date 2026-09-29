@@ -14,9 +14,14 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { navItemsFor, type NavPath } from '@/constants/navigation'
+import { isStaff } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import { platformTenantsQueryOptions, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
+import {
+  isRoleDenied,
+  platformTenantsQueryOptions,
+  SEARCH_DEBOUNCE_MS,
+} from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
 
@@ -36,7 +41,9 @@ interface PaletteGroup {
  * The ⌘K / Ctrl+K palette: the pages the user's role can see, filtered here,
  * and customer tenants, filtered by the API. Tenant results are shown only for
  * the term they were fetched for, so Enter can never act on an older term's
- * list. Choosing a tenant opens the Tenants page filtered to it.
+ * list. Choosing a tenant opens the Tenants page filtered to it. Every close
+ * clears the search, however it closed: the shortcut and the header flip the
+ * store's `open` directly, and Base UI fires no `onOpenChange` for that.
  */
 export function CommandPalette() {
   const navigate = useNavigate()
@@ -46,29 +53,39 @@ export function CommandPalette() {
   const role = useAuthStore((state) => state.user?.platformRole)
   const shortcutsId = useId()
   const [query, setQuery] = useState('')
-  const term = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS)
+  const [wasOpen, setWasOpen] = useState(open)
+  // Base UI reports no change when `open` is flipped from outside, so reset here.
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (!open) setQuery('')
+  }
+  const staff = isStaff(role)
+  const current = query.trim()
+  const term = useDebouncedValue(current, SEARCH_DEBOUNCE_MS)
   const tenants = useQuery({
     ...platformTenantsQueryOptions(term, undefined, TENANT_RESULTS),
-    enabled: open && term !== '',
+    enabled: open && staff && term !== '',
   })
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        toggle()
-      }
+      if (event.repeat || event.isComposing || event.defaultPrevented) return
+      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return
+      // The physical key, so the shortcut works on non-Latin layouts too.
+      if (event.code !== 'KeyK') return
+      event.preventDefault()
+      toggle()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [toggle])
 
-  const needle = query.trim().toLowerCase()
+  const needle = current.toLowerCase()
   const pages: PaletteItem[] = navItemsFor(role)
     .filter((item) => needle === '' || item.label.toLowerCase().includes(needle))
     .map((item) => ({ kind: 'page', value: item.to, label: item.label, to: item.to }))
   // Only the current term's results: a stale list must never take the Enter.
-  const isCurrent = term === query.trim() && tenants.data !== undefined && !tenants.isFetching
+  const isCurrent = term === current && tenants.data !== undefined && !tenants.isFetching
   const tenantItems: PaletteItem[] = isCurrent
     ? tenants.data.tenants.map((row) => ({
         kind: 'tenant',
@@ -82,13 +99,8 @@ export function CommandPalette() {
     ...(tenantItems.length > 0 ? [{ value: 'Tenants', items: tenantItems }] : []),
   ]
 
-  function close() {
-    setOpen(false)
-    setQuery('')
-  }
-
   function choose(item: PaletteItem) {
-    close()
+    setOpen(false)
     if (item.kind === 'page') {
       void navigate({ to: item.to })
     } else {
@@ -96,23 +108,20 @@ export function CommandPalette() {
     }
   }
 
+  const searching = staff && current !== '' && (term !== current || tenants.isFetching)
+  // An error belongs to `term`, so it is shown only once `term` is what is typed.
+  const failed = term === current && tenants.isError && !isRoleDenied(tenants.error)
   const tenantStatus =
-    term === ''
+    !staff || current === ''
       ? null
-      : tenants.isError
-        ? 'Tenants could not be searched.'
-        : tenants.isFetching || term !== query.trim()
-          ? 'Searching tenants…'
+      : searching
+        ? 'Searching tenants…'
+        : failed
+          ? 'Tenants could not be searched.'
           : null
 
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) close()
-        else setOpen(true)
-      }}
-    >
+    <CommandDialog open={open} onOpenChange={setOpen}>
       <Command
         open
         inline
@@ -131,7 +140,7 @@ export function CommandPalette() {
         <p role="status" aria-live="polite" className="px-3 pt-2 text-xs text-muted-foreground">
           {tenantStatus}
         </p>
-        <CommandEmpty>No results.</CommandEmpty>
+        <CommandEmpty>{searching ? null : 'No results.'}</CommandEmpty>
         <CommandList>
           {(group: PaletteGroup) => (
             <CommandGroup key={group.value} items={group.items}>
