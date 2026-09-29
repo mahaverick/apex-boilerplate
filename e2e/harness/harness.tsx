@@ -27,6 +27,8 @@ import {
   PLATFORM_TENANT_ID,
   STAFF_USER_ID,
   TENANT_ID,
+  TENANT_ID_2,
+  TENANT_ID_3,
   USER_ID,
   USER_ID_2,
 } from '../../tests/fixtures/ids'
@@ -136,17 +138,15 @@ const worker = setupWorker(
     )
   ),
   http.get('/api/v1/tenants/platform/members', () => ok(MEMBERS, 'Members retrieved.')),
+  // The Tenants table, the palette and the activity tenant filter: one tenant in each status, so every badge renders.
   http.get('/api/v1/platform/tenants', () =>
     ok(
       {
         tenants: [
-          {
-            ...ACME,
-            lifecycleState: 'active',
-            memberCount: 2,
-            createdAt: '2026-01-01T00:00:00.000Z',
-          },
-        ],
+          { ...ACME, lifecycleState: 'active' },
+          { id: TENANT_ID_2, name: 'Beta Ltd', slug: 'beta', lifecycleState: 'suspended' },
+          { id: TENANT_ID_3, name: 'Gamma Inc', slug: 'gamma', lifecycleState: 'archived' },
+        ].map((tenant) => ({ ...tenant, memberCount: 2, createdAt: '2026-01-01T00:00:00.000Z' })),
         nextCursor: null,
       },
       'Tenants retrieved.'
@@ -200,8 +200,8 @@ useAuthStore.setState({
  * Which in-app route to mount. Defaults to the overview. `?path=` exists for
  * the contrast suite and `fixtures/security.test.ts`, which need the other
  * authenticated surfaces: the handlers above answer /profile,
- * /auth/providers and the activity page's three requests, so those pages
- * render without a backend.
+ * /auth/providers, the tenants page's search and the activity page's three
+ * requests, so those pages render without a backend.
  *
  * Only a same-origin absolute path is accepted. This harness is not
  * shipped (nothing in `src/` imports it, and `index.html` is the only Vite

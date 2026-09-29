@@ -346,8 +346,9 @@ test.describe('chart legends', () => {
 })
 
 /**
- * The staff surfaces: the Staff badge on an Activity row, asserted present,
- * because a page without it grades clean and proves nothing about it.
+ * The staff surfaces: the Staff badge on an Activity row and the three tenant
+ * status badges, each asserted present, because a page without them grades
+ * clean and proves nothing about their token pairs.
  */
 test.describe('staff surfaces', () => {
   for (const theme of THEMES) {
@@ -356,6 +357,17 @@ test.describe('staff surfaces', () => {
       const row = page.getByRole('listitem').filter({ hasText: 'Sam Staff' })
       await expect(row.getByText('Staff', { exact: true })).toBeVisible()
       expect(report('staff badge', theme, result), report('staff badge', theme, result)).toBe('')
+    })
+
+    test(`the Tenants status badges meet WCAG AA contrast in ${theme}`, async ({ page }) => {
+      const result = await contrastOf(page, '/e2e/harness/?path=/tenants', theme, 'Tenants')
+      const table = page.getByRole('table', { name: 'Tenants' })
+      for (const status of ['Active', 'Suspended', 'Archived']) {
+        await expect(table.getByText(status, { exact: true })).toBeVisible()
+      }
+      expect(report('status badges', theme, result), report('status badges', theme, result)).toBe(
+        ''
+      )
     })
   }
 })

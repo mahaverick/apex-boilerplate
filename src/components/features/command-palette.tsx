@@ -104,7 +104,7 @@ export function CommandPalette() {
     if (item.kind === 'page') {
       void navigate({ to: item.to })
     } else {
-      void navigate({ to: ROUTES.tenants, search: { q: item.label } as never })
+      void navigate({ to: ROUTES.tenants, search: { q: item.label } })
     }
   }
 

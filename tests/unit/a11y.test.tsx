@@ -19,13 +19,15 @@ import {
   MEMBERSHIP_ID_2,
   STAFF_USER_ID,
   TENANT_ID,
+  TENANT_ID_2,
+  TENANT_ID_3,
   USER_ID,
   USER_ID_2,
 } from '@/tests/fixtures/ids'
 import { renderAppAt } from '@/tests/fixtures/render-app'
 import { fail, ok, TEST_INVITATION_TOKEN, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { AuditEntry, PlatformAuditEntry } from '@/types/api.types'
+import type { AuditEntry, PlatformAuditEntry, PlatformTenantRow } from '@/types/api.types'
 
 /**
  * THE ACCESSIBILITY GATE. Spec section 9's criteria, made enforceable.
@@ -452,7 +454,6 @@ describe('signed-in pages', () => {
       },
     ],
     ['profile', '/profile', () => screen.findByRole('button', { name: 'Change password' })],
-    ['tenants', '/tenants', () => screen.findByRole('heading', { name: 'Tenants', level: 1 })],
     [
       'invitation accept',
       `/invitations/accept?token=${TEST_INVITATION_TOKEN}`,
@@ -477,6 +478,52 @@ describe('signed-in pages', () => {
     await screen.findByRole('heading', { name: 'Overview', level: 1 })
     // Not vacuous: the collapsed rail, with its hidden group labels and icon tooltips, is what this grades.
     expect(document.querySelector('[data-state="collapsed"]')).not.toBeNull()
+    await expectNoViolations()
+  })
+
+  it('tenants with a row in every status has no axe violations', async () => {
+    const rows = (
+      [
+        [TENANT_ID, 'Acme Corp', 'acme', 'active'],
+        [TENANT_ID_2, 'Beta Ltd', 'beta', 'suspended'],
+        [TENANT_ID_3, 'Gamma Inc', 'gamma', 'archived'],
+      ] as const
+    ).map(([id, name, slug, lifecycleState]): PlatformTenantRow => ({
+      id,
+      name,
+      slug,
+      lifecycleState,
+      memberCount: 2,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    }))
+    server.use(
+      http.get('/api/v1/platform/tenants', () =>
+        ok({ tenants: rows, nextCursor: 'next' }, 'Tenants retrieved.')
+      )
+    )
+    renderAppAt('/tenants')
+    // The h1 renders before the page lands; grade the table, its badges and the pager.
+    const table = await screen.findByRole('table', { name: 'Tenants' })
+    expect(within(table).getByText('Archived')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled()
+    await expectNoViolations()
+  })
+
+  it('tenants with nothing matching has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () =>
+        ok({ tenants: [], nextCursor: null }, 'Tenants retrieved.')
+      )
+    )
+    renderAppAt('/tenants?q=zzz')
+    await screen.findByText('No tenants match “zzz”.')
+    await expectNoViolations()
+  })
+
+  it('tenants denied to the role has no axe violations', async () => {
+    server.use(http.get('/api/v1/platform/tenants', () => fail('Not found', 404)))
+    renderAppAt('/tenants')
+    await screen.findByText(/Your role can’t see this any more/)
     await expectNoViolations()
   })
 
