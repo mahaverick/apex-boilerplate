@@ -15,8 +15,8 @@ import { settle } from '@/tests/fixtures/timing'
 
 /**
  * The app router's route-state options, applied to a small tree of its own.
- * No route in the real tree has a loader that fails on demand, and `$slug`
- * has an `errorComponent` of its own, so the defaults are driven here.
+ * No route in the real tree has a loader that fails on demand, so the
+ * defaults are driven here.
  */
 function renderTree(
   loader: () => unknown,

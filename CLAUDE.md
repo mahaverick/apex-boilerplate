@@ -176,7 +176,7 @@ hand-written one stays out.
 - **`<Form>`'s server-error clearing covers native inputs only.** It listens for
   a change event that bubbles out of the form element. A Base UI `Select` does
   not emit one, so a form with a Select must call `serverErrors.clearField()`
-  itself — `$slug.members.tsx` is the worked example. The `Checkbox` case is
+  itself — `tests/unit/components/ui/form.test.tsx` pins it. The `Checkbox` case is
   **unverified**: check it before relying on either answer.
 
 ## Versions
@@ -300,11 +300,9 @@ projects (`fixtures`, `live`, `contrast`, `nginx`), and three conventions that a
 same fixtures `tests/unit/a11y.test.tsx` uses, so it needs no backend. It exists for the
 checks jsdom cannot make, because jsdom has no layout: whether the webfont actually resolved,
 whether anything overflows the viewport at 390px, whether a state renders as more than a bare
-header. `?state=loaded|empty|error|loading|soleowner` picks the members response.
+header. `?path=` picks the route; the default is `/overview`, and the harness user is a platform admin.
 
-Two harness traps that make a test measure the wrong thing: answering
-the SSE stream with `204` looks to the hook exactly like a dropped connection and sends the
-page into a refresh-then-redirect that a test will race; and **any endpoint left unmocked
+One harness trap makes a test measure the wrong thing: **any endpoint left unmocked
 falls through** (`onUnhandledRequest: 'bypass'`) and 401s. Under Playwright, the `fixtures` and
 `contrast` projects take `test` from `e2e/hermetic.ts`, which answers every `/api` request that
 would leave the browser with express's 401 envelope, and fails the test at teardown if any `/api`
@@ -351,11 +349,6 @@ of the palette, which moves rarely" as the whole risk model. Component compositi
 contrast too — which token a component puts on which surface decides the ratio, not the palette
 alone — and composition changes on every feature, so run this before merging UI work, not only when a
 token moves. **Do not eyeball a contrast change — run the script.**
-
-`restartApi()` kills by port with `-sTCP:LISTEN` and escalates SIGTERM→SIGKILL. Both details
-are load-bearing: `pnpm dev` is `tsx watch`, whose CHILD holds the port and survives a
-group SIGTERM, and without `-sTCP:LISTEN` lsof also lists the Vite proxy as a client of that
-port and the kill takes the dev server down too.
 
 ## Accessibility
 

@@ -66,8 +66,7 @@ describe('ensureSession', () => {
    * is the only correct answer. A transport failure is not a verdict about
    * anything — the session may be perfectly good and this call simply could
    * not ask. Signing the user out on it means a few seconds of downtime ends
-   * a working session, which useNotificationStream turns into a routine
-   * occurrence because it reconnects through ensureSession().
+   * a working session, for every tab that happens to refresh during it.
    */
   it('rejects WITHOUT logging out when the API cannot be reached', async () => {
     useAuthStore.getState().login('live-token', testUser)

@@ -76,8 +76,9 @@ function PlatformNotFound() {
 }
 
 /**
- * A tenant picker over the platform search, run only while open. The popup is named and holds the search box, so Base UI
- * makes it a `dialog`, which axe's `region` rule exempts. The vendored trigger
+ * A tenant picker over the platform search, run only while open. The popup is
+ * named and holds the search box, so Base UI makes it a `dialog`, which axe's
+ * `region` rule exempts. The vendored trigger
  * and clear icon buttons are off because they carry no accessible name; the
  * Clear button beside the trigger has one. The status line stays mounted and
  * only its text changes, so the live region announces it; while a new term

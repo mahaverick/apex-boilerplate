@@ -19,12 +19,12 @@ import { fail } from '@/tests/mocks/handlers'
  * way. Add a case here and both sides gain a test.
  *
  * Why each entry is not a verdict:
- * - **502 / 503**: nginx through a rolling restart or a dead upstream. The
- *   SSE stream errors, the hook reconnects through `ensureSession()`, and a
- *   logout here would sign out every user with a tab open on every deploy.
- * - **429**: `/auth/refresh` is rate limited (`auth.routes.ts`), and
- *   `useNotificationStream` retries on a schedule across every open tab — so
- *   our own retry policy can manufacture the 429 that would end the session.
+ * - **502 / 503**: nginx through a rolling restart or a dead upstream. A
+ *   logout here would sign out every user whose tab refreshed its session
+ *   during a deploy.
+ * - **429**: `/auth/refresh` is rate limited (`auth.routes.ts`), and every
+ *   open tab refreshes on its own — so ordinary traffic can manufacture the
+ *   429 that would end the session.
  * - **A 200 carrying HTML**: `rejectMalformedJsonResponse`
  *   (`src/http/interceptors.ts`) throws an `AxiosError` that CARRIES a
  *   response, so a poisoned cache entry or a misrouted proxy response would

@@ -33,33 +33,7 @@ export interface User {
   platformRole: MembershipRole | null
 }
 
-/** How the caller reached a tenant: as one of its members, or as platform staff. */
-export type TenantAccess = 'member' | 'platform'
-
 export const ACCESS_TOKEN_EXPIRED = 'ACCESS_TOKEN_EXPIRED'
-
-/**
- * `invitedBy` on a pending-invitation row, or `null` once the inviter's
- * account is gone (the column is `on delete set null`).
- */
-export interface InvitationInviter {
-  id: string
-  firstName: string | null
-  lastName: string | null
-}
-
-/**
- * One row of `GET /tenants/:slug/invitations`. The server never sends the
- * token or its hash, so nothing here can be used to accept the invitation.
- */
-export interface TenantInvitation {
-  id: string
-  email: string
-  role: MembershipRole
-  invitedBy: InvitationInviter | null
-  expiresAt: string
-  createdAt: string
-}
 
 /** `POST /invitations/preview` with `{ token }`: what an invite link opens onto. */
 export interface InvitationPreview {

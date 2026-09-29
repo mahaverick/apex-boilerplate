@@ -34,8 +34,8 @@ export function isAuthVerdict(error: unknown): boolean {
 
 /**
  * Move the browser to /login after a session has ended: the one place that
- * navigation is written, for the 401 interceptor (interceptors.ts), the SSE
- * reconnect (`useNotificationStream`) and a logout broadcast from another tab.
+ * navigation is written, for the 401 interceptor (interceptors.ts) and a
+ * logout broadcast from another tab (`installAuthBroadcastListener`).
  * `_app.beforeLoad` runs only on navigation, so without this a signed-out tab
  * would stay where it was, showing cached data.
  *

@@ -1,8 +1,7 @@
-import { execFile as execFileCallback, spawn } from 'node:child_process'
+import { execFile as execFileCallback } from 'node:child_process'
 import { promisify } from 'node:util'
 import { expect, type Page } from '@playwright/test'
 import type { MembershipRole } from '@/constants/roles'
-import { settle } from '../timing'
 
 const execFile = promisify(execFileCallback)
 
@@ -121,83 +120,6 @@ export async function waitForApi(timeoutMs = 60_000): Promise<void> {
       timeout: timeoutMs,
     })
     .toBe(true)
-}
-
-/**
- * Every pid LISTENING on `port`. `-sTCP:LISTEN` is load-bearing: without it
- * lsof also lists CLIENTS with an open socket to this port, and the Vite dev
- * server proxying /api is one of them. Killing that takes the whole run down.
- */
-async function listeningPids(port: string): Promise<number[]> {
-  const { stdout } = await execFile('lsof', ['-ti', `tcp:${port}`, '-sTCP:LISTEN']).catch(() => ({
-    stdout: '',
-  }))
-  return stdout.split('\n').filter(Boolean).map(Number)
-}
-
-function signalAll(pids: number[], signal: NodeJS.Signals): void {
-  for (const pid of pids) {
-    try {
-      process.kill(pid, signal)
-    } catch {
-      /* already gone */
-    }
-  }
-}
-
-/** Whether `port` has no listener within `timeoutMs`. */
-async function portFreedWithin(port: string, timeoutMs: number): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs
-  while ((await listeningPids(port)).length > 0) {
-    if (Date.now() >= deadline) return false
-    await settle(100, 'poll interval')
-  }
-  return true
-}
-
-/**
- * Stops whatever is listening on the API port, then starts a new one.
- *
- * Kills by PORT rather than by a pid this process spawned, because the API is
- * normally started by hand (`pnpm dev` in express-boilerplate) and the SSE
- * test has to be able to restart THAT. `tsx watch` spawns a child, so the
- * whole process group goes.
- */
-export async function restartApi(): Promise<void> {
-  const port = new URL(API_ORIGIN).port || '80'
-
-  /**
-   * Kill EVERY pid holding the port, not just the process group of the one
-   * we find first. `pnpm dev` is `tsx watch`, which spawns the real server
-   * as a CHILD: SIGTERM to only the parent's group would leave that child
-   * listening, the server would never go down, and "reconnects after a
-   * restart" would measure a stream that was never interrupted. SIGTERM
-   * first so it can close cleanly, then SIGKILL whatever is still there
-   * after 3s.
-   */
-  signalAll(await listeningPids(port), 'SIGTERM')
-  if (!(await portFreedWithin(port, 3000))) {
-    signalAll(await listeningPids(port), 'SIGKILL')
-    await expect
-      .poll(() => listeningPids(port), {
-        message: `something still listens on :${port} after SIGKILL`,
-        intervals: [100],
-        timeout: 5000,
-      })
-      .toEqual([])
-  }
-
-  // Confirm it actually went down, or "reconnects after a restart" passes against a server that never stopped.
-  await expect
-    .poll(apiIsReady, {
-      message: 'API did not stop; the restart test would be vacuous',
-      intervals: [250],
-      timeout: 15_000,
-    })
-    .toBe(false)
-
-  spawn('pnpm', ['dev'], { cwd: API_DIR, detached: true, stdio: 'ignore' }).unref()
-  await waitForApi()
 }
 
 /**

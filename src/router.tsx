@@ -49,10 +49,10 @@ declare module '@tanstack/react-router' {
   }
 
   /**
-   * A route's breadcrumb label, declared on the route so that dynamic routes
-   * (`/tenants/$slug` resolves to `/tenants/acme`) describe themselves. A
-   * function receives the match's path params, so a detail route can name
-   * itself after what it shows.
+   * A route's breadcrumb label, declared on the route so each route names
+   * itself in the trail (`/activity` is `Activity`). A function receives the
+   * match's path params, so a route with params can name itself after what
+   * it shows.
    */
   interface StaticDataRouteOption {
     crumb?: string | ((params: Record<string, string>) => string)

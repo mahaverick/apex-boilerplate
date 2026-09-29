@@ -4,8 +4,8 @@
  * non-UUID id models a request the real API would refuse with a 400.
  *
  * Hand-written and fixed, never generated. The first digit names the kind
- * (1 tenant, 2 user, 3 membership, 4 invitation, 5 notification, 6 audit
- * entry) and the last digits the ordinal; `...100` is the platform-side one.
+ * (1 tenant, 2 user, 3 membership, 4 invitation, 6 audit entry) and the last
+ * digits the ordinal; `...100` is the platform-side one.
  */
 export const TENANT_ID = '10000000-0000-4000-8000-000000000001'
 export const TENANT_ID_2 = '10000000-0000-4000-8000-000000000002'
@@ -34,10 +34,6 @@ export const INVITATION_ID = '40000000-0000-4000-8000-000000000001'
 export const INVITATION_ID_2 = '40000000-0000-4000-8000-000000000002'
 export const INVITATION_ID_3 = '40000000-0000-4000-8000-000000000003'
 export const INVITATION_ID_9 = '40000000-0000-4000-8000-000000000009'
-
-export const NOTIFICATION_ID = '50000000-0000-4000-8000-000000000001'
-export const NOTIFICATION_ID_2 = '50000000-0000-4000-8000-000000000002'
-export const NOTIFICATION_ID_7 = '50000000-0000-4000-8000-000000000007'
 
 export const AUDIT_ID_1 = '60000000-0000-4000-8000-000000000001'
 export const AUDIT_ID_2 = '60000000-0000-4000-8000-000000000002'

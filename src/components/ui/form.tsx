@@ -59,7 +59,8 @@ const RenderedFieldsContext = React.createContext<RenderedFields | null>(null)
  * about.
  *
  * **Any non-native control must call `serverErrors.clearField('<its name>')`
- * itself, in its own change handler** — for a Select, inside `onValueChange`.
+ * itself, in its own change handler** — for a Select, inside `onValueChange`,
+ * as `tests/unit/components/ui/form.test.tsx` drives it.
  *
  * Base UI's CHECKBOX IS UNVERIFIED: nothing in this project wires one into a
  * form, and it is NOT safe to assume it behaves like the Select or like a
@@ -306,7 +307,7 @@ export function FormLabel({ className, ...props }: React.ComponentProps<typeof L
  * - Base UI **Select**: wrap this around `SelectTrigger` (inside `Select.Root`,
  *   which carries the `name`) and the id lands on the VISIBLE
  *   `button[role="combobox"]`. Measured, and asserted in
- *   `tests/unit/pages/_app/tenants/$slug.members.test.tsx`.
+ *   `tests/unit/components/ui/form.test.tsx`.
  * - Base UI **Checkbox**: unmeasured, since nothing in this project wires a
  *   Checkbox into a form. If the id lands on the HIDDEN input rather than the
  *   visible `role="checkbox"` element, the label points at a control nobody

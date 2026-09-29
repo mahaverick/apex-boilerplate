@@ -45,8 +45,9 @@ export function useInvitationPreview(token: string | undefined) {
  * unverified email) and 404 (no longer valid); a 401 here is a real session
  * verdict, handled by the interceptor like any other.
  *
- * On success the tenant's member list refetches, since the caller is now on
- * it, and the profile refreshes, since accepting into the platform tenant
+ * On success the tenant's member list is invalidated, since the caller is now
+ * on it: an observed list refetches at once, an unobserved one on its next
+ * mount. The profile refreshes, since accepting into the platform tenant
  * changes the stored user's platformRole.
  */
 export function useAcceptInvitation() {

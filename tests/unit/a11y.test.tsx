@@ -663,10 +663,9 @@ describe('open overlays', () => {
  */
 describe('focus indicators', () => {
   /**
-   * `Tabs` is not mounted by any route — `$slug.tsx` deliberately uses a nav
-   * of real links instead, because those tabs are routes. The primitive is
-   * still part of the approved set and is rendered directly here, which is
-   * the only way its contract gets checked at all.
+   * `Tabs` is not mounted by any route. The primitive is still part of the
+   * approved set and is rendered directly here, which is the only way its
+   * contract gets checked at all.
    *
    * Base UI renders `Tabs.Panel` with `tabIndex: open ? 0 : -1`
    * (@base-ui/react@1.8.0, tabs/panel/TabsPanel.js:76), so an open panel is

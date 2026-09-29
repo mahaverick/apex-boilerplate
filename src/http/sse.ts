@@ -22,8 +22,8 @@ const MAX_BUFFER_LENGTH = 1024 * 1024
  * a CRLF frame would otherwise sit unmatched until the buffer limit throws.
  * The limit is checked after the split and after yielding, against the
  * retained tail only, so a large burst of complete frames is delivered rather
- * than tripping it. The throw lands in the caller's `catch`
- * (`useNotificationStream`), which reconnects.
+ * than tripping it. The throw lands in the caller's `catch`, which is where a
+ * reconnect belongs.
  * @param body - The response body stream.
  * @yields Each complete frame, in order.
  * @throws {Error} When `buffer` exceeds `MAX_BUFFER_LENGTH` without ever completing a frame.
