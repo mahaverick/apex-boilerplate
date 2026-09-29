@@ -16,7 +16,13 @@ import { REAUTH_REQUIRED } from '@/types/api.types'
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   Link: ({ children, onClick }: { children: ReactNode; onClick?: () => void }) => (
-    <a href="/profile" onClick={onClick}>
+    <a
+      href="/profile"
+      onClick={(event) => {
+        event.preventDefault()
+        onClick?.()
+      }}
+    >
       {children}
     </a>
   ),
@@ -86,8 +92,12 @@ describe('useStepUp', () => {
       useStepUp()
       return null
     }
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(() => render(<Orphan />)).toThrow('useStepUp must be used inside <StepUpProvider>')
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect(() => render(<Orphan />)).toThrow('useStepUp must be used inside <StepUpProvider>')
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it('runs the action straight through when no step-up is needed', async () => {
