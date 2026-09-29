@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
+import { useRef } from 'react'
 import { LoadError } from '@/components/features/load-error'
 import { TenantActionsMenu } from '@/components/features/tenants/tenant-actions-menu'
 import { TenantStateBadge } from '@/components/features/tenants/tenant-state-badge'
@@ -33,6 +34,7 @@ export const Route = createFileRoute('/_app/tenants/$tenantId')({
 function TenantLayout() {
   const { tenantId } = Route.useParams()
   const tenant = useQuery(platformTenantQueryOptions(tenantId))
+  const heading = useRef<HTMLHeadingElement>(null)
 
   if (tenant.isError) {
     return statusFrom(tenant.error) === 404 ? (
@@ -66,14 +68,20 @@ function TenantLayout() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="grid gap-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold break-all">{name}</h1>
+            <h1
+              ref={heading}
+              tabIndex={-1}
+              className="text-2xl font-semibold break-all outline-none"
+            >
+              {name}
+            </h1>
             <TenantStateBadge state={lifecycleState} />
           </div>
           <p className="text-sm text-muted-foreground">
             <code>{slug}</code> · Created {formatDate(createdAt, 'medium') ?? 'on an unknown date'}
           </p>
         </div>
-        <TenantActionsMenu tenant={tenant.data} />
+        <TenantActionsMenu tenant={tenant.data} fallbackFocus={heading} />
       </div>
       <nav aria-label="Tenant sections" className="flex gap-1 overflow-x-auto border-b">
         {TENANT_DETAIL_TABS.map((tab) => (

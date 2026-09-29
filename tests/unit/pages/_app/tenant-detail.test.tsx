@@ -283,6 +283,30 @@ describe('/tenants/$tenantId', () => {
       expect((await screen.findAllByText('Archived')).length).toBeGreaterThan(0)
     })
 
+    it('puts focus on the page heading when archiving leaves an admin no action, not on <body>', async () => {
+      serve(detail())
+      server.use(
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/archive`, () =>
+          ok(detail({ lifecycleState: 'archived', deletedAt: '2026-09-29T00:00:00.000Z' }))
+        )
+      )
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Archive' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Archive Acme Corp?' })
+      await user.type(within(dialog).getByLabelText('Reason'), 'closed down')
+      await user.type(within(dialog).getByLabelText('Type acme to confirm'), 'acme')
+      await user.click(within(dialog).getByRole('button', { name: 'Archive' }))
+
+      await waitFor(() =>
+        expect(screen.queryByRole('alertdialog', { name: 'Archive Acme Corp?' })).toBeNull()
+      )
+      expect(screen.queryByRole('button', { name: 'Actions' })).not.toBeInTheDocument()
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: 'Acme Corp', level: 1 })).toHaveFocus()
+      )
+    })
+
     it('re-sends the owner invitation for a tenant with no owner, prefilled, with a reason', async () => {
       serve(
         detail({

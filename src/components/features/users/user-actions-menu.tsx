@@ -15,6 +15,7 @@ import {
 import { ROUTES } from '@/constants/routes'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom } from '@/lib/api-error'
+import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
 import { availableUserActions } from '@/lib/user-actions'
 import {
   useDeactivateUser,
@@ -27,18 +28,6 @@ import {
 } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import type { PlatformUserDetail } from '@/types/api.types'
-
-/**
- * A ref callback for the menu trigger. An action can leave nothing to offer
- * (an admin soft-deletes an account), which unmounts the trigger just after
- * its closing dialog handed focus back to it; focus then moves to `fallback`
- * rather than to <body>.
- */
-function focusFallbackOnRemoval(fallback: RefObject<HTMLElement | null> | undefined) {
-  return (node: HTMLButtonElement | null) => () => {
-    if (node !== null && document.activeElement === node) fallback?.current?.focus()
-  }
-}
 
 type OpenDialog = 'edit' | 'signOut' | 'deactivate' | 'reactivate' | 'delete' | 'purge' | null
 

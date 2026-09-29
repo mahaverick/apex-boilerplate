@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { ChevronDown } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState, type RefObject } from 'react'
 import { toast } from 'sonner'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { EditTenantDialog } from '@/components/features/tenants/edit-tenant-dialog'
@@ -15,6 +15,7 @@ import {
 import { platformRoleAtLeast } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { useStepUp } from '@/hooks/use-step-up'
+import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
 import {
   activeOwnerCount,
   useArchiveTenant,
@@ -34,9 +35,18 @@ type Open = 'edit' | 'owner' | 'suspend' | 'reactivate' | 'archive' | 'purge' | 
  * transition. Edit also needs the tenant route's effective role, which is the
  * platform role unless the staff member is a member there too; a refusal then
  * shows inline. Suspend, Archive, Delete permanently and the owner invitation
- * go through step-up. Nothing renders when no action applies.
+ * go through step-up. No menu renders when no action applies; the dialogs
+ * stay mounted, so one whose action just removed the last option still
+ * closes and hands focus back.
  */
-export function TenantActionsMenu({ tenant }: { tenant: PlatformTenantDetail }) {
+export function TenantActionsMenu({
+  tenant,
+  fallbackFocus,
+}: {
+  tenant: PlatformTenantDetail
+  /** Where focus goes when an action removes this menu's trigger while it holds focus. */
+  fallbackFocus?: RefObject<HTMLElement | null>
+}) {
   const role = useAuthStore((s) => s.user?.platformRole)
   const navigate = useNavigate()
   const stepUp = useStepUp()
@@ -47,6 +57,7 @@ export function TenantActionsMenu({ tenant }: { tenant: PlatformTenantDetail }) 
     onPurged: () => navigate({ to: ROUTES.tenants, search: { state: 'archived' } }),
   })
   const [open, setOpen] = useState<Open>(null)
+  const keepFocusOnPage = useMemo(() => focusFallbackOnRemoval(fallbackFocus), [fallbackFocus])
 
   const isAdmin = platformRoleAtLeast(role, 'admin')
   const isOwner = platformRoleAtLeast(role, 'owner')
@@ -59,7 +70,7 @@ export function TenantActionsMenu({ tenant }: { tenant: PlatformTenantDetail }) 
     archive: isAdmin && state !== 'archived',
     purge: isOwner && state === 'archived',
   }
-  if (!Object.values(can).some(Boolean)) return null
+  const hasActions = Object.values(can).some(Boolean)
 
   const dialogProps = (which: Exclude<Open, null>) => ({
     open: open === which,
@@ -68,38 +79,40 @@ export function TenantActionsMenu({ tenant }: { tenant: PlatformTenantDetail }) 
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="outline" />}>
-          Actions
-          <ChevronDown aria-hidden />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-56">
-          {can.edit && (
-            <DropdownMenuItem onClick={() => setOpen('edit')}>Edit details</DropdownMenuItem>
-          )}
-          {can.owner && (
-            <DropdownMenuItem onClick={() => setOpen('owner')}>
-              Resend owner invitation
-            </DropdownMenuItem>
-          )}
-          {can.suspend && (
-            <DropdownMenuItem onClick={() => setOpen('suspend')}>Suspend</DropdownMenuItem>
-          )}
-          {can.reactivate && (
-            <DropdownMenuItem onClick={() => setOpen('reactivate')}>Reactivate</DropdownMenuItem>
-          )}
-          {can.archive && (
-            <DropdownMenuItem variant="destructive" onClick={() => setOpen('archive')}>
-              Archive
-            </DropdownMenuItem>
-          )}
-          {can.purge && (
-            <DropdownMenuItem variant="destructive" onClick={() => setOpen('purge')}>
-              Delete permanently
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {hasActions && (
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button ref={keepFocusOnPage} variant="outline" />}>
+            Actions
+            <ChevronDown aria-hidden />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-56">
+            {can.edit && (
+              <DropdownMenuItem onClick={() => setOpen('edit')}>Edit details</DropdownMenuItem>
+            )}
+            {can.owner && (
+              <DropdownMenuItem onClick={() => setOpen('owner')}>
+                Resend owner invitation
+              </DropdownMenuItem>
+            )}
+            {can.suspend && (
+              <DropdownMenuItem onClick={() => setOpen('suspend')}>Suspend</DropdownMenuItem>
+            )}
+            {can.reactivate && (
+              <DropdownMenuItem onClick={() => setOpen('reactivate')}>Reactivate</DropdownMenuItem>
+            )}
+            {can.archive && (
+              <DropdownMenuItem variant="destructive" onClick={() => setOpen('archive')}>
+                Archive
+              </DropdownMenuItem>
+            )}
+            {can.purge && (
+              <DropdownMenuItem variant="destructive" onClick={() => setOpen('purge')}>
+                Delete permanently
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       {can.edit && <EditTenantDialog tenant={tenant} {...dialogProps('edit')} />}
       {can.owner && <OwnerInvitationDialog tenant={tenant} {...dialogProps('owner')} />}
