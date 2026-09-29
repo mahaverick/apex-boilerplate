@@ -33,11 +33,18 @@ export default defineConfig({
    * Reuses a running dev server or starts one. Skipped for the `nginx` project,
    * which serves the production bundle from a container; `webServer` has no
    * per-project form, so the switch is an env var.
+   *
+   * `--force` makes a server this config starts re-scan every import before
+   * serving. Vite trusts a dependency cache whose lockfile and config hashes
+   * still match, so a source change that imports a package the cache predates
+   * is found mid-run instead: Vite re-optimises and reloads the page, which
+   * drops the memory-only access token and lands the test on /login. A server
+   * that is reused is not restarted, so it keeps whatever cache it has.
    */
   webServer: process.env.E2E_NGINX
     ? undefined
     : {
-        command: 'pnpm dev',
+        command: 'pnpm exec vite --force',
         url: 'http://localhost:5174',
         reuseExistingServer: !process.env.CI,
         timeout: 60_000,
