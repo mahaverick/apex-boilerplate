@@ -250,6 +250,7 @@ describe('/users', () => {
         http.get(`/api/v1/platform/users/${USER_ID_3}`, () => fail('Not found', 404))
       )
       const warning = vi.spyOn(toast, 'warning')
+      const success = vi.spyOn(toast, 'success')
       const user = userEvent.setup()
       renderAppAt('/users')
       await user.click(await screen.findByRole('button', { name: 'New user' }))
@@ -262,6 +263,36 @@ describe('/users', () => {
       expect(message).toBe('The user was created, but the set-password email could not be sent.')
       ;(options as unknown as { action: { onClick: () => void } }).action.onClick()
       await waitFor(() => expect(resent).toBe(true))
+      await waitFor(() => expect(success).toHaveBeenCalledWith('Set-password email sent.'))
+    })
+
+    it('starts blank after the dialog is closed without creating anyone', async () => {
+      pages([])
+      server.use(
+        http.post('/api/v1/platform/users', () =>
+          fail('An account already uses that email address', 409)
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt('/users')
+      await user.click(await screen.findByRole('button', { name: 'New user' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New user' })
+      await user.type(within(dialog).getByLabelText('Email'), 'taken@example.com')
+      await user.type(within(dialog).getByLabelText('First name'), 'Tia')
+      await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
+      await within(dialog).findByText('An account already uses that email address')
+
+      await user.keyboard('{Escape}')
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: 'New user' })).not.toBeInTheDocument()
+      )
+      await user.click(screen.getByRole('button', { name: 'New user' }))
+      const reopened = await screen.findByRole('dialog', { name: 'New user' })
+      expect(within(reopened).getByLabelText('Email')).toHaveValue('')
+      expect(within(reopened).getByLabelText('First name')).toHaveValue('')
+      expect(
+        within(reopened).queryByText('An account already uses that email address')
+      ).not.toBeInTheDocument()
     })
 
     it('keeps the dialog open with the server’s 409 in it', async () => {

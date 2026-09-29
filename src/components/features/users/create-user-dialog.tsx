@@ -31,7 +31,9 @@ import { createUserSchema } from '@/schemas/user-admin.schemas'
 /**
  * New user: email and optional names. The API creates the account without a
  * password and mails a set-password link; staff never see a password. When
- * the mail did not go, the toast offers a resend rather than hiding it.
+ * the mail did not go, the toast offers a resend rather than hiding it, and
+ * the resend's own outcome is toasted too. However the dialog closes, it
+ * opens blank next time.
  */
 export function CreateUserDialog() {
   const [open, setOpen] = useState(false)
@@ -53,16 +55,19 @@ export function CreateUserDialog() {
           toast.warning('The user was created, but the set-password email could not be sent.', {
             action: {
               label: 'Resend',
+              // A promise, not mutate's callbacks: those never fire once this dialog has unmounted, and it has by now, on the new user's page.
               onClick: () =>
-                resend.mutate(
-                  { userId: user.id },
-                  { onError: (error) => toast.error(messageFrom(error)) }
+                void resend.mutateAsync({ userId: user.id }).then(
+                  ({ emailSent: sent }) => {
+                    if (sent) toast.success('Set-password email sent.')
+                    else toast.warning('The email could not be sent. Try again shortly.')
+                  },
+                  (error: unknown) => toast.error(messageFrom(error))
                 ),
             },
           })
         }
-        setOpen(false)
-        form.reset()
+        close(false)
         void navigate({ to: ROUTES.user, params: { userId: user.id } })
       } catch (error) {
         serverErrors.capture(error)
@@ -70,10 +75,17 @@ export function CreateUserDialog() {
     },
   })
 
+  function close(next: boolean) {
+    setOpen(next)
+    if (next) return
+    form.reset()
+    serverErrors.reset()
+  }
+
   return (
     <>
       <Button onClick={() => setOpen(true)}>New user</Button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={close}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New user</DialogTitle>
