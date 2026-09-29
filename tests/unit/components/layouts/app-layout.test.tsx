@@ -1,21 +1,13 @@
-import { QueryClientProvider } from '@tanstack/react-query'
-import {
-  createMemoryHistory,
-  createRouter,
-  RouterProvider,
-  type AnyRouter,
-} from '@tanstack/react-router'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resetSessionForTests } from '@/http/session'
-import { queryClient } from '@/router'
-import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
+import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
+import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
@@ -31,37 +23,11 @@ const LOGOUT_FAILURES: [string, () => Response][] = [
   ],
 ]
 
-/**
- * Driven through a real RouterProvider: the layout reads `useMatches()` for
- * its breadcrumbs and renders `<Link>` nav items, neither of which exists
- * outside a router.
- */
-function renderAppAt(path: string): AnyRouter & { unmount: () => void } {
-  const router = createRouter({
-    routeTree,
-    context: { queryClient },
-    history: createMemoryHistory({ initialEntries: [path] }),
-  })
-  const { unmount } = render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router as never} />
-    </QueryClientProvider>
-  )
-  return Object.assign(router as AnyRouter, { unmount })
-}
-
 describe('AppLayout', () => {
   beforeEach(() => {
-    resetSessionForTests()
-    queryClient.clear()
+    signIn()
     useSidebarStore.setState({ isCollapsed: false })
-    // Already bootstrapped, so __root's beforeLoad returns immediately and _app's guard lets the layout render.
-    useAuthStore.setState({
-      accessToken: 'access-token',
-      user: testUser,
-      isAuthenticated: true,
-      isBootstrapped: true,
-    })
+    useCommandPaletteStore.setState({ open: false })
   })
 
   const realLocation = window.location
@@ -86,6 +52,29 @@ describe('AppLayout', () => {
     const link = within(nav).getByRole('link', { name: 'Overview' })
     expect(link.tagName).toBe('A')
     expect(link).toHaveAttribute('href', '/overview')
+  })
+
+  it.each([
+    ['viewer', ['Overview', 'Tenants'], ['General', 'Directory']],
+    ['admin', ['Overview', 'Tenants', 'Activity log'], ['General', 'Directory', 'Security']],
+  ] as const)('shows a %s their items, grouped', async (platformRole, labels, groups) => {
+    signIn({ ...testUser, platformRole })
+    renderAppAt('/overview')
+    const nav = await screen.findByRole('navigation', { name: 'Main' })
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => link.textContent)
+    ).toEqual(labels)
+    for (const group of groups) expect(within(nav).getByText(group)).toBeInTheDocument()
+  })
+
+  it('opens the command palette from the header search button', async () => {
+    signIn({ ...testUser, platformRole: 'viewer' })
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    await user.click(await screen.findByRole('button', { name: /Search…/ }))
+    expect(await screen.findByRole('dialog', { name: 'Command palette' })).toBeInTheDocument()
   })
 
   it('gives every icon-only control its own accessible name', async () => {
@@ -294,15 +283,9 @@ describe('AppLayout system theme', () => {
   }
 
   beforeEach(() => {
-    resetSessionForTests()
-    queryClient.clear()
+    signIn()
     useSidebarStore.setState({ isCollapsed: false })
-    useAuthStore.setState({
-      accessToken: 'access-token',
-      user: testUser,
-      isAuthenticated: true,
-      isBootstrapped: true,
-    })
+    useCommandPaletteStore.setState({ open: false })
     localStorage.clear()
     document.documentElement.classList.remove('dark')
     useThemeStore.setState({ theme: 'system' })

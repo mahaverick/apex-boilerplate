@@ -2,13 +2,14 @@ import { http, HttpResponse } from 'msw'
 import { USER_ID } from '@/tests/fixtures/ids'
 import type { InvitationPreview, User } from '@/types/api.types'
 
+/** A platform admin: every in-app surface is staff-only, so a test about non-staff says `platformRole: null`. */
 export const testUser: User = {
   id: USER_ID,
   email: 'a@b.com',
   firstName: 'A',
   lastName: 'B',
   createdAt: '2026-01-01T00:00:00.000Z',
-  platformRole: null,
+  platformRole: 'admin',
 }
 
 /** 43 characters of base64url, the shape the server mints and validates. */
@@ -57,6 +58,13 @@ export const handlers = [
     ok(
       { tenant: testInvitationPreview.tenant, role: testInvitationPreview.role },
       'Invitation accepted.'
+    )
+  ),
+  // The shell lands on Overview after every sign-in, and Overview reads these. A test about the stats overrides it.
+  http.get('/api/v1/platform/stats', () =>
+    ok(
+      { range: '7d', totals: { tenants: 0, users: 0, staff: 1 }, signups: [], emails: [] },
+      'Platform stats retrieved.'
     )
   ),
   // The platform audit log, empty. A test about activity overrides it.

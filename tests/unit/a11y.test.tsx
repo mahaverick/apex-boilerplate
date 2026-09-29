@@ -1,5 +1,3 @@
-import { QueryClientProvider } from '@tanstack/react-query'
-import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axeCore from 'axe-core'
@@ -10,8 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GOOGLE_OAUTH_PATH } from '@/constants/routes'
 import { resetSessionForTests } from '@/http/session'
 import { queryClient } from '@/router'
-import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
+import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
 import {
@@ -24,6 +22,7 @@ import {
   USER_ID,
   USER_ID_2,
 } from '@/tests/fixtures/ids'
+import { renderAppAt } from '@/tests/fixtures/render-app'
 import { fail, ok, TEST_INVITATION_TOKEN, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type { AuditEntry, PlatformAuditEntry } from '@/types/api.types'
@@ -63,8 +62,9 @@ import type { AuditEntry, PlatformAuditEntry } from '@/types/api.types'
  *    no level-one heading at all.
  *
  * 4. NO RULE IS TURNED OFF beyond contrast. jest-axe's defaults are used as they
- *    come, `region` included: everything in the sidebar's header and footer
- *    sits inside a `button` or an `a`, so `region` does not flag it, and the
+ *    come, `region` included: `region` exempts a `button` but NOT an `a`, so the
+ *    sidebar footer's controls (buttons) pass as they are, while the brand link
+ *    in the sidebar header sits inside a `header` landmark, and the
  *    rule genuinely runs (a stray `<p>` appended to `document.body` IS
  *    flagged, which the first test below asserts). If something starts
  *    tripping a rule, fix the markup.
@@ -128,19 +128,6 @@ const AUDIT_ENTRIES: AuditEntry[] = [
     metadata: { name: 'Acme Corp', slug: 'acme' },
   },
 ]
-function renderAppAt(path: string) {
-  const router = createRouter({
-    routeTree,
-    context: { queryClient },
-    history: createMemoryHistory({ initialEntries: [path] }),
-  })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router as never} />
-    </QueryClientProvider>
-  )
-}
-
 /** A signed-in session, already bootstrapped, so `_app`'s guard lets pages render. */
 function signIn() {
   useAuthStore.setState({
@@ -335,6 +322,7 @@ beforeEach(() => {
   resetSessionForTests()
   queryClient.clear()
   useSidebarStore.setState({ isCollapsed: false })
+  useCommandPaletteStore.setState({ open: false })
 })
 
 afterEach(() => {
@@ -454,6 +442,22 @@ describe('signed-in pages', () => {
   ])('%s has no axe violations', async (_name, path, ready) => {
     renderAppAt(path)
     await ready()
+    await expectNoViolations()
+  })
+
+  it('no-access has no axe violations', async () => {
+    useAuthStore.setState({ user: { ...testUser, platformRole: null } })
+    renderAppAt('/no-access')
+    await screen.findByRole('heading', { name: 'This account has no platform access', level: 1 })
+    await expectNoViolations()
+  })
+
+  it('the shell with the sidebar collapsed has no axe violations', async () => {
+    useSidebarStore.setState({ isCollapsed: true })
+    renderAppAt('/overview')
+    await screen.findByRole('heading', { name: 'Overview', level: 1 })
+    // Not vacuous: the collapsed rail, with its hidden group labels and icon tooltips, is what this grades.
+    expect(document.querySelector('[data-state="collapsed"]')).not.toBeNull()
     await expectNoViolations()
   })
 
@@ -637,6 +641,23 @@ describe('open overlays', () => {
     await expectNoViolations()
     const popup = screen.getByRole('dialog', { name: 'Filter by tenant' })
     expect(within(popup).getByRole('listbox')).toBeInTheDocument()
+  })
+
+  /**
+   * The ⌘K palette as the shell mounts it: a named `dialog`, so its portaled
+   * list is exempt from `region` and it is graded at DOCUMENT scope.
+   */
+  it('has no violations with the command palette open', async () => {
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    await screen.findByRole('heading', { name: 'Overview', level: 1 })
+
+    await user.click(screen.getByRole('button', { name: /Search…/ }))
+
+    const palette = await screen.findByRole('dialog', { name: 'Command palette' })
+    // A palette that opened empty would pass axe while grading no list at all.
+    expect(within(palette).getAllByRole('option').length).toBeGreaterThan(0)
+    await expectNoViolations()
   })
 
   it('has no violations with the theme menu open inside the mobile sheet', async () => {

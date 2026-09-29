@@ -32,7 +32,8 @@ function initials(user: User | null): string {
  * The account menu in the sidebar footer. Below `md` its trigger collapses to
  * the avatar, so the aria-label names it (Base UI's Tooltip emits no
  * role="tooltip" or aria-describedby); the label is on the rendered element,
- * whose own props win under useRender.
+ * whose own props win under useRender. Staff management arrives with Apex's
+ * directory pages.
  */
 export function UserMenu({ user }: { user: User | null }) {
   const logout = useLogout()

@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation, useMatches, type LinkProps } from '@tanstack/react-router'
-import { Building2, LayoutDashboard } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { Fragment, useEffect } from 'react'
+import { CommandPalette } from '@/components/features/command-palette'
 import { MAIN_CONTENT_ID, SkipLink } from '@/components/features/skip-link'
 import { ThemeToggle } from '@/components/features/theme-toggle'
 import { UserMenu } from '@/components/features/user-menu'
@@ -12,11 +13,16 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import { Separator } from '@/components/ui/separator'
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
@@ -24,16 +30,12 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
-import { ROUTES } from '@/constants/routes'
+import { APP_NAME } from '@/constants/app'
+import { navGroupsFor } from '@/constants/navigation'
 import { useAuthStore } from '@/states/auth.store'
+import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
-
-/** The sidebar's primary navigation. `to` is typed against the route tree, so a missing route is a type error. */
-const NAV_ITEMS = [
-  { to: ROUTES.overview, label: 'Overview', Icon: LayoutDashboard },
-  { to: ROUTES.tenants, label: 'Tenants', Icon: Building2 },
-] as const
 
 interface Crumb {
   /** Stable across renders: one crumb per matched route. */
@@ -73,24 +75,16 @@ function isNavActive(pathname: string, to: string): boolean {
 }
 
 /**
- * The signed-in shell: sidebar, header with breadcrumbs, and the page.
+ * The staff shell: a grouped sidebar, a header with breadcrumbs and the ⌘K
+ * search, and the page. Navigation comes from `navGroupsFor(role)`, so an item
+ * above the user's role is absent, not disabled.
  *
- * It holds the listener that makes `theme: 'system'` follow the OS (the theme
- * store samples `prefers-color-scheme` once, at import). It lives here, not in the sidebar:
- * below `md` the `Sidebar` renders into a `Sheet`, whose content unmounts
- * while the drawer is closed, so anything inside it would be dead on phones.
- * The theme toggle is a sibling of the user menu for the same reason: inside
- * the dropdown it would unmount whenever the menu closed.
- *
- * The primary navigation sits in its own `nav` landmark, since `Sidebar`
- * renders plain divs, and each item renders as the anchor itself, so it is
- * keyboard-reachable and opens in a new tab. `SidebarInset` is the `main`
- * element, so the page goes in a plain div. The trigger's explicit aria-label
- * pins its name against a re-added vendored file. Each breadcrumb separator
- * is a sibling `li`, since an `li` inside an `li` is invalid. The nav
- * highlight reads the location, not the last crumb, whose deep path matches
- * no nav item. The sidebar store, not the provider, owns the open state, so
- * anything in the app can read or set it.
+ * The palette and the theme listener live here, not in the sidebar: below
+ * `md` the `Sidebar` renders into a `Sheet` whose content unmounts while
+ * closed. The primary navigation sits in its own `nav` landmark, since
+ * `Sidebar` renders plain divs, and the brand link in a `header` (the banner),
+ * since axe's `region` rule exempts buttons but not links. `SidebarInset` is
+ * the `main` element, so its own `header` is not a second banner.
  */
 export function AppLayout() {
   const user = useAuthStore((s) => s.user)
@@ -98,8 +92,10 @@ export function AppLayout() {
   const setCollapsed = useSidebarStore((s) => s.setCollapsed)
   const theme = useThemeStore((s) => s.theme)
   const setTheme = useThemeStore((s) => s.setTheme)
+  const openPalette = useCommandPaletteStore((s) => s.setOpen)
   const crumbs = useBreadcrumbs()
   const pathname = useLocation({ select: (location) => location.pathname })
+  const groups = navGroupsFor(user?.platformRole)
 
   useEffect(() => {
     if (theme !== 'system') return
@@ -113,18 +109,44 @@ export function AppLayout() {
     <SidebarProvider open={!isCollapsed} onOpenChange={(open) => setCollapsed(!open)}>
       <SkipLink />
       <Sidebar collapsible="icon">
+        <SidebarHeader>
+          <header>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton size="lg" render={<Link to="/overview" />}>
+                  <span
+                    aria-hidden
+                    className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground"
+                  >
+                    A
+                  </span>
+                  <span className="font-semibold">{APP_NAME}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </header>
+        </SidebarHeader>
         <SidebarContent>
           <nav aria-label="Main">
-            <SidebarMenu>
-              {NAV_ITEMS.map(({ to, label, Icon }) => (
-                <SidebarMenuItem key={to}>
-                  <SidebarMenuButton isActive={isNavActive(pathname, to)} render={<Link to={to} />}>
-                    <Icon />
-                    <span>{label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
+            {groups.map(({ group, items }) => (
+              <SidebarGroup key={group}>
+                <SidebarGroupLabel>{group}</SidebarGroupLabel>
+                <SidebarMenu>
+                  {items.map(({ to, label, Icon }) => (
+                    <SidebarMenuItem key={to}>
+                      <SidebarMenuButton
+                        isActive={isNavActive(pathname, to)}
+                        tooltip={label}
+                        render={<Link to={to} />}
+                      >
+                        <Icon />
+                        <span>{label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroup>
+            ))}
           </nav>
         </SidebarContent>
         <SidebarFooter>
@@ -135,7 +157,7 @@ export function AppLayout() {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset id={MAIN_CONTENT_ID} tabIndex={-1} className="outline-none">
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger aria-label="Toggle sidebar" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <Breadcrumb>
@@ -154,11 +176,24 @@ export function AppLayout() {
               ))}
             </BreadcrumbList>
           </Breadcrumb>
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto w-56 justify-between font-normal text-muted-foreground"
+            onClick={() => openPalette(true)}
+          >
+            <span className="flex items-center gap-2">
+              <Search aria-hidden className="size-4" />
+              Search…
+            </span>
+            <Kbd>⌘K</Kbd>
+          </Button>
         </header>
         <div className="flex-1 overflow-auto p-4 md:p-6">
           <Outlet />
         </div>
       </SidebarInset>
+      <CommandPalette />
     </SidebarProvider>
   )
 }

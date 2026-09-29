@@ -90,6 +90,7 @@ function renderPlatformActivity() {
       <RouterProvider router={router as never} />
     </QueryClientProvider>
   )
+  return router
 }
 
 /** The tenant filter's trigger; the search box lives in the popup it opens. */
@@ -125,9 +126,21 @@ describe('platform activity page', () => {
     expect(within(row).getByText('Staff')).toBeInTheDocument()
   })
 
+  it('sends someone who is not staff to /no-access and never asks the API', async () => {
+    signInAs(null)
+    const seen = mockLog(() => ok({ entries: [], nextCursor: null }, 'Audit log retrieved.'))
+    const router = renderPlatformActivity()
+
+    // The guard redirects before the page mounts; the no-access heading is the barrier that any request from /activity would already have gone out by.
+    expect(
+      await screen.findByRole('heading', { name: 'This account has no platform access', level: 1 })
+    ).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/no-access')
+    expect(seen).toHaveLength(0)
+  })
+
   // Matches the API's 404: the page must not tell a non-admin it exists.
   it.each([
-    ['someone who is not staff', null],
     ['a staff viewer', 'viewer'],
     ['a staff editor', 'editor'],
   ] as const)('shows %s a not-found panel and never asks the API', async (_who, role) => {

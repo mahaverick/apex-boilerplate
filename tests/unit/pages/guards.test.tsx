@@ -143,8 +143,26 @@ describe('route guards', () => {
       context: { queryClient },
       history: createMemoryHistory({ initialEntries: [path] }),
     })
-    render(<RouterProvider router={router as never} />)
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router as never} />
+      </QueryClientProvider>
+    )
     return router as AnyRouter
+  }
+
+  /**
+   * A valid refresh cookie for a user with this platform role, answered after
+   * a delay so a guard that ran before the session settled would be caught.
+   */
+  function signedInAs(platformRole: 'viewer' | 'admin' | null) {
+    server.use(
+      http.post('/api/v1/auth/refresh', async () => {
+        await delay(20)
+        return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
+      }),
+      http.get('/api/v1/profile', () => ok({ ...testUser, platformRole }, 'Profile retrieved.'))
+    )
   }
 
   /** The guard that ran last must have seen a settled store. */
@@ -171,13 +189,7 @@ describe('route guards', () => {
   })
 
   it('sends a signed-in visitor from /login to /overview', async () => {
-    server.use(
-      http.post('/api/v1/auth/refresh', async () => {
-        await delay(20)
-        return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
-      }),
-      http.get('/api/v1/profile', () => ok(testUser, 'Profile retrieved.'))
-    )
+    signedInAs('viewer')
     const router = renderAt('/login')
 
     await waitFor(() => {
@@ -200,6 +212,32 @@ describe('route guards', () => {
       expect(router.state.location.pathname).toBe('/login')
     })
     expectGuardSawSettledStore()
+  })
+
+  it('sends a signed-in user who is not staff to /no-access', async () => {
+    signedInAs(null)
+    const router = renderAt('/overview')
+    await waitFor(() => expect(router.state.location.pathname).toBe('/no-access'))
+    expectGuardSawSettledStore()
+  })
+
+  it('lets a staff viewer into /overview', async () => {
+    signedInAs('viewer')
+    const router = renderAt('/overview')
+    await screen.findByRole('heading', { name: 'Overview', level: 1 })
+    expect(router.state.location.pathname).toBe('/overview')
+  })
+
+  it('sends staff away from /no-access to /overview', async () => {
+    signedInAs('viewer')
+    const router = renderAt('/no-access')
+    await waitFor(() => expect(router.state.location.pathname).toBe('/overview'))
+  })
+
+  it('sends a signed-out visitor from /no-access to /login', async () => {
+    server.use(http.post('/api/v1/auth/refresh', () => fail('Unauthorized', 401)))
+    const router = renderAt('/no-access')
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
   })
 })
 

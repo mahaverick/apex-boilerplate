@@ -1,28 +1,13 @@
-import { QueryClientProvider } from '@tanstack/react-query'
-import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
 import { queryClient } from '@/router'
-import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
+import { renderAppAt } from '@/tests/fixtures/render-app'
 import { fail, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-
-function renderAppAt(path: string) {
-  const router = createRouter({
-    routeTree,
-    context: { queryClient },
-    history: createMemoryHistory({ initialEntries: [path] }),
-  })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router as never} />
-    </QueryClientProvider>
-  )
-}
 
 /** Tab once from the top of the page, then activate whatever took focus. */
 async function tabToSkipLinkAndActivate() {
