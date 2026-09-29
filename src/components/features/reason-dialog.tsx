@@ -32,7 +32,7 @@ import { reasonFormSchema } from '@/schemas/reason.schemas'
 const STEP_UP_DISMISSED = 'Confirm it’s you to continue.'
 
 /** A 404 from a staff route answers the caller's role: it changed after the page loaded. */
-const ROLE_DENIED_ACTION =
+export const ROLE_DENIED_ACTION =
   'Your role can’t do this any more. If your access just changed, reload the page.'
 
 export interface ReasonDialogProps {

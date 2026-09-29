@@ -1,6 +1,13 @@
 import { http, HttpResponse } from 'msw'
-import { USER_ID } from '@/tests/fixtures/ids'
-import type { InvitationPreview, PlatformStats, User } from '@/types/api.types'
+import type { MembershipRole } from '@/constants/roles'
+import { INVITATION_ID, USER_ID } from '@/tests/fixtures/ids'
+import type {
+  InvitationPreview,
+  PlatformStats,
+  TenantAccess,
+  TenantInvitation,
+  User,
+} from '@/types/api.types'
 
 /** A platform admin: every in-app surface is staff-only, so a test about non-staff says `platformRole: null`. */
 export const testUser: User = {
@@ -14,6 +21,20 @@ export const testUser: User = {
 
 /** 43 characters of base64url, the shape the server mints and validates. */
 export const TEST_INVITATION_TOKEN = 'inv-token-'.padEnd(43, 'x')
+
+/** express's one answer to an invite and to a resend, whether or not the address has an account. */
+export const INVITATION_SENT_MESSAGE =
+  'If that address can be invited, an invitation has been sent.'
+
+/** One pending row, as `GET /tenants/:slug/invitations` lists it. */
+export const testInvitation: TenantInvitation = {
+  id: INVITATION_ID,
+  email: 'invitee@b.com',
+  role: 'editor',
+  invitedBy: { id: USER_ID, firstName: 'A', lastName: 'B' },
+  expiresAt: '2026-10-01T00:00:00.000Z',
+  createdAt: '2026-09-24T00:00:00.000Z',
+}
 
 /** Sent to `testUser`'s own address, so a signed-in test user is the invitee. */
 export const testInvitationPreview: InvitationPreview = {
@@ -48,6 +69,19 @@ export function fail(message: string, statusCode: number, code?: string) {
     { success: false, message, statusCode, code, requestId: 'test-request-id' },
     { status: statusCode }
   )
+}
+
+/**
+ * `GET /tenants/:slug` as the API answers it: the tenant row plus the
+ * caller's EFFECTIVE role there and how they reached it. `useMyRole` reads
+ * the role from here, so a detail mock without it renders the role error.
+ */
+export function tenantDetail<T extends object>(
+  tenant: T,
+  role: MembershipRole,
+  access: TenantAccess = 'member'
+) {
+  return { ...tenant, isPlatform: false, role, access }
 }
 
 export const handlers = [

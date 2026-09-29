@@ -12,10 +12,12 @@ import {
   type InfiniteData,
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
+import { statusFrom } from '@/lib/api-error'
 import { isRoleDenied, PLATFORM_PAGE_SIZE } from '@/queries/platform.queries'
 import type { CreatePlatformTenantInput } from '@/schemas/tenant.schemas'
 import type {
   ApiSuccess,
+  EmailSentResult,
   PageDirection,
   PlatformTenantDetail,
   PlatformTenantPage,
@@ -156,4 +158,108 @@ export function useCreatePlatformTenant() {
       await queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all })
     },
   })
+}
+
+/**
+ * `GET /platform/tenants/:id`: one tenant in any lifecycle state. A 404 is an
+ * unknown id (or a caller no longer staff), and asking again changes nothing.
+ */
+export function platformTenantQueryOptions(id: string) {
+  return queryOptions({
+    queryKey: tenantAdminKeys.detail(id),
+    queryFn: async () =>
+      unwrap(await apiClient.get<ApiSuccess<PlatformTenantDetail>>(`/platform/tenants/${id}`)),
+    retry: (failureCount, error) => statusFrom(error) !== 404 && failureCount < 1,
+  })
+}
+
+type LifecycleAction = 'suspend' | 'reactivate' | 'archive'
+
+/**
+ * A lifecycle transition with its audit reason. The API answers the tenant as
+ * it now is, which replaces the cached detail; lists refresh, since the
+ * tenant may have left the current filter. A 409 means the cached state was
+ * already stale, so the detail is refetched to show the real one.
+ */
+function useLifecycle(id: string, action: LifecycleAction) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (reason: string) =>
+      unwrap(
+        await apiClient.post<ApiSuccess<PlatformTenantDetail>>(
+          `/platform/tenants/${id}/${action}`,
+          { reason }
+        )
+      ),
+    onSuccess: async (tenant) => {
+      queryClient.setQueryData(tenantAdminKeys.detail(id), tenant)
+      // The transition is a new audit entry, so cached platform audit pages are stale.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ['platform', 'audit-log'] }),
+      ])
+    },
+    onError: async (error) => {
+      if (statusFrom(error) === 409) {
+        await queryClient.invalidateQueries({ queryKey: tenantAdminKeys.detail(id) })
+      }
+    },
+  })
+}
+
+/** active → suspended. Platform admin or owner; behind step-up. */
+export function useSuspendTenant(id: string) {
+  return useLifecycle(id, 'suspend')
+}
+
+/** suspended → active. Platform admin or owner. */
+export function useReactivateTenant(id: string) {
+  return useLifecycle(id, 'reactivate')
+}
+
+/** active or suspended → archived, terminal. Platform admin or owner; behind step-up. */
+export function useArchiveTenant(id: string) {
+  return useLifecycle(id, 'archive')
+}
+
+/**
+ * Re-issue the owner invitation of a tenant with no active owner, revoking
+ * any pending one; audited with its reason, behind step-up. `emailSent:
+ * false` means the invitation exists but its email failed.
+ */
+export function useReissueOwnerInvitation(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { email: string; reason: string }) =>
+      unwrap(
+        await apiClient.post<ApiSuccess<EmailSentResult>>(
+          `/platform/tenants/${id}/owner-invitation`,
+          input
+        )
+      ),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: tenantAdminKeys.detail(id) }),
+  })
+}
+
+/**
+ * Permanently delete an archived tenant (platform owner; behind step-up).
+ * Nothing about it is left to show, so its cached detail is dropped rather
+ * than refetched into a 404, and the lists refresh.
+ */
+export function usePurgeTenant(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (reason: string) => {
+      await apiClient.post(`/platform/tenants/${id}/purge`, { reason })
+    },
+    onSuccess: async () => {
+      queryClient.removeQueries({ queryKey: tenantAdminKeys.detail(id) })
+      await queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all })
+    },
+  })
+}
+
+/** Owners the API counts: a deactivated owner is not one. */
+export function activeOwnerCount(tenant: PlatformTenantDetail): number {
+  return tenant.owners.filter((owner) => owner.active).length
 }

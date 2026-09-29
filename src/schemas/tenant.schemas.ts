@@ -2,15 +2,17 @@
  * @file Tenant form schemas, mirroring express's tenant.validators.ts field
  * for field so a form rejects locally what the API would reject. Each ceiling
  * is its column's width: over-long input reaching the database is a Postgres
- * 22001 (a 500), not a 400. Ported from react-boilerplate's
- * tenant.schemas.ts; not sibling-synced, since the two apps' tenant forms differ.
+ * 22001 (a 500), not a 400. Not sibling-synced: the two apps' tenant forms differ.
  */
 import { z } from 'zod'
+import { MEMBERSHIP_ROLES } from '@/constants/roles'
 import { emailSchema } from '@/schemas/auth.schemas'
+import { reasonSchema } from '@/schemas/reason.schemas'
 import { normalizeMultilineText, notAllowedMessage, safeText } from '@/schemas/safe-text.schemas'
 
 const MAX_TENANT_NAME_LENGTH = 255
 const MAX_TENANT_DESCRIPTION_LENGTH = 1000
+const MAX_TENANT_LOGO_LENGTH = 255
 const MAX_TENANT_WEBSITE_LENGTH = 255
 const MIN_SLUG_LENGTH = 3
 const MAX_SLUG_LENGTH = 100
@@ -80,8 +82,9 @@ const RESERVED = new Set<string>(RESERVED_SLUGS)
 
 /**
  * A tenant's URL-safe identifier. Trimmed, but mixed case is rejected rather
- * than lowercased: the slug is a routing identifier (`/tenants/:slug`), and
- * rewriting "MyOrg" to "myorg" would register a string the user did not type.
+ * than lowercased: the slug names the tenant in the API's tenant routes and
+ * the customer app's URLs, and rewriting "MyOrg" to "myorg" would register a
+ * string the user did not type.
  */
 export const slugSchema = z
   .string()
@@ -119,6 +122,18 @@ function optionalText(max: number, label: string, safe?: SafeTextMode) {
     .optional()
 }
 
+/**
+ * The same field on a PATCH body, where the API takes three states: omitted
+ * leaves the column alone, `null` clears it, a string sets it. A cleared input
+ * sends `null`, since `undefined` would keep the old value.
+ */
+function clearableText(max: number, label: string, safe?: SafeTextMode) {
+  return boundedText(max, label, safe)
+    .transform((value) => (value === '' ? null : value))
+    .nullable()
+    .optional()
+}
+
 /** A tenant name: required, single-line safe text. */
 const nameSchema = z
   .string()
@@ -140,3 +155,27 @@ export const createPlatformTenantSchema = z.object({
 })
 
 export type CreatePlatformTenantInput = z.infer<typeof createPlatformTenantSchema>
+
+/**
+ * `PATCH /tenants/:slug`. No `slug`, as on the server: it is the tenant's URL
+ * identity. Blank clears a column (`null`); an omitted field is left alone.
+ */
+export const updateTenantSchema = z.object({
+  name: nameSchema.optional(),
+  description: clearableText(MAX_TENANT_DESCRIPTION_LENGTH, 'Description', 'multiline'),
+  logo: clearableText(MAX_TENANT_LOGO_LENGTH, 'Logo', 'single-line'),
+  website: clearableText(MAX_TENANT_WEBSITE_LENGTH, 'Website', 'single-line'),
+})
+
+export type UpdateTenantInput = z.infer<typeof updateTenantSchema>
+
+/** `POST /tenants/:slug/invitations`. Which roles may be offered is `canActorGrantRole`'s job. */
+export const inviteMemberSchema = z.object({
+  email: emailSchema,
+  role: z.enum(MEMBERSHIP_ROLES),
+})
+
+export type InviteMemberInput = z.infer<typeof inviteMemberSchema>
+
+/** `POST /platform/tenants/:id/owner-invitation`: audited with its reason. */
+export const ownerInvitationSchema = z.object({ email: emailSchema, reason: reasonSchema })

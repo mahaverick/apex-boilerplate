@@ -51,9 +51,9 @@ const FIELD_FOR_CODE: Partial<Record<string, 'slug' | 'ownerEmail'>> = {
 }
 
 /**
- * "New tenant", for platform admins and owners (the API requires admin). The
- * tenant starts with no members; the owner joins by accepting the emailed
- * invitation. A 409 lands on the field its code names: a taken slug on Slug,
+ * "New tenant". It holds no role gate of its own: the API requires platform
+ * admin, so the page renders it only for admins and owners. The tenant starts
+ * with no members; the owner joins by accepting the emailed invitation. A 409 lands on the field its code names: a taken slug on Slug,
  * a deactivated owner account on Owner email; any other error on the form.
  * `onCreated` lets the page decide where to go next.
  */
@@ -105,7 +105,7 @@ function CreateTenantForm({ onDone }: { onDone: (tenant: PlatformTenantDetail) =
           toast.success(`Tenant created. Owner invitation sent to ${input.ownerEmail}.`)
         } else {
           toast.warning(
-            'Tenant created, but the owner invitation email could not be sent. Resend it from the tenant’s page.'
+            'Tenant created, but the owner invitation email could not be sent. Resend it from the tenant’s Actions menu.'
           )
         }
         onDone(tenant)

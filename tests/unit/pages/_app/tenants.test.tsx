@@ -8,7 +8,7 @@ import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { PlatformTenantRow } from '@/types/api.types'
+import type { PlatformTenantDetail, PlatformTenantRow } from '@/types/api.types'
 
 function row(
   index: number,
@@ -28,6 +28,29 @@ function row(
 const PAGE_ONE = Array.from({ length: 20 }, (_, i) =>
   row(i + 1, i === 1 ? 'suspended' : i === 2 ? 'archived' : 'active')
 )
+
+/** The detail `POST /platform/tenants` answers with, and the new tenant's page reads. */
+const CREATED: PlatformTenantDetail = {
+  id: '10000000-0000-4000-8000-000000000001',
+  name: 'Acme Corp',
+  slug: 'acme',
+  description: null,
+  website: null,
+  logo: null,
+  lifecycleState: 'active',
+  createdAt: '2026-09-29T00:00:00.000Z',
+  updatedAt: '2026-09-29T00:00:00.000Z',
+  deletedAt: null,
+  settings: { timezone: 'UTC', locale: 'en' },
+  memberCount: 0,
+  owners: [],
+  pendingInvitationCount: 1,
+  pendingOwnerInvitation: {
+    id: '40000000-0000-4000-8000-000000000001',
+    email: 'owner@acme.test',
+    expiresAt: '2026-10-06T00:00:00.000Z',
+  },
+}
 
 /** Two pages: rows 1–20 then 21–25, linked both ways. Records every request's query. */
 function twoPages(seen: URLSearchParams[]) {
@@ -75,6 +98,10 @@ describe('/tenants', () => {
     const first = within(table).getAllByRole('row')[1]!
     expect(within(first).getByText('tenant-1')).toBeInTheDocument()
     expect(within(first).getByText('Jan 1, 2026')).toBeInTheDocument()
+    expect(within(first).getByRole('link', { name: 'Tenant 01' })).toHaveAttribute(
+      'href',
+      '/tenants/00000000-0000-4000-8000-000000000001'
+    )
   })
 
   it('pages forward and back through the API’s cursors, kept in the URL', async () => {
@@ -340,6 +367,22 @@ describe('/tenants', () => {
     expect(await screen.findByText('Tenant 07')).toBeInTheDocument()
   })
 
+  it('offers the first page again when a later page comes back empty', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', ({ request }) =>
+        new URL(request.url).searchParams.get('cursor') === 'gone'
+          ? ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+          : ok({ tenants: PAGE_ONE, nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    const router = renderAppAt('/tenants?state=all&cursor=gone&dir=next')
+    expect(await screen.findByText('Nothing on this page.')).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'First page' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ state: 'all' }))
+    expect(await screen.findByText('Tenant 01')).toBeInTheDocument()
+  })
+
   it('says there are no tenants yet when nothing is searched', async () => {
     server.use(
       http.get('/api/v1/platform/tenants', () =>
@@ -429,6 +472,13 @@ describe('/tenants', () => {
     expect(screen.queryByRole('button', { name: 'New tenant' })).not.toBeInTheDocument()
   })
 
+  it('shows New tenant to a platform owner', async () => {
+    signIn({ ...testUser, platformRole: 'owner' })
+    twoPages([])
+    renderAppAt('/tenants')
+    expect(await screen.findByRole('button', { name: 'New tenant' })).toBeInTheDocument()
+  })
+
   describe('New tenant', () => {
     beforeEach(() => signIn({ ...testUser, platformRole: 'admin' }))
 
@@ -436,6 +486,9 @@ describe('/tenants', () => {
       twoPages([])
       let body: unknown
       server.use(
+        http.get('/api/v1/platform/tenants/10000000-0000-4000-8000-000000000001', () =>
+          ok(CREATED, 'Tenant retrieved.')
+        ),
         http.post('/api/v1/platform/tenants', async ({ request }) => {
           body = await request.json()
           return ok(
@@ -469,7 +522,7 @@ describe('/tenants', () => {
         })
       )
       const user = userEvent.setup()
-      renderAppAt('/tenants')
+      const router = renderAppAt('/tenants')
       await screen.findByText('Tenant 01')
 
       await user.click(screen.getByRole('button', { name: 'New tenant' }))
@@ -483,6 +536,9 @@ describe('/tenants', () => {
         await screen.findByText(/Owner invitation sent to owner@acme.test/)
       ).toBeInTheDocument()
       expect(body).toEqual({ name: 'Acme Corp', slug: 'acme', ownerEmail: 'owner@acme.test' })
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe('/tenants/10000000-0000-4000-8000-000000000001')
+      )
     })
 
     it('puts a taken slug on the slug field', async () => {
@@ -574,9 +630,12 @@ describe('/tenants', () => {
       expect(posted).toBe(false)
     })
 
-    it('warns, and still closes, when the invitation email failed', async () => {
+    it('warns, still closes, and opens the tenant, when the invitation email failed', async () => {
       twoPages([])
       server.use(
+        http.get('/api/v1/platform/tenants/10000000-0000-4000-8000-000000000001', () =>
+          ok({ ...CREATED, name: 'Acme', pendingOwnerInvitation: null }, 'Tenant retrieved.')
+        ),
         http.post('/api/v1/platform/tenants', () =>
           ok(
             {
@@ -615,9 +674,16 @@ describe('/tenants', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
 
       expect(
-        await screen.findByText(/the owner invitation email could not be sent/)
+        await screen.findByText(
+          'Tenant created, but the owner invitation email could not be sent. Resend it from the tenant’s Actions menu.'
+        )
       ).toBeInTheDocument()
       await waitFor(() => expect(dialog).not.toBeInTheDocument())
+      // The page it lands on offers exactly that.
+      await user.click(await screen.findByRole('button', { name: 'Actions' }))
+      expect(
+        await screen.findByRole('menuitem', { name: 'Resend owner invitation' })
+      ).toBeInTheDocument()
     })
   })
 })

@@ -17,6 +17,7 @@ import {
   AUDIT_ID_2,
   MEMBERSHIP_ID,
   MEMBERSHIP_ID_2,
+  PLATFORM_TENANT_ID,
   STAFF_USER_ID,
   TENANT_ID,
   TENANT_ID_2,
@@ -27,7 +28,13 @@ import {
 import { renderAppAt } from '@/tests/fixtures/render-app'
 import { fail, ok, TEST_INVITATION_TOKEN, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { AuditEntry, PlatformAuditEntry, PlatformTenantRow } from '@/types/api.types'
+import type {
+  AuditEntry,
+  PlatformAuditEntry,
+  PlatformTenantDetail,
+  PlatformTenantRow,
+  TenantLifecycleState,
+} from '@/types/api.types'
 
 /**
  * THE ACCESSIBILITY GATE. Spec section 9's criteria, made enforceable.
@@ -130,6 +137,59 @@ const AUDIT_ENTRIES: AuditEntry[] = [
     metadata: { name: 'Acme Corp', slug: 'acme' },
   },
 ]
+/** The tenant detail pages' platform read. */
+const ACME_DETAIL: PlatformTenantDetail = {
+  id: TENANT_ID,
+  name: 'Acme Corp',
+  slug: 'acme',
+  description: 'Widgets',
+  website: 'https://acme.test',
+  logo: null,
+  lifecycleState: 'active',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-02-01T00:00:00.000Z',
+  deletedAt: null,
+  settings: { timezone: 'UTC', locale: 'en' },
+  memberCount: 2,
+  owners: [{ userId: USER_ID_2, email: 'c@d.com', firstName: 'Cleo', lastName: 'D', active: true }],
+  pendingInvitationCount: 0,
+  pendingOwnerInvitation: null,
+}
+
+/** The platform tenant's row, for any page that looks up the caller's role in it. */
+const PLATFORM_DETAIL_ROW = {
+  id: PLATFORM_TENANT_ID,
+  name: 'Platform',
+  slug: 'platform',
+  description: null,
+  logo: null,
+  website: null,
+  lifecycleState: 'active',
+  deletedAt: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+}
+
+/** Acme in `state`, with every route its detail tabs read. */
+function serveTenant(state: TenantLifecycleState) {
+  server.use(
+    http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+      ok({ ...ACME_DETAIL, lifecycleState: state }, 'Tenant retrieved.')
+    ),
+    http.get('/api/v1/tenants/acme', () =>
+      ok(
+        { ...ACME_DETAIL, isPlatform: false, role: 'admin', access: 'platform' },
+        'Tenant retrieved.'
+      )
+    ),
+    http.get('/api/v1/tenants/acme/members', () => ok(MEMBERS, 'Members retrieved.')),
+    http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.')),
+    http.get('/api/v1/tenants/acme/audit-log', () =>
+      ok({ entries: AUDIT_ENTRIES, nextCursor: null }, 'Audit log retrieved.')
+    )
+  )
+}
+
 /** A signed-in session, already bootstrapped, so `_app`'s guard lets pages render. */
 function signIn() {
   useAuthStore.setState({
@@ -325,6 +385,14 @@ beforeEach(() => {
   queryClient.clear()
   useSidebarStore.setState({ isCollapsed: false })
   useCommandPaletteStore.setState({ open: false })
+  server.use(
+    http.get('/api/v1/tenants/platform', () =>
+      ok(
+        { ...PLATFORM_DETAIL_ROW, isPlatform: true, role: 'admin', access: 'member' },
+        'Tenant retrieved.'
+      )
+    )
+  )
 })
 
 afterEach(() => {
@@ -555,6 +623,29 @@ describe('signed-in pages', () => {
     await screen.findByText('changed the settings (timezone)')
     await expectNoViolations()
   })
+
+  it.each([
+    ['overview', '', () => screen.findByRole('heading', { name: 'Owners', level: 2 })],
+    ['members', '/members', () => screen.findByText('Cleo D')],
+    [
+      'invitations',
+      '/invitations',
+      () => screen.findByText('No invitations are waiting to be accepted.'),
+    ],
+    ['activity', '/activity', () => screen.findByText('Sam Staff')],
+  ])('tenant detail %s has no axe violations', async (_name, suffix, ready) => {
+    serveTenant('active')
+    renderAppAt(`/tenants/${TENANT_ID}${suffix}`)
+    await ready()
+    await expectNoViolations()
+  })
+
+  it('a suspended tenant’s frozen tab has no axe violations', async () => {
+    serveTenant('suspended')
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    await screen.findByText(/This tenant is suspended/)
+    await expectNoViolations()
+  })
 })
 
 /**
@@ -750,6 +841,72 @@ describe('open overlays', () => {
     const palette = await screen.findByRole('dialog', { name: 'Command palette' })
     // A palette that opened empty would pass axe while grading no list at all.
     expect(within(palette).getAllByRole('option').length).toBeGreaterThan(0)
+    await expectNoViolations()
+  })
+
+  it('has no violations with the tenant actions menu open', async () => {
+    serveTenant('active')
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions' }))
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).getAllByRole('menuitem').length).toBeGreaterThan(0)
+    await expectNoViolationsIn(menu)
+  })
+
+  it('has no violations with the suspend reason dialog open', async () => {
+    serveTenant('active')
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
+    expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the step-up dialog open', async () => {
+    serveTenant('active')
+    server.use(
+      http.post(`/api/v1/platform/tenants/${TENANT_ID}/suspend`, () =>
+        fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }))
+    const reason = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
+    await user.type(within(reason).getByLabelText('Reason'), 'x')
+    await user.click(within(reason).getByRole('button', { name: 'Suspend' }))
+    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+    expect(await within(stepUp).findByLabelText('Password')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the Edit details dialog open', async () => {
+    serveTenant('active')
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit details' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit details' })
+    expect(within(dialog).getByLabelText('Name')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the Owner invitation dialog open', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+        ok({ ...ACME_DETAIL, owners: [] }, 'Tenant retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Resend owner invitation' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Owner invitation' })
+    expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
     await expectNoViolations()
   })
 

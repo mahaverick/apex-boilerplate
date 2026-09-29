@@ -27,7 +27,7 @@ const TENANT_RESULTS = 8
 
 type PaletteItem =
   | { kind: 'page'; value: string; label: string; to: NavPath }
-  | { kind: 'tenant'; value: string; label: string; slug: string }
+  | { kind: 'tenant'; value: string; label: string }
 
 interface PaletteGroup {
   value: string
@@ -38,7 +38,7 @@ interface PaletteGroup {
  * The ⌘K / Ctrl+K palette: the pages the user's role can see, filtered here,
  * and customer tenants, filtered by the API. Tenant results are shown only for
  * the term they were fetched for, so Enter can never act on an older term's
- * list. Choosing a tenant opens the Tenants page filtered to it. Every close
+ * list. Choosing a tenant opens its page. Every close
  * clears the search, however it closed: the shortcut and the header flip the
  * store's `open` directly, and Base UI fires no `onOpenChange` for that.
  */
@@ -88,7 +88,6 @@ export function CommandPalette() {
         kind: 'tenant',
         value: row.id,
         label: row.name,
-        slug: row.slug,
       }))
     : []
   const groups: PaletteGroup[] = [
@@ -101,7 +100,7 @@ export function CommandPalette() {
     if (item.kind === 'page') {
       void navigate({ to: item.to })
     } else {
-      void navigate({ to: ROUTES.tenants, search: { q: item.label } })
+      void navigate({ to: ROUTES.tenant, params: { tenantId: item.value } })
     }
   }
 

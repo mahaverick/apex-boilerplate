@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
 import { TenantStateBadge } from '@/components/features/tenants/tenant-state-badge'
 import {
@@ -9,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { ROUTES } from '@/constants/routes'
 import type { PlatformTenantRow } from '@/types/api.types'
 
 /** No optional features: the API orders, filters and pages, so the table only lays rows out. */
@@ -19,7 +21,15 @@ const column = createColumnHelper<typeof features, PlatformTenantRow>()
 const columns = column.columns([
   column.accessor('name', {
     header: 'Name',
-    cell: ({ getValue }) => <span className="font-medium">{getValue()}</span>,
+    cell: ({ getValue, row }) => (
+      <Link
+        to={ROUTES.tenant}
+        params={{ tenantId: row.original.id }}
+        className="font-medium underline-offset-4 hover:underline"
+      >
+        {getValue()}
+      </Link>
+    ),
   }),
   column.accessor('slug', {
     header: 'Slug',

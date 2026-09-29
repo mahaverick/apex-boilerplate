@@ -37,7 +37,7 @@ function renderPalette() {
       </>
     ),
   })
-  const pages = ['/overview', '/tenants', '/activity'].map((path) =>
+  const pages = ['/overview', '/tenants', '/activity', '/tenants/$tenantId'].map((path) =>
     createRoute({ getParentRoute: () => rootRoute, path, component: () => <h1>{path}</h1> })
   )
   const router = createRouter({
@@ -95,7 +95,7 @@ describe('CommandPalette', () => {
     expect(useCommandPaletteStore.getState().open).toBe(false)
   })
 
-  it('finds a tenant through the API and opens the tenants page filtered to it', async () => {
+  it('finds a tenant through the API and opens its page', async () => {
     server.use(
       http.get('/api/v1/platform/tenants', ({ request }) => {
         const q = new URL(request.url).searchParams.get('q')
@@ -113,8 +113,7 @@ describe('CommandPalette', () => {
     await user.keyboard('acme')
     await user.click(await screen.findByRole('option', { name: /Acme Corp/ }))
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
-    expect(router.state.location.search).toEqual({ q: 'Acme Corp' })
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/tenants/${ACME.id}`))
   })
 
   it('never acts on a previous term’s tenants', async () => {

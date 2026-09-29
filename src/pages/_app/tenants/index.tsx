@@ -20,6 +20,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
+import { ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { isRoleDenied, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { platformTenantsQueryOptions } from '@/queries/tenant-admin.queries'
@@ -153,7 +154,13 @@ function TenantsPage() {
               ))}
             </SelectContent>
           </Select>
-          {canCreate && <CreateTenantDialog />}
+          {canCreate && (
+            <CreateTenantDialog
+              onCreated={(tenant) =>
+                void navigate({ to: ROUTES.tenant, params: { tenantId: tenant.id } })
+              }
+            />
+          )}
         </div>
       </div>
       {page.isError ? (
@@ -176,22 +183,35 @@ function TenantsPage() {
       ) : !settled || page.data === undefined ? (
         <Skeleton className="h-96 w-full" />
       ) : page.data.tenants.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>
-              {q
-                ? `No tenants match “${q}”.`
-                : filtered
-                  ? 'No tenants in this state.'
-                  : 'No tenants yet.'}
-            </EmptyTitle>
-            <EmptyDescription>
-              {filtered
-                ? 'Try part of the name or the slug, or another status.'
-                : 'Tenants appear here once customers or staff create them.'}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        cursor !== undefined ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>Nothing on this page.</EmptyTitle>
+              <EmptyDescription>The list changed since this page was opened.</EmptyDescription>
+            </EmptyHeader>
+            <Button variant="outline" size="sm" onClick={firstPage}>
+              <ChevronLeft aria-hidden />
+              First page
+            </Button>
+          </Empty>
+        ) : (
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>
+                {q
+                  ? `No tenants match “${q}”.`
+                  : filtered
+                    ? 'No tenants in this state.'
+                    : 'No tenants yet.'}
+              </EmptyTitle>
+              <EmptyDescription>
+                {filtered
+                  ? 'Try part of the name or the slug, or another status.'
+                  : 'Tenants appear here once customers or staff create them.'}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )
       ) : (
         <>
           <div aria-busy={page.isPlaceholderData}>
