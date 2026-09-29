@@ -56,6 +56,9 @@ These are intentional and must not be "fixed" by a future pass.
 | SS005 | `ui/dropdown-menu.tsx` | `outline-none` ×2 | `MenuPositioner` is a wrapper and `MenuPopup` sets no `tabIndex`; neither is tab-reachable |
 | SS001 | `features/notification-bell.tsx` | `&#9679;` | HTML entity for a decorative `aria-hidden` bullet, not a colour |
 
+`ui/scroll-area.tsx` drops the registry's unused `import * as React`, which `noUnusedLocals` rejects; drop it again after a re-pull.
+`ui/chart.tsx` is exempt from five type-aware lint rules in `eslint.config.js` (Recharts' payload types are `any`).
+
 Rounding any of the SS002 values to the nearest scale step changes how the control renders.
 **Appearance wins over rule compliance** — the rule exists to prevent *unintentional* drift.
 

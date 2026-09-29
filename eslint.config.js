@@ -11,6 +11,8 @@ import { commentStyleRule } from './scripts/comment-style.mjs'
 
 const SLEEP_MESSAGE =
   'Wait on a condition, not a duration: findBy*/waitFor/vi.waitFor, expect.poll or a web-first assertion in e2e, fake timers, or settle(ms, reason) from @/tests/fixtures/timing (e2e: ./timing) when nothing can be observed.'
+const CMDK_MESSAGE = 'Use @/components/ui/command (Base UI Autocomplete); cmdk pulls in Radix.'
+const RADIX_MESSAGE = 'Base UI owns the primitives here (STYLESEED.md).'
 const NETWORKIDLE_MESSAGE =
   "networkidle waits on every request the page makes, including ones this test does not care about. Assert what the page renders (a heading's toBeVisible) or wait for the one response that matters."
 
@@ -253,7 +255,13 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': [
         'error',
-        { paths: [{ name: 'cn', message: "Import `cn` from '@/lib/utils'." }] },
+        {
+          paths: [
+            { name: 'cn', message: "Import `cn` from '@/lib/utils'." },
+            { name: 'cmdk', message: CMDK_MESSAGE },
+          ],
+          patterns: [{ group: ['@radix-ui/*'], message: RADIX_MESSAGE }],
+        },
       ],
     },
   },
@@ -293,9 +301,11 @@ export default tseslint.config(
         {
           paths: [
             { name: 'cn', message: "Import `cn` from '@/lib/utils'." },
+            { name: 'cmdk', message: CMDK_MESSAGE },
             { name: 'node:timers/promises', importNames: ['setTimeout'], message: SLEEP_MESSAGE },
             { name: 'timers/promises', importNames: ['setTimeout'], message: SLEEP_MESSAGE },
           ],
+          patterns: [{ group: ['@radix-ui/*'], message: RADIX_MESSAGE }],
         },
       ],
     },
@@ -321,6 +331,17 @@ export default tseslint.config(
       'tailwindcss/no-contradicting-classname': 'off',
       'tailwindcss/no-custom-classname': 'off',
       'tailwindcss/no-unnecessary-arbitrary-value': 'off',
+    },
+  },
+  {
+    /** Recharts' payload types are `any` in places; upstream's chart.tsx is kept as pulled. */
+    files: ['src/components/ui/chart.tsx'],
+    rules: {
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/restrict-template-expressions': 'off',
     },
   },
   {

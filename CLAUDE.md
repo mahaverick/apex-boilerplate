@@ -120,7 +120,9 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
 ## Never install
 
 `react-hook-form`, `@hookform/resolvers`, `next-themes`,
-`@tanstack/zod-form-adapter`, `clsx`, `tailwind-merge`, any `@radix-ui/*`.
+`@tanstack/zod-form-adapter`, `clsx`, `tailwind-merge`, any `@radix-ui/*`, `cmdk`
+(it depends on four `@radix-ui/*` packages; the palette is `ui/command.tsx` on
+Base UI Autocomplete).
 
 Each has an in-repo replacement: TanStack Form with a Zod validator (no
 adapter package is needed in v1), `theme.store` plus the pre-paint script
