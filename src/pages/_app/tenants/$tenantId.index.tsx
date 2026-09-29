@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { HistoryCard } from '@/components/features/history-card'
+import { TenantHistoryCard } from '@/components/features/history-card'
 import { TenantOwners } from '@/components/features/tenants/tenant-owners'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { pageTitle } from '@/constants/app'
@@ -67,7 +67,7 @@ function TenantOverviewTab() {
           </CardContent>
         </Card>
       </div>
-      <HistoryCard targetId={data.id} />
+      <TenantHistoryCard tenantId={data.id} />
     </div>
   )
 }

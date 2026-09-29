@@ -36,7 +36,7 @@ describe('availableUserActions', () => {
     expect(actions(null, target(null))).toEqual(new Set())
   })
 
-  it('offers an admin every live write on a customer, soft delete included (spec R1)', () => {
+  it('offers an admin every live write on a customer, soft delete included', () => {
     expect(actions('admin', target(null))).toEqual(new Set(EVERY_LIVE_WRITE))
   })
 
@@ -44,7 +44,7 @@ describe('availableUserActions', () => {
     expect(actions('owner', target(null))).toEqual(new Set(EVERY_LIVE_WRITE))
   })
 
-  it('on an inactive account swaps deactivate for reactivate and drops sign-out and mail (spec R7)', () => {
+  it('on an inactive account swaps deactivate for reactivate and drops sign-out and mail', () => {
     expect(actions('admin', target(null, { active: false }))).toEqual(
       new Set<UserAction>(['edit', 'reactivate', 'delete'])
     )
@@ -60,7 +60,7 @@ describe('availableUserActions', () => {
     expect(actions('admin', target(null))).not.toContain('resendVerification')
   })
 
-  it('leaves a deleted account read-only, with Delete permanently for an owner only (spec R2)', () => {
+  it('leaves a deleted account read-only, with Delete permanently for an owner only', () => {
     const deleted = target(null, { deletedAt: '2026-09-29T00:00:00.000Z' })
     expect(actions('owner', deleted)).toEqual(new Set<UserAction>(['purge']))
     expect(actions('admin', deleted)).toEqual(new Set())
@@ -75,6 +75,22 @@ describe('availableUserActions', () => {
     ['owner', 'admin', EVERY_LIVE_WRITE],
   ])('an %s acting on a staff %s gets %j', (actorRole, targetRole, expected) => {
     expect(actions(actorRole, target(targetRole))).toEqual(new Set(expected))
+  })
+
+  it('on an inactive staff target applies the staff rule and still offers no mail', () => {
+    expect(actions('admin', target('viewer', { active: false }))).toEqual(
+      new Set<UserAction>(['edit', 'reactivate', 'delete'])
+    )
+    expect(actions('admin', target('admin', { active: false }))).toEqual(new Set())
+    expect(actions('owner', target('owner', { active: false }))).toEqual(
+      new Set<UserAction>(['edit', 'reactivate', 'delete'])
+    )
+  })
+
+  it('offers no resend-verification to an inactive account, even unverified with a password', () => {
+    expect(
+      actions('admin', target(null, { active: false, emailVerifiedAt: null, hasPassword: true }))
+    ).toEqual(new Set<UserAction>(['edit', 'reactivate', 'delete']))
   })
 
   it('lets an owner permanently delete a deleted staff owner, and an admin never', () => {

@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { MoreHorizontal } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState, type RefObject } from 'react'
 import { toast } from 'sonner'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { EditUserNameDialog } from '@/components/features/users/edit-user-name-dialog'
@@ -28,6 +28,18 @@ import {
 import { useAuthStore } from '@/states/auth.store'
 import type { PlatformUserDetail } from '@/types/api.types'
 
+/**
+ * A ref callback for the menu trigger. An action can leave nothing to offer
+ * (an admin soft-deletes an account), which unmounts the trigger just after
+ * its closing dialog handed focus back to it; focus then moves to `fallback`
+ * rather than to <body>.
+ */
+function focusFallbackOnRemoval(fallback: RefObject<HTMLElement | null> | undefined) {
+  return (node: HTMLButtonElement | null) => () => {
+    if (node !== null && document.activeElement === node) fallback?.current?.focus()
+  }
+}
+
 type OpenDialog = 'edit' | 'signOut' | 'deactivate' | 'reactivate' | 'delete' | 'purge' | null
 
 /**
@@ -36,7 +48,14 @@ type OpenDialog = 'edit' | 'signOut' | 'deactivate' | 'reactivate' | 'delete' | 
  * delete and permanent deletion run through step-up, so a stale sign-in asks
  * who you are and retries once instead of failing.
  */
-export function UserActionsMenu({ user }: { user: PlatformUserDetail }) {
+export function UserActionsMenu({
+  user,
+  fallbackFocus,
+}: {
+  user: PlatformUserDetail
+  /** Where focus goes when an action removes this menu's trigger while it holds focus. */
+  fallbackFocus?: RefObject<HTMLElement | null>
+}) {
   const me = useAuthStore((state) => state.user)
   const navigate = useNavigate()
   const stepUp = useStepUp()
@@ -50,7 +69,8 @@ export function UserActionsMenu({ user }: { user: PlatformUserDetail }) {
   const resendVerification = useResendVerification()
 
   const allowed = availableUserActions({ id: me?.id ?? '', platformRole: me?.platformRole }, user)
-  if (allowed.size === 0) return null
+
+  const keepFocusOnPage = useMemo(() => focusFallbackOnRemoval(fallbackFocus), [fallbackFocus])
 
   const close = (open: boolean) => {
     if (!open) setDialog(null)
@@ -74,63 +94,76 @@ export function UserActionsMenu({ user }: { user: PlatformUserDetail }) {
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={<Button variant="outline" size="sm" aria-label={`Actions for ${user.email}`} />}
-        >
-          <MoreHorizontal aria-hidden />
-          Actions
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-56">
-          {allowed.has('edit') && (
-            <DropdownMenuItem onClick={() => setDialog('edit')}>Edit name</DropdownMenuItem>
-          )}
-          {allowed.has('passwordSetup') && (
-            <DropdownMenuItem
-              onClick={() =>
-                mail(
-                  passwordSetup,
-                  user.hasPassword ? 'Password reset email sent.' : 'Set-password email sent.'
-                )
-              }
-            >
-              {user.hasPassword ? 'Send password reset link' : 'Send set-password link'}
-            </DropdownMenuItem>
-          )}
-          {allowed.has('resendVerification') && (
-            <DropdownMenuItem onClick={() => mail(resendVerification, 'Verification email sent.')}>
-              Resend verification email
-            </DropdownMenuItem>
-          )}
-          {hasStateChange && <DropdownMenuSeparator />}
-          {allowed.has('signOut') && (
-            <DropdownMenuItem onClick={() => setDialog('signOut')}>
-              Sign out everywhere
-            </DropdownMenuItem>
-          )}
-          {allowed.has('deactivate') && (
-            <DropdownMenuItem variant="destructive" onClick={() => setDialog('deactivate')}>
-              Deactivate
-            </DropdownMenuItem>
-          )}
-          {allowed.has('reactivate') && (
-            <DropdownMenuItem onClick={() => setDialog('reactivate')}>Reactivate</DropdownMenuItem>
-          )}
-          {allowed.has('delete') && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={() => setDialog('delete')}>
-                Delete
+      {allowed.size > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                ref={keepFocusOnPage}
+                variant="outline"
+                size="sm"
+                aria-label={`Actions for ${user.email}`}
+              />
+            }
+          >
+            <MoreHorizontal aria-hidden />
+            Actions
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-56">
+            {allowed.has('edit') && (
+              <DropdownMenuItem onClick={() => setDialog('edit')}>Edit name</DropdownMenuItem>
+            )}
+            {allowed.has('passwordSetup') && (
+              <DropdownMenuItem
+                onClick={() =>
+                  mail(
+                    passwordSetup,
+                    user.hasPassword ? 'Password reset email sent.' : 'Set-password email sent.'
+                  )
+                }
+              >
+                {user.hasPassword ? 'Send password reset link' : 'Send set-password link'}
               </DropdownMenuItem>
-            </>
-          )}
-          {allowed.has('purge') && (
-            <DropdownMenuItem variant="destructive" onClick={() => setDialog('purge')}>
-              Delete permanently
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            )}
+            {allowed.has('resendVerification') && (
+              <DropdownMenuItem
+                onClick={() => mail(resendVerification, 'Verification email sent.')}
+              >
+                Resend verification email
+              </DropdownMenuItem>
+            )}
+            {hasStateChange && <DropdownMenuSeparator />}
+            {allowed.has('signOut') && (
+              <DropdownMenuItem onClick={() => setDialog('signOut')}>
+                Sign out everywhere
+              </DropdownMenuItem>
+            )}
+            {allowed.has('deactivate') && (
+              <DropdownMenuItem variant="destructive" onClick={() => setDialog('deactivate')}>
+                Deactivate
+              </DropdownMenuItem>
+            )}
+            {allowed.has('reactivate') && (
+              <DropdownMenuItem onClick={() => setDialog('reactivate')}>
+                Reactivate
+              </DropdownMenuItem>
+            )}
+            {allowed.has('delete') && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={() => setDialog('delete')}>
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
+            {allowed.has('purge') && (
+              <DropdownMenuItem variant="destructive" onClick={() => setDialog('purge')}>
+                Delete permanently
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       {dialog === 'edit' && <EditUserNameDialog user={user} open onOpenChange={close} />}
       <ReasonDialog

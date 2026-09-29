@@ -9,8 +9,8 @@ import { TENANT_ID } from '@/tests/fixtures/ids'
 import { ok } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
-/** The tenant's History card page: each write adds an entry, so it goes stale. */
-const AUDIT_KEY = auditKeys.platform({ targetId: TENANT_ID })
+/** A cached platform audit page (the Activity page's, or the tenant History card's): each write must mark it stale. */
+const AUDIT_KEY = auditKeys.platform({ tenantId: TENANT_ID, access: 'platform' })
 
 function clientWithHistory() {
   const client = new QueryClient()

@@ -37,6 +37,8 @@ export interface ActivityListProps<T extends AuditEntry> {
   emptyMessage: string
   /** The tenant, for the platform-wide view. Omitted inside a tenant. */
   renderTenant?: (entry: T) => ReactNode
+  /** The record the list sits on; a target that is this record gets no link to the page already open. */
+  subjectId?: string
 }
 
 /**
@@ -44,18 +46,22 @@ export interface ActivityListProps<T extends AuditEntry> {
  * name, which the API sets to the email when no name is on file. Base UI's
  * Tooltip is not announced, so the absolute time is also in the trigger's own
  * text, visually hidden. The actor links to their user page; a user target,
- * and in the platform-wide view a tenant target, links to its page. A purged
+ * and in the platform-wide view a tenant target, links to its page unless
+ * it is the list's own subject. A purged
  * user's entries have no actor (the API redacts it), and a link to a purged
  * target lands on the not-found page.
  */
 function ActivityRow<T extends AuditEntry>({
   entry,
   renderTenant,
+  subjectId,
 }: {
   entry: T
   renderTenant?: (entry: T) => ReactNode
+  subjectId?: string
 }) {
   const absolute = absoluteTime(entry.occurredAt)
+  const target = entry.target?.id === subjectId ? null : entry.target
   return (
     <li className="grid gap-1 py-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -75,24 +81,24 @@ function ActivityRow<T extends AuditEntry>({
       </div>
       <p className="text-sm">
         {auditSentence(entry)}
-        {entry.target?.type === 'user' && (
+        {target?.type === 'user' && (
           <>
             {' '}
             <Link
               to={ROUTES.user}
-              params={{ userId: entry.target.id }}
+              params={{ userId: target.id }}
               className="underline underline-offset-4"
             >
               View user
             </Link>
           </>
         )}
-        {entry.target?.type === 'tenant' && renderTenant && (
+        {target?.type === 'tenant' && renderTenant && (
           <>
             {' '}
             <Link
               to={ROUTES.tenant}
-              params={{ tenantId: entry.target.id }}
+              params={{ tenantId: target.id }}
               className="underline underline-offset-4"
             >
               View tenant
@@ -133,6 +139,7 @@ export function ActivityList<T extends AuditEntry>({
   onLoadMore,
   emptyMessage,
   renderTenant,
+  subjectId,
 }: ActivityListProps<T>) {
   if (isPending) {
     return (
@@ -155,7 +162,12 @@ export function ActivityList<T extends AuditEntry>({
     <div className="grid gap-3">
       <ul aria-label="Activity" className="divide-y">
         {entries.map((entry) => (
-          <ActivityRow key={entry.id} entry={entry} renderTenant={renderTenant} />
+          <ActivityRow
+            key={entry.id}
+            entry={entry}
+            renderTenant={renderTenant}
+            subjectId={subjectId}
+          />
         ))}
       </ul>
       {isFetchNextPageError ? (

@@ -3,7 +3,15 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { INVITATION_ID, TENANT_ID, TENANT_ID_2, USER_ID_2 } from '@/tests/fixtures/ids'
+import {
+  AUDIT_ID_1,
+  INVITATION_ID,
+  PLATFORM_TENANT_ID,
+  STAFF_USER_ID,
+  TENANT_ID,
+  TENANT_ID_2,
+  USER_ID_2,
+} from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -130,7 +138,7 @@ describe('/users/$userId', () => {
     ).toBeInTheDocument()
   })
 
-  it('hides the mail actions and sign-out on an inactive account (spec R7)', async () => {
+  it('hides the mail actions and sign-out on an inactive account', async () => {
     answer({ ...DETAIL, active: false })
     const user = userEvent.setup()
     renderAppAt(`/users/${USER_ID_2}`)
@@ -142,7 +150,7 @@ describe('/users/$userId', () => {
     ).toEqual(['Edit name', 'Reactivate', 'Delete'])
   })
 
-  it('lets an owner act on another staff owner (spec R4)', async () => {
+  it('lets an owner act on another staff owner', async () => {
     signIn({ ...testUser, platformRole: 'owner' })
     answer({ ...DETAIL, platformRole: 'owner', hasPassword: true })
     const user = userEvent.setup()
@@ -188,23 +196,22 @@ describe('/users/$userId', () => {
   })
 
   it('keeps the reason dialog open with a 409 in it', async () => {
-    answer()
+    // The page still shows the account inactive, but someone reactivated it meanwhile.
+    answer({ ...DETAIL, active: false })
     server.use(
-      http.post(`/api/v1/platform/users/${USER_ID_2}/sign-out`, () =>
-        fail('You cannot sign yourself out here; use your profile.', 409)
+      http.post(`/api/v1/platform/users/${USER_ID_2}/reactivate`, () =>
+        fail('User is already active', 409)
       )
     )
     const user = userEvent.setup()
     renderAppAt(`/users/${USER_ID_2}`)
     const menu = await openActions(user)
-    await user.click(within(menu).getByRole('menuitem', { name: 'Sign out everywhere' }))
-    const dialog = await screen.findByRole('alertdialog', { name: 'Sign out everywhere' })
-    await user.type(within(dialog).getByLabelText('Reason'), 'Lost laptop')
-    await user.click(within(dialog).getByRole('button', { name: 'Sign out everywhere' }))
+    await user.click(within(menu).getByRole('menuitem', { name: 'Reactivate' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Reactivate account' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Appeal upheld')
+    await user.click(within(dialog).getByRole('button', { name: 'Reactivate' }))
 
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'You cannot sign yourself out here; use your profile.'
-    )
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('User is already active')
   })
 
   it('lets an admin delete only after typing the email; the page then shows the deleted account', async () => {
@@ -246,6 +253,10 @@ describe('/users/$userId', () => {
     expect(body).toEqual({ reason: 'GDPR request' })
     // An admin can't purge, so a deleted account offers them nothing.
     expect(screen.queryByRole('button', { name: /^Actions for/ })).not.toBeInTheDocument()
+    // The trigger that opened the dialog is gone, so focus lands on the page heading, not <body>.
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Cleo Doe', level: 1 })).toHaveFocus()
+    )
   })
 
   it('lets an owner permanently delete a deleted account, behind step-up, then lists deleted users', async () => {
@@ -310,7 +321,7 @@ describe('/users/$userId', () => {
     )
   })
 
-  it('edits the name', async () => {
+  it('saves only the name that changed', async () => {
     answer()
     let body: unknown
     server.use(
@@ -328,21 +339,110 @@ describe('/users/$userId', () => {
     await user.clear(first)
     await user.type(first, 'Cleopatra')
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(body).toEqual({ firstName: 'Cleopatra', lastName: 'Doe' }))
+    await waitFor(() => expect(body).toEqual({ firstName: 'Cleopatra' }))
   })
 
-  it('shows staff actions on this user from the platform log, filtered by target', async () => {
+  it('sets just a first name on an account that has only an email', async () => {
+    answer({ ...DETAIL, firstName: null, lastName: null })
+    let body: unknown
+    server.use(
+      http.patch(`/api/v1/platform/users/${USER_ID_2}`, async ({ request }) => {
+        body = await request.json()
+        return ok({ ...DETAIL, firstName: 'Nia', lastName: null }, 'User updated.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Edit name' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit name' })
+    await user.type(within(dialog).getByLabelText('First name'), 'Nia')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(body).toEqual({ firstName: 'Nia' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Edit name' })).not.toBeInTheDocument()
+    )
+  })
+
+  it('clears a last name by sending null', async () => {
     answer()
-    let targetId: string | null = null
+    let body: unknown
+    server.use(
+      http.patch(`/api/v1/platform/users/${USER_ID_2}`, async ({ request }) => {
+        body = await request.json()
+        return ok({ ...DETAIL, lastName: null }, 'User updated.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Edit name' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit name' })
+    await user.clear(within(dialog).getByLabelText('Last name'))
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(body).toEqual({ lastName: null }))
+  })
+
+  it('sends nothing when no name changed, and says so', async () => {
+    answer()
+    let calls = 0
+    server.use(
+      http.patch(`/api/v1/platform/users/${USER_ID_2}`, () => {
+        calls += 1
+        return ok(DETAIL, 'User updated.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Edit name' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit name' })
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Change a name before saving.'
+    )
+    expect(calls).toBe(0)
+  })
+
+  it('shows what was recorded on this account, filtered by target, without linking back to it', async () => {
+    answer()
+    let params: URLSearchParams | undefined
     server.use(
       http.get('/api/v1/platform/audit-log', ({ request }) => {
-        targetId = new URL(request.url).searchParams.get('targetId')
-        return ok({ entries: [], nextCursor: null }, 'Audit log retrieved.')
+        params = new URL(request.url).searchParams
+        return ok(
+          {
+            entries: [
+              {
+                id: AUDIT_ID_1,
+                occurredAt: '2026-09-25T09:00:00.000Z',
+                action: 'user.deactivated',
+                access: 'platform',
+                actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
+                target: { type: 'user', id: USER_ID_2 },
+                metadata: { reason: 'left the company' },
+                tenant: { id: PLATFORM_TENANT_ID, name: 'Platform', slug: 'platform' },
+              },
+            ],
+            nextCursor: null,
+          },
+          'Audit log retrieved.'
+        )
       })
     )
     renderAppAt(`/users/${USER_ID_2}`)
-    expect(await screen.findByRole('heading', { name: 'History', level: 2 })).toBeInTheDocument()
-    await waitFor(() => expect(targetId).toBe(USER_ID_2))
+    const card = await screen.findByRole('region', { name: 'Recorded actions on this account' })
+    expect(await within(card).findByText(/deactivated a user/)).toBeInTheDocument()
+    expect(params?.get('targetId')).toBe(USER_ID_2)
+    expect(params?.get('tenantId')).toBeNull()
+    expect(within(card).queryByRole('link', { name: 'View user' })).not.toBeInTheDocument()
+  })
+
+  it('says so when nothing was recorded on this account', async () => {
+    answer()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const card = await screen.findByRole('region', { name: 'Recorded actions on this account' })
+    expect(await within(card).findByText('Nothing recorded yet.')).toBeInTheDocument()
   })
 
   it('shows a viewer no History, since the platform log is admin-only', async () => {
@@ -350,6 +450,8 @@ describe('/users/$userId', () => {
     answer()
     renderAppAt(`/users/${USER_ID_2}`)
     await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })
-    expect(screen.queryByRole('heading', { name: 'History' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Recorded actions on this account' })
+    ).not.toBeInTheDocument()
   })
 })

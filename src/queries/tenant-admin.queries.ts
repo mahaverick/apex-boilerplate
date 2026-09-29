@@ -238,7 +238,7 @@ export function useReissueOwnerInvitation(id: string) {
           input
         )
       ),
-    // A refusal may still mean the detail was stale; a success is also a new audit entry for the History card.
+    // A refusal may mean the cached detail was stale; a success is an audit entry, shown on the Activity page and the tenant's History card.
     onSettled: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: tenantAdminKeys.detail(id) }),

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { HistoryCard } from '@/components/features/history-card'
+import { useRef } from 'react'
+import { UserHistoryCard } from '@/components/features/history-card'
 import { LoadError } from '@/components/features/load-error'
 import { UserActionsMenu } from '@/components/features/users/user-actions-menu'
 import { UserStatusBadges } from '@/components/features/users/user-status-badges'
@@ -71,11 +72,14 @@ function UserDetailPage() {
 
 function UserDetail({ user }: { user: PlatformUserDetail }) {
   const name = fullName(user)
+  const heading = useRef<HTMLHeadingElement>(null)
   return (
     <div className="grid max-w-4xl gap-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="grid gap-1">
-          <h1 className="text-2xl font-semibold">{name ?? user.email}</h1>
+          <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
+            {name ?? user.email}
+          </h1>
           {name && <p className="text-sm text-muted-foreground">{user.email}</p>}
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <UserStatusBadges user={user} />
@@ -91,7 +95,7 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
             </span>
           </div>
         </div>
-        <UserActionsMenu user={user} />
+        <UserActionsMenu user={user} fallbackFocus={heading} />
       </div>
 
       {user.deletedAt !== null && (
@@ -184,7 +188,7 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
         </Card>
       </section>
 
-      <HistoryCard targetId={user.id} />
+      <UserHistoryCard userId={user.id} />
     </div>
   )
 }

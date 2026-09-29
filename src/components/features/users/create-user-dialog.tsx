@@ -78,7 +78,8 @@ export function CreateUserDialog() {
           <DialogHeader>
             <DialogTitle>New user</DialogTitle>
             <DialogDescription>
-              They get an email with a link to set their own password. The link lasts 24 hours.
+              They get an email with a link to set their own password. The link lasts 24 hours by
+              default.
             </DialogDescription>
           </DialogHeader>
           <Form form={form} serverErrors={serverErrors}>

@@ -729,7 +729,11 @@ describe('signed-in pages', () => {
   })
 
   it.each([
-    ['a live account', {}, () => screen.findByRole('heading', { name: 'History', level: 2 })],
+    [
+      'a live account',
+      {},
+      () => screen.findByRole('heading', { name: 'Recorded actions on this account', level: 2 }),
+    ],
     [
       'a deleted account',
       { deletedAt: '2026-09-29T00:00:00.000Z', active: false },

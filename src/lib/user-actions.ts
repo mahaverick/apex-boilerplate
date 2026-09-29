@@ -23,13 +23,15 @@ export type UserActionTarget = Pick<
 >
 
 /**
- * The actions the API would accept from `actor` on `target`, so the menu never
- * offers one it refuses. Admin for
+ * The actions the menu offers `actor` on `target`: never one the API
+ * refuses, and one it would accept only where it does something. Admin for
  * every live write, soft delete included; owner for Delete permanently, which
  * only a soft-deleted account offers. A staff target also needs
  * `canPlatformActorModifyTarget`, except for the two mail actions, which need
  * the actor to rank at or above the target. An inactive account gets no mail
- * and no sign-out (its sessions already ended); verification is resent only
+ * (the API refuses it) and no sign-out: the API would accept one, but
+ * deactivation already revoked every session, so it would end nothing.
+ * Verification is resent only
  * to an account with a password, since the set-password link verifies the
  * others. Nobody acts on themselves except to send their own reset link.
  * @param actor - The signed-in user and their platform role.

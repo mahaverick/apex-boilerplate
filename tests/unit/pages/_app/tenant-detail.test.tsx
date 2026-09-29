@@ -4,7 +4,14 @@ import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
 import { useAuthStore } from '@/states/auth.store'
-import { MEMBERSHIP_ID_2, TENANT_ID, TENANT_ID_2, USER_ID_2 } from '@/tests/fixtures/ids'
+import {
+  AUDIT_ID_1,
+  MEMBERSHIP_ID_2,
+  STAFF_USER_ID,
+  TENANT_ID,
+  TENANT_ID_2,
+  USER_ID_2,
+} from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -553,6 +560,59 @@ describe('/tenants/$tenantId', () => {
       expect(
         await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })
       ).toBeInTheDocument()
+    })
+
+    it('shows staff actions filed under this tenant in its History card', async () => {
+      serve(detail())
+      let params: URLSearchParams | undefined
+      server.use(
+        http.get('/api/v1/platform/audit-log', ({ request }) => {
+          params = new URL(request.url).searchParams
+          return ok(
+            {
+              entries: [
+                {
+                  id: AUDIT_ID_1,
+                  occurredAt: '2026-09-25T09:00:00.000Z',
+                  action: 'tenant.owner_invited',
+                  access: 'platform',
+                  actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
+                  target: { type: 'tenant', id: TENANT_ID },
+                  metadata: { emailDomain: 'acme.test', reason: 'Owner left' },
+                  tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
+                },
+              ],
+              nextCursor: null,
+            },
+            'Audit log retrieved.'
+          )
+        })
+      )
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const card = await screen.findByRole('region', { name: 'Staff actions on this tenant' })
+      expect(
+        await within(card).findByText(/invited someone at acme\.test as the owner/)
+      ).toBeInTheDocument()
+      expect(params?.get('tenantId')).toBe(TENANT_ID)
+      expect(params?.get('access')).toBe('platform')
+      expect(params?.get('targetId')).toBeNull()
+      expect(within(card).queryByRole('link', { name: 'View tenant' })).not.toBeInTheDocument()
+    })
+
+    it('says so when no staff action is filed under the tenant, and hides the card from a viewer', async () => {
+      serve(detail())
+      const { unmount } = renderAppAt(`/tenants/${TENANT_ID}`)
+      const card = await screen.findByRole('region', { name: 'Staff actions on this tenant' })
+      expect(await within(card).findByText('No staff actions recorded yet.')).toBeInTheDocument()
+      unmount()
+
+      signIn({ ...testUser, platformRole: 'viewer' })
+      serve(detail())
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      await screen.findByRole('heading', { name: 'Owners', level: 2 })
+      expect(
+        screen.queryByRole('region', { name: 'Staff actions on this tenant' })
+      ).not.toBeInTheDocument()
     })
 
     it('marks the open section in the section nav', async () => {
