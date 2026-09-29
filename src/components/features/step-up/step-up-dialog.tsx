@@ -1,5 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { Link } from '@tanstack/react-router'
+import { useRef } from 'react'
 import { z } from 'zod'
 import { LoadError } from '@/components/features/load-error'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -31,6 +32,31 @@ import { useAuthProviders, useReauthenticate } from '@/queries/auth.queries'
 const passwordSchema = z.object({ password: z.string().min(1, 'Enter your password.') })
 
 /**
+ * Where focus goes when the step-up closes: into the dialog still open
+ * beneath it (the reason dialog waiting on this confirmation), at its first
+ * enabled field, else onto that dialog's popup. Base UI's default sent focus
+ * outside it (to the page's Actions trigger in a browser, to `<body>` in
+ * jsdom), behind a modal that is still open. With no dialog open beneath,
+ * the default stands.
+ * @param self - The step-up's own popup, excluded from the search.
+ * @returns The element to focus, or `true` for Base UI's default.
+ */
+function focusBeneath(self: HTMLElement | null): HTMLElement | true {
+  const beneath = [
+    ...document.querySelectorAll<HTMLElement>(
+      '[role="dialog"][data-open], [role="alertdialog"][data-open]'
+    ),
+  ].filter((popup) => popup !== self && !self?.contains(popup))
+  const popup = beneath.at(-1)
+  if (!popup) return true
+  return (
+    popup.querySelector<HTMLElement>(
+      'input:not([disabled]), textarea:not([disabled]), select:not([disabled])'
+    ) ?? popup
+  )
+}
+
+/**
  * "Confirm it's you". The body mounts only while open, so the sign-in
  * methods are fetched when a step-up actually happens and the form starts
  * empty every time. Closing it any way other than a successful confirmation
@@ -45,6 +71,7 @@ export function StepUpDialog({
   onConfirmed: () => void
   onDismissed: () => void
 }) {
+  const popup = useRef<HTMLDivElement>(null)
   return (
     <Dialog
       open={open}
@@ -52,7 +79,11 @@ export function StepUpDialog({
         if (!next) onDismissed()
       }}
     >
-      <DialogContent showCloseButton={false}>
+      <DialogContent
+        ref={popup}
+        showCloseButton={false}
+        finalFocus={() => focusBeneath(popup.current)}
+      >
         <DialogHeader>
           <DialogTitle>Confirm it’s you</DialogTitle>
           <DialogDescription>

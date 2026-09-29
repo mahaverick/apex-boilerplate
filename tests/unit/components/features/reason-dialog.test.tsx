@@ -213,6 +213,59 @@ describe('ReasonDialog', () => {
     expect(useAuthStore.getState().accessToken).toBe('stepped-up-token')
   })
 
+  it('Escape in the stacked step-up puts focus back inside the still-open reason dialog', async () => {
+    useAuthStore.setState({
+      accessToken: 'old-token',
+      user: testUser,
+      isAuthenticated: true,
+      isBootstrapped: true,
+    })
+    server.use(
+      http.post('/api/v1/danger', () => fail('Recent sign-in required', 401, REAUTH_REQUIRED))
+    )
+    // Opened from a trigger on the page, as the actions menus open it: that trigger is where focus must not go.
+    function Page() {
+      const stepUp = useStepUp()
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Actions
+          </button>
+          <ReasonDialog
+            open={open}
+            onOpenChange={setOpen}
+            title="Suspend Acme?"
+            description="Members lose access until it is reactivated."
+            confirmLabel="Suspend"
+            onConfirm={async () => {
+              await stepUp.run(() => apiClient.post('/danger', {}))
+            }}
+          />
+        </>
+      )
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={client}>
+        <StepUpProvider>
+          <Page />
+        </StepUpProvider>
+      </QueryClientProvider>
+    )
+    await user.click(screen.getByRole('button', { name: 'Actions' }))
+    await user.type(await screen.findByLabelText('Reason'), 'unpaid')
+    await user.click(screen.getByRole('button', { name: 'Suspend' }))
+    await screen.findByLabelText('Password')
+
+    await user.keyboard('{Escape}')
+
+    const reason = screen.getByRole('alertdialog', { name: 'Suspend Acme?' })
+    expect(await within(reason).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
+    await waitFor(() => expect(within(reason).getByLabelText('Reason')).toHaveFocus())
+  })
+
   it('the stacked step-up dialog takes the password, confirms, retries, and the reason dialog closes', async () => {
     useAuthStore.setState({
       accessToken: 'old-token',
