@@ -413,9 +413,10 @@ Three manual steps, once:
   message, each squash body would carry the branch's commit list, which
   release-please reads as extra conventional commits.
 
-The first release is pinned by `"release-as": "1.0.0"` in
-`release-please-config.json`. Once release-please has cut it, remove that line
-in a follow-up PR so later releases follow the commits again.
+The first release was pinned with `"release-as": "1.0.0"` in
+`release-please-config.json`; that line was removed once v1.0.0 shipped, so
+later releases follow the commits. A fresh copy of this template that wants to
+restart at 1.0.0 adds it back for one release, then removes it again.
 
 With those rules, the squashed commit on `main` is the PR's title alone, not
 any of its individual commit messages — so PR titles must themselves be
