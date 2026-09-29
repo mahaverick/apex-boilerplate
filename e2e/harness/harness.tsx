@@ -30,6 +30,7 @@ import {
   TENANT_ID,
   TENANT_ID_2,
   TENANT_ID_3,
+  TENANT_ID_4,
   USER_ID,
   USER_ID_2,
   USER_ID_3,
@@ -247,9 +248,25 @@ const TENANT_DETAIL_BASE = {
 /**
  * A tenant's page. Acme is active, with a long description and an inactive
  * owner; Beta is suspended, with its own details and one owner, so its tabs
- * render frozen and nothing on its page is Acme's.
+ * render frozen and nothing on its page is Acme's; Delta is active with no
+ * owner at all, so its Actions menu offers the owner invitation. Delta is on
+ * no list: only its own page is reached.
  */
 function tenantDetail(tenantId: string) {
+  if (tenantId === TENANT_ID_4) {
+    return {
+      ...TENANT_DETAIL_BASE,
+      id: TENANT_ID_4,
+      name: 'Delta LLC',
+      slug: 'delta',
+      lifecycleState: 'active',
+      description: null,
+      website: null,
+      memberCount: 0,
+      owners: [],
+      pendingInvitationCount: 0,
+    }
+  }
   if (tenantId === TENANT_ID_2) {
     return {
       ...TENANT_DETAIL_BASE,
@@ -441,8 +458,9 @@ const worker = setupWorker(
       'Audit log retrieved.'
     )
   ),
-  // Suspending a tenant and deactivating a user always ask for a recent sign-in, so the fixtures can open the stacked step-up dialog.
+  // Suspending a tenant, sending an owner invitation and deactivating a user always ask for a recent sign-in, so the fixtures can open the stacked step-up dialog.
   http.post('/api/v1/platform/tenants/:tenantId/suspend', reauthRequired),
+  http.post('/api/v1/platform/tenants/:tenantId/owner-invitation', reauthRequired),
   http.post('/api/v1/platform/users/:userId/deactivate', reauthRequired),
   http.get('/api/v1/profile', () => ok(testUser, 'Profile retrieved.')),
   // /profile's Security section. Unmocked, it would reach the real API, 401, and sign the harness user out.

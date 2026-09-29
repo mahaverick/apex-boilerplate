@@ -29,7 +29,7 @@ import { isReauthRequired } from '@/lib/step-up'
 import { reasonFormSchema } from '@/schemas/reason.schemas'
 
 /** Step-up was dismissed, so the action never ran. */
-const STEP_UP_DISMISSED = 'Confirm it’s you to continue.'
+export const STEP_UP_DISMISSED = 'Confirm it’s you to continue.'
 
 /** A 404 from a staff route answers the caller's role: it changed after the page loaded. */
 export const ROLE_DENIED_ACTION =

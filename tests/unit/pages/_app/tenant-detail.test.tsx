@@ -341,6 +341,33 @@ describe('/tenants/$tenantId', () => {
       expect(body).toEqual({ email: 'olive@acme.test', reason: 'first link expired' })
     })
 
+    it('Escape on the stacked step-up closes only the step-up; the owner invitation keeps what was typed', async () => {
+      serve(detail({ owners: [] }))
+      server.use(
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/owner-invitation`, () =>
+          fail('Recent sign-in required', 401, REAUTH_REQUIRED)
+        )
+      )
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Resend owner invitation' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Owner invitation' })
+      await user.type(within(dialog).getByLabelText('Owner email'), 'new@acme.test')
+      await user.type(within(dialog).getByLabelText('Reason'), 'owner left')
+      await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
+      await screen.findByLabelText('Password')
+
+      await user.keyboard('{Escape}')
+
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: 'Confirm it’s you' })).not.toBeInTheDocument()
+      )
+      const still = screen.getByRole('dialog', { name: 'Owner invitation' })
+      expect(await within(still).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
+      expect(within(still).getByLabelText('Reason')).toHaveValue('owner left')
+      await waitFor(() => expect(still.contains(document.activeElement)).toBe(true))
+    })
+
     it('shows a deactivated invitee’s 409 inside the owner-invitation dialog', async () => {
       serve(detail({ owners: [] }))
       server.use(

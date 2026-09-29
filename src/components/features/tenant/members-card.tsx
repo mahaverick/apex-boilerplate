@@ -7,6 +7,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
+import { STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,6 +51,7 @@ import { PLATFORM_TENANT_SLUG, ROUTES } from '@/constants/routes'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom } from '@/lib/api-error'
+import { isReauthRequired } from '@/lib/step-up'
 import {
   memberName,
   ownerCount,
@@ -174,7 +176,8 @@ function RoleCell({
  * explanation in `RoleCell` (`isLastOwner` implies `isSelf`). After leaving,
  * the page navigates away, because the tenant's routes answer 404 to a caller
  * with neither a membership nor a platform role: to Overview from the platform
- * tenant, to the Tenants list from any other.
+ * tenant, to the Tenants list from any other. A dismissed step-up removes no
+ * one, so the dialog stays open and says so, ready to be confirmed again.
  */
 function RemoveMemberButton({
   slug,
@@ -194,6 +197,8 @@ function RemoveMemberButton({
   const stepUp = useStepUp()
   const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [stepUpDismissed, setStepUpDismissed] = useState(false)
   const name = memberName(member)
 
   if (isLastOwner) {
@@ -205,7 +210,15 @@ function RemoveMemberButton({
   }
 
   return (
-    <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
+    <AlertDialog
+      open={isOpen}
+      onOpenChange={(next) => {
+        // While the removal runs, a step-up may be open over this dialog: Escape and the backdrop belong to it.
+        if (!next && busy) return
+        setStepUpDismissed(false)
+        setIsOpen(next)
+      }}
+    >
       <AlertDialogTrigger
         render={
           <Button variant="outline" size="sm" disabled={removeMember.isPending}>
@@ -237,16 +250,24 @@ function RemoveMemberButton({
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {stepUpDismissed && (
+          <p role="alert" className="text-sm text-destructive">
+            {STEP_UP_DISMISSED}
+          </p>
+        )}
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
-            disabled={removeMember.isPending}
+            disabled={busy}
             onClick={() => {
+              setBusy(true)
+              setStepUpDismissed(false)
               stepUp
                 .run(() => removeMember.mutateAsync(member.user.id))
                 .then(
                   () => {
+                    setBusy(false)
                     setIsOpen(false)
                     toast.success(isSelf ? 'You left this tenant.' : `${name} removed.`)
                     // Leaving the platform tenant ends staff access; Overview's guard then shows /no-access.
@@ -257,6 +278,11 @@ function RemoveMemberButton({
                     }
                   },
                   (error: unknown) => {
+                    setBusy(false)
+                    if (isReauthRequired(error)) {
+                      setStepUpDismissed(true)
+                      return
+                    }
                     setIsOpen(false)
                     toast.error(messageFrom(error))
                   }

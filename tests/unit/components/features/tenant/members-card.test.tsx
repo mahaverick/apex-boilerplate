@@ -32,7 +32,11 @@ import {
   testInvitation,
 } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { PlatformTenantDetail, TenantInvitation } from '@/types/api.types'
+import {
+  REAUTH_REQUIRED,
+  type PlatformTenantDetail,
+  type TenantInvitation,
+} from '@/types/api.types'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -475,6 +479,36 @@ describe('removing and leaving', () => {
 
     expect(await screen.findByText('Vic X removed.')).toBeInTheDocument()
     expect(removed).toBe(USER_ID_3)
+  })
+
+  it('Escape on the stacked step-up closes only the step-up; the Remove dialog stays open and removes no one', async () => {
+    let calls = 0
+    mockTenant('owner', [member(ME, 'owner', 'Me'), member(USER_ID_3, 'viewer', 'Vic')])
+    server.use(
+      http.delete('/api/v1/tenants/acme/members/:userId', () => {
+        calls += 1
+        return fail('Recent sign-in required', 401, REAUTH_REQUIRED)
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+    const vic = await rowFor('Vic')
+    await user.click(vic.getByRole('button', { name: 'Remove' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove Vic X?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+    await screen.findByLabelText('Password')
+
+    await user.keyboard('{Escape}')
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Confirm it’s you' })).not.toBeInTheDocument()
+    )
+    const still = screen.getByRole('alertdialog', { name: 'Remove Vic X?' })
+    expect(await within(still).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
+    await waitFor(() => expect(still.contains(document.activeElement)).toBe(true))
+    expect(calls).toBe(1)
+    expect(screen.getByText('Vic X')).toBeInTheDocument()
   })
 
   it('says why a removal was refused, and closes the dialog', async () => {

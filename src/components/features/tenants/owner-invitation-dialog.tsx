@@ -1,6 +1,7 @@
 import { useForm } from '@tanstack/react-form'
+import { useState } from 'react'
 import { toast } from 'sonner'
-import { ROLE_DENIED_ACTION } from '@/components/features/reason-dialog'
+import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -49,8 +50,16 @@ export function OwnerInvitationDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const [busy, setBusy] = useState(false)
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // While the send runs, a step-up may be open over this dialog: Escape and the backdrop belong to it.
+        if (!next && busy) return
+        onOpenChange(next)
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Owner invitation</DialogTitle>
@@ -58,7 +67,13 @@ export function OwnerInvitationDialog({
             A new link is emailed; any earlier owner invitation stops working.
           </DialogDescription>
         </DialogHeader>
-        {open && <OwnerInvitationForm tenant={tenant} onDone={() => onOpenChange(false)} />}
+        {open && (
+          <OwnerInvitationForm
+            tenant={tenant}
+            onDone={() => onOpenChange(false)}
+            onBusyChange={setBusy}
+          />
+        )}
       </DialogContent>
     </Dialog>
   )
@@ -67,9 +82,11 @@ export function OwnerInvitationDialog({
 function OwnerInvitationForm({
   tenant,
   onDone,
+  onBusyChange,
 }: {
   tenant: PlatformTenantDetail
   onDone: () => void
+  onBusyChange: (busy: boolean) => void
 }) {
   const reissue = useReissueOwnerInvitation(tenant.id)
   const stepUp = useStepUp()
@@ -80,15 +97,18 @@ function OwnerInvitationForm({
     onSubmit: async ({ value }) => {
       serverErrors.reset()
       const input = ownerInvitationSchema.parse(value)
+      onBusyChange(true)
       try {
         const { emailSent } = await stepUp.run(() => reissue.mutateAsync(input))
+        onBusyChange(false)
         if (emailSent) toast.success(`Owner invitation sent to ${input.email}.`)
         else
           toast.warning('The invitation was created, but its email could not be sent. Try again.')
         onDone()
       } catch (error) {
+        onBusyChange(false)
         if (isReauthRequired(error)) {
-          serverErrors.setFormErrors(['Confirm it’s you to continue.'])
+          serverErrors.setFormErrors([STEP_UP_DISMISSED])
           return
         }
         if (codeFrom(error) === INVITEE_DEACTIVATED) {

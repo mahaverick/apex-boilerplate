@@ -10,6 +10,7 @@ import { afterAnimations } from '../timing'
 
 const ACME_PAGE = '/tenants/10000000-0000-4000-8000-000000000001'
 const BETA_PAGE = '/tenants/10000000-0000-4000-8000-000000000002'
+const DELTA_PAGE = '/tenants/10000000-0000-4000-8000-000000000004'
 const CLEO_PAGE = '/users/20000000-0000-4000-8000-000000000002'
 const DELETED_PAGE = '/users/20000000-0000-4000-8000-000000000003'
 
@@ -96,31 +97,48 @@ test('the tenant actions menu, the suspend reason dialog and the stacked step-up
   expect(overflow).toBeLessThanOrEqual(0)
 })
 
-for (const [name, path, trigger, item, dialogName, action] of [
-  ['suspending a tenant', ACME_PAGE, 'Actions', 'Suspend', 'Suspend Acme Corp?', 'Suspend'],
+for (const [name, path, trigger, item, role, dialogName, action] of [
+  [
+    'suspending a tenant',
+    ACME_PAGE,
+    'Actions',
+    'Suspend',
+    'alertdialog',
+    'Suspend Acme Corp?',
+    'Suspend',
+  ],
   [
     'deactivating a user',
     CLEO_PAGE,
     'Actions for c@d.com',
     'Deactivate',
+    'alertdialog',
     'Deactivate account',
     'Deactivate',
   ],
+  [
+    'sending an owner invitation',
+    DELTA_PAGE,
+    'Actions',
+    'Resend owner invitation',
+    'dialog',
+    'Owner invitation',
+    'Send invitation',
+  ],
 ] as const) {
-  test(`Escape on the stacked step-up, ${name}, leaves focus in the still-open reason dialog`, async ({
+  test(`Escape on the stacked step-up, ${name}, leaves focus in the still-open dialog beneath`, async ({
     page,
   }) => {
     await page.goto(`/e2e/harness/?path=${path}`)
     await page.getByRole('button', { name: trigger, exact: true }).click()
     await page.getByRole('menuitem', { name: item, exact: true }).click()
-    const reason = page.getByRole('alertdialog', { name: dialogName })
+    const reason = page.getByRole(role, { name: dialogName })
+    if (role === 'dialog') await reason.getByLabel('Owner email').fill('new-owner@example.com')
     await reason.getByLabel('Reason').fill('focus check')
     await reason.getByRole('button', { name: action, exact: true }).click()
     const stepUp = page.getByRole('dialog', { name: 'Confirm it’s you' })
     await expect(stepUp.getByLabel('Password')).toBeVisible()
-    await expect
-      .poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]'))))
-      .toBe(true)
+    await expect(stepUp.getByLabel('Password')).toBeFocused()
 
     await page.keyboard.press('Escape')
     await expect(stepUp).toBeHidden()
@@ -129,7 +147,13 @@ for (const [name, path, trigger, item, dialogName, action] of [
     // Not <body>: a keyboard user must be able to Tab on inside the dialog that is still open.
     await expect
       .poll(() =>
-        page.evaluate(() => Boolean(document.activeElement?.closest('[role="alertdialog"]')))
+        page.evaluate(
+          (title) =>
+            document.activeElement
+              ?.closest('[role="dialog"], [role="alertdialog"]')
+              ?.textContent?.includes(title) === true,
+          dialogName
+        )
       )
       .toBe(true)
     await expect(reason.getByLabel('Reason')).toHaveValue('focus check')
