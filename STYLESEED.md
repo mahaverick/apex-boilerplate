@@ -10,12 +10,12 @@ Upgrades go through `/ss-update` and are reviewed as a diff.
 method, rules and review — never components. Its 32 Radix primitives and its Vite 6 / React 18
 scaffold are not used and must not be introduced. Do not reopen without new evidence.
 
-**`command.tsx` is hand-written on Base UI Autocomplete.** shadcn's `command` needs cmdk, which
-pulls Radix (shadcn-ui/ui#9191). Swap to the registry file if that closes.
-
 The gate chain references neither
 Radix nor `engine/components`, `ss-component` reads the project's own primitives, and the 19
 `@radix-ui/*` packages live only in a fresh-project scaffold that does not apply here.
+
+**`command.tsx` is hand-written on Base UI Autocomplete.** shadcn's `command` needs cmdk, which
+pulls Radix (shadcn-ui/ui#9191). Swap to the registry file if that closes.
 
 ## Selection
 
@@ -48,6 +48,9 @@ Tailwind 4 spacing base is the default `--spacing: 0.25rem`, so `N` → `N × 4p
 are indigo-tinted at hue ~275; the three status hues are 150, 75 and 245, each with a
 `-foreground` pair. **Never reach for `green-500`** — use the token.
 
+`--info` and `--info-foreground` are declared but not yet rendered by any component, so they are
+ungraded until first use.
+
 ## Recorded exceptions
 
 These are intentional and must not be "fixed" by a future pass.
@@ -67,7 +70,6 @@ These are intentional and must not be "fixed" by a future pass.
 | Repo fix | `ui/sidebar.tsx` (rail) | `transition-[right,left,transform]`, not `transition-all` | Explicit property list |
 | TS6133 | `ui/scroll-area.tsx` | Registry's unused `import * as React from "react"` removed | `noUnusedLocals` rejects it; remove again after a re-pull |
 | Lint | `ui/chart.tsx` | Five type-aware rules off for this file in `eslint.config.js` | Upstream is kept as pulled; see the comment on that block |
-
 
 `min-w-24` (dropdown-menu sub-content) and `w-0.5` (sidebar rail) are spellings of the registry's `min-w-[96px]` and `w-[2px]`: a re-pull diff there is cosmetic.
 
@@ -93,9 +95,11 @@ Rounding any of the SS002 values to the nearest scale step changes how the contr
   `prefers-reduced-motion` block lives in `globals.css`. Listing a file in `tokenFiles`
   does **not** put it in the scanned inventory — it must also sit under a `sourceRoot`. An
   under-declared artifact produces confident, wrong findings.
-- **The `members` artifact is inherited from the customer app.** Its route locator
-  (`/tenants/$slug/members`) does not exist in Apex, and no artifact yet covers the Overview,
-  Tenants or Activity pages. Re-target it, or add artifacts, before relying on a scan.
+- **The whole `.styleseed/` context is inherited from the customer app** and predates the indigo
+  theme: `project.json`'s `keyColor`/`surfaceTemperature`, `palettes/members.css`, the manifest
+  hashes and the `members` artifact. That artifact's route locator (`/tenants/$slug/members`)
+  does not exist in Apex, and no artifact yet covers the Overview, Tenants or Activity pages.
+  Regenerate the context and re-target or add artifacts before running a scan.
 - **`requiredRenders` must not be empty.** The contract rejects `[]`, so `members` declares a
   desktop and a mobile loaded state. Both are rendered with Playwright. A render does not
   measure colour contrast; `pnpm test:contrast` does.
@@ -136,7 +140,8 @@ node "<styleseed>/skills/ss-score/scripts/styleseed-check.mjs" \
   scan --project-root . --artifact members --format json
 ```
 
-**The committed tree scans clean on its own** — no resolver step is needed first. The
+**The committed manifest verifies on its own** — no resolver step is needed for that, though the
+context it describes predates the indigo theme (see Known detector limits). The
 manifest's nine `sources` are all StyleSeed catalog entries (`catalog:core`,
 `built-in:operations-console`, and so on), **not** project files, so editing `globals.css`,
 a component or this file does not invalidate it.

@@ -158,6 +158,8 @@ CI holds eslint to **zero warnings** as well as zero errors
 
 ## Project structure
 
+Where this build departs from the design spec, the spec's closing section "Deviations recorded during implementation" (`2026-09-29-apex-sp1-shell-design.md`) says so.
+
 ```
 src/
   components/
