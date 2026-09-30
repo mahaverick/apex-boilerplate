@@ -75,8 +75,8 @@ Further staff are invited from the Staff page, which manages the platform
 tenant's members and invitations; with `APEX_URL` set, the invitation email
 links to Apex's `/invitations/accept`. A viewer sees Overview, Tenants, Users
 and Staff, read-only. The Activity log and every create, edit and soft action
-need admin; permanent deletion, acting on another staff owner and granting
-admin or owner need owner.
+need admin; permanent deletion, acting on another staff owner, changing any
+staff member's role and inviting staff as admin or owner need owner.
 
 ### The API must be running on :4040
 
