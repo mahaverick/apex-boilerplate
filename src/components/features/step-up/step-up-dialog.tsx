@@ -193,16 +193,19 @@ function PasswordStepUp({
  * An account without a password can't confirm who it is here: the API
  * confirms by password only. Only admins and owners reach a step-up, and they
  * may mail themselves a set-password link from their own user page (the
- * link opens Apex's reset page, which works while signed in). Forgot
- * password is no route for them: the sign-in pages send a signed-in user away.
+ * link opens Apex's reset page, which works while signed in). Setting the
+ * password ends every session they have, so they sign in again before
+ * repeating the action. Forgot password is no route for them: the sign-in
+ * pages send a signed-in user away.
  */
 function NoPasswordStepUp({ onDismissed }: { onDismissed: () => void }) {
   const userId = useAuthStore((state) => state.user?.id)
   return (
     <div className="grid gap-4">
       <p className="text-sm text-muted-foreground">
-        Your account has no password. Open your user page and use Send set-password link, set a
-        password from the email, then repeat this action.
+        Your account has no password. Open your user page and use Send set-password link, then set a
+        password from the email. Setting it signs you out everywhere, so sign in again before you
+        repeat this action.
       </p>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onDismissed}>

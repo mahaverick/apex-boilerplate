@@ -304,7 +304,7 @@ describe('useStepUp', () => {
     await user.click(screen.getByRole('button', { name: 'Do it' }))
     expect(
       await screen.findByText(
-        'Your account has no password. Open your user page and use Send set-password link, set a password from the email, then repeat this action.'
+        'Your account has no password. Open your user page and use Send set-password link, then set a password from the email. Setting it signs you out everywhere, so sign in again before you repeat this action.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
