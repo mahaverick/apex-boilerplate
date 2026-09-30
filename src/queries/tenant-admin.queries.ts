@@ -15,6 +15,7 @@ import {
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
 import { invalidateDirectory, isRoleDenied, PLATFORM_PAGE_SIZE } from '@/queries/platform.queries'
+import { tenantKeys } from '@/queries/tenant.queries'
 import type { CreatePlatformTenantInput } from '@/schemas/tenant.schemas'
 import type {
   ApiSuccess,
@@ -181,8 +182,11 @@ type LifecycleAction = 'suspend' | 'reactivate' | 'archive'
  * A lifecycle transition with its audit reason. The API answers the tenant as
  * it now is, which replaces the cached detail; the rest of the directory
  * refreshes, since the tenant may have left the current filter and its
- * members' pages show its state. A 409 means the cached state was already
- * stale, so the detail is refetched to show the real one.
+ * members' pages show its state. A tenant left suspended or archived has its
+ * own routes marked stale without refetching them: they would answer 404, and
+ * that error would show for a moment if it were reactivated. A 409 means the
+ * cached state was already stale, so the detail is refetched to show the real
+ * one.
  */
 function useLifecycle(id: string, action: LifecycleAction) {
   const queryClient = useQueryClient()
@@ -196,7 +200,11 @@ function useLifecycle(id: string, action: LifecycleAction) {
       ),
     onSuccess: async (tenant) => {
       queryClient.setQueryData(tenantAdminKeys.detail(id), tenant)
-      await invalidateDirectory(queryClient, tenantAdminKeys.detail(id))
+      await invalidateDirectory(
+        queryClient,
+        tenantAdminKeys.detail(id),
+        tenant.lifecycleState === 'active' ? undefined : tenantKeys.detail(tenant.slug)
+      )
     },
     onError: async (error) => {
       if (statusFrom(error) === 409) {
