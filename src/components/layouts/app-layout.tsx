@@ -192,14 +192,14 @@ export function AppLayout() {
             <Button
               variant="outline"
               size="sm"
-              className="ml-auto w-56 shrink-0 justify-between font-normal text-muted-foreground"
+              className="ml-auto shrink-0 justify-between font-normal text-muted-foreground sm:w-56"
               onClick={() => openPalette(true)}
             >
               <span className="flex items-center gap-2">
                 <Search aria-hidden className="size-4" />
-                Search…
+                <span className="max-sm:sr-only">Search…</span>
               </span>
-              <Kbd>{paletteShortcutHint()}</Kbd>
+              <Kbd className="max-sm:hidden">{paletteShortcutHint()}</Kbd>
             </Button>
           </header>
           <div className="flex-1 overflow-auto p-4 md:p-6">
