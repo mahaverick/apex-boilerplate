@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.0...v1.1.0) (2026-09-30)
+
+
+### Features
+
+* staff directory and management UI (Apex SP2) ([#3](https://github.com/mahaverick/apex-boilerplate/issues/3)) ([87fffa6](https://github.com/mahaverick/apex-boilerplate/commit/87fffa69c57c3a4f4b2dac7755b5369b8d3ac894))
+
 ## 1.0.0 (2026-09-29)
 
 
