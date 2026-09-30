@@ -14,6 +14,21 @@ export const AUDIT_ACTIONS = [
   'platform.member.auto_joined',
   'platform.member.granted',
   'tenant.accessed_by_platform',
+  'tenant.suspended',
+  'tenant.reactivated',
+  'tenant.archived',
+  'tenant.owner_invited',
+  'user.created',
+  'user.updated',
+  'user.deactivated',
+  'user.reactivated',
+  'user.signed_out',
+  'user.password_setup_sent',
+  'user.verification_resent',
+  'user.deleted',
+  'user.purged',
+  'tenant.purged',
+  'auth.reauthenticated',
 ] as const
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
 
@@ -35,6 +50,21 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'platform.member.auto_joined': 'Staff auto-joined',
   'platform.member.granted': 'Staff role granted',
   'tenant.accessed_by_platform': 'Staff visit',
+  'tenant.suspended': 'Tenant suspended',
+  'tenant.reactivated': 'Tenant reactivated',
+  'tenant.archived': 'Tenant archived',
+  'tenant.owner_invited': 'Owner invited',
+  'user.created': 'User created',
+  'user.updated': 'User updated',
+  'user.deactivated': 'User deactivated',
+  'user.reactivated': 'User reactivated',
+  'user.signed_out': 'User signed out',
+  'user.password_setup_sent': 'Password link sent',
+  'user.verification_resent': 'Verification resent',
+  'user.deleted': 'User deleted',
+  'user.purged': 'User permanently deleted',
+  'tenant.purged': 'Tenant permanently deleted',
+  'auth.reauthenticated': 'Identity confirmed',
 }
 
 type Metadata = Record<string, unknown>
@@ -68,6 +98,12 @@ function domain(metadata: Metadata): string {
   return text(metadata, 'emailDomain') ?? 'an unknown domain'
 }
 
+/** `: “why”`, or nothing when the entry carries no reason. */
+function because(metadata: Metadata): string {
+  const reason = text(metadata, 'reason')
+  return reason ? `: “${reason}”` : ''
+}
+
 const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
   'tenant.created': (m) => `created the tenant “${text(m, 'name') ?? 'unnamed'}”`,
   'tenant.updated': (m) => `updated the tenant${changedFields(m)}`,
@@ -85,6 +121,30 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
   'platform.member.granted': (m) => `granted a platform member the ${roleLabel(m, 'role')} role`,
   'tenant.accessed_by_platform': (m) =>
     `opened this tenant as platform staff (${roleLabel(m, 'platformRole')})`,
+  'tenant.suspended': (m) => `suspended the tenant${because(m)}`,
+  'tenant.reactivated': (m) => `reactivated the tenant${because(m)}`,
+  'tenant.archived': (m) => `archived the tenant${because(m)}`,
+  'tenant.owner_invited': (m) => `invited someone at ${domain(m)} as the owner${because(m)}`,
+  'user.created': (m) => `created an account for someone at ${domain(m)}`,
+  'user.updated': (m) => `updated a user${changedFields(m)}`,
+  'user.deactivated': (m) => `deactivated a user${because(m)}`,
+  'user.reactivated': (m) => `reactivated a user${because(m)}`,
+  'user.signed_out': (m) => `signed a user out everywhere${because(m)}`,
+  'user.password_setup_sent': (m) =>
+    text(m, 'kind') === 'reset'
+      ? 'sent a user a password reset link'
+      : 'sent a user a set-password link',
+  'user.verification_resent': () => 'resent a user’s verification email',
+  'user.deleted': (m) => `deleted a user${because(m)}`,
+  'user.purged': (m) => `permanently deleted a user${because(m)}`,
+  'tenant.purged': (m) => {
+    const name = text(m, 'name')
+    return `permanently deleted ${name ? `the tenant ${name}` : 'a tenant'}${because(m)}`
+  },
+  'auth.reauthenticated': (m) =>
+    text(m, 'outcome') === 'failure'
+      ? 'failed to confirm their identity'
+      : 'confirmed their identity',
 }
 
 /**

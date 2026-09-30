@@ -6,7 +6,7 @@ import { defineConfig, devices } from '@playwright/test'
  * `fixtures` runs against the MSW harness in `e2e/harness/` and needs only the
  * dev server. It holds the checks that need a real browser rather than jsdom.
  *
- * `live` runs against a real express-boilerplate on :4040 through the Vite
+ * `live` runs against a real express-boilerplate on :4040 (or `E2E_API_ORIGIN`) through the Vite
  * proxy, and is skipped unless `E2E_LIVE=1`. It covers what needs a real
  * server, cookie jar and reload: a reload keeps you signed in, and the refresh
  * cookie carries the flags

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import {
+  APEX_ORIGIN,
   API_ORIGIN,
   apiIsReady,
   apiLogin,
@@ -16,9 +17,6 @@ import {
  * `APEX_URL=http://localhost:5174`, so links it mails point back here.
  * Skipped unless `E2E_LIVE=1`.
  */
-
-/** Where express must send Apex's links: this dev server, not `WEB_URL`. */
-const APEX_ORIGIN = 'http://localhost:5174'
 
 test.skip(process.env.E2E_LIVE !== '1', 'live backend required — run pnpm test:e2e:live')
 

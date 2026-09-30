@@ -4,11 +4,11 @@ import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
+import { platformStatsQueryOptions } from '@/queries/platform.queries'
 import {
-  platformStatsQueryOptions,
   platformTenantsQueryOptions,
   usePlatformTenantSearch,
-} from '@/queries/platform.queries'
+} from '@/queries/tenant-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { fail, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -90,7 +90,7 @@ describe('usePlatformTenantSearch', () => {
 
   it('platformTenantsQueryOptions makes exactly one request on a 404', async () => {
     const calls = await requestsOn404('/api/v1/platform/tenants', () =>
-      client.fetchQuery(platformTenantsQueryOptions('', undefined, 5))
+      client.fetchQuery(platformTenantsQueryOptions({ q: '', limit: 5 }))
     )
     expect(calls).toBe(1)
   })

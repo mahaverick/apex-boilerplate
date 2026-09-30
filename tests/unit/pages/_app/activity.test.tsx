@@ -9,7 +9,15 @@ import { resetSessionForTests } from '@/http/session'
 import { queryClient } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
-import { PLATFORM_AUDIT_ID, STAFF_USER_ID, TENANT_ID, TENANT_ID_2 } from '@/tests/fixtures/ids'
+import {
+  AUDIT_ID_1,
+  PLATFORM_AUDIT_ID,
+  PLATFORM_TENANT_ID,
+  STAFF_USER_ID,
+  TENANT_ID,
+  TENANT_ID_2,
+  USER_ID_2,
+} from '@/tests/fixtures/ids'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type { PlatformAuditEntry, PlatformTenantRow } from '@/types/api.types'
@@ -76,7 +84,7 @@ function mockTenantSearch(respond: (q: string | null) => Response | Promise<Resp
 }
 
 function tenantPage(tenants: PlatformTenantRow[]) {
-  return ok({ tenants, nextCursor: null }, 'Tenants retrieved.')
+  return ok({ tenants, nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
 }
 
 function renderPlatformActivity() {
@@ -117,12 +125,16 @@ describe('platform activity page', () => {
     renderPlatformActivity()
 
     expect(await screen.findByRole('heading', { name: 'Activity', level: 1 })).toBeVisible()
-    const text = await screen.findByText('opened this tenant as platform staff (Viewer)')
+    const text = await screen.findByText(/^opened this tenant as platform staff \(Viewer\)/)
     const row = text.closest('li')
     if (!row) throw new Error('no activity row')
     expect(within(row).getByText('Acme Corp')).toBeInTheDocument()
-    // Apex has no tenant pages yet, so the name is plain text, not a link to nowhere.
+    // The target tenant links once, from the sentence; the "in Acme Corp" name stays text.
     expect(within(row).queryByRole('link', { name: 'Acme Corp' })).not.toBeInTheDocument()
+    expect(within(row).getByRole('link', { name: 'View tenant' })).toHaveAttribute(
+      'href',
+      `/tenants/${TENANT_ID}`
+    )
     expect(within(row).getByText('Staff')).toBeInTheDocument()
   })
 
@@ -186,7 +198,7 @@ describe('platform activity page', () => {
 
     await user.click(retry)
     expect(
-      await screen.findByText('opened this tenant as platform staff (Viewer)')
+      await screen.findByText(/^opened this tenant as platform staff \(Viewer\)/)
     ).toBeInTheDocument()
   })
 
@@ -389,7 +401,7 @@ describe('platform activity page', () => {
     server.use(
       http.get('/api/v1/platform/tenants', ({ request }) => {
         seen.push(new URL(request.url))
-        return ok({ tenants: [], nextCursor: null }, 'Tenants retrieved.')
+        return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()
@@ -466,5 +478,37 @@ describe('platform activity page', () => {
       expect(seen.at(-1)?.searchParams.get('tenantId')).toBe(TENANT_ID_2)
     })
     expect(tenantFilterTrigger()).toHaveAccessibleName('Filter by tenant. Current: Globex')
+  })
+  it('links an entry’s actor and its user target to their pages', async () => {
+    signInAs('admin')
+    mockLog(() =>
+      ok(
+        {
+          entries: [
+            {
+              id: AUDIT_ID_1,
+              occurredAt: '2026-09-25T09:00:00.000Z',
+              action: 'user.deactivated',
+              access: 'platform',
+              actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
+              target: { type: 'user', id: USER_ID_2 },
+              metadata: { reason: 'left the company' },
+              tenant: { id: PLATFORM_TENANT_ID, name: 'Platform', slug: 'platform' },
+            },
+          ],
+          nextCursor: null,
+        },
+        'Audit log retrieved.'
+      )
+    )
+    renderPlatformActivity()
+    expect(await screen.findByRole('link', { name: 'Sam Staff' })).toHaveAttribute(
+      'href',
+      `/users/${STAFF_USER_ID}`
+    )
+    expect(screen.getByRole('link', { name: 'View user' })).toHaveAttribute(
+      'href',
+      `/users/${USER_ID_2}`
+    )
   })
 })

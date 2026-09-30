@@ -18,6 +18,13 @@ export const ROUTES = {
   tenants: '/tenants',
   activity: '/activity',
   profile: '/profile',
+  users: '/users',
+  user: '/users/$userId',
+  staff: '/staff',
+  tenant: '/tenants/$tenantId',
+  tenantMembers: '/tenants/$tenantId/members',
+  tenantInvitations: '/tenants/$tenantId/invitations',
+  tenantActivity: '/tenants/$tenantId/activity',
   noAccess: '/no-access',
   invitationAccept: '/invitations/accept',
 } as const

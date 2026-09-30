@@ -8,6 +8,7 @@ import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
+import { TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -56,8 +57,12 @@ describe('AppLayout', () => {
   })
 
   it.each([
-    ['viewer', ['Overview', 'Tenants'], ['General', 'Directory']],
-    ['admin', ['Overview', 'Tenants', 'Activity log'], ['General', 'Directory', 'Security']],
+    ['viewer', ['Overview', 'Tenants', 'Users', 'Staff'], ['General', 'Directory']],
+    [
+      'admin',
+      ['Overview', 'Tenants', 'Users', 'Staff', 'Activity log'],
+      ['General', 'Directory', 'Security'],
+    ],
   ] as const)('shows a %s their items, grouped', async (platformRole, labels, groups) => {
     signIn({ ...testUser, platformRole })
     renderAppAt('/overview')
@@ -124,6 +129,90 @@ describe('AppLayout', () => {
       .map((item) => item.textContent?.trim())
       .filter((text) => text !== '')
     expect(trail).toEqual(['Tenants'])
+  })
+
+  it.each([
+    [`/tenants/${TENANT_ID}`, ['Tenants', 'Acme Corp']],
+    [`/tenants/${TENANT_ID}/members`, ['Tenants', 'Acme Corp', 'Members']],
+  ])('names the tenant in the trail at %s, under a Tenants link', async (path, expected) => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+        ok(
+          {
+            id: TENANT_ID,
+            name: 'Acme Corp',
+            slug: 'acme',
+            description: null,
+            website: null,
+            logo: null,
+            lifecycleState: 'suspended',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            deletedAt: null,
+            settings: { timezone: 'UTC', locale: 'en' },
+            memberCount: 0,
+            owners: [],
+            pendingInvitationCount: 0,
+            pendingOwnerInvitation: null,
+          },
+          'Tenant retrieved.'
+        )
+      )
+    )
+    renderAppAt(path)
+    const breadcrumb = await screen.findByRole('navigation', { name: 'breadcrumb' })
+    await within(breadcrumb).findByText('Acme Corp')
+    const trail = within(breadcrumb)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent?.trim())
+      .filter((text) => text !== '')
+    expect(trail).toEqual(expected)
+    expect(within(breadcrumb).getByRole('link', { name: 'Tenants' })).toHaveAttribute(
+      'href',
+      '/tenants'
+    )
+  })
+
+  it.each([
+    ['Cleo', 'Doe', 'Cleo Doe'],
+    [null, null, 'cleo@example.com'],
+  ])('names the user in the trail, under a Users link (%s %s)', async (first, last, label) => {
+    server.use(
+      http.get(`/api/v1/platform/users/${USER_ID_2}`, () =>
+        ok(
+          {
+            id: USER_ID_2,
+            email: 'cleo@example.com',
+            firstName: first,
+            lastName: last,
+            active: true,
+            emailVerifiedAt: null,
+            lastLoggedInAt: null,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            deletedAt: null,
+            platformRole: null,
+            membershipCount: 0,
+            hasPassword: true,
+            authProviders: ['email'],
+            memberships: [],
+            pendingInvitations: [],
+          },
+          'User retrieved.'
+        )
+      )
+    )
+    renderAppAt(`/users/${USER_ID_2}`)
+    const breadcrumb = await screen.findByRole('navigation', { name: 'breadcrumb' })
+    await within(breadcrumb).findByText(label)
+    const trail = within(breadcrumb)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent?.trim())
+      .filter((text) => text !== '')
+    expect(trail).toEqual(['Users', label])
+    expect(within(breadcrumb).getByRole('link', { name: 'Users' })).toHaveAttribute(
+      'href',
+      '/users'
+    )
   })
 
   it('navigates to the profile from the account menu', async () => {

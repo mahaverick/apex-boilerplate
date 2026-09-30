@@ -1,5 +1,6 @@
+import { Link } from '@tanstack/react-router'
 import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
-import { Badge } from '@/components/ui/badge'
+import { TenantStateBadge } from '@/components/features/tenants/tenant-state-badge'
 import {
   Table,
   TableBody,
@@ -9,24 +10,26 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { cn } from '@/lib/utils'
+import { ROUTES } from '@/constants/routes'
 import type { PlatformTenantRow } from '@/types/api.types'
 
 /** No optional features: the API orders, filters and pages, so the table only lays rows out. */
 const features = tableFeatures({})
-
-const STATUS: Record<PlatformTenantRow['lifecycleState'], { label: string; className: string }> = {
-  active: { label: 'Active', className: 'bg-success text-success-foreground' },
-  suspended: { label: 'Suspended', className: 'bg-warning text-warning-foreground' },
-  archived: { label: 'Archived', className: 'bg-muted text-muted-foreground' },
-}
 
 const column = createColumnHelper<typeof features, PlatformTenantRow>()
 
 const columns = column.columns([
   column.accessor('name', {
     header: 'Name',
-    cell: ({ getValue }) => <span className="font-medium">{getValue()}</span>,
+    cell: ({ getValue, row }) => (
+      <Link
+        to={ROUTES.tenant}
+        params={{ tenantId: row.original.id }}
+        className="font-medium underline-offset-4 hover:underline"
+      >
+        {getValue()}
+      </Link>
+    ),
   }),
   column.accessor('slug', {
     header: 'Slug',
@@ -34,10 +37,7 @@ const columns = column.columns([
   }),
   column.accessor('lifecycleState', {
     header: 'Status',
-    cell: ({ getValue }) => {
-      const status = STATUS[getValue()]
-      return <Badge className={cn('border-transparent', status.className)}>{status.label}</Badge>
-    },
+    cell: ({ getValue }) => <TenantStateBadge state={getValue()} />,
   }),
   column.accessor('memberCount', {
     header: 'Members',

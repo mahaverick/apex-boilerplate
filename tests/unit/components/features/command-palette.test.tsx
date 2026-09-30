@@ -28,6 +28,20 @@ const ACME = {
   createdAt: '2026-01-01T00:00:00.000Z',
 }
 
+const CLEO = {
+  id: '22222222-2222-4222-8222-222222222222',
+  email: 'cleo@example.com',
+  firstName: 'Cleo',
+  lastName: 'Doe',
+  active: true,
+  emailVerifiedAt: '2026-01-01T00:00:00.000Z',
+  lastLoggedInAt: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  deletedAt: null,
+  platformRole: null,
+  membershipCount: 1,
+}
+
 function renderPalette() {
   const rootRoute = createRootRoute({
     component: () => (
@@ -37,7 +51,15 @@ function renderPalette() {
       </>
     ),
   })
-  const pages = ['/overview', '/tenants', '/activity'].map((path) =>
+  const pages = [
+    '/overview',
+    '/tenants',
+    '/activity',
+    '/users',
+    '/staff',
+    '/users/$userId',
+    '/tenants/$tenantId',
+  ].map((path) =>
     createRoute({ getParentRoute: () => rootRoute, path, component: () => <h1>{path}</h1> })
   )
   const router = createRouter({
@@ -60,6 +82,15 @@ describe('CommandPalette', () => {
   beforeEach(() => {
     useAuthStore.setState({ user: { ...testUser, platformRole: 'viewer' }, isAuthenticated: true })
     useCommandPaletteStore.setState({ open: false })
+    // Every search asks for both; a test's own `server.use` still wins.
+    server.use(
+      http.get('/api/v1/platform/users', () =>
+        ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+      ),
+      http.get('/api/v1/platform/tenants', () =>
+        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+      )
+    )
   })
 
   afterEach(() => {
@@ -95,11 +126,14 @@ describe('CommandPalette', () => {
     expect(useCommandPaletteStore.getState().open).toBe(false)
   })
 
-  it('finds a tenant through the API and opens the tenants page filtered to it', async () => {
+  it('finds a tenant through the API and opens its page', async () => {
     server.use(
       http.get('/api/v1/platform/tenants', ({ request }) => {
         const q = new URL(request.url).searchParams.get('q')
-        return ok({ tenants: q === 'acme' ? [ACME] : [], nextCursor: null }, 'Tenants retrieved.')
+        return ok(
+          { tenants: q === 'acme' ? [ACME] : [], nextCursor: null, prevCursor: null },
+          'Tenants retrieved.'
+        )
       })
     )
     const user = userEvent.setup()
@@ -110,8 +144,7 @@ describe('CommandPalette', () => {
     await user.keyboard('acme')
     await user.click(await screen.findByRole('option', { name: /Acme Corp/ }))
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
-    expect(router.state.location.search).toEqual({ q: 'Acme Corp' })
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/tenants/${ACME.id}`))
   })
 
   it('never acts on a previous term’s tenants', async () => {
@@ -123,9 +156,9 @@ describe('CommandPalette', () => {
           await new Promise<void>((resolve) => {
             release = resolve
           })
-          return ok({ tenants: [], nextCursor: null }, 'Tenants retrieved.')
+          return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
         }
-        return ok({ tenants: [ACME], nextCursor: null }, 'Tenants retrieved.')
+        return ok({ tenants: [ACME], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()
@@ -145,6 +178,62 @@ describe('CommandPalette', () => {
     }
   })
 
+  it('finds a user by email, first 8 only, and Enter opens their page', async () => {
+    let limit: string | null = null
+    server.use(
+      http.get('/api/v1/platform/users', ({ request }) => {
+        const params = new URL(request.url).searchParams
+        limit = params.get('limit')
+        return ok(
+          { users: params.get('q') === 'cleo' ? [CLEO] : [], nextCursor: null, prevCursor: null },
+          'Users retrieved.'
+        )
+      })
+    )
+    const user = userEvent.setup()
+    const router = renderPalette()
+    await screen.findByRole('heading', { name: '/overview' })
+    await user.keyboard('{Control>}k{/Control}')
+
+    await user.keyboard('cleo')
+    expect(await screen.findByRole('option', { name: /cleo@example\.com/ })).toBeInTheDocument()
+    expect(screen.getByText('Users')).toBeInTheDocument()
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/users/${CLEO.id}`))
+    expect(limit).toBe('8')
+  })
+
+  it('never acts on a previous term’s users', async () => {
+    let release: (() => void) | undefined
+    server.use(
+      http.get('/api/v1/platform/users', async ({ request }) => {
+        const q = new URL(request.url).searchParams.get('q')
+        if (q === 'cleox') {
+          await new Promise<void>((resolve) => {
+            release = resolve
+          })
+          return ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+        }
+        return ok({ users: [CLEO], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+      })
+    )
+    const user = userEvent.setup()
+    const router = renderPalette()
+    await screen.findByRole('heading', { name: '/overview' })
+    await user.keyboard('{Control>}k{/Control}')
+    await user.keyboard('cleo')
+    await screen.findByRole('option', { name: /cleo@example\.com/ })
+
+    await user.keyboard('x')
+    await waitFor(() =>
+      expect(screen.queryByRole('option', { name: /cleo@example\.com/ })).not.toBeInTheDocument()
+    )
+    await user.keyboard('{Enter}')
+    expect(router.state.location.pathname).toBe('/overview')
+    release?.()
+  })
+
   it('says the tenant search failed, and keeps the page items usable', async () => {
     server.use(http.get('/api/v1/platform/tenants', () => fail('Boom', 500)))
     const user = userEvent.setup()
@@ -153,8 +242,25 @@ describe('CommandPalette', () => {
     await user.keyboard('{Control>}k{/Control}')
     await user.keyboard('o')
 
-    expect(await screen.findByText('Tenants could not be searched.')).toBeInTheDocument()
+    expect(await screen.findByText('Some results could not be loaded.')).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Overview' })).toBeInTheDocument()
+  })
+
+  it('says the user search failed, and keeps the tenants it found', async () => {
+    server.use(
+      http.get('/api/v1/platform/users', () => fail('Boom', 500)),
+      http.get('/api/v1/platform/tenants', () =>
+        ok({ tenants: [ACME], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderPalette()
+    await screen.findByRole('heading', { name: '/overview' })
+    await user.keyboard('{Control>}k{/Control}')
+    await user.keyboard('acme')
+
+    expect(await screen.findByText('Some results could not be loaded.')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Acme Corp/ })).toBeInTheDocument()
   })
 
   it('opens empty after the shortcut closed it mid-search', async () => {
@@ -206,12 +312,16 @@ describe('CommandPalette', () => {
     expect(useCommandPaletteStore.getState().open).toBe(true)
   })
 
-  it('never asks for tenants when the user is not staff', async () => {
+  it('never asks for tenants or users when the user is not staff', async () => {
     let calls = 0
     server.use(
       http.get('/api/v1/platform/tenants', () => {
         calls += 1
-        return ok({ tenants: [ACME], nextCursor: null }, 'Tenants retrieved.')
+        return ok({ tenants: [ACME], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+      }),
+      http.get('/api/v1/platform/users', () => {
+        calls += 1
+        return ok({ users: [CLEO], nextCursor: null, prevCursor: null }, 'Users retrieved.')
       })
     )
     useAuthStore.setState({ user: { ...testUser, platformRole: null } })
@@ -226,7 +336,7 @@ describe('CommandPalette', () => {
       'absence has no event: a request would follow the debounce'
     )
     expect(calls).toBe(0)
-    expect(screen.queryByText('Searching tenants…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Searching…')).not.toBeInTheDocument()
   })
 
   it('says nothing about tenants when the role is refused', async () => {
@@ -237,9 +347,9 @@ describe('CommandPalette', () => {
     await user.keyboard('{Control>}k{/Control}')
     await user.keyboard('o')
 
-    expect(await screen.findByText('Searching tenants…')).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByText('Searching tenants…')).not.toBeInTheDocument())
-    expect(screen.queryByText('Tenants could not be searched.')).not.toBeInTheDocument()
+    expect(await screen.findByText('Searching…')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('Searching…')).not.toBeInTheDocument())
+    expect(screen.queryByText('Some results could not be loaded.')).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Overview' })).toBeInTheDocument()
   })
 
@@ -247,7 +357,9 @@ describe('CommandPalette', () => {
     server.use(
       http.get('/api/v1/platform/tenants', ({ request }) => {
         const q = new URL(request.url).searchParams.get('q')
-        return q === 'o' ? fail('Boom', 500) : ok({ tenants: [], nextCursor: null })
+        return q === 'o'
+          ? fail('Boom', 500)
+          : ok({ tenants: [], nextCursor: null, prevCursor: null })
       })
     )
     const user = userEvent.setup()
@@ -255,11 +367,11 @@ describe('CommandPalette', () => {
     await screen.findByRole('heading', { name: '/overview' })
     await user.keyboard('{Control>}k{/Control}')
     await user.keyboard('o')
-    await screen.findByText('Tenants could not be searched.')
+    await screen.findByText('Some results could not be loaded.')
 
     await user.keyboard('v')
-    expect(screen.queryByText('Tenants could not be searched.')).not.toBeInTheDocument()
-    expect(screen.getByText('Searching tenants…')).toBeInTheDocument()
+    expect(screen.queryByText('Some results could not be loaded.')).not.toBeInTheDocument()
+    expect(screen.getByText('Searching…')).toBeInTheDocument()
   })
 
   it('does not say "No results." while tenants are still being searched', async () => {
@@ -269,7 +381,7 @@ describe('CommandPalette', () => {
         await new Promise<void>((resolve) => {
           release = resolve
         })
-        return ok({ tenants: [], nextCursor: null }, 'Tenants retrieved.')
+        return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()
@@ -279,7 +391,7 @@ describe('CommandPalette', () => {
     try {
       await user.keyboard('zzz')
       await waitFor(() => expect(release).toBeDefined())
-      expect(screen.getByText('Searching tenants…')).toBeInTheDocument()
+      expect(screen.getByText('Searching…')).toBeInTheDocument()
       expect(screen.queryByText('No results.')).not.toBeInTheDocument()
     } finally {
       release?.()
@@ -290,7 +402,7 @@ describe('CommandPalette', () => {
   it('ignores Enter typed before the new term is searched', async () => {
     server.use(
       http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [ACME], nextCursor: null }, 'Tenants retrieved.')
+        ok({ tenants: [ACME], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       )
     )
     const user = userEvent.setup()

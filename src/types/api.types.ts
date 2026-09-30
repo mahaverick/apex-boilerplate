@@ -35,6 +35,20 @@ export interface User {
 
 export const ACCESS_TOKEN_EXPIRED = 'ACCESS_TOKEN_EXPIRED'
 
+/**
+ * 401 on a destructive staff route whose session last authenticated too long
+ * ago (express `requireRecentAuth`). Not a verdict on the session: the
+ * interceptor passes it through untouched, and `useStepUp` asks the user to
+ * confirm who they are, then retries once.
+ */
+export const REAUTH_REQUIRED = 'REAUTH_REQUIRED'
+
+/** A 409 for a slug a live tenant already uses: it belongs on the slug field. */
+export const SLUG_TAKEN = 'slug_taken'
+
+/** A 409 for an owner address whose account is deactivated: it belongs on the email field. */
+export const INVITEE_DEACTIVATED = 'invitee_deactivated'
+
 /** `POST /invitations/preview` with `{ token }`: what an invite link opens onto. */
 export interface InvitationPreview {
   tenant: { name: string; slug: string }
@@ -72,20 +86,39 @@ export const INVITATION_EMAIL_MISMATCH = 'invitation_email_mismatch'
 /** 403 on accept: the signed-in account is the invited one, but its email is unverified. */
 export const INVITATION_EMAIL_UNVERIFIED = 'invitation_email_unverified'
 
+/** A keyset page's direction. `prev` pages backward from the given cursor. */
+export const PAGE_DIRECTIONS = ['next', 'prev'] as const
+export type PageDirection = (typeof PAGE_DIRECTIONS)[number]
+
+/** Mirrors express's TENANT_LIFECYCLE_STATES. */
+export type TenantLifecycleState = 'active' | 'suspended' | 'archived'
+
+/**
+ * `GET /platform/tenants?state=`. Omitted means the API's default, active and
+ * suspended together; `archived` and `all` reach archived (soft-deleted) rows.
+ */
+export const TENANT_STATE_FILTERS = ['active', 'suspended', 'archived', 'all'] as const
+export type TenantStateFilter = (typeof TENANT_STATE_FILTERS)[number]
+
 /** One row of `GET /platform/tenants`: staff search across every tenant. */
 export interface PlatformTenantRow {
   id: string
   name: string
   slug: string
-  lifecycleState: 'active' | 'suspended' | 'archived'
+  lifecycleState: TenantLifecycleState
   memberCount: number
   createdAt: string
 }
 
-/** A keyset page of `GET /platform/tenants`. `nextCursor` is opaque; send it back as-is. */
+/**
+ * A keyset page of `GET /platform/tenants`. Both cursors are opaque; send one
+ * back as-is with `direction`. Each is null at its own end, so the first page
+ * has `prevCursor: null`.
+ */
 export interface PlatformTenantPage {
   tenants: PlatformTenantRow[]
   nextCursor: string | null
+  prevCursor: string | null
 }
 
 /** How an audit entry's actor reached the tenant. `system` is a script, with no actor. */
@@ -162,4 +195,128 @@ export interface PlatformStats {
    * emails: a mail retried then sent contributes to both `failed` and `sent`.
    */
   emails: { date: string; sent: number; failed: number }[]
+}
+
+/** `GET /platform/tenants/:id`: any lifecycle state, the platform tenant excepted. */
+export interface PlatformTenantDetail {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  website: string | null
+  logo: string | null
+  lifecycleState: TenantLifecycleState
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  settings: { timezone: string; locale: string }
+  memberCount: number
+  owners: PlatformTenantOwner[]
+  pendingInvitationCount: number
+  pendingOwnerInvitation: { id: string; email: string; expiresAt: string } | null
+}
+
+/**
+ * An owner of a tenant. `active` is false for a deactivated account, which
+ * the API does not count as an owner: a tenant whose only owners
+ * are inactive can be sent a new owner invitation.
+ */
+export interface PlatformTenantOwner {
+  userId: string
+  email: string
+  firstName: string | null
+  lastName: string | null
+  active: boolean
+}
+
+/**
+ * One row of `GET /platform/users`. `membershipCount` leaves the platform
+ * tenant out. `deletedAt` is set only on the rows `status=deleted` reaches.
+ */
+export interface PlatformUserRow {
+  id: string
+  email: string
+  firstName: string | null
+  lastName: string | null
+  active: boolean
+  emailVerifiedAt: string | null
+  lastLoggedInAt: string | null
+  createdAt: string
+  deletedAt: string | null
+  platformRole: MembershipRole | null
+  membershipCount: number
+}
+
+/** A keyset page of `GET /platform/users`; cursors as for `PlatformTenantPage`. */
+export interface PlatformUserPage {
+  users: PlatformUserRow[]
+  nextCursor: string | null
+  prevCursor: string | null
+}
+
+/**
+ * `GET /platform/users?status=`. Omitted means active and inactive live
+ * accounts; `deleted` reaches soft-deleted ones, which only a purge removes.
+ */
+export const USER_STATUS_FILTERS = ['active', 'inactive', 'deleted'] as const
+export type UserStatusFilter = (typeof USER_STATUS_FILTERS)[number]
+
+export interface PlatformUserMembership {
+  tenantId: string
+  tenantName: string
+  tenantSlug: string
+  lifecycleState: TenantLifecycleState
+  role: MembershipRole
+  joinedAt: string
+}
+
+export interface PlatformUserPendingInvitation {
+  id: string
+  tenantId: string
+  tenantName: string
+  role: MembershipRole
+  expiresAt: string
+}
+
+/** `GET /platform/users/:id`. `authProviders` are provider ids (`'email'`, `'google'`). */
+export interface PlatformUserDetail extends PlatformUserRow {
+  hasPassword: boolean
+  authProviders: string[]
+  memberships: PlatformUserMembership[]
+  pendingInvitations: PlatformUserPendingInvitation[]
+}
+
+/**
+ * What a write that mails someone answers. The mail goes after the write
+ * commits, so `false` means the write stands and only the email failed: offer
+ * a resend.
+ */
+export interface EmailSentResult {
+  emailSent: boolean
+}
+
+/** How a caller reached a tenant: as a member, or through their platform role. */
+export type TenantAccess = 'member' | 'platform'
+
+/**
+ * `invitedBy` on a pending-invitation row, or `null` once the inviter's
+ * account is gone (the column is `on delete set null`).
+ */
+export interface InvitationInviter {
+  id: string
+  firstName: string | null
+  lastName: string | null
+}
+
+/**
+ * One row of `GET /tenants/:slug/invitations`. The server never sends the
+ * token or its hash, so nothing here can be used to accept the invitation.
+ */
+export interface TenantInvitation {
+  id: string
+  email: string
+  role: MembershipRole
+  invitedBy: InvitationInviter | null
+  expiresAt: string
+  createdAt: string
 }

@@ -9,7 +9,7 @@ import {
 import { INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
 describe('AUDIT_ACTIONS', () => {
-  it('lists exactly the twelve actions the API writes', () => {
+  it('lists exactly the twenty-seven actions the API writes', () => {
     expect([...AUDIT_ACTIONS].sort()).toEqual(
       [
         'invitation.accepted',
@@ -24,6 +24,21 @@ describe('AUDIT_ACTIONS', () => {
         'tenant.created',
         'tenant.settings_updated',
         'tenant.updated',
+        'auth.reauthenticated',
+        'tenant.archived',
+        'tenant.owner_invited',
+        'tenant.purged',
+        'tenant.reactivated',
+        'tenant.suspended',
+        'user.created',
+        'user.deactivated',
+        'user.deleted',
+        'user.password_setup_sent',
+        'user.purged',
+        'user.reactivated',
+        'user.signed_out',
+        'user.updated',
+        'user.verification_resent',
       ].sort()
     )
     for (const action of AUDIT_ACTIONS) expect(AUDIT_ACTION_LABELS[action]).not.toBe('')
@@ -86,6 +101,40 @@ describe('auditSentence', () => {
       { platformRole: 'viewer' },
       'opened this tenant as platform staff (Viewer)',
     ],
+    ['user.created', { emailDomain: 'corp.test' }, 'created an account for someone at corp.test'],
+    ['user.updated', { changed: ['firstName'] }, 'updated a user (firstName)'],
+    ['user.deactivated', { reason: 'left the company' }, 'deactivated a user: “left the company”'],
+    ['user.reactivated', { reason: 'rehired' }, 'reactivated a user: “rehired”'],
+    ['user.signed_out', { reason: 'lost laptop' }, 'signed a user out everywhere: “lost laptop”'],
+    ['user.deleted', { reason: 'GDPR request' }, 'deleted a user: “GDPR request”'],
+    ['user.password_setup_sent', { kind: 'setup' }, 'sent a user a set-password link'],
+    ['user.password_setup_sent', { kind: 'reset' }, 'sent a user a password reset link'],
+    ['user.verification_resent', {}, 'resent a user’s verification email'],
+    ['tenant.suspended', { reason: 'unpaid' }, 'suspended the tenant: “unpaid”'],
+    ['tenant.reactivated', { reason: 'paid' }, 'reactivated the tenant: “paid”'],
+    ['tenant.archived', { reason: 'closed' }, 'archived the tenant: “closed”'],
+    [
+      'tenant.owner_invited',
+      { emailDomain: 'acme.test', inviteeUserId: null, reason: 'new owner' },
+      'invited someone at acme.test as the owner: “new owner”',
+    ],
+    [
+      'tenant.owner_invited',
+      { emailDomain: 'acme.test', inviteeUserId: null, reason: null },
+      'invited someone at acme.test as the owner',
+    ],
+    [
+      'user.purged',
+      { reason: 'erasure request', emailDomain: 'corp.test' },
+      'permanently deleted a user: “erasure request”',
+    ],
+    [
+      'tenant.purged',
+      { reason: 'contract ended', name: 'Acme Corp', slug: 'acme', memberCount: 2 },
+      'permanently deleted the tenant Acme Corp: “contract ended”',
+    ],
+    ['auth.reauthenticated', { outcome: 'success' }, 'confirmed their identity'],
+    ['auth.reauthenticated', { outcome: 'failure' }, 'failed to confirm their identity'],
   ])('%s reads as a sentence', (action, metadata, sentence) => {
     expect(auditSentence({ action, metadata })).toBe(sentence)
   })
@@ -97,8 +146,11 @@ describe('auditSentence', () => {
     expect(auditSentence({ action: 'tenant.updated', metadata: { changed: 'name' } })).toBe(
       'updated the tenant'
     )
-    expect(auditSentence({ action: 'tenant.archived', metadata: {} })).toBe(
-      'performed tenant.archived'
+    expect(auditSentence({ action: 'tenant.deleted', metadata: {} })).toBe(
+      'performed tenant.deleted'
+    )
+    expect(auditSentence({ action: 'tenant.purged', metadata: {} })).toBe(
+      'permanently deleted a tenant'
     )
     expect(
       auditSentence({

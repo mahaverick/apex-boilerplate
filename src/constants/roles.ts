@@ -122,3 +122,28 @@ export function platformRoleAtLeast(
   if (role === null || role === undefined) return false
   return MEMBERSHIP_ROLES.indexOf(role) <= MEMBERSHIP_ROLES.indexOf(minimum)
 }
+
+/**
+ * Whether `actorRole` may change, remove, deactivate or delete another member
+ * of the PLATFORM tenant holding `targetRole` (the same rule express
+ * applies on `/platform/users/*` and `/tenants/platform/*`). Unlike a customer
+ * tenant, an owner may act on another owner, so a staff owner can be
+ * offboarded without the server script; an admin acts only on staff below
+ * admin. Never on oneself: leaving the platform tenant keeps the customer
+ * rule (`canActorModifyTarget`'s self case), and the API refuses every other
+ * self-action. The last-active-owner guard stays the API's.
+ * @param actorRole - The signed-in staff member's platform role.
+ * @param targetRole - The other staff member's platform role.
+ * @param isSelf - Whether the two are the same user.
+ * @returns True when the API would accept the action.
+ */
+export function canPlatformActorModifyTarget(
+  actorRole: MembershipRole,
+  targetRole: MembershipRole,
+  isSelf: boolean
+): boolean {
+  if (isSelf) return false
+  if (actorRole === 'owner') return true
+  if (actorRole === 'admin') return targetRole !== 'owner' && targetRole !== 'admin'
+  return false
+}

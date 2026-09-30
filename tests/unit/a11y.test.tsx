@@ -15,19 +15,30 @@ import { useThemeStore } from '@/states/theme.store'
 import {
   AUDIT_ID_1,
   AUDIT_ID_2,
+  INVITATION_ID,
   MEMBERSHIP_ID,
   MEMBERSHIP_ID_2,
+  PLATFORM_TENANT_ID,
   STAFF_USER_ID,
   TENANT_ID,
   TENANT_ID_2,
   TENANT_ID_3,
   USER_ID,
   USER_ID_2,
+  USER_ID_3,
 } from '@/tests/fixtures/ids'
 import { renderAppAt } from '@/tests/fixtures/render-app'
-import { fail, ok, TEST_INVITATION_TOKEN, testUser } from '@/tests/mocks/handlers'
+import { fail, ok, TEST_INVITATION_TOKEN, testInvitation, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { AuditEntry, PlatformAuditEntry, PlatformTenantRow } from '@/types/api.types'
+import type {
+  AuditEntry,
+  PlatformAuditEntry,
+  PlatformTenantDetail,
+  PlatformTenantRow,
+  PlatformUserDetail,
+  PlatformUserRow,
+  TenantLifecycleState,
+} from '@/types/api.types'
 
 /**
  * THE ACCESSIBILITY GATE. Spec section 9's criteria, made enforceable.
@@ -109,6 +120,24 @@ const MEMBERS = [
   },
 ]
 
+/** The platform tenant's staff, as the Staff page lists them: me an admin, Cleo a viewer. */
+const STAFF_MEMBERS = MEMBERS.map((member, index) => ({
+  ...member,
+  membership: {
+    ...member.membership,
+    tenantId: PLATFORM_TENANT_ID,
+    role: index === 0 ? 'admin' : 'viewer',
+  },
+}))
+
+/** The Staff page's two requests beyond the platform tenant the top-level `beforeEach` answers. */
+function serveStaff() {
+  server.use(
+    http.get('/api/v1/tenants/platform/members', () => ok(STAFF_MEMBERS, 'Members retrieved.')),
+    http.get('/api/v1/tenants/platform/invitations', () => ok([], 'Invitations retrieved.'))
+  )
+}
+
 /** One member action and one staff action, so the Staff badge is graded too. */
 const AUDIT_ENTRIES: AuditEntry[] = [
   {
@@ -130,6 +159,59 @@ const AUDIT_ENTRIES: AuditEntry[] = [
     metadata: { name: 'Acme Corp', slug: 'acme' },
   },
 ]
+/** The tenant detail pages' platform read. */
+const ACME_DETAIL: PlatformTenantDetail = {
+  id: TENANT_ID,
+  name: 'Acme Corp',
+  slug: 'acme',
+  description: 'Widgets',
+  website: 'https://acme.test',
+  logo: null,
+  lifecycleState: 'active',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-02-01T00:00:00.000Z',
+  deletedAt: null,
+  settings: { timezone: 'UTC', locale: 'en' },
+  memberCount: 2,
+  owners: [{ userId: USER_ID_2, email: 'c@d.com', firstName: 'Cleo', lastName: 'D', active: true }],
+  pendingInvitationCount: 0,
+  pendingOwnerInvitation: null,
+}
+
+/** The platform tenant's row, for any page that looks up the caller's role in it. */
+const PLATFORM_DETAIL_ROW = {
+  id: PLATFORM_TENANT_ID,
+  name: 'Platform',
+  slug: 'platform',
+  description: null,
+  logo: null,
+  website: null,
+  lifecycleState: 'active',
+  deletedAt: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+}
+
+/** Acme in `state`, with every route its detail tabs read. */
+function serveTenant(state: TenantLifecycleState) {
+  server.use(
+    http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+      ok({ ...ACME_DETAIL, lifecycleState: state }, 'Tenant retrieved.')
+    ),
+    http.get('/api/v1/tenants/acme', () =>
+      ok(
+        { ...ACME_DETAIL, isPlatform: false, role: 'admin', access: 'platform' },
+        'Tenant retrieved.'
+      )
+    ),
+    http.get('/api/v1/tenants/acme/members', () => ok(MEMBERS, 'Members retrieved.')),
+    http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.')),
+    http.get('/api/v1/tenants/acme/audit-log', () =>
+      ok({ entries: AUDIT_ENTRIES, nextCursor: null }, 'Audit log retrieved.')
+    )
+  )
+}
+
 /** A signed-in session, already bootstrapped, so `_app`'s guard lets pages render. */
 function signIn() {
   useAuthStore.setState({
@@ -325,6 +407,14 @@ beforeEach(() => {
   queryClient.clear()
   useSidebarStore.setState({ isCollapsed: false })
   useCommandPaletteStore.setState({ open: false })
+  server.use(
+    http.get('/api/v1/tenants/platform', () =>
+      ok(
+        { ...PLATFORM_DETAIL_ROW, isPlatform: true, role: 'admin', access: 'member' },
+        'Tenant retrieved.'
+      )
+    )
+  )
 })
 
 afterEach(() => {
@@ -437,6 +527,50 @@ describe('signed-out pages', () => {
   })
 })
 
+/** A customer account with a tenant, a pending invitation and no password: every card has content. */
+const USER_DETAIL: PlatformUserDetail = {
+  id: USER_ID_2,
+  email: 'cleo@example.com',
+  firstName: 'Cleo',
+  lastName: 'Doe',
+  active: true,
+  emailVerifiedAt: null,
+  lastLoggedInAt: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  deletedAt: null,
+  platformRole: null,
+  membershipCount: 1,
+  hasPassword: false,
+  authProviders: ['email'],
+  memberships: [
+    {
+      tenantId: TENANT_ID,
+      tenantName: 'Acme Corp',
+      tenantSlug: 'acme',
+      lifecycleState: 'suspended',
+      role: 'editor',
+      joinedAt: '2026-02-01T00:00:00.000Z',
+    },
+  ],
+  pendingInvitations: [
+    {
+      id: INVITATION_ID,
+      tenantId: TENANT_ID_2,
+      tenantName: 'Beta Ltd',
+      role: 'viewer',
+      expiresAt: '2026-10-01T00:00:00.000Z',
+    },
+  ],
+}
+
+function serveUser(overrides: Partial<PlatformUserDetail> = {}) {
+  server.use(
+    http.get(`/api/v1/platform/users/${USER_ID_2}`, () =>
+      ok({ ...USER_DETAIL, ...overrides }, 'User retrieved.')
+    )
+  )
+}
+
 describe('signed-in pages', () => {
   beforeEach(() => {
     signIn()
@@ -498,7 +632,7 @@ describe('signed-in pages', () => {
     }))
     server.use(
       http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: rows, nextCursor: 'next' }, 'Tenants retrieved.')
+        ok({ tenants: rows, nextCursor: 'next', prevCursor: null }, 'Tenants retrieved.')
       )
     )
     renderAppAt('/tenants')
@@ -509,10 +643,22 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
+  it('tenants filtered to archived with the admin controls has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () =>
+        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+      )
+    )
+    renderAppAt('/tenants?state=archived')
+    await screen.findByText('No tenants in this state.')
+    expect(screen.getByRole('button', { name: 'New tenant' })).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
   it('tenants with nothing matching has no axe violations', async () => {
     server.use(
       http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null }, 'Tenants retrieved.')
+        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       )
     )
     renderAppAt('/tenants?q=zzz')
@@ -541,6 +687,103 @@ describe('signed-in pages', () => {
     )
     renderAppAt('/activity')
     await screen.findByText('changed the settings (timezone)')
+    await expectNoViolations()
+  })
+
+  it.each([
+    ['overview', '', () => screen.findByRole('heading', { name: 'Owners', level: 2 })],
+    ['members', '/members', () => screen.findByText('Cleo D')],
+    [
+      'invitations',
+      '/invitations',
+      () => screen.findByText('No invitations are waiting to be accepted.'),
+    ],
+    ['activity', '/activity', () => screen.findByText('Sam Staff')],
+  ])('tenant detail %s has no axe violations', async (_name, suffix, ready) => {
+    serveTenant('active')
+    renderAppAt(`/tenants/${TENANT_ID}${suffix}`)
+    await ready()
+    await expectNoViolations()
+  })
+
+  it('staff has no axe violations', async () => {
+    serveStaff()
+    renderAppAt('/staff')
+    await screen.findByText('Cleo D')
+    await screen.findByText('No invitations are waiting to be accepted.')
+    await expectNoViolations()
+  })
+
+  it('users with a row in every status has no axe violations', async () => {
+    const base: PlatformUserRow = { ...USER_DETAIL, email: 'a@example.com' }
+    const rows: PlatformUserRow[] = [
+      { ...base, id: USER_ID },
+      { ...base, id: USER_ID_2, email: 'b@example.com', active: false },
+      { ...base, id: STAFF_USER_ID, email: 'c@example.com', platformRole: 'viewer' },
+      {
+        ...base,
+        id: USER_ID_3,
+        email: 'd@example.com',
+        deletedAt: '2026-09-20T00:00:00.000Z',
+        firstName: null,
+        lastName: null,
+      },
+    ]
+    server.use(
+      http.get('/api/v1/platform/users', () =>
+        ok({ users: rows, nextCursor: 'next', prevCursor: null }, 'Users retrieved.')
+      )
+    )
+    renderAppAt('/users')
+    // The h1 renders before the page lands; grade the table, its badges and the pager.
+    const table = await screen.findByRole('table', { name: 'Users' })
+    expect(within(table).getByText('Deleted')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New user' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled()
+    await expectNoViolations()
+  })
+
+  it('users with nothing matching has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/users', () =>
+        ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+      )
+    )
+    renderAppAt('/users?q=zzz&status=deleted')
+    await screen.findByText('No users match these filters.')
+    await expectNoViolations()
+  })
+
+  it.each([
+    [
+      'a live account',
+      {},
+      () => screen.findByRole('heading', { name: 'Recorded actions on this account', level: 2 }),
+    ],
+    [
+      'a deleted account',
+      { deletedAt: '2026-09-29T00:00:00.000Z', active: false },
+      () => screen.findByText(/This account was deleted on/),
+    ],
+  ])('user detail for %s has no axe violations', async (_name, overrides, ready) => {
+    serveUser(overrides)
+    renderAppAt(`/users/${USER_ID_2}`)
+    await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })
+    await ready()
+    await expectNoViolations()
+  })
+
+  it('an unknown user has no axe violations', async () => {
+    server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => fail('Not found', 404)))
+    renderAppAt(`/users/${USER_ID_2}`)
+    await screen.findByRole('heading', { name: 'User not found', level: 1 })
+    await expectNoViolations()
+  })
+
+  it('a suspended tenant’s frozen tab has no axe violations', async () => {
+    serveTenant('suspended')
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    await screen.findByText(/This tenant is suspended/)
     await expectNoViolations()
   })
 })
@@ -621,6 +864,21 @@ describe('invitation accept states', () => {
  * rather than trusting the closed markup.
  */
 describe('open overlays', () => {
+  it('has no violations with the New tenant dialog open', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () =>
+        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt('/tenants')
+    await screen.findByText('No tenants yet.')
+    await user.click(screen.getByRole('button', { name: 'New tenant' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+    expect(within(dialog).getByLabelText('Owner email')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
   beforeEach(() => {
     signIn()
   })
@@ -723,6 +981,253 @@ describe('open overlays', () => {
     const palette = await screen.findByRole('dialog', { name: 'Command palette' })
     // A palette that opened empty would pass axe while grading no list at all.
     expect(within(palette).getAllByRole('option').length).toBeGreaterThan(0)
+    await expectNoViolations()
+  })
+
+  it('has no violations with the command palette showing a user', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () =>
+        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+      ),
+      http.get('/api/v1/platform/users', () =>
+        ok({ users: [USER_DETAIL], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    await screen.findByRole('heading', { name: 'Overview', level: 1 })
+
+    await user.click(screen.getByRole('button', { name: /Search…/ }))
+    const palette = await screen.findByRole('dialog', { name: 'Command palette' })
+    await user.keyboard('cleo')
+
+    // The user group is what this grades: a palette without the row would repeat the test above.
+    expect(
+      await within(palette).findByRole('option', { name: /cleo@example\.com/ })
+    ).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the tenant actions menu open', async () => {
+    serveTenant('active')
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions' }))
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).getAllByRole('menuitem').length).toBeGreaterThan(0)
+    await expectNoViolationsIn(menu)
+  })
+
+  it('has no violations with the suspend reason dialog open', async () => {
+    serveTenant('active')
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
+    expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the remove-staff dialog open', async () => {
+    serveStaff()
+    const user = userEvent.setup()
+    renderAppAt('/staff')
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove Cleo D?' })
+    expect(within(dialog).getByRole('link', { name: 'Open Cleo D in Users' })).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the leave dialog open', async () => {
+    // Leave is an owner's own action, offered only while another owner remains.
+    serveTenant('active')
+    server.use(
+      http.get('/api/v1/tenants/acme', () =>
+        ok(
+          { ...ACME_DETAIL, isPlatform: false, role: 'owner', access: 'member' },
+          'Tenant retrieved.'
+        )
+      ),
+      http.get('/api/v1/tenants/acme/members', () =>
+        ok(
+          MEMBERS.map((member) => ({
+            ...member,
+            membership: { ...member.membership, role: 'owner' },
+          })),
+          'Members retrieved.'
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
+    expect(within(dialog).getByRole('button', { name: 'Leave' })).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the revoke-invitation dialog open', async () => {
+    serveTenant('active')
+    server.use(
+      http.get('/api/v1/tenants/acme/invitations', () =>
+        ok([testInvitation], 'Invitations retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await user.click(
+      await screen.findByRole('button', { name: `Revoke invitation to ${testInvitation.email}` })
+    )
+    await screen.findByRole('alertdialog', {
+      name: `Revoke the invitation to ${testInvitation.email}?`,
+    })
+    await expectNoViolations()
+  })
+
+  it('has no violations with the step-up dialog open', async () => {
+    serveTenant('active')
+    server.use(
+      http.post(`/api/v1/platform/tenants/${TENANT_ID}/suspend`, () =>
+        fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }))
+    const reason = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
+    await user.type(within(reason).getByLabelText('Reason'), 'x')
+    await user.click(within(reason).getByRole('button', { name: 'Suspend' }))
+    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+    expect(await within(stepUp).findByLabelText('Password')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the Edit details dialog open', async () => {
+    serveTenant('active')
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit details' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit details' })
+    expect(within(dialog).getByLabelText('Name')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the Owner invitation dialog open', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+        ok({ ...ACME_DETAIL, owners: [] }, 'Tenant retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Resend owner invitation' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Owner invitation' })
+    expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the New user dialog open', async () => {
+    server.use(
+      http.get('/api/v1/platform/users', () =>
+        ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt('/users')
+    await user.click(await screen.findByRole('button', { name: 'New user' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New user' })
+    expect(within(dialog).getByLabelText('Email')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the user actions menu open', async () => {
+    serveUser()
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions for cleo@example.com' }))
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).getAllByRole('menuitem').length).toBeGreaterThan(0)
+    await expectNoViolationsIn(menu)
+  })
+
+  it('has no violations with the Delete user dialog open, typed confirmation included', async () => {
+    serveUser()
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions for cleo@example.com' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete user' })
+    expect(within(dialog).getByLabelText('Type cleo@example.com to confirm')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the Deactivate account dialog open', async () => {
+    serveUser()
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions for cleo@example.com' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Deactivate' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Deactivate account' })
+    expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the permanent-delete dialog open on a deleted account', async () => {
+    useAuthStore.setState({ user: { ...testUser, platformRole: 'owner' } })
+    serveUser({ deletedAt: '2026-09-29T00:00:00.000Z', active: false })
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions for cleo@example.com' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete permanently' }))
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Permanently delete this account?',
+    })
+    expect(within(dialog).getByLabelText('Type cleo@example.com to confirm')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the step-up dialog open for an account without a password', async () => {
+    serveTenant('active')
+    server.use(
+      http.post(`/api/v1/platform/tenants/${TENANT_ID}/suspend`, () =>
+        fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
+      ),
+      http.get('/api/v1/auth/providers', () =>
+        ok(
+          {
+            providers: [{ provider: 'google', linkedAt: '2026-01-01T00:00:00.000Z' }],
+            hasPassword: false,
+          },
+          'Auth providers retrieved.'
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }))
+    const reason = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
+    await user.type(within(reason).getByLabelText('Reason'), 'x')
+    await user.click(within(reason).getByRole('button', { name: 'Suspend' }))
+    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+    expect(
+      await within(stepUp).findByRole('link', { name: 'Open your user page' })
+    ).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the Edit name dialog open', async () => {
+    serveUser()
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions for cleo@example.com' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit name' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit name' })
+    expect(within(dialog).getByLabelText('First name')).toHaveValue('Cleo')
     await expectNoViolations()
   })
 

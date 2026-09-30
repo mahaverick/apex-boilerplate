@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { LoadError } from '@/components/features/load-error'
 import { Badge } from '@/components/ui/badge'
@@ -5,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { actorName, auditSentence } from '@/constants/audit-actions'
+import { ROUTES } from '@/constants/routes'
 import { absoluteTime, relativeTime } from '@/lib/relative-time'
 import type { AuditEntry } from '@/types/api.types'
 
@@ -35,30 +37,75 @@ export interface ActivityListProps<T extends AuditEntry> {
   emptyMessage: string
   /** The tenant, for the platform-wide view. Omitted inside a tenant. */
   renderTenant?: (entry: T) => ReactNode
+  /** The record the list sits on; a target that is this record gets no link to the page already open. */
+  subjectId?: string
 }
 
 /**
  * One audit entry. The actor's email line is left out when it equals their
  * name, which the API sets to the email when no name is on file. Base UI's
  * Tooltip is not announced, so the absolute time is also in the trigger's own
- * text, visually hidden.
+ * text, visually hidden. The actor links to their user page; a user target,
+ * and in the platform-wide view a tenant target, links to its page unless
+ * it is the list's own subject. A purged
+ * user's entries have no actor (the API redacts it), and a link to a purged
+ * target lands on the not-found page.
  */
 function ActivityRow<T extends AuditEntry>({
   entry,
   renderTenant,
+  subjectId,
 }: {
   entry: T
   renderTenant?: (entry: T) => ReactNode
+  subjectId?: string
 }) {
   const absolute = absoluteTime(entry.occurredAt)
+  const target = entry.target?.id === subjectId ? null : entry.target
   return (
     <li className="grid gap-1 py-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-medium">{actorName(entry.actor)}</span>
+        {entry.actor ? (
+          <Link
+            to={ROUTES.user}
+            params={{ userId: entry.actor.id }}
+            className="font-medium underline-offset-4 hover:underline"
+          >
+            {actorName(entry.actor)}
+          </Link>
+        ) : (
+          <span className="font-medium">{actorName(entry.actor)}</span>
+        )}
         {entry.access === 'platform' && <Badge variant="outline">Staff</Badge>}
         {renderTenant && <span>in {renderTenant(entry)}</span>}
       </div>
-      <p className="text-sm">{auditSentence(entry)}</p>
+      <p className="text-sm">
+        {auditSentence(entry)}
+        {target?.type === 'user' && (
+          <>
+            {' '}
+            <Link
+              to={ROUTES.user}
+              params={{ userId: target.id }}
+              className="underline underline-offset-4"
+            >
+              View user
+            </Link>
+          </>
+        )}
+        {target?.type === 'tenant' && renderTenant && (
+          <>
+            {' '}
+            <Link
+              to={ROUTES.tenant}
+              params={{ tenantId: target.id }}
+              className="underline underline-offset-4"
+            >
+              View tenant
+            </Link>
+          </>
+        )}
+      </p>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         {entry.actor && entry.actor.name !== entry.actor.email && (
           <span className="break-all">{entry.actor.email}</span>
@@ -92,6 +139,7 @@ export function ActivityList<T extends AuditEntry>({
   onLoadMore,
   emptyMessage,
   renderTenant,
+  subjectId,
 }: ActivityListProps<T>) {
   if (isPending) {
     return (
@@ -114,7 +162,12 @@ export function ActivityList<T extends AuditEntry>({
     <div className="grid gap-3">
       <ul aria-label="Activity" className="divide-y">
         {entries.map((entry) => (
-          <ActivityRow key={entry.id} entry={entry} renderTenant={renderTenant} />
+          <ActivityRow
+            key={entry.id}
+            entry={entry}
+            renderTenant={renderTenant}
+            subjectId={subjectId}
+          />
         ))}
       </ul>
       {isFetchNextPageError ? (

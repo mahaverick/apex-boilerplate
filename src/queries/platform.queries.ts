@@ -1,31 +1,19 @@
 import {
+  hashKey,
   keepPreviousData,
   queryOptions,
-  useInfiniteQuery,
-  type InfiniteData,
+  type QueryClient,
+  type QueryKey,
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
-import type {
-  ApiSuccess,
-  PlatformStats,
-  PlatformTenantPage,
-  PlatformTenantRow,
-  StatsRange,
-} from '@/types/api.types'
+import type { ApiSuccess, PlatformStats, StatsRange } from '@/types/api.types'
 
 /** How long a tenant search box waits for typing to stop before asking the API. */
 export const SEARCH_DEBOUNCE_MS = 250
 
-/** The API refuses a longer term. */
-const MAX_QUERY_LENGTH = 100
-
+/** Tenant search and paging live in tenant-admin.queries.ts. */
 export const platformKeys = {
-  /** The infinite search the Activity filter uses. */
-  tenants: (q: string) => ['platform', 'tenants', q] as const,
-  /** One keyset page, for the Tenants table and the palette. */
-  tenantPage: (q: string, cursor: string | undefined, limit: number) =>
-    ['platform', 'tenant-page', { q, cursor, limit }] as const,
   stats: (range: string) => ['platform', 'stats', range] as const,
 }
 
@@ -35,82 +23,15 @@ export const PLATFORM_PAGE_SIZE = 20
 /**
  * Whether a platform endpoint refused the caller's role. `/platform/*` answers
  * 404, not 403, to non-staff and to staff below the route's role, so a 404 here
- * means "not available to you", never "missing". Against express before 1.1.0
- * `/platform/stats` does not exist and 404s, so it reads as role-denied: Apex
- * needs express 1.1.0 or newer.
+ * means "not available to you", never "missing". A route an older express
+ * lacks 404s too (`/platform/stats` before 1.1.0, `/platform/users` and
+ * `/platform/tenants/:id` before 1.2.0), so it reads as role-denied: Apex
+ * needs express 1.2.0 or newer.
  * @param error - A query or mutation error.
  * @returns True for a 404.
  */
 export function isRoleDenied(error: unknown): boolean {
   return statusFrom(error) === 404
-}
-
-/**
- * One keyset page of every customer tenant, for staff.
- * @param q - Name or slug substring; empty sends no `q`.
- * @param cursor - The previous page's `nextCursor`, or undefined for the first page.
- * @param limit - Page size, at most 50.
- * @returns Query options for `useQuery` or a route loader.
- */
-export function platformTenantsQueryOptions(
-  q: string,
-  cursor: string | undefined,
-  limit: number = PLATFORM_PAGE_SIZE
-) {
-  const term = q.trim().slice(0, MAX_QUERY_LENGTH)
-  return queryOptions({
-    queryKey: platformKeys.tenantPage(term, cursor, limit),
-    queryFn: async () =>
-      unwrap(
-        await apiClient.get<ApiSuccess<PlatformTenantPage>>('/platform/tenants', {
-          params: { q: term === '' ? undefined : term, cursor, limit },
-        })
-      ),
-    /** A 404 answers who is asking, so a retry changes nothing. */
-    retry: (failureCount, error) => !isRoleDenied(error) && failureCount < 1,
-  })
-}
-
-/**
- * Every tenant on the platform, for staff: case-insensitive substring of the
- * name or slug, the platform tenant itself excluded by the API.
- *
- * Non-staff get a 404 here, so the caller passes `enabled: false` for them
- * rather than asking. An empty term sends no `q` at all.
- *
- * While a new term's first page loads, `data` is the previous term's results
- * and `isPlaceholderData` is true, so a caller that shows a searching state
- * checks that as well as `isPending`.
- */
-export function usePlatformTenantSearch(q: string, { enabled }: { enabled: boolean }) {
-  const term = q.trim().slice(0, MAX_QUERY_LENGTH)
-  return useInfiniteQuery({
-    queryKey: platformKeys.tenants(term),
-    initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }) =>
-      unwrap(
-        await apiClient.get<ApiSuccess<PlatformTenantPage>>('/platform/tenants', {
-          params: {
-            q: term === '' ? undefined : term,
-            cursor: pageParam,
-            limit: PLATFORM_PAGE_SIZE,
-          },
-        })
-      ),
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    enabled,
-    /** The previous term's results stay listed, and pickable, while the next term loads. */
-    placeholderData: keepPreviousData,
-    /** A 404 answers who is asking (non-staff), so a retry changes nothing. */
-    retry: (failureCount, error) => !isRoleDenied(error) && failureCount < 1,
-  })
-}
-
-/** Every loaded page of the search, flattened. */
-export function flattenTenantPages(
-  data: InfiniteData<PlatformTenantPage> | undefined
-): PlatformTenantRow[] {
-  return data?.pages.flatMap((page) => page.tenants) ?? []
 }
 
 /** The windows the Overview offers, in toggle order. */
@@ -133,4 +54,40 @@ export function platformStatsQueryOptions(range: StatsRange) {
     /** A 404 answers who is asking, so a retry changes nothing. */
     retry: (failureCount, error) => !isRoleDenied(error) && failureCount < 1,
   })
+}
+
+/**
+ * The cache prefixes a staff write can make stale beyond its own record: the
+ * users list and pages, the tenants list and pages, every tenant's own routes
+ * (members, invitations, detail, log; the Staff page is the platform tenant's)
+ * and the platform audit log, since every staff write is an entry there.
+ */
+const DIRECTORY_PREFIXES: readonly QueryKey[] = [
+  ['platform', 'users'],
+  ['platform', 'user'],
+  ['platform', 'tenants'],
+  ['platform', 'tenant'],
+  ['tenants'],
+  ['platform', 'audit-log'],
+]
+
+/**
+ * Mark the whole staff directory stale after a write. A user's state, role or
+ * membership shows on their own page, on the tenants they belong to (owners,
+ * members) and on the Staff page; a tenant's state shows on its members'
+ * pages. Only the queries on screen refetch; the rest refetch when next shown.
+ * @param queryClient - The app's query client.
+ * @param fresh - A key the caller just replaced from the write's own answer, left as it is.
+ * @returns Resolves once the on-screen queries have refetched.
+ */
+export async function invalidateDirectory(
+  queryClient: QueryClient,
+  fresh?: QueryKey
+): Promise<void> {
+  const skip = fresh === undefined ? undefined : hashKey(fresh)
+  await Promise.all(
+    DIRECTORY_PREFIXES.map((queryKey) =>
+      queryClient.invalidateQueries({ queryKey, predicate: (query) => query.queryHash !== skip })
+    )
+  )
 }

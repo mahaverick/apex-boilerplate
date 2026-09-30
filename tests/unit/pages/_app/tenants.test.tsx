@@ -8,7 +8,7 @@ import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { PlatformTenantRow } from '@/types/api.types'
+import type { PlatformTenantDetail, PlatformTenantRow } from '@/types/api.types'
 
 function row(
   index: number,
@@ -29,19 +29,46 @@ const PAGE_ONE = Array.from({ length: 20 }, (_, i) =>
   row(i + 1, i === 1 ? 'suspended' : i === 2 ? 'archived' : 'active')
 )
 
-/** Two pages: rows 1–20 then 21–25. Records every request's query. */
+/** The detail `POST /platform/tenants` answers with, and the new tenant's page reads. */
+const CREATED: PlatformTenantDetail = {
+  id: '10000000-0000-4000-8000-000000000001',
+  name: 'Acme Corp',
+  slug: 'acme',
+  description: null,
+  website: null,
+  logo: null,
+  lifecycleState: 'active',
+  createdAt: '2026-09-29T00:00:00.000Z',
+  updatedAt: '2026-09-29T00:00:00.000Z',
+  deletedAt: null,
+  settings: { timezone: 'UTC', locale: 'en' },
+  memberCount: 0,
+  owners: [],
+  pendingInvitationCount: 1,
+  pendingOwnerInvitation: {
+    id: '40000000-0000-4000-8000-000000000001',
+    email: 'owner@acme.test',
+    expiresAt: '2026-10-06T00:00:00.000Z',
+  },
+}
+
+/** Two pages: rows 1–20 then 21–25, linked both ways. Records every request's query. */
 function twoPages(seen: URLSearchParams[]) {
   server.use(
     http.get('/api/v1/platform/tenants', ({ request }) => {
       const params = new URL(request.url).searchParams
       seen.push(params)
-      if (params.get('cursor') === 'page-2') {
+      if (params.get('cursor') === 'page-2' && params.get('direction') === 'next') {
         return ok(
-          { tenants: [21, 22, 23, 24, 25].map((n) => row(n)), nextCursor: null },
+          {
+            tenants: [21, 22, 23, 24, 25].map((n) => row(n)),
+            nextCursor: null,
+            prevCursor: 'page-1',
+          },
           'Tenants retrieved.'
         )
       }
-      return ok({ tenants: PAGE_ONE, nextCursor: 'page-2' }, 'Tenants retrieved.')
+      return ok({ tenants: PAGE_ONE, nextCursor: 'page-2', prevCursor: null }, 'Tenants retrieved.')
     })
   )
 }
@@ -71,25 +98,40 @@ describe('/tenants', () => {
     const first = within(table).getAllByRole('row')[1]!
     expect(within(first).getByText('tenant-1')).toBeInTheDocument()
     expect(within(first).getByText('Jan 1, 2026')).toBeInTheDocument()
+    expect(within(first).getByRole('link', { name: 'Tenant 01' })).toHaveAttribute(
+      'href',
+      '/tenants/00000000-0000-4000-8000-000000000001'
+    )
   })
 
-  it('pages forward with the cursor and back again', async () => {
+  it('pages forward and back through the API’s cursors, kept in the URL', async () => {
     const seen: URLSearchParams[] = []
     twoPages(seen)
     const user = userEvent.setup()
-    renderAppAt('/tenants')
+    const router = renderAppAt('/tenants')
     await screen.findByText('Tenant 01')
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: 'Next page' }))
     expect(await screen.findByText('Tenant 21')).toBeInTheDocument()
+    expect(router.state.location.search).toEqual({ cursor: 'page-2', dir: 'next' })
     expect(seen.at(-1)?.get('cursor')).toBe('page-2')
-    expect(screen.getByText('Page 2')).toBeInTheDocument()
+    expect(seen.at(-1)?.get('direction')).toBe('next')
     expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: 'Previous page' }))
     expect(await screen.findByText('Tenant 01')).toBeInTheDocument()
+    expect(router.state.location.search).toEqual({ cursor: 'page-1', dir: 'prev' })
+    expect(seen.at(-1)?.get('direction')).toBe('prev')
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
+  })
+
+  it('opens on the page a shared URL names', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    renderAppAt('/tenants?cursor=page-2&dir=next')
+    expect(await screen.findByText('Tenant 21')).toBeInTheDocument()
+    expect(seen[0]?.get('cursor')).toBe('page-2')
   })
 
   it('searches through ?q and starts again from the first page', async () => {
@@ -106,7 +148,7 @@ describe('/tenants', () => {
     await waitFor(() => expect(router.state.location.search).toEqual({ q: 'acme' }))
     await waitFor(() => expect(seen.at(-1)?.get('q')).toBe('acme'))
     expect(seen.at(-1)?.get('cursor')).toBeNull()
-    expect(await screen.findByText('Page 1')).toBeInTheDocument()
+    expect(router.state.location.search).toEqual({ q: 'acme' })
   })
 
   it('starts on page one again after searching and clearing the search', async () => {
@@ -123,7 +165,6 @@ describe('/tenants', () => {
     await user.clear(box)
     await waitFor(() => expect(router.state.location.search).toEqual({}))
 
-    expect(await screen.findByText('Page 1')).toBeInTheDocument()
     expect(await screen.findByText('Tenant 01')).toBeInTheDocument()
     expect(screen.queryByText('Tenant 21')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
@@ -151,15 +192,15 @@ describe('/tenants', () => {
     await waitFor(() => expect(seen.at(-1)?.get('q')).toBe('acmex'))
   })
 
-  it('numbers the page whose rows are on screen while the next one loads', async () => {
+  it('keeps the current rows, marked busy, with paging off while the next page loads', async () => {
     const pageTwo = deferred()
     server.use(
       http.get('/api/v1/platform/tenants', async ({ request }) => {
         if (new URL(request.url).searchParams.get('cursor') === 'page-2') {
           await pageTwo.promise
-          return ok({ tenants: [row(21)], nextCursor: null }, 'Tenants retrieved.')
+          return ok({ tenants: [row(21)], nextCursor: null, prevCursor: 'page-1' }, 'ok')
         }
-        return ok({ tenants: PAGE_ONE, nextCursor: 'page-2' }, 'Tenants retrieved.')
+        return ok({ tenants: PAGE_ONE, nextCursor: 'page-2', prevCursor: null }, 'ok')
       })
     )
     const user = userEvent.setup()
@@ -167,13 +208,16 @@ describe('/tenants', () => {
     await screen.findByText('Tenant 01')
 
     await user.click(screen.getByRole('button', { name: 'Next page' }))
-    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
-    expect(screen.getByText('Page 1')).toBeInTheDocument()
     expect(screen.getByText('Tenant 01')).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Tenants' }).closest('[aria-busy]')).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
 
     pageTwo.release()
     expect(await screen.findByText('Tenant 21')).toBeInTheDocument()
-    expect(screen.getByText('Page 2')).toBeInTheDocument()
   })
 
   it('keeps a way back to the first page when a later page fails', async () => {
@@ -181,26 +225,26 @@ describe('/tenants', () => {
       http.get('/api/v1/platform/tenants', ({ request }) =>
         new URL(request.url).searchParams.get('cursor') === 'page-2'
           ? fail('Boom', 500)
-          : ok({ tenants: PAGE_ONE, nextCursor: 'page-2' }, 'Tenants retrieved.')
+          : ok({ tenants: PAGE_ONE, nextCursor: 'page-2', prevCursor: null }, 'ok')
       )
     )
     const user = userEvent.setup()
-    renderAppAt('/tenants')
+    const router = renderAppAt('/tenants?q=t')
     await screen.findByText('Tenant 01')
 
     await user.click(screen.getByRole('button', { name: 'Next page' }))
     expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Previous page' }))
+    await user.click(screen.getByRole('button', { name: 'First page' }))
     expect(await screen.findByText('Tenant 01')).toBeInTheDocument()
-    expect(screen.getByText('Page 1')).toBeInTheDocument()
+    expect(router.state.location.search).toEqual({ q: 't' })
   })
 
   it('offers no way back from a failed first page', async () => {
     server.use(http.get('/api/v1/platform/tenants', () => fail('Boom', 500)))
     renderAppAt('/tenants')
     await screen.findByRole('button', { name: 'Try again' })
-    expect(screen.queryByRole('button', { name: 'Previous page' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'First page' })).not.toBeInTheDocument()
   })
 
   it('drops ?q when the search is cleared', async () => {
@@ -248,19 +292,29 @@ describe('/tenants', () => {
         const params = new URL(request.url).searchParams
         if (params.get('q') === 'acme') {
           return ok(
-            { tenants: [{ ...row(9), name: 'Acme Corp', slug: 'acme' }], nextCursor: null },
+            {
+              tenants: [{ ...row(9), name: 'Acme Corp', slug: 'acme' }],
+              nextCursor: null,
+              prevCursor: null,
+            },
             'Tenants retrieved.'
           )
         }
         if (params.get('cursor') === 'page-2') {
           await pageTwo.promise
-          return ok({ tenants: [row(21)], nextCursor: null }, 'Tenants retrieved.')
+          return ok(
+            { tenants: [row(21)], nextCursor: null, prevCursor: null },
+            'Tenants retrieved.'
+          )
         }
-        return ok({ tenants: PAGE_ONE, nextCursor: 'page-2' }, 'Tenants retrieved.')
+        return ok(
+          { tenants: PAGE_ONE, nextCursor: 'page-2', prevCursor: null },
+          'Tenants retrieved.'
+        )
       })
     )
     const user = userEvent.setup()
-    renderAppAt('/tenants')
+    const router = renderAppAt('/tenants')
     await screen.findByText('Tenant 01')
 
     await user.click(screen.getByRole('button', { name: 'Next page' }))
@@ -272,7 +326,7 @@ describe('/tenants', () => {
     expect(await screen.findByText('Acme Corp')).toBeInTheDocument()
     pageTwo.release()
 
-    await waitFor(() => expect(screen.getByText('Page 1')).toBeInTheDocument())
+    await waitFor(() => expect(router.state.location.search).toEqual({ q: 'acme' }))
     expect(screen.queryByText('Tenant 21')).not.toBeInTheDocument()
     expect(screen.getByText('Acme Corp')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
@@ -281,7 +335,7 @@ describe('/tenants', () => {
   it('says nothing matches, rather than showing an empty table', async () => {
     server.use(
       http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null }, 'Tenants retrieved.')
+        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       )
     )
     renderAppAt('/tenants?q=zzz')
@@ -295,9 +349,9 @@ describe('/tenants', () => {
       http.get('/api/v1/platform/tenants', async ({ request }) => {
         if (new URL(request.url).searchParams.get('q') === 'zzzb') {
           await beta.promise
-          return ok({ tenants: [row(7)], nextCursor: null }, 'Tenants retrieved.')
+          return ok({ tenants: [row(7)], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
         }
-        return ok({ tenants: [], nextCursor: null }, 'Tenants retrieved.')
+        return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()
@@ -313,10 +367,26 @@ describe('/tenants', () => {
     expect(await screen.findByText('Tenant 07')).toBeInTheDocument()
   })
 
+  it('offers the first page again when a later page comes back empty', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', ({ request }) =>
+        new URL(request.url).searchParams.get('cursor') === 'gone'
+          ? ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+          : ok({ tenants: PAGE_ONE, nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    const router = renderAppAt('/tenants?state=all&cursor=gone&dir=next')
+    expect(await screen.findByText('Nothing on this page.')).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'First page' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ state: 'all' }))
+    expect(await screen.findByText('Tenant 01')).toBeInTheDocument()
+  })
+
   it('says there are no tenants yet when nothing is searched', async () => {
     server.use(
       http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null }, 'Tenants retrieved.')
+        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       )
     )
     renderAppAt('/tenants')
@@ -330,7 +400,7 @@ describe('/tenants', () => {
         calls += 1
         return calls <= 2
           ? fail('Boom', 500)
-          : ok({ tenants: PAGE_ONE, nextCursor: null }, 'Tenants retrieved.')
+          : ok({ tenants: PAGE_ONE, nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()
@@ -344,5 +414,276 @@ describe('/tenants', () => {
     renderAppAt('/tenants')
     expect(await screen.findByText(/Your role can’t see this any more/)).toBeInTheDocument()
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
+  })
+
+  it('searches a numeric term instead of dropping it (?q=2026)', async () => {
+    const seen: (string | null)[] = []
+    server.use(
+      http.get('/api/v1/platform/tenants', ({ request }) => {
+        seen.push(new URL(request.url).searchParams.get('q'))
+        return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'ok')
+      })
+    )
+    renderAppAt('/tenants?q=2026')
+    await waitFor(() => expect(seen).toContain('2026'))
+    expect(screen.getByRole('searchbox', { name: /search tenants/i })).toHaveValue('2026')
+  })
+
+  it('filters by state through ?state, dropping the cursor', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/tenants?cursor=page-2&dir=next')
+    await screen.findByText('Tenant 21')
+
+    await user.click(screen.getByRole('combobox', { name: 'Status' }))
+    await user.click(await screen.findByRole('option', { name: 'Archived' }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ state: 'archived' }))
+    await waitFor(() => expect(seen.at(-1)?.get('state')).toBe('archived'))
+    expect(seen.at(-1)?.get('cursor')).toBeNull()
+  })
+
+  it('sends no state for the default filter and ignores a bogus one', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    const router = renderAppAt('/tenants?state=bogus')
+    await screen.findByText('Tenant 01')
+    expect(seen.at(-1)?.get('state')).toBeNull()
+    expect(router.state.location.search).toEqual({})
+  })
+
+  it('searching keeps the state filter', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/tenants?state=suspended')
+    await screen.findByText('Tenant 01')
+    await user.type(screen.getByRole('searchbox', { name: 'Search tenants' }), 'acme')
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ q: 'acme', state: 'suspended' })
+    )
+  })
+
+  it('hides New tenant from a viewer', async () => {
+    twoPages([])
+    renderAppAt('/tenants')
+    await screen.findByText('Tenant 01')
+    expect(screen.queryByRole('button', { name: 'New tenant' })).not.toBeInTheDocument()
+  })
+
+  it('shows New tenant to a platform owner', async () => {
+    signIn({ ...testUser, platformRole: 'owner' })
+    twoPages([])
+    renderAppAt('/tenants')
+    expect(await screen.findByRole('button', { name: 'New tenant' })).toBeInTheDocument()
+  })
+
+  describe('New tenant', () => {
+    beforeEach(() => signIn({ ...testUser, platformRole: 'admin' }))
+
+    it('creates the tenant and says the owner invitation went out', async () => {
+      twoPages([])
+      let body: unknown
+      server.use(
+        http.get('/api/v1/platform/tenants/10000000-0000-4000-8000-000000000001', () =>
+          ok(CREATED, 'Tenant retrieved.')
+        ),
+        http.post('/api/v1/platform/tenants', async ({ request }) => {
+          body = await request.json()
+          return ok(
+            {
+              tenant: {
+                id: '10000000-0000-4000-8000-000000000001',
+                name: 'Acme Corp',
+                slug: 'acme',
+                description: null,
+                website: null,
+                logo: null,
+                lifecycleState: 'active',
+                createdAt: '2026-09-29T00:00:00.000Z',
+                updatedAt: '2026-09-29T00:00:00.000Z',
+                deletedAt: null,
+                settings: { timezone: 'UTC', locale: 'en' },
+                memberCount: 0,
+                owners: [],
+                pendingInvitationCount: 1,
+                pendingOwnerInvitation: {
+                  id: '40000000-0000-4000-8000-000000000001',
+                  email: 'owner@acme.test',
+                  expiresAt: '2026-10-06T00:00:00.000Z',
+                },
+              },
+              emailSent: true,
+            },
+            'Tenant created.',
+            201
+          )
+        })
+      )
+      const user = userEvent.setup()
+      const router = renderAppAt('/tenants')
+      await screen.findByText('Tenant 01')
+
+      await user.click(screen.getByRole('button', { name: 'New tenant' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+      await user.type(within(dialog).getByLabelText('Name'), 'Acme Corp')
+      await user.type(within(dialog).getByLabelText('Slug'), 'acme')
+      await user.type(within(dialog).getByLabelText('Owner email'), 'Owner@Acme.test')
+      await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
+
+      expect(
+        await screen.findByText(/Owner invitation sent to owner@acme.test/)
+      ).toBeInTheDocument()
+      expect(body).toEqual({ name: 'Acme Corp', slug: 'acme', ownerEmail: 'owner@acme.test' })
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe('/tenants/10000000-0000-4000-8000-000000000001')
+      )
+    })
+
+    it('puts a taken slug on the slug field', async () => {
+      twoPages([])
+      server.use(
+        http.post('/api/v1/platform/tenants', () =>
+          fail('That slug is already taken', 409, 'slug_taken')
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt('/tenants')
+      await screen.findByText('Tenant 01')
+      await user.click(screen.getByRole('button', { name: 'New tenant' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+      await user.type(within(dialog).getByLabelText('Name'), 'Acme')
+      await user.type(within(dialog).getByLabelText('Slug'), 'acme')
+      await user.type(within(dialog).getByLabelText('Owner email'), 'o@acme.test')
+      await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
+
+      expect(await within(dialog).findByText('That slug is already taken')).toBeInTheDocument()
+      expect(within(dialog).getByLabelText('Slug')).toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('puts a deactivated owner account on the owner email field', async () => {
+      twoPages([])
+      server.use(
+        http.post('/api/v1/platform/tenants', () =>
+          fail('That account is deactivated', 409, 'invitee_deactivated')
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt('/tenants')
+      await screen.findByText('Tenant 01')
+      await user.click(screen.getByRole('button', { name: 'New tenant' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+      await user.type(within(dialog).getByLabelText('Name'), 'Acme')
+      await user.type(within(dialog).getByLabelText('Slug'), 'acme')
+      await user.type(within(dialog).getByLabelText('Owner email'), 'o@acme.test')
+      await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
+
+      expect(await within(dialog).findByText('That account is deactivated')).toBeInTheDocument()
+      expect(within(dialog).getByLabelText('Owner email')).toHaveAttribute('aria-invalid', 'true')
+      expect(within(dialog).getByLabelText('Slug')).not.toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('puts any other 409 on the form', async () => {
+      twoPages([])
+      server.use(http.post('/api/v1/platform/tenants', () => fail('Conflict happened', 409)))
+      const user = userEvent.setup()
+      renderAppAt('/tenants')
+      await screen.findByText('Tenant 01')
+      await user.click(screen.getByRole('button', { name: 'New tenant' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+      await user.type(within(dialog).getByLabelText('Name'), 'Acme')
+      await user.type(within(dialog).getByLabelText('Slug'), 'acme')
+      await user.type(within(dialog).getByLabelText('Owner email'), 'o@acme.test')
+      await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
+
+      expect(await within(dialog).findByText('Conflict happened')).toBeInTheDocument()
+      expect(within(dialog).getByLabelText('Slug')).not.toHaveAttribute('aria-invalid', 'true')
+      expect(within(dialog).getByLabelText('Owner email')).not.toHaveAttribute(
+        'aria-invalid',
+        'true'
+      )
+    })
+
+    it('refuses a reserved slug before asking the API', async () => {
+      twoPages([])
+      let posted = false
+      server.use(
+        http.post('/api/v1/platform/tenants', () => {
+          posted = true
+          return ok(null)
+        })
+      )
+      const user = userEvent.setup()
+      renderAppAt('/tenants')
+      await screen.findByText('Tenant 01')
+      await user.click(screen.getByRole('button', { name: 'New tenant' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+      await user.type(within(dialog).getByLabelText('Name'), 'Platform')
+      await user.type(within(dialog).getByLabelText('Slug'), 'platform')
+      await user.type(within(dialog).getByLabelText('Owner email'), 'o@acme.test')
+      await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
+
+      expect(
+        await within(dialog).findByText('This slug is reserved and cannot be used.')
+      ).toBeInTheDocument()
+      expect(posted).toBe(false)
+    })
+
+    it('warns, still closes, and opens the tenant, when the invitation email failed', async () => {
+      twoPages([])
+      server.use(
+        http.get('/api/v1/platform/tenants/10000000-0000-4000-8000-000000000001', () =>
+          ok({ ...CREATED, name: 'Acme', pendingOwnerInvitation: null }, 'Tenant retrieved.')
+        ),
+        http.post('/api/v1/platform/tenants', () =>
+          ok(
+            {
+              tenant: {
+                id: '10000000-0000-4000-8000-000000000001',
+                name: 'Acme',
+                slug: 'acme',
+                description: null,
+                website: null,
+                logo: null,
+                lifecycleState: 'active',
+                createdAt: '2026-09-29T00:00:00.000Z',
+                updatedAt: '2026-09-29T00:00:00.000Z',
+                deletedAt: null,
+                settings: { timezone: 'UTC', locale: 'en' },
+                memberCount: 0,
+                owners: [],
+                pendingInvitationCount: 1,
+                pendingOwnerInvitation: null,
+              },
+              emailSent: false,
+            },
+            'Tenant created.',
+            201
+          )
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt('/tenants')
+      await screen.findByText('Tenant 01')
+      await user.click(screen.getByRole('button', { name: 'New tenant' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+      await user.type(within(dialog).getByLabelText('Name'), 'Acme')
+      await user.type(within(dialog).getByLabelText('Slug'), 'acme')
+      await user.type(within(dialog).getByLabelText('Owner email'), 'o@acme.test')
+      await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
+
+      expect(
+        await screen.findByText(
+          'Tenant created, but the owner invitation email could not be sent. Resend it from the tenant’s Actions menu.'
+        )
+      ).toBeInTheDocument()
+      await waitFor(() => expect(dialog).not.toBeInTheDocument())
+      // The page it lands on offers exactly that.
+      await user.click(await screen.findByRole('button', { name: 'Actions' }))
+      expect(
+        await screen.findByRole('menuitem', { name: 'Resend owner invitation' })
+      ).toBeInTheDocument()
+    })
   })
 })

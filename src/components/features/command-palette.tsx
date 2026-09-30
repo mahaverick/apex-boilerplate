@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Building2 } from 'lucide-react'
+import { Building2, UserRound } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import {
   Command,
@@ -17,20 +17,19 @@ import { navItemsFor, type NavPath } from '@/constants/navigation'
 import { isStaff } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import {
-  isRoleDenied,
-  platformTenantsQueryOptions,
-  SEARCH_DEBOUNCE_MS,
-} from '@/queries/platform.queries'
+import { isRoleDenied, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
+import { platformTenantsQueryOptions } from '@/queries/tenant-admin.queries'
+import { platformUsersQueryOptions } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
 
-/** How many tenants the palette lists for a term. */
-const TENANT_RESULTS = 8
+/** How many tenants, and how many users, the palette lists for a term. */
+const RESULTS_PER_GROUP = 8
 
 type PaletteItem =
   | { kind: 'page'; value: string; label: string; to: NavPath }
-  | { kind: 'tenant'; value: string; label: string; slug: string }
+  | { kind: 'tenant'; value: string; label: string }
+  | { kind: 'user'; value: string; label: string; detail: string | null }
 
 interface PaletteGroup {
   value: string
@@ -39,9 +38,10 @@ interface PaletteGroup {
 
 /**
  * The ⌘K / Ctrl+K palette: the pages the user's role can see, filtered here,
- * and customer tenants, filtered by the API. Tenant results are shown only for
+ * and customer tenants and users, filtered by the API. Choosing a tenant or a
+ * user opens its detail page. Tenant and user results are each shown only for
  * the term they were fetched for, so Enter can never act on an older term's
- * list. Choosing a tenant opens the Tenants page filtered to it. Every close
+ * list. Every close
  * clears the search, however it closed: the shortcut and the header flip the
  * store's `open` directly, and Base UI fires no `onOpenChange` for that.
  */
@@ -63,7 +63,13 @@ export function CommandPalette() {
   const current = query.trim()
   const term = useDebouncedValue(current, SEARCH_DEBOUNCE_MS)
   const tenants = useQuery({
-    ...platformTenantsQueryOptions(term, undefined, TENANT_RESULTS),
+    ...platformTenantsQueryOptions({ q: term, limit: RESULTS_PER_GROUP }),
+    enabled: open && staff && term !== '',
+  })
+  const users = useQuery({
+    ...platformUsersQueryOptions({ q: term, limit: RESULTS_PER_GROUP }),
+    // The users query keeps the previous term's page as placeholder; the palette must not show it.
+    placeholderData: undefined,
     enabled: open && staff && term !== '',
   })
 
@@ -85,39 +91,47 @@ export function CommandPalette() {
     .filter((item) => needle === '' || item.label.toLowerCase().includes(needle))
     .map((item) => ({ kind: 'page', value: item.to, label: item.label, to: item.to }))
   // Only the current term's results: a stale list must never take the Enter.
-  const isCurrent = term === current && tenants.data !== undefined && !tenants.isFetching
-  const tenantItems: PaletteItem[] = isCurrent
-    ? tenants.data.tenants.map((row) => ({
-        kind: 'tenant',
+  const tenantsCurrent = term === current && tenants.data !== undefined && !tenants.isFetching
+  const usersCurrent = term === current && users.data !== undefined && !users.isFetching
+  const tenantItems: PaletteItem[] = tenantsCurrent
+    ? tenants.data.tenants.map((row) => ({ kind: 'tenant', value: row.id, label: row.name }))
+    : []
+  const userItems: PaletteItem[] = usersCurrent
+    ? users.data.users.map((row) => ({
+        kind: 'user',
         value: row.id,
-        label: row.name,
-        slug: row.slug,
+        label: row.email,
+        detail: [row.firstName, row.lastName].filter(Boolean).join(' ') || null,
       }))
     : []
   const groups: PaletteGroup[] = [
     ...(pages.length > 0 ? [{ value: 'Pages', items: pages }] : []),
     ...(tenantItems.length > 0 ? [{ value: 'Tenants', items: tenantItems }] : []),
+    ...(userItems.length > 0 ? [{ value: 'Users', items: userItems }] : []),
   ]
 
   function choose(item: PaletteItem) {
     setOpen(false)
-    if (item.kind === 'page') {
-      void navigate({ to: item.to })
-    } else {
-      void navigate({ to: ROUTES.tenants, search: { q: item.label } })
-    }
+    if (item.kind === 'page') void navigate({ to: item.to })
+    else if (item.kind === 'tenant') {
+      void navigate({ to: ROUTES.tenant, params: { tenantId: item.value } })
+    } else void navigate({ to: ROUTES.user, params: { userId: item.value } })
   }
 
-  const searching = staff && current !== '' && (term !== current || tenants.isFetching)
+  const searching =
+    staff && current !== '' && (term !== current || tenants.isFetching || users.isFetching)
   // An error belongs to `term`, so it is shown only once `term` is what is typed.
-  const failed = term === current && tenants.isError && !isRoleDenied(tenants.error)
-  const tenantStatus =
+  const failed =
+    term === current &&
+    ((tenants.isError && !isRoleDenied(tenants.error)) ||
+      (users.isError && !isRoleDenied(users.error)))
+  const searchStatus =
     !staff || current === ''
       ? null
       : searching
-        ? 'Searching tenants…'
+        ? 'Searching…'
         : failed
-          ? 'Tenants could not be searched.'
+          ? 'Some results could not be loaded.'
           : null
 
   return (
@@ -133,12 +147,12 @@ export function CommandPalette() {
         keepHighlight
       >
         <CommandInput
-          aria-label="Search pages and tenants"
+          aria-label="Search pages, tenants and users"
           aria-describedby={shortcutsId}
-          placeholder="Search pages and tenants…"
+          placeholder="Search pages, tenants and users…"
         />
         <p role="status" aria-live="polite" className="px-3 pt-2 text-xs text-muted-foreground">
-          {tenantStatus}
+          {searchStatus}
         </p>
         <CommandEmpty>{searching ? null : 'No results.'}</CommandEmpty>
         <CommandList>
@@ -148,8 +162,14 @@ export function CommandPalette() {
               <CommandCollection>
                 {(item: PaletteItem) => (
                   <CommandItem key={item.value} value={item} onClick={() => choose(item)}>
-                    {item.kind === 'page' ? null : <Building2 aria-hidden />}
+                    {item.kind === 'tenant' && <Building2 aria-hidden />}
+                    {item.kind === 'user' && <UserRound aria-hidden />}
                     <span className="truncate">{item.label}</span>
+                    {item.kind === 'user' && item.detail && (
+                      <span className="ml-auto truncate text-xs text-muted-foreground">
+                        {item.detail}
+                      </span>
+                    )}
                   </CommandItem>
                 )}
               </CommandCollection>
