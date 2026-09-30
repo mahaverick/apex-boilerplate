@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/mahaverick/apex-boilerplate/compare/v1.1.0...v1.1.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* staff UI follow-ups — focus after archive, reactivate flash, narrow-screen crumbs ([#5](https://github.com/mahaverick/apex-boilerplate/issues/5)) ([d62f159](https://github.com/mahaverick/apex-boilerplate/commit/d62f159cc20b68b12da4409232c9054be2a847da))
+
 ## [1.1.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.0...v1.1.0) (2026-09-30)
 
 
