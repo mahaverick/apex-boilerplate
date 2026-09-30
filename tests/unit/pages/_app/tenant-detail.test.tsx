@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http } from 'msw'
+import { delay, http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
@@ -316,6 +316,36 @@ describe('/tenants/$tenantId', () => {
       )
     })
 
+    it('puts focus on the page heading after an archive whose refetches are slow', async () => {
+      let archived = false
+      serve(detail())
+      server.use(
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/archive`, () => {
+          archived = true
+          return ok(detail({ lifecycleState: 'archived', deletedAt: '2026-09-29T00:00:00.000Z' }))
+        }),
+        // Falls through to the handlers above once the injected latency has passed.
+        http.get('/api/v1/*', async () => {
+          if (archived) await delay(150)
+        })
+      )
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Archive' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Archive Acme Corp?' })
+      await user.type(within(dialog).getByLabelText('Reason'), 'closed down')
+      await user.type(within(dialog).getByLabelText('Type acme to confirm'), 'acme')
+      await user.click(within(dialog).getByRole('button', { name: 'Archive' }))
+
+      await waitFor(() =>
+        expect(screen.queryByRole('alertdialog', { name: 'Archive Acme Corp?' })).toBeNull()
+      )
+      expect(screen.queryByRole('button', { name: 'Actions' })).not.toBeInTheDocument()
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: 'Acme Corp', level: 1 })).toHaveFocus()
+      )
+    })
+
     it('re-sends the owner invitation for a tenant with no owner, prefilled, with a reason', async () => {
       serve(
         detail({
@@ -523,6 +553,62 @@ describe('/tenants/$tenantId', () => {
       expect(await screen.findByText('Acme Corp reactivated.')).toBeInTheDocument()
       expect(body).toEqual({ reason: 'paid up' })
       expect(await screen.findByText('Active')).toBeInTheDocument()
+    })
+
+    it('never flashes a load error on the Members tab across suspend and a slow reactivation', async () => {
+      let state: TenantLifecycleState = 'active'
+      let reactivated = false
+      // A frozen tenant's own routes answer 404, as the API's do.
+      async function ownRoute(answer: () => Response) {
+        if (state !== 'active') return fail('Tenant not found', 404)
+        if (reactivated) await delay(150)
+        return answer()
+      }
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+          ok(detail({ lifecycleState: state }), 'ok')
+        ),
+        http.get('/api/v1/tenants/acme', () =>
+          ownRoute(() =>
+            ok({ ...detail(), isPlatform: false, role: 'admin', access: 'platform' }, 'ok')
+          )
+        ),
+        http.get('/api/v1/tenants/acme/members', () => ownRoute(() => ok(MEMBERS, 'ok'))),
+        http.get('/api/v1/tenants/acme/invitations', () => ownRoute(() => ok([], 'ok'))),
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/suspend`, () => {
+          state = 'suspended'
+          return ok(detail({ lifecycleState: 'suspended' }), 'Tenant suspended.')
+        }),
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/reactivate`, () => {
+          state = 'active'
+          reactivated = true
+          return ok(detail(), 'Tenant reactivated.')
+        })
+      )
+      renderAppAt(`/tenants/${TENANT_ID}/members`)
+      expect(await screen.findByText('Olive Owner')).toBeInTheDocument()
+      const errors = new Set<string>()
+      const observer = new MutationObserver(() => {
+        for (const alert of screen.queryAllByRole('alert')) errors.add(alert.textContent)
+      })
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+
+      let { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Suspend' }))
+      let dialog = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
+      await user.type(within(dialog).getByLabelText('Reason'), 'unpaid')
+      await user.click(within(dialog).getByRole('button', { name: 'Suspend' }))
+      expect(await screen.findByText(/This tenant is suspended/)).toBeInTheDocument()
+      ;({ user, menu } = await openMenu())
+      await user.click(within(menu).getByRole('menuitem', { name: 'Reactivate' }))
+      dialog = await screen.findByRole('alertdialog', { name: 'Reactivate Acme Corp?' })
+      await user.type(within(dialog).getByLabelText('Reason'), 'paid up')
+      await user.click(within(dialog).getByRole('button', { name: 'Reactivate' }))
+      expect(await screen.findByText('Acme Corp reactivated.')).toBeInTheDocument()
+      expect(await screen.findByText('Olive Owner')).toBeInTheDocument()
+      observer.disconnect()
+
+      expect([...errors].filter((text) => /could not load/.test(text))).toEqual([])
     })
 
     it('puts a deactivated invitee on the Owner email field', async () => {

@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ComponentProps } from 'react'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -46,6 +46,8 @@ export interface ReasonDialogProps {
   confirmText?: string
   /** Performs the action. Resolve to close the dialog; reject to show why inline. */
   onConfirm: (reason: string) => Promise<void>
+  /** Where focus goes when the dialog closes; omitted, it returns to the element that opened it. */
+  finalFocus?: ComponentProps<typeof AlertDialogContent>['finalFocus']
 }
 
 /**
@@ -67,7 +69,7 @@ export function ReasonDialog(props: ReasonDialogProps) {
         props.onOpenChange(next)
       }}
     >
-      <AlertDialogContent>
+      <AlertDialogContent finalFocus={props.finalFocus}>
         {props.open && <ReasonForm {...props} onBusyChange={setBusy} />}
       </AlertDialogContent>
     </AlertDialog>

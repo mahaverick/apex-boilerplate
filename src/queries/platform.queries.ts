@@ -71,6 +71,11 @@ const DIRECTORY_PREFIXES: readonly QueryKey[] = [
   ['platform', 'audit-log'],
 ]
 
+/** Whether `key` starts with every part of `prefix`. */
+function startsWith(key: QueryKey, prefix: QueryKey): boolean {
+  return prefix.every((part, index) => hashKey([key[index]]) === hashKey([part]))
+}
+
 /**
  * Mark the whole staff directory stale after a write. A user's state, role or
  * membership shows on their own page, on the tenants they belong to (owners,
@@ -78,16 +83,27 @@ const DIRECTORY_PREFIXES: readonly QueryKey[] = [
  * pages. Only the queries on screen refetch; the rest refetch when next shown.
  * @param queryClient - The app's query client.
  * @param fresh - A key the caller just replaced from the write's own answer, left as it is.
+ * @param idle - A prefix marked stale but not refetched now, even on screen: a
+ *   tenant the write froze, whose own routes would answer 404 and cache that
+ *   error for the moment it is next shown.
  * @returns Resolves once the on-screen queries have refetched.
  */
 export async function invalidateDirectory(
   queryClient: QueryClient,
-  fresh?: QueryKey
+  fresh?: QueryKey,
+  idle?: QueryKey
 ): Promise<void> {
   const skip = fresh === undefined ? undefined : hashKey(fresh)
+  if (idle !== undefined) {
+    await queryClient.invalidateQueries({ queryKey: idle, refetchType: 'none' })
+  }
   await Promise.all(
     DIRECTORY_PREFIXES.map((queryKey) =>
-      queryClient.invalidateQueries({ queryKey, predicate: (query) => query.queryHash !== skip })
+      queryClient.invalidateQueries({
+        queryKey,
+        predicate: (query) =>
+          query.queryHash !== skip && (idle === undefined || !startsWith(query.queryKey, idle)),
+      })
     )
   )
 }

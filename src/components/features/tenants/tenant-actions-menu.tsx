@@ -37,14 +37,14 @@ type Open = 'edit' | 'owner' | 'suspend' | 'reactivate' | 'archive' | 'purge' | 
  * shows inline. Suspend, Archive, Delete permanently and the owner invitation
  * go through step-up. No menu renders when no action applies; the dialogs
  * stay mounted, so one whose action just removed the last option still
- * closes and hands focus back.
+ * closes, and sends focus to `fallbackFocus` since the trigger is gone.
  */
 export function TenantActionsMenu({
   tenant,
   fallbackFocus,
 }: {
   tenant: PlatformTenantDetail
-  /** Where focus goes when an action removes this menu's trigger while it holds focus. */
+  /** Where focus goes when an action leaves this menu no option, so its trigger is gone. */
   fallbackFocus?: RefObject<HTMLElement | null>
 }) {
   const role = useAuthStore((s) => s.user?.platformRole)
@@ -76,6 +76,7 @@ export function TenantActionsMenu({
     open: open === which,
     onOpenChange: (next: boolean) => setOpen(next ? which : null),
   })
+  const finalFocus = hasActions ? undefined : fallbackFocus
 
   return (
     <>
@@ -118,6 +119,7 @@ export function TenantActionsMenu({
       {can.owner && <OwnerInvitationDialog tenant={tenant} {...dialogProps('owner')} />}
       <ReasonDialog
         {...dialogProps('suspend')}
+        finalFocus={finalFocus}
         title={`Suspend ${tenant.name}?`}
         description="Members lose access at once, and its members and invitations are frozen until it is reactivated."
         confirmLabel="Suspend"
@@ -129,6 +131,7 @@ export function TenantActionsMenu({
       />
       <ReasonDialog
         {...dialogProps('reactivate')}
+        finalFocus={finalFocus}
         title={`Reactivate ${tenant.name}?`}
         description="Members get their access back straight away."
         confirmLabel="Reactivate"
@@ -139,6 +142,7 @@ export function TenantActionsMenu({
       />
       <ReasonDialog
         {...dialogProps('archive')}
+        finalFocus={finalFocus}
         title={`Archive ${tenant.name}?`}
         description="Archiving is permanent: the tenant can’t be reactivated, its pending invitations are revoked, and its slug becomes free for reuse."
         confirmLabel="Archive"
@@ -151,6 +155,7 @@ export function TenantActionsMenu({
       />
       <ReasonDialog
         {...dialogProps('purge')}
+        finalFocus={finalFocus}
         title={`Permanently delete ${tenant.name}?`}
         description="This removes the tenant, its settings, memberships, invitations and its own activity log for good. Only a record of the deletion stays in the platform log. It can’t be undone."
         confirmLabel="Delete permanently"

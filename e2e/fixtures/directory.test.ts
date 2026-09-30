@@ -40,6 +40,22 @@ for (const [name, path, ready] of [
   })
 }
 
+test('a tenant tab’s breadcrumb trail reads in full at 390px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`/e2e/harness/?path=${ACME_PAGE}/members`)
+  await expect(page.getByRole('heading', { name: 'Acme Corp', level: 1 })).toBeVisible()
+  const trail = page.getByRole('navigation', { name: 'breadcrumb' })
+  await expect(trail.getByRole('link', { name: 'Acme Corp' })).toBeVisible()
+  const crumbs = trail.locator('[data-slot="breadcrumb-link"], [data-slot="breadcrumb-page"]')
+  await expect(crumbs).toHaveText(['Tenants', 'Acme Corp', 'Members'])
+  // A crumb clipped by `truncate` is wider inside than its box: its text ends in an ellipsis.
+  const clipped = await crumbs.evaluateAll((nodes) =>
+    nodes.filter((node) => node.scrollWidth > node.clientWidth).map((node) => node.textContent)
+  )
+  expect(clipped).toEqual([])
+  await expect(page.getByRole('button', { name: /Search/ })).toBeVisible()
+})
+
 test('the History cards list their entries at 390px without scrolling sideways', async ({
   page,
 }) => {

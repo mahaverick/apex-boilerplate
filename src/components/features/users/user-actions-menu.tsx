@@ -42,7 +42,7 @@ export function UserActionsMenu({
   fallbackFocus,
 }: {
   user: PlatformUserDetail
-  /** Where focus goes when an action removes this menu's trigger while it holds focus. */
+  /** Where focus goes when an action leaves this menu no option, so its trigger is gone. */
   fallbackFocus?: RefObject<HTMLElement | null>
 }) {
   const me = useAuthStore((state) => state.user)
@@ -79,6 +79,8 @@ export function UserActionsMenu({
       }
     )
   }
+
+  const finalFocus = allowed.size > 0 ? undefined : fallbackFocus
 
   const hasStateChange =
     allowed.has('signOut') || allowed.has('deactivate') || allowed.has('reactivate')
@@ -160,6 +162,7 @@ export function UserActionsMenu({
       <ReasonDialog
         open={dialog === 'signOut'}
         onOpenChange={close}
+        finalFocus={finalFocus}
         title="Sign out everywhere"
         description={`Ends every session ${user.email} has. They can sign in again.`}
         confirmLabel="Sign out everywhere"
@@ -171,6 +174,7 @@ export function UserActionsMenu({
       <ReasonDialog
         open={dialog === 'deactivate'}
         onOpenChange={close}
+        finalFocus={finalFocus}
         title="Deactivate account"
         description={`${user.email} is signed out everywhere and can’t sign in until the account is reactivated.`}
         confirmLabel="Deactivate"
@@ -183,6 +187,7 @@ export function UserActionsMenu({
       <ReasonDialog
         open={dialog === 'reactivate'}
         onOpenChange={close}
+        finalFocus={finalFocus}
         title="Reactivate account"
         description={`${user.email} can sign in again.`}
         confirmLabel="Reactivate"
@@ -194,6 +199,7 @@ export function UserActionsMenu({
       <ReasonDialog
         open={dialog === 'delete'}
         onOpenChange={close}
+        finalFocus={finalFocus}
         title="Delete user"
         description={`This deletes ${user.email}, ends their sessions, removes their Google sign-in link and revokes invitations they sent. The address can register again. A platform owner can then delete the account permanently.`}
         confirmLabel="Delete user"
@@ -207,6 +213,7 @@ export function UserActionsMenu({
       <ReasonDialog
         open={dialog === 'purge'}
         onOpenChange={close}
+        finalFocus={finalFocus}
         title="Permanently delete this account?"
         description={`This removes ${user.email}'s account, memberships and sign-in records for good, and anonymises their entries in the audit log. It can’t be undone.`}
         confirmLabel="Delete permanently"
