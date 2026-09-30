@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http } from 'msw'
+import { delay, http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
@@ -298,6 +298,36 @@ describe('/tenants/$tenantId', () => {
         http.post(`/api/v1/platform/tenants/${TENANT_ID}/archive`, () =>
           ok(detail({ lifecycleState: 'archived', deletedAt: '2026-09-29T00:00:00.000Z' }))
         )
+      )
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Archive' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Archive Acme Corp?' })
+      await user.type(within(dialog).getByLabelText('Reason'), 'closed down')
+      await user.type(within(dialog).getByLabelText('Type acme to confirm'), 'acme')
+      await user.click(within(dialog).getByRole('button', { name: 'Archive' }))
+
+      await waitFor(() =>
+        expect(screen.queryByRole('alertdialog', { name: 'Archive Acme Corp?' })).toBeNull()
+      )
+      expect(screen.queryByRole('button', { name: 'Actions' })).not.toBeInTheDocument()
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: 'Acme Corp', level: 1 })).toHaveFocus()
+      )
+    })
+
+    it('puts focus on the page heading after an archive whose refetches are slow', async () => {
+      let archived = false
+      serve(detail())
+      server.use(
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/archive`, () => {
+          archived = true
+          return ok(detail({ lifecycleState: 'archived', deletedAt: '2026-09-29T00:00:00.000Z' }))
+        }),
+        // Falls through to the handlers above once the injected latency has passed.
+        http.get('/api/v1/*', async () => {
+          if (archived) await delay(150)
+        })
       )
       renderAppAt(`/tenants/${TENANT_ID}`)
       const { user, menu } = await openMenu()

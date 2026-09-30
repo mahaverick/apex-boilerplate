@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http } from 'msw'
+import { delay, http } from 'msw'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PLATFORM_TENANT_SLUG } from '@/constants/routes'
@@ -286,6 +286,43 @@ describe('/users/$userId', () => {
     // An admin can't purge, so a deleted account offers them nothing.
     expect(screen.queryByRole('button', { name: /^Actions for/ })).not.toBeInTheDocument()
     // The trigger that opened the dialog is gone, so focus lands on the page heading, not <body>.
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Cleo Doe', level: 1 })).toHaveFocus()
+    )
+  })
+
+  it('puts focus on the page heading after a soft delete whose refetches are slow', async () => {
+    let deleted = false
+    server.use(
+      http.get(`/api/v1/platform/users/${USER_ID_2}`, () =>
+        ok(
+          deleted ? { ...DETAIL, deletedAt: '2026-09-29T00:00:00.000Z', active: false } : DETAIL,
+          'User retrieved.'
+        )
+      ),
+      http.delete(`/api/v1/platform/users/${USER_ID_2}`, () => {
+        deleted = true
+        return ok(null, 'User deleted.')
+      }),
+      // Falls through to the handlers above once the injected latency has passed.
+      http.get('/api/v1/*', async () => {
+        if (deleted) await delay(150)
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Delete' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete user' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'GDPR request')
+    await user.type(
+      within(dialog).getByLabelText('Type cleo@example.com to confirm'),
+      'cleo@example.com'
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Delete user' }))
+
+    expect(await screen.findByText(/This account was deleted on/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Actions for/ })).not.toBeInTheDocument()
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'Cleo Doe', level: 1 })).toHaveFocus()
     )
