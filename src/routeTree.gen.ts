@@ -17,6 +17,7 @@ import { Route as NoAccessRouteImport } from './pages/no-access'
 import { Route as ResetPasswordRouteImport } from './pages/reset-password'
 import { Route as VerifyEmailRouteImport } from './pages/verify-email'
 import { Route as AppActivityRouteImport } from './pages/_app/activity'
+import { Route as AppDeliverabilityRouteImport } from './pages/_app/deliverability'
 import { Route as AppOverviewRouteImport } from './pages/_app/overview'
 import { Route as AppProfileRouteImport } from './pages/_app/profile'
 import { Route as AppStaffRouteImport } from './pages/_app/staff'
@@ -72,6 +73,11 @@ const VerifyEmailRoute = VerifyEmailRouteImport.update({
 const AppActivityRoute = AppActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDeliverabilityRoute = AppDeliverabilityRouteImport.update({
+  id: '/deliverability',
+  path: '/deliverability',
   getParentRoute: () => AppRoute,
 } as any)
 const AppOverviewRoute = AppOverviewRouteImport.update({
@@ -175,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
   '/activity': typeof AppActivityRoute
+  '/deliverability': typeof AppDeliverabilityRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
   '/staff': typeof AppStaffRoute
@@ -201,6 +208,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
   '/activity': typeof AppActivityRoute
+  '/deliverability': typeof AppDeliverabilityRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
   '/staff': typeof AppStaffRoute
@@ -229,6 +237,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
   '/_app/activity': typeof AppActivityRoute
+  '/_app/deliverability': typeof AppDeliverabilityRoute
   '/_app/overview': typeof AppOverviewRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/staff': typeof AppStaffRoute
@@ -257,6 +266,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/activity'
+    | '/deliverability'
     | '/overview'
     | '/profile'
     | '/staff'
@@ -283,6 +293,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/activity'
+    | '/deliverability'
     | '/overview'
     | '/profile'
     | '/staff'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/_app/activity'
+    | '/_app/deliverability'
     | '/_app/overview'
     | '/_app/profile'
     | '/_app/staff'
@@ -398,6 +410,13 @@ declare module '@tanstack/react-router' {
       path: '/activity'
       fullPath: '/activity'
       preLoaderRoute: typeof AppActivityRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/deliverability': {
+      id: '/_app/deliverability'
+      path: '/deliverability'
+      fullPath: '/deliverability'
+      preLoaderRoute: typeof AppDeliverabilityRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/overview': {
@@ -548,6 +567,7 @@ const AppTenantsTenantIdRouteWithChildren =
 
 interface AppRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
+  AppDeliverabilityRoute: typeof AppDeliverabilityRoute
   AppOverviewRoute: typeof AppOverviewRoute
   AppProfileRoute: typeof AppProfileRoute
   AppStaffRoute: typeof AppStaffRoute
@@ -561,6 +581,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppActivityRoute: AppActivityRoute,
+  AppDeliverabilityRoute: AppDeliverabilityRoute,
   AppOverviewRoute: AppOverviewRoute,
   AppProfileRoute: AppProfileRoute,
   AppStaffRoute: AppStaffRoute,

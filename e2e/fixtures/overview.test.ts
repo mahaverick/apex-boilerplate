@@ -12,12 +12,12 @@ test('draws both charts and switches the window through the URL', async ({ page 
   const signups = page.getByRole('figure', { name: 'Sign-ups per day' })
   const emails = page.getByRole('figure', { name: 'Emails per day' })
   await expect(signups.locator('.recharts-area-area')).toHaveCount(2)
-  // Seven days of sent bars, and the one day with a failed attempt.
+  // Seven days of sent segments, and the one day with an undelivered email; a zero-height segment draws no path.
   await expect(emails.locator('.recharts-bar-rectangle path')).toHaveCount(8)
 
   await page.getByRole('button', { name: '30 days' }).click()
   await expect(page).toHaveURL(/[?&]range=30d/)
-  await expect(page.getByText('Send attempts (30 days)')).toBeVisible()
+  await expect(page.getByText('Undelivered rate (30 days)')).toBeVisible()
 })
 
 test('does not scroll sideways at 390px', async ({ page }) => {

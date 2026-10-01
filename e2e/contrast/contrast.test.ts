@@ -371,8 +371,8 @@ test.describe('chart legends', () => {
     test(`use the graded KPI title colours in ${theme}`, async ({ page }) => {
       await contrastOf(page, '/e2e/harness/', theme, 'Overview')
       const items = page.locator(`${LEGEND_ITEM} > div > div`)
-      // Two series per chart: an empty legend would compare nothing.
-      await expect(items).toHaveCount(4)
+      // Two sign-up series and five email groups: an empty legend would compare nothing.
+      await expect(items).toHaveCount(7)
 
       const title = page
         .getByRole('region', { name: 'Key figures' })

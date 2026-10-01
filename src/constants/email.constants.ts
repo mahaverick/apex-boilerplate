@@ -105,3 +105,11 @@ export const RESEND_REQUESTED = 'Resend requested — it appears in the timeline
 /** The warning toast when the originating action ran but reports that its email did not go. */
 export const RESEND_NOT_SENT =
   'The resend was recorded, but its email could not be sent. Try again shortly.'
+
+/**
+ * express's "Email tracking" section, in the README its repository page
+ * renders: which provider webhook to configure and how. The Deliverability
+ * page links here while no provider event has arrived.
+ */
+export const EMAIL_TRACKING_DOCS_URL =
+  'https://github.com/mahaverick/express-boilerplate#email-tracking'

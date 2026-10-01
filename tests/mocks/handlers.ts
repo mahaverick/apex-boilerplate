@@ -62,12 +62,12 @@ export const testInvitationPreview: InvitationPreview = {
 /** The seven UTC days the stats and health fixtures cover, ending 2026-09-29. */
 const FIXTURE_DAYS = ['23', '24', '25', '26', '27', '28', '29'].map((day) => `2026-09-${day}`)
 
-/** Every group non-zero on some day, one undelivered and one suppressed mail, so each series draws. */
+/** Every group non-zero on some day, three undelivered, one complained and one suppressed mail, so each series draws. */
 const EMAIL_MESSAGE_DAYS: EmailMessageDay[] = FIXTURE_DAYS.map((date, index) => ({
   date,
   delivered: 400 + index * 10,
   sent: 90 + index,
-  undelivered: index === 3 ? 1 : 0,
+  undelivered: index === 3 ? 2 : index === 4 ? 1 : 0,
   complained: index === 5 ? 1 : 0,
   suppressed: index === 6 ? 1 : 0,
 }))
@@ -101,6 +101,13 @@ function rate(numerator: number, denominator: number) {
 
 const LEFT_SERVER = total('delivered') + total('sent') + total('undelivered') + total('complained')
 
+/** Undelivered emails that were hard bounces: fewer than all of them, so the two rates differ. */
+const HARD_BOUNCED = 1
+
+/** Two-way splits of `LEFT_SERVER` for the breakdown rows: the first part, and what is left. */
+const TEMPLATE_SPLIT = Math.floor(LEFT_SERVER * 0.6)
+const DOMAIN_SPLIT = Math.floor(LEFT_SERVER * 0.5)
+
 /** The same seven days as a health report from an install whose provider webhook is live. */
 export const testEmailHealth: EmailHealth = {
   range: '7d',
@@ -116,19 +123,34 @@ export const testEmailHealth: EmailHealth = {
   rates: {
     undeliveredRate: rate(total('undelivered'), LEFT_SERVER),
     deliveredRate: rate(total('delivered'), LEFT_SERVER),
-    bounceRate: rate(total('undelivered'), LEFT_SERVER),
+    bounceRate: rate(HARD_BOUNCED, LEFT_SERVER),
     complaintRate: rate(total('complained'), LEFT_SERVER),
     openRate: rate(40, 100),
     clickRate: rate(5, 100),
   },
   days: EMAIL_MESSAGE_DAYS,
   byTemplate: [
-    { key: 'email_verification', messages: 2000, undelivered: 1, complained: 0 },
-    { key: 'tenant_invitation', messages: 915, undelivered: 0, complained: 1 },
+    {
+      key: 'email_verification',
+      messages: TEMPLATE_SPLIT,
+      undelivered: total('undelivered'),
+      complained: 0,
+    },
+    {
+      key: 'tenant_invitation',
+      messages: LEFT_SERVER - TEMPLATE_SPLIT,
+      undelivered: 0,
+      complained: total('complained'),
+    },
   ],
   byDomain: [
-    { key: 'example.com', messages: 1800, undelivered: 1, complained: 1 },
-    { key: 'acme.test', messages: 1115, undelivered: 0, complained: 0 },
+    {
+      key: 'example.com',
+      messages: DOMAIN_SPLIT,
+      undelivered: total('undelivered'),
+      complained: total('complained'),
+    },
+    { key: 'acme.test', messages: LEFT_SERVER - DOMAIN_SPLIT, undelivered: 0, complained: 0 },
   ],
 }
 

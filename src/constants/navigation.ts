@@ -5,6 +5,7 @@
  */
 import {
   Building2,
+  Gauge,
   History,
   LayoutDashboard,
   Mail,
@@ -27,6 +28,7 @@ export type NavPath =
   | typeof ROUTES.users
   | typeof ROUTES.staff
   | typeof ROUTES.emails
+  | typeof ROUTES.deliverability
   | typeof ROUTES.activity
 
 export interface NavItem {
@@ -50,6 +52,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Users', to: ROUTES.users, Icon: Users, minRole: 'viewer', group: 'Directory' },
   { label: 'Staff', to: ROUTES.staff, Icon: ShieldCheck, minRole: 'viewer', group: 'Directory' },
   { label: 'Emails', to: ROUTES.emails, Icon: Mail, minRole: 'viewer', group: 'Operations' },
+  {
+    label: 'Deliverability',
+    to: ROUTES.deliverability,
+    Icon: Gauge,
+    minRole: 'viewer',
+    group: 'Operations',
+  },
   {
     label: 'Activity log',
     to: ROUTES.activity,

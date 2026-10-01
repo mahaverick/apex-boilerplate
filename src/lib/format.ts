@@ -43,3 +43,13 @@ export function fullName(person: NameParts | null | undefined): string | null {
   )
   return parts.length > 0 ? parts.join(' ') : null
 }
+
+/**
+ * `part` as a percentage of `whole`, to two decimals: `0.03%`. A non-zero
+ * part never rounds away to `0.00%`; it reads `<0.01%`. Call it only with a
+ * positive `whole`: what an empty window says is the caller's to word.
+ */
+export function formatShare(part: number, whole: number): string {
+  const share = ((part / whole) * 100).toFixed(2)
+  return part > 0 && share === '0.00' ? '<0.01%' : `${share}%`
+}

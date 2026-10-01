@@ -1,38 +1,45 @@
 import { RANGE_LABELS } from '@/components/features/overview/range'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatShare } from '@/lib/format'
 import type { PlatformStats } from '@/types/api.types'
 
 /**
- * Failed send attempts as a share of all attempts in the window, to two
- * decimals. Attempts, not emails: a mail retried and then sent is logged
- * once as failed and once as sent.
- * @param emails - The daily series.
- * @returns e.g. "0.03% of send attempts failed" ("<0.01%" when a failure rounds to zero), or
- *   "No send attempts" when there were none.
+ * The window's undelivered share, over the emails that left our server: sent,
+ * delivered, undelivered and complained. Suppressed emails never left, so they
+ * are not in it. Each email counts once, by its current status, so the figure
+ * means the same with or without a provider webhook.
+ * @param days - The daily message counts.
+ * @returns The tile's value and its note; "—" and "No emails sent" for an empty window.
  */
-function failureShare(emails: PlatformStats['emails']): string {
-  const sent = emails.reduce((sum, day) => sum + day.sent, 0)
-  const failed = emails.reduce((sum, day) => sum + day.failed, 0)
-  const total = sent + failed
-  if (total === 0) return 'No send attempts'
-  const share = ((failed / total) * 100).toFixed(2)
-  // A real failure never rounds away to "0.00%".
-  const shown = failed > 0 && share === '0.00' ? '<0.01' : share
-  return `${shown}% of send attempts failed`
+function undeliveredRate(days: PlatformStats['emailMessages']): { value: string; note: string } {
+  const undelivered = days.reduce((sum, day) => sum + day.undelivered, 0)
+  const left = days.reduce(
+    (sum, day) => sum + day.sent + day.delivered + day.undelivered + day.complained,
+    0
+  )
+  if (left === 0) return { value: '—', note: 'No emails sent' }
+  return {
+    value: formatShare(undelivered, left),
+    note: `${undelivered.toLocaleString('en-US')} of ${left.toLocaleString('en-US')} emails that left our server`,
+  }
 }
 
-/** The Overview's headline numbers. Totals are live; send attempts cover the window. */
+/** The Overview's headline numbers. Totals are live; the undelivered rate covers the window. */
 export function KpiCards({ stats }: { stats: PlatformStats }) {
-  const attempts = stats.emails.reduce((sum, day) => sum + day.sent + day.failed, 0)
+  const rate = undeliveredRate(stats.emailMessages)
   const cards = [
-    { label: 'Tenants', value: stats.totals.tenants, note: 'Live customer tenants' },
-    { label: 'Users', value: stats.totals.users, note: 'Active accounts' },
-    { label: 'Staff', value: stats.totals.staff, note: 'Platform team members' },
     {
-      label: `Send attempts (${RANGE_LABELS[stats.range]})`,
-      value: attempts,
-      note: failureShare(stats.emails),
+      label: 'Tenants',
+      value: stats.totals.tenants.toLocaleString('en-US'),
+      note: 'Live customer tenants',
     },
+    { label: 'Users', value: stats.totals.users.toLocaleString('en-US'), note: 'Active accounts' },
+    {
+      label: 'Staff',
+      value: stats.totals.staff.toLocaleString('en-US'),
+      note: 'Platform team members',
+    },
+    { label: `Undelivered rate (${RANGE_LABELS[stats.range]})`, ...rate },
   ]
   return (
     <section aria-label="Key figures" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -40,9 +47,7 @@ export function KpiCards({ stats }: { stats: PlatformStats }) {
         <Card key={card.label}>
           <CardHeader>
             <CardDescription>{card.label}</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">
-              {card.value.toLocaleString('en-US')}
-            </CardTitle>
+            <CardTitle className="text-2xl tabular-nums">{card.value}</CardTitle>
           </CardHeader>
           <CardContent className="text-xs text-muted-foreground">{card.note}</CardContent>
         </Card>

@@ -87,7 +87,9 @@ const testUser = {
 /**
  * The Overview's figures: the same seven days as `testStats` in
  * `tests/mocks/handlers.ts`, restated because that file's `@/tests` imports
- * do not resolve under Vite. One failed attempt, so both bar series draw.
+ * do not resolve under Vite. The emails are a no-webhook install's: every
+ * day's sends in `sent`, and one undelivered on the fourth day, so the chart
+ * draws eight segments (zero-height ones draw nothing).
  */
 const STATS = {
   range: '7d' as const,
@@ -101,6 +103,14 @@ const STATS = {
     date: `2026-09-${day}`,
     sent: 500 + index * 10,
     failed: index === 3 ? 1 : 0,
+  })),
+  emailMessages: ['23', '24', '25', '26', '27', '28', '29'].map((day, index) => ({
+    date: `2026-09-${day}`,
+    delivered: 0,
+    sent: 500 + index * 10,
+    undelivered: index === 3 ? 1 : 0,
+    complained: 0,
+    suppressed: 0,
   })),
 }
 

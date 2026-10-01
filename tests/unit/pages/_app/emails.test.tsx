@@ -47,7 +47,7 @@ function pages(seen: URLSearchParams[]) {
 describe('/emails', () => {
   it('is the first Operations item, for every staff role', () => {
     const operations = navItemsFor('viewer').filter((item) => item.group === 'Operations')
-    expect(operations.map((item) => [item.label, item.to])).toEqual([['Emails', '/emails']])
+    expect(operations.map((item) => [item.label, item.to])[0]).toEqual(['Emails', '/emails'])
   })
 
   beforeEach(() => {
