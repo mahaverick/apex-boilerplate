@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.1.1...v1.2.0) (2026-10-01)
+
+
+### Features
+
+* message tracking — emails, deliverability, suppressions (Apex SP3) ([#7](https://github.com/mahaverick/apex-boilerplate/issues/7)) ([09c2c60](https://github.com/mahaverick/apex-boilerplate/commit/09c2c60bdbde2775bb4d2fe9790ef0f03246a4d8))
+
 ## [1.1.1](https://github.com/mahaverick/apex-boilerplate/compare/v1.1.0...v1.1.1) (2026-09-30)
 
 
