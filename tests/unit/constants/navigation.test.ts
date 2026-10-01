@@ -10,6 +10,7 @@ describe('navigation', () => {
       'Staff',
       'Emails',
       'Deliverability',
+      'Suppressions',
     ])
   })
 
@@ -21,6 +22,7 @@ describe('navigation', () => {
       'Staff',
       'Emails',
       'Deliverability',
+      'Suppressions',
       'Activity log',
     ])
   })

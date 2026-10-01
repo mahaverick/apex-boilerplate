@@ -9,6 +9,7 @@ import {
   History,
   LayoutDashboard,
   Mail,
+  MailX,
   ShieldCheck,
   Users,
   type LucideIcon,
@@ -29,6 +30,7 @@ export type NavPath =
   | typeof ROUTES.staff
   | typeof ROUTES.emails
   | typeof ROUTES.deliverability
+  | typeof ROUTES.suppressions
   | typeof ROUTES.activity
 
 export interface NavItem {
@@ -56,6 +58,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Deliverability',
     to: ROUTES.deliverability,
     Icon: Gauge,
+    minRole: 'viewer',
+    group: 'Operations',
+  },
+  {
+    label: 'Suppressions',
+    to: ROUTES.suppressions,
+    Icon: MailX,
     minRole: 'viewer',
     group: 'Operations',
   },

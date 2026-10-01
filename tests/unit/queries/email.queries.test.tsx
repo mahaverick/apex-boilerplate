@@ -278,27 +278,29 @@ describe('email queries go stale with the directory', () => {
     await waitFor(() => expect(first.result.current.isError).toBe(true))
     for (const key of EMAIL_KEYS) expect(refused.getQueryState(key)?.isInvalidated).toBe(false)
 
-    const sent = seeded(EMAIL_KEYS)
+    const logs = [auditKeys.platform({}), auditKeys.tenant('acme', {})]
+    const sent = seeded([...EMAIL_KEYS, ...logs])
     const second = renderHook(() => useInviteMember('acme'), { wrapper: wrapperWith(sent) })
     second.result.current.mutate({ email: 'new@acme.test', role: 'viewer' })
     await waitFor(() => expect(second.result.current.isSuccess).toBe(true))
-    await waitFor(() => expectStale(sent, EMAIL_KEYS))
+    await waitFor(() => expectStale(sent, [...EMAIL_KEYS, ...logs]))
   })
 
-  it('a staff-created tenant, which mails its owner an invitation, refreshes the email queries', async () => {
+  it('a staff-created tenant, which mails its owner an invitation, refreshes the email queries and the audit logs', async () => {
     server.use(
       http.post('/api/v1/platform/tenants', () =>
         ok(
-          { tenant: { id: TENANT_ID, name: 'Acme Corp' }, emailSent: true },
+          { tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' }, emailSent: true },
           'Tenant created.',
           201
         )
       )
     )
-    const client = seeded(EMAIL_KEYS)
+    const logs = [auditKeys.platform({}), auditKeys.tenant('acme', {})]
+    const client = seeded([...EMAIL_KEYS, ...logs])
     const { result } = renderHook(() => useCreatePlatformTenant(), { wrapper: wrapperWith(client) })
     result.current.mutate({ name: 'Acme Corp', slug: 'acme', ownerEmail: 'olive@acme.test' })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expectStale(client, EMAIL_KEYS)
+    expectStale(client, [...EMAIL_KEYS, ...logs])
   })
 })

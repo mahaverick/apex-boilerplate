@@ -185,12 +185,18 @@ export function useInviteMember(slug: string, tenantId?: string) {
   return useMutation({
     mutationFn: async (input: InviteMemberInput) =>
       unwrap(await apiClient.post<ApiSuccess<null>>(`/tenants/${slug}/invitations`, input)),
-    /** A conflict means another invite for this address just landed, so the list is stale; a success also mailed someone. */
+    /** A conflict means another invite for this address just landed, so the list is stale; a success also mailed someone and added an entry to both audit logs. */
     onSettled: async (_data, error) => {
       if (error && codeFrom(error) !== INVITATION_CONFLICT) return
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: tenantKeys.invitations(slug, tenantId) }),
-        ...(error ? [] : [invalidateEmails(queryClient)]),
+        ...(error
+          ? []
+          : [
+              invalidateEmails(queryClient),
+              queryClient.invalidateQueries({ queryKey: auditKeys.tenantAll(slug) }),
+              queryClient.invalidateQueries({ queryKey: auditKeys.platformAll }),
+            ]),
       ])
     },
   })

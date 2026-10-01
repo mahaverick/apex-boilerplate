@@ -211,6 +211,28 @@ describe('/emails/$emailId', () => {
     )
   })
 
+  it('links the suppression banner to the address on the Suppressions page', async () => {
+    serve({
+      status: 'suppressed',
+      suppression: {
+        id: SUPPRESSION_ID,
+        reason: 'hard_bounce',
+        createdAt: '2026-09-29T12:00:00.000Z',
+      },
+    })
+    const user = userEvent.setup()
+    const router = renderAppAt(PAGE)
+    await heading()
+    await user.click(
+      within(screen.getByRole('status')).getByRole('link', { name: 'View suppression' })
+    )
+    await waitFor(() => expect(router.state.location.pathname).toBe('/suppressions'))
+    expect(router.state.location.search).toEqual({ q: 'cleo@example.com' })
+    expect(
+      await screen.findByRole('heading', { name: 'Suppressions', level: 1 })
+    ).toBeInTheDocument()
+  })
+
   it('says why a failed message failed', async () => {
     serve({ status: 'failed', failureOrigin: 'enqueue', attempts: [], events: [] })
     renderAppAt(PAGE)

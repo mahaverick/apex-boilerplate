@@ -21,6 +21,7 @@ import { Route as AppDeliverabilityRouteImport } from './pages/_app/deliverabili
 import { Route as AppOverviewRouteImport } from './pages/_app/overview'
 import { Route as AppProfileRouteImport } from './pages/_app/profile'
 import { Route as AppStaffRouteImport } from './pages/_app/staff'
+import { Route as AppSuppressionsRouteImport } from './pages/_app/suppressions'
 import { Route as AuthForgotPasswordRouteImport } from './pages/_auth/forgot-password'
 import { Route as AuthLoginRouteImport } from './pages/_auth/login'
 import { Route as AuthRegisterRouteImport } from './pages/_auth/register'
@@ -34,6 +35,7 @@ import { Route as AppUsersIndexRouteImport } from './pages/_app/users/index'
 import { Route as AppUsersUserIdRouteImport } from './pages/_app/users/$userId'
 import { Route as AppTenantsTenantIdIndexRouteImport } from './pages/_app/tenants/$tenantId.index'
 import { Route as AppTenantsTenantIdActivityRouteImport } from './pages/_app/tenants/$tenantId.activity'
+import { Route as AppTenantsTenantIdEmailsRouteImport } from './pages/_app/tenants/$tenantId.emails'
 import { Route as AppTenantsTenantIdInvitationsRouteImport } from './pages/_app/tenants/$tenantId.invitations'
 import { Route as AppTenantsTenantIdMembersRouteImport } from './pages/_app/tenants/$tenantId.members'
 
@@ -93,6 +95,11 @@ const AppProfileRoute = AppProfileRouteImport.update({
 const AppStaffRoute = AppStaffRouteImport.update({
   id: '/staff',
   path: '/staff',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSuppressionsRoute = AppSuppressionsRouteImport.update({
+  id: '/suppressions',
+  path: '/suppressions',
   getParentRoute: () => AppRoute,
 } as any)
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
@@ -161,6 +168,12 @@ const AppTenantsTenantIdActivityRoute =
     path: '/activity',
     getParentRoute: () => AppTenantsTenantIdRoute,
   } as any)
+const AppTenantsTenantIdEmailsRoute =
+  AppTenantsTenantIdEmailsRouteImport.update({
+    id: '/emails',
+    path: '/emails',
+    getParentRoute: () => AppTenantsTenantIdRoute,
+  } as any)
 const AppTenantsTenantIdInvitationsRoute =
   AppTenantsTenantIdInvitationsRouteImport.update({
     id: '/invitations',
@@ -185,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
   '/staff': typeof AppStaffRoute
+  '/suppressions': typeof AppSuppressionsRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
@@ -197,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/tenants/': typeof AppTenantsIndexRoute
   '/users/': typeof AppUsersIndexRoute
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
+  '/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
   '/tenants/$tenantId/members': typeof AppTenantsTenantIdMembersRoute
   '/tenants/$tenantId/': typeof AppTenantsTenantIdIndexRoute
@@ -212,6 +227,7 @@ export interface FileRoutesByTo {
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
   '/staff': typeof AppStaffRoute
+  '/suppressions': typeof AppSuppressionsRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
@@ -223,6 +239,7 @@ export interface FileRoutesByTo {
   '/tenants': typeof AppTenantsIndexRoute
   '/users': typeof AppUsersIndexRoute
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
+  '/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
   '/tenants/$tenantId/members': typeof AppTenantsTenantIdMembersRoute
   '/tenants/$tenantId': typeof AppTenantsTenantIdIndexRoute
@@ -241,6 +258,7 @@ export interface FileRoutesById {
   '/_app/overview': typeof AppOverviewRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/staff': typeof AppStaffRoute
+  '/_app/suppressions': typeof AppSuppressionsRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
@@ -253,6 +271,7 @@ export interface FileRoutesById {
   '/_app/tenants/': typeof AppTenantsIndexRoute
   '/_app/users/': typeof AppUsersIndexRoute
   '/_app/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
+  '/_app/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/_app/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
   '/_app/tenants/$tenantId/members': typeof AppTenantsTenantIdMembersRoute
   '/_app/tenants/$tenantId/': typeof AppTenantsTenantIdIndexRoute
@@ -270,6 +289,7 @@ export interface FileRouteTypes {
     | '/overview'
     | '/profile'
     | '/staff'
+    | '/suppressions'
     | '/forgot-password'
     | '/login'
     | '/register'
@@ -282,6 +302,7 @@ export interface FileRouteTypes {
     | '/tenants/'
     | '/users/'
     | '/tenants/$tenantId/activity'
+    | '/tenants/$tenantId/emails'
     | '/tenants/$tenantId/invitations'
     | '/tenants/$tenantId/members'
     | '/tenants/$tenantId/'
@@ -297,6 +318,7 @@ export interface FileRouteTypes {
     | '/overview'
     | '/profile'
     | '/staff'
+    | '/suppressions'
     | '/forgot-password'
     | '/login'
     | '/register'
@@ -308,6 +330,7 @@ export interface FileRouteTypes {
     | '/tenants'
     | '/users'
     | '/tenants/$tenantId/activity'
+    | '/tenants/$tenantId/emails'
     | '/tenants/$tenantId/invitations'
     | '/tenants/$tenantId/members'
     | '/tenants/$tenantId'
@@ -325,6 +348,7 @@ export interface FileRouteTypes {
     | '/_app/overview'
     | '/_app/profile'
     | '/_app/staff'
+    | '/_app/suppressions'
     | '/_auth/forgot-password'
     | '/_auth/login'
     | '/_auth/register'
@@ -337,6 +361,7 @@ export interface FileRouteTypes {
     | '/_app/tenants/'
     | '/_app/users/'
     | '/_app/tenants/$tenantId/activity'
+    | '/_app/tenants/$tenantId/emails'
     | '/_app/tenants/$tenantId/invitations'
     | '/_app/tenants/$tenantId/members'
     | '/_app/tenants/$tenantId/'
@@ -440,6 +465,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppStaffRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/suppressions': {
+      id: '/_app/suppressions'
+      path: '/suppressions'
+      fullPath: '/suppressions'
+      preLoaderRoute: typeof AppSuppressionsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_auth/forgot-password': {
       id: '/_auth/forgot-password'
       path: '/forgot-password'
@@ -531,6 +563,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantsTenantIdActivityRouteImport
       parentRoute: typeof AppTenantsTenantIdRoute
     }
+    '/_app/tenants/$tenantId/emails': {
+      id: '/_app/tenants/$tenantId/emails'
+      path: '/emails'
+      fullPath: '/tenants/$tenantId/emails'
+      preLoaderRoute: typeof AppTenantsTenantIdEmailsRouteImport
+      parentRoute: typeof AppTenantsTenantIdRoute
+    }
     '/_app/tenants/$tenantId/invitations': {
       id: '/_app/tenants/$tenantId/invitations'
       path: '/invitations'
@@ -550,6 +589,7 @@ declare module '@tanstack/react-router' {
 
 interface AppTenantsTenantIdRouteChildren {
   AppTenantsTenantIdActivityRoute: typeof AppTenantsTenantIdActivityRoute
+  AppTenantsTenantIdEmailsRoute: typeof AppTenantsTenantIdEmailsRoute
   AppTenantsTenantIdInvitationsRoute: typeof AppTenantsTenantIdInvitationsRoute
   AppTenantsTenantIdMembersRoute: typeof AppTenantsTenantIdMembersRoute
   AppTenantsTenantIdIndexRoute: typeof AppTenantsTenantIdIndexRoute
@@ -557,6 +597,7 @@ interface AppTenantsTenantIdRouteChildren {
 
 const AppTenantsTenantIdRouteChildren: AppTenantsTenantIdRouteChildren = {
   AppTenantsTenantIdActivityRoute: AppTenantsTenantIdActivityRoute,
+  AppTenantsTenantIdEmailsRoute: AppTenantsTenantIdEmailsRoute,
   AppTenantsTenantIdInvitationsRoute: AppTenantsTenantIdInvitationsRoute,
   AppTenantsTenantIdMembersRoute: AppTenantsTenantIdMembersRoute,
   AppTenantsTenantIdIndexRoute: AppTenantsTenantIdIndexRoute,
@@ -571,6 +612,7 @@ interface AppRouteChildren {
   AppOverviewRoute: typeof AppOverviewRoute
   AppProfileRoute: typeof AppProfileRoute
   AppStaffRoute: typeof AppStaffRoute
+  AppSuppressionsRoute: typeof AppSuppressionsRoute
   AppEmailsEmailIdRoute: typeof AppEmailsEmailIdRoute
   AppTenantsTenantIdRoute: typeof AppTenantsTenantIdRouteWithChildren
   AppUsersUserIdRoute: typeof AppUsersUserIdRoute
@@ -585,6 +627,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOverviewRoute: AppOverviewRoute,
   AppProfileRoute: AppProfileRoute,
   AppStaffRoute: AppStaffRoute,
+  AppSuppressionsRoute: AppSuppressionsRoute,
   AppEmailsEmailIdRoute: AppEmailsEmailIdRoute,
   AppTenantsTenantIdRoute: AppTenantsTenantIdRouteWithChildren,
   AppUsersUserIdRoute: AppUsersUserIdRoute,

@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
+import { useMemo } from 'react'
 import { EmailStatusBadge } from '@/components/features/emails/email-status-badge'
 import {
   Table,
@@ -88,15 +89,25 @@ const columns = column.columns([
  * recipient opens the message; the User and Tenant columns link to their
  * records, and a dash is a mail with none, or one whose record was purged.
  * @param label - The table's accessible name, for a page that shows more than one.
+ * @param omit - A column that would only repeat the page's own record: `tenant` on a tenant's Emails tab.
  */
 export function EmailsTable({
   rows,
   label = 'Emails',
+  omit,
 }: {
   rows: EmailMessageSummary[]
   label?: string
+  omit?: 'user' | 'tenant'
 }) {
-  const table = useTable({ features, columns, data: rows, getRowId: (row) => row.id })
+  const shown = useMemo(
+    () =>
+      omit === undefined
+        ? columns
+        : columns.filter((def) => !('accessorKey' in def && def.accessorKey === omit)),
+    [omit]
+  )
+  const table = useTable({ features, columns: shown, data: rows, getRowId: (row) => row.id })
   return (
     <Table aria-label={label}>
       <TableCaption className="sr-only">Tracked email, newest first</TableCaption>

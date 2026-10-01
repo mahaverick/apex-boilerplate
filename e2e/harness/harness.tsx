@@ -23,6 +23,8 @@ import { useAuthStore } from '@/states/auth.store'
 import {
   AUDIT_ID_1,
   AUDIT_ID_2,
+  EMAIL_ID,
+  EMAIL_ID_2,
   MEMBERSHIP_ID,
   MEMBERSHIP_ID_2,
   PLATFORM_TENANT_ID,
@@ -315,6 +317,38 @@ function tenantDetail(tenantId: string) {
   }
 }
 
+/**
+ * The emails list, a user's Emails card and a tenant's Emails tab, all
+ * `GET /platform/emails`: a delivered reset to Cleo, and a bounced invitation
+ * to a long address on Acme, so the badges and the widest row are measured.
+ */
+const EMAIL_ROWS = [
+  {
+    id: EMAIL_ID,
+    recipient: 'c@d.com',
+    templateKey: 'password_reset',
+    status: 'delivered',
+    senderClass: 'transactional',
+    createdAt: '2026-09-28T10:00:00.000Z',
+    statusUpdatedAt: '2026-09-28T10:00:05.000Z',
+    user: { id: USER_ID_2, name: 'Cleo D' },
+    tenant: null,
+    canResend: true,
+  },
+  {
+    id: EMAIL_ID_2,
+    recipient: 'a-very-long-address-for-overflow@example-company-domain.com',
+    templateKey: 'tenant_invitation',
+    status: 'bounced',
+    senderClass: 'transactional',
+    createdAt: '2026-09-27T09:00:00.000Z',
+    statusUpdatedAt: '2026-09-27T09:00:07.000Z',
+    user: null,
+    tenant: ACME,
+    canResend: false,
+  },
+]
+
 /** The API's step-up refusal, for the writes the fixtures drive into the stacked dialog. */
 function reauthRequired() {
   return Response.json(
@@ -468,6 +502,18 @@ const worker = setupWorker(
       'Audit log retrieved.'
     )
   ),
+  // Filtered the way the API filters: a user's card sees their emails, a tenant's tab its own.
+  http.get('/api/v1/platform/emails', ({ request }) => {
+    const params = new URL(request.url).searchParams
+    const userId = params.get('userId')
+    const tenantId = params.get('tenantId')
+    const emails = EMAIL_ROWS.filter(
+      (row) =>
+        (userId === null || row.user?.id === userId) &&
+        (tenantId === null || row.tenant?.id === tenantId)
+    )
+    return ok({ messages: emails, nextCursor: null, prevCursor: null }, 'Emails retrieved.')
+  }),
   // Suspending a tenant, sending an owner invitation and deactivating a user always ask for a recent sign-in, so the fixtures can open the stacked step-up dialog.
   http.post('/api/v1/platform/tenants/:tenantId/suspend', reauthRequired),
   http.post('/api/v1/platform/tenants/:tenantId/owner-invitation', reauthRequired),
@@ -521,8 +567,8 @@ useAuthStore.setState({
  * the contrast suite and `fixtures/security.test.ts`, which need the other
  * authenticated surfaces: the handlers above answer /profile,
  * /auth/providers, the tenants page's search, the activity page's three
- * requests, the Staff page's three, the users list and a user's page, and a
- * tenant's page with its tabs, so those pages render without a backend.
+ * requests, the Staff page's three, the users list and a user's page (its Emails
+ * card included), and a tenant's page with its tabs, so those pages render without a backend.
  *
  * Only a same-origin absolute path is accepted. This harness is not
  * shipped (nothing in `src/` imports it, and `index.html` is the only Vite

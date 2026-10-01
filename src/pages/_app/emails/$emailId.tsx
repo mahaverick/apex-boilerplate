@@ -143,7 +143,14 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
         <p role="status" className="rounded-md border p-3 text-sm">
           This address is suppressed ({SUPPRESSION_REASON_LABELS[message.suppression.reason]}, since{' '}
           {formatDate(message.suppression.createdAt, 'medium') ?? 'an unknown date'}): no email is
-          sent to it until the suppression is lifted.
+          sent to it until the suppression is lifted.{' '}
+          <Link
+            to={ROUTES.suppressions}
+            search={{ q: message.recipient }}
+            className="underline underline-offset-4"
+          >
+            View suppression
+          </Link>
         </p>
       )}
 
