@@ -1,3 +1,4 @@
+import { templateLabel } from '@/constants/email.constants'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
 
 /** Every action the API writes to its audit log. An action the server adds still renders, through the fallback sentence. */
@@ -29,6 +30,8 @@ export const AUDIT_ACTIONS = [
   'user.purged',
   'tenant.purged',
   'auth.reauthenticated',
+  'email.resent',
+  'email.suppression_lifted',
 ] as const
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
 
@@ -65,6 +68,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'user.purged': 'User permanently deleted',
   'tenant.purged': 'Tenant permanently deleted',
   'auth.reauthenticated': 'Identity confirmed',
+  'email.resent': 'Email resent',
+  'email.suppression_lifted': 'Suppression lifted',
 }
 
 type Metadata = Record<string, unknown>
@@ -145,6 +150,13 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
     text(m, 'outcome') === 'failure'
       ? 'failed to confirm their identity'
       : 'confirmed their identity',
+  'email.resent': (m) => {
+    const template = text(m, 'templateKey')
+    const which = template === undefined ? '' : ` (${templateLabel(template)})`
+    return `resent an email${which} to someone at ${domain(m)}${because(m)}`
+  },
+  'email.suppression_lifted': (m) =>
+    `lifted the email suppression on an address at ${domain(m)}${because(m)}`,
 }
 
 /**

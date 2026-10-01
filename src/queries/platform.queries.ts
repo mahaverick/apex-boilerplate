@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
+import { invalidateEmails } from '@/queries/email.queries'
 import type { ApiSuccess, PlatformStats, StatsRange } from '@/types/api.types'
 
 /** How long a tenant search box waits for typing to stop before asking the API. */
@@ -60,7 +61,9 @@ export function platformStatsQueryOptions(range: StatsRange) {
  * The cache prefixes a staff write can make stale beyond its own record: the
  * users list and pages, the tenants list and pages, every tenant's own routes
  * (members, invitations, detail, log; the Staff page is the platform tenant's)
- * and the platform audit log, since every staff write is an entry there.
+ * and the platform audit log, since every staff write is an entry there. The
+ * email queries are marked stale beside these (`invalidateEmails`): a write
+ * may send mail, and a purge deletes the mail it held.
  */
 const DIRECTORY_PREFIXES: readonly QueryKey[] = [
   ['platform', 'users'],
@@ -97,13 +100,14 @@ export async function invalidateDirectory(
   if (idle !== undefined) {
     await queryClient.invalidateQueries({ queryKey: idle, refetchType: 'none' })
   }
-  await Promise.all(
-    DIRECTORY_PREFIXES.map((queryKey) =>
+  await Promise.all([
+    ...DIRECTORY_PREFIXES.map((queryKey) =>
       queryClient.invalidateQueries({
         queryKey,
         predicate: (query) =>
           query.queryHash !== skip && (idle === undefined || !startsWith(query.queryKey, idle)),
       })
-    )
-  )
+    ),
+    invalidateEmails(queryClient),
+  ])
 }

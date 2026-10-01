@@ -14,6 +14,7 @@ import {
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
+import { invalidateEmails } from '@/queries/email.queries'
 import { invalidateDirectory, isRoleDenied, PLATFORM_PAGE_SIZE } from '@/queries/platform.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
 import type { CreatePlatformTenantInput } from '@/schemas/tenant.schemas'
@@ -144,7 +145,7 @@ export function flattenTenantPages(
 /**
  * `POST /platform/tenants`: a tenant with no members, and an owner invitation
  * to `ownerEmail`. The new detail is seeded into the cache, so opening the
- * tenant needs no second request; every list refreshes.
+ * tenant needs no second request; every tenant list and email query refreshes.
  */
 export function useCreatePlatformTenant() {
   const queryClient = useQueryClient()
@@ -158,7 +159,10 @@ export function useCreatePlatformTenant() {
       ),
     onSuccess: async ({ tenant }) => {
       queryClient.setQueryData(tenantAdminKeys.detail(tenant.id), tenant)
-      await queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all }),
+        invalidateEmails(queryClient),
+      ])
     },
   })
 }

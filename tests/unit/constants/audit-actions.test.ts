@@ -9,7 +9,7 @@ import {
 import { INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
 describe('AUDIT_ACTIONS', () => {
-  it('lists exactly the twenty-seven actions the API writes', () => {
+  it('lists exactly the twenty-nine actions the API writes', () => {
     expect([...AUDIT_ACTIONS].sort()).toEqual(
       [
         'invitation.accepted',
@@ -25,6 +25,8 @@ describe('AUDIT_ACTIONS', () => {
         'tenant.settings_updated',
         'tenant.updated',
         'auth.reauthenticated',
+        'email.resent',
+        'email.suppression_lifted',
         'tenant.archived',
         'tenant.owner_invited',
         'tenant.purged',
@@ -135,6 +137,21 @@ describe('auditSentence', () => {
     ],
     ['auth.reauthenticated', { outcome: 'success' }, 'confirmed their identity'],
     ['auth.reauthenticated', { outcome: 'failure' }, 'failed to confirm their identity'],
+    [
+      'email.resent',
+      { reason: 'lost in spam', emailDomain: 'acme.test', templateKey: 'tenant_invitation' },
+      'resent an email (Tenant invitation) to someone at acme.test: “lost in spam”',
+    ],
+    [
+      'email.resent',
+      { reason: 'expired', emailDomain: 'acme.test', templateKey: 'welcome_v2' },
+      'resent an email (welcome_v2) to someone at acme.test: “expired”',
+    ],
+    [
+      'email.suppression_lifted',
+      { reason: 'mailbox fixed', emailDomain: 'corp.test' },
+      'lifted the email suppression on an address at corp.test: “mailbox fixed”',
+    ],
   ])('%s reads as a sentence', (action, metadata, sentence) => {
     expect(auditSentence({ action, metadata })).toBe(sentence)
   })
@@ -151,6 +168,9 @@ describe('auditSentence', () => {
     )
     expect(auditSentence({ action: 'tenant.purged', metadata: {} })).toBe(
       'permanently deleted a tenant'
+    )
+    expect(auditSentence({ action: 'email.resent', metadata: {} })).toBe(
+      'resent an email to someone at an unknown domain'
     )
     expect(
       auditSentence({
