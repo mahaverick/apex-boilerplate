@@ -28,16 +28,24 @@ import {
   USER_ID_3,
 } from '@/tests/fixtures/ids'
 import { renderAppAt } from '@/tests/fixtures/render-app'
-import { fail, ok, TEST_INVITATION_TOKEN, testInvitation, testUser } from '@/tests/mocks/handlers'
+import {
+  emailSummary,
+  fail,
+  ok,
+  TEST_INVITATION_TOKEN,
+  testInvitation,
+  testUser,
+} from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type {
-  AuditEntry,
-  PlatformAuditEntry,
-  PlatformTenantDetail,
-  PlatformTenantRow,
-  PlatformUserDetail,
-  PlatformUserRow,
-  TenantLifecycleState,
+import {
+  EMAIL_MESSAGE_STATUSES,
+  type AuditEntry,
+  type PlatformAuditEntry,
+  type PlatformTenantDetail,
+  type PlatformTenantRow,
+  type PlatformUserDetail,
+  type PlatformUserRow,
+  type TenantLifecycleState,
 } from '@/types/api.types'
 
 /**
@@ -780,6 +788,43 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
+  it('emails with a row in every status and both record filters has no axe violations', async () => {
+    const rows = EMAIL_MESSAGE_STATUSES.map((status, index) =>
+      emailSummary({
+        id: `70000000-0000-4000-8000-${String(10 + index).padStart(12, '0')}`,
+        status,
+        ...(index % 2 === 0 ? {} : { user: null, tenant: null }),
+      })
+    )
+    server.use(
+      http.get('/api/v1/platform/emails', () =>
+        ok({ messages: rows, nextCursor: 'next', prevCursor: null }, 'Emails retrieved.')
+      )
+    )
+    renderAppAt(`/emails?userId=${USER_ID_2}&tenantId=${TENANT_ID}&from=2026-09-01&to=2026-09-30`)
+    // The h1 renders before the page lands; grade the table, every badge, the chips and the pager.
+    const table = await screen.findByRole('table', { name: 'Emails' })
+    expect(within(table).getByText('Suppressed')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Remove filter: Tenant: Acme Corp' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled()
+    await expectNoViolations()
+  })
+
+  it('emails with nothing matching has no axe violations', async () => {
+    renderAppAt('/emails?q=zzz&status=failed')
+    await screen.findByText('No emails match these filters.')
+    await expectNoViolations()
+  })
+
+  it('emails denied to the role has no axe violations', async () => {
+    server.use(http.get('/api/v1/platform/emails', () => fail('Not found', 404)))
+    renderAppAt('/emails')
+    await screen.findByText(/Your role can’t see this any more/)
+    await expectNoViolations()
+  })
+
   it('a suspended tenant’s frozen tab has no axe violations', async () => {
     serveTenant('suspended')
     renderAppAt(`/tenants/${TENANT_ID}/members`)
@@ -1005,6 +1050,19 @@ describe('open overlays', () => {
     expect(
       await within(palette).findByRole('option', { name: /cleo@example\.com/ })
     ).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  /** The calendar popover: a named `dialog`, so it is graded at DOCUMENT scope like the palette. */
+  it('has no violations with the emails date filter open', async () => {
+    const user = userEvent.setup()
+    renderAppAt('/emails?from=2026-09-01&to=2026-09-10')
+    await screen.findByText('No emails match these filters.')
+    await user.click(screen.getByRole('button', { name: /^Filter by date/ }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by date' })
+    // A calendar that rendered no grid would pass axe while grading nothing.
+    expect(within(popup).getByRole('grid')).toBeInTheDocument()
+    expect(within(popup).getByRole('button', { name: 'Clear dates' })).toBeInTheDocument()
     await expectNoViolations()
   })
 

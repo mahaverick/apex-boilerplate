@@ -7,6 +7,7 @@ import {
   Building2,
   History,
   LayoutDashboard,
+  Mail,
   ShieldCheck,
   Users,
   type LucideIcon,
@@ -25,6 +26,7 @@ export type NavPath =
   | typeof ROUTES.tenants
   | typeof ROUTES.users
   | typeof ROUTES.staff
+  | typeof ROUTES.emails
   | typeof ROUTES.activity
 
 export interface NavItem {
@@ -47,6 +49,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Tenants', to: ROUTES.tenants, Icon: Building2, minRole: 'viewer', group: 'Directory' },
   { label: 'Users', to: ROUTES.users, Icon: Users, minRole: 'viewer', group: 'Directory' },
   { label: 'Staff', to: ROUTES.staff, Icon: ShieldCheck, minRole: 'viewer', group: 'Directory' },
+  { label: 'Emails', to: ROUTES.emails, Icon: Mail, minRole: 'viewer', group: 'Operations' },
   {
     label: 'Activity log',
     to: ROUTES.activity,

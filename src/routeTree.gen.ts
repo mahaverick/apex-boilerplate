@@ -25,6 +25,7 @@ import { Route as AuthLoginRouteImport } from './pages/_auth/login'
 import { Route as AuthRegisterRouteImport } from './pages/_auth/register'
 import { Route as AuthCallbackRouteImport } from './pages/auth/callback'
 import { Route as InvitationsAcceptRouteImport } from './pages/invitations/accept'
+import { Route as AppEmailsIndexRouteImport } from './pages/_app/emails/index'
 import { Route as AppTenantsIndexRouteImport } from './pages/_app/tenants/index'
 import { Route as AppTenantsTenantIdRouteImport } from './pages/_app/tenants/$tenantId'
 import { Route as AppUsersIndexRouteImport } from './pages/_app/users/index'
@@ -112,6 +113,11 @@ const InvitationsAcceptRoute = InvitationsAcceptRouteImport.update({
   path: '/invitations/accept',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppEmailsIndexRoute = AppEmailsIndexRouteImport.update({
+  id: '/emails/',
+  path: '/emails/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTenantsIndexRoute = AppTenantsIndexRouteImport.update({
   id: '/tenants/',
   path: '/tenants/',
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/invitations/accept': typeof InvitationsAcceptRoute
   '/tenants/$tenantId': typeof AppTenantsTenantIdRouteWithChildren
   '/users/$userId': typeof AppUsersUserIdRoute
+  '/emails/': typeof AppEmailsIndexRoute
   '/tenants/': typeof AppTenantsIndexRoute
   '/users/': typeof AppUsersIndexRoute
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
   '/users/$userId': typeof AppUsersUserIdRoute
+  '/emails': typeof AppEmailsIndexRoute
   '/tenants': typeof AppTenantsIndexRoute
   '/users': typeof AppUsersIndexRoute
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
@@ -223,6 +231,7 @@ export interface FileRoutesById {
   '/invitations/accept': typeof InvitationsAcceptRoute
   '/_app/tenants/$tenantId': typeof AppTenantsTenantIdRouteWithChildren
   '/_app/users/$userId': typeof AppUsersUserIdRoute
+  '/_app/emails/': typeof AppEmailsIndexRoute
   '/_app/tenants/': typeof AppTenantsIndexRoute
   '/_app/users/': typeof AppUsersIndexRoute
   '/_app/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
@@ -249,6 +258,7 @@ export interface FileRouteTypes {
     | '/invitations/accept'
     | '/tenants/$tenantId'
     | '/users/$userId'
+    | '/emails/'
     | '/tenants/'
     | '/users/'
     | '/tenants/$tenantId/activity'
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/invitations/accept'
     | '/users/$userId'
+    | '/emails'
     | '/tenants'
     | '/users'
     | '/tenants/$tenantId/activity'
@@ -298,6 +309,7 @@ export interface FileRouteTypes {
     | '/invitations/accept'
     | '/_app/tenants/$tenantId'
     | '/_app/users/$userId'
+    | '/_app/emails/'
     | '/_app/tenants/'
     | '/_app/users/'
     | '/_app/tenants/$tenantId/activity'
@@ -432,6 +444,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvitationsAcceptRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/emails/': {
+      id: '/_app/emails/'
+      path: '/emails'
+      fullPath: '/emails/'
+      preLoaderRoute: typeof AppEmailsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/tenants/': {
       id: '/_app/tenants/'
       path: '/tenants'
@@ -515,6 +534,7 @@ interface AppRouteChildren {
   AppStaffRoute: typeof AppStaffRoute
   AppTenantsTenantIdRoute: typeof AppTenantsTenantIdRouteWithChildren
   AppUsersUserIdRoute: typeof AppUsersUserIdRoute
+  AppEmailsIndexRoute: typeof AppEmailsIndexRoute
   AppTenantsIndexRoute: typeof AppTenantsIndexRoute
   AppUsersIndexRoute: typeof AppUsersIndexRoute
 }
@@ -526,6 +546,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppStaffRoute: AppStaffRoute,
   AppTenantsTenantIdRoute: AppTenantsTenantIdRouteWithChildren,
   AppUsersUserIdRoute: AppUsersUserIdRoute,
+  AppEmailsIndexRoute: AppEmailsIndexRoute,
   AppTenantsIndexRoute: AppTenantsIndexRoute,
   AppUsersIndexRoute: AppUsersIndexRoute,
 }

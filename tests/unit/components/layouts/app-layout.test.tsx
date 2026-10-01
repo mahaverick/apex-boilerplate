@@ -57,11 +57,15 @@ describe('AppLayout', () => {
   })
 
   it.each([
-    ['viewer', ['Overview', 'Tenants', 'Users', 'Staff'], ['General', 'Directory']],
+    [
+      'viewer',
+      ['Overview', 'Tenants', 'Users', 'Staff', 'Emails'],
+      ['General', 'Directory', 'Operations'],
+    ],
     [
       'admin',
-      ['Overview', 'Tenants', 'Users', 'Staff', 'Activity log'],
-      ['General', 'Directory', 'Security'],
+      ['Overview', 'Tenants', 'Users', 'Staff', 'Emails', 'Activity log'],
+      ['General', 'Directory', 'Operations', 'Security'],
     ],
   ] as const)('shows a %s their items, grouped', async (platformRole, labels, groups) => {
     signIn({ ...testUser, platformRole })
