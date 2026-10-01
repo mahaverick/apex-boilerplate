@@ -7,36 +7,26 @@ import {
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig,
 } from '@/components/ui/chart'
+import { EMAIL_GROUPS } from '@/constants/email.constants'
 import { shortDate } from '@/lib/format'
-import type { PlatformStats, StatsRange } from '@/types/api.types'
-
-// "Failed attempts", never "Failed": the API counts send attempts, and a mail retried then sent lands in both series.
-const config = {
-  sent: { label: 'Sent', color: 'var(--chart-1)' },
-  failed: { label: 'Failed attempts', color: 'var(--chart-4)' },
-} satisfies ChartConfig
+import { EMAIL_GROUP_KEYS, type EmailMessageDay, type StatsRange } from '@/types/api.types'
 
 /**
- * Daily send attempts, sent stacked under failed. The SVG is decorative for
- * assistive tech; the visually hidden table carries the same numbers.
+ * Daily emails in five disjoint groups by current status, stacked: each email
+ * is in exactly one bar segment, so a day's stack is that day's emails. The
+ * SVG is decorative for assistive tech; the visually hidden table carries the
+ * same numbers.
  */
-export function EmailsChart({
-  emails,
-  range,
-}: {
-  emails: PlatformStats['emails']
-  range: StatsRange
-}) {
-  const empty = emails.every((day) => day.sent === 0 && day.failed === 0)
+export function EmailsChart({ days, range }: { days: EmailMessageDay[]; range: StatsRange }) {
+  const empty = days.every((day) => EMAIL_GROUP_KEYS.every((group) => day[group] === 0))
   return (
     <ChartCard
       title="Emails per day"
-      empty={empty ? `No send attempts in the last ${RANGE_LABELS[range]}` : null}
+      empty={empty ? `No emails in the last ${RANGE_LABELS[range]}` : null}
     >
-      <ChartContainer config={config} className="aspect-auto h-56 w-full" aria-hidden>
-        <BarChart data={emails} margin={{ left: 12, right: 12 }}>
+      <ChartContainer config={EMAIL_GROUPS} className="aspect-auto h-56 w-full" aria-hidden>
+        <BarChart data={days} margin={{ left: 12, right: 12 }}>
           <CartesianGrid vertical={false} />
           <XAxis
             dataKey="date"
@@ -46,29 +36,41 @@ export function EmailsChart({
             tickFormatter={shortDate}
           />
           <ChartTooltip content={<ChartTooltipContent />} />
-          <Bar dataKey="sent" stackId="emails" fill="var(--color-sent)" radius={[0, 0, 4, 4]} />
-          <Bar dataKey="failed" stackId="emails" fill="var(--color-failed)" radius={[4, 4, 0, 0]} />
-          <ChartLegend content={<ChartLegendContent />} itemSorter={null} />
+          {EMAIL_GROUP_KEYS.map((group) => (
+            <Bar key={group} dataKey={group} stackId="emails" fill={`var(--color-${group})`} />
+          ))}
+          {/* Five groups outgrow a phone's width on one line, so the legend wraps. */}
+          <ChartLegend
+            content={<ChartLegendContent className="flex-wrap gap-x-4 gap-y-1" />}
+            itemSorter={null}
+          />
         </BarChart>
       </ChartContainer>
-      <table className="sr-only">
-        <thead>
-          <tr>
-            <th scope="col">Day</th>
-            <th scope="col">Sent</th>
-            <th scope="col">Failed attempts</th>
-          </tr>
-        </thead>
-        <tbody>
-          {emails.map((day) => (
-            <tr key={day.date}>
-              <th scope="row">{shortDate(day.date)}</th>
-              <td>{day.sent}</td>
-              <td>{day.failed}</td>
+      {/* A table sizes to its columns, ignoring sr-only's 1px width, so the clipping box is a div. */}
+      <div className="sr-only">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Day</th>
+              {EMAIL_GROUP_KEYS.map((group) => (
+                <th key={group} scope="col">
+                  {EMAIL_GROUPS[group].label}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {days.map((day) => (
+              <tr key={day.date}>
+                <th scope="row">{shortDate(day.date)}</th>
+                {EMAIL_GROUP_KEYS.map((group) => (
+                  <td key={group}>{day[group]}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </ChartCard>
   )
 }

@@ -10,10 +10,12 @@ export type TenantTabPath =
   | typeof ROUTES.tenantMembers
   | typeof ROUTES.tenantInvitations
   | typeof ROUTES.tenantActivity
+  | typeof ROUTES.tenantEmails
 
 export const TENANT_DETAIL_TABS: readonly { to: TenantTabPath; label: string }[] = [
   { to: ROUTES.tenant, label: 'Overview' },
   { to: ROUTES.tenantMembers, label: 'Members' },
   { to: ROUTES.tenantInvitations, label: 'Invitations' },
   { to: ROUTES.tenantActivity, label: 'Activity' },
+  { to: ROUTES.tenantEmails, label: 'Emails' },
 ]

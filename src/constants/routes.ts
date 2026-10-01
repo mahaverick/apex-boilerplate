@@ -25,6 +25,11 @@ export const ROUTES = {
   tenantMembers: '/tenants/$tenantId/members',
   tenantInvitations: '/tenants/$tenantId/invitations',
   tenantActivity: '/tenants/$tenantId/activity',
+  tenantEmails: '/tenants/$tenantId/emails',
+  emails: '/emails',
+  email: '/emails/$emailId',
+  deliverability: '/deliverability',
+  suppressions: '/suppressions',
   noAccess: '/no-access',
   invitationAccept: '/invitations/accept',
 } as const

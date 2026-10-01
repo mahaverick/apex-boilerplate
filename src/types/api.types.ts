@@ -132,7 +132,14 @@ export interface AuditActor {
 }
 
 export interface AuditTarget {
-  type: 'tenant' | 'membership' | 'invitation' | 'settings' | 'user'
+  type:
+    | 'tenant'
+    | 'membership'
+    | 'invitation'
+    | 'settings'
+    | 'user'
+    | 'email_message'
+    | 'email_suppression'
   id: string
 }
 
@@ -193,8 +200,15 @@ export interface PlatformStats {
   /**
    * Per UTC day, one count per send attempt. `failed` counts failed attempts, not failed
    * emails: a mail retried then sent contributes to both `failed` and `sent`.
+   * @deprecated Apex reads `emailMessages`; express keeps this series for older clients.
    */
   emails: { date: string; sent: number; failed: number }[]
+  /**
+   * Per UTC day of creation, each email counted once in one of five disjoint groups by its
+   * current status (express 1.3.0). `queued` emails are in none of them. Without a provider
+   * webhook no email reaches `delivered` or `complained`, so every successful send stays in `sent`.
+   */
+  emailMessages: EmailMessageDay[]
 }
 
 /** `GET /platform/tenants/:id`: any lifecycle state, the platform tenant excepted. */
@@ -320,3 +334,230 @@ export interface TenantInvitation {
   expiresAt: string
   createdAt: string
 }
+
+/** A logical email's delivery state. Mirrors express's EMAIL_MESSAGE_STATUSES. */
+export const EMAIL_MESSAGE_STATUSES = [
+  'queued',
+  'sent',
+  'deferred',
+  'delivered',
+  'bounced',
+  'complained',
+  'failed',
+  'suppressed',
+] as const
+export type EmailMessageStatus = (typeof EMAIL_MESSAGE_STATUSES)[number]
+
+/** The templates express sends. A key the API adds later still renders, by its raw name. */
+export const EMAIL_TEMPLATE_KEYS = [
+  'email_verification',
+  'password_reset',
+  'account_setup',
+  'tenant_invitation',
+  'password_changed',
+  'registration_attempt',
+] as const
+export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number]
+
+/**
+ * Which sender a template uses. Every token-bearing template is `transactional`,
+ * whose domain keeps click tracking off.
+ */
+export type EmailSenderClass = 'transactional' | 'general'
+
+/** Who set a message `failed`: our send, the provider, or the queue refusing the job. */
+export type EmailFailureOrigin = 'send' | 'provider' | 'enqueue'
+
+/** Mirrors express's EMAIL_EVENT_TYPES. `opened` and `clicked` never change a status. */
+export type EmailEventType =
+  'delivered' | 'deferred' | 'bounced' | 'complained' | 'opened' | 'clicked' | 'failed'
+
+/** Why an address is suppressed: only a hard bounce or a complaint adds one. */
+export type SuppressionReason = 'hard_bounce' | 'complaint'
+
+/** `GET /platform/email-suppressions?state=`; the API's default is `active`. */
+export const SUPPRESSION_STATE_FILTERS = ['active', 'lifted', 'all'] as const
+export type SuppressionStateFilter = (typeof SUPPRESSION_STATE_FILTERS)[number]
+
+/** The five disjoint status groups the stats and the health report count, in stacking order. */
+export const EMAIL_GROUP_KEYS = [
+  'delivered',
+  'sent',
+  'undelivered',
+  'complained',
+  'suppressed',
+] as const
+export type EmailGroup = (typeof EMAIL_GROUP_KEYS)[number]
+
+/**
+ * One UTC day of logical emails by current status: `sent` is sent or deferred
+ * (no final provider outcome yet, which on an install without a provider
+ * webhook is every successful send), `undelivered` is a hard bounce or a
+ * failure, and `suppressed` was never sent.
+ */
+export type EmailMessageDay = { date: string } & Record<EmailGroup, number>
+
+/**
+ * One row of `GET /platform/emails`. `user` and `tenant` are null when the
+ * mail had none or the record was purged since. `canResend` is the API's
+ * answer for the signed-in staff member (role, template, suppression and the
+ * originating action's own rules); the resend endpoint still enforces them.
+ */
+export interface EmailMessageSummary {
+  id: string
+  recipient: string
+  /** An `EmailTemplateKey`, typed wide so a template the API adds still renders. */
+  templateKey: string
+  status: EmailMessageStatus
+  senderClass: EmailSenderClass
+  createdAt: string
+  statusUpdatedAt: string
+  user: { id: string; name: string } | null
+  tenant: { id: string; name: string; slug: string } | null
+  canResend: boolean
+}
+
+/** A keyset page of `GET /platform/emails`, newest first; cursors as for `PlatformTenantPage`. */
+export interface EmailMessagePage {
+  messages: EmailMessageSummary[]
+  nextCursor: string | null
+  prevCursor: string | null
+}
+
+/** One send attempt (`email_logs`). `errorCode` is set on a failed one. */
+export interface EmailAttempt {
+  id: string
+  status: 'sent' | 'failed'
+  errorCode: string | null
+  createdAt: string
+}
+
+/**
+ * One provider event. `bounceKind` is set only on `bounced`; `detail` is an
+ * UPPER_SNAKE code, never a raw payload or a clicked URL.
+ */
+export interface EmailProviderEvent {
+  id: string
+  provider: string
+  type: EmailEventType
+  bounceKind: 'hard' | 'soft' | null
+  detail: string | null
+  occurredAt: string
+}
+
+/**
+ * `GET /platform/emails/:id`. `suppression` is the recipient's active
+ * suppression, if any. `resentFromId` names the message this one resent;
+ * `resentAsIds` the messages that resent this one.
+ */
+export interface EmailMessageDetail extends EmailMessageSummary {
+  linkApp: 'web' | 'apex' | null
+  failureOrigin: EmailFailureOrigin | null
+  attempts: EmailAttempt[]
+  events: EmailProviderEvent[]
+  suppression: { id: string; reason: SuppressionReason; createdAt: string } | null
+  resentFromId: string | null
+  resentAsIds: string[]
+}
+
+/**
+ * `GET /platform/emails/:id/preview`: the stored template re-rendered, with
+ * every token link masked. `partial` is true when a value other than a token
+ * had to be filled with a placeholder because a stored preview value was
+ * missing (older mail stored none). The inviter's name, always masked, and the
+ * token placeholders do not set it.
+ */
+export interface EmailPreview {
+  subject: string
+  html: string
+  text: string
+  partial: boolean
+}
+
+/**
+ * `POST /platform/emails/:id/resend` (202). `emailSent` is present only when
+ * the originating action reports it (password setup and resending a
+ * verification email); `data` may be null.
+ */
+export type EmailResendResult = { emailSent?: boolean } | null
+
+/**
+ * One rate of `GET /platform/emails/health`. `value` is `numerator /
+ * denominator` as a fraction from 0 to 1, or null when the API has no figure:
+ * a provider-dependent rate while no provider event has arrived in the range.
+ */
+export interface EmailRate {
+  value: number | null
+  numerator: number
+  denominator: number
+}
+
+/** A row of the health report's by-template or top-10 by-domain table. */
+export interface EmailBreakdownRow {
+  key: string
+  messages: number
+  undelivered: number
+  complained: number
+}
+
+/**
+ * `GET /platform/emails/health?range=`. Rates are over mail that left the
+ * server (sent, delivered, undelivered, complained). `undeliveredRate` needs
+ * no provider; the others do, and open and click rates count only
+ * general-sender mail.
+ */
+export interface EmailHealth {
+  range: StatsRange
+  totals: Record<EmailGroup, number> & {
+    /** Messages that left the server in the range: every status except queued and suppressed. */
+    messages: number
+    /** Provider events received in the range; 0 means no webhook is feeding this install. */
+    providerEvents: number
+  }
+  rates: {
+    undeliveredRate: EmailRate
+    deliveredRate: EmailRate
+    bounceRate: EmailRate
+    complaintRate: EmailRate
+    openRate: EmailRate
+    clickRate: EmailRate
+  }
+  days: EmailMessageDay[]
+  byTemplate: EmailBreakdownRow[]
+  byDomain: EmailBreakdownRow[]
+}
+
+/**
+ * One row of `GET /platform/email-suppressions`. `address` is lowercased.
+ * `liftedAt`, `liftedBy` and `liftReason` are set once staff lift it;
+ * `liftedBy` is null again when that staff member was purged.
+ */
+export interface EmailSuppression {
+  id: string
+  address: string
+  reason: SuppressionReason
+  sourceMessageId: string | null
+  createdAt: string
+  liftedAt: string | null
+  liftedBy: { id: string; name: string } | null
+  liftReason: string | null
+}
+
+/** A keyset page of `GET /platform/email-suppressions`; cursors as for `PlatformTenantPage`. */
+export interface EmailSuppressionPage {
+  suppressions: EmailSuppression[]
+  nextCursor: string | null
+  prevCursor: string | null
+}
+
+/** 409 on resend: the recipient's address is suppressed; lift it first. */
+export const RECIPIENT_SUPPRESSED = 'recipient_suppressed'
+
+/** 409 on resend or preview: the stored template is no longer in the API's registry. */
+export const TEMPLATE_UNAVAILABLE = 'template_unavailable'
+
+/** 409 on resend: a security notice, or an older message without the ids its action needs. */
+export const NOT_RESENDABLE = 'not_resendable'
+
+/** 409 on lift: someone lifted it first. */
+export const ALREADY_LIFTED = 'already_lifted'

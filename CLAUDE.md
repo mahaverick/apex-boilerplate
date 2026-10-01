@@ -10,7 +10,7 @@ of these is a deliberate act, not a tidy-up.
 ## What this is
 
 Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
-`express-boilerplate` API (1.2.0 or newer, run with `APEX_URL` set to this app's
+`express-boilerplate` API (1.3.0 or newer, run with `APEX_URL` set to this app's
 origin, `http://localhost:5174` locally). `react-boilerplate`, the customer app,
 is its sibling. Vite, TanStack Router (file-based), TanStack Query, TanStack
 Form, TanStack Table 9, Zustand, Tailwind v4, Base UI via shadcn, recharts,
@@ -367,20 +367,24 @@ and the teardown message names the endpoint.
 
 **`live`** is skipped unless `E2E_LIVE=1`, and needs:
 
-- **express-boilerplate 1.2.0 or newer** (the staff directory routes and password step-up),
-  migrated, with its email worker delivering to mailpit;
+- **express-boilerplate 1.3.0 or newer** (the staff directory routes, password step-up and
+  message tracking), migrated, with its email worker delivering to mailpit, and run with
+  `APP_ENV=local`, which registers the fake email webhook `pnpm email:fire-event` posts to;
 - that API started with **`APEX_URL=http://localhost:5174`** and **`WEB_URL=http://localhost:5173`**:
   the suites assert which of the two each mailed link opens;
 - its docker compose project (postgres, redis, mailpit) reachable from `E2E_API_DIR`, because
-  `platform:grant` and the step-up backdating (`docker compose exec postgres psql`) run there.
+  `platform:grant` and the step-up backdating (`docker compose exec postgres psql`) run there;
+  `email:fire-event` needs only `E2E_API_DIR`, since it reads that checkout's `.env` and posts to
+  the API over HTTP.
 
 The variables, with their defaults: `E2E_API_ORIGIN` (`http://localhost:4040`, which the dev
 server's `/api` proxy also follows, so one variable points the browser and the helpers at the
 same API; a dev server that is already running keeps the target it started with),
 `E2E_API_DIR` (`../express-boilerplate`), `E2E_MAILPIT_ORIGIN` (`http://localhost:8025`) and
-`E2E_WEB_ORIGIN` (`http://localhost:5173`). The directory suite's `beforeAll`
-(`assertApiServesApex`) fails before any test runs, naming the problem, on an older API, an email worker
-that delivers nothing, or a wrong `APEX_URL`/`WEB_URL`.
+`E2E_WEB_ORIGIN` (`http://localhost:5173`). The directory and emails suites' `beforeAll`
+(`assertApiServesApex`) fails before any test runs, naming the problem, on an API older than 1.3.0, an email worker
+that delivers nothing, or a wrong `APEX_URL`/`WEB_URL`; the emails suite also fails there when the fake
+email webhook is missing (`assertFakeEmailWebhook`: an API not run with `APP_ENV=local`).
 
 Accounts are registered and verified through mailpit — login stays 401
 until the address is verified, and the link only exists in the email. Each run uses a **fresh

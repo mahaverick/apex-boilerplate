@@ -28,6 +28,10 @@ export interface TenantAuditFilters {
  * invalidating that prefix refreshes it too; an Apex tenant page adds its id.
  */
 export const auditKeys = {
+  /** Every page of the platform log, whatever its filters. */
+  platformAll: ['platform', 'audit-log'] as const,
+  /** Every page of one tenant's log, with or without an Apex tenant page's id. */
+  tenantAll: (slug: string) => ['tenants', slug, 'audit-log'] as const,
   platform: (filters: PlatformAuditFilters) => ['platform', 'audit-log', filters] as const,
   tenant: (slug: string, filters: TenantAuditFilters, tenantId?: string) =>
     [

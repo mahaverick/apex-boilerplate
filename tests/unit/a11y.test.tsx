@@ -15,11 +15,18 @@ import { useThemeStore } from '@/states/theme.store'
 import {
   AUDIT_ID_1,
   AUDIT_ID_2,
+  EMAIL_ATTEMPT_ID,
+  EMAIL_EVENT_ID,
+  EMAIL_ID,
+  EMAIL_ID_2,
+  EMAIL_ID_3,
   INVITATION_ID,
   MEMBERSHIP_ID,
   MEMBERSHIP_ID_2,
   PLATFORM_TENANT_ID,
   STAFF_USER_ID,
+  SUPPRESSION_ID,
+  SUPPRESSION_ID_2,
   TENANT_ID,
   TENANT_ID_2,
   TENANT_ID_3,
@@ -28,16 +35,30 @@ import {
   USER_ID_3,
 } from '@/tests/fixtures/ids'
 import { renderAppAt } from '@/tests/fixtures/render-app'
-import { fail, ok, TEST_INVITATION_TOKEN, testInvitation, testUser } from '@/tests/mocks/handlers'
+import {
+  emailDetail,
+  emailSummary,
+  emailSuppression,
+  fail,
+  ok,
+  TEST_INVITATION_TOKEN,
+  testEmailHealth,
+  testEmailPreview,
+  testInvitation,
+  testUser,
+} from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type {
-  AuditEntry,
-  PlatformAuditEntry,
-  PlatformTenantDetail,
-  PlatformTenantRow,
-  PlatformUserDetail,
-  PlatformUserRow,
-  TenantLifecycleState,
+import {
+  EMAIL_MESSAGE_STATUSES,
+  type AuditEntry,
+  type EmailMessageSummary,
+  type EmailSuppression,
+  type PlatformAuditEntry,
+  type PlatformTenantDetail,
+  type PlatformTenantRow,
+  type PlatformUserDetail,
+  type PlatformUserRow,
+  type TenantLifecycleState,
 } from '@/types/api.types'
 
 /**
@@ -326,16 +347,33 @@ function unexpectedIncomplete(results: axeCore.AxeResults): string[] {
  * assertions and every other test passing. `html-has-lang`, `document-title`
  * and `bypass` only produce a result when the context IS the document, so
  * asserting they ran is what makes the context non-negotiable.
+ *
+ * `frames: 'skip'` is for a page holding an iframe: axe hands each frame its
+ * own run over `postMessage`, which a jsdom frame cannot answer (axe throws
+ * "Respondable target must be a frame in the current window"). The frame
+ * element itself, its `title` included, is still graded here; only the
+ * document inside it (the email preview's own markup, not the app's) is not,
+ * and axe files exactly that as `frame-tested`, one node per frame, under
+ * `incomplete`, which this then accepts and nothing else.
  */
-async function expectNoViolations() {
-  const results = await axeCore.run(document, AXE_OPTIONS)
+async function expectNoViolations({ frames = 'grade' }: { frames?: 'grade' | 'skip' } = {}) {
+  const results = await axeCore.run(document, {
+    ...AXE_OPTIONS,
+    ...(frames === 'skip' ? { iframes: false } : {}),
+  })
   expect(results).toHaveNoViolations()
 
   expect(results.passes.map((result) => result.id)).toEqual(
     expect.arrayContaining(['html-has-lang', 'document-title', 'bypass'])
   )
 
-  expect(unexpectedIncomplete(results)).toEqual([])
+  if (frames === 'skip') {
+    const skipped = results.incomplete.find((result) => result.id === 'frame-tested')
+    expect(skipped?.nodes).toHaveLength(document.querySelectorAll('iframe').length)
+  }
+  expect(
+    unexpectedIncomplete(results).filter((id) => frames === 'grade' || id !== 'frame-tested')
+  ).toEqual([])
 
   // `page-has-heading-one` and `landmark-one-main`, by hand.
   expect(document.querySelectorAll('main')).toHaveLength(1)
@@ -780,6 +818,109 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
+  it('emails with a row in every status and both record filters has no axe violations', async () => {
+    const rows = EMAIL_MESSAGE_STATUSES.map((status, index) =>
+      emailSummary({
+        id: `70000000-0000-4000-8000-${String(10 + index).padStart(12, '0')}`,
+        status,
+        ...(index % 2 === 0 ? {} : { user: null, tenant: null }),
+      })
+    )
+    server.use(
+      http.get('/api/v1/platform/emails', () =>
+        ok({ messages: rows, nextCursor: 'next', prevCursor: null }, 'Emails retrieved.')
+      )
+    )
+    renderAppAt(`/emails?userId=${USER_ID_2}&tenantId=${TENANT_ID}&from=2026-09-01&to=2026-09-30`)
+    // The h1 renders before the page lands; grade the table, every badge, the chips and the pager.
+    const table = await screen.findByRole('table', { name: 'Emails' })
+    expect(within(table).getByText('Suppressed')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Remove filter: Tenant: Acme Corp' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled()
+    await expectNoViolations()
+  })
+
+  it('emails with nothing matching has no axe violations', async () => {
+    renderAppAt('/emails?q=zzz&status=failed')
+    await screen.findByText('No emails match these filters.')
+    await expectNoViolations()
+  })
+
+  it('emails denied to the role has no axe violations', async () => {
+    server.use(http.get('/api/v1/platform/emails', () => fail('Not found', 404)))
+    renderAppAt('/emails')
+    await screen.findByText(/Your role can’t see this any more/)
+    await expectNoViolations()
+  })
+
+  /** Every timeline entry kind, the suppression banner and the Resend action, all on one page. */
+  const BUSY_EMAIL = emailDetail({
+    status: 'bounced',
+    resentFromId: EMAIL_ID_2,
+    resentAsIds: [EMAIL_ID_3],
+    attempts: [
+      {
+        id: EMAIL_ATTEMPT_ID,
+        status: 'failed',
+        errorCode: 'ECONNECTION',
+        createdAt: '2026-09-29T10:00:01.000Z',
+      },
+    ],
+    events: [
+      {
+        id: EMAIL_EVENT_ID,
+        provider: 'resend',
+        type: 'bounced',
+        bounceKind: 'hard',
+        detail: 'MESSAGE_REJECTED',
+        occurredAt: '2026-09-29T10:02:00.000Z',
+      },
+    ],
+    suppression: {
+      id: SUPPRESSION_ID,
+      reason: 'hard_bounce',
+      createdAt: '2026-09-29T10:02:01.000Z',
+    },
+  })
+
+  it('email detail on the timeline tab has no axe violations', async () => {
+    server.use(
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => ok(BUSY_EMAIL, 'Email retrieved.'))
+    )
+    renderAppAt(`/emails/${EMAIL_ID}`)
+    await screen.findByRole('heading', { name: 'cleo@example.com', level: 1 })
+    // Not vacuous: every entry kind is on the page, and the tab list is the first route-mounted one.
+    const timeline = screen.getByRole('list', { name: 'Delivery timeline' })
+    expect(within(timeline).getAllByRole('listitem')).toHaveLength(5)
+    expect(screen.getByRole('tablist', { name: 'Email sections' })).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('email detail on the preview tab has no axe violations', async () => {
+    server.use(
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () =>
+        ok({ ...BUSY_EMAIL, suppression: null }, 'Email retrieved.')
+      ),
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}/preview`, () =>
+        ok({ ...testEmailPreview, partial: true }, 'Email preview rendered.')
+      )
+    )
+    renderAppAt(`/emails/${EMAIL_ID}?tab=preview`)
+    await screen.findByRole('heading', { name: 'cleo@example.com', level: 1 })
+    await screen.findByTitle('Email preview')
+    expect(screen.getByText(/placeholders stand in/)).toBeInTheDocument()
+    await expectNoViolations({ frames: 'skip' })
+  })
+
+  it('an unknown email has no axe violations', async () => {
+    server.use(http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => fail('Not found', 404)))
+    renderAppAt(`/emails/${EMAIL_ID}`)
+    await screen.findByRole('heading', { name: 'Email not found', level: 1 })
+    await expectNoViolations()
+  })
+
   it('a suspended tenant’s frozen tab has no axe violations', async () => {
     serveTenant('suspended')
     renderAppAt(`/tenants/${TENANT_ID}/members`)
@@ -1005,6 +1146,28 @@ describe('open overlays', () => {
     expect(
       await within(palette).findByRole('option', { name: /cleo@example\.com/ })
     ).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  /** The calendar popover: a named `dialog`, so it is graded at DOCUMENT scope like the palette. */
+  it('has no violations with the emails date filter open', async () => {
+    const user = userEvent.setup()
+    renderAppAt('/emails?from=2026-09-01&to=2026-09-10')
+    await screen.findByText('No emails match these filters.')
+    await user.click(screen.getByRole('button', { name: /^Filter by date/ }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by date' })
+    // A calendar that rendered no grid would pass axe while grading nothing.
+    expect(within(popup).getByRole('grid')).toBeInTheDocument()
+    expect(within(popup).getByRole('button', { name: 'Clear dates' })).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the Resend dialog open', async () => {
+    const user = userEvent.setup()
+    renderAppAt(`/emails/${EMAIL_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Resend' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Resend this email?' })
+    expect(within(dialog).getByText('Sends the invitation again.')).toBeInTheDocument()
     await expectNoViolations()
   })
 
@@ -1255,9 +1418,9 @@ describe('open overlays', () => {
  */
 describe('focus indicators', () => {
   /**
-   * `Tabs` is not mounted by any route. The primitive is still part of the
-   * approved set and is rendered directly here, which is the only way its
-   * contract gets checked at all.
+   * `Tabs` is rendered directly here, apart from the email detail page that
+   * mounts it, so the primitive's own contract is checked whatever a page
+   * passes it.
    *
    * Base UI renders `Tabs.Panel` with `tabIndex: open ? 0 : -1`
    * (@base-ui/react@1.8.0, tabs/panel/TabsPanel.js:76), so an open panel is
@@ -1331,5 +1494,134 @@ describe('keyboard', () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(trigger)
     })
+  })
+})
+
+/**
+ * Deliverability, Suppressions (with the lift dialog), a tenant's Emails tab
+ * and a user's Emails card. Each waits for its loaded content, never a
+ * skeleton. The Emails list and an email's page are graded above.
+ */
+describe('deliverability, suppressions and the embedded email lists', () => {
+  beforeEach(() => {
+    signIn()
+  })
+
+  /** One row per status, so every badge tone is graded. */
+  const EVERY_STATUS: EmailMessageSummary[] = EMAIL_MESSAGE_STATUSES.map((status, index) =>
+    emailSummary({
+      id: `70000000-0000-4000-8000-${String(100 + index).padStart(12, '0')}`,
+      recipient: `r${index}@example.com`,
+      status,
+    })
+  )
+
+  function serveEmails(rows: EmailMessageSummary[]) {
+    server.use(
+      http.get('/api/v1/platform/emails', () =>
+        ok({ messages: rows, nextCursor: 'next', prevCursor: null }, 'Emails retrieved.')
+      )
+    )
+  }
+
+  it('deliverability with provider data has no axe violations', async () => {
+    renderAppAt('/deliverability')
+    await screen.findByRole('region', { name: 'Deliverability figures' })
+    await screen.findByRole('figure', { name: 'Emails per day' })
+    await screen.findByRole('table', { name: 'By template' })
+    await expectNoViolations()
+  })
+
+  it('deliverability before any provider event has no axe violations', async () => {
+    const unknown = { value: null, numerator: 0, denominator: 0 }
+    server.use(
+      http.get('/api/v1/platform/emails/health', () =>
+        ok(
+          {
+            ...testEmailHealth,
+            totals: { ...testEmailHealth.totals, delivered: 0, complained: 0, providerEvents: 0 },
+            rates: {
+              ...testEmailHealth.rates,
+              deliveredRate: unknown,
+              bounceRate: unknown,
+              complaintRate: unknown,
+              openRate: unknown,
+              clickRate: unknown,
+            },
+          },
+          'Email health retrieved.'
+        )
+      )
+    )
+    renderAppAt('/deliverability')
+    await screen.findByRole('note')
+    expect(screen.getAllByText('No provider data')).toHaveLength(5)
+    await expectNoViolations()
+  })
+
+  const SUPPRESSIONS: EmailSuppression[] = [
+    emailSuppression({ id: SUPPRESSION_ID }),
+    emailSuppression({
+      id: SUPPRESSION_ID_2,
+      address: 'complained@example.com',
+      reason: 'complaint',
+      sourceMessageId: null,
+      liftedAt: '2026-09-29T09:00:00.000Z',
+      liftedBy: { id: STAFF_USER_ID, name: 'Sam Staff' },
+      liftReason: 'Asked to be mailed again',
+    }),
+  ]
+
+  function serveSuppressions(rows: EmailSuppression[]) {
+    server.use(
+      http.get('/api/v1/platform/email-suppressions', () =>
+        ok({ suppressions: rows, nextCursor: null, prevCursor: 'p' }, 'Suppressions retrieved.')
+      )
+    )
+  }
+
+  it('suppressions, active and lifted, with the Lift controls has no axe violations', async () => {
+    serveSuppressions(SUPPRESSIONS)
+    renderAppAt('/suppressions?state=all')
+    const table = await screen.findByRole('table', { name: 'Suppressions' })
+    expect(
+      within(table).getByRole('button', { name: /^Lift suppression for / })
+    ).toBeInTheDocument()
+    expect(within(table).getByText(/^Lifted .+ by Sam Staff$/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled()
+    await expectNoViolations()
+  })
+
+  it('suppressions with none active has no axe violations', async () => {
+    renderAppAt('/suppressions')
+    await screen.findByText('No suppressed addresses.')
+    await expectNoViolations()
+  })
+
+  it('the lift dialog has no axe violations', async () => {
+    serveSuppressions(SUPPRESSIONS)
+    const user = userEvent.setup()
+    renderAppAt('/suppressions')
+    await user.click(await screen.findByRole('button', { name: /^Lift suppression for / }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Lift this suppression?' })
+    expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('a tenant’s Emails tab has no axe violations', async () => {
+    serveTenant('active')
+    serveEmails(EVERY_STATUS.slice(0, 3))
+    renderAppAt(`/tenants/${TENANT_ID}/emails`)
+    await screen.findByRole('table', { name: 'Emails' })
+    await expectNoViolations()
+  })
+
+  it('a user’s page with its Emails card listing emails has no axe violations', async () => {
+    serveUser()
+    serveEmails(EVERY_STATUS.slice(0, 4))
+    renderAppAt(`/users/${USER_ID_2}`)
+    const card = await screen.findByRole('region', { name: 'Emails' })
+    expect(await within(card).findAllByRole('listitem')).toHaveLength(4)
+    await expectNoViolations()
   })
 })

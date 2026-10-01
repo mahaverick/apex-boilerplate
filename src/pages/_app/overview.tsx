@@ -93,7 +93,7 @@ function OverviewPage() {
               <SignupsChart signups={stats.data.signups} range={stats.data.range} />
             </WidgetBoundary>
             <WidgetBoundary name="Emails">
-              <EmailsChart emails={stats.data.emails} range={stats.data.range} />
+              <EmailsChart days={stats.data.emailMessages} range={stats.data.range} />
             </WidgetBoundary>
           </div>
         </div>

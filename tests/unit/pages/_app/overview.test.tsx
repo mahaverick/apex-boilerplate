@@ -16,41 +16,39 @@ describe('/overview', () => {
     vi.unstubAllGlobals()
   })
 
-  it('shows the four KPIs from the stats', async () => {
+  it('shows the four KPIs from the stats, the last an undelivered rate over emails that left', async () => {
     renderAppAt('/overview')
     const kpis = await screen.findByRole('region', { name: 'Key figures' })
     expect(within(kpis).getByText('1,284')).toBeInTheDocument()
     expect(within(kpis).getByText('9,730')).toBeInTheDocument()
     expect(within(kpis).getByText('18')).toBeInTheDocument()
-    const attempts = testStats.emails.reduce((sum, day) => sum + day.sent + day.failed, 0)
-    expect(within(kpis).getByText(attempts.toLocaleString('en-US'))).toBeInTheDocument()
-    expect(within(kpis).getByText(/0\.0\d% of send attempts failed/)).toBeInTheDocument()
-  })
-
-  it('says so, rather than dividing by zero, when the window has no send attempts', async () => {
-    server.use(
-      http.get('/api/v1/platform/stats', () =>
-        ok(
-          { ...testStats, emails: testStats.emails.map((day) => ({ ...day, sent: 0, failed: 0 })) },
-          'Platform stats retrieved.'
-        )
-      )
+    expect(within(kpis).getByText('Undelivered rate (7 days)')).toBeInTheDocument()
+    const undelivered = testStats.emailMessages.reduce((sum, day) => sum + day.undelivered, 0)
+    const left = testStats.emailMessages.reduce(
+      (sum, day) => sum + day.sent + day.delivered + day.undelivered + day.complained,
+      0
     )
-    renderAppAt('/overview')
-    const kpis = await screen.findByRole('region', { name: 'Key figures' })
-    expect(within(kpis).getByText('No send attempts')).toBeInTheDocument()
+    expect(within(kpis).getByText(/^0\.0\d%$/)).toBeInTheDocument()
+    expect(
+      within(kpis).getByText(
+        `${undelivered.toLocaleString('en-US')} of ${left.toLocaleString('en-US')} emails that left our server`
+      )
+    ).toBeInTheDocument()
   })
 
-  it('never rounds a real failure down to 0.00%', async () => {
+  it('leaves suppressed emails out of the rate: they never left our server', async () => {
     server.use(
       http.get('/api/v1/platform/stats', () =>
         ok(
           {
             ...testStats,
-            emails: testStats.emails.map((day, index) => ({
+            emailMessages: testStats.emailMessages.map((day, index) => ({
               ...day,
-              sent: 5000,
-              failed: index === 0 ? 1 : 0,
+              delivered: 20,
+              sent: 10,
+              undelivered: index === 0 ? 7 : 0,
+              complained: index === 0 ? 3 : 0,
+              suppressed: 50,
             })),
           },
           'Platform stats retrieved.'
@@ -59,7 +57,55 @@ describe('/overview', () => {
     )
     renderAppAt('/overview')
     const kpis = await screen.findByRole('region', { name: 'Key figures' })
-    expect(within(kpis).getByText('<0.01% of send attempts failed')).toBeInTheDocument()
+    // 7 undelivered of 7 × 30 + 7 + 3 = 220 that left; the 350 suppressed are not in the denominator.
+    expect(within(kpis).getByText('3.18%')).toBeInTheDocument()
+    expect(within(kpis).getByText('7 of 220 emails that left our server')).toBeInTheDocument()
+  })
+
+  it('says so, rather than dividing by zero, when no email left in the window', async () => {
+    server.use(
+      http.get('/api/v1/platform/stats', () =>
+        ok(
+          {
+            ...testStats,
+            emailMessages: testStats.emailMessages.map((day) => ({
+              ...day,
+              delivered: 0,
+              sent: 0,
+              undelivered: 0,
+              complained: 0,
+              suppressed: 4,
+            })),
+          },
+          'Platform stats retrieved.'
+        )
+      )
+    )
+    renderAppAt('/overview')
+    const kpis = await screen.findByRole('region', { name: 'Key figures' })
+    expect(within(kpis).getByText('—')).toBeInTheDocument()
+    expect(within(kpis).getByText('No emails sent')).toBeInTheDocument()
+  })
+
+  it('never rounds a real undelivered email down to 0.00%', async () => {
+    server.use(
+      http.get('/api/v1/platform/stats', () =>
+        ok(
+          {
+            ...testStats,
+            emailMessages: testStats.emailMessages.map((day, index) => ({
+              ...day,
+              sent: 5000,
+              undelivered: index === 0 ? 1 : 0,
+            })),
+          },
+          'Platform stats retrieved.'
+        )
+      )
+    )
+    renderAppAt('/overview')
+    const kpis = await screen.findByRole('region', { name: 'Key figures' })
+    expect(within(kpis).getByText('<0.01%')).toBeInTheDocument()
   })
 
   it('keeps each chart named, and says the window was empty, on a fresh install', async () => {
@@ -72,6 +118,14 @@ describe('/overview', () => {
             totals: { tenants: 0, users: 0, staff: 1 },
             signups: testStats.signups.map((day) => ({ ...day, users: 0, tenants: 0 })),
             emails: testStats.emails.map((day) => ({ ...day, sent: 0, failed: 0 })),
+            emailMessages: testStats.emailMessages.map((day) => ({
+              ...day,
+              delivered: 0,
+              sent: 0,
+              undelivered: 0,
+              complained: 0,
+              suppressed: 0,
+            })),
           },
           'Platform stats retrieved.'
         )
@@ -82,12 +136,12 @@ describe('/overview', () => {
     const signups = await screen.findByRole('figure', { name: 'Sign-ups per day' })
     const emails = screen.getByRole('figure', { name: 'Emails per day' })
     expect(within(signups).getByText('No sign-ups in the last 7 days')).toBeInTheDocument()
-    expect(within(emails).getByText('No send attempts in the last 7 days')).toBeInTheDocument()
+    expect(within(emails).getByText('No emails in the last 7 days')).toBeInTheDocument()
     expect(within(signups).queryByRole('table')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '30 days' }))
     expect(await within(signups).findByText('No sign-ups in the last 30 days')).toBeInTheDocument()
-    expect(within(emails).getByText('No send attempts in the last 30 days')).toBeInTheDocument()
+    expect(within(emails).getByText('No emails in the last 30 days')).toBeInTheDocument()
   })
 
   it('names both charts and gives each a data table for screen readers', async () => {
@@ -105,12 +159,12 @@ describe('/overview', () => {
         .getAllByRole('columnheader')
         .map((cell) => cell.textContent)
     ).toEqual(['Day', 'Users', 'Tenants'])
-    // A failed attempt may be retried and then sent, so the column never claims failed emails.
+    // Five disjoint groups by current status: each email is in exactly one column.
     expect(
       within(emailTable)
         .getAllByRole('columnheader')
         .map((cell) => cell.textContent)
-    ).toEqual(['Day', 'Sent', 'Failed attempts'])
+    ).toEqual(['Day', 'Delivered', 'Sent', 'Undelivered', 'Complained', 'Suppressed'])
     expect(within(emailTable).getByRole('rowheader', { name: 'Sep 26' })).toBeInTheDocument()
   })
 
@@ -131,7 +185,7 @@ describe('/overview', () => {
 
     await waitFor(() => expect(ranges).toContain('30d'))
     expect(router.state.location.search).toEqual({ range: '30d' })
-    expect(await screen.findByText('Send attempts (30 days)')).toBeInTheDocument()
+    expect(await screen.findByText('Undelivered rate (30 days)')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '30 days' })).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -157,10 +211,10 @@ describe('/overview', () => {
     // The 30-day request is held open, so this is the in-between state.
     const kpis = screen.getByRole('region', { name: 'Key figures' })
     expect(kpis).toBeInTheDocument()
-    expect(screen.getByText('Send attempts (7 days)')).toBeInTheDocument()
+    expect(screen.getByText('Undelivered rate (7 days)')).toBeInTheDocument()
     expect(kpis.closest('[aria-busy]')).toHaveAttribute('aria-busy', 'true')
     release()
-    expect(await screen.findByText('Send attempts (30 days)')).toBeInTheDocument()
+    expect(await screen.findByText('Undelivered rate (30 days)')).toBeInTheDocument()
     expect(
       screen.getByRole('region', { name: 'Key figures' }).closest('[aria-busy]')
     ).toHaveAttribute('aria-busy', 'false')

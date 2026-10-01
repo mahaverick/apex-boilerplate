@@ -1,7 +1,22 @@
 import { http, HttpResponse } from 'msw'
 import type { MembershipRole } from '@/constants/roles'
-import { INVITATION_ID, USER_ID } from '@/tests/fixtures/ids'
+import {
+  EMAIL_ATTEMPT_ID,
+  EMAIL_EVENT_ID,
+  EMAIL_ID,
+  INVITATION_ID,
+  SUPPRESSION_ID,
+  TENANT_ID,
+  USER_ID,
+  USER_ID_2,
+} from '@/tests/fixtures/ids'
 import type {
+  EmailHealth,
+  EmailMessageDay,
+  EmailMessageDetail,
+  EmailMessageSummary,
+  EmailPreview,
+  EmailSuppression,
   InvitationPreview,
   PlatformStats,
   TenantAccess,
@@ -44,6 +59,19 @@ export const testInvitationPreview: InvitationPreview = {
   email: testUser.email,
 }
 
+/** The seven UTC days the stats and health fixtures cover, ending 2026-09-29. */
+const FIXTURE_DAYS = ['23', '24', '25', '26', '27', '28', '29'].map((day) => `2026-09-${day}`)
+
+/** Every group non-zero on some day, three undelivered, one complained and one suppressed mail, so each series draws. */
+const EMAIL_MESSAGE_DAYS: EmailMessageDay[] = FIXTURE_DAYS.map((date, index) => ({
+  date,
+  delivered: 400 + index * 10,
+  sent: 90 + index,
+  undelivered: index === 3 ? 2 : index === 4 ? 1 : 0,
+  complained: index === 5 ? 1 : 0,
+  suppressed: index === 6 ? 1 : 0,
+}))
+
 /** Seven days ending 2026-09-29, with one failed send attempt, so every widget has something to draw. */
 export const testStats: PlatformStats = {
   range: '7d',
@@ -58,6 +86,158 @@ export const testStats: PlatformStats = {
     sent: 500 + index * 10,
     failed: index === 3 ? 1 : 0,
   })),
+  emailMessages: EMAIL_MESSAGE_DAYS,
+}
+
+/** Sums one group over the fixture days. */
+function total(group: keyof Omit<EmailMessageDay, 'date'>): number {
+  return EMAIL_MESSAGE_DAYS.reduce((sum, day) => sum + day[group], 0)
+}
+
+/** A rate from its parts, as the API reports it. */
+function rate(numerator: number, denominator: number) {
+  return { value: denominator === 0 ? null : numerator / denominator, numerator, denominator }
+}
+
+const LEFT_SERVER = total('delivered') + total('sent') + total('undelivered') + total('complained')
+
+/** Undelivered emails that were hard bounces: fewer than all of them, so the two rates differ. */
+const HARD_BOUNCED = 1
+
+/** Two-way splits of `LEFT_SERVER` for the breakdown rows: the first part, and what is left. */
+const TEMPLATE_SPLIT = Math.floor(LEFT_SERVER * 0.6)
+const DOMAIN_SPLIT = Math.floor(LEFT_SERVER * 0.5)
+
+/** The same seven days as a health report from an install whose provider webhook is live. */
+export const testEmailHealth: EmailHealth = {
+  range: '7d',
+  totals: {
+    messages: LEFT_SERVER,
+    delivered: total('delivered'),
+    sent: total('sent'),
+    undelivered: total('undelivered'),
+    complained: total('complained'),
+    suppressed: total('suppressed'),
+    providerEvents: total('delivered') + 120,
+  },
+  rates: {
+    undeliveredRate: rate(total('undelivered'), LEFT_SERVER),
+    deliveredRate: rate(total('delivered'), LEFT_SERVER),
+    bounceRate: rate(HARD_BOUNCED, LEFT_SERVER),
+    complaintRate: rate(total('complained'), LEFT_SERVER),
+    openRate: rate(40, 100),
+    clickRate: rate(5, 100),
+  },
+  days: EMAIL_MESSAGE_DAYS,
+  byTemplate: [
+    {
+      key: 'email_verification',
+      messages: TEMPLATE_SPLIT,
+      undelivered: total('undelivered'),
+      complained: 0,
+    },
+    {
+      key: 'tenant_invitation',
+      messages: LEFT_SERVER - TEMPLATE_SPLIT,
+      undelivered: 0,
+      complained: total('complained'),
+    },
+  ],
+  byDomain: [
+    {
+      key: 'example.com',
+      messages: DOMAIN_SPLIT,
+      undelivered: total('undelivered'),
+      complained: total('complained'),
+    },
+    { key: 'acme.test', messages: LEFT_SERVER - DOMAIN_SPLIT, undelivered: 0, complained: 0 },
+  ],
+}
+
+/**
+ * One row of `GET /platform/emails`: Cleo's delivered invitation to Acme,
+ * resendable by the signed-in admin.
+ * @param overrides - Fields to replace.
+ * @returns The row.
+ */
+export function emailSummary(overrides: Partial<EmailMessageSummary> = {}): EmailMessageSummary {
+  return {
+    id: EMAIL_ID,
+    recipient: 'cleo@example.com',
+    templateKey: 'tenant_invitation',
+    status: 'delivered',
+    senderClass: 'transactional',
+    createdAt: '2026-09-29T10:00:00.000Z',
+    statusUpdatedAt: '2026-09-29T10:00:05.000Z',
+    user: { id: USER_ID_2, name: 'Cleo Doe' },
+    tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
+    canResend: true,
+    ...overrides,
+  }
+}
+
+/**
+ * `GET /platform/emails/:id` for `emailSummary`: one attempt, one provider
+ * event, no suppression, never resent.
+ * @param overrides - Fields to replace.
+ * @returns The detail.
+ */
+export function emailDetail(overrides: Partial<EmailMessageDetail> = {}): EmailMessageDetail {
+  return {
+    ...emailSummary(),
+    linkApp: 'web',
+    failureOrigin: null,
+    attempts: [
+      {
+        id: EMAIL_ATTEMPT_ID,
+        status: 'sent',
+        errorCode: null,
+        createdAt: '2026-09-29T10:00:01.000Z',
+      },
+    ],
+    events: [
+      {
+        id: EMAIL_EVENT_ID,
+        provider: 'resend',
+        type: 'delivered',
+        bounceKind: null,
+        detail: null,
+        occurredAt: '2026-09-29T10:00:05.000Z',
+      },
+    ],
+    suppression: null,
+    resentFromId: null,
+    resentAsIds: [],
+    ...overrides,
+  }
+}
+
+/** The invitation re-rendered, its accept link masked, every value on file. */
+export const testEmailPreview: EmailPreview = {
+  subject: 'You have been invited to Acme Corp',
+  html: '<p style="color:#111">A teammate invited you to join Acme Corp as Editor.</p><p><a href="http://localhost:5173/invitations/accept?token=••••••">Accept</a></p>',
+  text: 'A teammate invited you to join Acme Corp as Editor.\n\nAccept: http://localhost:5173/invitations/accept?token=••••••',
+  partial: false,
+}
+
+/**
+ * One row of `GET /platform/email-suppressions`: an active hard-bounce
+ * suppression on Cleo's address, from `emailSummary`'s message.
+ * @param overrides - Fields to replace.
+ * @returns The row.
+ */
+export function emailSuppression(overrides: Partial<EmailSuppression> = {}): EmailSuppression {
+  return {
+    id: SUPPRESSION_ID,
+    address: 'cleo@example.com',
+    reason: 'hard_bounce',
+    sourceMessageId: EMAIL_ID,
+    createdAt: '2026-09-29T11:00:00.000Z',
+    liftedAt: null,
+    liftedBy: null,
+    liftReason: null,
+    ...overrides,
+  }
 }
 
 export function ok<T>(data: T, message = 'OK', statusCode = 200) {
@@ -115,5 +295,30 @@ export const handlers = [
   // The platform audit log, empty. A test about activity overrides it.
   http.get('/api/v1/platform/audit-log', () =>
     ok({ entries: [], nextCursor: null }, 'Audit log retrieved.')
+  ),
+  // The email pages, a user's Emails card and a tenant's Emails tab read these; empty lists, so a page that only embeds one renders unchanged. Health is registered before `:emailId`, which would otherwise match it.
+  http.get('/api/v1/platform/emails', () =>
+    ok({ messages: [], nextCursor: null, prevCursor: null }, 'Emails retrieved.')
+  ),
+  http.get('/api/v1/platform/emails/health', () => ok(testEmailHealth, 'Email health retrieved.')),
+  http.get('/api/v1/platform/emails/:emailId', ({ params }) =>
+    ok(emailDetail({ id: String(params.emailId) }), 'Email retrieved.')
+  ),
+  http.get('/api/v1/platform/emails/:emailId/preview', () =>
+    ok(testEmailPreview, 'Email preview rendered.')
+  ),
+  http.post('/api/v1/platform/emails/:emailId/resend', () => ok({}, 'Resend requested.', 202)),
+  http.get('/api/v1/platform/email-suppressions', () =>
+    ok({ suppressions: [], nextCursor: null, prevCursor: null }, 'Suppressions retrieved.')
+  ),
+  http.post('/api/v1/platform/email-suppressions/:suppressionId/lift', () =>
+    ok(
+      emailSuppression({
+        liftedAt: '2026-09-30T09:00:00.000Z',
+        liftedBy: { id: USER_ID, name: 'A B' },
+        liftReason: 'Mailbox fixed',
+      }),
+      'Suppression lifted.'
+    )
   ),
 ]

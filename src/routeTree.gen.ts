@@ -17,20 +17,25 @@ import { Route as NoAccessRouteImport } from './pages/no-access'
 import { Route as ResetPasswordRouteImport } from './pages/reset-password'
 import { Route as VerifyEmailRouteImport } from './pages/verify-email'
 import { Route as AppActivityRouteImport } from './pages/_app/activity'
+import { Route as AppDeliverabilityRouteImport } from './pages/_app/deliverability'
 import { Route as AppOverviewRouteImport } from './pages/_app/overview'
 import { Route as AppProfileRouteImport } from './pages/_app/profile'
 import { Route as AppStaffRouteImport } from './pages/_app/staff'
+import { Route as AppSuppressionsRouteImport } from './pages/_app/suppressions'
 import { Route as AuthForgotPasswordRouteImport } from './pages/_auth/forgot-password'
 import { Route as AuthLoginRouteImport } from './pages/_auth/login'
 import { Route as AuthRegisterRouteImport } from './pages/_auth/register'
 import { Route as AuthCallbackRouteImport } from './pages/auth/callback'
 import { Route as InvitationsAcceptRouteImport } from './pages/invitations/accept'
+import { Route as AppEmailsIndexRouteImport } from './pages/_app/emails/index'
+import { Route as AppEmailsEmailIdRouteImport } from './pages/_app/emails/$emailId'
 import { Route as AppTenantsIndexRouteImport } from './pages/_app/tenants/index'
 import { Route as AppTenantsTenantIdRouteImport } from './pages/_app/tenants/$tenantId'
 import { Route as AppUsersIndexRouteImport } from './pages/_app/users/index'
 import { Route as AppUsersUserIdRouteImport } from './pages/_app/users/$userId'
 import { Route as AppTenantsTenantIdIndexRouteImport } from './pages/_app/tenants/$tenantId.index'
 import { Route as AppTenantsTenantIdActivityRouteImport } from './pages/_app/tenants/$tenantId.activity'
+import { Route as AppTenantsTenantIdEmailsRouteImport } from './pages/_app/tenants/$tenantId.emails'
 import { Route as AppTenantsTenantIdInvitationsRouteImport } from './pages/_app/tenants/$tenantId.invitations'
 import { Route as AppTenantsTenantIdMembersRouteImport } from './pages/_app/tenants/$tenantId.members'
 
@@ -72,6 +77,11 @@ const AppActivityRoute = AppActivityRouteImport.update({
   path: '/activity',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDeliverabilityRoute = AppDeliverabilityRouteImport.update({
+  id: '/deliverability',
+  path: '/deliverability',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppOverviewRoute = AppOverviewRouteImport.update({
   id: '/overview',
   path: '/overview',
@@ -85,6 +95,11 @@ const AppProfileRoute = AppProfileRouteImport.update({
 const AppStaffRoute = AppStaffRouteImport.update({
   id: '/staff',
   path: '/staff',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSuppressionsRoute = AppSuppressionsRouteImport.update({
+  id: '/suppressions',
+  path: '/suppressions',
   getParentRoute: () => AppRoute,
 } as any)
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
@@ -111,6 +126,16 @@ const InvitationsAcceptRoute = InvitationsAcceptRouteImport.update({
   id: '/invitations/accept',
   path: '/invitations/accept',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppEmailsIndexRoute = AppEmailsIndexRouteImport.update({
+  id: '/emails/',
+  path: '/emails/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmailsEmailIdRoute = AppEmailsEmailIdRouteImport.update({
+  id: '/emails/$emailId',
+  path: '/emails/$emailId',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppTenantsIndexRoute = AppTenantsIndexRouteImport.update({
   id: '/tenants/',
@@ -143,6 +168,12 @@ const AppTenantsTenantIdActivityRoute =
     path: '/activity',
     getParentRoute: () => AppTenantsTenantIdRoute,
   } as any)
+const AppTenantsTenantIdEmailsRoute =
+  AppTenantsTenantIdEmailsRouteImport.update({
+    id: '/emails',
+    path: '/emails',
+    getParentRoute: () => AppTenantsTenantIdRoute,
+  } as any)
 const AppTenantsTenantIdInvitationsRoute =
   AppTenantsTenantIdInvitationsRouteImport.update({
     id: '/invitations',
@@ -163,19 +194,24 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
   '/activity': typeof AppActivityRoute
+  '/deliverability': typeof AppDeliverabilityRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
   '/staff': typeof AppStaffRoute
+  '/suppressions': typeof AppSuppressionsRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
+  '/emails/$emailId': typeof AppEmailsEmailIdRoute
   '/tenants/$tenantId': typeof AppTenantsTenantIdRouteWithChildren
   '/users/$userId': typeof AppUsersUserIdRoute
+  '/emails/': typeof AppEmailsIndexRoute
   '/tenants/': typeof AppTenantsIndexRoute
   '/users/': typeof AppUsersIndexRoute
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
+  '/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
   '/tenants/$tenantId/members': typeof AppTenantsTenantIdMembersRoute
   '/tenants/$tenantId/': typeof AppTenantsTenantIdIndexRoute
@@ -187,18 +223,23 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
   '/activity': typeof AppActivityRoute
+  '/deliverability': typeof AppDeliverabilityRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
   '/staff': typeof AppStaffRoute
+  '/suppressions': typeof AppSuppressionsRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
+  '/emails/$emailId': typeof AppEmailsEmailIdRoute
   '/users/$userId': typeof AppUsersUserIdRoute
+  '/emails': typeof AppEmailsIndexRoute
   '/tenants': typeof AppTenantsIndexRoute
   '/users': typeof AppUsersIndexRoute
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
+  '/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
   '/tenants/$tenantId/members': typeof AppTenantsTenantIdMembersRoute
   '/tenants/$tenantId': typeof AppTenantsTenantIdIndexRoute
@@ -213,19 +254,24 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
   '/_app/activity': typeof AppActivityRoute
+  '/_app/deliverability': typeof AppDeliverabilityRoute
   '/_app/overview': typeof AppOverviewRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/staff': typeof AppStaffRoute
+  '/_app/suppressions': typeof AppSuppressionsRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
+  '/_app/emails/$emailId': typeof AppEmailsEmailIdRoute
   '/_app/tenants/$tenantId': typeof AppTenantsTenantIdRouteWithChildren
   '/_app/users/$userId': typeof AppUsersUserIdRoute
+  '/_app/emails/': typeof AppEmailsIndexRoute
   '/_app/tenants/': typeof AppTenantsIndexRoute
   '/_app/users/': typeof AppUsersIndexRoute
   '/_app/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
+  '/_app/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/_app/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
   '/_app/tenants/$tenantId/members': typeof AppTenantsTenantIdMembersRoute
   '/_app/tenants/$tenantId/': typeof AppTenantsTenantIdIndexRoute
@@ -239,19 +285,24 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/activity'
+    | '/deliverability'
     | '/overview'
     | '/profile'
     | '/staff'
+    | '/suppressions'
     | '/forgot-password'
     | '/login'
     | '/register'
     | '/auth/callback'
     | '/invitations/accept'
+    | '/emails/$emailId'
     | '/tenants/$tenantId'
     | '/users/$userId'
+    | '/emails/'
     | '/tenants/'
     | '/users/'
     | '/tenants/$tenantId/activity'
+    | '/tenants/$tenantId/emails'
     | '/tenants/$tenantId/invitations'
     | '/tenants/$tenantId/members'
     | '/tenants/$tenantId/'
@@ -263,18 +314,23 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/activity'
+    | '/deliverability'
     | '/overview'
     | '/profile'
     | '/staff'
+    | '/suppressions'
     | '/forgot-password'
     | '/login'
     | '/register'
     | '/auth/callback'
     | '/invitations/accept'
+    | '/emails/$emailId'
     | '/users/$userId'
+    | '/emails'
     | '/tenants'
     | '/users'
     | '/tenants/$tenantId/activity'
+    | '/tenants/$tenantId/emails'
     | '/tenants/$tenantId/invitations'
     | '/tenants/$tenantId/members'
     | '/tenants/$tenantId'
@@ -288,19 +344,24 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/_app/activity'
+    | '/_app/deliverability'
     | '/_app/overview'
     | '/_app/profile'
     | '/_app/staff'
+    | '/_app/suppressions'
     | '/_auth/forgot-password'
     | '/_auth/login'
     | '/_auth/register'
     | '/auth/callback'
     | '/invitations/accept'
+    | '/_app/emails/$emailId'
     | '/_app/tenants/$tenantId'
     | '/_app/users/$userId'
+    | '/_app/emails/'
     | '/_app/tenants/'
     | '/_app/users/'
     | '/_app/tenants/$tenantId/activity'
+    | '/_app/tenants/$tenantId/emails'
     | '/_app/tenants/$tenantId/invitations'
     | '/_app/tenants/$tenantId/members'
     | '/_app/tenants/$tenantId/'
@@ -376,6 +437,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppActivityRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/deliverability': {
+      id: '/_app/deliverability'
+      path: '/deliverability'
+      fullPath: '/deliverability'
+      preLoaderRoute: typeof AppDeliverabilityRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/overview': {
       id: '/_app/overview'
       path: '/overview'
@@ -395,6 +463,13 @@ declare module '@tanstack/react-router' {
       path: '/staff'
       fullPath: '/staff'
       preLoaderRoute: typeof AppStaffRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/suppressions': {
+      id: '/_app/suppressions'
+      path: '/suppressions'
+      fullPath: '/suppressions'
+      preLoaderRoute: typeof AppSuppressionsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_auth/forgot-password': {
@@ -431,6 +506,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/invitations/accept'
       preLoaderRoute: typeof InvitationsAcceptRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/emails/': {
+      id: '/_app/emails/'
+      path: '/emails'
+      fullPath: '/emails/'
+      preLoaderRoute: typeof AppEmailsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/emails/$emailId': {
+      id: '/_app/emails/$emailId'
+      path: '/emails/$emailId'
+      fullPath: '/emails/$emailId'
+      preLoaderRoute: typeof AppEmailsEmailIdRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/tenants/': {
       id: '/_app/tenants/'
@@ -474,6 +563,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantsTenantIdActivityRouteImport
       parentRoute: typeof AppTenantsTenantIdRoute
     }
+    '/_app/tenants/$tenantId/emails': {
+      id: '/_app/tenants/$tenantId/emails'
+      path: '/emails'
+      fullPath: '/tenants/$tenantId/emails'
+      preLoaderRoute: typeof AppTenantsTenantIdEmailsRouteImport
+      parentRoute: typeof AppTenantsTenantIdRoute
+    }
     '/_app/tenants/$tenantId/invitations': {
       id: '/_app/tenants/$tenantId/invitations'
       path: '/invitations'
@@ -493,6 +589,7 @@ declare module '@tanstack/react-router' {
 
 interface AppTenantsTenantIdRouteChildren {
   AppTenantsTenantIdActivityRoute: typeof AppTenantsTenantIdActivityRoute
+  AppTenantsTenantIdEmailsRoute: typeof AppTenantsTenantIdEmailsRoute
   AppTenantsTenantIdInvitationsRoute: typeof AppTenantsTenantIdInvitationsRoute
   AppTenantsTenantIdMembersRoute: typeof AppTenantsTenantIdMembersRoute
   AppTenantsTenantIdIndexRoute: typeof AppTenantsTenantIdIndexRoute
@@ -500,6 +597,7 @@ interface AppTenantsTenantIdRouteChildren {
 
 const AppTenantsTenantIdRouteChildren: AppTenantsTenantIdRouteChildren = {
   AppTenantsTenantIdActivityRoute: AppTenantsTenantIdActivityRoute,
+  AppTenantsTenantIdEmailsRoute: AppTenantsTenantIdEmailsRoute,
   AppTenantsTenantIdInvitationsRoute: AppTenantsTenantIdInvitationsRoute,
   AppTenantsTenantIdMembersRoute: AppTenantsTenantIdMembersRoute,
   AppTenantsTenantIdIndexRoute: AppTenantsTenantIdIndexRoute,
@@ -510,22 +608,30 @@ const AppTenantsTenantIdRouteWithChildren =
 
 interface AppRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
+  AppDeliverabilityRoute: typeof AppDeliverabilityRoute
   AppOverviewRoute: typeof AppOverviewRoute
   AppProfileRoute: typeof AppProfileRoute
   AppStaffRoute: typeof AppStaffRoute
+  AppSuppressionsRoute: typeof AppSuppressionsRoute
+  AppEmailsEmailIdRoute: typeof AppEmailsEmailIdRoute
   AppTenantsTenantIdRoute: typeof AppTenantsTenantIdRouteWithChildren
   AppUsersUserIdRoute: typeof AppUsersUserIdRoute
+  AppEmailsIndexRoute: typeof AppEmailsIndexRoute
   AppTenantsIndexRoute: typeof AppTenantsIndexRoute
   AppUsersIndexRoute: typeof AppUsersIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppActivityRoute: AppActivityRoute,
+  AppDeliverabilityRoute: AppDeliverabilityRoute,
   AppOverviewRoute: AppOverviewRoute,
   AppProfileRoute: AppProfileRoute,
   AppStaffRoute: AppStaffRoute,
+  AppSuppressionsRoute: AppSuppressionsRoute,
+  AppEmailsEmailIdRoute: AppEmailsEmailIdRoute,
   AppTenantsTenantIdRoute: AppTenantsTenantIdRouteWithChildren,
   AppUsersUserIdRoute: AppUsersUserIdRoute,
+  AppEmailsIndexRoute: AppEmailsIndexRoute,
   AppTenantsIndexRoute: AppTenantsIndexRoute,
   AppUsersIndexRoute: AppUsersIndexRoute,
 }

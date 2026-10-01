@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { NAV_ITEMS, navGroupsFor, navItemsFor } from '@/constants/navigation'
 
 describe('navigation', () => {
-  it('gives a viewer the Directory pages, not the activity log', () => {
+  it('gives a viewer the Directory and Operations pages, not the activity log', () => {
     expect(navItemsFor('viewer').map((item) => item.label)).toEqual([
       'Overview',
       'Tenants',
       'Users',
       'Staff',
+      'Emails',
+      'Deliverability',
+      'Suppressions',
     ])
   })
 
@@ -17,6 +20,9 @@ describe('navigation', () => {
       'Tenants',
       'Users',
       'Staff',
+      'Emails',
+      'Deliverability',
+      'Suppressions',
       'Activity log',
     ])
   })
@@ -27,10 +33,15 @@ describe('navigation', () => {
   })
 
   it('groups in NAV_GROUPS order and drops empty groups', () => {
-    expect(navGroupsFor('viewer').map((entry) => entry.group)).toEqual(['General', 'Directory'])
+    expect(navGroupsFor('viewer').map((entry) => entry.group)).toEqual([
+      'General',
+      'Directory',
+      'Operations',
+    ])
     expect(navGroupsFor('owner').map((entry) => entry.group)).toEqual([
       'General',
       'Directory',
+      'Operations',
       'Security',
     ])
   })

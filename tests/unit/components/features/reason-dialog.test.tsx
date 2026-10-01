@@ -145,6 +145,19 @@ describe('ReasonDialog', () => {
     expect(screen.getByText('open: true')).toBeInTheDocument()
   })
 
+  it('shows the server’s own sentence for a 404 that carries a code, and stays open', async () => {
+    const onConfirm = vi.fn(() =>
+      Promise.reject(apiFailure(404, 'Invitation not found', 'invitation_not_found'))
+    )
+    const user = userEvent.setup()
+    render(<Harness onConfirm={onConfirm} />)
+    await user.type(await screen.findByLabelText('Reason'), 'why')
+    await user.click(screen.getByRole('button', { name: 'Suspend' }))
+    expect(await screen.findByText('Invitation not found')).toBeInTheDocument()
+    expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
+    expect(screen.getByText('open: true')).toBeInTheDocument()
+  })
+
   it('Escape in the stacked step-up dialog closes only that dialog; the reason survives', async () => {
     useAuthStore.setState({
       accessToken: 'old-token',

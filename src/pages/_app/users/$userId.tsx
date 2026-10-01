@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useRef } from 'react'
+import { UserEmailsCard } from '@/components/features/emails/user-emails-card'
 import { UserHistoryCard } from '@/components/features/history-card'
 import { LoadError } from '@/components/features/load-error'
 import { UserActionsMenu } from '@/components/features/users/user-actions-menu'
@@ -193,6 +194,8 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
           </CardContent>
         </Card>
       </section>
+
+      <UserEmailsCard userId={user.id} />
 
       <UserHistoryCard userId={user.id} />
     </div>

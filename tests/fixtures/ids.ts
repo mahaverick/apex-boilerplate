@@ -4,8 +4,9 @@
  * non-UUID id models a request the real API would refuse with a 400.
  *
  * Hand-written and fixed, never generated. The first digit names the kind
- * (1 tenant, 2 user, 3 membership, 4 invitation, 6 audit entry) and the last
- * digits the ordinal; `...100` is the platform-side one.
+ * (1 tenant, 2 user, 3 membership, 4 invitation, 5 email send attempt, 6
+ * audit entry, 7 email message, 8 email provider event, 9 email suppression)
+ * and the last digits the ordinal; `...100` is the platform-side one.
  */
 export const TENANT_ID = '10000000-0000-4000-8000-000000000001'
 export const TENANT_ID_2 = '10000000-0000-4000-8000-000000000002'
@@ -39,3 +40,16 @@ export const AUDIT_ID_1 = '60000000-0000-4000-8000-000000000001'
 export const AUDIT_ID_2 = '60000000-0000-4000-8000-000000000002'
 export const AUDIT_ID_3 = '60000000-0000-4000-8000-000000000003'
 export const PLATFORM_AUDIT_ID = '60000000-0000-4000-8000-000000000100'
+
+export const EMAIL_ATTEMPT_ID = '50000000-0000-4000-8000-000000000001'
+export const EMAIL_ATTEMPT_ID_2 = '50000000-0000-4000-8000-000000000002'
+
+export const EMAIL_ID = '70000000-0000-4000-8000-000000000001'
+export const EMAIL_ID_2 = '70000000-0000-4000-8000-000000000002'
+export const EMAIL_ID_3 = '70000000-0000-4000-8000-000000000003'
+
+export const EMAIL_EVENT_ID = '80000000-0000-4000-8000-000000000001'
+export const EMAIL_EVENT_ID_2 = '80000000-0000-4000-8000-000000000002'
+
+export const SUPPRESSION_ID = '90000000-0000-4000-8000-000000000001'
+export const SUPPRESSION_ID_2 = '90000000-0000-4000-8000-000000000002'

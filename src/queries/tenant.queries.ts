@@ -4,6 +4,8 @@ import { PLATFORM_TENANT_SLUG } from '@/constants/routes'
 import { apiClient, unwrap } from '@/http/client'
 import { codeFrom, statusFrom } from '@/lib/api-error'
 import { fullName } from '@/lib/format'
+import { auditKeys } from '@/queries/audit.queries'
+import { invalidateEmails } from '@/queries/email.queries'
 import { invalidateDirectory } from '@/queries/platform.queries'
 import { refreshProfile } from '@/queries/profile.queries'
 import type { InviteMemberInput, UpdateTenantInput } from '@/schemas/tenant.schemas'
@@ -183,11 +185,20 @@ export function useInviteMember(slug: string, tenantId?: string) {
   return useMutation({
     mutationFn: async (input: InviteMemberInput) =>
       unwrap(await apiClient.post<ApiSuccess<null>>(`/tenants/${slug}/invitations`, input)),
-    /** A conflict means another invite for this address just landed, so the list is stale. */
-    onSettled: (_data, error) =>
-      !error || codeFrom(error) === INVITATION_CONFLICT
-        ? queryClient.invalidateQueries({ queryKey: tenantKeys.invitations(slug, tenantId) })
-        : undefined,
+    /** A conflict means another invite for this address just landed, so the list is stale; a success also mailed someone and added an entry to both audit logs. */
+    onSettled: async (_data, error) => {
+      if (error && codeFrom(error) !== INVITATION_CONFLICT) return
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: tenantKeys.invitations(slug, tenantId) }),
+        ...(error
+          ? []
+          : [
+              invalidateEmails(queryClient),
+              queryClient.invalidateQueries({ queryKey: auditKeys.tenantAll(slug) }),
+              queryClient.invalidateQueries({ queryKey: auditKeys.platformAll }),
+            ]),
+      ])
+    },
   })
 }
 
@@ -201,9 +212,19 @@ export function useResendInvitation(slug: string, tenantId?: string) {
           `/tenants/${slug}/invitations/${invitationId}/resend`
         )
       ),
-    /** Settled, not success: a 404 means the row is no longer pending, so the list is stale. */
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: tenantKeys.invitations(slug, tenantId) }),
+    /**
+     * Settled, not success: a 404 means the row is no longer pending, so the
+     * list is stale. A resend is also a new message on the Emails pages and
+     * an entry in both audit logs.
+     */
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: tenantKeys.invitations(slug, tenantId) }),
+        queryClient.invalidateQueries({ queryKey: auditKeys.tenantAll(slug) }),
+        queryClient.invalidateQueries({ queryKey: auditKeys.platformAll }),
+        invalidateEmails(queryClient),
+      ])
+    },
   })
 }
 
