@@ -205,6 +205,20 @@ describe('email writes', () => {
     expectStale(client, [...EMAIL_KEYS, ...others])
   })
 
+  it('a refused resend still refreshes the email queries, and leaves the platform log alone', async () => {
+    server.use(
+      http.post(`/api/v1/platform/emails/${EMAIL_ID}/resend`, () =>
+        fail('This address is suppressed.', 409, 'recipient_suppressed')
+      )
+    )
+    const client = seeded([...EMAIL_KEYS, auditKeys.platform({})])
+    const { result } = renderHook(() => useResendEmail(), { wrapper: wrapperWith(client) })
+    result.current.mutate({ id: EMAIL_ID, reason: 'Lost in spam' })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    await waitFor(() => expectStale(client, EMAIL_KEYS))
+    expect(client.getQueryState(auditKeys.platform({}))?.isInvalidated).toBe(false)
+  })
+
   it('lifts with the reason, and refreshes the email queries even when someone lifted it first', async () => {
     let body: unknown
     server.use(

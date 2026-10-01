@@ -96,9 +96,10 @@ test('a hard bounce suppresses the address; once lifted, a resend goes out and l
   expect((refused.body as { code?: string }).code).toBe('recipient_suppressed')
   await resend.getByRole('button', { name: 'Cancel' }).click()
 
-  await page.reload()
-  await expect(timeline).toContainText('Bounced · hard bounce')
+  // The refusal refreshes the message on its own: no reload.
   await expect(page.getByRole('button', { name: 'Resend' })).toHaveCount(0)
+  await expect(page.getByText(/This address is suppressed/)).toBeVisible()
+  await expect(timeline).toContainText('Bounced · hard bounce')
   await page.getByRole('link', { name: 'View suppression' }).click()
   await expect(page).toHaveURL(/\/suppressions\?/)
 

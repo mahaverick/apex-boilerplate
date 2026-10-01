@@ -208,8 +208,9 @@ export async function invalidateEmails(queryClient: QueryClient): Promise<void> 
 /**
  * Resend a token email by re-running the action that sent it (admin; a
  * platform-tenant invitation also needs a recent sign-in, so call it through
- * `useStepUp`). The new message joins the timeline once enqueued. Beyond the
- * email queries and the platform log, a resent invitation carries a new expiry,
+ * `useStepUp`). The new message joins the timeline once enqueued. The email
+ * queries refresh whether or not the resend was accepted; after an accepted one
+ * the platform log refreshes too, and a resent invitation carries a new expiry,
  * which the tenant's pages and the invitee's user page show.
  */
 export function useResendEmail() {
@@ -221,9 +222,10 @@ export function useResendEmail() {
           reason,
         })
       ),
+    // A refusal (the address was suppressed since the page loaded, say) leaves the cached message stale, so the email queries refresh either way.
+    onSettled: () => invalidateEmails(queryClient),
     onSuccess: async () => {
       await Promise.all([
-        invalidateEmails(queryClient),
         queryClient.invalidateQueries({ queryKey: auditKeys.platformAll }),
         queryClient.invalidateQueries({ queryKey: ['tenants'] }),
         queryClient.invalidateQueries({ queryKey: ['platform', 'user'] }),
