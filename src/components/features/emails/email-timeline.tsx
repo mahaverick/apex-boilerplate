@@ -11,6 +11,9 @@ function Description({ entry }: { entry: TimelineEntry }) {
     case 'queued': {
       return <span className="font-medium">Queued</span>
     }
+    case 'suppressed': {
+      return <span className="font-medium">Not sent: the address was suppressed</span>
+    }
     case 'resent-from': {
       return (
         <span>
@@ -44,7 +47,7 @@ function Description({ entry }: { entry: TimelineEntry }) {
       const { event } = entry
       return (
         <span>
-          <span className="font-medium">{EMAIL_EVENT_LABELS[event.type]}</span>
+          <span className="font-medium">{EMAIL_EVENT_LABELS[event.type] ?? event.type}</span>
           {event.bounceKind !== null && (
             <span>{event.bounceKind === 'hard' ? ' · hard bounce' : ' · soft bounce'}</span>
           )}

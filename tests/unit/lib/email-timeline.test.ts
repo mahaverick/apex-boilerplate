@@ -111,4 +111,21 @@ describe('buildEmailTimeline', () => {
       buildEmailTimeline(emailDetail({ attempts: [], events: [] })).map((entry) => entry.kind)
     ).toEqual(['queued'])
   })
+
+  it('says a suppressed message was never sent, right after it was queued', () => {
+    const entries = buildEmailTimeline(
+      emailDetail({ status: 'suppressed', createdAt: at(0), resentFromId: EMAIL_ID_2 })
+    )
+    expect(entries.map((entry) => entry.kind).slice(0, 3)).toEqual([
+      'queued',
+      'suppressed',
+      'resent-from',
+    ])
+    expect(entries[1]).toMatchObject({ key: 'suppressed', at: at(0) })
+    expect(
+      buildEmailTimeline(emailDetail({ status: 'delivered' })).some(
+        (entry) => entry.kind === 'suppressed'
+      )
+    ).toBe(false)
+  })
 })

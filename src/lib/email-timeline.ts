@@ -7,6 +7,7 @@ import type { EmailAttempt, EmailMessageDetail, EmailProviderEvent } from '@/typ
 /** One line of the timeline. `at` is an ISO timestamp, absent only on `resent-as`. */
 export type TimelineEntry =
   | { kind: 'queued'; key: string; at: string }
+  | { kind: 'suppressed'; key: string; at: string }
   | { kind: 'resent-from'; key: string; at: string; messageId: string }
   | { kind: 'attempt'; key: string; at: string; attempt: EmailAttempt }
   | { kind: 'event'; key: string; at: string; event: EmailProviderEvent }
@@ -21,7 +22,8 @@ function time(iso: string): number {
 /**
  * The detail's attempts and provider events merged by time, oldest first,
  * between two fixed ends. "Queued" (and, for a resend, the message it
- * resent) always leads: that is when the row was created, and a provider
+ * resent) always leads, followed by a note that a suppressed message was
+ * never sent: that is when the row was created, and a provider
  * clock running behind ours must not place an event before it. The
  * messages that resent this one carry no time in the API's answer and come
  * after it, so they close the list. Equal times keep attempts before events.
@@ -31,10 +33,14 @@ function time(iso: string): number {
 export function buildEmailTimeline(
   detail: Pick<
     EmailMessageDetail,
-    'createdAt' | 'attempts' | 'events' | 'resentFromId' | 'resentAsIds'
+    'createdAt' | 'status' | 'attempts' | 'events' | 'resentFromId' | 'resentAsIds'
   >
 ): TimelineEntry[] {
   const opening: TimelineEntry[] = [{ kind: 'queued', key: 'queued', at: detail.createdAt }]
+  // A suppressed message was never sent: say so right after it was queued.
+  if (detail.status === 'suppressed') {
+    opening.push({ kind: 'suppressed', key: 'suppressed', at: detail.createdAt })
+  }
   if (detail.resentFromId !== null) {
     opening.push({
       kind: 'resent-from',

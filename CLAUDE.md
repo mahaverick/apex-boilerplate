@@ -373,8 +373,9 @@ and the teardown message names the endpoint.
 - that API started with **`APEX_URL=http://localhost:5174`** and **`WEB_URL=http://localhost:5173`**:
   the suites assert which of the two each mailed link opens;
 - its docker compose project (postgres, redis, mailpit) reachable from `E2E_API_DIR`, because
-  `platform:grant`, `email:fire-event` and the step-up backdating (`docker compose exec postgres psql`)
-  run there.
+  `platform:grant` and the step-up backdating (`docker compose exec postgres psql`) run there;
+  `email:fire-event` needs only `E2E_API_DIR`, since it reads that checkout's `.env` and posts to
+  the API over HTTP.
 
 The variables, with their defaults: `E2E_API_ORIGIN` (`http://localhost:4040`, which the dev
 server's `/api` proxy also follows, so one variable points the browser and the helpers at the

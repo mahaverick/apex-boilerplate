@@ -172,6 +172,54 @@ describe('/emails/$emailId', () => {
     expect(screen.queryByText(/placeholders stand in/)).not.toBeInTheDocument()
   })
 
+  it('shows the masked-links note for token mail only', async () => {
+    serve({ senderClass: 'general' })
+    renderAppAt(`${PAGE}?tab=preview`)
+    await screen.findByTitle('Email preview')
+    expect(screen.queryByText(/Links are masked/)).not.toBeInTheDocument()
+  })
+
+  it('names an event type this build does not know by the type itself', async () => {
+    serve({
+      events: [
+        {
+          id: EMAIL_EVENT_ID,
+          provider: 'resend',
+          // A type the API may add later.
+          type: 'unsubscribed' as 'delivered',
+          bounceKind: null,
+          detail: null,
+          occurredAt: '2026-09-29T10:00:05.000Z',
+        },
+      ],
+    })
+    renderAppAt(PAGE)
+    await heading()
+    expect(
+      within(screen.getByRole('list', { name: 'Delivery timeline' })).getByText('unsubscribed')
+    ).toBeInTheDocument()
+  })
+
+  it('shows a suppressed message as queued, then not sent', async () => {
+    serve({ status: 'suppressed', attempts: [], events: [] })
+    renderAppAt(PAGE)
+    await heading()
+    const items = within(screen.getByRole('list', { name: 'Delivery timeline' })).getAllByRole(
+      'listitem'
+    )
+    expect(items.map((item) => item.querySelector('span')?.textContent)).toEqual([
+      'Queued',
+      'Not sent: the address was suppressed',
+    ])
+  })
+
+  it('links the platform tenant to Staff, which has no tenant page worth opening', async () => {
+    serve({ tenant: { id: TENANT_ID, name: 'Platform', slug: 'platform' } })
+    renderAppAt(PAGE)
+    await heading()
+    expect(screen.getByRole('link', { name: 'Platform' })).toHaveAttribute('href', '/staff')
+  })
+
   it('says when placeholders stand in for values that were not stored', async () => {
     serve()
     server.use(
@@ -320,7 +368,7 @@ describe('/emails/$emailId', () => {
     ['an invitation no longer pending', 404, 'invitation_not_found', 'Invitation not found'],
     ['a staff member the actor outranks', 403, undefined, 'You cannot mail this staff member.'],
   ])('shows the API’s own refusal for %s, and stays open', async (_name, status, code, message) => {
-    serve()
+    const calls = serve()
     server.use(
       http.post(`/api/v1/platform/emails/${EMAIL_ID}/resend`, () => fail(message, status, code))
     )
@@ -332,6 +380,8 @@ describe('/emails/$emailId', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Went to spam')
     await user.click(within(dialog).getByRole('button', { name: 'Resend' }))
     expect(await within(dialog).findByText(message)).toBeInTheDocument()
+    // The refusal says the page was stale, so the message is read again.
+    await waitFor(() => expect(calls.detail).toBeGreaterThan(1))
   })
 
   it('confirms a stale sign-in through step-up, then resends once more', async () => {

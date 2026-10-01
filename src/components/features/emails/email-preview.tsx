@@ -4,16 +4,23 @@ import { RoleDenied } from '@/components/features/role-denied'
 import { Skeleton } from '@/components/ui/skeleton'
 import { codeFrom, statusFrom } from '@/lib/api-error'
 import { emailPreviewQueryOptions } from '@/queries/email.queries'
-import { TEMPLATE_UNAVAILABLE } from '@/types/api.types'
+import { TEMPLATE_UNAVAILABLE, type EmailSenderClass } from '@/types/api.types'
 
 /**
  * The message re-rendered from its template: subject, HTML and text. The
  * HTML renders in an iframe with an empty `sandbox`, so nothing in it runs
  * scripts, submits forms or navigates this page, and it inherits the app's
  * CSP. The frame is a fixed 640px tall and scrolls on its own; its background
- * is white in both themes, as a mail client shows it.
+ * is white in both themes, as a mail client shows it. Token links are masked,
+ * and the note saying so shows only for transactional (token) mail.
  */
-export function EmailPreviewPanel({ emailId }: { emailId: string }) {
+export function EmailPreviewPanel({
+  emailId,
+  senderClass,
+}: {
+  emailId: string
+  senderClass: EmailSenderClass
+}) {
   const preview = useQuery(emailPreviewQueryOptions(emailId))
 
   if (preview.isError) {
@@ -34,9 +41,11 @@ export function EmailPreviewPanel({ emailId }: { emailId: string }) {
   const { subject, html, text, partial } = preview.data
   return (
     <div className="grid gap-4">
-      <p className="text-sm text-muted-foreground">
-        Links are masked: the real ones carried a one-time token, which is never stored.
-      </p>
+      {senderClass === 'transactional' && (
+        <p className="text-sm text-muted-foreground">
+          Links are masked: the real ones carried a one-time token, which is never stored.
+        </p>
+      )}
       {partial && (
         <p role="status" className="rounded-md border p-3 text-sm">
           Some of this email’s details were not stored, so placeholders stand in for them.

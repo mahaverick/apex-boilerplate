@@ -463,7 +463,9 @@ export interface EmailMessageDetail extends EmailMessageSummary {
 /**
  * `GET /platform/emails/:id/preview`: the stored template re-rendered, with
  * every token link masked. `partial` is true when a value other than a token
- * had to be filled with a placeholder (older mail stored no values).
+ * had to be filled with a placeholder because a stored preview value was
+ * missing (older mail stored none). The inviter's name, always masked, and the
+ * token placeholders do not set it.
  */
 export interface EmailPreview {
   subject: string
@@ -474,7 +476,8 @@ export interface EmailPreview {
 
 /**
  * `POST /platform/emails/:id/resend` (202). `emailSent` is present only when
- * the originating action reports it (password setup); `data` may be null.
+ * the originating action reports it (password setup and resending a
+ * verification email); `data` may be null.
  */
 export type EmailResendResult = { emailSent?: boolean } | null
 

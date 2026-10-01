@@ -4,11 +4,13 @@ The staff admin dashboard boilerplate: a React 19 + TypeScript single-page app
 for the people who run a product, not the people who use it. Its sibling,
 `react-boilerplate`, is the customer app; both are built on the
 `express-boilerplate` API. Apex ships a sign-in, a grouped-sidebar shell, a
-⌘K command palette and five staff pages: Overview (KPI cards and charts),
+⌘K command palette and eight staff pages: Overview (KPI cards and charts),
 Tenants (every customer tenant, keyset-paged, each with a detail page for its
 overview, members, invitations and activity), Users (every account, each with
-a detail page), Staff (the platform's own members and invitations) and the
-Activity log (the platform audit log).
+a detail page), Staff (the platform's own members and invitations), Emails
+(every tracked message, with a delivery timeline and preview), Deliverability
+(delivery, bounce and complaint rates), Suppressions (addresses mail is held
+back from) and the Activity log (the platform audit log).
 
 Only platform staff get in. A signed-in user with no platform role lands on
 `/no-access`, and the API answers `/platform/*` with **404** to anyone below
@@ -32,7 +34,7 @@ than signing anyone out.
 ## Prerequisites
 
 - **Node 24** and **pnpm 12** (`npm i -g corepack@0.36.0 && corepack enable` — pnpm's version comes from `packageManager` in package.json; Node 25+ does not ship Corepack, so this works on 24 and 26 alike). `pnpm install` refuses an older Node.
-- **express-boilerplate 1.3.0 or newer**, running on `:4040` with `APEX_URL` set. The Emails, Deliverability and Suppressions pages, a user's Emails card and a tenant's Emails tab call routes 1.3.0 added (`/platform/emails*`, `/platform/email-suppressions*`), and Overview reads its `emailMessages` series; an older API answers those 404, which reads as a role refusal. Apex also calls routes 1.2.0 added: `/platform/users`, `/platform/tenants/:id` and the staff actions under both. An older API answers those 404, which Apex reads as a role refusal or a missing record rather than a missing route: the Users page says "your role can't see this", a tenant's or a user's page says it was not found, and the staff actions say your role can't do them. The Tenants list's Previous button also needs the `prevCursor` field 1.2.0 added, and step-up needs its `/auth/reauthenticate`. Before 1.1.0 there is also no `APEX_URL` and no `/platform/stats`, so Overview and every Apex email link break too.
+- **express-boilerplate 1.3.0 or newer**, running on `:4040` with `APEX_URL` set. The Emails, Deliverability and Suppressions pages, a user's Emails card and a tenant's Emails tab call routes 1.3.0 added (`/platform/emails*`, `/platform/email-suppressions*`), and Overview reads its `emailMessages` series. On express 1.2.0, Overview still loads (its stats answer 200 without `emailMessages`, so its email widgets fail inside their own error boundary) while the new pages' routes answer 404, which reads as a role refusal. Apex also calls routes 1.2.0 added: `/platform/users`, `/platform/tenants/:id` and the staff actions under both. An older API answers those 404, which Apex reads as a role refusal or a missing record rather than a missing route: the Users page says "your role can't see this", a tenant's or a user's page says it was not found, and the staff actions say your role can't do them. The Tenants list's Previous button also needs the `prevCursor` field 1.2.0 added, and step-up needs its `/auth/reauthenticate`. Before 1.1.0 there is also no `APEX_URL` and no `/platform/stats`, so Overview and every Apex email link break too.
 
 ## Getting started
 
@@ -73,8 +75,8 @@ Staff are the members of express's platform tenant. Two ways in:
 
 Further staff are invited from the Staff page, which manages the platform
 tenant's members and invitations; with `APEX_URL` set, the invitation email
-links to Apex's `/invitations/accept`. A viewer sees Overview, Tenants, Users
-and Staff, read-only. The Activity log and every create, edit and soft action
+links to Apex's `/invitations/accept`. A viewer sees Overview, Tenants, Users,
+Staff, Emails, Deliverability and Suppressions, read-only. The Activity log and every create, edit and soft action
 need admin; permanent deletion, acting on another staff owner, changing any
 staff member's role and inviting staff as admin or owner need owner.
 
