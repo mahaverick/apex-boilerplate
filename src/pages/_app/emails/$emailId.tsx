@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { EmailPreviewPanel } from '@/components/features/emails/email-preview'
 import { EmailStatusBadge } from '@/components/features/emails/email-status-badge'
+import { EmailTenantLink } from '@/components/features/emails/email-tenant-link'
 import { EmailTimeline } from '@/components/features/emails/email-timeline'
 import { ResendEmailButton } from '@/components/features/emails/resend-email-button'
 import { LoadError } from '@/components/features/load-error'
@@ -122,13 +123,7 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
             {message.tenant !== null && (
               <span>
                 Tenant{' '}
-                <Link
-                  to={ROUTES.tenant}
-                  params={{ tenantId: message.tenant.id }}
-                  className="underline underline-offset-4"
-                >
-                  {message.tenant.name}
-                </Link>
+                <EmailTenantLink tenant={message.tenant} className="underline underline-offset-4" />
               </span>
             )}
           </p>
@@ -172,7 +167,7 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
           <EmailTimeline detail={message} />
         </TabsContent>
         <TabsContent value="preview" className="pt-2">
-          <EmailPreviewPanel emailId={message.id} />
+          <EmailPreviewPanel emailId={message.id} senderClass={message.senderClass} />
         </TabsContent>
       </Tabs>
     </div>

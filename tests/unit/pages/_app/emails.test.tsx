@@ -80,6 +80,25 @@ describe('/emails', () => {
     expect(within(second!).getAllByText('—')).toHaveLength(2)
   })
 
+  it('links the platform tenant to Staff', async () => {
+    server.use(
+      http.get('/api/v1/platform/emails', () =>
+        ok(
+          {
+            messages: [
+              emailSummary({ tenant: { id: TENANT_ID, name: 'Platform', slug: 'platform' } }),
+            ],
+            nextCursor: null,
+            prevCursor: null,
+          },
+          'Emails retrieved.'
+        )
+      )
+    )
+    renderAppAt('/emails')
+    expect(await screen.findByRole('link', { name: 'Platform' })).toHaveAttribute('href', '/staff')
+  })
+
   it('opens a message from its recipient', async () => {
     pages([])
     const user = userEvent.setup()

@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
 import { useMemo } from 'react'
 import { EmailStatusBadge } from '@/components/features/emails/email-status-badge'
+import { EmailTenantLink } from '@/components/features/emails/email-tenant-link'
 import {
   Table,
   TableBody,
@@ -72,13 +73,7 @@ const columns = column.columns([
       return tenant === null ? (
         none
       ) : (
-        <Link
-          to={ROUTES.tenant}
-          params={{ tenantId: tenant.id }}
-          className="underline-offset-4 hover:underline"
-        >
-          {tenant.name}
-        </Link>
+        <EmailTenantLink tenant={tenant} className="underline-offset-4 hover:underline" />
       )
     },
   }),
