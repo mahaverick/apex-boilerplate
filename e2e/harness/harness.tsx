@@ -727,10 +727,13 @@ const targetPath = requestedPath && /^\/[^/\\]/.test(requestedPath) ? requestedP
  * (`?path=/deliverability?range=30d`); the harness's parameters follow it
  * after an `&`, so the page reads that query as written.
  */
+const harnessQuery = location.search.slice(1)
 history.replaceState(
   null,
   '',
-  `${targetPath}${targetPath.includes('?') ? '&' : '?'}${location.search.slice(1)}`
+  harnessQuery === ''
+    ? targetPath
+    : `${targetPath}${targetPath.includes('?') ? '&' : '?'}${harnessQuery}`
 )
 
 createRoot(document.getElementById('root')!).render(
