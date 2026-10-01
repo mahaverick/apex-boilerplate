@@ -88,15 +88,14 @@ test('a hard bounce suppresses the address; once lifted, a resend goes out and l
   await resend.getByLabel('Reason').fill('e2e: the customer asked again')
   await fireEmailEvent(original, 'bounced', 'hard')
   await resend.getByRole('button', { name: 'Resend' }).click()
-  await expect(resend.getByText(/suppress/i)).toBeVisible()
   const refused = await apiRequest(token, 'POST', `/platform/emails/${original}/resend`, {
     reason: 'e2e: confirm the refusal',
   })
   expect(refused.status).toBe(409)
   expect((refused.body as { code?: string }).code).toBe('recipient_suppressed')
-  await resend.getByRole('button', { name: 'Cancel' }).click()
 
-  // The refusal refreshes the message on its own: no reload.
+  // The refusal refreshes the message, canResend turns false and the button unmounts with its dialog: no Cancel click, no reload.
+  await expect(resend).toBeHidden()
   await expect(page.getByRole('button', { name: 'Resend' })).toHaveCount(0)
   await expect(page.getByText(/This address is suppressed/)).toBeVisible()
   await expect(timeline).toContainText('Bounced · hard bounce')
