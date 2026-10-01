@@ -20,8 +20,9 @@ import {
 } from './helpers'
 
 /**
- * The staff directory against a real express (1.2.0 or newer) with mailpit
- * and its docker services, started with `APEX_URL=http://localhost:5174`.
+ * The staff directory against a real express (1.3.0 or newer, which
+ * `assertApiServesApex` requires) with mailpit and its docker services,
+ * started with `APEX_URL=http://localhost:5174`.
  * Every account is fresh, so reruns never meet the login limiter. Step-up is
  * by password only.
  */
@@ -29,7 +30,8 @@ import {
 test.skip(process.env.E2E_LIVE !== '1', 'live backend required — run pnpm test:e2e:live')
 
 test.beforeAll(async () => {
-  test.setTimeout(60_000)
+  // Two mailed registrations, then a staff viewer for the 1.3.0 probe (a third, plus platform:grant).
+  test.setTimeout(90_000)
   if (!(await apiIsReady())) {
     throw new Error(`No API at ${API_ORIGIN}. Start express with APEX_URL=${APEX_ORIGIN}.`)
   }

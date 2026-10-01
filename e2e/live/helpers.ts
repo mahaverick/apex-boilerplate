@@ -313,12 +313,14 @@ export async function backdateStepUp(email: string): Promise<void> {
 
 /**
  * Fails before any test runs, naming the misconfiguration, when the API cannot run the
- * staff directory suite: express older than 1.2.0 (no
- * `POST /auth/reauthenticate`, which answers 401 without a token on 1.2.0 and
- * 404 before it), an email worker that delivers nothing to mailpit, or
- * `APEX_URL`/`WEB_URL` pointing somewhere other than `APEX_ORIGIN` and
- * `WEB_ORIGIN`. The origins are read from the verification links two fresh
- * registrations are mailed, one per `app`.
+ * staff suites: express older than 1.2.0 (no `POST /auth/reauthenticate`, which answers
+ * 401 without a token on 1.2.0 and 404 before it), an email worker that delivers nothing
+ * to mailpit, `APEX_URL`/`WEB_URL` pointing somewhere other than `APEX_ORIGIN` and
+ * `WEB_ORIGIN`, or express older than 1.3.0 (no `GET /platform/emails`). The origins are
+ * read from the verification links two fresh registrations are mailed, one per `app`. The
+ * 1.3.0 probe needs a staff token, since `/platform` authenticates before it routes (an
+ * anonymous request is 401 on every version), so it runs last: a worker that delivers
+ * nothing is reported as that, not as a failed sign-up.
  */
 export async function assertApiServesApex(): Promise<void> {
   const reauthenticate = await json(`${API_ORIGIN}/api/v1/auth/reauthenticate`, {
@@ -360,4 +362,129 @@ export async function assertApiServesApex(): Promise<void> {
       )
     }
   }
+
+  const viewer = freshEmail()
+  await createVerifiedUser(viewer)
+  await grantPlatformRole(viewer, 'viewer')
+  const emails = await apiRequest(await apiLogin(viewer), 'GET', '/platform/emails?limit=1')
+  if (emails.status === 404) {
+    throw new Error(
+      `The API at ${API_ORIGIN} has no GET /platform/emails: it is older than express 1.3.0, which message tracking needs.`
+    )
+  }
+  if (emails.status !== 200) {
+    throw new Error(
+      `GET /platform/emails answered ${emails.status} for a staff viewer: ${JSON.stringify(emails.body)}`
+    )
+  }
+}
+
+/** One row of `GET /platform/emails`, as far as the suites read it. */
+export interface EmailRow {
+  id: string
+  recipient: string
+  templateKey: string
+  status: string
+  createdAt: string
+}
+
+/**
+ * Every email to `recipient` the API lists, newest first, read with a staff
+ * token. `q` matches the recipient by substring, so the exact address is
+ * filtered here too.
+ * @param token - A staff access token.
+ * @param recipient - The address the emails went to.
+ */
+export async function emailsTo(token: string, recipient: string): Promise<EmailRow[]> {
+  const found = await apiRequest(
+    token,
+    'GET',
+    `/platform/emails?q=${encodeURIComponent(recipient)}&limit=50`
+  )
+  if (found.status !== 200) {
+    throw new Error(`email search failed: ${found.status} ${JSON.stringify(found.body)}`)
+  }
+  const { messages } = (found.body as { data: { messages: EmailRow[] } }).data
+  return messages.filter((email) => email.recipient.toLowerCase() === recipient.toLowerCase())
+}
+
+/**
+ * Polls until an email to `recipient` from `templateKey`, other than the ones
+ * in `except`, is listed, and returns its id. A fresh account already has its
+ * verification email, so the template, not the position, picks the message.
+ * @param token - A staff access token.
+ * @param recipient - The address.
+ * @param templateKey - e.g. `password_reset`.
+ * @param except - Ids already accounted for, such as the original of a resend.
+ */
+export async function emailIdFor(
+  token: string,
+  recipient: string,
+  templateKey: string,
+  except: readonly string[] = []
+): Promise<string> {
+  let id = ''
+  await expect
+    .poll(
+      async () => {
+        const match = (await emailsTo(token, recipient)).find(
+          (email) => email.templateKey === templateKey && !except.includes(email.id)
+        )
+        id = match?.id ?? ''
+        return id
+      },
+      {
+        message: `no ${templateKey} email to ${recipient} was listed by GET /platform/emails`,
+        intervals: [500],
+        timeout: 15_000,
+      }
+    )
+    .not.toBe('')
+  return id
+}
+
+/**
+ * Fails fast when the API has no local fake webhook adapter: it is registered
+ * only with `APP_ENV=local`, and every provider event this suite fires goes
+ * through it. An unsigned post is refused 401 when the adapter exists and is
+ * a 404 when it does not.
+ */
+export async function assertFakeEmailWebhook(): Promise<void> {
+  const probe = await json(`${API_ORIGIN}/api/v1/webhooks/email/fake`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  })
+  if (probe.status !== 401) {
+    throw new Error(
+      `POST /webhooks/email/fake answered ${probe.status}, not 401: the API at ${API_ORIGIN} has no fake email webhook, which only APP_ENV=local registers.`
+    )
+  }
+}
+
+/**
+ * Delivers one signed provider event for an email through express's own
+ * `pnpm email:fire-event`, the way a provider's webhook would, to the API
+ * this suite runs against.
+ * @param messageId - The email's id, as `GET /platform/emails` lists it.
+ * @param type - The event: `delivered`, `bounced`, `complained`, …
+ * @param bounceKind - For `bounced` only: `hard` suppresses the address, `soft` defers.
+ */
+export async function fireEmailEvent(
+  messageId: string,
+  type: 'delivered' | 'deferred' | 'bounced' | 'complained' | 'opened' | 'clicked' | 'failed',
+  bounceKind?: 'hard' | 'soft'
+): Promise<void> {
+  await execFile(
+    'pnpm',
+    [
+      'email:fire-event',
+      messageId,
+      type,
+      ...(bounceKind === undefined ? [] : [bounceKind]),
+      '--origin',
+      API_ORIGIN,
+    ],
+    { cwd: API_DIR, timeout: 60_000 }
+  )
 }

@@ -23,12 +23,16 @@ import { useAuthStore } from '@/states/auth.store'
 import {
   AUDIT_ID_1,
   AUDIT_ID_2,
+  EMAIL_ATTEMPT_ID,
+  EMAIL_EVENT_ID,
   EMAIL_ID,
   EMAIL_ID_2,
   MEMBERSHIP_ID,
   MEMBERSHIP_ID_2,
   PLATFORM_TENANT_ID,
   STAFF_USER_ID,
+  SUPPRESSION_ID,
+  SUPPRESSION_ID_2,
   TENANT_ID,
   TENANT_ID_2,
   TENANT_ID_3,
@@ -349,6 +353,119 @@ const EMAIL_ROWS = [
   },
 ]
 
+/**
+ * An email's page. Cleo's reset was delivered and can be resent; the long
+ * address's invitation hard-bounced, so its address is suppressed, its page
+ * shows the banner and offers no Resend.
+ */
+function emailDetail(emailId: string) {
+  const row = EMAIL_ROWS.find((email) => email.id === emailId) ?? EMAIL_ROWS[0]!
+  const bounced = row.status === 'bounced'
+  return {
+    ...row,
+    linkApp: 'web',
+    failureOrigin: null,
+    attempts: [
+      {
+        id: EMAIL_ATTEMPT_ID,
+        status: 'sent',
+        errorCode: null,
+        createdAt: row.createdAt,
+      },
+    ],
+    events: [
+      {
+        id: EMAIL_EVENT_ID,
+        provider: 'resend',
+        type: bounced ? 'bounced' : 'delivered',
+        bounceKind: bounced ? 'hard' : null,
+        detail: bounced ? 'MESSAGE_REJECTED' : null,
+        occurredAt: row.statusUpdatedAt,
+      },
+    ],
+    suppression: bounced
+      ? { id: SUPPRESSION_ID, reason: 'hard_bounce', createdAt: row.statusUpdatedAt }
+      : null,
+    resentFromId: null,
+    resentAsIds: [],
+  }
+}
+
+/** A preview as express renders it: inline styles only, the link masked, one long unbroken line to test the frame's own scroll. */
+const EMAIL_PREVIEW = {
+  subject: 'Reset your password',
+  html: '<div style="font-family:sans-serif;color:#111"><p>Hi Cleo,</p><p>Reset your password: <a href="http://localhost:5173/reset-password?token=••••••">http://localhost:5173/reset-password?token=••••••••••••••••••••••••••••••••••••••••</a></p></div>',
+  text: 'Hi Cleo,\n\nReset your password: http://localhost:5173/reset-password?token=••••••',
+  partial: false,
+}
+
+/**
+ * Deliverability: the 7-day window has provider data, so every tile has a
+ * value; the 30-day one has none, so the page shows the no-provider banner
+ * and "No provider data" tiles over the same chart.
+ */
+function emailHealth(range: string) {
+  const hasProvider = range !== '30d'
+  const rate = (numerator: number, denominator: number) => ({
+    value: hasProvider ? numerator / denominator : null,
+    numerator: hasProvider ? numerator : 0,
+    denominator: hasProvider ? denominator : 0,
+  })
+  return {
+    range: range === '30d' ? '30d' : '7d',
+    totals: {
+      messages: 3711,
+      delivered: hasProvider ? 3650 : 0,
+      sent: hasProvider ? 50 : 3710,
+      undelivered: 1,
+      complained: hasProvider ? 10 : 0,
+      suppressed: 2,
+      providerEvents: hasProvider ? 4200 : 0,
+    },
+    rates: {
+      undeliveredRate: { value: 1 / 3711, numerator: 1, denominator: 3711 },
+      deliveredRate: rate(3650, 3711),
+      bounceRate: rate(1, 3711),
+      complaintRate: rate(10, 3711),
+      openRate: rate(40, 200),
+      clickRate: rate(8, 200),
+    },
+    days: STATS.emailMessages,
+    byTemplate: [
+      { key: 'password_reset', messages: 2100, undelivered: 1, complained: 6 },
+      { key: 'tenant_invitation', messages: 1611, undelivered: 0, complained: 4 },
+    ],
+    byDomain: [
+      { key: 'example-company-domain.com', messages: 3000, undelivered: 1, complained: 9 },
+      { key: 'd.com', messages: 711, undelivered: 0, complained: 1 },
+    ],
+  }
+}
+
+/** Suppressions: the long address's, still active and so offering Lift, and a lifted one with its reason. */
+const SUPPRESSION_ROWS = [
+  {
+    id: SUPPRESSION_ID,
+    address: 'a-very-long-address-for-overflow@example-company-domain.com',
+    reason: 'hard_bounce',
+    sourceMessageId: EMAIL_ID_2,
+    createdAt: '2026-09-27T09:00:08.000Z',
+    liftedAt: null,
+    liftedBy: null,
+    liftReason: null,
+  },
+  {
+    id: SUPPRESSION_ID_2,
+    address: 'c@d.com',
+    reason: 'complaint',
+    sourceMessageId: null,
+    createdAt: '2026-09-20T09:00:00.000Z',
+    liftedAt: '2026-09-21T09:00:00.000Z',
+    liftedBy: { id: STAFF_USER_ID, name: 'Sam Staff' },
+    liftReason: 'The customer confirmed the complaint was a mistake and asked to be mailed again',
+  },
+]
+
 /** The API's step-up refusal, for the writes the fixtures drive into the stacked dialog. */
 function reauthRequired() {
   return Response.json(
@@ -502,6 +619,26 @@ const worker = setupWorker(
       'Audit log retrieved.'
     )
   ),
+  // Before `/platform/emails/:emailId`, as express registers it, so `health` is never read as an id.
+  http.get('/api/v1/platform/emails/health', ({ request }) =>
+    ok(
+      emailHealth(new URL(request.url).searchParams.get('range') ?? '7d'),
+      'Email health retrieved.'
+    )
+  ),
+  http.get('/api/v1/platform/emails/:emailId/preview', () =>
+    ok(EMAIL_PREVIEW, 'Email preview rendered.')
+  ),
+  http.get('/api/v1/platform/emails/:emailId', ({ params }) =>
+    ok(emailDetail(String(params.emailId)), 'Email retrieved.')
+  ),
+  http.get('/api/v1/platform/email-suppressions', ({ request }) => {
+    const state = new URL(request.url).searchParams.get('state') ?? 'active'
+    const suppressions = SUPPRESSION_ROWS.filter(
+      (row) => state === 'all' || (state === 'lifted') === (row.liftedAt !== null)
+    )
+    return ok({ suppressions, nextCursor: null, prevCursor: null }, 'Suppressions retrieved.')
+  }),
   // Filtered the way the API filters: a user's card sees their emails, a tenant's tab its own.
   http.get('/api/v1/platform/emails', ({ request }) => {
     const params = new URL(request.url).searchParams
@@ -568,7 +705,8 @@ useAuthStore.setState({
  * authenticated surfaces: the handlers above answer /profile,
  * /auth/providers, the tenants page's search, the activity page's three
  * requests, the Staff page's three, the users list and a user's page (its Emails
- * card included), and a tenant's page with its tabs, so those pages render without a backend.
+ * card included), a tenant's page with its tabs, the Emails list and an email's page with its
+ * preview, Deliverability and Suppressions, so those pages render without a backend.
  *
  * Only a same-origin absolute path is accepted. This harness is not
  * shipped (nothing in `src/` imports it, and `index.html` is the only Vite
@@ -585,9 +723,15 @@ const targetPath = requestedPath && /^\/[^/\\]/.test(requestedPath) ? requestedP
  * does a real navigation, and the dev server then answers
  * the path with the SPA fallback (index.html -> main.tsx), so
  * the harness never runs. The router reads location on mount, so setting
- * it first is enough.
+ * it first is enough. A path may carry its own query
+ * (`?path=/deliverability?range=30d`); the harness's parameters follow it
+ * after an `&`, so the page reads that query as written.
  */
-history.replaceState(null, '', targetPath + location.search)
+history.replaceState(
+  null,
+  '',
+  `${targetPath}${targetPath.includes('?') ? '&' : '?'}${location.search.slice(1)}`
+)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

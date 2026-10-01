@@ -26,6 +26,7 @@ import {
   PLATFORM_TENANT_ID,
   STAFF_USER_ID,
   SUPPRESSION_ID,
+  SUPPRESSION_ID_2,
   TENANT_ID,
   TENANT_ID_2,
   TENANT_ID_3,
@@ -37,9 +38,11 @@ import { renderAppAt } from '@/tests/fixtures/render-app'
 import {
   emailDetail,
   emailSummary,
+  emailSuppression,
   fail,
   ok,
   TEST_INVITATION_TOKEN,
+  testEmailHealth,
   testEmailPreview,
   testInvitation,
   testUser,
@@ -48,6 +51,8 @@ import { server } from '@/tests/mocks/server'
 import {
   EMAIL_MESSAGE_STATUSES,
   type AuditEntry,
+  type EmailMessageSummary,
+  type EmailSuppression,
   type PlatformAuditEntry,
   type PlatformTenantDetail,
   type PlatformTenantRow,
@@ -1489,5 +1494,134 @@ describe('keyboard', () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(trigger)
     })
+  })
+})
+
+/**
+ * Deliverability, Suppressions (with the lift dialog), a tenant's Emails tab
+ * and a user's Emails card. Each waits for its loaded content, never a
+ * skeleton. The Emails list and an email's page are graded above.
+ */
+describe('deliverability, suppressions and the embedded email lists', () => {
+  beforeEach(() => {
+    signIn()
+  })
+
+  /** One row per status, so every badge tone is graded. */
+  const EVERY_STATUS: EmailMessageSummary[] = EMAIL_MESSAGE_STATUSES.map((status, index) =>
+    emailSummary({
+      id: `70000000-0000-4000-8000-${String(100 + index).padStart(12, '0')}`,
+      recipient: `r${index}@example.com`,
+      status,
+    })
+  )
+
+  function serveEmails(rows: EmailMessageSummary[]) {
+    server.use(
+      http.get('/api/v1/platform/emails', () =>
+        ok({ messages: rows, nextCursor: 'next', prevCursor: null }, 'Emails retrieved.')
+      )
+    )
+  }
+
+  it('deliverability with provider data has no axe violations', async () => {
+    renderAppAt('/deliverability')
+    await screen.findByRole('region', { name: 'Deliverability figures' })
+    await screen.findByRole('figure', { name: 'Emails per day' })
+    await screen.findByRole('table', { name: 'By template' })
+    await expectNoViolations()
+  })
+
+  it('deliverability before any provider event has no axe violations', async () => {
+    const unknown = { value: null, numerator: 0, denominator: 0 }
+    server.use(
+      http.get('/api/v1/platform/emails/health', () =>
+        ok(
+          {
+            ...testEmailHealth,
+            totals: { ...testEmailHealth.totals, delivered: 0, complained: 0, providerEvents: 0 },
+            rates: {
+              ...testEmailHealth.rates,
+              deliveredRate: unknown,
+              bounceRate: unknown,
+              complaintRate: unknown,
+              openRate: unknown,
+              clickRate: unknown,
+            },
+          },
+          'Email health retrieved.'
+        )
+      )
+    )
+    renderAppAt('/deliverability')
+    await screen.findByRole('note')
+    expect(screen.getAllByText('No provider data')).toHaveLength(5)
+    await expectNoViolations()
+  })
+
+  const SUPPRESSIONS: EmailSuppression[] = [
+    emailSuppression({ id: SUPPRESSION_ID }),
+    emailSuppression({
+      id: SUPPRESSION_ID_2,
+      address: 'complained@example.com',
+      reason: 'complaint',
+      sourceMessageId: null,
+      liftedAt: '2026-09-29T09:00:00.000Z',
+      liftedBy: { id: STAFF_USER_ID, name: 'Sam Staff' },
+      liftReason: 'Asked to be mailed again',
+    }),
+  ]
+
+  function serveSuppressions(rows: EmailSuppression[]) {
+    server.use(
+      http.get('/api/v1/platform/email-suppressions', () =>
+        ok({ suppressions: rows, nextCursor: null, prevCursor: 'p' }, 'Suppressions retrieved.')
+      )
+    )
+  }
+
+  it('suppressions, active and lifted, with the Lift controls has no axe violations', async () => {
+    serveSuppressions(SUPPRESSIONS)
+    renderAppAt('/suppressions?state=all')
+    const table = await screen.findByRole('table', { name: 'Suppressions' })
+    expect(
+      within(table).getByRole('button', { name: /^Lift suppression for / })
+    ).toBeInTheDocument()
+    expect(within(table).getByText(/^Lifted .+ by Sam Staff$/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled()
+    await expectNoViolations()
+  })
+
+  it('suppressions with none active has no axe violations', async () => {
+    renderAppAt('/suppressions')
+    await screen.findByText('No suppressed addresses.')
+    await expectNoViolations()
+  })
+
+  it('the lift dialog has no axe violations', async () => {
+    serveSuppressions(SUPPRESSIONS)
+    const user = userEvent.setup()
+    renderAppAt('/suppressions')
+    await user.click(await screen.findByRole('button', { name: /^Lift suppression for / }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Lift this suppression?' })
+    expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('a tenant’s Emails tab has no axe violations', async () => {
+    serveTenant('active')
+    serveEmails(EVERY_STATUS.slice(0, 3))
+    renderAppAt(`/tenants/${TENANT_ID}/emails`)
+    await screen.findByRole('table', { name: 'Emails' })
+    await expectNoViolations()
+  })
+
+  it('a user’s page with its Emails card listing emails has no axe violations', async () => {
+    serveUser()
+    serveEmails(EVERY_STATUS.slice(0, 4))
+    renderAppAt(`/users/${USER_ID_2}`)
+    const card = await screen.findByRole('region', { name: 'Emails' })
+    expect(await within(card).findAllByRole('listitem')).toHaveLength(4)
+    await expectNoViolations()
   })
 })

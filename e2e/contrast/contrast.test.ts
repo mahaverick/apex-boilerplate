@@ -222,6 +222,8 @@ async function runAxe(page: Page, scope?: string): Promise<ContrastResult> {
     ).axe.run((selector ? document.querySelector(selector) : document) ?? document, {
       runOnly: { type: 'rule', values: ['color-contrast'] },
       resultTypes: ['violations'],
+      // The only frame is an email preview sandboxed without scripts, where axe never runs; left in, axe would wait `frameWaitTime` for it to answer.
+      iframes: false,
     })
     return {
       violations: results.violations.map((v) => ({
@@ -596,6 +598,99 @@ test.describe('staff surfaces', () => {
       expect(report('status badges', theme, result), report('status badges', theme, result)).toBe(
         ''
       )
+    })
+  }
+})
+
+/**
+ * Message tracking's surfaces, at phone width, in both themes: the email
+ * status badges (each surface's `shows` asserted visible before its result is
+ * judged), the suppressed-address banner, the preview tab's frame chrome,
+ * Deliverability with and without provider data, Suppressions with an active
+ * and a lifted row, the tenant's Emails tab and the user's Emails card, then
+ * the lift and resend dialogs.
+ * 390px because these pages carry the longest unbroken text in the app.
+ */
+const DELIVERED_EMAIL = '/emails/70000000-0000-4000-8000-000000000001'
+const SUPPRESSED_EMAIL = '/emails/70000000-0000-4000-8000-000000000002'
+const LONG_ADDRESS = 'a-very-long-address-for-overflow@example-company-domain.com'
+
+const TRACKING_SURFACES = [
+  { name: 'emails', path: '/emails', heading: /^Emails$/, shows: ['Delivered', 'Bounced'] },
+  { name: 'suppressed email', path: SUPPRESSED_EMAIL, heading: LONG_ADDRESS, shows: ['Bounced'] },
+  { name: 'email preview', path: `${DELIVERED_EMAIL}?tab=preview`, heading: 'c@d.com', shows: [] },
+  { name: 'deliverability', path: '/deliverability', heading: 'Deliverability', shows: [] },
+  {
+    name: 'deliverability without provider events',
+    path: '/deliverability?range=30d',
+    heading: 'Deliverability',
+    shows: ['No provider data'],
+  },
+  {
+    name: 'suppressions',
+    path: '/suppressions?state=all',
+    heading: 'Suppressions',
+    shows: ['Active'],
+  },
+  { name: 'tenant emails', path: `${ACME_PAGE}/emails`, heading: 'Acme Corp', shows: ['Bounced'] },
+  { name: 'user emails card', path: CLEO_PAGE, heading: /^Emails$/, shows: ['Delivered'] },
+] as const
+
+test.describe('message tracking at 390px', () => {
+  for (const theme of THEMES) {
+    for (const surface of TRACKING_SURFACES) {
+      test(`${surface.name} meets WCAG AA contrast in ${theme}`, async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 })
+        const result = await contrastOf(
+          page,
+          `/e2e/harness/?path=${surface.path}`,
+          theme,
+          surface.heading
+        )
+        for (const text of surface.shows) {
+          await expect(page.getByText(text, { exact: true }).first()).toBeVisible()
+        }
+        const unproven = result.incomplete.flatMap((i) =>
+          i.nodes.map((n) => n.target.join(' ')).filter((target) => !target.includes(LEGEND_ITEM))
+        )
+        if (unproven.length > 0) {
+          console.warn(
+            `[contrast] ${surface.name} · ${theme}: ${unproven.length} node(s) axe could not resolve — check by eye:\n  ${unproven.join('\n  ')}`
+          )
+        }
+        expect(report(surface.name, theme, result), report(surface.name, theme, result)).toBe('')
+      })
+    }
+
+    test(`the lift and resend dialogs meet WCAG AA contrast in ${theme}`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 })
+      await contrastOf(page, '/e2e/harness/?path=/suppressions', theme, 'Suppressions')
+      await page.getByRole('button', { name: `Lift suppression for ${LONG_ADDRESS}` }).click()
+      const lift = page.getByRole('alertdialog', { name: 'Lift this suppression?' })
+      await expect(lift.getByLabel('Reason')).toBeVisible()
+      await afterAnimations(lift)
+      const liftResult = await runAxe(page, '[role="alertdialog"]')
+      expect(
+        report('lift dialog', theme, liftResult),
+        report('lift dialog', theme, liftResult)
+      ).toBe('')
+
+      await page.keyboard.press('Escape')
+      await expect(lift).toHaveCount(0)
+      await page.goto(`/e2e/harness/?path=${DELIVERED_EMAIL}`)
+      await expect(page.getByRole('heading', { name: 'c@d.com', level: 1 })).toBeVisible({
+        timeout: COLD_TRANSFORM_BUDGET_MS,
+      })
+      await page.getByRole('button', { name: 'Resend' }).click()
+      const resend = page.getByRole('alertdialog', { name: 'Resend this email?' })
+      await expect(resend.getByLabel('Reason')).toBeVisible()
+      await afterAnimations(resend)
+      await page.addScriptTag({ path: AXE_PATH })
+      const resendResult = await runAxe(page, '[role="alertdialog"]')
+      expect(
+        report('resend dialog', theme, resendResult),
+        report('resend dialog', theme, resendResult)
+      ).toBe('')
     })
   }
 })
