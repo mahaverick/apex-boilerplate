@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { navItemsFor } from '@/constants/navigation'
-import { EMAIL_ID_2, EMAIL_ID_3, TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
+import { EMAIL_ID, EMAIL_ID_2, EMAIL_ID_3, TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { emailSummary, fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -64,7 +64,7 @@ describe('/emails', () => {
         .map((cell) => cell.textContent)
     ).toEqual(['Recipient', 'Template', 'Status', 'Created', 'User', 'Tenant'])
     const [, first, second] = within(table).getAllByRole('row')
-    expect(within(first!).getByText('cleo@example.com')).toBeInTheDocument()
+    expect(within(first!).getByRole('link', { name: 'cleo@example.com' })).toBeInTheDocument()
     expect(within(first!).getByText('Tenant invitation')).toBeInTheDocument()
     expect(within(first!).getByText('Delivered')).toHaveAttribute('data-tone', 'success')
     expect(within(first!).getByRole('link', { name: 'Cleo Doe' })).toHaveAttribute(
@@ -78,6 +78,17 @@ describe('/emails', () => {
     expect(within(second!).getByText('Password changed')).toBeInTheDocument()
     expect(within(second!).getByText('Bounced')).toHaveAttribute('data-tone', 'destructive')
     expect(within(second!).getAllByText('—')).toHaveLength(2)
+  })
+
+  it('opens a message from its recipient', async () => {
+    pages([])
+    const user = userEvent.setup()
+    const router = renderAppAt('/emails')
+    const link = await screen.findByRole('link', { name: 'cleo@example.com' })
+    expect(link).toHaveAttribute('href', `/emails/${EMAIL_ID}`)
+    await user.click(link)
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/emails/${EMAIL_ID}`))
+    expect(await screen.findByRole('heading', { name: 'cleo@example.com', level: 1 })).toBeVisible()
   })
 
   it('pages with the API cursors, carrying them in the URL', async () => {

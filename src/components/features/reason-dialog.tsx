@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
-import { messageFrom, statusFrom } from '@/lib/api-error'
+import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
 import { isReauthRequired } from '@/lib/step-up'
 import { reasonFormSchema } from '@/schemas/reason.schemas'
 
@@ -54,9 +54,11 @@ export interface ReasonDialogProps {
  * The confirmation every destructive or state-changing staff action goes
  * through: a required reason (recorded in the audit log) and, for the
  * irreversible ones, a typed confirmation. The form mounts only while open,
- * so each opening starts blank. A 403 or 409 is the server's own sentence
- * (staff-on-staff refusal, invalid transition, last owner) and is shown as
- * is; the dialog stays open so the reader sees it.
+ * so each opening starts blank. A 403 or 409, and a 404 that carries a code,
+ * is the server's own sentence (staff-on-staff refusal, invalid transition,
+ * last owner, an invitation no longer pending) and is shown as is; a 404
+ * without a code is the role gate's. The dialog stays open so the reader
+ * sees it.
  */
 export function ReasonDialog(props: ReasonDialogProps) {
   const [busy, setBusy] = useState(false)
@@ -105,8 +107,11 @@ function ReasonForm({
           return
         }
         const status = statusFrom(error)
+        // A role gate's 404 carries no code; one with a code (`invitation_not_found`) is the action's own verdict.
         if (status === 404) {
-          serverErrors.setFormErrors([ROLE_DENIED_ACTION])
+          serverErrors.setFormErrors([
+            codeFrom(error) === undefined ? ROLE_DENIED_ACTION : messageFrom(error),
+          ])
           return
         }
         if (status === 403 || status === 409) {

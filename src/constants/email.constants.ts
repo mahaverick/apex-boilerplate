@@ -98,3 +98,10 @@ export function providerLabel(provider: string): string {
   const labels: Record<string, string> = { resend: 'Resend', fake: 'Local test provider' }
   return labels[provider] ?? provider
 }
+
+/** The toast once the API has taken a resend. */
+export const RESEND_REQUESTED = 'Resend requested — it appears in the timeline shortly'
+
+/** The warning toast when the originating action ran but reports that its email did not go. */
+export const RESEND_NOT_SENT =
+  'The resend was recorded, but its email could not be sent. Try again shortly.'

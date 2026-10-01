@@ -15,11 +15,17 @@ import { useThemeStore } from '@/states/theme.store'
 import {
   AUDIT_ID_1,
   AUDIT_ID_2,
+  EMAIL_ATTEMPT_ID,
+  EMAIL_EVENT_ID,
+  EMAIL_ID,
+  EMAIL_ID_2,
+  EMAIL_ID_3,
   INVITATION_ID,
   MEMBERSHIP_ID,
   MEMBERSHIP_ID_2,
   PLATFORM_TENANT_ID,
   STAFF_USER_ID,
+  SUPPRESSION_ID,
   TENANT_ID,
   TENANT_ID_2,
   TENANT_ID_3,
@@ -29,10 +35,12 @@ import {
 } from '@/tests/fixtures/ids'
 import { renderAppAt } from '@/tests/fixtures/render-app'
 import {
+  emailDetail,
   emailSummary,
   fail,
   ok,
   TEST_INVITATION_TOKEN,
+  testEmailPreview,
   testInvitation,
   testUser,
 } from '@/tests/mocks/handlers'
@@ -334,16 +342,33 @@ function unexpectedIncomplete(results: axeCore.AxeResults): string[] {
  * assertions and every other test passing. `html-has-lang`, `document-title`
  * and `bypass` only produce a result when the context IS the document, so
  * asserting they ran is what makes the context non-negotiable.
+ *
+ * `frames: 'skip'` is for a page holding an iframe: axe hands each frame its
+ * own run over `postMessage`, which a jsdom frame cannot answer (axe throws
+ * "Respondable target must be a frame in the current window"). The frame
+ * element itself, its `title` included, is still graded here; only the
+ * document inside it (the email preview's own markup, not the app's) is not,
+ * and axe files exactly that as `frame-tested`, one node per frame, under
+ * `incomplete`, which this then accepts and nothing else.
  */
-async function expectNoViolations() {
-  const results = await axeCore.run(document, AXE_OPTIONS)
+async function expectNoViolations({ frames = 'grade' }: { frames?: 'grade' | 'skip' } = {}) {
+  const results = await axeCore.run(document, {
+    ...AXE_OPTIONS,
+    ...(frames === 'skip' ? { iframes: false } : {}),
+  })
   expect(results).toHaveNoViolations()
 
   expect(results.passes.map((result) => result.id)).toEqual(
     expect.arrayContaining(['html-has-lang', 'document-title', 'bypass'])
   )
 
-  expect(unexpectedIncomplete(results)).toEqual([])
+  if (frames === 'skip') {
+    const skipped = results.incomplete.find((result) => result.id === 'frame-tested')
+    expect(skipped?.nodes).toHaveLength(document.querySelectorAll('iframe').length)
+  }
+  expect(
+    unexpectedIncomplete(results).filter((id) => frames === 'grade' || id !== 'frame-tested')
+  ).toEqual([])
 
   // `page-has-heading-one` and `landmark-one-main`, by hand.
   expect(document.querySelectorAll('main')).toHaveLength(1)
@@ -825,6 +850,72 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
+  /** Every timeline entry kind, the suppression banner and the Resend action, all on one page. */
+  const BUSY_EMAIL = emailDetail({
+    status: 'bounced',
+    resentFromId: EMAIL_ID_2,
+    resentAsIds: [EMAIL_ID_3],
+    attempts: [
+      {
+        id: EMAIL_ATTEMPT_ID,
+        status: 'failed',
+        errorCode: 'ECONNECTION',
+        createdAt: '2026-09-29T10:00:01.000Z',
+      },
+    ],
+    events: [
+      {
+        id: EMAIL_EVENT_ID,
+        provider: 'resend',
+        type: 'bounced',
+        bounceKind: 'hard',
+        detail: 'MESSAGE_REJECTED',
+        occurredAt: '2026-09-29T10:02:00.000Z',
+      },
+    ],
+    suppression: {
+      id: SUPPRESSION_ID,
+      reason: 'hard_bounce',
+      createdAt: '2026-09-29T10:02:01.000Z',
+    },
+  })
+
+  it('email detail on the timeline tab has no axe violations', async () => {
+    server.use(
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => ok(BUSY_EMAIL, 'Email retrieved.'))
+    )
+    renderAppAt(`/emails/${EMAIL_ID}`)
+    await screen.findByRole('heading', { name: 'cleo@example.com', level: 1 })
+    // Not vacuous: every entry kind is on the page, and the tab list is the first route-mounted one.
+    const timeline = screen.getByRole('list', { name: 'Delivery timeline' })
+    expect(within(timeline).getAllByRole('listitem')).toHaveLength(5)
+    expect(screen.getByRole('tablist', { name: 'Email sections' })).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('email detail on the preview tab has no axe violations', async () => {
+    server.use(
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () =>
+        ok({ ...BUSY_EMAIL, suppression: null }, 'Email retrieved.')
+      ),
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}/preview`, () =>
+        ok({ ...testEmailPreview, partial: true }, 'Email preview rendered.')
+      )
+    )
+    renderAppAt(`/emails/${EMAIL_ID}?tab=preview`)
+    await screen.findByRole('heading', { name: 'cleo@example.com', level: 1 })
+    await screen.findByTitle('Email preview')
+    expect(screen.getByText(/placeholders stand in/)).toBeInTheDocument()
+    await expectNoViolations({ frames: 'skip' })
+  })
+
+  it('an unknown email has no axe violations', async () => {
+    server.use(http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => fail('Not found', 404)))
+    renderAppAt(`/emails/${EMAIL_ID}`)
+    await screen.findByRole('heading', { name: 'Email not found', level: 1 })
+    await expectNoViolations()
+  })
+
   it('a suspended tenant’s frozen tab has no axe violations', async () => {
     serveTenant('suspended')
     renderAppAt(`/tenants/${TENANT_ID}/members`)
@@ -1063,6 +1154,15 @@ describe('open overlays', () => {
     // A calendar that rendered no grid would pass axe while grading nothing.
     expect(within(popup).getByRole('grid')).toBeInTheDocument()
     expect(within(popup).getByRole('button', { name: 'Clear dates' })).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the Resend dialog open', async () => {
+    const user = userEvent.setup()
+    renderAppAt(`/emails/${EMAIL_ID}`)
+    await user.click(await screen.findByRole('button', { name: 'Resend' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Resend this email?' })
+    expect(within(dialog).getByText('Sends the invitation again.')).toBeInTheDocument()
     await expectNoViolations()
   })
 
@@ -1313,9 +1413,9 @@ describe('open overlays', () => {
  */
 describe('focus indicators', () => {
   /**
-   * `Tabs` is not mounted by any route. The primitive is still part of the
-   * approved set and is rendered directly here, which is the only way its
-   * contract gets checked at all.
+   * `Tabs` is rendered directly here, apart from the email detail page that
+   * mounts it, so the primitive's own contract is checked whatever a page
+   * passes it.
    *
    * Base UI renders `Tabs.Panel` with `tabIndex: open ? 0 : -1`
    * (@base-ui/react@1.8.0, tabs/panel/TabsPanel.js:76), so an open panel is

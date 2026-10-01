@@ -26,3 +26,12 @@ export const emailsSearchSchema = z.object({
 })
 
 export type EmailsSearch = z.infer<typeof emailsSearchSchema>
+
+/** The email detail page's tabs; the first is the default, which the URL leaves out. */
+export const EMAIL_DETAIL_TABS = ['timeline', 'preview'] as const
+export type EmailDetailTab = (typeof EMAIL_DETAIL_TABS)[number]
+
+/** `/emails/$emailId` search: `?tab=preview`, or nothing for the timeline. */
+export const emailDetailSearchSchema = z.object({
+  tab: z.enum(EMAIL_DETAIL_TABS).optional().catch(undefined),
+})
