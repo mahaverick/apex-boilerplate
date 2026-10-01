@@ -39,31 +39,38 @@ export function EmailsChart({ days, range }: { days: EmailMessageDay[]; range: S
           {EMAIL_GROUP_KEYS.map((group) => (
             <Bar key={group} dataKey={group} stackId="emails" fill={`var(--color-${group})`} />
           ))}
-          <ChartLegend content={<ChartLegendContent />} itemSorter={null} />
+          {/* Five groups outgrow a phone's width on one line, so the legend wraps. */}
+          <ChartLegend
+            content={<ChartLegendContent className="flex-wrap gap-x-4 gap-y-1" />}
+            itemSorter={null}
+          />
         </BarChart>
       </ChartContainer>
-      <table className="sr-only">
-        <thead>
-          <tr>
-            <th scope="col">Day</th>
-            {EMAIL_GROUP_KEYS.map((group) => (
-              <th key={group} scope="col">
-                {EMAIL_GROUPS[group].label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {days.map((day) => (
-            <tr key={day.date}>
-              <th scope="row">{shortDate(day.date)}</th>
+      {/* A table sizes to its columns, ignoring sr-only's 1px width, so the clipping box is a div. */}
+      <div className="sr-only">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Day</th>
               {EMAIL_GROUP_KEYS.map((group) => (
-                <td key={group}>{day[group]}</td>
+                <th key={group} scope="col">
+                  {EMAIL_GROUPS[group].label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {days.map((day) => (
+              <tr key={day.date}>
+                <th scope="row">{shortDate(day.date)}</th>
+                {EMAIL_GROUP_KEYS.map((group) => (
+                  <td key={group}>{day[group]}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </ChartCard>
   )
 }
