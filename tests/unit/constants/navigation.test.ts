@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NAV_ITEMS, navGroupsFor, navItemsFor } from '@/constants/navigation'
+import { NAV_GROUPS, NAV_ITEMS, navGroupsFor, navItemsFor } from '@/constants/navigation'
 
 describe('navigation', () => {
   it('gives a viewer the Directory and Operations pages, not the activity log', () => {
@@ -30,6 +30,10 @@ describe('navigation', () => {
   it('gives someone who is not staff nothing', () => {
     expect(navItemsFor(null)).toEqual([])
     expect(navItemsFor(undefined)).toEqual([])
+  })
+
+  it('sections the sidebar with Growth between Operations and Security', () => {
+    expect(NAV_GROUPS).toEqual(['General', 'Directory', 'Operations', 'Growth', 'Security'])
   })
 
   it('groups in NAV_GROUPS order and drops empty groups', () => {

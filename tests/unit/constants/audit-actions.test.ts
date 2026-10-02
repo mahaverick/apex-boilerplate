@@ -6,10 +6,10 @@ import {
   auditSentence,
   isAuditAction,
 } from '@/constants/audit-actions'
-import { INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
+import { EMAIL_ID, EMAIL_ID_2, INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
 describe('AUDIT_ACTIONS', () => {
-  it('lists exactly the twenty-nine actions the API writes', () => {
+  it('lists exactly the thirty-three actions the API writes', () => {
     expect([...AUDIT_ACTIONS].sort()).toEqual(
       [
         'invitation.accepted',
@@ -27,6 +27,10 @@ describe('AUDIT_ACTIONS', () => {
         'auth.reauthenticated',
         'email.resent',
         'email.suppression_lifted',
+        'onboarding.dismissed',
+        'onboarding.reminder_sent',
+        'onboarding.step_completed',
+        'onboarding.undismissed',
         'tenant.archived',
         'tenant.owner_invited',
         'tenant.purged',
@@ -152,6 +156,28 @@ describe('auditSentence', () => {
       { reason: 'mailbox fixed', emailDomain: 'corp.test' },
       'lifted the email suppression on an address at corp.test: “mailbox fixed”',
     ],
+    ['onboarding.dismissed', {}, 'dismissed the getting-started checklist'],
+    ['onboarding.undismissed', {}, 'brought back the getting-started checklist'],
+    [
+      'onboarding.step_completed',
+      { reason: 'Done on the kickoff call', stepKey: 'configure_settings' },
+      'marked the onboarding step “configure_settings” complete: “Done on the kickoff call”',
+    ],
+    [
+      'onboarding.reminder_sent',
+      {
+        reason: 'Stalled for a week',
+        recipientCount: 2,
+        emailDomains: ['acme.test', 'corp.test'],
+        messageIds: [EMAIL_ID, EMAIL_ID_2],
+      },
+      'sent an onboarding reminder to 2 owners at acme.test, corp.test: “Stalled for a week”',
+    ],
+    [
+      'onboarding.reminder_sent',
+      { reason: 'Nudge', recipientCount: 1, emailDomains: ['acme.test'], messageIds: [EMAIL_ID] },
+      'sent an onboarding reminder to 1 owner at acme.test: “Nudge”',
+    ],
   ])('%s reads as a sentence', (action, metadata, sentence) => {
     expect(auditSentence({ action, metadata })).toBe(sentence)
   })
@@ -172,6 +198,12 @@ describe('auditSentence', () => {
     expect(auditSentence({ action: 'email.resent', metadata: {} })).toBe(
       'resent an email to someone at an unknown domain'
     )
+    expect(auditSentence({ action: 'onboarding.step_completed', metadata: {} })).toBe(
+      'marked an onboarding step complete'
+    )
+    expect(
+      auditSentence({ action: 'onboarding.reminder_sent', metadata: { emailDomains: 'acme.test' } })
+    ).toBe('sent an onboarding reminder to the owners')
     expect(
       auditSentence({
         action: 'invitation.created',

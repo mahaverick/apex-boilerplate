@@ -1,14 +1,17 @@
 import { http, HttpResponse } from 'msw'
 import type { MembershipRole } from '@/constants/roles'
 import {
+  AUDIT_ID_4,
   EMAIL_ATTEMPT_ID,
   EMAIL_EVENT_ID,
   EMAIL_ID,
   INVITATION_ID,
+  STAFF_USER_ID,
   SUPPRESSION_ID,
   TENANT_ID,
   USER_ID,
   USER_ID_2,
+  USER_ID_3,
 } from '@/tests/fixtures/ids'
 import type {
   EmailHealth,
@@ -18,9 +21,14 @@ import type {
   EmailPreview,
   EmailSuppression,
   InvitationPreview,
+  OnboardingFunnel,
+  OnboardingReminderView,
+  OnboardingStepDetail,
+  OnboardingTenantRow,
   PlatformStats,
   TenantAccess,
   TenantInvitation,
+  TenantOnboardingDetail,
   User,
 } from '@/types/api.types'
 
@@ -75,7 +83,7 @@ const EMAIL_MESSAGE_DAYS: EmailMessageDay[] = FIXTURE_DAYS.map((date, index) => 
 /** Seven days ending 2026-09-29, with one failed send attempt, so every widget has something to draw. */
 export const testStats: PlatformStats = {
   range: '7d',
-  totals: { tenants: 1284, users: 9730, staff: 18 },
+  totals: { tenants: 1284, users: 9730, staff: 18, stuckTenants: 6 },
   signups: ['23', '24', '25', '26', '27', '28', '29'].map((day, index) => ({
     date: `2026-09-${day}`,
     users: 20 + index * 3,
@@ -240,6 +248,237 @@ export function emailSuppression(overrides: Partial<EmailSuppression> = {}): Ema
   }
 }
 
+/**
+ * Thirty days of onboarding: 40 tenants started, split by their state now,
+ * and the four default steps, two with staff completions so both bar fills
+ * draw. 52 tenants are tracked in all, so the page is not the empty state.
+ */
+export const testOnboardingFunnel: OnboardingFunnel = {
+  range: '30d',
+  from: '2026-08-31T00:00:00.000Z',
+  totals: { started: 40, inProgress: 18, stuck: 6, complete: 14, dismissed: 2 },
+  completionRate: 14 / 40,
+  steps: [
+    {
+      key: 'configure_settings',
+      title: 'Configure your workspace',
+      scope: 'tenant',
+      required: true,
+      completed: 30,
+      staffCompleted: 4,
+    },
+    {
+      key: 'invite_teammate',
+      title: 'Invite a teammate',
+      scope: 'tenant',
+      required: true,
+      completed: 20,
+      staffCompleted: 1,
+    },
+    {
+      key: 'teammate_joined',
+      title: 'A teammate joins',
+      scope: 'tenant',
+      required: false,
+      completed: 12,
+      staffCompleted: 0,
+    },
+    {
+      key: 'read_getting_started',
+      title: 'Read the getting-started guide',
+      scope: 'member',
+      required: false,
+      completed: 9,
+      staffCompleted: 0,
+    },
+  ],
+  trackedTenants: 52,
+}
+
+/**
+ * One row of `GET /platform/onboarding/tenants`: Acme, stuck for nine days
+ * with one of its two required steps done.
+ * @param overrides - Fields to replace.
+ * @returns The row.
+ */
+export function onboardingTenantRow(
+  overrides: Partial<OnboardingTenantRow> = {}
+): OnboardingTenantRow {
+  return {
+    id: TENANT_ID,
+    name: 'Acme Corp',
+    slug: 'acme',
+    state: 'stuck',
+    owners: [{ id: USER_ID_2, name: 'Cleo Doe' }],
+    startedAt: '2026-09-10T09:00:00.000Z',
+    lastProgressAt: '2026-09-20T09:00:00.000Z',
+    completedAt: null,
+    daysStuck: 9,
+    nextStep: { key: 'invite_teammate', title: 'Invite a teammate' },
+    requiredDone: 1,
+    requiredTotal: 2,
+    ...overrides,
+  }
+}
+
+/**
+ * One staff reminder on Acme: Sam's, to its one owner at example.com,
+ * filed as `emailSummary`'s message.
+ * @param overrides - Fields to replace.
+ * @returns The reminder.
+ */
+export function onboardingReminder(
+  overrides: Partial<OnboardingReminderView> = {}
+): OnboardingReminderView {
+  return {
+    id: AUDIT_ID_4,
+    sentAt: '2026-09-28T09:00:00.000Z',
+    sentBy: { id: STAFF_USER_ID, name: 'Sam Staff' },
+    reason: 'Nudge after the kickoff call',
+    recipientCount: 1,
+    emailDomains: ['example.com'],
+    messageIds: [EMAIL_ID],
+    ...overrides,
+  }
+}
+
+/** Acme's four steps in progress: settings done automatically, nothing else yet but the owner's own guide. */
+const ACME_STEPS: OnboardingStepDetail[] = [
+  {
+    key: 'configure_settings',
+    title: 'Configure your workspace',
+    description: 'Set the time zone and language your team works in.',
+    scope: 'tenant',
+    kind: 'auto',
+    required: true,
+    completedAt: '2026-09-12T09:00:00.000Z',
+    source: 'auto',
+    completedBy: null,
+    reason: null,
+    members: null,
+    canMarkComplete: false,
+  },
+  {
+    key: 'invite_teammate',
+    title: 'Invite a teammate',
+    description: 'Invite the first person to work with you.',
+    scope: 'tenant',
+    kind: 'auto',
+    required: true,
+    completedAt: null,
+    source: null,
+    completedBy: null,
+    reason: null,
+    members: null,
+    canMarkComplete: true,
+  },
+  {
+    key: 'teammate_joined',
+    title: 'A teammate joins',
+    description: 'Someone you invited accepts.',
+    scope: 'tenant',
+    kind: 'auto',
+    required: false,
+    completedAt: null,
+    source: null,
+    completedBy: null,
+    reason: null,
+    members: null,
+    canMarkComplete: true,
+  },
+  {
+    key: 'read_getting_started',
+    title: 'Read the getting-started guide',
+    description: 'Each person ticks this once they have read it.',
+    scope: 'member',
+    kind: 'manual',
+    required: false,
+    completedAt: '2026-09-13T09:00:00.000Z',
+    source: 'customer',
+    completedBy: null,
+    reason: null,
+    members: {
+      completed: 1,
+      total: 2,
+      entries: [
+        {
+          user: { id: USER_ID_2, name: 'Cleo Doe' },
+          role: 'owner',
+          completedAt: '2026-09-13T09:00:00.000Z',
+          source: 'customer',
+        },
+        {
+          user: { id: USER_ID_3, name: 'Evan Editor' },
+          role: 'editor',
+          completedAt: null,
+          source: null,
+        },
+      ],
+    },
+    canMarkComplete: false,
+  },
+]
+
+/**
+ * `GET /platform/tenants/:id/onboarding` for Acme, in progress: settings
+ * configured automatically, no teammate invited yet, and the member step
+ * done by its owner, Cleo, but not by its editor. No reminder yet, and one
+ * could go to Cleo at example.com.
+ * @param overrides - Fields to replace.
+ * @returns The detail.
+ */
+export function tenantOnboardingDetail(
+  overrides: Partial<TenantOnboardingDetail> = {}
+): TenantOnboardingDetail {
+  return {
+    tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme', lifecycleState: 'active' },
+    state: 'in_progress',
+    startedAt: '2026-09-10T09:00:00.000Z',
+    lastProgressAt: '2026-09-13T09:00:00.000Z',
+    completedAt: null,
+    dismissedAt: null,
+    dismissedBy: null,
+    daysStuck: null,
+    requiredDone: 1,
+    requiredTotal: 2,
+    nextStep: { key: 'invite_teammate', title: 'Invite a teammate' },
+    steps: ACME_STEPS,
+    reminder: {
+      canSend: true,
+      blockedBy: null,
+      lastSentAt: null,
+      nextAllowedAt: null,
+      recipientCount: 1,
+      emailDomains: ['example.com'],
+    },
+    reminders: [],
+    ...overrides,
+  }
+}
+
+/**
+ * Acme's detail once staff marked `stepKey` complete, as the mark-complete
+ * endpoint answers it.
+ * @param stepKey - The step staff completed.
+ * @returns The detail.
+ */
+export function tenantOnboardingAfterStaffCompletion(stepKey: string): TenantOnboardingDetail {
+  return tenantOnboardingDetail({
+    steps: ACME_STEPS.map((step) =>
+      step.key === stepKey
+        ? {
+            ...step,
+            completedAt: '2026-09-30T09:00:00.000Z',
+            source: 'staff',
+            completedBy: { id: USER_ID, name: 'A B' },
+            reason: 'Done on the call',
+            canMarkComplete: false,
+          }
+        : step
+    ),
+  })
+}
+
 export function ok<T>(data: T, message = 'OK', statusCode = 200) {
   return HttpResponse.json({ success: true, message, statusCode, data }, { status: statusCode })
 }
@@ -320,5 +559,24 @@ export const handlers = [
       }),
       'Suppression lifted.'
     )
+  ),
+  // The onboarding page and a tenant's Onboarding tab. Tracked tenants exist, no list has a row, and any tenant reads as Acme's in-progress detail; a test about a state or a row overrides it.
+  http.get('/api/v1/platform/onboarding/funnel', ({ request }) =>
+    ok(
+      { ...testOnboardingFunnel, range: new URL(request.url).searchParams.get('range') ?? '30d' },
+      'Onboarding funnel retrieved.'
+    )
+  ),
+  http.get('/api/v1/platform/onboarding/tenants', () =>
+    ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Onboarding tenants retrieved.')
+  ),
+  http.get('/api/v1/platform/tenants/:tenantId/onboarding', () =>
+    ok(tenantOnboardingDetail(), 'Tenant onboarding retrieved.')
+  ),
+  http.post('/api/v1/platform/tenants/:tenantId/onboarding/steps/:stepKey/complete', ({ params }) =>
+    ok(tenantOnboardingAfterStaffCompletion(String(params.stepKey)), 'Onboarding step completed.')
+  ),
+  http.post('/api/v1/platform/tenants/:tenantId/onboarding/remind', () =>
+    ok({ emailSent: true, recipientCount: 1 }, 'Reminder sent.')
   ),
 ]

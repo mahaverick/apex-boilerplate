@@ -18,7 +18,7 @@ import { platformRoleAtLeast, type MembershipRole } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 
 /** Sidebar sections, in display order. */
-export const NAV_GROUPS = ['General', 'Directory', 'Operations', 'Security'] as const
+export const NAV_GROUPS = ['General', 'Directory', 'Operations', 'Growth', 'Security'] as const
 
 export type NavGroup = (typeof NAV_GROUPS)[number]
 

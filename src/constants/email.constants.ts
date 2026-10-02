@@ -2,6 +2,7 @@
  * @file Labels for the email tracking pages, mirroring express's template
  * registry, message statuses and stats groups, so every page names them alike.
  */
+import type { BadgeTone } from '@/constants/badge-tones'
 import type {
   EmailEventType,
   EmailGroup,
@@ -13,7 +14,8 @@ import type {
 /**
  * Each template's label and, for the four that carry a token, the sentence
  * the Resend dialog shows: a resend re-runs the originating action, which
- * issues a fresh link. The two security notices have no resend.
+ * issues a fresh link. The two security notices and the onboarding reminder
+ * have no resend.
  */
 export const EMAIL_TEMPLATES: Record<
   EmailTemplateKey,
@@ -34,6 +36,7 @@ export const EMAIL_TEMPLATES: Record<
   tenant_invitation: { label: 'Tenant invitation', resendLabel: 'Sends the invitation again.' },
   password_changed: { label: 'Password changed', resendLabel: null },
   registration_attempt: { label: 'Registration attempt', resendLabel: null },
+  onboarding_reminder: { label: 'Onboarding reminder', resendLabel: null },
 }
 
 /** Whether `key` is a template this build knows. */
@@ -46,14 +49,8 @@ export function templateLabel(key: string): string {
   return isEmailTemplateKey(key) ? EMAIL_TEMPLATES[key].label : key
 }
 
-/** How a status badge reads: `neutral` is the secondary variant, `muted` an outline with muted text. */
-export type EmailBadgeTone = 'success' | 'neutral' | 'warning' | 'destructive' | 'muted'
-
 /** Each message status's label and badge tone. */
-export const EMAIL_STATUS_BADGE: Record<
-  EmailMessageStatus,
-  { label: string; tone: EmailBadgeTone }
-> = {
+export const EMAIL_STATUS_BADGE: Record<EmailMessageStatus, { label: string; tone: BadgeTone }> = {
   queued: { label: 'Queued', tone: 'neutral' },
   sent: { label: 'Sent', tone: 'neutral' },
   deferred: { label: 'Deferred', tone: 'warning' },
