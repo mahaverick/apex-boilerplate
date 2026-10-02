@@ -28,8 +28,9 @@ export const PLATFORM_PAGE_SIZE = 20
  * means "not available to you", never "missing". A route an older express
  * lacks 404s too (`/platform/stats` before 1.1.0, `/platform/users` and
  * `/platform/tenants/:id` before 1.2.0, `/platform/emails*` and
- * `/platform/email-suppressions` before 1.3.0), so it reads as role-denied:
- * Apex needs express 1.3.0 or newer.
+ * `/platform/email-suppressions` before 1.3.0, `/platform/onboarding/*` and
+ * `/platform/tenants/:id/onboarding` before 1.4.0), so it reads as
+ * role-denied: Apex needs express 1.4.0 or newer.
  * @param error - A query or mutation error.
  * @returns True for a 404.
  */

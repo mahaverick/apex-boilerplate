@@ -12,7 +12,8 @@ import { resetSessionForTests } from '@/http/session'
 import { queryClient } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
-import { fail, testUser } from '@/tests/mocks/handlers'
+import { TENANT_ID } from '@/tests/fixtures/ids'
+import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
 function buildRouter(path: string) {
@@ -82,6 +83,47 @@ describe('page titles', () => {
     })
     // One title element, not a stale one left beside the new one.
     expect(document.querySelectorAll('title')).toHaveLength(1)
+  })
+
+  it.each([
+    ['/onboarding', 'Onboarding', 'Onboarding · Apex'],
+    [`/tenants/${TENANT_ID}/onboarding`, 'Onboarding', 'Tenant onboarding · Apex'],
+  ])('names %s', async (path, heading, title) => {
+    useAuthStore.setState({
+      accessToken: 'access-token',
+      user: testUser,
+      isAuthenticated: true,
+      isBootstrapped: true,
+    })
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+        ok(
+          {
+            id: TENANT_ID,
+            name: 'Acme Corp',
+            slug: 'acme',
+            description: null,
+            website: null,
+            logo: null,
+            lifecycleState: 'active',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            deletedAt: null,
+            settings: { timezone: 'UTC', locale: 'en' },
+            memberCount: 1,
+            owners: [],
+            pendingInvitationCount: 0,
+            pendingOwnerInvitation: null,
+          },
+          'Tenant retrieved.'
+        )
+      )
+    )
+    renderAppAt(path)
+    await screen.findByRole('heading', { name: heading })
+    await waitFor(() => {
+      expect(document.title).toBe(title)
+    })
   })
 
   it('names the sign-in page', async () => {

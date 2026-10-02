@@ -41,15 +41,21 @@ import {
   emailSuppression,
   fail,
   ok,
+  onboardingReminder,
+  onboardingTenantRow,
+  tenantOnboardingAfterStaffCompletion,
+  tenantOnboardingDetail,
   TEST_INVITATION_TOKEN,
   testEmailHealth,
   testEmailPreview,
   testInvitation,
+  testOnboardingFunnel,
   testUser,
 } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import {
   EMAIL_MESSAGE_STATUSES,
+  ONBOARDING_LIST_STATES,
   type AuditEntry,
   type EmailMessageSummary,
   type EmailSuppression,
@@ -1418,9 +1424,9 @@ describe('open overlays', () => {
  */
 describe('focus indicators', () => {
   /**
-   * `Tabs` is rendered directly here, apart from the email detail page that
-   * mounts it, so the primitive's own contract is checked whatever a page
-   * passes it.
+   * `Tabs` is rendered directly here, apart from the email detail and
+   * onboarding pages that mount it, so the primitive's own contract is
+   * checked whatever a page passes it.
    *
    * Base UI renders `Tabs.Panel` with `tabIndex: open ? 0 : -1`
    * (@base-ui/react@1.8.0, tabs/panel/TabsPanel.js:76), so an open panel is
@@ -1622,6 +1628,158 @@ describe('deliverability, suppressions and the embedded email lists', () => {
     renderAppAt(`/users/${USER_ID_2}`)
     const card = await screen.findByRole('region', { name: 'Emails' })
     expect(await within(card).findAllByRole('listitem')).toHaveLength(4)
+    await expectNoViolations()
+  })
+})
+
+/**
+ * The onboarding page on every tab, with rows, its empty states, and a
+ * tenant's Onboarding tab in each state that renders differently, with both
+ * reason dialogs and the member disclosure open. Each waits for its loaded
+ * content, never a skeleton.
+ */
+describe('onboarding', () => {
+  beforeEach(() => {
+    signIn()
+  })
+
+  it.each(ONBOARDING_LIST_STATES)(
+    'onboarding on the %s tab has no axe violations',
+    async (state) => {
+      server.use(
+        http.get('/api/v1/platform/onboarding/tenants', () =>
+          ok(
+            {
+              tenants: [
+                onboardingTenantRow({
+                  state,
+                  daysStuck: state === 'stuck' ? 9 : null,
+                  startedAt: state === 'awaiting_owner' ? null : '2026-09-10T09:00:00.000Z',
+                }),
+              ],
+              nextCursor: 'n1',
+              prevCursor: null,
+            },
+            'Onboarding tenants retrieved.'
+          )
+        )
+      )
+      renderAppAt(`/onboarding?state=${state}`)
+      await screen.findByRole('region', { name: 'Onboarding figures' })
+      await screen.findByRole('figure', { name: 'Onboarding funnel' })
+      await screen.findByRole('table', { name: 'Onboarding tenants' })
+      expect(screen.getByRole('tablist', { name: 'Onboarding states' })).toBeInTheDocument()
+      await expectNoViolations()
+    }
+  )
+
+  it('onboarding with an empty tab has no axe violations', async () => {
+    renderAppAt('/onboarding')
+    await screen.findByRole('figure', { name: 'Onboarding funnel' })
+    await screen.findByText('No tenant is stuck.')
+    await expectNoViolations()
+  })
+
+  it('onboarding before any tenant is tracked has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/onboarding/funnel', () =>
+        ok(
+          {
+            ...testOnboardingFunnel,
+            trackedTenants: 0,
+            totals: { started: 0, inProgress: 0, stuck: 0, complete: 0, dismissed: 0 },
+            completionRate: null,
+          },
+          'Onboarding funnel retrieved.'
+        )
+      )
+    )
+    renderAppAt('/onboarding')
+    await screen.findByText('Onboarding tracking starts with tenants created after this release.')
+    await expectNoViolations()
+  })
+
+  /** Acme's platform detail with the tab's own read, in `onboarding`'s state. */
+  function serveOnboarding(onboarding: Parameters<typeof tenantOnboardingDetail>[0] = {}) {
+    serveTenant(onboarding.tenant?.lifecycleState ?? 'active')
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/onboarding`, () =>
+        ok(tenantOnboardingDetail(onboarding), 'Tenant onboarding retrieved.')
+      )
+    )
+  }
+
+  it('a tenant’s Onboarding tab with every completion kind and its reminders has no axe violations', async () => {
+    serveOnboarding({
+      state: 'stuck',
+      daysStuck: 9,
+      steps: tenantOnboardingAfterStaffCompletion('teammate_joined').steps,
+      reminders: [onboardingReminder(), onboardingReminder({ id: AUDIT_ID_2, sentBy: null })],
+    })
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/onboarding`)
+    await screen.findByRole('list', { name: 'Onboarding steps' })
+    await screen.findByRole('list', { name: 'Reminders sent' })
+    // Not vacuous: the disclosure is open, so the members' own statuses are graded too.
+    await user.click(screen.getByText('1 of 2 members'))
+    expect(screen.getByText('Evan Editor')).toBeVisible()
+    await expectNoViolations()
+  })
+
+  it.each([
+    [
+      'not tracked',
+      { state: 'not_tracked' as const },
+      'Not tracked — created before onboarding tracking.',
+    ],
+    [
+      'awaiting its owner',
+      { state: 'awaiting_owner' as const, startedAt: null, lastProgressAt: null },
+      'Waiting for the owner to accept their invitation.',
+    ],
+    [
+      'suspended',
+      {
+        tenant: {
+          id: TENANT_ID,
+          name: 'Acme Corp',
+          slug: 'acme',
+          lifecycleState: 'suspended' as const,
+        },
+        reminder: {
+          ...tenantOnboardingDetail().reminder,
+          canSend: false,
+          blockedBy: 'tenant_state_conflict' as const,
+        },
+      },
+      'This tenant is suspended: its onboarding is read-only.',
+    ],
+  ])('a tenant’s Onboarding tab %s has no axe violations', async (_name, onboarding, text) => {
+    serveOnboarding(onboarding)
+    renderAppAt(`/tenants/${TENANT_ID}/onboarding`)
+    await screen.findByText(text)
+    await expectNoViolations()
+  })
+
+  it('has no violations with the Mark complete dialog open', async () => {
+    serveOnboarding()
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/onboarding`)
+    await user.click(await screen.findByRole('button', { name: 'Mark Invite a teammate complete' }))
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Mark “Invite a teammate” complete?',
+    })
+    expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the reminder dialog open', async () => {
+    serveOnboarding()
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/onboarding`)
+    await user.click(await screen.findByRole('button', { name: 'Send reminder' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send an onboarding reminder?' })
+    expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
     await expectNoViolations()
   })
 })

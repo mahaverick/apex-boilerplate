@@ -79,28 +79,31 @@ export function FunnelCard({ funnel }: { funnel: OnboardingFunnel }) {
           </span>
         </div>
       </div>
-      <table className="sr-only">
-        <thead>
-          <tr>
-            <th scope="col">Step</th>
-            <th scope="col">Required</th>
-            <th scope="col">Completed</th>
-            <th scope="col">By staff</th>
-            <th scope="col">Share</th>
-          </tr>
-        </thead>
-        <tbody>
-          {steps.map((step) => (
-            <tr key={step.key}>
-              <th scope="row">{step.title}</th>
-              <td>{step.required ? 'Required' : 'Optional'}</td>
-              <td>{step.completed}</td>
-              <td>{step.staffCompleted}</td>
-              <td>{formatShare(step.completed, started)}</td>
+      {/* A table sizes to its columns, ignoring sr-only's 1px width, so the clipping box is a div. */}
+      <div className="sr-only">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Step</th>
+              <th scope="col">Required</th>
+              <th scope="col">Completed</th>
+              <th scope="col">By staff</th>
+              <th scope="col">Share</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {steps.map((step) => (
+              <tr key={step.key}>
+                <th scope="row">{step.title}</th>
+                <td>{step.required ? 'Required' : 'Optional'}</td>
+                <td>{step.completed}</td>
+                <td>{step.staffCompleted}</td>
+                <td>{formatShare(step.completed, started)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </ChartCard>
   )
 }

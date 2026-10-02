@@ -103,7 +103,7 @@ describe('/onboarding', () => {
       expect(completed?.style.width).toBe('65%')
       expect(completed?.style.background).toBe('var(--chart-1)')
       expect(staff?.style.width).toBe('10%')
-      expect(staff?.style.background).toBe('var(--chart-3)')
+      expect(staff?.style.background).toBe('var(--chart-2)')
     })
 
     it('opens on 30 days, and asks for 90 when the toggle is switched, keeping the tab', async () => {

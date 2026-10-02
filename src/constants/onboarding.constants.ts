@@ -43,8 +43,12 @@ export const ONBOARDING_SOURCE_LABELS: Record<OnboardingSource, string> = {
   staff: 'Marked complete by staff',
 }
 
-/** The funnel bars' two fills: every completion, and the staff-completed part drawn over it. */
-export const FUNNEL_COLORS = { completed: 'var(--chart-1)', staff: 'var(--chart-3)' } as const
+/**
+ * The funnel bars' two fills: the completions staff did not make, then the
+ * staff-completed part at the bar's end. Each clears 3:1 against the
+ * `--muted` track in both themes, which light `--chart-3` does not.
+ */
+export const FUNNEL_COLORS = { completed: 'var(--chart-1)', staff: 'var(--chart-2)' } as const
 
 /** What the onboarding page says while no tenant is tracked at all. */
 export const ONBOARDING_NOT_STARTED =

@@ -167,19 +167,23 @@ function TenantsByState() {
         Tenants
       </h2>
       <Tabs
+        className="min-w-0"
         value={state}
         onValueChange={(next: unknown) => {
           if (!isListState(next)) return
           void navigate({ search: (prev) => ({ range: prev.range, state: next }) })
         }}
       >
-        <TabsList aria-label="Onboarding states" className="max-w-full overflow-x-auto">
-          {ONBOARDING_LIST_STATES.map((value) => (
-            <TabsTrigger key={value} value={value}>
-              {ONBOARDING_TAB_LABELS[value]}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        {/* The list centres its tabs, so it scrolls inside a box of its own: an overflowing centred row would clip its first tab out of reach. */}
+        <div className="max-w-full overflow-x-auto">
+          <TabsList aria-label="Onboarding states">
+            {ONBOARDING_LIST_STATES.map((value) => (
+              <TabsTrigger key={value} value={value}>
+                {ONBOARDING_TAB_LABELS[value]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
         {ONBOARDING_LIST_STATES.map((value) => (
           <TabsContent key={value} value={value} className="pt-2">
             {value === state && <TenantsPanel state={value} />}
@@ -246,7 +250,7 @@ function TenantsPanel({ state }: { state: OnboardingListState }) {
   }
   return (
     <div className="grid gap-2">
-      <div aria-busy={page.isPlaceholderData}>
+      <div aria-busy={page.isPlaceholderData} className="min-w-0">
         <OnboardingTenantsTable rows={page.data.tenants} state={state} />
       </div>
       <nav aria-label="Pagination" className="flex items-center justify-end gap-2">
