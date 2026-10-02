@@ -157,7 +157,12 @@ function OnboardingPage() {
   )
 }
 
-/** The tracked tenants, one tab per state. Changing tab drops the cursor: it belongs to the list it was cut from. */
+/**
+ * The tracked tenants, one tab per state. Changing tab drops the cursor: it
+ * belongs to the list it was cut from. The tab list scrolls in a box of its
+ * own: the list centres its tabs, and an overflowing centred row clips its
+ * first tab where no scroll reaches.
+ */
 function TenantsByState() {
   const { state } = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -174,7 +179,6 @@ function TenantsByState() {
           void navigate({ search: (prev) => ({ range: prev.range, state: next }) })
         }}
       >
-        {/* The list centres its tabs, so it scrolls inside a box of its own: an overflowing centred row would clip its first tab out of reach. */}
         <div className="max-w-full overflow-x-auto">
           <TabsList aria-label="Onboarding states">
             {ONBOARDING_LIST_STATES.map((value) => (
