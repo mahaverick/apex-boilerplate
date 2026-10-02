@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/mahaverick/apex-boilerplate/compare/v1.3.1...v1.3.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* keep keyboard focus when an action replaces its button ([#13](https://github.com/mahaverick/apex-boilerplate/issues/13)) ([561b7a1](https://github.com/mahaverick/apex-boilerplate/commit/561b7a1f8937a440156d913ec4fe852c5794e737))
+
 ## [1.3.1](https://github.com/mahaverick/apex-boilerplate/compare/v1.3.0...v1.3.1) (2026-10-02)
 
 
