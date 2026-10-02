@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { Pii } from '@/components/shared/pii'
 import { EMAIL_EVENT_LABELS, providerLabel } from '@/constants/email.constants'
 import { ROUTES } from '@/constants/routes'
 import { buildEmailTimeline, type TimelineEntry } from '@/lib/email-timeline'
@@ -54,7 +55,9 @@ function Description({ entry }: { entry: TimelineEntry }) {
           {event.detail !== null && (
             <>
               {' '}
-              <code className="text-xs">{event.detail}</code>
+              <Pii className="text-xs">
+                <code>{event.detail}</code>
+              </Pii>
             </>
           )}
           <span className="text-muted-foreground"> · {providerLabel(event.provider)}</span>

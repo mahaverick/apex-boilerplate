@@ -7,16 +7,17 @@ import { expect, test } from '../hermetic'
  * (`.ph-sensitive.ph-mask`), so autocapture leaves it out of `$el_text` and
  * replay masks it. The names are the harness's people; any address at all
  * counts. The network half, over what really reaches PostHog, is the live
- * suite's (e2e/live/analytics.test.ts).
+ * suite's (e2e/nginx/analytics.test.ts).
  */
 
-const NAMES = ['A B', 'Cleo D', 'Sam Staff', 'Evangeline', 'Featherstonehaugh']
+const NAMES = ['A B', 'Cleo D', 'Cleo', 'Sam Staff', 'Evangeline', 'Featherstonehaugh']
 
 const ACME = '/tenants/10000000-0000-4000-8000-000000000001'
 const DELTA = '/tenants/10000000-0000-4000-8000-000000000004'
 const CLEO = '/users/20000000-0000-4000-8000-000000000002'
 const DELETED = '/users/20000000-0000-4000-8000-000000000003'
 const DELIVERED = '/emails/70000000-0000-4000-8000-000000000001'
+const BOUNCED = '/emails/70000000-0000-4000-8000-000000000002'
 
 for (const [name, path, ready] of [
   ['the overview', '/overview', 'Overview'],
@@ -35,6 +36,8 @@ for (const [name, path, ready] of [
   ['a tenant’s onboarding', `${ACME}/onboarding`, 'Acme Corp'],
   ['the emails list', '/emails', 'Emails'],
   ['an email', DELIVERED, 'c@d.com'],
+  ['an email’s preview', `${DELIVERED}?tab=preview`, 'c@d.com'],
+  ['a bounced email', BOUNCED, 'a-very-long-address-for-overflow@example-company-domain.com'],
   ['suppressions, active and lifted', '/suppressions?state=all', 'Suppressions'],
   ['onboarding', '/onboarding', 'Onboarding'],
   ['the profile', '/profile', 'Profile'],
@@ -62,4 +65,9 @@ test('the user menu’s initials and name, and the open palette’s people, sit 
   await page.getByRole('combobox', { name: 'Search pages, tenants and users' }).fill('c')
   await expect(page.getByRole('option', { name: /c@d\.com/ })).toBeVisible()
   expect(await unmaskedPii(page, NAMES)).toEqual([])
+})
+
+test('the email preview’s frame is blocked from replay', async ({ page }) => {
+  await page.goto(`/e2e/harness/?path=${DELIVERED}?tab=preview`)
+  await expect(page.getByTitle('Email preview')).toHaveClass(/ph-no-capture/)
 })

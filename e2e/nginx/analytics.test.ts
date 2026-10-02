@@ -18,6 +18,7 @@ import {
   apiRequest,
   createTenant,
   createVerifiedUser,
+  emailIdFor,
   freshSlug,
   grantPlatformRole,
   logIn,
@@ -383,6 +384,8 @@ test.describe('analytics end to end, through express', () => {
     const invitationToken =
       new URL(await mailedLink(invitee, 'invitations/accept')).searchParams.get('token') ?? ''
     expect(invitationToken).not.toBe('')
+    const emailId = await emailIdFor(staff.token, invitee, 'tenant_invitation')
+    const target = await probeStaff('target')
     const needles = [PROBE_NAME, 'pii-probe']
 
     await logIn(page, staff.email)
@@ -395,12 +398,34 @@ test.describe('analytics end to end, through express', () => {
       [`/tenants/${tenantId}/members`, tenantName],
       [`/tenants/${tenantId}/invitations`, tenantName],
       [`/emails?q=${encodeURIComponent(invitee)}`, 'Emails'],
+      // The invitation email's own page, its preview tab with the rendered subject, text and frame.
+      [`/emails/${emailId}?tab=preview`, invitee],
+      [`/emails/${emailId}`, invitee],
+      ['/suppressions', 'Suppressions'],
+      ['/onboarding', 'Onboarding'],
+      [`/tenants/${tenantId}/onboarding`, tenantName],
+      [`/tenants/${tenantId}/activity`, tenantName],
       ['/activity', 'Activity'],
       ['/staff', 'Staff'],
       ['/profile', 'Profile'],
     ] as const) {
       await visit(page, url, heading, needles)
     }
+
+    // A ReasonDialog names the account it acts on in its description.
+    await visit(page, `/users/${target.id}`, PROBE_NAME, needles)
+    await page.getByRole('button', { name: `Actions for ${target.email}` }).click()
+    await page.getByRole('menuitem', { name: 'Sign out everywhere' }).click()
+    const dialog = page.getByRole('alertdialog', { name: 'Sign out everywhere' })
+    await expect(dialog).toBeVisible()
+    expect(await unmaskedPii(page, needles), 'ReasonDialog').toEqual([])
+    await clickUntilReplayed(
+      fake,
+      dialog.getByRole('heading', { name: 'Sign out everywhere' }),
+      'Cancel'
+    )
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toBeHidden()
 
     await page.keyboard.press('Control+k')
     // The whole local part: earlier runs left other pii-probe accounts, and the palette lists eight.

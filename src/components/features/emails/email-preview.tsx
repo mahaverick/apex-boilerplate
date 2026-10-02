@@ -1,10 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
+import { Pii } from '@/components/shared/pii'
 import { Skeleton } from '@/components/ui/skeleton'
 import { codeFrom, statusFrom } from '@/lib/api-error'
+import { cn } from '@/lib/utils'
 import { emailPreviewQueryOptions } from '@/queries/email.queries'
 import { TEMPLATE_UNAVAILABLE, type EmailSenderClass } from '@/types/api.types'
+
+/**
+ * Keeps the frame out of session replay, which otherwise records its whole
+ * `srcdoc`: the email, recipient and all.
+ */
+const NO_REPLAY = 'ph-no-capture'
 
 /**
  * The message re-rendered from its template: subject, HTML and text. The
@@ -55,7 +63,9 @@ export function EmailPreviewPanel({
         <h2 id="preview-subject" className="text-sm font-medium">
           Subject
         </h2>
-        <p className="text-sm wrap-break-word">{subject}</p>
+        <Pii as="p" className="text-sm wrap-break-word">
+          {subject}
+        </Pii>
       </section>
       <section aria-labelledby="preview-html" className="grid gap-1">
         <h2 id="preview-html" className="text-sm font-medium">
@@ -65,16 +75,19 @@ export function EmailPreviewPanel({
           sandbox=""
           srcDoc={html}
           title="Email preview"
-          className="h-160 w-full rounded-md border bg-white"
+          className={cn(NO_REPLAY, 'h-160 w-full rounded-md border bg-white')}
         />
       </section>
       <section aria-labelledby="preview-text" className="grid gap-1">
         <h2 id="preview-text" className="text-sm font-medium">
           Text
         </h2>
-        <pre className="max-h-96 overflow-auto rounded-md border p-3 text-sm whitespace-pre-wrap">
+        <Pii
+          as="pre"
+          className="max-h-96 overflow-auto rounded-md border p-3 text-sm whitespace-pre-wrap"
+        >
           {text}
-        </pre>
+        </Pii>
       </section>
     </div>
   )
