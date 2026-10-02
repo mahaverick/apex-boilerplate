@@ -19,7 +19,7 @@ function input(overrides: Partial<PosthogOptionsInput> = {}): PosthogOptionsInpu
     uiHost: 'https://us.posthog.com',
     consentMode: 'opt_out',
     urlAllowlist: ['tab'],
-    persistenceName: 'ph_apex',
+    persistenceName: 'ph_test',
     crossSubdomainCookie: false,
     onLoaded: vi.fn(),
     ...overrides,
@@ -47,7 +47,7 @@ describe('buildPosthogOptions', () => {
         'ph_sid',
       ],
       persistence: 'localStorage+cookie',
-      persistence_name: 'ph_apex',
+      persistence_name: 'ph_test',
       cross_subdomain_cookie: false,
       session_recording: {
         maskAllInputs: true,
@@ -125,14 +125,23 @@ describe('buildPosthogOptions', () => {
     })
   })
 
-  it('drops an event acceptEvent refuses, before it is sanitised', () => {
-    const acceptEvent = vi.fn(() => false)
-    const beforeSend = buildPosthogOptions(input({ acceptEvent })).before_send as (
+  it('runs guardEvent first: null drops the event, and what it returns is what is sanitised', () => {
+    const guardEvent = vi.fn((event: CaptureResult) =>
+      event.event === 'drop-me'
+        ? null
+        : {
+            ...event,
+            properties: { ...event.properties, $current_url: 'https://app.example.com/y?token=t' },
+          }
+    )
+    const beforeSend = buildPosthogOptions(input({ guardEvent })).before_send as (
       event: CaptureResult | null
     ) => CaptureResult | null
-    const event = { uuid: 'u', event: '$pageview', properties: {} }
-    expect(beforeSend(event)).toBeNull()
-    expect(acceptEvent).toHaveBeenCalledWith(event)
+    const dropped = { uuid: 'u', event: 'drop-me', properties: {} }
+    expect(beforeSend(dropped)).toBeNull()
+    expect(guardEvent).toHaveBeenCalledWith(dropped)
+    const sent = beforeSend({ uuid: 'u', event: '$pageview', properties: {} })
+    expect(sent?.properties.$current_url).toBe('https://app.example.com/y')
   })
 
   it('sanitises the URL replay records for the page and each network request', () => {

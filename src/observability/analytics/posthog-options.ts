@@ -60,12 +60,14 @@ export interface PosthogOptionsInput {
   crossSubdomainCookie: boolean
   bootstrap?: HandoffBootstrap
   /**
-   * Runs on every event before it is sanitised and sent; false drops the
-   * event. The facade uses it to refuse events a sibling tab or website has
-   * re-attributed to another person.
+   * Runs on every event before it is sanitised and sent, and returns the
+   * event to send (possibly repaired) or null to drop it. The facade uses it
+   * to refuse events a sibling tab or website re-attributed to another
+   * person, and to put back the super properties and group a sibling's reset
+   * cleared.
    */
-  acceptEvent?: (event: CaptureResult) => boolean
-  /** Runs once the SDK has loaded, before its first `$pageview`. */
+  guardEvent?: (event: CaptureResult) => CaptureResult | null
+  /** Runs once the SDK has loaded, before it sends any event. */
   onLoaded: (instance: PostHogInterface) => void
 }
 
@@ -108,8 +110,8 @@ export function buildPosthogOptions(input: PosthogOptionsInput): Partial<PostHog
     },
     before_send: (event) => {
       if (event === null) return null
-      if (input.acceptEvent && !input.acceptEvent(event)) return null
-      return sanitizeEventUrls(event, allowlist)
+      const guarded = input.guardEvent ? input.guardEvent(event) : event
+      return guarded === null ? null : sanitizeEventUrls(guarded, allowlist)
     },
     ...(input.consentMode === 'required' ? { cookieless_mode: 'on_reject' as const } : {}),
     ...(input.bootstrap ? { bootstrap: input.bootstrap } : {}),
