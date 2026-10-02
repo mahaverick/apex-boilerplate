@@ -4,13 +4,13 @@ The staff admin dashboard boilerplate: a React 19 + TypeScript single-page app
 for the people who run a product, not the people who use it. Its sibling,
 `react-boilerplate`, is the customer app; both are built on the
 `express-boilerplate` API. Apex ships a sign-in, a grouped-sidebar shell, a
-⌘K command palette and eight staff pages: Overview (KPI cards and charts),
+⌘K command palette and nine staff pages: Overview (KPI cards and charts),
 Tenants (every customer tenant, keyset-paged, each with a detail page for its
-overview, members, invitations and activity), Users (every account, each with
+overview, members, invitations, activity, emails and onboarding), Users (every account, each with
 a detail page), Staff (the platform's own members and invitations), Emails
 (every tracked message, with a delivery timeline and preview), Deliverability
 (delivery, bounce and complaint rates), Suppressions (addresses mail is held
-back from) and the Activity log (the platform audit log).
+back from), Onboarding (the activation funnel and the tenants stuck in it) and the Activity log (the platform audit log).
 
 Only platform staff get in. A signed-in user with no platform role lands on
 `/no-access`, and the API answers `/platform/*` with **404** to anyone below
@@ -76,7 +76,7 @@ Staff are the members of express's platform tenant. Two ways in:
 Further staff are invited from the Staff page, which manages the platform
 tenant's members and invitations; with `APEX_URL` set, the invitation email
 links to Apex's `/invitations/accept`. A viewer sees Overview, Tenants, Users,
-Staff, Emails, Deliverability and Suppressions, read-only. The Activity log and every create, edit and soft action
+Staff, Emails, Deliverability, Suppressions and Onboarding, read-only. The Activity log, marking an onboarding step complete, sending an onboarding reminder and every create, edit and soft action
 need admin; permanent deletion, acting on another staff owner, changing any
 staff member's role and inviting staff as admin or owner need owner.
 
@@ -132,7 +132,7 @@ it: `pnpm dev` always proxies to `http://localhost:4040`.
 { label: 'Tenants', to: ROUTES.tenants, Icon: Building2, minRole: 'viewer', group: 'Directory' }
 ```
 
-`group` is one of `NAV_GROUPS` (General, Directory, Operations, Security),
+`group` is one of `NAV_GROUPS` (General, Directory, Operations, Growth, Security),
 which is the sidebar's section order. `minRole` is the least platform role that
 sees the item; an item above the signed-in user's role is hidden, never shown
 disabled. The API enforces the same bar, so `minRole` is only about what to

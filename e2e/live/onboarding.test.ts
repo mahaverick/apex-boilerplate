@@ -100,7 +100,7 @@ test('a staff reminder is a tracked email to the owner, and a staff completion i
 
   // Staff mark the settings step complete; it shows as theirs, with the reason.
   await page.goto(`/tenants/${tenantId}/onboarding`)
-  await page.getByRole('button', { name: `Mark ${settings.title} complete` }).click()
+  await page.getByRole('button', { name: `Mark complete: ${settings.title}` }).click()
   const mark = page.getByRole('alertdialog', { name: `Mark “${settings.title}” complete?` })
   await mark.getByLabel('Reason').fill('e2e: set up on the call')
   await mark.getByRole('button', { name: 'Mark complete' }).click()
@@ -111,7 +111,9 @@ test('a staff reminder is a tracked email to the owner, and a staff completion i
       .getByRole('list', { name: 'Onboarding steps' })
       .getByText(/· by staff: .+ — e2e: set up on the call$/)
   ).toBeVisible()
-  await expect(page.getByRole('button', { name: `Mark ${settings.title} complete` })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: `Mark complete: ${settings.title}` })).toHaveCount(
+    0
+  )
 
   const after = await apiRequest(token, 'GET', `/platform/tenants/${tenantId}/onboarding`)
   const completed = (after.body as { data: { steps: StepRow[] } }).data.steps.find(

@@ -32,7 +32,11 @@ export function OnboardingKpis({ funnel }: { funnel: OnboardingFunnel }) {
           ? 'No tenant started in the window'
           : `${count(totals.complete)} of ${count(started)} started tenants`,
     },
-    { label: 'Stuck now', value: count(totals.stuck), note: 'No progress for a while' },
+    {
+      label: 'Stuck now',
+      value: count(totals.stuck),
+      note: 'No progress for a while. Of tenants started in this window.',
+    },
     { label: 'Dismissed', value: count(totals.dismissed), note: 'Hid the checklist unfinished' },
   ]
   return (

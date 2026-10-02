@@ -595,7 +595,7 @@ export const ONBOARDING_LIST_STATES = [
 ] as const satisfies readonly OnboardingState[]
 export type OnboardingListState = (typeof ONBOARDING_LIST_STATES)[number]
 
-/** The funnel's windows, in toggle order. Mirrors express's ONBOARDING_RANGES, apart from STATS_RANGES. */
+/** The funnel's windows, in toggle order. Mirrors express's ONBOARDING_RANGES; distinct from STATS_RANGES. */
 export const ONBOARDING_RANGES = ['7d', '30d', '90d'] as const
 export type OnboardingRange = (typeof ONBOARDING_RANGES)[number]
 

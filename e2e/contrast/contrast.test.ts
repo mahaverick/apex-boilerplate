@@ -762,7 +762,7 @@ test.describe('onboarding at 390px', () => {
       await page.setViewportSize({ width: 390, height: 844 })
       await contrastOf(page, `/e2e/harness/?path=${ACME_ONBOARDING}`, theme, 'Reminders')
       for (const [trigger, title] of [
-        ['Mark Invite a teammate complete', 'Mark “Invite a teammate” complete?'],
+        ['Mark complete: Invite a teammate', 'Mark “Invite a teammate” complete?'],
         ['Send reminder', 'Send an onboarding reminder?'],
       ] as const) {
         await page.getByRole('button', { name: trigger }).click()

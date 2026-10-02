@@ -161,7 +161,7 @@ describe('/tenants/$tenantId/onboarding', () => {
       })
       renderAppAt(ONBOARDING)
       expect(await screen.findByText(note)).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /^Mark .+ complete$/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Mark complete: / })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Send reminder' })).not.toBeInTheDocument()
       expect(screen.queryByText(/required steps done/)).not.toBeInTheDocument()
       if (state === 'not_tracked') {
@@ -260,8 +260,8 @@ describe('/tenants/$tenantId/onboarding', () => {
       renderAppAt(ONBOARDING)
       await steps()
       expect(
-        screen.getAllByRole('button', { name: /^Mark .+ complete$/ }).map((b) => b.ariaLabel)
-      ).toEqual(['Mark Invite a teammate complete', 'Mark A teammate joins complete'])
+        screen.getAllByRole('button', { name: /^Mark complete: / }).map((b) => b.ariaLabel)
+      ).toEqual(['Mark complete: Invite a teammate', 'Mark complete: A teammate joins'])
     })
 
     it('shows a viewer no action, and says an admin can', async () => {
@@ -295,7 +295,7 @@ describe('/tenants/$tenantId/onboarding', () => {
       const user = userEvent.setup()
       renderAppAt(ONBOARDING)
       await user.click(
-        await screen.findByRole('button', { name: 'Mark Invite a teammate complete' })
+        await screen.findByRole('button', { name: 'Mark complete: Invite a teammate' })
       )
       const dialog = await screen.findByRole('alertdialog', {
         name: 'Mark “Invite a teammate” complete?',
@@ -308,7 +308,7 @@ describe('/tenants/$tenantId/onboarding', () => {
       )
       expect(body).toEqual({ reason: 'Done on the call' })
       expect(
-        screen.queryByRole('button', { name: 'Mark Invite a teammate complete' })
+        screen.queryByRole('button', { name: 'Mark complete: Invite a teammate' })
       ).not.toBeInTheDocument()
       const invite = (await steps()).children[1] as HTMLElement
       expect(within(invite).getByText(/· by staff: A B — Done on the call$/)).toBeInTheDocument()
@@ -340,7 +340,7 @@ describe('/tenants/$tenantId/onboarding', () => {
       const user = userEvent.setup()
       renderAppAt(ONBOARDING)
       await user.click(
-        await screen.findByRole('button', { name: 'Mark Invite a teammate complete' })
+        await screen.findByRole('button', { name: 'Mark complete: Invite a teammate' })
       )
       const dialog = await screen.findByRole('alertdialog')
       await user.type(within(dialog).getByLabelText('Reason'), 'Done on the call')
@@ -350,7 +350,7 @@ describe('/tenants/$tenantId/onboarding', () => {
       // The refusal refreshed the detail, so the button is gone while the dialog still says why.
       await waitFor(() =>
         expect(
-          screen.queryByRole('button', { name: 'Mark Invite a teammate complete' })
+          screen.queryByRole('button', { name: 'Mark complete: Invite a teammate' })
         ).not.toBeInTheDocument()
       )
       expect(screen.getByRole('alertdialog')).toBeInTheDocument()

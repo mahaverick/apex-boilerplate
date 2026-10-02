@@ -67,7 +67,7 @@ describe('/onboarding', () => {
         ['Started (30 days)', '40', 'Tenants whose onboarding began in the window'],
         ['Completed', '14', 'Every required step done'],
         ['Completion rate', '35.00%', '14 of 40 started tenants'],
-        ['Stuck now', '6', 'No progress for a while'],
+        ['Stuck now', '6', 'No progress for a while. Of tenants started in this window.'],
         ['Dismissed', '2', 'Hid the checklist unfinished'],
       ])
     })
@@ -189,6 +189,18 @@ describe('/onboarding', () => {
       renderAppAt('/onboarding')
       await user.click(await screen.findByRole('button', { name: 'Try again' }))
       expect(await screen.findByRole('region', { name: 'Onboarding figures' })).toBeInTheDocument()
+    })
+  })
+
+  describe('when the funnel fails', () => {
+    it('still lists the stuck tenants, whose query is independent', async () => {
+      server.use(http.get('/api/v1/platform/onboarding/funnel', () => fail('Boom', 500)))
+      serveTenants({ tenants: [onboardingTenantRow()] })
+      renderAppAt('/onboarding')
+      expect(
+        await screen.findByText('We could not load the onboarding figures.')
+      ).toBeInTheDocument()
+      expect(await screen.findByRole('table', { name: 'Onboarding tenants' })).toBeInTheDocument()
     })
   })
 

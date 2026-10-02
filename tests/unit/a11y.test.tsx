@@ -1765,7 +1765,9 @@ describe('onboarding', () => {
     serveOnboarding()
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/onboarding`)
-    await user.click(await screen.findByRole('button', { name: 'Mark Invite a teammate complete' }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Mark complete: Invite a teammate' })
+    )
     const dialog = await screen.findByRole('alertdialog', {
       name: 'Mark “Invite a teammate” complete?',
     })

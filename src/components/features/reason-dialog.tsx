@@ -62,7 +62,8 @@ export interface ReasonDialogProps {
  * irreversible ones, a typed confirmation. The form mounts only while open,
  * so each opening starts blank. A 403 or 409, and a 404 that carries a code,
  * is the server's own sentence (staff-on-staff refusal, invalid transition,
- * last owner, an invitation no longer pending) and is shown as is; a 404
+ * last owner, an invitation no longer pending) and is shown as is unless
+ * `refusalMessage` returns a sentence to replace it; a 404
  * without a code is the role gate's. The dialog stays open so the reader
  * sees it.
  */

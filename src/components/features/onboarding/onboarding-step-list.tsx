@@ -87,7 +87,7 @@ export function OnboardingStepList({
                 variant="outline"
                 size="sm"
                 className="shrink-0 self-start"
-                aria-label={`Mark ${step.title} complete`}
+                aria-label={`Mark complete: ${step.title}`}
                 onClick={(event) => onMarkComplete(step, event.currentTarget)}
               >
                 Mark complete

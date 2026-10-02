@@ -126,10 +126,13 @@ function OnboardingPage() {
         statusFrom(funnel.error) === 404 ? (
           <RoleDenied />
         ) : (
-          <LoadError
-            message="We could not load the onboarding figures."
-            onRetry={() => void funnel.refetch()}
-          />
+          <>
+            <LoadError
+              message="We could not load the onboarding figures."
+              onRetry={() => void funnel.refetch()}
+            />
+            <TenantsByState />
+          </>
         )
       ) : funnel.data === undefined ? (
         <FunnelSkeleton />
