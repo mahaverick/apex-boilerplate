@@ -9,6 +9,7 @@ import {
   installAnalyticsIdentity,
   installAuthBroadcastListener,
 } from '@/http/session'
+import { capturePageview, forgetStaleIdentity } from '@/observability/analytics'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 
@@ -22,7 +23,9 @@ export const queryClient = new QueryClient({
  * signed-in user to /login. ensureSession() dedupes concurrent callers and
  * signs the store out on an auth verdict, so this only starts the cross-tab
  * logout listener and the analytics identity subscription, and flips
- * isBootstrapped, whether or not the refresh worked.
+ * isBootstrapped, whether or not the refresh worked. A restore that ends with
+ * no user also drops any person posthog-js still holds from an earlier visit
+ * (`forgetStaleIdentity`), so the next visitor's pages are not theirs.
  */
 export async function bootstrapSession(): Promise<void> {
   if (useAuthStore.getState().isBootstrapped) return
@@ -33,6 +36,7 @@ export async function bootstrapSession(): Promise<void> {
   } catch {
     // Any refresh failure leaves this load signed out; only an auth verdict also clears the store (see refreshSession).
   } finally {
+    if (!useAuthStore.getState().user) forgetStaleIdentity()
     useAuthStore.getState().setBootstrapped()
   }
 }
@@ -48,6 +52,16 @@ export const router = createRouter({
   /** Held back 300ms so a fast navigation never flashes it, then kept 300ms so it never blinks. */
   defaultPendingMs: 300,
   defaultPendingMinMs: 300,
+})
+
+/**
+ * One `$pageview` per resolved navigation, captured here because posthog-js's
+ * own history pageviews are off: it fires after the URL changes, before the
+ * route's state has settled. A resolve that leaves the address unchanged
+ * (a reload of the same match) is not a page view.
+ */
+router.subscribe('onResolved', ({ fromLocation, toLocation }) => {
+  if (fromLocation?.href !== toLocation.href) capturePageview()
 })
 
 declare module '@tanstack/react-router' {

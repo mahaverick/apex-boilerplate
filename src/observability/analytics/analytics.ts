@@ -7,7 +7,7 @@
  * is a no-op. A throwing SDK call is swallowed: analytics never fails a user
  * action.
  */
-import type { PostHogInterface } from 'posthog-js'
+import type { CaptureResult, PostHogInterface } from 'posthog-js'
 import {
   ANALYTICS_APP,
   ANALYTICS_CROSS_SUBDOMAIN_COOKIE,
@@ -15,6 +15,7 @@ import {
   ANALYTICS_URL_QUERY_ALLOWLIST,
   getAnalyticsConfig,
   isAnalyticsAvailable,
+  SUPPORTS_HANDOFF,
   type AnalyticsConfig,
 } from './config'
 import type { BrowserEvent, TrackArgs } from './events'
@@ -47,6 +48,13 @@ let client: PostHogInterface | null = null
 let queue: QueuedCommand[] = []
 let activeConfig: AnalyticsConfig | null = null
 let activeTenantId: string | null = null
+/**
+ * The user this tab signed in, while the SDK still holds that person. Set
+ * after `identify`, cleared before every `reset`, so the identity guard sees
+ * only changes made by something else.
+ */
+let signedInUserId: string | null = null
+let isRepairScheduled = false
 const consentListeners = new Set<() => void>()
 
 function notifyConsent(): void {
@@ -85,6 +93,51 @@ function registerSuperProperties(ph: PostHogInterface): void {
   ph.register({ app: ANALYTICS_APP, environment: activeConfig?.environment })
 }
 
+/** Identifies `userId`, first resetting a different person this browser still holds. */
+function applyIdentity(ph: PostHogInterface, userId: string): void {
+  if (ph.get_property('$user_state') === 'identified' && ph.get_distinct_id() !== userId) {
+    resetKeepingConsent(ph)
+  }
+  ph.identify(userId)
+  signedInUserId = userId
+}
+
+/**
+ * Puts back what something else changed under a signed-in tab: another tab
+ * or a sibling site sharing this browser's identity storage that identified
+ * or reset. The signed-in user is identified again, the super properties and
+ * the tenant group (all of which a reset clears) are set again. Runs in a
+ * later task, never inside the event that found the change.
+ */
+function scheduleIdentityRepair(): void {
+  if (isRepairScheduled) return
+  isRepairScheduled = true
+  queueMicrotask(() => {
+    isRepairScheduled = false
+    const userId = signedInUserId
+    if (userId === null) return
+    run((ph) => {
+      if (userId !== signedInUserId) return
+      applyIdentity(ph, userId)
+      registerSuperProperties(ph)
+      if (activeTenantId !== null) ph.group('tenant', activeTenantId)
+    })
+  })
+}
+
+/**
+ * Whether an event may be sent: while a user is signed in, only events that
+ * carry that user's distinct id. Anything else was attributed to another
+ * person by a sibling, and is dropped while the identity is put back.
+ */
+function acceptEvent(event: CaptureResult): boolean {
+  if (signedInUserId === null) return true
+  const distinctId = (event.properties as { distinct_id?: unknown } | undefined)?.distinct_id
+  if (distinctId === signedInUserId) return true
+  scheduleIdentityRepair()
+  return false
+}
+
 function onLoaded(instance: PostHogInterface): void {
   client = instance
   status = 'ready'
@@ -101,6 +154,7 @@ function onLoaded(instance: PostHogInterface): void {
  * and environment they come from, and the browser's consent answer stands.
  */
 function resetKeepingConsent(ph: PostHogInterface): void {
+  signedInUserId = null
   const consent = ph.get_explicit_consent_status()
   ph.reset()
   registerSuperProperties(ph)
@@ -122,7 +176,7 @@ export async function initAnalytics(config: AnalyticsConfig = getAnalyticsConfig
   try {
     const key = config.key
     const handoff =
-      key !== undefined && config.consentMode === 'opt_out'
+      SUPPORTS_HANDOFF && key !== undefined && config.consentMode === 'opt_out'
         ? readHandoff(
             window.location,
             document.referrer,
@@ -146,6 +200,7 @@ export async function initAnalytics(config: AnalyticsConfig = getAnalyticsConfig
         persistenceName: ANALYTICS_PERSISTENCE_NAME,
         crossSubdomainCookie: ANALYTICS_CROSS_SUBDOMAIN_COOKIE,
         bootstrap: handoff.bootstrap,
+        acceptEvent,
         onLoaded,
       })
     )
@@ -173,11 +228,26 @@ export function track<E extends BrowserEvent>(event: E, ...args: TrackArgs<E>): 
  */
 export function identifyUser(userId: string): void {
   run((ph) => {
-    if (ph.get_property('$user_state') === 'identified' && ph.get_distinct_id() !== userId) {
-      resetKeepingConsent(ph)
-    }
-    ph.identify(userId)
+    applyIdentity(ph, userId)
   })
+}
+
+/**
+ * Forgets a person this browser still holds when nobody is signed in: a
+ * session restore that ended with no user, so a previous person's identity
+ * must not carry the next visitor's pageviews, replay and session header.
+ * Does nothing for an anonymous browser.
+ */
+export function forgetStaleIdentity(): void {
+  activeTenantId = null
+  run((ph) => {
+    if (ph.get_property('$user_state') === 'identified') resetKeepingConsent(ph)
+  })
+}
+
+/** Captures a `$pageview` for the current location; the router calls it once a route has resolved. */
+export function capturePageview(): void {
+  run((ph) => ph.capture('$pageview', {}), true)
 }
 
 /**
@@ -199,6 +269,7 @@ export function setTenantGroup(tenantId: string): void {
 /** Forgets the person and the tenant: sign-out, forced or chosen. The consent answer survives. */
 export function resetAnalytics(): void {
   activeTenantId = null
+  signedInUserId = null
   run(resetKeepingConsent)
 }
 
@@ -281,6 +352,29 @@ export function getAnalyticsSessionId(): string | undefined {
   }
 }
 
+/**
+ * The replay session id for a request, only when the SDK's person is the one
+ * making it: PostHog is anonymous, or its distinct id is `userId`. A browser
+ * still holding someone else (a stale or foreign identity) sends none, so the
+ * server never links this request to that person's replay.
+ * @param userId - The signed-in user's id, or null when nobody is signed in.
+ * @returns See `getAnalyticsSessionId`; undefined for a foreign identity too.
+ */
+export function getAnalyticsSessionIdFor(userId: string | null): string | undefined {
+  if (status !== 'ready' || !client) return undefined
+  try {
+    if (
+      client.get_property('$user_state') === 'identified' &&
+      client.get_distinct_id() !== userId
+    ) {
+      return undefined
+    }
+  } catch {
+    return undefined
+  }
+  return getAnalyticsSessionId()
+}
+
 /** Test-only: forget the SDK, the queue, the tenant and every listener. */
 export function resetAnalyticsForTests(): void {
   status = 'idle'
@@ -288,5 +382,7 @@ export function resetAnalyticsForTests(): void {
   queue = []
   activeConfig = null
   activeTenantId = null
+  signedInUserId = null
+  isRepairScheduled = false
   consentListeners.clear()
 }

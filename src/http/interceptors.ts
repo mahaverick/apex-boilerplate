@@ -7,7 +7,7 @@ import {
 import { API_PREFIX } from '@/constants/routes'
 import { broadcastLogout, ensureSession, isAuthVerdict, redirectToLogin } from '@/http/session'
 import { createTraceparent } from '@/http/traceparent'
-import { getAnalyticsSessionId } from '@/observability/analytics'
+import { getAnalyticsSessionIdFor } from '@/observability/analytics'
 import { useAuthStore } from '@/states/auth.store'
 import { ACCESS_TOKEN_EXPIRED, REAUTH_REQUIRED, type ApiErrorBody } from '@/types/api.types'
 
@@ -84,7 +84,8 @@ function isApiRequest(client: AxiosInstance, config: InternalAxiosRequestConfig)
 
 /**
  * Sets `traceparent` on every API request that has none (a replay keeps its
- * original), and `X-POSTHOG-SESSION-ID` when analytics has a session to link,
+ * original), and `X-POSTHOG-SESSION-ID` when analytics has a session to link and
+ * PostHog's person is the one making the request (anonymous, or the signed-in user),
  * so the server's span and its analytics events join the browser's replay.
  */
 export function addTraceHeaders(
@@ -93,7 +94,7 @@ export function addTraceHeaders(
 ): InternalAxiosRequestConfig {
   if (!isApiRequest(client, config)) return config
   if (!config.headers.has('traceparent')) config.headers.set('traceparent', createTraceparent())
-  const sessionId = getAnalyticsSessionId()
+  const sessionId = getAnalyticsSessionIdFor(useAuthStore.getState().user?.id ?? null)
   if (sessionId) config.headers.set('X-POSTHOG-SESSION-ID', sessionId)
   return config
 }

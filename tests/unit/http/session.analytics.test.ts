@@ -1,9 +1,10 @@
 import axios from 'axios'
-import { http } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installInterceptors } from '@/http/interceptors'
 import { ensureSession, installAnalyticsIdentity, resetSessionForTests } from '@/http/session'
 import { initAnalytics, resetAnalyticsForTests } from '@/observability/analytics/analytics'
+import { bootstrapSession } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
 import { USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -125,5 +126,62 @@ describe('installAnalyticsIdentity with a user already signed in', () => {
     installAnalyticsIdentity()
     await initAnalytics(analyticsConfigFor({ POSTHOG_KEY: 'phc_test_key_not_real' }))
     expect(sdkCalls()).toEqual([`identify("${USER_ID}")`])
+  })
+})
+
+describe('a cold load that ends with nobody signed in', () => {
+  beforeEach(() => {
+    resetSessionForTests()
+    resetAnalyticsForTests()
+    resetFakePosthog()
+    useAuthStore.setState({
+      accessToken: null,
+      user: null,
+      isAuthenticated: false,
+      isBootstrapped: false,
+    })
+  })
+
+  afterEach(() => vi.restoreAllMocks())
+
+  it('resets a person the browser still holds, before the first event', async () => {
+    sdk.distinctId = USER_ID
+    sdk.userState = 'identified'
+    server.use(http.post('/api/v1/auth/refresh', () => fail('Unauthorized', 401)))
+
+    await bootstrapSession()
+    await initAnalytics(analyticsConfigFor({ POSTHOG_KEY: 'phc_test_key_not_real' }))
+
+    expect(sdkCalls()).toEqual(['reset()'])
+    expect(sdk.userState).toBe('anonymous')
+  })
+
+  it('also resets when the restore failed without a verdict', async () => {
+    sdk.distinctId = USER_ID
+    sdk.userState = 'identified'
+    server.use(http.post('/api/v1/auth/refresh', () => HttpResponse.error()))
+
+    await bootstrapSession()
+    await initAnalytics(analyticsConfigFor({ POSTHOG_KEY: 'phc_test_key_not_real' }))
+
+    expect(sdkCalls()).toEqual(['reset()'])
+  })
+
+  it('keeps the person when the restore signs in the same user', async () => {
+    sdk.distinctId = USER_ID
+    sdk.userState = 'identified'
+    server.use(http.get('/api/v1/profile', () => ok(userA, 'Profile retrieved.')))
+
+    await bootstrapSession()
+    await initAnalytics(analyticsConfigFor({ POSTHOG_KEY: 'phc_test_key_not_real' }))
+
+    expect(sdkCalls()).toEqual([`identify("${USER_ID}")`])
+  })
+
+  it('does nothing for an anonymous browser', async () => {
+    server.use(http.post('/api/v1/auth/refresh', () => fail('Unauthorized', 401)))
+    await bootstrapSession()
+    await initAnalytics(analyticsConfigFor({ POSTHOG_KEY: 'phc_test_key_not_real' }))
+    expect(sdkCalls()).toEqual([])
   })
 })

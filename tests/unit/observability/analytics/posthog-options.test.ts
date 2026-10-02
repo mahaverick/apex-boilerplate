@@ -118,6 +118,23 @@ describe('buildPosthogOptions', () => {
     expect(sent?.properties.$current_url).toBe('https://app.example.com/x?tab=a')
   })
 
+  it('turns off the automatic pageview and keeps the pageleave', () => {
+    expect(buildPosthogOptions(input())).toMatchObject({
+      capture_pageview: false,
+      capture_pageleave: true,
+    })
+  })
+
+  it('drops an event acceptEvent refuses, before it is sanitised', () => {
+    const acceptEvent = vi.fn(() => false)
+    const beforeSend = buildPosthogOptions(input({ acceptEvent })).before_send as (
+      event: CaptureResult | null
+    ) => CaptureResult | null
+    const event = { uuid: 'u', event: '$pageview', properties: {} }
+    expect(beforeSend(event)).toBeNull()
+    expect(acceptEvent).toHaveBeenCalledWith(event)
+  })
+
   it('sanitises the URL replay records for the page and each network request', () => {
     const mask = buildPosthogOptions(input()).session_recording?.maskCapturedNetworkRequestFn as (
       request: CapturedNetworkRequest

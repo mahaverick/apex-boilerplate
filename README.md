@@ -294,7 +294,7 @@ Kubernetes or not — and whatever secret store the values come from.
 | `POSTHOG_KEY`               | `VITE_POSTHOG_KEY`               | `phc_` and 8–128 of `A-Z a-z 0-9 _ -`         | empty                    | PostHog project key. Empty: no analytics code loads, every call is a no-op.                          |
 | `POSTHOG_UI_HOST`           | `VITE_POSTHOG_UI_HOST`           | an `https://` origin, no path                 | `https://us.posthog.com` | PostHog's UI host, for links posthog-js builds.                                                      |
 | `ANALYTICS_CONSENT_MODE`    | —                                | `opt_out`, `required` or `off`                | ignored                  | Validated (the entrypoint is shared with react-boilerplate) but ignored: Apex always runs `opt_out`. |
-| `ANALYTICS_HANDOFF_ORIGINS` | `VITE_ANALYTICS_HANDOFF_ORIGINS` | comma-separated `https://` origins, no spaces | empty                    | Websites on other domains allowed to hand a visitor off ([how](#analytics-posthog)).                 |
+| `ANALYTICS_HANDOFF_ORIGINS` | `VITE_ANALYTICS_HANDOFF_ORIGINS` | comma-separated `https://` origins, no spaces | empty                    | Ignored: Apex takes no handoff ([why](#analytics-posthog)).                                          |
 | `APP_ENVIRONMENT`           | `VITE_APP_ENVIRONMENT`           | `[a-z][a-z0-9-]` up to 32                     | `development`            | Sent as `environment` on every browser event.                                                        |
 
 How it reaches the bundle:
@@ -504,10 +504,11 @@ older API `/api/v1/collect` answers 404 and the user carries no
 `analyticsOptOut`). Set the container's `POSTHOG_KEY` (and `POSTHOG_UI_HOST` for
 an EU project, `APP_ENVIRONMENT` for the environment's name) to the
 environment's project, the one express's `POSTHOG_PROJECT_KEY` names; no
-rebuild. A website on another domain can hand a visitor's anonymous id over
-in `?ph_did=&ph_sid=` when its origin is listed in
-`ANALYTICS_HANDOFF_ORIGINS`; react-boilerplate's `docs/analytics-handoff.md`
-has the website side.
+rebuild. Apex takes no handoff from a website: `ANALYTICS_HANDOFF_ORIGINS` is
+read but ignored (`SUPPORTS_HANDOFF` is false in
+`src/observability/analytics/config.ts`), and a `?ph_did=&ph_sid=` is only
+stripped from the address bar, so a website visitor's anonymous id never joins
+a staff person.
 
 The `@no-api` half of `e2e/nginx/analytics.test.ts` runs in CI against the
 image started with `POSTHOG_KEY=phc_test_key_not_real`, `APP_ENVIRONMENT=ci`

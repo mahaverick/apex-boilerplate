@@ -2,7 +2,12 @@
  * @file The posthog-js init options, built by one pure function so every
  * privacy setting is asserted in a unit test rather than read off a live SDK.
  */
-import type { CapturedNetworkRequest, PostHogConfig, PostHogInterface } from 'posthog-js'
+import type {
+  CapturedNetworkRequest,
+  CaptureResult,
+  PostHogConfig,
+  PostHogInterface,
+} from 'posthog-js'
 import type { HandoffBootstrap } from './handoff'
 import { maskReplayAttribute } from './mask-attribute'
 import { sanitizeEventUrls, sanitizeUrl } from './url-sanitizer'
@@ -10,7 +15,9 @@ import { sanitizeEventUrls, sanitizeUrl } from './url-sanitizer'
 /**
  * The newest `defaults` posthog-js 1.435.6 knows: history-API pageviews and
  * pageleaves, hash-stripped URLs, and `captureJsonLd: true`, which the
- * session-recording options below turn back off.
+ * session-recording options below turn back off. Its automatic pageviews are
+ * turned off (`capture_pageview`): the router captures each one once the
+ * route has resolved, so a pageview never precedes the state it describes.
  */
 export const POSTHOG_DEFAULTS = '2026-08-30'
 
@@ -52,6 +59,12 @@ export interface PosthogOptionsInput {
   /** posthog-js `cross_subdomain_cookie`. */
   crossSubdomainCookie: boolean
   bootstrap?: HandoffBootstrap
+  /**
+   * Runs on every event before it is sanitised and sent; false drops the
+   * event. The facade uses it to refuse events a sibling tab or website has
+   * re-attributed to another person.
+   */
+  acceptEvent?: (event: CaptureResult) => boolean
   /** Runs once the SDK has loaded, before its first `$pageview`. */
   onLoaded: (instance: PostHogInterface) => void
 }
@@ -73,6 +86,8 @@ export function buildPosthogOptions(input: PosthogOptionsInput): Partial<PostHog
     ui_host: input.uiHost,
     defaults: POSTHOG_DEFAULTS,
     autocapture: true,
+    capture_pageview: false,
+    capture_pageleave: true,
     mask_all_element_attributes: true,
     mask_personal_data_properties: true,
     custom_personal_data_properties: [...CUSTOM_PERSONAL_DATA_PROPERTIES],
@@ -91,7 +106,11 @@ export function buildPosthogOptions(input: PosthogOptionsInput): Partial<PostHog
       recordHeaders: false,
       recordBody: false,
     },
-    before_send: (event) => (event === null ? null : sanitizeEventUrls(event, allowlist)),
+    before_send: (event) => {
+      if (event === null) return null
+      if (input.acceptEvent && !input.acceptEvent(event)) return null
+      return sanitizeEventUrls(event, allowlist)
+    },
     ...(input.consentMode === 'required' ? { cookieless_mode: 'on_reject' as const } : {}),
     ...(input.bootstrap ? { bootstrap: input.bootstrap } : {}),
     loaded: input.onLoaded,

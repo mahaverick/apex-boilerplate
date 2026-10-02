@@ -10,6 +10,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act, type ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import * as analytics from '@/observability/analytics'
 import { router as appRouter } from '@/router'
 import { settle } from '@/tests/fixtures/timing'
 
@@ -258,5 +259,23 @@ describe('pending navigation', () => {
     await act(() => vi.advanceTimersByTimeAsync(1))
     expect(screen.getByRole('heading', { level: 1, name: 'Page' })).toBeInTheDocument()
     expect(screen.queryByRole('status', { name: 'Loading' })).not.toBeInTheDocument()
+  })
+})
+
+describe('page views', () => {
+  it('captures one $pageview per navigation that changes the address, once it has resolved', async () => {
+    const capture = vi.spyOn(analytics, 'capturePageview').mockImplementation(() => {})
+    const history = createMemoryHistory({ initialEntries: ['/'] })
+    appRouter.update({ ...appRouter.options, history })
+    await appRouter.load()
+    capture.mockClear()
+
+    await appRouter.navigate({ to: '/overview', search: { range: '30d' } })
+    await vi.waitFor(() => expect(capture).toHaveBeenCalledTimes(1))
+
+    await appRouter.load()
+    await settle(0, 'absence has no event: let a reload of the same address resolve')
+    expect(capture).toHaveBeenCalledTimes(1)
+    capture.mockRestore()
   })
 })

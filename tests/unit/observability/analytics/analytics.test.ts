@@ -1,8 +1,12 @@
+import type { CaptureResult } from 'posthog-js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  capturePageview,
   denyAnalyticsConsent,
+  forgetStaleIdentity,
   getAnalyticsConsent,
   getAnalyticsSessionId,
+  getAnalyticsSessionIdFor,
   grantAnalyticsConsent,
   identifyUser,
   initAnalytics,
@@ -14,7 +18,11 @@ import {
   subscribeAnalyticsConsent,
   track,
 } from '@/observability/analytics/analytics'
-import { ANALYTICS_APP, ANALYTICS_PERSISTENCE_NAME } from '@/observability/analytics/config'
+import {
+  ANALYTICS_APP,
+  ANALYTICS_PERSISTENCE_NAME,
+  SUPPORTS_HANDOFF,
+} from '@/observability/analytics/config'
 import {
   analyticsConfigFor,
   instance,
@@ -103,7 +111,7 @@ describe('initAnalytics', () => {
     expect(sdk.calls.slice(1)).toEqual(['opt_out_capturing()', 'identify("user-a")'])
   })
 
-  it('passes an accepted handoff as bootstrap', async () => {
+  it.runIf(SUPPORTS_HANDOFF)('passes an accepted handoff as bootstrap', async () => {
     window.history.replaceState(null, '', `/register?ph_did=${DID}`)
     Object.defineProperty(document, 'referrer', {
       value: 'https://www.example.com/pricing',
@@ -118,6 +126,25 @@ describe('initAnalytics', () => {
     expect(sdk.initOptions?.bootstrap).toEqual({ distinctID: DID })
     expect(window.location.search).toBe('')
   })
+
+  it.runIf(!SUPPORTS_HANDOFF)(
+    'never reads a handoff in an app that does not take one, and still strips the parameters',
+    async () => {
+      window.history.replaceState(null, '', `/register?ph_did=${DID}`)
+      Object.defineProperty(document, 'referrer', {
+        value: 'https://www.example.com/pricing',
+        configurable: true,
+      })
+      await initAnalytics(
+        analyticsConfigFor({
+          POSTHOG_KEY: KEY,
+          ANALYTICS_HANDOFF_ORIGINS: 'https://www.example.com',
+        })
+      )
+      expect(sdk.initOptions).not.toHaveProperty('bootstrap')
+      expect(window.location.search).toBe('')
+    }
+  )
 
   it('ignores a handoff when this browser already holds an identified person', async () => {
     window.localStorage.setItem(STORAGE_NAME, JSON.stringify({ $user_state: 'identified' }))
@@ -324,5 +351,127 @@ describe('getAnalyticsSessionId', () => {
     expect(getAnalyticsSessionId()).toBeUndefined()
     grantAnalyticsConsent()
     expect(getAnalyticsSessionId()).toBe(sdk.sessionId)
+  })
+})
+
+describe('forgetStaleIdentity', () => {
+  beforeEach(async () => {
+    await initAnalytics(OPT_OUT)
+    sdk.calls = []
+  })
+
+  it('resets a person this browser still holds, keeping the super properties', () => {
+    sdk.distinctId = 'user-a'
+    sdk.userState = 'identified'
+    forgetStaleIdentity()
+    expect(sdk.calls).toEqual(['reset()', REGISTER])
+  })
+
+  it('leaves an anonymous browser alone', () => {
+    forgetStaleIdentity()
+    expect(sdk.calls).toEqual([])
+  })
+
+  it('is applied before the first event when called before the SDK loads', async () => {
+    resetAnalyticsForTests()
+    resetFakePosthog()
+    sdk.distinctId = 'user-a'
+    sdk.userState = 'identified'
+    forgetStaleIdentity()
+    await initAnalytics(OPT_OUT)
+    expect(sdk.calls).toEqual([REGISTER, 'reset()', REGISTER])
+  })
+})
+
+describe('capturePageview', () => {
+  it('captures a $pageview, queued until the SDK loads', async () => {
+    capturePageview()
+    await initAnalytics(OPT_OUT)
+    expect(sdk.calls).toEqual([REGISTER, 'capture("$pageview", {})'])
+  })
+})
+
+describe('getAnalyticsSessionIdFor', () => {
+  beforeEach(async () => {
+    await initAnalytics(OPT_OUT)
+  })
+
+  it('is undefined before the SDK loads', () => {
+    resetAnalyticsForTests()
+    expect(getAnalyticsSessionIdFor(null)).toBeUndefined()
+  })
+
+  it('gives the session to an anonymous browser, whoever is signed in', () => {
+    expect(getAnalyticsSessionIdFor(null)).toBe(sdk.sessionId)
+    expect(getAnalyticsSessionIdFor('user-b')).toBe(sdk.sessionId)
+  })
+
+  it('gives it only when the identified person is the signed-in user', () => {
+    sdk.distinctId = 'user-a'
+    sdk.userState = 'identified'
+    expect(getAnalyticsSessionIdFor('user-a')).toBe(sdk.sessionId)
+    expect(getAnalyticsSessionIdFor('user-b')).toBeUndefined()
+    expect(getAnalyticsSessionIdFor(null)).toBeUndefined()
+  })
+
+  it('still gives nothing once the user opted out', () => {
+    setAnalyticsOptOut(true)
+    expect(getAnalyticsSessionIdFor(null)).toBeUndefined()
+  })
+})
+
+describe('the identity guard in before_send', () => {
+  const sibling = (distinctId: string): CaptureResult => ({
+    uuid: 'u',
+    event: '$pageview',
+    properties: { distinct_id: distinctId },
+  })
+  const guard = (event: CaptureResult): CaptureResult | null =>
+    (sdk.initOptions?.before_send as (event: CaptureResult | null) => CaptureResult | null)(event)
+
+  beforeEach(async () => {
+    await initAnalytics(OPT_OUT)
+    identifyUser('user-a')
+    setTenantGroup('tenant-1')
+    sdk.calls = []
+  })
+
+  it("passes the signed-in user's events, and anyone's while nobody is signed in", () => {
+    expect(guard(sibling('user-a'))).not.toBeNull()
+    resetAnalytics()
+    expect(guard(sibling('anon-9'))).not.toBeNull()
+  })
+
+  it('drops an event another person owns, then identifies the user again and puts the app and group back', async () => {
+    sdk.distinctId = 'lead-123'
+    expect(guard(sibling('lead-123'))).toBeNull()
+    expect(guard(sibling('lead-123'))).toBeNull()
+    expect(sdk.calls).toEqual([])
+    await Promise.resolve()
+    expect(sdk.calls).toEqual([
+      'reset()',
+      REGISTER,
+      'identify("user-a")',
+      REGISTER,
+      'group("tenant", "tenant-1")',
+    ])
+    expect(guard(sibling('user-a'))).not.toBeNull()
+  })
+
+  it('repairs an anonymous identity a sibling reset left behind', async () => {
+    sdk.distinctId = 'anon-9'
+    sdk.userState = 'anonymous'
+    expect(guard(sibling('anon-9'))).toBeNull()
+    await Promise.resolve()
+    expect(sdk.calls).toEqual(['identify("user-a")', REGISTER, 'group("tenant", "tenant-1")'])
+  })
+
+  it('does not repair a user who signed out in the meantime', async () => {
+    sdk.distinctId = 'anon-9'
+    expect(guard(sibling('anon-9'))).toBeNull()
+    resetAnalytics()
+    sdk.calls = []
+    await Promise.resolve()
+    expect(sdk.calls).toEqual([])
   })
 })

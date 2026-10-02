@@ -256,7 +256,7 @@ test.describe('analytics against a fake PostHog', () => {
   )
 
   test(
-    'a handoff from the allowlisted site continues its visitor; any other is ignored; both are stripped',
+    'a handoff is never taken, even from the allowlisted site, and its parameters are stripped',
     { tag: '@no-api' },
     async ({ page }) => {
       const handedOff = '01a0fc35-b7ee-7b93-b550-d8a7f98e30be'
@@ -273,15 +273,13 @@ test.describe('analytics against a fake PostHog', () => {
       await expect(page).toHaveURL(/\/login$/)
 
       await expect
-        .poll(
-          () =>
-            fake
-              .events()
-              .some((event) => event.event === '$pageview' && event.distinctId === handedOff),
-          { intervals: [500], timeout: 30_000 }
-        )
+        .poll(() => sawPageview(fake, '/login'), { intervals: [500], timeout: 30_000 })
         .toBe(true)
-      expect(fake.events().some((event) => event.distinctId === crafted)).toBe(false)
+      expect(
+        fake
+          .events()
+          .some((event) => event.distinctId === crafted || event.distinctId === handedOff)
+      ).toBe(false)
     }
   )
 })

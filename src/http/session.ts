@@ -6,7 +6,20 @@ import { useAuthStore } from '@/states/auth.store'
 import type { ApiSuccess, User } from '@/types/api.types'
 
 /**
- * Whether a failed refresh was the server judging the credentials: a 401, and
+ * The refresh handed back a different person than this tab was signed in as:
+ * another tab signed someone else in on the shared cookie. It is an auth
+ * verdict (`isAuthVerdict`): the tab signs out rather than act as a stranger.
+ */
+export class SessionIdentityChangedError extends Error {
+  constructor() {
+    super('The refreshed session belongs to a different user.')
+    this.name = 'SessionIdentityChangedError'
+  }
+}
+
+/**
+ * Whether a failed refresh was the server judging the credentials: a 401, or
+ * the refresh returning a different user (`SessionIdentityChangedError`), and
  * nothing else. It is the only refresh failure that may end a session (other
  * requests: interceptors.ts).
  *
@@ -30,6 +43,7 @@ import type { ApiSuccess, User } from '@/types/api.types'
  * caller's credentials.
  */
 export function isAuthVerdict(error: unknown): boolean {
+  if (error instanceof SessionIdentityChangedError) return true
   return isAxiosError(error) && error.response?.status === 401
 }
 
@@ -170,7 +184,12 @@ async function refreshSession(): Promise<string> {
       skipAuthRetry: true,
     })
 
-    useAuthStore.getState().login(accessToken, unwrap(profileResponse))
+    const profile = unwrap(profileResponse)
+    // The catch below signs out and broadcasts; no caller replays as the new user.
+    const current = useAuthStore.getState().user
+    if (current && current.id !== profile.id) throw new SessionIdentityChangedError()
+
+    useAuthStore.getState().login(accessToken, profile)
     return accessToken
   } catch (error) {
     if (isAuthVerdict(error)) {

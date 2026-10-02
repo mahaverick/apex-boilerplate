@@ -29,6 +29,14 @@ export const ANALYTICS_URL_QUERY_ALLOWLIST: readonly string[] = ['range', 'tab',
 export const SUPPORTS_CONSENT_MODES = false
 
 /**
+ * Whether a website's anonymous id may be handed off into this app
+ * (`ANALYTICS_HANDOFF_ORIGINS`). Apex says no: its browser identity is its own,
+ * and a website visitor's id must never merge into a staff person. The
+ * handoff parameters are still removed from the address bar.
+ */
+export const SUPPORTS_HANDOFF = false
+
+/**
  * The posthog-js `persistence_name`: the browser storage key (and cookie name)
  * holding the anonymous id, session id and user state is `ph_` plus this. Set
  * it where two apps share one PostHog project key and sit on sibling
