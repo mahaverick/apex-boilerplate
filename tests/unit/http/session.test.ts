@@ -414,7 +414,7 @@ describe('across tabs', () => {
     await vi.waitFor(() => expect(probe.received).toEqual([{ type: 'logout' }]))
   })
 
-  it('broadcasts a logout when the refresh returns a different user', async () => {
+  it('refresh returning a different user signs this tab out, rejects as a verdict, and leaves the other tab signed in', async () => {
     useAuthStore.getState().login('live-token', testUser)
     const probe = openOtherTab()
     server.use(
@@ -423,8 +423,10 @@ describe('across tabs', () => {
 
     await expect(ensureSession()).rejects.toThrow()
 
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+    openOtherTab().tab.postMessage({ type: 'sentinel' })
     await flushDeliveries(probe, 1)
-    expect(probe.received).toEqual([{ type: 'logout' }])
+    expect(probe.received).toEqual([{ type: 'sentinel' }])
   })
 
   // A failed refresh that is not a verdict left the session alive everywhere.
