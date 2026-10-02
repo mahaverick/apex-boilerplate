@@ -217,7 +217,7 @@ describe('/tenants/$tenantId/onboarding', () => {
         expect(
           screen.getByText(`This tenant is ${lifecycleState}, so no reminder can be sent.`)
         ).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: /complete$/ })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /^Mark complete/ })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Send reminder' })).not.toBeInTheDocument()
       }
     )
@@ -269,7 +269,7 @@ describe('/tenants/$tenantId/onboarding', () => {
       serve()
       renderAppAt(ONBOARDING)
       await steps()
-      expect(screen.queryByRole('button', { name: /complete$/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Mark complete/ })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Send reminder' })).not.toBeInTheDocument()
       expect(
         screen.getByText('Marking steps complete and sending reminders need a platform admin.')
