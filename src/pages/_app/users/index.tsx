@@ -189,7 +189,7 @@ function UsersPage() {
     search.staff !== undefined
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Users</h1>
         {platformRoleAtLeast(role, 'admin') && <CreateUserDialog />}

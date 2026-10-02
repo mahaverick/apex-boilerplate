@@ -173,7 +173,7 @@ function EmailsPage() {
     search.to !== undefined
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <h1 className="text-2xl font-semibold">Emails</h1>
       <div className="flex flex-wrap items-center gap-2">
         <Input

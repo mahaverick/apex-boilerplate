@@ -1,4 +1,5 @@
 import { expect, test } from '../hermetic'
+import { sidewaysOverflow } from '../layout'
 
 /**
  * The Overview in a real browser. jsdom has no layout, so recharts draws no
@@ -26,9 +27,7 @@ test('does not scroll sideways at 390px', async ({ page }) => {
   // The loaded page, charts included: a skeleton is narrower than what replaces it.
   await expect(page.locator('[data-slot="chart"] svg.recharts-surface')).toHaveCount(2)
 
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - window.innerWidth
-  )
+  const overflow = await sidewaysOverflow(page)
   expect(overflow).toBeLessThanOrEqual(0)
 })
 

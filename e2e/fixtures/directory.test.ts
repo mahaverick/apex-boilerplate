@@ -1,4 +1,5 @@
 import { expect, test } from '../hermetic'
+import { sidewaysOverflow } from '../layout'
 import { afterAnimations } from '../timing'
 
 /**
@@ -19,6 +20,8 @@ for (const [name, path, ready] of [
   ['a user', CLEO_PAGE, 'Cleo D'],
   ['a deleted user', DELETED_PAGE, 'Evangeline Featherstonehaugh'],
   ['staff', '/staff', 'Staff'],
+  ['activity', '/activity', 'Activity'],
+  ['tenants', '/tenants', 'Tenants'],
   ['tenants filtered to suspended', '/tenants?state=suspended', 'Tenants'],
   ['a tenant', ACME_PAGE, 'Acme Corp'],
   ['a tenant’s members', `${ACME_PAGE}/members`, 'Acme Corp'],
@@ -33,9 +36,7 @@ for (const [name, path, ready] of [
     await expect(page.getByRole('heading', { name: ready, level: 1, exact: true })).toBeVisible()
     await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0)
 
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - window.innerWidth
-    )
+    const overflow = await sidewaysOverflow(page)
     expect(overflow).toBeLessThanOrEqual(0)
   })
 }
@@ -63,16 +64,12 @@ test('the History cards list their entries at 390px without scrolling sideways',
   await page.goto(`/e2e/harness/?path=${CLEO_PAGE}`)
   const userHistory = page.getByRole('region', { name: 'Recorded actions on this account' })
   await expect(userHistory.getByText(/Repeated chargebacks/)).toBeVisible()
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
-  ).toBeLessThanOrEqual(0)
+  expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0)
 
   await page.goto(`/e2e/harness/?path=${ACME_PAGE}`)
   const tenantHistory = page.getByRole('region', { name: 'Staff actions on this tenant' })
   await expect(tenantHistory.getByText(/Billing hold/)).toBeVisible()
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
-  ).toBeLessThanOrEqual(0)
+  expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0)
 })
 
 test('the tenant actions menu, the suspend reason dialog and the stacked step-up fit at 390px', async ({
@@ -107,9 +104,7 @@ test('the tenant actions menu, the suspend reason dialog and the stacked step-up
     expect(box!.x, `${label} left edge`).toBeGreaterThanOrEqual(0)
     expect(box!.x + box!.width, `${label} right edge`).toBeLessThanOrEqual(390)
   }
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - window.innerWidth
-  )
+  const overflow = await sidewaysOverflow(page)
   expect(overflow).toBeLessThanOrEqual(0)
 })
 

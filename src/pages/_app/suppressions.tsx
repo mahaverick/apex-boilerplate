@@ -145,7 +145,7 @@ function SuppressionsPage() {
     page.data !== undefined && !(page.isPlaceholderData && page.data.suppressions.length === 0)
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
         Suppressions
       </h1>

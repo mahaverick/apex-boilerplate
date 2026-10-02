@@ -1,4 +1,5 @@
 import { expect, test } from '../hermetic'
+import { sidewaysOverflow } from '../layout'
 
 /**
  * Message tracking's pages in a real browser, through the harness. jsdom has
@@ -28,9 +29,7 @@ for (const [name, path, ready] of [
     await expect(page.getByRole('heading', { name: ready, level: 1 })).toBeVisible()
     await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0)
 
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - window.innerWidth
-    )
+    const overflow = await sidewaysOverflow(page)
     expect(overflow).toBeLessThanOrEqual(0)
   })
 }
@@ -77,9 +76,7 @@ test('the lift dialog fits at 390px', async ({ page }) => {
   const dialog = page.getByRole('alertdialog', { name: 'Lift this suppression?' })
   await expect(dialog.getByLabel('Reason')).toBeVisible()
 
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - window.innerWidth
-  )
+  const overflow = await sidewaysOverflow(page)
   expect(overflow).toBeLessThanOrEqual(0)
 })
 
@@ -92,9 +89,7 @@ test('the resend dialog fits at 390px', async ({ page }) => {
   const dialog = page.getByRole('alertdialog', { name: 'Resend this email?' })
   await expect(dialog.getByLabel('Reason')).toBeVisible()
 
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - window.innerWidth
-  )
+  const overflow = await sidewaysOverflow(page)
   expect(overflow).toBeLessThanOrEqual(0)
 })
 
