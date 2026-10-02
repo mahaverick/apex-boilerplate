@@ -38,6 +38,7 @@ for (const [name, path, ready] of [
   ['an email', DELIVERED, 'c@d.com'],
   ['an email’s preview', `${DELIVERED}?tab=preview`, 'c@d.com'],
   ['a bounced email', BOUNCED, 'a-very-long-address-for-overflow@example-company-domain.com'],
+  ['deliverability', '/deliverability', 'Deliverability'],
   ['suppressions, active and lifted', '/suppressions?state=all', 'Suppressions'],
   ['onboarding', '/onboarding', 'Onboarding'],
   ['the profile', '/profile', 'Profile'],

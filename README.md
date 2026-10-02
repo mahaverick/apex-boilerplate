@@ -34,7 +34,7 @@ than signing anyone out.
 ## Prerequisites
 
 - **Node 24** and **pnpm 12** (`npm i -g corepack@0.36.0 && corepack enable` — pnpm's version comes from `packageManager` in package.json; Node 25+ does not ship Corepack, so this works on 24 and 26 alike). `pnpm install` refuses an older Node.
-- **express-boilerplate 1.4.0 or newer**, running on `:4040` with `APEX_URL` set. The Onboarding page and a tenant's Onboarding tab call routes 1.4.0 added (`/platform/onboarding/*`, `/platform/tenants/:id/onboarding*`), and Overview's Stuck tenants tile reads its `totals.stuckTenants`. On express 1.3.0 those routes answer 404, which reads as a role refusal, and Overview's key figures fail inside their own error boundary. The Emails, Deliverability and Suppressions pages, a user's Emails card and a tenant's Emails tab call routes 1.3.0 added (`/platform/emails*`, `/platform/email-suppressions*`), and Overview reads its `emailMessages` series. On express 1.2.0, Overview still loads (its stats answer 200 without `emailMessages`, so its email widgets fail inside their own error boundary) while the new pages' routes answer 404, which reads as a role refusal. Apex also calls routes 1.2.0 added: `/platform/users`, `/platform/tenants/:id` and the staff actions under both. An older API answers those 404, which Apex reads as a role refusal or a missing record rather than a missing route: the Users page says "your role can't see this", a tenant's or a user's page says it was not found, and the staff actions say your role can't do them. The Tenants list's Previous button also needs the `prevCursor` field 1.2.0 added, and step-up needs its `/auth/reauthenticate`. Before 1.1.0 there is also no `APEX_URL` and no `/platform/stats`, so Overview and every Apex email link break too.
+- **express-boilerplate 1.4.0 or newer**, running on `:4040` with `APEX_URL` set. The Onboarding page and a tenant's Onboarding tab call routes 1.4.0 added (`/platform/onboarding/*`, `/platform/tenants/:id/onboarding*`), and Overview's Stuck tenants tile reads its `totals.stuckTenants`. On express 1.3.0 those routes answer 404, which reads as a role refusal, and Overview's key figures fail inside their own error boundary. The Emails, Deliverability and Suppressions pages, a user's Emails card and a tenant's Emails tab call routes 1.3.0 added (`/platform/emails*`, `/platform/email-suppressions*`), and Overview reads its `emailMessages` series. On express 1.2.0, Overview still loads (its stats answer 200 without `emailMessages`, so its email widgets fail inside their own error boundary) while the new pages' routes answer 404, which reads as a role refusal. Apex also calls routes 1.2.0 added: `/platform/users`, `/platform/tenants/:id` and the staff actions under both. An older API answers those 404, which Apex reads as a role refusal or a missing record rather than a missing route: the Users page says "your role can't see this", a tenant's or a user's page says it was not found, and the staff actions say your role can't do them. The Tenants list's Previous button also needs the `prevCursor` field 1.2.0 added, and step-up needs its `/auth/reauthenticate`. Analytics (`POSTHOG_KEY`) needs express 1.5.0 or newer; without a key 1.4.0 still works and analytics stays off. Before 1.1.0 there is also no `APEX_URL` and no `/platform/stats`, so Overview and every Apex email link break too.
 
 ## Getting started
 
@@ -489,11 +489,19 @@ signed-in person opted out in the customer app's profile
 
 Typed events: `command_palette_opened`, `command_palette_action_run`
 (`action`: the kind of item chosen) and `table_filtered` (`table`: which
-list, never the filter's value). Every API request carries a fresh W3C
-`traceparent` and, while capture is on, `X-POSTHOG-SESSION-ID`, so a server
-event links to the trace and the replay that caused it.
+list, never the filter's value). Every same-origin `/api/v1/` axios request
+carries a fresh W3C `traceparent` and, only while capture is on,
+`X-POSTHOG-SESSION-ID`, so a server event links to the trace and the replay
+that caused it.
 
-Operator steps: set the container's `POSTHOG_KEY` (and `POSTHOG_UI_HOST` for
+Apex keeps its own browser identity: it stores posthog-js's state under
+`ph_ph_apex` and scopes the identity cookie to its own host, because the
+customer app uses the same project key and, on a sibling subdomain, would
+otherwise share the anonymous id, session and user state with it.
+
+Operator steps: set `POSTHOG_KEY` only once the API runs express 1.5.0+ (on an
+older API `/api/v1/collect` answers 404 and the user carries no
+`analyticsOptOut`). Set the container's `POSTHOG_KEY` (and `POSTHOG_UI_HOST` for
 an EU project, `APP_ENVIRONMENT` for the environment's name) to the
 environment's project, the one express's `POSTHOG_PROJECT_KEY` names; no
 rebuild. A website on another domain can hand a visitor's anonymous id over
