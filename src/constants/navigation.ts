@@ -8,6 +8,7 @@ import {
   Gauge,
   History,
   LayoutDashboard,
+  ListChecks,
   Mail,
   MailX,
   ShieldCheck,
@@ -31,6 +32,7 @@ export type NavPath =
   | typeof ROUTES.emails
   | typeof ROUTES.deliverability
   | typeof ROUTES.suppressions
+  | typeof ROUTES.onboarding
   | typeof ROUTES.activity
 
 export interface NavItem {
@@ -67,6 +69,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     Icon: MailX,
     minRole: 'viewer',
     group: 'Operations',
+  },
+  {
+    label: 'Onboarding',
+    to: ROUTES.onboarding,
+    Icon: ListChecks,
+    minRole: 'viewer',
+    group: 'Growth',
   },
   {
     label: 'Activity log',
