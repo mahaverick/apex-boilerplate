@@ -48,6 +48,7 @@ import {
   type MembershipRole,
 } from '@/constants/roles'
 import { PLATFORM_TENANT_SLUG, ROUTES } from '@/constants/routes'
+import { useFocusAfter } from '@/hooks/use-focus-after'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom } from '@/lib/api-error'
@@ -185,6 +186,7 @@ function RemoveMemberButton({
   isSelf,
   isLastOwner,
   reasonId,
+  onRemoved,
 }: {
   slug: string
   member: TenantMember
@@ -192,6 +194,8 @@ function RemoveMemberButton({
   isLastOwner: boolean
   /** The row's one last-owner explanation, rendered by `RoleCell`. */
   reasonId: string
+  /** Called after someone else is removed: their row, and this button, are gone, so the card moves focus. */
+  onRemoved: () => void
 }) {
   const removeMember = useRemoveMember(slug)
   const stepUp = useStepUp()
@@ -270,6 +274,7 @@ function RemoveMemberButton({
                     setBusy(false)
                     setIsOpen(false)
                     toast.success(isSelf ? 'You left this tenant.' : `${name} removed.`)
+                    if (!isSelf) onRemoved()
                     // Leaving the platform tenant ends staff access; Overview's guard then shows /no-access.
                     if (isSelf) {
                       void navigate({
@@ -310,6 +315,7 @@ function MemberRow({
   myRole,
   myUserId,
   owners,
+  onRemoved,
   asCard = false,
 }: {
   slug: string
@@ -317,6 +323,7 @@ function MemberRow({
   myRole: MembershipRole
   myUserId: string | undefined
   owners: number
+  onRemoved: () => void
   /**
    * Render a stacked card instead of a table row, for phones, where the
    * scrolling table puts the Actions column off-screen.
@@ -346,6 +353,7 @@ function MemberRow({
       isSelf={isSelf}
       isLastOwner={isLastOwner}
       reasonId={reasonId}
+      onRemoved={onRemoved}
     />
   ) : null
 
@@ -418,12 +426,16 @@ export function MembersCard({
   const myUserId = useAuthStore((state) => state.user?.id)
   const owners = ownerCount(members.data)
   const isMobile = useIsMobile()
+  const focus = useFocusAfter<'heading'>()
+  const focusHeading = () => focus.focusAfter('heading')
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2>{title}</h2>
+          <h2 ref={focus.target('heading')} tabIndex={-1} className="outline-none">
+            {title}
+          </h2>
         </CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
@@ -457,6 +469,7 @@ export function MembersCard({
                 myRole={myRole}
                 myUserId={myUserId}
                 owners={owners}
+                onRemoved={focusHeading}
               />
             ))}
           </ul>
@@ -479,6 +492,7 @@ export function MembersCard({
                   myRole={myRole}
                   myUserId={myUserId}
                   owners={owners}
+                  onRemoved={focusHeading}
                 />
               ))}
             </TableBody>

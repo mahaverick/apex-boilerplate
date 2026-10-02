@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { pageTitle } from '@/constants/app'
 import { SUPPRESSION_REASON_LABELS, templateLabel } from '@/constants/email.constants'
 import { ROUTES } from '@/constants/routes'
+import { useFocusAfter } from '@/hooks/use-focus-after'
 import { statusFrom } from '@/lib/api-error'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { emailQueryOptions } from '@/queries/email.queries'
@@ -96,11 +97,18 @@ function EmailDetailPage() {
 function EmailDetail({ message }: { message: EmailMessageDetail }) {
   const { tab = 'timeline' } = Route.useSearch()
   const navigate = Route.useNavigate()
+  const focus = useFocusAfter<'heading'>()
   return (
     <div className="grid max-w-4xl gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="grid gap-1">
-          <h1 className="text-2xl font-semibold break-all">{message.recipient}</h1>
+          <h1
+            ref={focus.target('heading')}
+            tabIndex={-1}
+            className="text-2xl font-semibold break-all outline-none"
+          >
+            {message.recipient}
+          </h1>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span className="text-foreground">{templateLabel(message.templateKey)}</span>
             <EmailStatusBadge status={message.status} />
@@ -131,7 +139,10 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
             <p className="text-sm text-destructive">{FAILURE_LABELS[message.failureOrigin]}</p>
           )}
         </div>
-        <ResendEmailButton message={message} />
+        <ResendEmailButton
+          message={message}
+          onResent={(opener) => focus.focusAfter('heading', opener)}
+        />
       </div>
 
       {message.suppression !== null && (

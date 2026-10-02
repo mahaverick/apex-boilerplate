@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { useCallback, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { LoadError } from '@/components/features/load-error'
 import { OnboardingStateBadge } from '@/components/features/onboarding/onboarding-state-badge'
@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { AWAITING_OWNER_NOTE, NOT_TRACKED_NOTE } from '@/constants/onboarding.constants'
 import { platformRoleAtLeast } from '@/constants/roles'
+import { useFocusAfter } from '@/hooks/use-focus-after'
 import { statusFrom } from '@/lib/api-error'
 import { formatDate, formatDateTime } from '@/lib/format'
 import {
@@ -106,21 +107,18 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
   )
   const complete = useCompleteOnboardingStep(tenant.id, tenant.slug)
   const remind = useSendOnboardingReminder(tenant.id, tenant.slug)
-  const heading = useRef<HTMLHeadingElement>(null)
+  const focus = useFocusAfter<'heading' | 'reminders' | `step:${string}`>()
   const opener = useRef<HTMLElement | null>(null)
   const [marking, setMarking] = useState<OnboardingStepDetail | null>(null)
   const [isMarkOpen, setMarkOpen] = useState(false)
   const [reminding, setReminding] = useState<OnboardingReminderAvailability | null>(null)
   const [isRemindOpen, setRemindOpen] = useState(false)
   /**
-   * Where a dialog sends focus as it closes: back to its button, or to the
-   * heading once a write went through, since that takes the button away (the
-   * step is done; the next reminder must wait).
+   * Where a dialog sends focus as it closes: the landmark a success chose (a
+   * write takes its button away: the step is done, the next reminder must
+   * wait), else back to the button, else the heading if a refusal took it away.
    */
-  const finalFocus = useCallback(
-    () => (opener.current?.isConnected ? true : (heading.current ?? true)),
-    []
-  )
+  const finalFocus = () => focus.finalFocus(opener.current, 'heading')
 
   const isFrozen = tenant.lifecycleState !== 'active'
   const isTracked = state !== 'not_tracked'
@@ -131,7 +129,7 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
       <Card>
         <CardHeader>
           <CardTitle>
-            <h2 ref={heading} tabIndex={-1} className="outline-none">
+            <h2 ref={focus.target('heading')} tabIndex={-1} className="outline-none">
               Onboarding
             </h2>
           </CardTitle>
@@ -177,6 +175,7 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
             <OnboardingStepList
               steps={detail.steps}
               canAct={isAdmin}
+              target={(key) => focus.target(`step:${key}`)}
               onMarkComplete={(step, button) => {
                 opener.current = button
                 setMarking(step)
@@ -197,7 +196,14 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
           <Card>
             <CardHeader>
               <CardTitle>
-                <h2 id="onboarding-reminders">Reminders</h2>
+                <h2
+                  id="onboarding-reminders"
+                  ref={focus.target('reminders')}
+                  tabIndex={-1}
+                  className="outline-none"
+                >
+                  Reminders
+                </h2>
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
@@ -236,7 +242,7 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
         onConfirm={async (reason) => {
           if (marking === null) return
           await complete.mutateAsync({ stepKey: marking.key, reason })
-          opener.current = null
+          focus.focusAfter([`step:${marking.key}`, 'heading'], opener.current)
           toast.success(`Marked “${marking.title}” complete.`)
         }}
       />
@@ -255,7 +261,7 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
         }}
         onConfirm={async (reason) => {
           const result = await remind.mutateAsync(reason)
-          opener.current = null
+          focus.focusAfter(['reminders', 'heading'], opener.current)
           if (result.emailSent) {
             toast.success(
               `Reminder sent to ${result.recipientCount} ${result.recipientCount === 1 ? 'owner' : 'owners'}.`

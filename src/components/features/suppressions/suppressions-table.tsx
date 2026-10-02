@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
-import { useMemo } from 'react'
+import { useMemo, type RefCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -40,12 +40,18 @@ function SuppressionState({ row }: { row: EmailSuppression }) {
 
 interface SuppressionsTableProps {
   rows: EmailSuppression[]
-  /** Offers Lift on each active row; omitted, the table offers no action (below admin). */
-  onLift?: (row: EmailSuppression) => void
+  /** Offers Lift on each active row, handing over its button so focus can return there; omitted, the table offers no action (below admin). */
+  onLift?: (row: EmailSuppression, opener: HTMLButtonElement) => void
+  /** The ref callback that registers a row as a focus landmark (`useFocusAfter`), keyed by suppression id. */
+  target?: (id: string) => RefCallback<HTMLElement>
 }
 
-/** One page of suppressed addresses, newest first as the API orders them. */
-export function SuppressionsTable({ rows, onLift }: SuppressionsTableProps) {
+/**
+ * One page of suppressed addresses, newest first as the API orders them. With
+ * `target`, each row can take focus from code: once Lift replaces its button
+ * with the lifted state, focus lands on the row.
+ */
+export function SuppressionsTable({ rows, onLift, target }: SuppressionsTableProps) {
   const columns = useMemo(
     () =>
       column.columns([
@@ -96,7 +102,7 @@ export function SuppressionsTable({ rows, onLift }: SuppressionsTableProps) {
                       variant="outline"
                       size="sm"
                       aria-label={`Lift suppression for ${row.original.address}`}
-                      onClick={() => onLift(row.original)}
+                      onClick={(event) => onLift(row.original, event.currentTarget)}
                     >
                       Lift
                     </Button>
@@ -123,7 +129,12 @@ export function SuppressionsTable({ rows, onLift }: SuppressionsTableProps) {
       </TableHeader>
       <TableBody>
         {table.getRowModel().rows.map((row) => (
-          <TableRow key={row.id}>
+          <TableRow
+            key={row.id}
+            ref={target?.(row.id)}
+            tabIndex={target === undefined ? undefined : -1}
+            className="outline-none"
+          >
             {row.getAllCells().map((cell) => (
               <TableCell key={cell.id}>
                 <table.FlexRender cell={cell} />

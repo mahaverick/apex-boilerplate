@@ -1,4 +1,5 @@
 import { CircleCheck, CircleDashed } from 'lucide-react'
+import type { RefCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { ONBOARDING_SOURCE_LABELS } from '@/constants/onboarding.constants'
 import { ROLE_LABELS } from '@/constants/roles'
@@ -46,15 +47,19 @@ function MemberStatuses({ members }: { members: NonNullable<OnboardingStepDetail
  * active owner has done it, and lists every member's own status.
  * Mark complete shows only where the API would take it and the reader is an
  * admin (`canAct`); it hands its own button to `onMarkComplete`, so focus can
- * return there.
+ * return there. Each row is a focus landmark: once Mark complete replaces its
+ * button, focus lands on the row.
  */
 export function OnboardingStepList({
   steps,
   canAct,
+  target,
   onMarkComplete,
 }: {
   steps: OnboardingStepDetail[]
   canAct: boolean
+  /** The ref callback that registers a step's row as a focus landmark (`useFocusAfter`), keyed by step. */
+  target: (stepKey: string) => RefCallback<HTMLElement>
   onMarkComplete: (step: OnboardingStepDetail, opener: HTMLButtonElement) => void
 }) {
   return (
@@ -63,7 +68,12 @@ export function OnboardingStepList({
         const isDone = step.completedAt !== null
         const line = completionLine(step)
         return (
-          <li key={step.key} className="flex gap-3 rounded-md border p-3">
+          <li
+            key={step.key}
+            ref={target(step.key)}
+            tabIndex={-1}
+            className="flex gap-3 rounded-md border p-3 outline-none"
+          >
             {isDone ? (
               <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-success" />
             ) : (

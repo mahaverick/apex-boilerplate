@@ -276,7 +276,7 @@ describe('/tenants/$tenantId/onboarding', () => {
       ).toBeInTheDocument()
     })
 
-    it('marks it complete with the reason, shows the staff completion, and returns focus to the heading', async () => {
+    it('marks it complete with the reason, shows the staff completion, and moves focus to the step’s row', async () => {
       serve()
       let body: unknown
       server.use(
@@ -312,9 +312,74 @@ describe('/tenants/$tenantId/onboarding', () => {
       ).not.toBeInTheDocument()
       const invite = (await steps()).children[1] as HTMLElement
       expect(within(invite).getByText(/· by staff: A B — Done on the call$/)).toBeInTheDocument()
+      await waitFor(() => expect(invite).toHaveFocus())
+    })
+
+    it('falls back to the Onboarding heading when the refetched detail no longer lists the step', async () => {
+      let reads = 0
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+          ok(platformDetail(), 'Tenant retrieved.')
+        ),
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/onboarding`, () => {
+          reads += 1
+          const base = tenantOnboardingDetail()
+          return ok(
+            reads === 1
+              ? base
+              : { ...base, steps: base.steps.filter((step) => step.key !== 'invite_teammate') },
+            'Tenant onboarding retrieved.'
+          )
+        }),
+        http.post(
+          `/api/v1/platform/tenants/${TENANT_ID}/onboarding/steps/invite_teammate/complete`,
+          () =>
+            ok(
+              tenantOnboardingDetail({
+                steps: tenantOnboardingDetail().steps.filter(
+                  (step) => step.key !== 'invite_teammate'
+                ),
+              }),
+              'Onboarding step completed.'
+            )
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt(ONBOARDING)
+      await user.click(
+        await screen.findByRole('button', { name: 'Mark complete: Invite a teammate' })
+      )
+      const dialog = await screen.findByRole('alertdialog')
+      await user.type(within(dialog).getByLabelText('Reason'), 'Done on the call')
+      await user.click(within(dialog).getByRole('button', { name: 'Mark complete' }))
+
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('button', { name: 'Mark complete: Invite a teammate' })
+        ).not.toBeInTheDocument()
+      )
       await waitFor(() =>
         expect(screen.getByRole('heading', { name: 'Onboarding', level: 2 })).toHaveFocus()
       )
+    })
+
+    it('returns focus to Mark complete when the write fails', async () => {
+      serve()
+      server.use(
+        http.post(
+          `/api/v1/platform/tenants/${TENANT_ID}/onboarding/steps/invite_teammate/complete`,
+          () => fail('Server error', 500, 'internal_error')
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt(ONBOARDING)
+      const button = await screen.findByRole('button', { name: 'Mark complete: Invite a teammate' })
+      await user.click(button)
+      const dialog = await screen.findByRole('alertdialog')
+      await user.type(within(dialog).getByLabelText('Reason'), 'Done on the call')
+      await user.click(within(dialog).getByRole('button', { name: 'Mark complete' }))
+      await user.click(await within(dialog).findByRole('button', { name: 'Cancel' }))
+      await waitFor(() => expect(button).toHaveFocus())
     })
 
     it('keeps the dialog open with the API’s reason when the step completed meanwhile', async () => {
@@ -391,6 +456,68 @@ describe('/tenants/$tenantId/onboarding', () => {
 
       await waitFor(() => expect(success).toHaveBeenCalledWith('Reminder sent to 2 owners.'))
       expect(body).toEqual({ reason: 'Stalled since the call' })
+    })
+
+    it('moves focus to the Reminders heading once the sent reminder takes the button away', async () => {
+      let reads = 0
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+          ok(platformDetail(), 'Tenant retrieved.')
+        ),
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/onboarding`, () => {
+          reads += 1
+          const base = tenantOnboardingDetail()
+          return ok(
+            reads === 1
+              ? base
+              : {
+                  ...base,
+                  reminder: {
+                    ...base.reminder,
+                    canSend: false,
+                    blockedBy: 'reminded_recently' as const,
+                    lastSentAt: '2026-10-02T09:00:00.000Z',
+                    nextAllowedAt: '2026-10-03T09:00:00.000Z',
+                  },
+                },
+            'Tenant onboarding retrieved.'
+          )
+        }),
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/onboarding/remind`, () =>
+          ok({ emailSent: true, recipientCount: 1 }, 'Reminder sent.')
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt(ONBOARDING)
+      await user.click(await screen.findByRole('button', { name: 'Send reminder' }))
+      const dialog = await screen.findByRole('alertdialog')
+      await user.type(within(dialog).getByLabelText('Reason'), 'Stalled')
+      await user.click(within(dialog).getByRole('button', { name: 'Send reminder' }))
+
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: 'Send reminder' })).not.toBeInTheDocument()
+      )
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: 'Reminders', level: 2 })).toHaveFocus()
+      )
+    })
+
+    it('returns focus to Send reminder when the write fails', async () => {
+      serve()
+      server.use(
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/onboarding/remind`, () =>
+          fail('Server error', 500, 'internal_error')
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt(ONBOARDING)
+      const button = await screen.findByRole('button', { name: 'Send reminder' })
+      await user.click(button)
+      const dialog = await screen.findByRole('alertdialog')
+      await user.type(within(dialog).getByLabelText('Reason'), 'Stalled')
+      await user.click(within(dialog).getByRole('button', { name: 'Send reminder' }))
+      await user.click(await within(dialog).findByRole('button', { name: 'Cancel' }))
+      await waitFor(() => expect(button).toHaveFocus())
     })
 
     it('warns when not every owner’s email could be queued', async () => {

@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { canActorGrantRole, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
+import { useFocusAfter } from '@/hooks/use-focus-after'
 import { useStepUp } from '@/hooks/use-step-up'
 import { codeFrom, messageFrom } from '@/lib/api-error'
 import { formatDate } from '@/lib/format'
@@ -112,15 +113,21 @@ function ResendInvitationButton({
   )
 }
 
-/** Revoke for one row, behind a confirmation; `mutateAsync` for the same reason as resend. */
+/**
+ * Revoke for one row, behind a confirmation; `mutateAsync` for the same reason
+ * as resend. The row goes with a success, so `onRevoked` lets the list move
+ * focus to its heading: this button is unmounted by then.
+ */
 function RevokeInvitationButton({
   slug,
   invitation,
   tenantId,
+  onRevoked,
 }: {
   slug: string
   invitation: TenantInvitation
   tenantId?: string
+  onRevoked: () => void
 }) {
   const revoke = useRevokeInvitation(slug, tenantId)
   const stepUp = useStepUp()
@@ -158,6 +165,7 @@ function RevokeInvitationButton({
                 .then(
                   () => {
                     setIsOpen(false)
+                    onRevoked()
                     toast.success(`Invitation to ${invitation.email} revoked.`)
                   },
                   (error: unknown) => {
@@ -187,11 +195,13 @@ function InvitationItem({
   invitation,
   myRole,
   tenantId,
+  onRevoked,
 }: {
   slug: string
   invitation: TenantInvitation
   myRole: MembershipRole
   tenantId?: string
+  onRevoked: () => void
 }) {
   return (
     <li className="grid gap-3 rounded-lg border p-4 sm:flex sm:items-center sm:justify-between">
@@ -211,7 +221,12 @@ function InvitationItem({
           myRole={myRole}
           tenantId={tenantId}
         />
-        <RevokeInvitationButton slug={slug} invitation={invitation} tenantId={tenantId} />
+        <RevokeInvitationButton
+          slug={slug}
+          invitation={invitation}
+          tenantId={tenantId}
+          onRevoked={onRevoked}
+        />
       </div>
     </li>
   )
@@ -232,12 +247,16 @@ export function PendingInvitations({
   tenantId?: string
 }) {
   const invitations = useInvitations(slug, tenantId)
+  const focus = useFocusAfter<'heading'>()
+  const focusHeading = () => focus.focusAfter('heading')
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2>Pending invitations</h2>
+          <h2 ref={focus.target('heading')} tabIndex={-1} className="outline-none">
+            Pending invitations
+          </h2>
         </CardTitle>
         <CardDescription>Sent, and not yet accepted.</CardDescription>
       </CardHeader>
@@ -262,6 +281,7 @@ export function PendingInvitations({
                 invitation={invitation}
                 myRole={myRole}
                 tenantId={tenantId}
+                onRevoked={focusHeading}
               />
             ))}
           </ul>
