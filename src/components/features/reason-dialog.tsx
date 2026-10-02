@@ -48,6 +48,12 @@ export interface ReasonDialogProps {
   onConfirm: (reason: string) => Promise<void>
   /** Where focus goes when the dialog closes; omitted, it returns to the element that opened it. */
   finalFocus?: ComponentProps<typeof AlertDialogContent>['finalFocus']
+  /**
+   * How a 403 or 409 reads instead of the server's sentence, for a refusal
+   * whose detail the reader's locale should word (a time); `undefined` keeps
+   * the server's.
+   */
+  refusalMessage?: (error: unknown) => string | undefined
 }
 
 /**
@@ -56,7 +62,8 @@ export interface ReasonDialogProps {
  * irreversible ones, a typed confirmation. The form mounts only while open,
  * so each opening starts blank. A 403 or 409, and a 404 that carries a code,
  * is the server's own sentence (staff-on-staff refusal, invalid transition,
- * last owner, an invitation no longer pending) and is shown as is; a 404
+ * last owner, an invitation no longer pending) and is shown as is unless
+ * `refusalMessage` returns a sentence to replace it; a 404
  * without a code is the role gate's. The dialog stays open so the reader
  * sees it.
  */
@@ -86,6 +93,7 @@ function ReasonForm({
   destructive = false,
   confirmText,
   onConfirm,
+  refusalMessage,
   onBusyChange,
 }: ReasonDialogProps & { onBusyChange: (busy: boolean) => void }) {
   const serverErrors = useServerErrors()
@@ -115,7 +123,7 @@ function ReasonForm({
           return
         }
         if (status === 403 || status === 409) {
-          serverErrors.setFormErrors([messageFrom(error)])
+          serverErrors.setFormErrors([refusalMessage?.(error) ?? messageFrom(error)])
           return
         }
         serverErrors.capture(error)

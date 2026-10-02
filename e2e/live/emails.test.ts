@@ -17,7 +17,7 @@ import {
 } from './helpers'
 
 /**
- * Message tracking against a real express (1.3.0 or newer, `APP_ENV=local`)
+ * Message tracking against a real express (1.4.0 or newer, as `assertApiServesApex` requires; `APP_ENV=local`)
  * with mailpit: a real email goes out through an SP2 action, provider events
  * reach it through express's fake webhook adapter (`pnpm email:fire-event`),
  * and the Apex pages follow. Step-up on a platform-tenant invitation resend is

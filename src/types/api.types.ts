@@ -190,8 +190,11 @@ export type StatsRange = '7d' | '30d'
 /** `GET /platform/stats`: live totals and one zero-filled entry per UTC day, oldest first. */
 export interface PlatformStats {
   range: StatsRange
-  /** Live counts. `users` is active users only; `staff` is the platform tenant's members. */
-  totals: { tenants: number; users: number; staff: number }
+  /**
+   * Live counts. `users` is active users only; `staff` is the platform tenant's members;
+   * `stuckTenants` is active tenants whose onboarding has stalled (express 1.4.0).
+   */
+  totals: { tenants: number; users: number; staff: number; stuckTenants: number }
   /**
    * Per UTC day. `users` counts every non-deleted user created that day, inactive and staff
    * included, so it does not sum to `totals.users`.
@@ -356,6 +359,7 @@ export const EMAIL_TEMPLATE_KEYS = [
   'tenant_invitation',
   'password_changed',
   'registration_attempt',
+  'onboarding_reminder',
 ] as const
 export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number]
 
@@ -561,3 +565,218 @@ export const NOT_RESENDABLE = 'not_resendable'
 
 /** 409 on lift: someone lifted it first. */
 export const ALREADY_LIFTED = 'already_lifted'
+
+/**
+ * A tenant's onboarding state, derived by the API on every read. Mirrors
+ * express's ONBOARDING_STATES. The API picks the first that applies of
+ * not_tracked, awaiting_owner, complete, dismissed, stuck and in_progress, so
+ * a dismissed tenant that finished reads `complete`.
+ */
+export const ONBOARDING_STATES = [
+  'not_tracked',
+  'awaiting_owner',
+  'in_progress',
+  'stuck',
+  'complete',
+  'dismissed',
+] as const
+export type OnboardingState = (typeof ONBOARDING_STATES)[number]
+
+/**
+ * `GET /platform/onboarding/tenants?state=`, in tab order. Untracked tenants
+ * are on no list.
+ */
+export const ONBOARDING_LIST_STATES = [
+  'stuck',
+  'in_progress',
+  'awaiting_owner',
+  'complete',
+  'dismissed',
+] as const satisfies readonly OnboardingState[]
+export type OnboardingListState = (typeof ONBOARDING_LIST_STATES)[number]
+
+/** The funnel's windows, in toggle order. Mirrors express's ONBOARDING_RANGES; distinct from STATS_RANGES. */
+export const ONBOARDING_RANGES = ['7d', '30d', '90d'] as const
+export type OnboardingRange = (typeof ONBOARDING_RANGES)[number]
+
+/** Whether a step is done once per tenant or once per person. */
+export type OnboardingScope = 'tenant' | 'member'
+
+/** How a step completes: from a server-side event, or ticked by the customer. */
+export type OnboardingCompletionKind = 'auto' | 'manual'
+
+/** Who completed a step: the server, the customer, or staff with a reason. */
+export type OnboardingSource = 'auto' | 'customer' | 'staff'
+
+/** Someone an onboarding read names: their name, else their email. */
+export interface OnboardingPerson {
+  id: string
+  name: string
+}
+
+/** A registry step by key and title. */
+export interface OnboardingStepSummary {
+  key: string
+  title: string
+}
+
+/**
+ * One registry step on the funnel, over the tenants that started in the
+ * window. A member step counts a tenant once any active owner has done it.
+ * `staffCompleted` is the part of `completed` that staff marked complete.
+ */
+export interface OnboardingFunnelStep {
+  key: string
+  title: string
+  scope: OnboardingScope
+  required: boolean
+  completed: number
+  staffCompleted: number
+}
+
+/**
+ * `GET /platform/onboarding/funnel?range=`, over the active tracked tenants
+ * whose onboarding started since `from`. `totals.started` counts them and the
+ * other four split them by their state now. `completionRate` is
+ * `complete / started` as a fraction, or null when none started.
+ * `trackedTenants` counts every active tracked tenant whatever its start,
+ * awaiting an owner included: 0 means none was created since tracking began.
+ */
+export interface OnboardingFunnel {
+  range: OnboardingRange
+  from: string
+  totals: {
+    started: number
+    inProgress: number
+    stuck: number
+    complete: number
+    dismissed: number
+  }
+  completionRate: number | null
+  steps: OnboardingFunnelStep[]
+  trackedTenants: number
+}
+
+/**
+ * One row of `GET /platform/onboarding/tenants`. `owners` are the active
+ * owners. `startedAt` is null while the tenant awaits its first owner;
+ * `lastProgressAt` is the latest completion, else `startedAt`; `daysStuck`
+ * is set on stuck rows only. `nextStep` is the first incomplete required
+ * step in registry order.
+ */
+export interface OnboardingTenantRow {
+  id: string
+  name: string
+  slug: string
+  state: OnboardingState
+  owners: OnboardingPerson[]
+  startedAt: string | null
+  lastProgressAt: string | null
+  completedAt: string | null
+  daysStuck: number | null
+  nextStep: OnboardingStepSummary | null
+  requiredDone: number
+  requiredTotal: number
+}
+
+/** A keyset page of `GET /platform/onboarding/tenants`; cursors as for `PlatformTenantPage`. */
+export interface OnboardingTenantPage {
+  tenants: OnboardingTenantRow[]
+  nextCursor: string | null
+  prevCursor: string | null
+}
+
+/** One live member's own status on a member step. */
+export interface OnboardingMemberStatus {
+  user: OnboardingPerson
+  role: MembershipRole
+  completedAt: string | null
+  source: OnboardingSource | null
+}
+
+/**
+ * One step of a tenant's onboarding, in registry order. For a member step
+ * the completion fields are the earliest active owner's (what counts for the
+ * tenant) and `members` counts and lists every live member's own; for a
+ * tenant step `members` is null. `completedBy` is null for an automatic
+ * completion and once a staff completer was purged. `canMarkComplete` is
+ * the API's answer, the caller's role aside: an admin still has to ask.
+ */
+export interface OnboardingStepDetail {
+  key: string
+  title: string
+  description: string
+  scope: OnboardingScope
+  kind: OnboardingCompletionKind
+  required: boolean
+  completedAt: string | null
+  source: OnboardingSource | null
+  completedBy: OnboardingPerson | null
+  reason: string | null
+  members: { completed: number; total: number; entries: OnboardingMemberStatus[] } | null
+  canMarkComplete: boolean
+}
+
+/** Why a reminder cannot go now: the 409 code the remind endpoint would answer. */
+export type OnboardingReminderBlock =
+  'tenant_state_conflict' | 'not_in_progress' | 'no_owner' | 'reminded_recently'
+
+/**
+ * One staff reminder, read from the tenant's `onboarding.reminder_sent`
+ * audit entry (`id` is that entry's). `sentBy` is null once that staff
+ * member was purged. `messageIds` are the tracked emails it queued, one per
+ * active owner; `emailDomains` is never an address.
+ */
+export interface OnboardingReminderView {
+  id: string
+  sentAt: string
+  sentBy: OnboardingPerson | null
+  reason: string
+  recipientCount: number
+  emailDomains: string[]
+  messageIds: string[]
+}
+
+/**
+ * Whether the remind endpoint would take a reminder now, the caller's role
+ * aside, and why not; and the active owners' email domains it would mail.
+ * `nextAllowedAt` is set while `reminded_recently` blocks it.
+ */
+export interface OnboardingReminderAvailability {
+  canSend: boolean
+  blockedBy: OnboardingReminderBlock | null
+  lastSentAt: string | null
+  nextAllowedAt: string | null
+  recipientCount: number
+  emailDomains: string[]
+}
+
+/**
+ * `GET /platform/tenants/:id/onboarding`, readable in every lifecycle
+ * state. `reminders` are newest first.
+ */
+export interface TenantOnboardingDetail {
+  tenant: { id: string; name: string; slug: string; lifecycleState: TenantLifecycleState }
+  state: OnboardingState
+  startedAt: string | null
+  lastProgressAt: string | null
+  completedAt: string | null
+  dismissedAt: string | null
+  dismissedBy: OnboardingPerson | null
+  daysStuck: number | null
+  requiredDone: number
+  requiredTotal: number
+  nextStep: OnboardingStepSummary | null
+  steps: OnboardingStepDetail[]
+  reminder: OnboardingReminderAvailability
+  reminders: OnboardingReminderView[]
+}
+
+/**
+ * `POST /platform/tenants/:id/onboarding/remind`: how many active owners it
+ * addressed, and whether every one's email was queued.
+ */
+export interface OnboardingReminderResult {
+  emailSent: boolean
+  recipientCount: number
+}

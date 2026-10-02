@@ -99,7 +99,7 @@ const testUser = {
  */
 const STATS = {
   range: '7d' as const,
-  totals: { tenants: 1284, users: 9730, staff: 18 },
+  totals: { tenants: 1284, users: 9730, staff: 18, stuckTenants: 6 },
   signups: ['23', '24', '25', '26', '27', '28', '29'].map((day, index) => ({
     date: `2026-09-${day}`,
     users: 20 + index * 3,
@@ -466,6 +466,234 @@ const SUPPRESSION_ROWS = [
   },
 ]
 
+/** The four default steps' names, as express's registry serves them. */
+const STEP_TITLES = {
+  configure_settings: 'Configure your workspace',
+  invite_teammate: 'Invite a teammate',
+  teammate_joined: 'A teammate joins',
+  read_getting_started: 'Read the getting-started guide',
+} as const
+
+/** The onboarding funnel for any window: 40 started, two steps with a staff share, so both fills draw. */
+function onboardingFunnel(range: string) {
+  return {
+    range,
+    from: '2026-08-31T00:00:00.000Z',
+    totals: { started: 40, inProgress: 18, stuck: 6, complete: 14, dismissed: 2 },
+    completionRate: 14 / 40,
+    steps: [
+      {
+        key: 'configure_settings',
+        scope: 'tenant',
+        required: true,
+        completed: 30,
+        staffCompleted: 4,
+      },
+      { key: 'invite_teammate', scope: 'tenant', required: true, completed: 20, staffCompleted: 1 },
+      {
+        key: 'teammate_joined',
+        scope: 'tenant',
+        required: false,
+        completed: 12,
+        staffCompleted: 0,
+      },
+      {
+        key: 'read_getting_started',
+        scope: 'member',
+        required: false,
+        completed: 9,
+        staffCompleted: 0,
+      },
+    ].map((step) => ({ ...step, title: STEP_TITLES[step.key as keyof typeof STEP_TITLES] })),
+    trackedTenants: 52,
+  }
+}
+
+/**
+ * One row per tab, the onboarding list filtered the way the API filters it:
+ * Acme stuck with two owners, the long-named Beta in progress, Delta waiting
+ * for its owner, and the rest finished or dismissed.
+ */
+const ONBOARDING_ROWS = [
+  {
+    ...ACME,
+    state: 'stuck',
+    owners: [
+      { id: USER_ID, name: 'A B' },
+      { id: USER_ID_2, name: 'Cleo D' },
+    ],
+    startedAt: '2026-09-10T09:00:00.000Z',
+    lastProgressAt: '2026-09-20T09:00:00.000Z',
+    completedAt: null,
+    daysStuck: 9,
+    nextStep: { key: 'invite_teammate', title: STEP_TITLES.invite_teammate },
+    requiredDone: 1,
+    requiredTotal: 2,
+  },
+  {
+    id: TENANT_ID_2,
+    name: 'Beta Ltd',
+    slug: 'beta',
+    state: 'in_progress',
+    owners: [{ id: USER_ID_3, name: 'Evangeline Featherstonehaugh' }],
+    startedAt: '2026-09-25T09:00:00.000Z',
+    lastProgressAt: '2026-09-27T09:00:00.000Z',
+    completedAt: null,
+    daysStuck: null,
+    nextStep: { key: 'configure_settings', title: STEP_TITLES.configure_settings },
+    requiredDone: 0,
+    requiredTotal: 2,
+  },
+  {
+    id: TENANT_ID_4,
+    name: 'Delta LLC',
+    slug: 'delta',
+    state: 'awaiting_owner',
+    owners: [],
+    startedAt: null,
+    lastProgressAt: null,
+    completedAt: null,
+    daysStuck: null,
+    nextStep: { key: 'configure_settings', title: STEP_TITLES.configure_settings },
+    requiredDone: 0,
+    requiredTotal: 2,
+  },
+  {
+    id: TENANT_ID_3,
+    name: 'Gamma Inc',
+    slug: 'gamma',
+    state: 'complete',
+    owners: [{ id: USER_ID_2, name: 'Cleo D' }],
+    startedAt: '2026-09-01T09:00:00.000Z',
+    lastProgressAt: '2026-09-05T09:00:00.000Z',
+    completedAt: '2026-09-05T09:00:00.000Z',
+    daysStuck: null,
+    nextStep: null,
+    requiredDone: 2,
+    requiredTotal: 2,
+  },
+]
+
+/**
+ * `?onboarding=` picks the state Acme's Onboarding tab renders, so the
+ * contrast suite can measure every badge tone on one page; the default is
+ * stuck. Beta's tab is suspended and read-only; Delta's awaits its owner.
+ */
+const acmeOnboardingState = new URLSearchParams(location.search).get('onboarding') ?? 'stuck'
+
+/** A tenant's Onboarding tab: every completion kind, an open member disclosure's worth of members, and two reminders. */
+function tenantOnboarding(tenantId: string) {
+  const isBeta = tenantId === TENANT_ID_2
+  const isDelta = tenantId === TENANT_ID_4
+  const state = isBeta ? 'stuck' : isDelta ? 'awaiting_owner' : acmeOnboardingState
+  const tenant = isBeta
+    ? { id: TENANT_ID_2, name: 'Beta Ltd', slug: 'beta', lifecycleState: 'suspended' }
+    : isDelta
+      ? { id: TENANT_ID_4, name: 'Delta LLC', slug: 'delta', lifecycleState: 'active' }
+      : { ...ACME, lifecycleState: 'active' }
+  const canAct = !isBeta && !isDelta && (state === 'stuck' || state === 'in_progress')
+  const step = (key: keyof typeof STEP_TITLES, required: boolean) => ({
+    key,
+    title: STEP_TITLES[key],
+    description: 'What this step asks of the customer, long enough to wrap at phone width.',
+    scope: 'tenant',
+    kind: 'auto',
+    required,
+    completedAt: null,
+    source: null,
+    completedBy: null,
+    reason: null,
+    members: null,
+    canMarkComplete: canAct,
+  })
+  return {
+    tenant,
+    state,
+    startedAt: isDelta || state === 'not_tracked' ? null : '2026-09-10T09:00:00.000Z',
+    lastProgressAt: isDelta || state === 'not_tracked' ? null : '2026-09-20T09:00:00.000Z',
+    completedAt: state === 'complete' ? '2026-09-20T09:00:00.000Z' : null,
+    dismissedAt: state === 'dismissed' ? '2026-09-21T09:00:00.000Z' : null,
+    dismissedBy: state === 'dismissed' ? { id: USER_ID_2, name: 'Cleo D' } : null,
+    daysStuck: state === 'stuck' ? 9 : null,
+    requiredDone: 1,
+    requiredTotal: 2,
+    nextStep: { key: 'invite_teammate', title: STEP_TITLES.invite_teammate },
+    steps: [
+      {
+        ...step('configure_settings', true),
+        completedAt: '2026-09-12T09:00:00.000Z',
+        source: 'staff',
+        completedBy: { id: STAFF_USER_ID, name: 'Sam Staff' },
+        reason:
+          'Set up together on the kickoff call, since the owner could not find the settings page',
+        canMarkComplete: false,
+      },
+      step('invite_teammate', true),
+      {
+        ...step('teammate_joined', false),
+        completedAt: '2026-09-20T09:00:00.000Z',
+        source: 'auto',
+        canMarkComplete: false,
+      },
+      {
+        ...step('read_getting_started', false),
+        scope: 'member',
+        kind: 'manual',
+        completedAt: '2026-09-13T09:00:00.000Z',
+        source: 'customer',
+        canMarkComplete: false,
+        members: {
+          completed: 1,
+          total: 2,
+          entries: [
+            {
+              user: { id: USER_ID, name: 'A B' },
+              role: 'owner',
+              completedAt: '2026-09-13T09:00:00.000Z',
+              source: 'customer',
+            },
+            {
+              user: { id: USER_ID_3, name: 'Evangeline Featherstonehaugh' },
+              role: 'editor',
+              completedAt: null,
+              source: null,
+            },
+          ],
+        },
+      },
+    ],
+    reminder: {
+      canSend: canAct,
+      blockedBy: canAct ? null : isBeta ? 'tenant_state_conflict' : 'not_in_progress',
+      lastSentAt: '2026-09-28T09:00:00.000Z',
+      nextAllowedAt: null,
+      recipientCount: 2,
+      emailDomains: ['b.com', 'example-company-domain.com'],
+    },
+    reminders: [
+      {
+        id: AUDIT_ID_2,
+        sentAt: '2026-09-28T09:00:00.000Z',
+        sentBy: { id: STAFF_USER_ID, name: 'Sam Staff' },
+        reason:
+          'Stalled for a week after the kickoff call; nudging both owners towards inviting the team',
+        recipientCount: 2,
+        emailDomains: ['b.com', 'example-company-domain.com'],
+        messageIds: [EMAIL_ID, EMAIL_ID_2],
+      },
+      {
+        id: AUDIT_ID_1,
+        sentAt: '2026-09-20T09:00:00.000Z',
+        sentBy: null,
+        reason: 'First nudge',
+        recipientCount: 1,
+        emailDomains: ['b.com'],
+        messageIds: [EMAIL_ID],
+      },
+    ],
+  }
+}
+
 /** The API's step-up refusal, for the writes the fixtures drive into the stacked dialog. */
 function reauthRequired() {
   return Response.json(
@@ -570,6 +798,21 @@ const worker = setupWorker(
   ),
   http.get('/api/v1/platform/tenants/:tenantId', ({ params }) =>
     ok(tenantDetail(String(params.tenantId)), 'Tenant retrieved.')
+  ),
+  // The onboarding page (funnel, and the list by state) and a tenant's Onboarding tab.
+  http.get('/api/v1/platform/onboarding/funnel', ({ request }) =>
+    ok(
+      onboardingFunnel(new URL(request.url).searchParams.get('range') ?? '30d'),
+      'Onboarding funnel retrieved.'
+    )
+  ),
+  http.get('/api/v1/platform/onboarding/tenants', ({ request }) => {
+    const state = new URL(request.url).searchParams.get('state') ?? 'stuck'
+    const tenants = ONBOARDING_ROWS.filter((row) => row.state === state)
+    return ok({ tenants, nextCursor: null, prevCursor: null }, 'Onboarding tenants retrieved.')
+  }),
+  http.get('/api/v1/platform/tenants/:tenantId/onboarding', ({ params }) =>
+    ok(tenantOnboarding(String(params.tenantId)), 'Tenant onboarding retrieved.')
   ),
   // Acme's own routes, which its Members, Invitations and Activity tabs read. Beta's are never called: a frozen tenant's tabs make no tenant-route request.
   http.get('/api/v1/tenants/acme', () =>
@@ -706,7 +949,7 @@ useAuthStore.setState({
  * /auth/providers, the tenants page's search, the activity page's three
  * requests, the Staff page's three, the users list and a user's page (its Emails
  * card included), a tenant's page with its tabs, the Emails list and an email's page with its
- * preview, Deliverability and Suppressions, so those pages render without a backend.
+ * preview, Deliverability, Suppressions and Onboarding, so those pages render without a backend.
  *
  * Only a same-origin absolute path is accepted. This harness is not
  * shipped (nothing in `src/` imports it, and `index.html` is the only Vite

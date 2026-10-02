@@ -26,10 +26,12 @@ export const ROUTES = {
   tenantInvitations: '/tenants/$tenantId/invitations',
   tenantActivity: '/tenants/$tenantId/activity',
   tenantEmails: '/tenants/$tenantId/emails',
+  tenantOnboarding: '/tenants/$tenantId/onboarding',
   emails: '/emails',
   email: '/emails/$emailId',
   deliverability: '/deliverability',
   suppressions: '/suppressions',
+  onboarding: '/onboarding',
   noAccess: '/no-access',
   invitationAccept: '/invitations/accept',
 } as const

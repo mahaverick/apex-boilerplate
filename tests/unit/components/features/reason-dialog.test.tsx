@@ -28,9 +28,11 @@ function apiFailure(status: number, message: string, code?: string): AxiosError 
 function Harness({
   onConfirm,
   confirmText,
+  refusalMessage,
 }: {
   onConfirm: (reason: string) => Promise<void>
   confirmText?: string
+  refusalMessage?: (error: unknown) => string | undefined
 }) {
   const [open, setOpen] = useState(true)
   return (
@@ -44,6 +46,7 @@ function Harness({
         confirmLabel="Suspend"
         destructive
         confirmText={confirmText}
+        refusalMessage={refusalMessage}
         onConfirm={onConfirm}
       />
     </>
@@ -142,6 +145,27 @@ describe('ReasonDialog', () => {
         'Your role can’t do this any more. If your access just changed, reload the page.'
       )
     ).toBeInTheDocument()
+    expect(screen.getByText('open: true')).toBeInTheDocument()
+  })
+
+  it('words a 409 its own way when asked, and keeps the server’s sentence otherwise', async () => {
+    const onConfirm = vi
+      .fn<(reason: string) => Promise<void>>()
+      .mockRejectedValueOnce(apiFailure(409, 'Too soon', 'reminded_recently'))
+      .mockRejectedValueOnce(apiFailure(409, 'No owner', 'no_owner'))
+    const refusalMessage = (error: unknown) =>
+      error instanceof AxiosError &&
+      (error.response?.data as { code?: string }).code === 'reminded_recently'
+        ? 'Try again tomorrow.'
+        : undefined
+    const user = userEvent.setup()
+    render(<Harness onConfirm={onConfirm} refusalMessage={refusalMessage} />)
+    await user.type(await screen.findByLabelText('Reason'), 'why')
+    await user.click(screen.getByRole('button', { name: 'Suspend' }))
+    expect(await screen.findByText('Try again tomorrow.')).toBeInTheDocument()
+    expect(screen.queryByText('Too soon')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Suspend' }))
+    expect(await screen.findByText('No owner')).toBeInTheDocument()
     expect(screen.getByText('open: true')).toBeInTheDocument()
   })
 

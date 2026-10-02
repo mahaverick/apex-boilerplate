@@ -8,6 +8,7 @@ import {
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
 import { invalidateEmails } from '@/queries/email.queries'
+import { onboardingKeys } from '@/queries/onboarding.queries'
 import type { ApiSuccess, PlatformStats, StatsRange } from '@/types/api.types'
 
 /** How long a tenant search box waits for typing to stop before asking the API. */
@@ -27,8 +28,9 @@ export const PLATFORM_PAGE_SIZE = 20
  * means "not available to you", never "missing". A route an older express
  * lacks 404s too (`/platform/stats` before 1.1.0, `/platform/users` and
  * `/platform/tenants/:id` before 1.2.0, `/platform/emails*` and
- * `/platform/email-suppressions` before 1.3.0), so it reads as role-denied:
- * Apex needs express 1.3.0 or newer.
+ * `/platform/email-suppressions` before 1.3.0, `/platform/onboarding/*` and
+ * `/platform/tenants/:id/onboarding` before 1.4.0), so it reads as
+ * role-denied: Apex needs express 1.4.0 or newer.
  * @param error - A query or mutation error.
  * @returns True for a 404.
  */
@@ -61,10 +63,11 @@ export function platformStatsQueryOptions(range: StatsRange) {
 /**
  * The cache prefixes a staff write can make stale beyond its own record: the
  * users list and pages, the tenants list and pages, every tenant's own routes
- * (members, invitations, detail, log; the Staff page is the platform tenant's)
- * and the platform audit log, since every staff write is an entry there. The
- * email queries are marked stale beside these (`invalidateEmails`): a write
- * may send mail, and a purge deletes the mail it held.
+ * (members, invitations, detail, log; the Staff page is the platform tenant's),
+ * the platform audit log, since every staff write is an entry there, and the
+ * onboarding funnel, lists and tenant pages, which count active tenants only.
+ * The email queries are marked stale beside these (`invalidateEmails`): a
+ * write may send mail, and a purge deletes the mail it held.
  */
 const DIRECTORY_PREFIXES: readonly QueryKey[] = [
   ['platform', 'users'],
@@ -73,6 +76,7 @@ const DIRECTORY_PREFIXES: readonly QueryKey[] = [
   ['platform', 'tenant'],
   ['tenants'],
   ['platform', 'audit-log'],
+  onboardingKeys.all,
 ]
 
 /** Whether `key` starts with every part of `prefix`. */

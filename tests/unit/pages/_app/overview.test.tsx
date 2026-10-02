@@ -16,7 +16,7 @@ describe('/overview', () => {
     vi.unstubAllGlobals()
   })
 
-  it('shows the four KPIs from the stats, the last an undelivered rate over emails that left', async () => {
+  it('shows the five KPIs from the stats, an undelivered rate over emails that left among them', async () => {
     renderAppAt('/overview')
     const kpis = await screen.findByRole('region', { name: 'Key figures' })
     expect(within(kpis).getByText('1,284')).toBeInTheDocument()
@@ -34,6 +34,17 @@ describe('/overview', () => {
         `${undelivered.toLocaleString('en-US')} of ${left.toLocaleString('en-US')} emails that left our server`
       )
     ).toBeInTheDocument()
+    expect(kpis.querySelectorAll('[data-slot="card"]')).toHaveLength(5)
+  })
+
+  it('counts stuck tenants in the fifth tile, linking to the onboarding list’s stuck tab', async () => {
+    renderAppAt('/overview')
+    const kpis = await screen.findByRole('region', { name: 'Key figures' })
+    const tile = within(kpis).getByText('Stuck tenants').closest('[data-slot="card"]')!
+    expect(within(tile as HTMLElement).getByText('6')).toBeInTheDocument()
+    expect(
+      within(tile as HTMLElement).getByRole('link', { name: 'View stuck tenants' })
+    ).toHaveAttribute('href', '/onboarding?state=stuck')
   })
 
   it('leaves suppressed emails out of the rate: they never left our server', async () => {
@@ -115,7 +126,7 @@ describe('/overview', () => {
         return ok(
           {
             range,
-            totals: { tenants: 0, users: 0, staff: 1 },
+            totals: { tenants: 0, users: 0, staff: 1, stuckTenants: 0 },
             signups: testStats.signups.map((day) => ({ ...day, users: 0, tenants: 0 })),
             emails: testStats.emails.map((day) => ({ ...day, sent: 0, failed: 0 })),
             emailMessages: testStats.emailMessages.map((day) => ({

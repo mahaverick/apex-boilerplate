@@ -70,7 +70,7 @@ describe('/tenants/$tenantId/emails', () => {
       within(nav)
         .getAllByRole('link')
         .map((link) => link.textContent)
-    ).toEqual(['Overview', 'Members', 'Invitations', 'Activity', 'Emails'])
+    ).toEqual(['Overview', 'Members', 'Invitations', 'Activity', 'Emails', 'Onboarding'])
     expect(within(nav).getByRole('link', { name: 'Emails' })).toHaveAttribute(
       'aria-current',
       'page'

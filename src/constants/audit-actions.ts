@@ -32,6 +32,10 @@ export const AUDIT_ACTIONS = [
   'auth.reauthenticated',
   'email.resent',
   'email.suppression_lifted',
+  'onboarding.dismissed',
+  'onboarding.undismissed',
+  'onboarding.step_completed',
+  'onboarding.reminder_sent',
 ] as const
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
 
@@ -70,6 +74,10 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'auth.reauthenticated': 'Identity confirmed',
   'email.resent': 'Email resent',
   'email.suppression_lifted': 'Suppression lifted',
+  'onboarding.dismissed': 'Getting started dismissed',
+  'onboarding.undismissed': 'Getting started restored',
+  'onboarding.step_completed': 'Onboarding step completed',
+  'onboarding.reminder_sent': 'Onboarding reminder sent',
 }
 
 type Metadata = Record<string, unknown>
@@ -101,6 +109,23 @@ function changedFields(metadata: Metadata): string {
 /** The invitee's domain only: the log never holds a full address. */
 function domain(metadata: Metadata): string {
   return text(metadata, 'emailDomain') ?? 'an unknown domain'
+}
+
+/** The strings in an array field, or none when it is missing or mistyped. */
+function texts(metadata: Metadata, key: string): string[] {
+  const value = metadata[key]
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
+}
+
+/** "2 owners at acme.test, corp.test", or "the owners" when the counts are missing. */
+function reminderRecipients(metadata: Metadata): string {
+  const count = metadata.recipientCount
+  const domains = texts(metadata, 'emailDomains')
+  const who =
+    typeof count === 'number' ? `${count} ${count === 1 ? 'owner' : 'owners'}` : 'the owners'
+  return domains.length > 0 ? `${who} at ${domains.join(', ')}` : who
 }
 
 /** `: “why”`, or nothing when the entry carries no reason. */
@@ -157,6 +182,15 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
   },
   'email.suppression_lifted': (m) =>
     `lifted the email suppression on an address at ${domain(m)}${because(m)}`,
+  'onboarding.dismissed': () => 'dismissed the getting-started checklist',
+  'onboarding.undismissed': () => 'brought back the getting-started checklist',
+  'onboarding.step_completed': (m) => {
+    const step = text(m, 'stepKey')
+    const which = step === undefined ? 'an onboarding step' : `the onboarding step “${step}”`
+    return `marked ${which} complete${because(m)}`
+  },
+  'onboarding.reminder_sent': (m) =>
+    `sent an onboarding reminder to ${reminderRecipients(m)}${because(m)}`,
 }
 
 /**

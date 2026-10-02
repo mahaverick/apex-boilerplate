@@ -696,6 +696,182 @@ test.describe('message tracking at 390px', () => {
 })
 
 /**
+ * Onboarding's surfaces, at phone width, in both themes: the page on two
+ * tabs, a tenant's Onboarding tab in every state (each badge tone asserted
+ * visible first; the harness's `?onboarding=` picks Acme's state), the
+ * suspended and awaiting-owner tabs, then both reason dialogs.
+ */
+const ACME_ONBOARDING = `${ACME_PAGE}/onboarding`
+
+const ONBOARDING_SURFACES = [
+  { name: 'onboarding', url: '/e2e/harness/?path=/onboarding', heading: 'Tenants', shows: 'Stuck' },
+  {
+    name: 'onboarding awaiting owner tab',
+    url: '/e2e/harness/?path=/onboarding?state=awaiting_owner',
+    heading: 'Tenants',
+    shows: 'Delta LLC',
+  },
+  ...(
+    [
+      ['stuck', 'Stuck'],
+      ['in_progress', 'In progress'],
+      ['complete', 'Complete'],
+      ['dismissed', 'Dismissed'],
+      ['not_tracked', 'Not tracked'],
+    ] as const
+  ).map(([state, badge]) => ({
+    name: `tenant onboarding ${state}`,
+    url: `/e2e/harness/?path=${ACME_ONBOARDING}&onboarding=${state}`,
+    heading: /^Onboarding$/,
+    shows: badge,
+  })),
+  {
+    name: 'suspended tenant onboarding',
+    url: '/e2e/harness/?path=/tenants/10000000-0000-4000-8000-000000000002/onboarding',
+    heading: 'Reminders',
+    shows: 'Stuck',
+  },
+  {
+    name: 'tenant onboarding awaiting owner',
+    url: '/e2e/harness/?path=/tenants/10000000-0000-4000-8000-000000000004/onboarding',
+    heading: 'Reminders',
+    shows: 'Awaiting owner',
+  },
+] as const
+
+test.describe('onboarding at 390px', () => {
+  for (const theme of THEMES) {
+    for (const surface of ONBOARDING_SURFACES) {
+      test(`${surface.name} meets WCAG AA contrast in ${theme}`, async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 })
+        const result = await contrastOf(page, surface.url, theme, surface.heading)
+        await expect(page.getByText(surface.shows, { exact: true }).first()).toBeVisible()
+        if (result.incomplete.length > 0) {
+          const targets = result.incomplete.flatMap((i) => i.nodes.map((n) => n.target.join(' ')))
+          console.warn(
+            `[contrast] ${surface.name} · ${theme}: ${targets.length} node(s) axe could not resolve — check by eye:\n  ${targets.join('\n  ')}`
+          )
+        }
+        expect(report(surface.name, theme, result), report(surface.name, theme, result)).toBe('')
+      })
+    }
+
+    test(`the mark-complete and reminder dialogs meet WCAG AA contrast in ${theme}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 390, height: 844 })
+      await contrastOf(page, `/e2e/harness/?path=${ACME_ONBOARDING}`, theme, 'Reminders')
+      for (const [trigger, title] of [
+        ['Mark complete: Invite a teammate', 'Mark “Invite a teammate” complete?'],
+        ['Send reminder', 'Send an onboarding reminder?'],
+      ] as const) {
+        await page.getByRole('button', { name: trigger }).click()
+        const dialog = page.getByRole('alertdialog', { name: title })
+        await expect(dialog.getByLabel('Reason')).toBeVisible()
+        await afterAnimations(dialog)
+        const result = await runAxe(page, '[role="alertdialog"]')
+        expect(report(title, theme, result), report(title, theme, result)).toBe('')
+        await page.keyboard.press('Escape')
+        await expect(dialog).toHaveCount(0)
+      }
+    })
+  }
+})
+
+/** WCAG 1.4.3: text under 18pt (or 14pt bold) needs 4.5:1. */
+const TEXT_MINIMUM = 4.5
+
+/**
+ * The onboarding funnel, measured directly rather than through axe: its
+ * labels and bars sit in an `aria-hidden` block (the sr-only table carries
+ * the figures), and its bars are non-text marks axe never grades. The muted
+ * share labels and the legend are held to 4.5:1 on the card; each drawn bar
+ * segment, the staff share among them, to 3:1 against the track it is drawn
+ * on and the card around it (WCAG 1.4.11).
+ */
+test.describe('onboarding funnel', () => {
+  for (const theme of THEMES) {
+    test(`its muted labels and bar segments meet WCAG AA contrast in ${theme}`, async ({
+      page,
+    }) => {
+      await contrastOf(page, '/e2e/harness/?path=/onboarding', theme, 'Onboarding funnel')
+      const funnel = page.getByRole('figure', { name: 'Onboarding funnel' })
+      // Four steps, two of them with a staff share: an empty funnel would compare nothing.
+      await expect(funnel.locator('li .rounded-full')).toHaveCount(4)
+      await expect(funnel.getByText(/\d by staff$/)).toHaveCount(2)
+
+      const measured = await funnel.evaluate((figure) => {
+        const canvas = document.createElement('canvas')
+        canvas.width = 1
+        canvas.height = 1
+        const context = canvas.getContext('2d', { willReadFrequently: true })!
+        /** The sRGB bytes of `colours` painted in order over the page background. */
+        const paint = (...colours: string[]) => {
+          context.clearRect(0, 0, 1, 1)
+          for (const colour of [getComputedStyle(document.body).backgroundColor, ...colours]) {
+            context.fillStyle = colour
+            context.fillRect(0, 0, 1, 1)
+          }
+          return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)]
+        }
+        const luminance = (rgb: number[]) => {
+          const [r, g, b] = rgb.map((byte) => {
+            const c = byte / 255
+            return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+          })
+          return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+        }
+        const ratio = (a: number, b: number) => {
+          const [lighter, darker] = [a, b].sort((x, y) => y - x)
+          return (lighter! + 0.05) / (darker! + 0.05)
+        }
+        const card = getComputedStyle(figure.closest('[data-slot="card"]')!).backgroundColor
+        const cardLuminance = luminance(paint(card))
+
+        const labels = [...figure.querySelectorAll('.text-muted-foreground')]
+          .filter((element) => element.textContent?.trim())
+          .map((element) => ({
+            text: element.textContent.trim(),
+            ratio: ratio(luminance(paint(card, getComputedStyle(element).color)), cardLuminance),
+          }))
+
+        const segments = [...figure.querySelectorAll('li .rounded-full')].flatMap((track) => {
+          const trackLuminance = luminance(paint(card, getComputedStyle(track).backgroundColor))
+          return [...track.children].flatMap((segment, index) => {
+            // A step with no staff completions draws its staff segment at zero width: nothing to see, nothing to grade.
+            if (segment.getBoundingClientRect().width === 0) return []
+            const fill = luminance(paint(card, getComputedStyle(segment).backgroundColor))
+            return {
+              segment: `${index === 0 ? 'completed' : 'staff'} on ${track.closest('li')!.querySelector('.font-medium')!.textContent}`,
+              onTrack: ratio(fill, trackLuminance),
+              onCard: ratio(fill, cardLuminance),
+            }
+          })
+        })
+        return { labels, segments }
+      })
+
+      // Four share labels, the two "· optional" suffixes and the legend, which sets the colour of both its entries.
+      expect(measured.labels).toHaveLength(7)
+      const faintLabels = measured.labels
+        .filter(({ ratio }) => ratio < TEXT_MINIMUM)
+        .map(({ text, ratio }) => `"${text}" is ${ratio.toFixed(2)}:1`)
+      expect(faintLabels, `funnel labels under ${TEXT_MINIMUM}:1 in ${theme}`).toEqual([])
+
+      // Four completed segments and the two staff shares that have width.
+      expect(measured.segments).toHaveLength(6)
+      const faintSegments = measured.segments
+        .filter(({ onTrack, onCard }) => Math.min(onTrack, onCard) < NON_TEXT_MINIMUM)
+        .map(
+          ({ segment, onTrack, onCard }) =>
+            `${segment} is ${onTrack.toFixed(2)}:1 on the track, ${onCard.toFixed(2)}:1 on the card`
+        )
+      expect(faintSegments, `funnel bars under ${NON_TEXT_MINIMUM}:1 in ${theme}`).toEqual([])
+    })
+  }
+})
+
+/**
  * The suite's own isolation. Without the fallback in `../hermetic` this
  * refresh goes through the Vite proxy: `answered` stays empty, and the
  * fixture's teardown reports the unstamped response.

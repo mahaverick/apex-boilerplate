@@ -9,6 +9,9 @@ export const API_ORIGIN = process.env.E2E_API_ORIGIN ?? 'http://localhost:4040'
 export const MAILPIT_ORIGIN = process.env.E2E_MAILPIT_ORIGIN ?? 'http://localhost:8025'
 export const API_DIR = process.env.E2E_API_DIR ?? '../express-boilerplate'
 
+/** The database that API runs on, in its compose project's postgres; a worktree's API may run on its own. */
+export const API_DB = process.env.E2E_API_DB ?? 'boilerplate'
+
 /** The password every e2e account uses. Long enough for the register schema. */
 export const PASSWORD = 'a very long passphrase for e2e'
 
@@ -278,10 +281,10 @@ export async function acceptInvitationAs(email: string, link: string): Promise<v
 
 /**
  * Makes a user's step-up stale by moving their refresh tokens'
- * `authenticated_at` an hour back in express's database. An access token
- * carries `auth_time` from that column, so the NEXT one (a full page load,
- * which refreshes) is stale. Runs psql in the compose project's postgres
- * service with the compose file's credentials.
+ * `authenticated_at` an hour back in express's database (`API_DB`). An
+ * access token carries `auth_time` from that column, so the NEXT one (a full
+ * page load, which refreshes) is stale. Runs psql in the compose project's
+ * postgres service with the compose file's credentials.
  * @param email - The user whose sessions to age.
  */
 export async function backdateStepUp(email: string): Promise<void> {
@@ -301,7 +304,7 @@ export async function backdateStepUp(email: string): Promise<void> {
       '-U',
       'boilerplate',
       '-d',
-      'boilerplate',
+      API_DB,
       '-v',
       'ON_ERROR_STOP=1',
       '-c',
@@ -316,11 +319,12 @@ export async function backdateStepUp(email: string): Promise<void> {
  * staff suites: express older than 1.2.0 (no `POST /auth/reauthenticate`, which answers
  * 401 without a token on 1.2.0 and 404 before it), an email worker that delivers nothing
  * to mailpit, `APEX_URL`/`WEB_URL` pointing somewhere other than `APEX_ORIGIN` and
- * `WEB_ORIGIN`, or express older than 1.3.0 (no `GET /platform/emails`). The origins are
- * read from the verification links two fresh registrations are mailed, one per `app`. The
- * 1.3.0 probe needs a staff token, since `/platform` authenticates before it routes (an
- * anonymous request is 401 on every version), so it runs last: a worker that delivers
- * nothing is reported as that, not as a failed sign-up.
+ * `WEB_ORIGIN`, express older than 1.3.0 (no `GET /platform/emails`) or older than 1.4.0
+ * (no `GET /platform/onboarding/funnel`). The origins are read from the verification links
+ * two fresh registrations are mailed, one per `app`. The 1.3.0 and 1.4.0 probes need a
+ * staff token, since `/platform` authenticates before it routes (an anonymous request is
+ * 401 on every version), so they run last: a worker that delivers nothing is reported as
+ * that, not as a failed sign-up.
  */
 export async function assertApiServesApex(): Promise<void> {
   const reauthenticate = await json(`${API_ORIGIN}/api/v1/auth/reauthenticate`, {
@@ -366,7 +370,8 @@ export async function assertApiServesApex(): Promise<void> {
   const viewer = freshEmail()
   await createVerifiedUser(viewer)
   await grantPlatformRole(viewer, 'viewer')
-  const emails = await apiRequest(await apiLogin(viewer), 'GET', '/platform/emails?limit=1')
+  const viewerToken = await apiLogin(viewer)
+  const emails = await apiRequest(viewerToken, 'GET', '/platform/emails?limit=1')
   if (emails.status === 404) {
     throw new Error(
       `The API at ${API_ORIGIN} has no GET /platform/emails: it is older than express 1.3.0, which message tracking needs.`
@@ -377,6 +382,75 @@ export async function assertApiServesApex(): Promise<void> {
       `GET /platform/emails answered ${emails.status} for a staff viewer: ${JSON.stringify(emails.body)}`
     )
   }
+  const funnel = await apiRequest(viewerToken, 'GET', '/platform/onboarding/funnel')
+  if (funnel.status === 404) {
+    throw new Error(
+      `The API at ${API_ORIGIN} has no GET /platform/onboarding/funnel: it is older than express 1.4.0, which onboarding needs.`
+    )
+  }
+  if (funnel.status !== 200) {
+    throw new Error(
+      `GET /platform/onboarding/funnel answered ${funnel.status} for a staff viewer: ${JSON.stringify(funnel.body)}`
+    )
+  }
+}
+
+/**
+ * A tenant's id, found by its slug with a staff token.
+ * @param token - A staff access token.
+ * @param slug - The tenant's slug, unique among live tenants.
+ */
+export async function tenantIdOf(token: string, slug: string): Promise<string> {
+  const found = await apiRequest(token, 'GET', `/platform/tenants?q=${encodeURIComponent(slug)}`)
+  const tenants = (found.body as { data?: { tenants?: { id: string; slug: string }[] } } | null)
+    ?.data?.tenants
+  const tenant = tenants?.find((row) => row.slug === slug)
+  if (found.status !== 200 || tenant === undefined) {
+    throw new Error(`no tenant ${slug}: ${found.status} ${JSON.stringify(found.body)}`)
+  }
+  return tenant.id
+}
+
+/** The first link starting with `prefix` in the newest email to `email` that has one, or ''. */
+async function linkStartingWith(email: string, prefix: string): Promise<string> {
+  const search = await fetch(
+    `${MAILPIT_ORIGIN}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`
+  )
+  const found = (await search.json()) as { messages?: { ID: string }[] }
+  const escaped = prefix.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
+  const pattern = new RegExp(`${escaped}[^\\s"'<>]*`)
+  for (const { ID } of found.messages ?? []) {
+    const message = await fetch(`${MAILPIT_ORIGIN}/api/v1/message/${ID}`)
+    const body = (await message.json()) as { Text?: string }
+    const match = pattern.exec(body.Text ?? '')
+    if (match) return match[0]
+  }
+  return ''
+}
+
+/**
+ * Polls mailpit for a link starting with `prefix` mailed to `email`: for an
+ * email whose link carries no token, which `mailedLink` looks for.
+ * @param email - The recipient.
+ * @param prefix - The link's start, e.g. `${WEB_ORIGIN}/tenants/`.
+ * @returns The absolute link.
+ */
+export async function mailedLinkStartingWith(email: string, prefix: string): Promise<string> {
+  let link = ''
+  await expect
+    .poll(
+      async () => {
+        link = await linkStartingWith(email, prefix)
+        return link
+      },
+      {
+        message: `no email with a ${prefix} link arrived for ${email} — is mailpit up on ${MAILPIT_ORIGIN}?`,
+        intervals: [500],
+        timeout: 15_000,
+      }
+    )
+    .not.toBe('')
+  return link
 }
 
 /** One row of `GET /platform/emails`, as far as the suites read it. */
