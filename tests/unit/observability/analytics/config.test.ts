@@ -7,6 +7,7 @@ import {
   getAnalyticsConfig,
   isAnalyticsAvailable,
 } from '@/observability/analytics/config'
+import { sanitizeUrl } from '@/observability/analytics/url-sanitizer'
 import { analyticsConfigFor } from '@/tests/mocks/posthog'
 
 const KEY = 'phc_test_key_not_real'
@@ -70,5 +71,16 @@ describe('the app constants', () => {
   it('names this app and keeps only its list enums in URLs', () => {
     expect(ANALYTICS_APP).toBe('apex')
     expect(ANALYTICS_URL_QUERY_ALLOWLIST).toEqual(['range', 'tab', 'state', 'status'])
+  })
+})
+
+describe('the URL allowlist, through the sanitizer', () => {
+  it('keeps range, state, status and tab, and strips token and email', () => {
+    expect(
+      sanitizeUrl(
+        'https://app.example.com/tenants?range=7d&token=probe-token&state=open&email=pii-probe%40example.test&status=active&tab=members',
+        ANALYTICS_URL_QUERY_ALLOWLIST
+      )
+    ).toBe('https://app.example.com/tenants?range=7d&state=open&status=active&tab=members')
   })
 })
