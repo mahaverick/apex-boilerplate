@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/mahaverick/apex-boilerplate/compare/v1.3.0...v1.3.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* list pages scroll their tables, not the layout, on phones ([#11](https://github.com/mahaverick/apex-boilerplate/issues/11)) ([f2b51ac](https://github.com/mahaverick/apex-boilerplate/commit/f2b51ac3026e226a6a45c5f82ee74d5a698b065d))
+
 ## [1.3.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.2.0...v1.3.0) (2026-10-02)
 
 
