@@ -22,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useFocusAfter } from '@/hooks/use-focus-after'
 import {
   emailSuppressionsQueryOptions,
   useLiftSuppression,
@@ -106,7 +107,8 @@ function SuppressionsPage() {
   const navigate = Route.useNavigate()
   const role = useAuthStore((state) => state.user?.platformRole)
   const canLift = platformRoleAtLeast(role, 'admin')
-  const heading = useRef<HTMLHeadingElement>(null)
+  const focus = useFocusAfter<'heading' | `suppression:${string}`>()
+  const opener = useRef<HTMLElement | null>(null)
   const q = search.q ?? ''
   const [draft, setDraft] = useState(q)
   const [followed, setFollowed] = useState(q)
@@ -114,7 +116,10 @@ function SuppressionsPage() {
   const page = useQuery(emailSuppressionsQueryOptions(toParams(search)))
   const lift = useLiftSuppression()
   const [lifting, setLifting] = useState<EmailSuppression | null>(null)
-  const openLift = useCallback((row: EmailSuppression) => setLifting(row), [])
+  const openLift = useCallback((row: EmailSuppression, button: HTMLButtonElement) => {
+    opener.current = button
+    setLifting(row)
+  }, [])
 
   // A `?q` set under the page (Back, a link) fills the box; one this page navigated to is the debounced term, and the box may already hold newer keystrokes.
   if (q !== followed) {
@@ -146,7 +151,11 @@ function SuppressionsPage() {
 
   return (
     <div className="grid grid-cols-1 gap-4">
-      <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
+      <h1
+        ref={focus.target('heading')}
+        tabIndex={-1}
+        className="text-2xl font-semibold outline-none"
+      >
         Suppressions
       </h1>
       <div className="flex flex-wrap items-center gap-2">
@@ -227,6 +236,7 @@ function SuppressionsPage() {
             <SuppressionsTable
               rows={page.data.suppressions}
               onLift={canLift ? openLift : undefined}
+              target={(id) => focus.target(`suppression:${id}`)}
             />
           </div>
           <nav aria-label="Pagination" className="flex items-center justify-end gap-2">
@@ -259,10 +269,11 @@ function SuppressionsPage() {
         title="Lift this suppression?"
         description={`Emails to ${lifting?.address ?? 'this address'} are sent again. Another hard bounce or complaint suppresses it again.`}
         confirmLabel="Lift suppression"
-        finalFocus={heading}
+        finalFocus={() => focus.finalFocus(opener.current, 'heading')}
         onConfirm={async (reason) => {
           if (lifting === null) return
           await lift.mutateAsync({ id: lifting.id, reason })
+          focus.focusAfter([`suppression:${lifting.id}`, 'heading'], opener.current)
           toast.success(`Suppression lifted for ${lifting.address}.`)
         }}
       />

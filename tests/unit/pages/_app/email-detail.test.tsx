@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { queryClient } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
 import {
   EMAIL_ATTEMPT_ID,
@@ -356,6 +357,83 @@ describe('/emails/$emailId', () => {
         'The resend was recorded, but its email could not be sent. Try again shortly.'
       )
     ).toBeInTheDocument()
+  })
+
+  it('moves focus to the page heading when the resend takes Resend away, and keeps it on Resend when not', async () => {
+    let resent = false
+    server.use(
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () =>
+        ok(emailDetail({ canResend: !resent }), 'Email retrieved.')
+      ),
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}/preview`, () =>
+        ok(testEmailPreview, 'Email preview rendered.')
+      ),
+      http.post(`/api/v1/platform/emails/${EMAIL_ID}/resend`, () => {
+        resent = true
+        return ok({}, 'Resend requested.', 202)
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(PAGE)
+    await heading()
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Resend this email?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Went to spam')
+    await user.click(within(dialog).getByRole('button', { name: 'Resend' }))
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Resend' })).toBeNull())
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toHaveFocus())
+  })
+
+  it('keeps focus on Resend when the button stays, and moves none on a later refetch that removes it', async () => {
+    let canResend = true
+    server.use(
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () =>
+        ok(emailDetail({ canResend }), 'Email retrieved.')
+      ),
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}/preview`, () =>
+        ok(testEmailPreview, 'Email preview rendered.')
+      ),
+      http.post(`/api/v1/platform/emails/${EMAIL_ID}/resend`, () =>
+        ok({}, 'Resend requested.', 202)
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(PAGE)
+    await heading()
+    const button = screen.getByRole('button', { name: 'Resend' })
+    await user.click(button)
+    const dialog = await screen.findByRole('alertdialog', { name: 'Resend this email?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Went to spam')
+    await user.click(within(dialog).getByRole('button', { name: 'Resend' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(button).toHaveFocus())
+
+    // The reader clicks away; a later refetch takes the button, and focus must not jump to the heading.
+    button.blur()
+    canResend = false
+    await queryClient.invalidateQueries()
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Resend' })).toBeNull())
+    expect(document.body).toHaveFocus()
+  })
+
+  it('returns focus to Resend when the resend fails', async () => {
+    serve()
+    server.use(
+      http.post(`/api/v1/platform/emails/${EMAIL_ID}/resend`, () =>
+        fail('Server error', 500, 'internal_error')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(PAGE)
+    await heading()
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Resend this email?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Went to spam')
+    await user.click(within(dialog).getByRole('button', { name: 'Resend' }))
+    await user.click(await within(dialog).findByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Resend' })).toHaveFocus())
   })
 
   it.each([

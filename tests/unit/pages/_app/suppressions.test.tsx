@@ -192,6 +192,97 @@ describe('/suppressions', () => {
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
   })
 
+  it('moves focus to the page heading once the lifted row leaves the active list', async () => {
+    let lifted = false
+    server.use(
+      http.get('/api/v1/platform/email-suppressions', () =>
+        ok(
+          {
+            suppressions: lifted ? [] : [ACTIVE],
+            nextCursor: null,
+            prevCursor: null,
+          },
+          'Suppressions retrieved.'
+        )
+      ),
+      http.post(`/api/v1/platform/email-suppressions/${SUPPRESSION_ID}/lift`, () => {
+        lifted = true
+        return ok({ ...ACTIVE, liftedAt: '2026-09-30T00:00:00.000Z' }, 'Suppression lifted.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt('/suppressions')
+    await user.click(
+      await screen.findByRole('button', { name: 'Lift suppression for bounced@example.com' })
+    )
+    const dialog = await screen.findByRole('alertdialog', { name: 'Lift this suppression?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Mailbox fixed')
+    await user.click(within(dialog).getByRole('button', { name: 'Lift suppression' }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /Lift suppression for/ })).not.toBeInTheDocument()
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Suppressions', level: 1 })).toHaveFocus()
+    )
+  })
+
+  it('returns focus to Lift when the lift fails', async () => {
+    serve([])
+    server.use(
+      http.post(`/api/v1/platform/email-suppressions/${SUPPRESSION_ID}/lift`, () =>
+        fail('Server error', 500, 'internal_error')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt('/suppressions')
+    const button = await screen.findByRole('button', {
+      name: 'Lift suppression for bounced@example.com',
+    })
+    await user.click(button)
+    const dialog = await screen.findByRole('alertdialog', { name: 'Lift this suppression?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Mailbox fixed')
+    await user.click(within(dialog).getByRole('button', { name: 'Lift suppression' }))
+    await user.click(await within(dialog).findByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(button).toHaveFocus())
+  })
+
+  it('moves focus to the lifted row when it stays in the list without its button', async () => {
+    let lifted = false
+    server.use(
+      http.get('/api/v1/platform/email-suppressions', () =>
+        ok(
+          {
+            suppressions: [lifted ? { ...ACTIVE, liftedAt: '2026-09-30T00:00:00.000Z' } : ACTIVE],
+            nextCursor: null,
+            prevCursor: null,
+          },
+          'Suppressions retrieved.'
+        )
+      ),
+      http.post(`/api/v1/platform/email-suppressions/${SUPPRESSION_ID}/lift`, () => {
+        lifted = true
+        return ok({ ...ACTIVE, liftedAt: '2026-09-30T00:00:00.000Z' }, 'Suppression lifted.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt('/suppressions?state=all')
+    await user.click(
+      await screen.findByRole('button', { name: 'Lift suppression for bounced@example.com' })
+    )
+    const dialog = await screen.findByRole('alertdialog', { name: 'Lift this suppression?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Mailbox fixed')
+    await user.click(within(dialog).getByRole('button', { name: 'Lift suppression' }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /Lift suppression for/ })).not.toBeInTheDocument()
+    )
+    const row = within(screen.getByRole('table', { name: 'Suppressions' }))
+      .getAllByRole('row')
+      .at(1)
+    await waitFor(() => expect(row).toHaveFocus())
+  })
+
   it('shows the server’s own sentence in the dialog when the suppression was already lifted', async () => {
     serve([])
     server.use(
