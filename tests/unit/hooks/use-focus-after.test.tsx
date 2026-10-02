@@ -11,10 +11,12 @@ type Api = ReturnType<typeof useFocusAfter<Key>>
 function Harness({
   hasTrigger,
   hasRow,
+  hasExtra = false,
   onApi,
 }: {
   hasTrigger: boolean
   hasRow: boolean
+  hasExtra?: boolean
   onApi: (api: Api) => void
 }) {
   const focus = useFocusAfter<Key>()
@@ -33,6 +35,7 @@ function Harness({
       )}
       {hasTrigger && <button>Act</button>}
       <input aria-label="Elsewhere" />
+      {hasExtra && <p>Unrelated</p>}
     </div>
   )
 }
@@ -108,5 +111,60 @@ describe('useFocusAfter', () => {
     rerender(<Harness hasTrigger={false} hasRow onApi={take} />)
     await act(async () => {})
     expect(screen.getByRole('heading', { name: 'Heading' })).toHaveFocus()
+  })
+
+  it('ends a request when the reader moved on, so a later unrelated change does not move focus', async () => {
+    const user = userEvent.setup()
+    const { rerender } = render(<Harness hasTrigger hasRow onApi={take} />)
+    succeed('heading')
+    await user.click(screen.getByLabelText('Elsewhere'))
+    rerender(<Harness hasTrigger={false} hasRow onApi={take} />)
+    await act(async () => {})
+    screen.getByLabelText('Elsewhere').blur()
+    expect(document.body).toHaveFocus()
+
+    rerender(<Harness hasTrigger={false} hasRow hasExtra onApi={take} />)
+    await act(async () => {})
+    expect(document.body).toHaveFocus()
+  })
+
+  it('ends a request when the button stays, so a later removal does not move focus', async () => {
+    const { rerender } = render(<Harness hasTrigger hasRow onApi={take} />)
+    const trigger = succeed('heading')
+    expect(api.finalFocus(trigger)).toBe(true)
+    expect(trigger).toHaveFocus()
+
+    trigger.blur()
+    rerender(<Harness hasTrigger={false} hasRow hasExtra onApi={take} />)
+    await act(async () => {})
+    expect(document.body).toHaveFocus()
+  })
+
+  it('does not leave a landed target for the next dialog to consume', async () => {
+    const { rerender } = render(<Harness hasTrigger hasRow onApi={take} />)
+    const trigger = succeed('heading')
+    expect(api.finalFocus(trigger)).toBe(true)
+    rerender(<Harness hasTrigger={false} hasRow onApi={take} />)
+    await act(async () => {})
+
+    const other = document.createElement('button')
+    document.body.append(other)
+    expect(api.finalFocus(other)).toBe(true)
+    other.remove()
+  })
+
+  it('does not leave a landed target when the move comes after the dialog closed', async () => {
+    const { rerender } = render(<Harness hasTrigger hasRow onApi={take} />)
+    const trigger = succeed('heading')
+    trigger.blur()
+    act(() => {
+      api.focusAfter('heading')
+    })
+    expect(api.finalFocus()).toBe(false)
+    rerender(<Harness hasTrigger={false} hasRow onApi={take} />)
+    await act(async () => {})
+    expect(screen.getByRole('heading', { name: 'Heading' })).toHaveFocus()
+
+    expect(api.finalFocus(screen.getByLabelText('Elsewhere'))).toBe(true)
   })
 })

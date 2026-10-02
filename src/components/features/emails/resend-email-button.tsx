@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { ReasonDialog } from '@/components/features/reason-dialog'
+import { ReasonDialog, type ReasonDialogProps } from '@/components/features/reason-dialog'
 import { Button } from '@/components/ui/button'
 import {
   EMAIL_TEMPLATES,
@@ -23,9 +23,12 @@ import type { EmailMessageSummary } from '@/types/api.types'
 export function ResendEmailButton({
   message,
   onResent,
+  finalFocus,
 }: {
   message: EmailMessageSummary
   onResent: (opener: HTMLElement | null) => void
+  /** The dialog's `finalFocus`, so a resend that leaves the button in place ends the page's pending focus request. */
+  finalFocus: ReasonDialogProps['finalFocus']
 }) {
   const opener = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
@@ -46,6 +49,7 @@ export function ResendEmailButton({
         title="Resend this email?"
         description={sentence ?? 'Runs the action that sent it again.'}
         confirmLabel="Resend"
+        finalFocus={finalFocus}
         onConfirm={async (reason) => {
           const result = await stepUp.run(() => resend.mutateAsync({ id: message.id, reason }))
           if (result?.emailSent === false) toast.warning(RESEND_NOT_SENT)

@@ -419,6 +419,11 @@ describe('/tenants/$tenantId/onboarding', () => {
         ).not.toBeInTheDocument()
       )
       expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+      // A refusal is no success: Cancel sends focus to the heading, not to the step's row.
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: 'Onboarding', level: 2 })).toHaveFocus()
+      )
     })
   })
 
@@ -499,6 +504,50 @@ describe('/tenants/$tenantId/onboarding', () => {
       )
       await waitFor(() =>
         expect(screen.getByRole('heading', { name: 'Reminders', level: 2 })).toHaveFocus()
+      )
+    })
+
+    it('sends focus to the Onboarding heading, not Reminders, when a refusal took the button away', async () => {
+      let reads = 0
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+          ok(platformDetail(), 'Tenant retrieved.')
+        ),
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/onboarding`, () => {
+          reads += 1
+          const base = tenantOnboardingDetail()
+          return ok(
+            reads === 1
+              ? base
+              : {
+                  ...base,
+                  reminder: { ...base.reminder, canSend: false, blockedBy: 'no_owner' as const },
+                },
+            'Tenant onboarding retrieved.'
+          )
+        }),
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/onboarding/remind`, () =>
+          fail('This tenant has no active owner to remind.', 409, 'no_owner')
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt(ONBOARDING)
+      await user.click(await screen.findByRole('button', { name: 'Send reminder' }))
+      const dialog = await screen.findByRole('alertdialog')
+      await user.type(within(dialog).getByLabelText('Reason'), 'Stalled')
+      await user.click(within(dialog).getByRole('button', { name: 'Send reminder' }))
+      expect(
+        await within(dialog).findByText('This tenant has no active owner to remind.')
+      ).toBeInTheDocument()
+      // The dialog's own submit shares the name, so wait for the page's blocked-reason text instead.
+      expect(
+        await screen.findByText('This tenant has no active owner to remind.', {
+          selector: 'p.text-sm',
+        })
+      ).toBeInTheDocument()
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: 'Onboarding', level: 2 })).toHaveFocus()
       )
     })
 

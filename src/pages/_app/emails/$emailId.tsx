@@ -142,6 +142,7 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
         <ResendEmailButton
           message={message}
           onResent={(opener) => focus.focusAfter('heading', opener)}
+          finalFocus={() => focus.finalFocus()}
         />
       </div>
 

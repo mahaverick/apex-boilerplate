@@ -1095,5 +1095,7 @@ describe('inviting, and the pending invitations', () => {
     expect(
       await screen.findByText('No invitations are waiting to be accepted.')
     ).toBeInTheDocument()
+    // A refusal is no success: the heading does not take focus.
+    expect(screen.getByRole('heading', { name: 'Pending invitations' })).not.toHaveFocus()
   })
 })

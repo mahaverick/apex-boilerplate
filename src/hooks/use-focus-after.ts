@@ -3,6 +3,8 @@ import { useCallback, useEffect, useReducer, useRef, type RefCallback } from 're
 interface FocusRequest<Key extends string> {
   keys: readonly Key[]
   trigger: HTMLElement | null | undefined
+  /** The dialog has closed, so a landmark found after this is no business of its `finalFocus`. */
+  isClosed: boolean
 }
 
 /**
@@ -21,10 +23,19 @@ interface FocusRequest<Key extends string> {
  * requested, so focus stays on, or returns to, the trigger. The move happens
  * once the refetched tree has rendered, never on a timer: in an effect after a
  * render of the host, or when a DOM mutation (watched by a `MutationObserver`
- * only while a request is pending) shows the trigger gone. While `trigger` is
- * still on the page the request waits: if the action left its button in
- * place, nothing moves, and the request only acts should that button go later
- * with focus on it. The move happens only if focus has fallen to `<body>`.
+ * while a request is armed) shows the trigger gone. A request is armed until
+ * its outcome is known, and then it is over (resolved or dropped), so it cannot
+ * fire on a later unrelated change. At each check:
+ * - the trigger is gone and focus is on `<body>`: focus moves to the landmark;
+ * - focus is inside an open dialog, or on the trigger: it waits;
+ * - focus is anywhere else (the reader moved on): it is dropped;
+ * - the reader leaves the trigger (`focusout`, which a click elsewhere or Tab
+ *   fires and the trigger's removal does not): it is dropped.
+ * While the trigger stays on the page with focus on it, the request stays
+ * armed, because the refetch that removes it may not have rendered yet; if the
+ * action left its button in place, the request ends the moment the reader
+ * leaves it, and if that button is removed later with focus still on it,
+ * focus moves to the landmark.
  *
  * Call the hook in a component that stays mounted: the row or button that the
  * success removes cannot move focus after it is gone.
@@ -61,19 +72,27 @@ export function useFocusAfter<Key extends string>() {
   }, [])
 
   /**
-   * Resolves the pending request to its landmark: once the trigger is off the
-   * page and focus has fallen to `<body>`. Until then it waits, since a refetch
-   * that replaces the trigger renders later than the call, and it never takes
-   * focus from somewhere the reader has gone since.
+   * Ends the pending request if its outcome is known, returning the landmark
+   * to focus when it is one. Waits while the trigger is still on the page, or
+   * focus is inside a dialog; drops it when focus is anywhere but `<body>`.
    */
   const settle = useCallback(() => {
     const request = pending.current
     if (request === null) return null
-    if (request.trigger?.isConnected) return null
-    if (document.activeElement !== document.body) return null
+    const active = document.activeElement
+    const isWaiting =
+      active === document.body ||
+      active === request.trigger ||
+      active?.closest('[role="dialog"],[role="alertdialog"]')
+    if (!isWaiting) {
+      pending.current = null
+      return null
+    }
+    if (request.trigger?.isConnected || active !== document.body) return null
     pending.current = null
-    landed.current = find(request.keys)
-    return landed.current
+    const node = find(request.keys)
+    if (!request.isClosed) landed.current = node
+    return node
   }, [find])
 
   const observer = useRef<MutationObserver | null>(null)
@@ -108,7 +127,20 @@ export function useFocusAfter<Key extends string>() {
   const focusAfter = useCallback(
     (keys: Key | readonly Key[], trigger?: HTMLElement | null) => {
       landed.current = null
-      pending.current = { keys: typeof keys === 'string' ? [keys] : keys, trigger }
+      const request = {
+        keys: typeof keys === 'string' ? [keys] : keys,
+        trigger,
+        isClosed: false,
+      }
+      pending.current = request
+      // The reader leaving the trigger (a click elsewhere, Tab) ends the request; removing it fires no focusout.
+      trigger?.addEventListener(
+        'focusout',
+        () => {
+          if (pending.current === request) pending.current = null
+        },
+        { once: true }
+      )
       watch()
       requestRender()
     },
@@ -116,21 +148,25 @@ export function useFocusAfter<Key extends string>() {
   )
 
   /**
-   * For a dialog's `finalFocus`. After a success, `false` (restore nothing)
-   * once focus has moved to a landmark or the trigger is already gone, since
-   * the landmark takes focus itself; a returned element would not do, because
-   * the dialog focuses its first tabbable child, and a row's own button is
-   * one. Otherwise `true`, the trigger, unless a refusal that refreshed the
-   * page took the trigger away and `fallback` names a landmark to use.
+   * For a dialog's `finalFocus`, called as it closes. After a success, `false`
+   * (restore nothing) once focus has moved to a landmark, or when the trigger is
+   * gone and the move is still to come, since the landmark takes focus itself;
+   * a returned element would not do, because the dialog focuses its first
+   * tabbable child, and a row's own button is one. While the trigger is
+   * still on the page, `true`: the dialog returns focus to it, and the request
+   * stays armed (see above). Otherwise `true`, unless a refusal that refreshed
+   * the page took the trigger away and `fallback` names a landmark.
    */
   const finalFocus = useCallback(
     (trigger?: HTMLElement | null, fallback?: Key) => {
       const request = pending.current
-      if (landed.current !== null) {
-        landed.current = null
-        return false
+      const moved = landed.current !== null
+      landed.current = null
+      if (moved) return false
+      if (request !== null) {
+        request.isClosed = true
+        return request.trigger?.isConnected === true
       }
-      if (request !== null) return request.trigger?.isConnected === true
       if (trigger?.isConnected === false && fallback !== undefined) {
         return find([fallback]) ?? true
       }
