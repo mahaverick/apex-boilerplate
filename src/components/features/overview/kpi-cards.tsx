@@ -1,5 +1,7 @@
+import { Link } from '@tanstack/react-router'
 import { RANGE_LABELS } from '@/components/features/overview/range'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { ROUTES } from '@/constants/routes'
 import { formatShare } from '@/lib/format'
 import type { PlatformStats } from '@/types/api.types'
 
@@ -24,7 +26,10 @@ function undeliveredRate(days: PlatformStats['emailMessages']): { value: string;
   }
 }
 
-/** The Overview's headline numbers. Totals are live; the undelivered rate covers the window. */
+/**
+ * The Overview's headline numbers. Totals are live; the undelivered rate
+ * covers the window. Stuck tenants links to the onboarding list's stuck tab.
+ */
 export function KpiCards({ stats }: { stats: PlatformStats }) {
   const rate = undeliveredRate(stats.emailMessages)
   const cards = [
@@ -42,7 +47,10 @@ export function KpiCards({ stats }: { stats: PlatformStats }) {
     { label: `Undelivered rate (${RANGE_LABELS[stats.range]})`, ...rate },
   ]
   return (
-    <section aria-label="Key figures" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section
+      aria-label="Key figures"
+      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+    >
       {cards.map((card) => (
         <Card key={card.label}>
           <CardHeader>
@@ -52,6 +60,24 @@ export function KpiCards({ stats }: { stats: PlatformStats }) {
           <CardContent className="text-xs text-muted-foreground">{card.note}</CardContent>
         </Card>
       ))}
+      <Card>
+        <CardHeader>
+          <CardDescription>Stuck tenants</CardDescription>
+          <CardTitle className="text-2xl tabular-nums">
+            {stats.totals.stuckTenants.toLocaleString('en-US')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-xs text-muted-foreground">
+          Onboarding with no recent progress.{' '}
+          <Link
+            to={ROUTES.onboarding}
+            search={{ state: 'stuck' }}
+            className="text-foreground underline underline-offset-4"
+          >
+            View stuck tenants
+          </Link>
+        </CardContent>
+      </Card>
     </section>
   )
 }

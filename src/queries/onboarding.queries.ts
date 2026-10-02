@@ -12,6 +12,7 @@ import {
   type QueryClient,
   type QueryKey,
 } from '@tanstack/react-query'
+import { AxiosError } from 'axios'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
 import { auditKeys } from '@/queries/audit.queries'
@@ -121,6 +122,20 @@ export function tenantOnboardingQueryOptions(id: string) {
       ),
     retry: retryUnlessDenied,
   })
+}
+
+/**
+ * When the API will take the next reminder, from a 409 `reminded_recently`:
+ * express sends it as `errors.retryAfter`, an ISO instant.
+ * @param error - A failed reminder.
+ * @returns The instant, or `undefined` for any other failure.
+ */
+export function retryAfterFrom(error: unknown): string | undefined {
+  if (!(error instanceof AxiosError)) return undefined
+  const body = error.response?.data as { code?: unknown; errors?: unknown } | undefined
+  if (body?.code !== 'reminded_recently') return undefined
+  const errors = body.errors as { retryAfter?: unknown } | null | undefined
+  return typeof errors?.retryAfter === 'string' ? errors.retryAfter : undefined
 }
 
 /**

@@ -25,12 +25,12 @@ export const Route = createFileRoute('/_app/overview')({
   component: OverviewPage,
 })
 
-/** The loaded layout's shape: four KPI cards, then two chart cards, so nothing jumps when the data lands. */
+/** The loaded layout's shape: five KPI cards, then two chart cards, so nothing jumps when the data lands. */
 function OverviewSkeleton() {
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[0, 1, 2, 3].map((card) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {[0, 1, 2, 3, 4].map((card) => (
           <Skeleton key={card} className="h-30 rounded-xl" />
         ))}
       </div>

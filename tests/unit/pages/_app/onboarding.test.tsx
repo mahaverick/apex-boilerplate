@@ -228,7 +228,7 @@ describe('/onboarding', () => {
       const acme = within(table).getByRole('row', { name: /Acme Corp/ })
       expect(within(acme).getByRole('link', { name: 'Acme Corp' })).toHaveAttribute(
         'href',
-        `/tenants/${TENANT_ID}`
+        `/tenants/${TENANT_ID}/onboarding`
       )
       expect(within(acme).getByText('Cleo Doe')).toBeInTheDocument()
       expect(within(acme).getByText('9')).toBeInTheDocument()

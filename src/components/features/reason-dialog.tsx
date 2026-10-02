@@ -48,6 +48,12 @@ export interface ReasonDialogProps {
   onConfirm: (reason: string) => Promise<void>
   /** Where focus goes when the dialog closes; omitted, it returns to the element that opened it. */
   finalFocus?: ComponentProps<typeof AlertDialogContent>['finalFocus']
+  /**
+   * How a 403 or 409 reads instead of the server's sentence, for a refusal
+   * whose detail the reader's locale should word (a time); `undefined` keeps
+   * the server's.
+   */
+  refusalMessage?: (error: unknown) => string | undefined
 }
 
 /**
@@ -86,6 +92,7 @@ function ReasonForm({
   destructive = false,
   confirmText,
   onConfirm,
+  refusalMessage,
   onBusyChange,
 }: ReasonDialogProps & { onBusyChange: (busy: boolean) => void }) {
   const serverErrors = useServerErrors()
@@ -115,7 +122,7 @@ function ReasonForm({
           return
         }
         if (status === 403 || status === 409) {
-          serverErrors.setFormErrors([messageFrom(error)])
+          serverErrors.setFormErrors([refusalMessage?.(error) ?? messageFrom(error)])
           return
         }
         serverErrors.capture(error)

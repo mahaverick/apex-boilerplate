@@ -58,7 +58,7 @@ export function OnboardingTenantsTable({
           <TableRow key={row.id}>
             <TableCell>
               <Link
-                to={ROUTES.tenant}
+                to={ROUTES.tenantOnboarding}
                 params={{ tenantId: row.id }}
                 className="font-medium underline-offset-4 hover:underline"
               >
