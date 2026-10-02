@@ -1,3 +1,4 @@
+import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, fullName } from '@/lib/format'
 import { activeOwnerCount } from '@/queries/tenant-admin.queries'
@@ -18,21 +19,21 @@ export function TenantOwners({ tenant }: { tenant: PlatformTenantDetail }) {
           {tenant.owners.map((owner) => (
             <li key={owner.userId} className="grid gap-0.5">
               <span className="flex items-center gap-2 text-sm font-medium">
-                {fullName(owner) ?? owner.email}
+                <Pii>{fullName(owner) ?? owner.email}</Pii>
                 {!owner.active && <Badge variant="outline">Inactive</Badge>}
               </span>
-              <span className="text-sm break-all text-muted-foreground">{owner.email}</span>
+              <Pii className="text-sm break-all text-muted-foreground">{owner.email}</Pii>
             </li>
           ))}
         </ul>
       )}
       {ownerless && (
-        <p className="text-sm text-muted-foreground">
+        <Pii as="p" className="text-sm text-muted-foreground">
           {tenant.owners.length === 0 ? 'No owner yet.' : 'No active owner.'}
           {invitation
             ? ` An invitation to ${invitation.email} expires ${formatDate(invitation.expiresAt, 'medium') ?? 'soon'}.`
             : ' Send an owner invitation from the Actions menu.'}
-        </p>
+        </Pii>
       )}
     </div>
   )

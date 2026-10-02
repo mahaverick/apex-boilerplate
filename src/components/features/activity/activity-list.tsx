@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { LoadError } from '@/components/features/load-error'
+import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -71,16 +72,16 @@ function ActivityRow<T extends AuditEntry>({
             params={{ userId: entry.actor.id }}
             className="font-medium underline-offset-4 hover:underline"
           >
-            {actorName(entry.actor)}
+            <Pii>{actorName(entry.actor)}</Pii>
           </Link>
         ) : (
-          <span className="font-medium">{actorName(entry.actor)}</span>
+          <Pii className="font-medium">{actorName(entry.actor)}</Pii>
         )}
         {entry.access === 'platform' && <Badge variant="outline">Staff</Badge>}
         {renderTenant && <span>in {renderTenant(entry)}</span>}
       </div>
       <p className="text-sm">
-        {auditSentence(entry)}
+        <Pii>{auditSentence(entry)}</Pii>
         {target?.type === 'user' && (
           <>
             {' '}
@@ -108,7 +109,7 @@ function ActivityRow<T extends AuditEntry>({
       </p>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         {entry.actor && entry.actor.name !== entry.actor.email && (
-          <span className="break-all">{entry.actor.email}</span>
+          <Pii className="break-all">{entry.actor.email}</Pii>
         )}
         <Tooltip>
           <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">

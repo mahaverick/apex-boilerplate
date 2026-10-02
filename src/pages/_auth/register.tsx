@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { LoadError } from '@/components/features/load-error'
+import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -145,8 +146,10 @@ function RegisterForm({ invitedEmail, tenantName }: { invitedEmail: string; tena
             <h1>Check your email</h1>
           </CardTitle>
           <CardDescription>
-            We sent a verification link to {registeredEmail}. Open it to finish setting up your
-            account, then open your invitation link again to join.
+            <Pii>
+              We sent a verification link to {registeredEmail}. Open it to finish setting up your
+              account, then open your invitation link again to join.
+            </Pii>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -183,7 +186,9 @@ function RegisterForm({ invitedEmail, tenantName }: { invitedEmail: string; tena
         <CardTitle>
           <h1>Create an account</h1>
         </CardTitle>
-        <CardDescription>{`Create an account with ${invitedEmail} to join ${tenantName}.`}</CardDescription>
+        <CardDescription>
+          <Pii>{`Create an account with ${invitedEmail} to join ${tenantName}.`}</Pii>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Form form={form} serverErrors={serverErrors}>

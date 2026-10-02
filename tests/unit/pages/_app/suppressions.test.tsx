@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Pii } from '@/components/shared/pii'
 import { navItemsFor } from '@/constants/navigation'
 import { useAuthStore } from '@/states/auth.store'
 import { EMAIL_ID, STAFF_USER_ID, SUPPRESSION_ID, SUPPRESSION_ID_2 } from '@/tests/fixtures/ids'
@@ -186,7 +187,9 @@ describe('/suppressions', () => {
 
     await waitFor(() => expect(bodies).toEqual([{ reason: 'Mailbox fixed by the customer' }]))
     await waitFor(() =>
-      expect(success).toHaveBeenCalledWith('Suppression lifted for bounced@example.com.')
+      expect(success).toHaveBeenCalledWith(
+        <Pii>{'Suppression lifted for bounced@example.com.'}</Pii>
+      )
     )
     await waitFor(() => expect(seen.length).toBeGreaterThan(before))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())

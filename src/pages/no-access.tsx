@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { AuthLayout } from '@/components/layouts/auth-layout'
+import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { pageTitle } from '@/constants/app'
@@ -33,7 +34,9 @@ function NoAccessPage() {
           <CardTitle>
             <h1>This account has no platform access</h1>
           </CardTitle>
-          <CardDescription>Signed in as {email}.</CardDescription>
+          <CardDescription>
+            <Pii>Signed in as {email}.</Pii>
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 text-sm">
           <ul className="grid list-disc gap-2 pl-5 text-muted-foreground">

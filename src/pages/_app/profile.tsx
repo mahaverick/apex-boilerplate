@@ -2,6 +2,7 @@ import { useForm } from '@tanstack/react-form'
 import { createFileRoute } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { SecuritySection } from '@/components/features/profile/security-section'
+import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -133,7 +134,7 @@ function ProfileDetails({ user }: { user: User }) {
       <dl className="mt-6 grid gap-3 border-t pt-6 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Email</dt>
-          <dd>{user.email}</dd>
+          <Pii as="dd">{user.email}</Pii>
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Member since</dt>

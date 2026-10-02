@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { LoadError } from '@/components/features/load-error'
+import { Pii } from '@/components/shared/pii'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -103,7 +104,7 @@ function ResendInvitationButton({
         stepUp
           .run(() => resend.mutateAsync(invitation.id))
           .then(
-            () => toast.success(`Invitation resent to ${invitation.email}.`),
+            () => toast.success(<Pii>{`Invitation resent to ${invitation.email}.`}</Pii>),
             (error: unknown) => toast.error(actionFailure(error))
           )
       }}
@@ -149,7 +150,9 @@ function RevokeInvitationButton({
       />
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Revoke the invitation to {invitation.email}?</AlertDialogTitle>
+          <AlertDialogTitle>
+            <Pii>{`Revoke the invitation to ${invitation.email}?`}</Pii>
+          </AlertDialogTitle>
           <AlertDialogDescription>
             The link in their email stops working immediately. You can invite them again later.
           </AlertDialogDescription>
@@ -166,7 +169,7 @@ function RevokeInvitationButton({
                   () => {
                     setIsOpen(false)
                     onRevoked()
-                    toast.success(`Invitation to ${invitation.email} revoked.`)
+                    toast.success(<Pii>{`Invitation to ${invitation.email} revoked.`}</Pii>)
                   },
                   (error: unknown) => {
                     setIsOpen(false)
@@ -206,10 +209,10 @@ function InvitationItem({
   return (
     <li className="grid gap-3 rounded-lg border p-4 sm:flex sm:items-center sm:justify-between">
       <div className="grid min-w-0 gap-0.5">
-        <span className="font-medium break-all">{invitation.email}</span>
-        <span className="text-sm text-muted-foreground">
+        <Pii className="font-medium break-all">{invitation.email}</Pii>
+        <Pii className="text-sm text-muted-foreground">
           {ROLE_LABELS[invitation.role]} · Invited by {inviterName(invitation.invitedBy)}
-        </span>
+        </Pii>
         <span className="text-sm text-muted-foreground">
           Expires {expiresOn(invitation.expiresAt)}
         </span>

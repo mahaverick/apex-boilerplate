@@ -1,6 +1,7 @@
 import { useForm } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import type { z } from 'zod'
+import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -76,7 +77,7 @@ export function InviteMemberForm({
       try {
         const input = inviteMemberSchema.parse(value)
         await stepUp.run(() => inviteMember.mutateAsync(input))
-        toast.success(`Invitation sent to ${input.email}.`)
+        toast.success(<Pii>{`Invitation sent to ${input.email}.`}</Pii>)
         form.reset()
       } catch (error) {
         const code = codeFrom(error)

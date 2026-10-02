@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
 import { useMemo, type RefCallback } from 'react'
+import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -27,12 +28,12 @@ function SuppressionState({ row }: { row: EmailSuppression }) {
   if (row.liftedAt === null) return <Badge variant="outline">Active</Badge>
   return (
     <div className="grid gap-0.5 whitespace-normal">
-      <span>
+      <Pii>
         Lifted {formatDate(row.liftedAt, 'medium') ?? 'on an unknown date'}
         {row.liftedBy === null ? '' : ` by ${row.liftedBy.name}`}
-      </span>
+      </Pii>
       {row.liftReason !== null && (
-        <span className="text-xs wrap-break-word text-muted-foreground">{row.liftReason}</span>
+        <Pii className="text-xs wrap-break-word text-muted-foreground">{row.liftReason}</Pii>
       )}
     </div>
   )
@@ -57,7 +58,7 @@ export function SuppressionsTable({ rows, onLift, target }: SuppressionsTablePro
       column.columns([
         column.accessor('address', {
           header: 'Address',
-          cell: ({ getValue }) => <span className="font-medium break-all">{getValue()}</span>,
+          cell: ({ getValue }) => <Pii className="font-medium break-all">{getValue()}</Pii>,
         }),
         column.accessor('reason', {
           header: 'Reason',

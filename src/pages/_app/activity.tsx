@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useId, useState } from 'react'
 import { ActivityList } from '@/components/features/activity/activity-list'
 import { RoleDenied } from '@/components/features/role-denied'
+import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -28,6 +29,7 @@ import { platformRoleAtLeast } from '@/constants/roles'
 import { PLATFORM_TENANT_SLUG, ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { cn } from '@/lib/utils'
+import { analyticsKey, track } from '@/observability/analytics'
 import {
   flattenAuditPages,
   usePlatformAuditLog,
@@ -38,6 +40,9 @@ import { flattenTenantPages, usePlatformTenantSearch } from '@/queries/tenant-ad
 import { memberName, useMembers } from '@/queries/tenant.queries'
 import { useAuthStore } from '@/states/auth.store'
 import type { PlatformTenantRow } from '@/types/api.types'
+
+/** This list, as `table_filtered` names it. */
+const TABLE = analyticsKey('activity')
 
 export const Route = createFileRoute('/_app/activity')({
   head: () => ({ meta: [{ title: pageTitle('Activity') }] }),
@@ -178,6 +183,7 @@ function PlatformActivity() {
   const [action, setAction] = useState(ANY)
   const [actor, setActor] = useState(ANY)
   const [staffOnly, setStaffOnly] = useState(false)
+  const filtered = () => track('table_filtered', { table: TABLE })
   const staff = useMembers(PLATFORM_TENANT_SLUG)
   const filters: PlatformAuditFilters = {
     tenantId: tenant?.id,
@@ -216,10 +222,19 @@ function PlatformActivity() {
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="flex flex-wrap items-center gap-2">
-            <TenantFilter value={tenant} onChange={setTenant} />
+            <TenantFilter
+              value={tenant}
+              onChange={(next) => {
+                filtered()
+                setTenant(next)
+              }}
+            />
             <Select
               value={action}
-              onValueChange={(value: string | null) => setAction(value ?? ANY)}
+              onValueChange={(value: string | null) => {
+                filtered()
+                setAction(value ?? ANY)
+              }}
             >
               <SelectTrigger aria-label="Filter by action" className="w-52">
                 <SelectValue>
@@ -237,15 +252,25 @@ function PlatformActivity() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={actor} onValueChange={(value: string | null) => setActor(value ?? ANY)}>
+            <Select
+              value={actor}
+              onValueChange={(value: string | null) => {
+                filtered()
+                setActor(value ?? ANY)
+              }}
+            >
               <SelectTrigger aria-label="Filter by who acted" className="w-52">
-                <SelectValue>{(value: string) => actorLabel(value)}</SelectValue>
+                <SelectValue>
+                  {(value: string) =>
+                    value === ANY ? actorLabel(value) : <Pii>{actorLabel(value)}</Pii>
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ANY}>Anyone</SelectItem>
                 {(staff.data ?? []).map((member) => (
                   <SelectItem key={member.user.id} value={member.user.id}>
-                    {memberName(member)}
+                    <Pii>{memberName(member)}</Pii>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -254,7 +279,10 @@ function PlatformActivity() {
               <Switch
                 id={staffOnlyId}
                 checked={staffOnly}
-                onCheckedChange={(checked) => setStaffOnly(checked)}
+                onCheckedChange={(checked) => {
+                  filtered()
+                  setStaffOnly(checked)
+                }}
               />
               <Label htmlFor={staffOnlyId} className="text-sm font-normal">
                 Staff only

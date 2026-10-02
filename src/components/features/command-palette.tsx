@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Building2, UserRound } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
+import { Pii } from '@/components/shared/pii'
 import {
   Command,
   CommandCollection,
@@ -17,6 +18,7 @@ import { navItemsFor, type NavPath } from '@/constants/navigation'
 import { isStaff } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { analyticsKey, track } from '@/observability/analytics'
 import { isRoleDenied, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { platformTenantsQueryOptions } from '@/queries/tenant-admin.queries'
 import { platformUsersQueryOptions } from '@/queries/user-admin.queries'
@@ -25,6 +27,13 @@ import { useCommandPaletteStore } from '@/states/command-palette.store'
 
 /** How many tenants, and how many users, the palette lists for a term. */
 const RESULTS_PER_GROUP = 8
+
+/** What choosing each kind of item does, as `command_palette_action_run` names it. */
+const PALETTE_ACTIONS = {
+  page: analyticsKey('open_page'),
+  tenant: analyticsKey('open_tenant'),
+  user: analyticsKey('open_user'),
+} as const
 
 type PaletteItem =
   | { kind: 'page'; value: string; label: string; to: NavPath }
@@ -74,6 +83,10 @@ export function CommandPalette() {
   })
 
   useEffect(() => {
+    if (open) track('command_palette_opened')
+  }, [open])
+
+  useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.repeat || event.isComposing || event.defaultPrevented) return
       if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return
@@ -111,6 +124,7 @@ export function CommandPalette() {
   ]
 
   function choose(item: PaletteItem) {
+    track('command_palette_action_run', { action: PALETTE_ACTIONS[item.kind] })
     setOpen(false)
     if (item.kind === 'page') void navigate({ to: item.to })
     else if (item.kind === 'tenant') {
@@ -164,11 +178,15 @@ export function CommandPalette() {
                   <CommandItem key={item.value} value={item} onClick={() => choose(item)}>
                     {item.kind === 'tenant' && <Building2 aria-hidden />}
                     {item.kind === 'user' && <UserRound aria-hidden />}
-                    <span className="truncate">{item.label}</span>
+                    {item.kind === 'user' ? (
+                      <Pii className="truncate">{item.label}</Pii>
+                    ) : (
+                      <span className="truncate">{item.label}</span>
+                    )}
                     {item.kind === 'user' && item.detail && (
-                      <span className="ml-auto truncate text-xs text-muted-foreground">
+                      <Pii className="ml-auto truncate text-xs text-muted-foreground">
                         {item.detail}
-                      </span>
+                      </Pii>
                     )}
                   </CommandItem>
                 )}

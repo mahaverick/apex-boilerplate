@@ -22,6 +22,7 @@ import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { analyticsKey, track } from '@/observability/analytics'
 import { isRoleDenied, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { platformTenantsQueryOptions } from '@/queries/tenant-admin.queries'
 import { searchText } from '@/schemas/search.schemas'
@@ -34,6 +35,9 @@ const searchSchema = z.object({
   cursor: z.string().optional().catch(undefined),
   dir: z.enum(PAGE_DIRECTIONS).optional().catch(undefined),
 })
+
+/** This list, as `table_filtered` names it. */
+const TABLE = analyticsKey('tenants')
 
 export const Route = createFileRoute('/_app/tenants/')({
   validateSearch: searchSchema,
@@ -95,6 +99,7 @@ function TenantsPage() {
   useEffect(() => {
     const next = term.trim()
     if (term !== draft || next === q) return
+    track('table_filtered', { table: TABLE })
     void navigate({
       search: { ...(next === '' ? {} : { q: next }), ...(state ? { state } : {}) },
       replace: true,
@@ -112,6 +117,7 @@ function TenantsPage() {
     })
   const setState = (value: string | null) => {
     if (value === null) return
+    track('table_filtered', { table: TABLE })
     void navigate({
       search: (prev) => ({
         ...(prev.q ? { q: prev.q } : {}),

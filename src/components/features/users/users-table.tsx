@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
 import { UserStatusBadges } from '@/components/features/users/user-status-badges'
+import { Pii } from '@/components/shared/pii'
 import {
   Table,
   TableBody,
@@ -29,14 +30,17 @@ const columns = column.columns([
         params={{ userId: row.original.id }}
         className="font-medium underline-offset-4 hover:underline"
       >
-        {row.original.email}
+        <Pii>{row.original.email}</Pii>
       </Link>
     ),
   }),
   column.display({
     id: 'name',
     header: 'Name',
-    cell: ({ row }) => fullName(row.original) ?? <span className="text-muted-foreground">—</span>,
+    cell: ({ row }) => {
+      const name = fullName(row.original)
+      return name === null ? <span className="text-muted-foreground">—</span> : <Pii>{name}</Pii>
+    },
   }),
   column.display({
     id: 'status',

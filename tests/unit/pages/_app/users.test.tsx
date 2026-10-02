@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Pii } from '@/components/shared/pii'
 import { navItemsFor } from '@/constants/navigation'
 import { USER_ID_2, USER_ID_3 } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
@@ -233,7 +234,9 @@ describe('/users', () => {
 
       await waitFor(() => expect(router.state.location.pathname).toBe(`/users/${USER_ID_2}`))
       expect(body).toEqual({ email: 'new@example.com', firstName: 'Nia' })
-      expect(success).toHaveBeenCalledWith('Set-password email sent to new@example.com.')
+      expect(success).toHaveBeenCalledWith(
+        <Pii>{'Set-password email sent to new@example.com.'}</Pii>
+      )
     })
 
     it('warns when the email did not go, and its Resend posts password-setup', async () => {

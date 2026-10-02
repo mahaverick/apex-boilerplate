@@ -40,6 +40,7 @@ export const testUser: User = {
   lastName: 'B',
   createdAt: '2026-01-01T00:00:00.000Z',
   platformRole: 'admin',
+  analyticsOptOut: false,
 }
 
 /** 43 characters of base64url, the shape the server mints and validates. */

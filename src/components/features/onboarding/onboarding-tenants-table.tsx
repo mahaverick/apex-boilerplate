@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { Pii } from '@/components/shared/pii'
 import {
   Table,
   TableBody,
@@ -66,9 +67,11 @@ export function OnboardingTenantsTable({
               </Link>
             </TableCell>
             <TableCell className="whitespace-normal">
-              {row.owners.length > 0
-                ? row.owners.map((owner) => owner.name).join(', ')
-                : 'No active owner'}
+              {row.owners.length > 0 ? (
+                <Pii>{row.owners.map((owner) => owner.name).join(', ')}</Pii>
+              ) : (
+                'No active owner'
+              )}
             </TableCell>
             <TableCell>{day(row.startedAt, 'Awaiting owner')}</TableCell>
             <TableCell>{day(row.lastProgressAt, '—')}</TableCell>

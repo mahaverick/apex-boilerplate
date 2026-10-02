@@ -2,6 +2,7 @@ import { useForm } from '@tanstack/react-form'
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -50,7 +51,7 @@ export function CreateUserDialog() {
       try {
         const { user, emailSent } = await create.mutateAsync(createUserSchema.parse(value))
         if (emailSent) {
-          toast.success(`Set-password email sent to ${user.email}.`)
+          toast.success(<Pii>{`Set-password email sent to ${user.email}.`}</Pii>)
         } else {
           toast.warning('The user was created, but the set-password email could not be sent.', {
             action: {

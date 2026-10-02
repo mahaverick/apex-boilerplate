@@ -8,6 +8,7 @@ import { LoadError } from '@/components/features/load-error'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { RoleDenied } from '@/components/features/role-denied'
 import { SuppressionsTable } from '@/components/features/suppressions/suppressions-table'
+import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
@@ -23,6 +24,7 @@ import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useFocusAfter } from '@/hooks/use-focus-after'
+import { analyticsKey, track } from '@/observability/analytics'
 import {
   emailSuppressionsQueryOptions,
   useLiftSuppression,
@@ -51,6 +53,9 @@ type SuppressionsSearch = z.infer<typeof suppressionsSearchSchema>
 function toParams(search: SuppressionsSearch): SuppressionSearchParams {
   return { q: search.q, state: search.state, cursor: search.cursor, direction: search.dir }
 }
+
+/** This list, as `table_filtered` names it. */
+const TABLE = analyticsKey('suppressions')
 
 export const Route = createFileRoute('/_app/suppressions')({
   validateSearch: suppressionsSearchSchema,
@@ -128,12 +133,14 @@ function SuppressionsPage() {
   }
 
   function filter(next: Partial<FilterSearch>) {
+    track('table_filtered', { table: TABLE })
     void navigate({ search: (prev) => firstPageOf({ ...prev, ...next }) })
   }
 
   useEffect(() => {
     const next = term.trim()
     if (term !== draft || next === q) return
+    track('table_filtered', { table: TABLE })
     void navigate({
       search: (prev) => firstPageOf({ ...prev, q: next === '' ? undefined : next }),
       replace: true,
@@ -144,7 +151,7 @@ function SuppressionsPage() {
     if (cursor) void navigate({ search: (prev) => ({ ...prev, cursor, dir }) })
   }
 
-  const firstPage = () => filter({})
+  const firstPage = () => void navigate({ search: (prev) => firstPageOf(prev) })
   const state = search.state ?? 'active'
   const settled =
     page.data !== undefined && !(page.isPlaceholderData && page.data.suppressions.length === 0)
@@ -274,7 +281,7 @@ function SuppressionsPage() {
           if (lifting === null) return
           await lift.mutateAsync({ id: lifting.id, reason })
           focus.focusAfter([`suppression:${lifting.id}`, 'heading'], opener.current)
-          toast.success(`Suppression lifted for ${lifting.address}.`)
+          toast.success(<Pii>{`Suppression lifted for ${lifting.address}.`}</Pii>)
         }}
       />
     </div>

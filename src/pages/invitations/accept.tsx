@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { LoadError } from '@/components/features/load-error'
 import { AuthLayout } from '@/components/layouts/auth-layout'
+import { Pii } from '@/components/shared/pii'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -97,7 +98,7 @@ function SignedOut({ token, invitation }: { token: string; invitation: Invitatio
   return (
     <InvitationCard
       title={`Join ${invitation.tenant.name}`}
-      description={invitationSentence(invitation)}
+      description={<Pii>{invitationSentence(invitation)}</Pii>}
     >
       <div className="grid gap-3">
         <Link
@@ -114,10 +115,10 @@ function SignedOut({ token, invitation }: { token: string; invitation: Invitatio
         >
           Create account
         </Link>
-        <p className="text-sm text-muted-foreground">
+        <Pii as="p" className="text-sm text-muted-foreground">
           New here? Create an account with {invitation.email}, verify it from your inbox, then open
           this invitation link again.
-        </p>
+        </Pii>
       </div>
     </InvitationCard>
   )
@@ -142,12 +143,12 @@ function WrongAccount({
   return (
     <InvitationCard
       title={`Join ${invitation.tenant.name}`}
-      description={invitationSentence(invitation)}
+      description={<Pii>{invitationSentence(invitation)}</Pii>}
     >
       <div className="grid gap-3">
-        <p className="text-sm">
+        <Pii as="p" className="text-sm">
           This invitation was sent to {invitation.email}. You’re signed in as {currentEmail}.
-        </p>
+        </Pii>
         <Button className="w-full" disabled={logout.isPending} onClick={() => logout.mutate()}>
           {logout.isPending ? 'Signing out…' : 'Sign out'}
         </Button>
@@ -200,7 +201,7 @@ function AcceptPanel({ token, invitation }: { token: string; invitation: Invitat
   return (
     <InvitationCard
       title={`Join ${invitation.tenant.name}`}
-      description={invitationSentence(invitation)}
+      description={<Pii>{invitationSentence(invitation)}</Pii>}
     >
       <div className="grid gap-3">
         {refusal && (

@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { EMAIL_STATUS_BADGE, EMAIL_TEMPLATES } from '@/constants/email.constants'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { analyticsKey, track } from '@/observability/analytics'
 import { emailsQueryOptions, type EmailSearchParams } from '@/queries/email.queries'
 import { isRoleDenied, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { emailsSearchSchema, type EmailsSearch } from '@/schemas/email.schemas'
@@ -45,6 +46,9 @@ function toParams(search: EmailsSearch): EmailSearchParams {
     direction: search.dir,
   }
 }
+
+/** This list, as `table_filtered` names it. */
+const TABLE = analyticsKey('emails')
 
 export const Route = createFileRoute('/_app/emails/')({
   validateSearch: emailsSearchSchema,
@@ -140,12 +144,14 @@ function EmailsPage() {
 
   /** New filters: every change starts from the first page, so the cursor goes. */
   function filter(next: Partial<FilterSearch>) {
+    track('table_filtered', { table: TABLE })
     void navigate({ search: (prev) => firstPageOf({ ...prev, ...next }) })
   }
 
   useEffect(() => {
     const next = term.trim()
     if (term !== draft || next === q) return
+    track('table_filtered', { table: TABLE })
     void navigate({
       search: (prev) => firstPageOf({ ...prev, q: next === '' ? undefined : next }),
       replace: true,
@@ -156,7 +162,7 @@ function EmailsPage() {
     if (cursor) void navigate({ search: (prev) => ({ ...prev, cursor, dir }) })
   }
 
-  const firstPage = () => filter({})
+  const firstPage = () => void navigate({ search: (prev) => firstPageOf(prev) })
 
   // The previous view's rows stay up while the next loads; its "nothing matches" would describe the wrong view.
   const settled =
