@@ -55,7 +55,7 @@ function TenantEmailsTab() {
     page.data !== undefined && !(page.isPlaceholderData && page.data.messages.length === 0)
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">Emails sent for this tenant, newest first.</p>
         <Link

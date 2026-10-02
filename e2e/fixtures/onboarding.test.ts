@@ -1,4 +1,5 @@
 import { expect, test } from '../hermetic'
+import { sidewaysOverflow } from '../layout'
 
 /**
  * Onboarding in a real browser, through the harness. jsdom has no layout, so
@@ -26,14 +27,7 @@ for (const [name, path, ready] of [
     await expect(page.getByRole('heading', { name: ready, level: 2 })).toBeVisible()
     await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0)
 
-    // The layout's content area is its own scroll container, so a page too wide for it scrolls there and leaves the document's width alone.
-    const overflow = await page.evaluate(() => {
-      const content = document.querySelector('main > .overflow-auto')!
-      return Math.max(
-        document.documentElement.scrollWidth - window.innerWidth,
-        content.scrollWidth - content.clientWidth
-      )
-    })
+    const overflow = await sidewaysOverflow(page)
     expect(overflow).toBeLessThanOrEqual(0)
   })
 }
