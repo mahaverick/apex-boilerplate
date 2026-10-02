@@ -1,5 +1,9 @@
 import type { CapturedNetworkRequest, CaptureResult } from 'posthog-js'
 import { describe, expect, it, vi } from 'vitest'
+import {
+  ANALYTICS_CROSS_SUBDOMAIN_COOKIE,
+  ANALYTICS_PERSISTENCE_NAME,
+} from '@/observability/analytics/config'
 import { maskReplayAttribute } from '@/observability/analytics/mask-attribute'
 import {
   buildPosthogOptions,
@@ -15,6 +19,8 @@ function input(overrides: Partial<PosthogOptionsInput> = {}): PosthogOptionsInpu
     uiHost: 'https://us.posthog.com',
     consentMode: 'opt_out',
     urlAllowlist: ['tab'],
+    persistenceName: 'ph_apex',
+    crossSubdomainCookie: false,
     onLoaded: vi.fn(),
     ...overrides,
   }
@@ -41,7 +47,8 @@ describe('buildPosthogOptions', () => {
         'ph_sid',
       ],
       persistence: 'localStorage+cookie',
-      cross_subdomain_cookie: true,
+      persistence_name: 'ph_apex',
+      cross_subdomain_cookie: false,
       session_recording: {
         maskAllInputs: true,
         maskTextSelector: '.ph-mask, .ph-sensitive',
@@ -52,6 +59,28 @@ describe('buildPosthogOptions', () => {
       },
     })
     expect(options.custom_personal_data_properties).not.toBe(CUSTOM_PERSONAL_DATA_PROPERTIES)
+  })
+
+  it('takes the persistence name and cookie scope from its input, and from the config constants for this app', () => {
+    expect(ANALYTICS_PERSISTENCE_NAME).toBe('ph_apex')
+    expect(ANALYTICS_CROSS_SUBDOMAIN_COOKIE).toBe(false)
+    const options = buildPosthogOptions(
+      input({
+        persistenceName: ANALYTICS_PERSISTENCE_NAME,
+        crossSubdomainCookie: ANALYTICS_CROSS_SUBDOMAIN_COOKIE,
+      })
+    )
+    expect(options.persistence_name).toBe('ph_apex')
+    expect(options.cross_subdomain_cookie).toBe(false)
+  })
+
+  it('with no name and a shared cookie, builds the options the customer app has always had', () => {
+    const options = buildPosthogOptions(
+      input({ persistenceName: undefined, crossSubdomainCookie: true })
+    )
+    expect(options).not.toHaveProperty('persistence_name')
+    expect(options.cross_subdomain_cookie).toBe(true)
+    expect(options.persistence).toBe('localStorage+cookie')
   })
 
   it('opt_out: no cookieless mode and no bootstrap', () => {

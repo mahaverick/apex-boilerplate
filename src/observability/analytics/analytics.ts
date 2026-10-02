@@ -10,6 +10,8 @@
 import type { PostHogInterface } from 'posthog-js'
 import {
   ANALYTICS_APP,
+  ANALYTICS_CROSS_SUBDOMAIN_COOKIE,
+  ANALYTICS_PERSISTENCE_NAME,
   ANALYTICS_URL_QUERY_ALLOWLIST,
   getAnalyticsConfig,
   isAnalyticsAvailable,
@@ -125,7 +127,7 @@ export async function initAnalytics(config: AnalyticsConfig = getAnalyticsConfig
             window.location,
             document.referrer,
             config.handoffOrigins,
-            isPersistedIdentified(key)
+            isPersistedIdentified(key, ANALYTICS_PERSISTENCE_NAME)
           )
         : {}
     stripHandoffParams()
@@ -141,6 +143,8 @@ export async function initAnalytics(config: AnalyticsConfig = getAnalyticsConfig
         uiHost: config.uiHost,
         consentMode: config.consentMode === 'required' ? 'required' : 'opt_out',
         urlAllowlist: ANALYTICS_URL_QUERY_ALLOWLIST,
+        persistenceName: ANALYTICS_PERSISTENCE_NAME,
+        crossSubdomainCookie: ANALYTICS_CROSS_SUBDOMAIN_COOKIE,
         bootstrap: handoff.bootstrap,
         onLoaded,
       })

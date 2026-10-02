@@ -1,7 +1,7 @@
 /**
  * @file The analytics configuration, taken from the app's run-time
- * configuration (`getRuntimeConfig`). The three constants at the top are the
- * only lines that differ between the apps that share this module.
+ * configuration (`getRuntimeConfig`). The constants at the top are the only
+ * lines that differ between the apps that share this module.
  */
 import {
   getRuntimeConfig,
@@ -27,6 +27,23 @@ export const ANALYTICS_URL_QUERY_ALLOWLIST: readonly string[] = ['range', 'tab',
  * signed-in user opted out on their profile in the customer app.
  */
 export const SUPPORTS_CONSENT_MODES = false
+
+/**
+ * The posthog-js `persistence_name`: the browser storage key (and cookie name)
+ * holding the anonymous id, session id and user state is `ph_` plus this. Set
+ * it where two apps share one PostHog project key and sit on sibling
+ * subdomains, so each keeps its own identity; `undefined` keeps posthog-js's
+ * default, `ph_<project key>_posthog`.
+ */
+export const ANALYTICS_PERSISTENCE_NAME: string | undefined = 'ph_apex'
+
+/**
+ * Whether the identity cookie is shared across the registrable domain's
+ * subdomains (posthog-js `cross_subdomain_cookie`). `false` scopes it to this
+ * host, as it does the opt-in/out state, which posthog-js keys by project
+ * key alone.
+ */
+export const ANALYTICS_CROSS_SUBDOMAIN_COOKIE = false
 
 export type { AnalyticsConsentMode }
 
