@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.2.0...v1.3.0) (2026-10-02)
+
+
+### Features
+
+* onboarding funnel, stuck tenants and reminders (Apex SP4) ([#9](https://github.com/mahaverick/apex-boilerplate/issues/9)) ([911994c](https://github.com/mahaverick/apex-boilerplate/commit/911994cd4231bfd51e5de5bbe07157b3826332bd))
+
 ## [1.2.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.1.1...v1.2.0) (2026-10-01)
 
 
