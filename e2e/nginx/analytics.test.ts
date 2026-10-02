@@ -385,7 +385,22 @@ test.describe('analytics end to end, through express', () => {
       new URL(await mailedLink(invitee, 'invitations/accept')).searchParams.get('token') ?? ''
     expect(invitationToken).not.toBe('')
     const emailId = await emailIdFor(staff.token, invitee, 'tenant_invitation')
-    const target = await probeStaff('target')
+    // A customer account: staff may sign it out; another staff account's menu offers no such action.
+    const target = {
+      email: `pii-probe-target-${Date.now()}@example.com`,
+      id: '',
+    }
+    await createVerifiedUser(target.email)
+    const found = await apiRequest(
+      staff.token,
+      'GET',
+      `/platform/users?q=${encodeURIComponent(target.email)}`
+    )
+    target.id =
+      (found.body as { data: { users: { id: string; email: string }[] } }).data.users.find(
+        (user) => user.email === target.email
+      )?.id ?? ''
+    expect(target.id).not.toBe('')
     const needles = [PROBE_NAME, 'pii-probe']
 
     await logIn(page, staff.email)
@@ -413,7 +428,7 @@ test.describe('analytics end to end, through express', () => {
     }
 
     // A ReasonDialog names the account it acts on in its description.
-    await visit(page, `/users/${target.id}`, PROBE_NAME, needles)
+    await visit(page, `/users/${target.id}`, target.email, needles)
     await page.getByRole('button', { name: `Actions for ${target.email}` }).click()
     await page.getByRole('menuitem', { name: 'Sign out everywhere' }).click()
     const dialog = page.getByRole('alertdialog', { name: 'Sign out everywhere' })
