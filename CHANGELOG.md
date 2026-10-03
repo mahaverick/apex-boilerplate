@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.3.2...v1.4.0) (2026-10-03)
+
+
+### Features
+
+* posthog analytics with run-time configuration, masked replay and pii guards ([#15](https://github.com/mahaverick/apex-boilerplate/issues/15)) ([a0353ac](https://github.com/mahaverick/apex-boilerplate/commit/a0353ace06e2cb1a18d6db4403b024b4115def94))
+
 ## [1.3.2](https://github.com/mahaverick/apex-boilerplate/compare/v1.3.1...v1.3.2) (2026-10-02)
 
 
