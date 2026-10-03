@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { analyticsKey, track } from '@/observability/analytics'
 import { isRoleDenied, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { platformUsersQueryOptions, type UserSearchParams } from '@/queries/user-admin.queries'
 import { searchText } from '@/schemas/search.schemas'
@@ -54,6 +55,9 @@ function toParams(search: UsersSearch): UserSearchParams {
     direction: search.dir,
   }
 }
+
+/** This list, as `table_filtered` names it. */
+const TABLE = analyticsKey('users')
 
 export const Route = createFileRoute('/_app/users/')({
   validateSearch: usersSearchSchema,
@@ -160,12 +164,14 @@ function UsersPage() {
 
   /** New filters: every change starts from the first page, so the cursor goes. */
   function filter(next: Partial<FilterSearch>) {
+    track('table_filtered', { table: TABLE })
     void navigate({ search: (prev) => firstPageOf({ ...prev, ...next }) })
   }
 
   useEffect(() => {
     const next = term.trim()
     if (term !== draft || next === q) return
+    track('table_filtered', { table: TABLE })
     void navigate({
       search: (prev) => firstPageOf({ ...prev, q: next === '' ? undefined : next }),
       replace: true,
@@ -176,7 +182,7 @@ function UsersPage() {
     if (cursor) void navigate({ search: (prev) => ({ ...prev, cursor, dir }) })
   }
 
-  const firstPage = () => filter({})
+  const firstPage = () => void navigate({ search: (prev) => firstPageOf(prev) })
 
   // The previous view's rows stay up while the next loads; its "nothing matches" would describe the wrong view.
   const settled =

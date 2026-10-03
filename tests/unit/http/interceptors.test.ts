@@ -5,6 +5,7 @@ import { ROUTES } from '@/constants/routes'
 import { installInterceptors } from '@/http/interceptors'
 import { resetSessionForTests } from '@/http/session'
 import { useAuthStore } from '@/states/auth.store'
+import { USER_ID_2 } from '@/tests/fixtures/ids'
 import { NON_VERDICT_FAILURES } from '@/tests/fixtures/non-verdict-failures'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -83,6 +84,26 @@ describe('auth interceptors', () => {
 
     await makeClient().get('/widgets')
     expect(seen).toBeNull()
+  })
+
+  // Another tab signed someone else in on the shared cookie: A's request must not be replayed as B.
+  it('signs out, redirects and does not replay when the refresh returns a different user', async () => {
+    useAuthStore.getState().login('stale', testUser)
+    const assign = stubLocation('/widgets')
+    const attempts: (string | null)[] = []
+    server.use(
+      http.get('/api/v1/profile', () => ok({ ...testUser, id: USER_ID_2 }, 'Profile retrieved.')),
+      http.post('/api/v1/widgets', ({ request }) => {
+        attempts.push(request.headers.get('authorization'))
+        return fail('Access token expired', 401, ACCESS_TOKEN_EXPIRED)
+      })
+    )
+
+    await expect(makeClient().post('/widgets', {})).rejects.toThrow()
+
+    expect(attempts).toEqual(['Bearer stale'])
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+    expect(assign).toHaveBeenCalledTimes(1)
   })
 
   it('refreshes and replays once on ACCESS_TOKEN_EXPIRED', async () => {

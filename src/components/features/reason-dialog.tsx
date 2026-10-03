@@ -1,5 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { useMemo, useState, type ComponentProps } from 'react'
+import { Pii } from '@/components/shared/pii'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -135,7 +136,9 @@ function ReasonForm({
     <>
       <AlertDialogHeader>
         <AlertDialogTitle>{title}</AlertDialogTitle>
-        <AlertDialogDescription>{description}</AlertDialogDescription>
+        <AlertDialogDescription>
+          <Pii>{description}</Pii>
+        </AlertDialogDescription>
       </AlertDialogHeader>
       <Form form={form} serverErrors={serverErrors} className="grid gap-4">
         <FormField form={form} name="reason">
@@ -159,7 +162,9 @@ function ReasonForm({
           <FormField form={form} name="confirmation">
             {(field) => (
               <FormItem>
-                <FormLabel>Type {confirmText} to confirm</FormLabel>
+                <FormLabel>
+                  <Pii>Type {confirmText} to confirm</Pii>
+                </FormLabel>
                 <FormControl>
                   <Input
                     autoComplete="off"

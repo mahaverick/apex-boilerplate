@@ -10,6 +10,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act, type ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import * as analytics from '@/observability/analytics'
 import { router as appRouter } from '@/router'
 import { settle } from '@/tests/fixtures/timing'
 
@@ -258,5 +259,45 @@ describe('pending navigation', () => {
     await act(() => vi.advanceTimersByTimeAsync(1))
     expect(screen.getByRole('heading', { level: 1, name: 'Page' })).toBeInTheDocument()
     expect(screen.queryByRole('status', { name: 'Loading' })).not.toBeInTheDocument()
+  })
+})
+
+describe('page views', () => {
+  async function loadAt(entry: string) {
+    const capture = vi.spyOn(analytics, 'capturePageview').mockImplementation(() => {})
+    const history = createMemoryHistory({ initialEntries: [entry] })
+    appRouter.update({ ...appRouter.options, history })
+    await appRouter.load()
+    await settle(0, 'absence has no event: let the first load, redirects included, resolve')
+    capture.mockClear()
+    return capture
+  }
+
+  it('captures one $pageview per navigation to a new path, once it has resolved', async () => {
+    const capture = await loadAt('/overview?range=7d')
+
+    await appRouter.navigate({ to: '/users' })
+    await vi.waitFor(() => expect(capture).toHaveBeenCalledTimes(1))
+
+    await appRouter.load()
+    await settle(0, 'absence has no event: let a reload of the same address resolve')
+    expect(capture).toHaveBeenCalledTimes(1)
+    capture.mockRestore()
+  })
+
+  it('sends no $pageview for a search, filter or range change on the same path', async () => {
+    const capture = await loadAt('/overview?range=7d')
+
+    await appRouter.navigate({ to: '/overview', search: { range: '30d' } })
+    await settle(0, 'absence has no event: let the range change resolve')
+    expect(appRouter.state.location.search).toMatchObject({ range: '30d' })
+
+    await appRouter.navigate({ to: '/users', search: { q: 'ab' } })
+    await vi.waitFor(() => expect(capture).toHaveBeenCalledTimes(1))
+    await appRouter.navigate({ to: '/users', search: { q: 'abc' } })
+    await settle(0, 'absence has no event: let the search change resolve')
+    expect(appRouter.state.location.search).toMatchObject({ q: 'abc' })
+    expect(capture).toHaveBeenCalledTimes(1)
+    capture.mockRestore()
   })
 })

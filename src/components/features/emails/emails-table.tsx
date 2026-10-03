@@ -3,6 +3,7 @@ import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-tab
 import { useMemo } from 'react'
 import { EmailStatusBadge } from '@/components/features/emails/email-status-badge'
 import { EmailTenantLink } from '@/components/features/emails/email-tenant-link'
+import { Pii } from '@/components/shared/pii'
 import {
   Table,
   TableBody,
@@ -33,7 +34,7 @@ const columns = column.columns([
         params={{ emailId: row.original.id }}
         className="font-medium break-all underline-offset-4 hover:underline"
       >
-        {row.original.recipient}
+        <Pii>{row.original.recipient}</Pii>
       </Link>
     ),
   }),
@@ -61,7 +62,7 @@ const columns = column.columns([
           params={{ userId: user.id }}
           className="underline-offset-4 hover:underline"
         >
-          {user.name}
+          <Pii>{user.name}</Pii>
         </Link>
       )
     },

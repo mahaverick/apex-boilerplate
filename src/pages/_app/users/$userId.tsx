@@ -6,6 +6,7 @@ import { UserHistoryCard } from '@/components/features/history-card'
 import { LoadError } from '@/components/features/load-error'
 import { UserActionsMenu } from '@/components/features/users/user-actions-menu'
 import { UserStatusBadges } from '@/components/features/users/user-status-badges'
+import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -30,7 +31,7 @@ export const Route = createFileRoute('/_app/users/$userId')({
 /** The user's name, else their email, in the trail once their detail has loaded. */
 function UserCrumb({ params }: { params: Record<string, string> }) {
   const { data } = useQuery(platformUserQueryOptions(params.userId ?? ''))
-  return data === undefined ? 'User' : (fullName(data) ?? data.email)
+  return data === undefined ? 'User' : <Pii>{fullName(data) ?? data.email}</Pii>
 }
 
 /** A sign-in provider's label; an unknown one renders as the API names it. */
@@ -85,9 +86,13 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="grid gap-1">
           <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
-            {name ?? user.email}
+            <Pii>{name ?? user.email}</Pii>
           </h1>
-          {name && <p className="text-sm text-muted-foreground">{user.email}</p>}
+          {name && (
+            <Pii as="p" className="text-sm text-muted-foreground">
+              {user.email}
+            </Pii>
+          )}
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <UserStatusBadges user={user} />
             {user.platformRole && (

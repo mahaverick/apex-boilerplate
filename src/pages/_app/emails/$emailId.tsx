@@ -6,6 +6,7 @@ import { EmailTenantLink } from '@/components/features/emails/email-tenant-link'
 import { EmailTimeline } from '@/components/features/emails/email-timeline'
 import { ResendEmailButton } from '@/components/features/emails/resend-email-button'
 import { LoadError } from '@/components/features/load-error'
+import { Pii } from '@/components/shared/pii'
 import { buttonVariants } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -38,7 +39,7 @@ export const Route = createFileRoute('/_app/emails/$emailId')({
 /** The recipient in the trail, once the message has loaded. */
 function EmailCrumb({ params }: { params: Record<string, string> }) {
   const { data } = useQuery(emailQueryOptions(params.emailId ?? ''))
-  return data?.recipient ?? 'Email'
+  return data === undefined ? 'Email' : <Pii>{data.recipient}</Pii>
 }
 
 const SENDER_LABELS = { transactional: 'Transactional sender', general: 'General sender' } as const
@@ -107,7 +108,7 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
             tabIndex={-1}
             className="text-2xl font-semibold break-all outline-none"
           >
-            {message.recipient}
+            <Pii>{message.recipient}</Pii>
           </h1>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span className="text-foreground">{templateLabel(message.templateKey)}</span>
@@ -124,7 +125,7 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
                   params={{ userId: message.user.id }}
                   className="underline underline-offset-4"
                 >
-                  {message.user.name}
+                  <Pii>{message.user.name}</Pii>
                 </Link>
               </span>
             )}

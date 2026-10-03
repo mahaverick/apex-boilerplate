@@ -1,5 +1,6 @@
 import { CircleCheck, CircleDashed } from 'lucide-react'
 import type { RefCallback } from 'react'
+import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { ONBOARDING_SOURCE_LABELS } from '@/constants/onboarding.constants'
 import { ROLE_LABELS } from '@/constants/roles'
@@ -27,7 +28,7 @@ function MemberStatuses({ members }: { members: NonNullable<OnboardingStepDetail
       <ul className="mt-2 grid gap-1">
         {members.entries.map((member) => (
           <li key={member.user.id} className="flex flex-wrap gap-x-2">
-            <span className="font-medium">{member.user.name}</span>
+            <Pii className="font-medium">{member.user.name}</Pii>
             <span className="text-muted-foreground">({ROLE_LABELS[member.role]})</span>
             <span>
               {member.completedAt === null
@@ -89,7 +90,11 @@ export function OnboardingStepList({
                 </span>
               </div>
               <p className="text-sm text-muted-foreground">{step.description}</p>
-              {line !== null && <p className="text-sm wrap-break-word">{line}</p>}
+              {line !== null && (
+                <Pii as="p" className="text-sm wrap-break-word">
+                  {line}
+                </Pii>
+              )}
               {step.members !== null && <MemberStatuses members={step.members} />}
             </div>
             {canAct && step.canMarkComplete && (

@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
+import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -102,7 +103,9 @@ function CreateTenantForm({ onDone }: { onDone: (tenant: PlatformTenantDetail) =
       try {
         const { tenant, emailSent } = await create.mutateAsync(input)
         if (emailSent) {
-          toast.success(`Tenant created. Owner invitation sent to ${input.ownerEmail}.`)
+          toast.success(
+            <Pii>{`Tenant created. Owner invitation sent to ${input.ownerEmail}.`}</Pii>
+          )
         } else {
           toast.warning(
             'Tenant created, but the owner invitation email could not be sent. Resend it from the tenant’s Actions menu.'

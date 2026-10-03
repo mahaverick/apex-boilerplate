@@ -19,6 +19,7 @@ import {
   ONBOARDING_TAB_LABELS,
 } from '@/constants/onboarding.constants'
 import { statusFrom } from '@/lib/api-error'
+import { analyticsKey, track } from '@/observability/analytics'
 import {
   onboardingFunnelQueryOptions,
   onboardingTenantsQueryOptions,
@@ -30,6 +31,9 @@ import {
   type OnboardingListState,
   type PageDirection,
 } from '@/types/api.types'
+
+/** This list, as `table_filtered` names it. */
+const TABLE = analyticsKey('onboarding_tenants')
 
 export const Route = createFileRoute('/_app/onboarding')({
   validateSearch: onboardingSearchSchema,
@@ -179,6 +183,7 @@ function TenantsByState() {
         value={state}
         onValueChange={(next: unknown) => {
           if (!isListState(next)) return
+          track('table_filtered', { table: TABLE })
           void navigate({ search: (prev) => ({ range: prev.range, state: next }) })
         }}
       >

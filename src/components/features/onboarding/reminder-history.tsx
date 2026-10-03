@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { Pii } from '@/components/shared/pii'
 import { ROUTES } from '@/constants/routes'
 import { formatDateTime } from '@/lib/format'
 import type { OnboardingReminderView } from '@/types/api.types'
@@ -22,13 +23,15 @@ export function ReminderHistory({ reminders }: { reminders: OnboardingReminderVi
     <ul aria-label="Reminders sent" className="grid gap-3">
       {reminders.map((reminder) => (
         <li key={reminder.id} className="grid gap-1 text-sm">
-          <p>
+          <Pii as="p">
             <span className="font-medium">
               {formatDateTime(reminder.sentAt) ?? 'At an unknown time'}
             </span>{' '}
             · {reminder.sentBy?.name ?? 'A removed user'} · to {recipients(reminder)}
-          </p>
-          <p className="wrap-break-word text-muted-foreground">“{reminder.reason}”</p>
+          </Pii>
+          <Pii as="p" className="wrap-break-word text-muted-foreground">
+            “{reminder.reason}”
+          </Pii>
           {reminder.messageIds.length > 0 && (
             <p className="flex flex-wrap gap-x-3">
               {reminder.messageIds.map((messageId, index) => (

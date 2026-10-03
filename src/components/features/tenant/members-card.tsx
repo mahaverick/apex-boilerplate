@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
 import { STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
+import { Pii } from '@/components/shared/pii'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -140,7 +141,10 @@ function RoleCell({
               updateRole.mutateAsync({ userId: member.user.id, role: value as MembershipRole })
             )
             .then(
-              () => toast.success(`${name} is now ${ROLE_LABELS[value as MembershipRole]}.`),
+              () =>
+                toast.success(
+                  <Pii>{`${name} is now ${ROLE_LABELS[value as MembershipRole]}.`}</Pii>
+                ),
               (error: unknown) => toast.error(messageFrom(error))
             )
         }}
@@ -232,25 +236,29 @@ function RemoveMemberButton({
       />
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{isSelf ? 'Leave this tenant?' : `Remove ${name}?`}</AlertDialogTitle>
+          <AlertDialogTitle>
+            {isSelf ? 'Leave this tenant?' : <Pii>{`Remove ${name}?`}</Pii>}
+          </AlertDialogTitle>
           <AlertDialogDescription>
             {isSelf ? (
               'You will lose access to this tenant immediately. An owner or admin will have to invite you back.'
             ) : slug === PLATFORM_TENANT_SLUG ? (
               <>
-                {name} loses staff access immediately. If their address is on an auto-join domain
-                (PLATFORM_EMAIL_DOMAINS), they rejoin as a viewer at their next sign-in: deactivate
-                their account from Users to offboard them.{' '}
+                <Pii>
+                  {name} loses staff access immediately. If their address is on an auto-join domain
+                  (PLATFORM_EMAIL_DOMAINS), they rejoin as a viewer at their next sign-in:
+                  deactivate their account from Users to offboard them.
+                </Pii>{' '}
                 <Link
                   to={ROUTES.user}
                   params={{ userId: member.user.id }}
                   className="underline underline-offset-4"
                 >
-                  Open {name} in Users
+                  <Pii>{`Open ${name} in Users`}</Pii>
                 </Link>
               </>
             ) : (
-              `${name} will lose access to this tenant immediately.`
+              <Pii>{`${name} will lose access to this tenant immediately.`}</Pii>
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -273,7 +281,9 @@ function RemoveMemberButton({
                   () => {
                     setBusy(false)
                     setIsOpen(false)
-                    toast.success(isSelf ? 'You left this tenant.' : `${name} removed.`)
+                    toast.success(
+                      isSelf ? 'You left this tenant.' : <Pii>{`${name} removed.`}</Pii>
+                    )
                     if (!isSelf) onRemoved()
                     // Leaving the platform tenant ends staff access; Overview's guard then shows /no-access.
                     if (isSelf) {
@@ -362,10 +372,10 @@ function MemberRow({
       <li className="grid gap-3 rounded-lg border p-4">
         <div className="grid gap-0.5">
           <span className="font-medium">
-            {memberName(member)}
+            <Pii>{memberName(member)}</Pii>
             {isSelf && <span className="ml-2 text-xs text-muted-foreground">(you)</span>}
           </span>
-          <span className="text-sm break-all text-muted-foreground">{member.user.email}</span>
+          <Pii className="text-sm break-all text-muted-foreground">{member.user.email}</Pii>
         </div>
         {role}
         {remove && <div>{remove}</div>}
@@ -376,10 +386,12 @@ function MemberRow({
   return (
     <TableRow>
       <TableCell className="font-medium">
-        {memberName(member)}
+        <Pii>{memberName(member)}</Pii>
         {isSelf && <span className="ml-2 text-xs text-muted-foreground">(you)</span>}
       </TableCell>
-      <TableCell>{member.user.email}</TableCell>
+      <TableCell>
+        <Pii>{member.user.email}</Pii>
+      </TableCell>
       <TableCell>{role}</TableCell>
       <TableCell className="text-right">{remove}</TableCell>
     </TableRow>

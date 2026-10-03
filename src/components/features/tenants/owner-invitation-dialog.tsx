@@ -2,6 +2,7 @@ import { useForm } from '@tanstack/react-form'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
+import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -101,7 +102,7 @@ function OwnerInvitationForm({
       try {
         const { emailSent } = await stepUp.run(() => reissue.mutateAsync(input))
         onBusyChange(false)
-        if (emailSent) toast.success(`Owner invitation sent to ${input.email}.`)
+        if (emailSent) toast.success(<Pii>{`Owner invitation sent to ${input.email}.`}</Pii>)
         else
           toast.warning('The invitation was created, but its email could not be sent. Try again.')
         onDone()

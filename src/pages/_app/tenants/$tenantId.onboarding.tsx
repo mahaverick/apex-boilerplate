@@ -8,6 +8,7 @@ import { OnboardingStepList } from '@/components/features/onboarding/onboarding-
 import { ReminderHistory } from '@/components/features/onboarding/reminder-history'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { RoleDenied } from '@/components/features/role-denied'
+import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -161,10 +162,10 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
           {state === 'not_tracked' && <p className="text-sm">{NOT_TRACKED_NOTE}</p>}
           {state === 'awaiting_owner' && <p className="text-sm">{AWAITING_OWNER_NOTE}</p>}
           {state === 'dismissed' && (
-            <p className="text-sm">
+            <Pii as="p" className="text-sm">
               {detail.dismissedBy?.name ?? 'An owner'} dismissed the getting-started checklist{' '}
               {when(detail.dismissedAt)}.
-            </p>
+            </Pii>
           )}
           {isFrozen && (
             <p className="text-sm">

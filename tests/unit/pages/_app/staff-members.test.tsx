@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { Pii } from '@/components/shared/pii'
 import type { MembershipRole } from '@/constants/roles'
 import {
   MEMBERSHIP_ID,
@@ -129,7 +130,9 @@ describe('/staff with the real sections', () => {
     await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
     await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
 
-    await waitFor(() => expect(success).toHaveBeenCalledWith('Otto Staff is now Admin.'))
+    await waitFor(() =>
+      expect(success).toHaveBeenCalledWith(<Pii>{'Otto Staff is now Admin.'}</Pii>)
+    )
     expect(bodies).toEqual([{ role: 'admin' }, { role: 'admin' }])
   })
 
@@ -158,7 +161,7 @@ describe('/staff with the real sections', () => {
     await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
     await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
 
-    await waitFor(() => expect(success).toHaveBeenCalledWith('Otto Staff removed.'))
+    await waitFor(() => expect(success).toHaveBeenCalledWith(<Pii>{'Otto Staff removed.'}</Pii>))
     expect(calls).toBe(2)
   })
 
