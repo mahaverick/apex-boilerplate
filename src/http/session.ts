@@ -2,10 +2,12 @@ import { isAxiosError } from 'axios'
 import { ROUTES } from '@/constants/routes'
 import { apiClient, unwrap } from '@/http/client'
 import {
+  confirmSignedInUser,
   identifyUser,
   resetAnalytics,
   setAnalyticsOptOut,
   subscribeIdentitySuperseded,
+  yieldSharedIdentity,
 } from '@/observability/analytics'
 import { useAuthStore } from '@/states/auth.store'
 import type { ApiSuccess, User } from '@/types/api.types'
@@ -136,8 +138,10 @@ let uninstallAnalyticsIdentity: (() => void) | null = null
  * distinct id; a user is then identified by id alone after their own opt-out
  * is applied, so an opted-out user's identify is never captured. When
  * analytics reports that another tab signed a different person in under this
- * one, the session is refreshed: the refresh returns that person, which signs
- * this tab out (`SessionIdentityChangedError`). Idempotent; returns the cleanup.
+ * one, the session is refreshed: a refresh that returns that person signs this
+ * tab out (`SessionIdentityChangedError`); one that returns this tab's user
+ * confirms it to analytics (`confirmSignedInUser`); a failed one is retried
+ * on analytics' next recheck. Idempotent; returns the cleanup.
  */
 export function installAnalyticsIdentity(): () => void {
   if (uninstallAnalyticsIdentity) return uninstallAnalyticsIdentity
@@ -152,9 +156,15 @@ export function installAnalyticsIdentity(): () => void {
     if (state.user !== previousState.user) apply(state.user, previousState.user)
   })
   const unsubscribeSuperseded = subscribeIdentitySuperseded(() => {
-    ensureSession().catch((error: unknown) => {
-      if (isAuthVerdict(error)) redirectToLogin()
-    })
+    ensureSession().then(
+      () => {
+        const user = useAuthStore.getState().user
+        if (user) confirmSignedInUser(user.id)
+      },
+      (error: unknown) => {
+        if (isAuthVerdict(error)) redirectToLogin()
+      }
+    )
   })
   uninstallAnalyticsIdentity = () => {
     unsubscribe()
@@ -211,6 +221,8 @@ async function refreshSession(): Promise<string> {
     if (isAuthVerdict(error)) {
       // Read before logout(): a never-signed-in tab must not broadcast and sign out a sibling that just logged in.
       const wasAuthed = useAuthStore.getState().isAuthenticated
+      // Before logout(): its analytics reset must stay local, the shared identity is now the other tab's person.
+      if (error instanceof SessionIdentityChangedError) yieldSharedIdentity()
       useAuthStore.getState().logout()
       // The cookie is shared, so a 401 from an authed tab holds for every tab; a different user means the cookie is another tab's valid session.
       if (wasAuthed && !(error instanceof SessionIdentityChangedError)) broadcastLogout()

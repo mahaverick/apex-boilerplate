@@ -8,6 +8,7 @@ export {
   type AnalyticsTenantAccess,
   capturePageview,
   clearTenantGroup,
+  confirmSignedInUser,
   denyAnalyticsConsent,
   forgetStaleIdentity,
   getAnalyticsConsent,
@@ -21,6 +22,7 @@ export {
   subscribeAnalyticsConsent,
   subscribeIdentitySuperseded,
   track,
+  yieldSharedIdentity,
 } from './analytics'
 export {
   getAnalyticsConfig,

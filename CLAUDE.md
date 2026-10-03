@@ -165,9 +165,20 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   `REGISTRY_HAS_NO_FREE_STRINGS` at compile time.
 - **Identity follows the auth store, nowhere else.** `installAnalyticsIdentity`
   (`src/http/session.ts`, started by `bootstrapSession`) identifies on sign-in
-  and restore and resets on every sign-out path; `identifyUser` also resets a
-  browser still identified as someone else. Never `$set` person properties
-  from the browser: express owns them. Apex sets no tenant group.
+  and restore and resets on a sign-out, except in a superseded tab (below);
+  `identifyUser` also resets a browser still identified as someone else, and
+  `forgetStaleIdentity` drops a person a failed restore left behind (kept after
+  a non-verdict failure if another tab answers it is signed in as them). Never
+  `$set` person properties from the browser: express owns them. Apex sets no
+  tenant group.
+- **The guard drops any event under another distinct id, and that supersedes
+  the tab.** Apex tabs share one `ph_apex` identity (no website shares it), so
+  this matters only between apex tabs: the tab whose events were dropped is
+  superseded, never identifies, registers or resets over the other tab (its
+  `resetAnalytics` clears facade state only), and signs out if its refresh
+  returns the other user. If its refresh returns its own user it resumes
+  (`confirmSignedInUser`); a failed refresh is retried every
+  `SUPERSEDED_RECHECK_MS`.
 - **`posthog.reset()` drops the super properties and the consent answer.**
   `resetAnalytics` and `identifyUser` go through `resetKeepingConsent`, which
   registers `app` and `environment` again and re-applies the consent; never

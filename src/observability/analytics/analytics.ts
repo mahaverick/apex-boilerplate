@@ -55,6 +55,13 @@ const IDENTITY_CHANNEL = 'analytics-identity'
 /** How many identities announced by this app's other tabs are remembered. */
 const MAX_SIBLING_IDENTITIES = 20
 
+/**
+ * While this tab stays superseded, how often an event asks the app again to
+ * settle who is signed in: a refresh that failed for a transient reason is
+ * retried, so the tab never drops events for good.
+ */
+export const SUPERSEDED_RECHECK_MS = 5000
+
 type Command = (client: PostHogInterface) => void
 
 /**
@@ -97,12 +104,17 @@ let isRepairScheduled = false
 let identityRepair: ReturnType<typeof setTimeout> | null = null
 /** Distinct ids this app's other tabs identified: a cookie change to one of them is theirs, not a website's. */
 let siblingIdentities: string[] = []
+/** Distinct ids this app's other tabs said they hold since this tab last asked (`askWhoIsSignedIn`). */
+let liveSiblingIdentities = new Set<string>()
 /**
  * Set once another tab of this app identified someone else under this tab's
- * signed-in user. Every event is dropped until this tab signs out or in
- * again, and the SDK is never reset under the other tab's person.
+ * signed-in user. Every event is dropped, and this tab never identifies,
+ * resets or regroups the shared SDK, until it is lifted: the identity cookie
+ * holds this tab's user again, the app confirms the user
+ * (`confirmSignedInUser`), or this tab signs out or in.
  */
 let isSuperseded = false
+let supersededNotifiedAt = 0
 let identityChannel: BroadcastChannel | null = null
 const consentListeners = new Set<() => void>()
 const supersededListeners = new Set<() => void>()
@@ -139,7 +151,12 @@ function openIdentityChannel(): void {
   identityChannel = new BroadcastChannel(IDENTITY_CHANNEL)
   identityChannel.addEventListener('message', (event: MessageEvent<unknown>) => {
     const data = event.data as { type?: unknown; distinctId?: unknown } | null
+    if (data?.type === 'who') {
+      if (signedInUserId !== null && !isSuperseded) announceIdentity(signedInUserId)
+      return
+    }
     if (data?.type !== 'identified' || typeof data.distinctId !== 'string') return
+    liveSiblingIdentities.add(data.distinctId)
     siblingIdentities = [
       ...siblingIdentities.filter((id) => id !== data.distinctId),
       data.distinctId,
@@ -155,10 +172,16 @@ function announceIdentity(distinctId: string): void {
   }
 }
 
-/** Marks this tab superseded by another tab's sign-in and tells the app, once. */
+/**
+ * Marks this tab superseded by another tab's sign-in and asks the app to
+ * settle who is signed in: at once, then again at most every
+ * `SUPERSEDED_RECHECK_MS` while the tab stays superseded.
+ */
 function supersede(): void {
-  if (isSuperseded) return
+  const now = Date.now()
+  if (isSuperseded && now - supersededNotifiedAt < SUPERSEDED_RECHECK_MS) return
   isSuperseded = true
+  supersededNotifiedAt = now
   for (const listener of supersededListeners) listener()
 }
 
@@ -228,9 +251,9 @@ function applyIdentity(ph: PostHogInterface, userId: string): void {
   if (ph.get_property('$user_state') === 'identified' && ph.get_distinct_id() !== userId) {
     resetKeepingConsent(ph)
   }
+  isSuperseded = false
   ph.identify(userId)
   signedInUserId = userId
-  isSuperseded = false
   announceIdentity(userId)
 }
 
@@ -324,7 +347,14 @@ function repairedProperties(properties: Record<string, unknown>): Record<string,
 function guardEvent(event: CaptureResult): CaptureResult | null {
   const properties = (event.properties ?? {}) as Record<string, unknown>
   if (properties[COOKIELESS_FLAG_PROPERTY] === true) return event
-  if (isSuperseded) return null
+  if (isSuperseded) {
+    if (signedInUserId === null || properties.distinct_id !== signedInUserId) {
+      supersede()
+      return null
+    }
+    // The identity cookie holds this tab's user again: whoever replaced them is gone.
+    isSuperseded = false
+  }
   if (signedInUserId !== null && properties.distinct_id !== signedInUserId) {
     if (
       typeof properties.distinct_id === 'string' &&
@@ -427,10 +457,48 @@ export function identifyUser(userId: string): void {
  * session restore that ended with no user, so an earlier visitor's identity
  * does not carry the next visitor's pageviews, replay and session header.
  * Does nothing for an anonymous browser, a handed-off visitor included.
+ *
+ * With `keepIfAnotherTabHoldsThem` (a restore that failed without judging
+ * the session, such as a 502 during a deploy), the person is kept when
+ * another tab of this app answers that it is signed in as them: resetting
+ * the shared identity would split that tab's replay. The question goes out
+ * at once and the answer is read when the SDK has loaded; with no answer by
+ * then the person is forgotten, so an unanswered question never leaves a
+ * stale person in place.
+ * @param options - `keepIfAnotherTabHoldsThem`, false by default.
  */
-export function forgetStaleIdentity(): void {
+export function forgetStaleIdentity(options: { keepIfAnotherTabHoldsThem?: boolean } = {}): void {
+  if (options.keepIfAnotherTabHoldsThem) askWhoIsSignedIn()
   run((ph) => {
-    if (ph.get_property('$user_state') === 'identified') resetKeepingConsent(ph)
+    if (ph.get_property('$user_state') !== 'identified') return
+    const isHeldElsewhere =
+      options.keepIfAnotherTabHoldsThem === true && liveSiblingIdentities.has(ph.get_distinct_id())
+    if (!isHeldElsewhere) resetKeepingConsent(ph)
+  })
+}
+
+/** Asks this app's other tabs which person each is signed in as; answers land in `liveSiblingIdentities`. */
+function askWhoIsSignedIn(): void {
+  openIdentityChannel()
+  liveSiblingIdentities = new Set()
+  try {
+    identityChannel?.postMessage({ type: 'who' })
+  } catch {
+    // Analytics never fails a user action.
+  }
+}
+
+/**
+ * Hands the shared identity to another tab before this tab signs out
+ * because its session now belongs to someone else (the refresh returned
+ * another user): the coming `resetAnalytics` then forgets this tab's state
+ * only, leaving that tab's person, replay session and tenant group alone.
+ */
+export function yieldSharedIdentity(): void {
+  run(() => {
+    if (signedInUserId === null) return
+    isSuperseded = true
+    supersededNotifiedAt = Date.now()
   })
 }
 
@@ -478,10 +546,9 @@ export function resetAnalytics(): void {
       identityRepair = null
     }
     if (isSuperseded) {
+      // The shared SDK holds the other tab's person and tenant group: leave both alone.
       isSuperseded = false
       signedInUserId = null
-      registerSuperProperties(ph)
-      applyTenant(ph)
       return
     }
     resetKeepingConsent(ph)
@@ -489,11 +556,33 @@ export function resetAnalytics(): void {
 }
 
 /**
+ * The app's answer to a supersession that did not end the session: the
+ * refresh returned `userId`, this tab's own user, so the session cookie is
+ * still theirs. The tab stops being superseded and, if the identity cookie
+ * still holds someone else, identifies its user again; the other tab, whose
+ * own refresh returns this user too, is then the one superseded and signed
+ * out. A different id does nothing: that refresh signs this tab out.
+ * @param userId - The user the refresh returned.
+ */
+export function confirmSignedInUser(userId: string): void {
+  run((ph) => {
+    if (!isSuperseded || signedInUserId !== userId) return
+    isSuperseded = false
+    if (ph.get_distinct_id() === userId) return
+    applyIdentity(ph, userId)
+    registerSuperProperties(ph)
+    applyTenant(ph)
+  })
+}
+
+/**
  * Subscribes to this tab being superseded: another tab of this app signed a
  * different person in under this tab's signed-in user, on the shared session
- * cookie. Until the tab signs out or in again its events are dropped; the
- * app should end its session (the next refresh returns the other person).
- * @param listener - Called once per supersession.
+ * cookie. While superseded its events are dropped. The app should settle who
+ * is signed in with a refresh: one that returns the other person signs this
+ * tab out; one that returns this tab's user goes to `confirmSignedInUser`.
+ * @param listener - Called on supersession, and again at most every
+ *   `SUPERSEDED_RECHECK_MS` while events keep arriving and it lasts.
  * @returns The unsubscribe.
  */
 export function subscribeIdentitySuperseded(listener: () => void): () => void {
@@ -538,9 +627,12 @@ export function grantAnalyticsConsent(): void {
     // PostHogInterface types it with no options; the PostHog class it is takes them.
     ;(ph as PostHog).opt_in_capturing({ captureEventName: false })
     const userId = signedInUserId
-    if (userId !== null && ph.get_distinct_id() !== userId) applyIdentity(ph, userId)
-    registerSuperProperties(ph)
-    applyTenant(ph)
+    // A superseded tab never identifies over the person another tab signed in.
+    if (!isSuperseded) {
+      if (userId !== null && ph.get_distinct_id() !== userId) applyIdentity(ph, userId)
+      registerSuperProperties(ph)
+      applyTenant(ph)
+    }
     ph.capture('$opt_in', {}, { send_instantly: true })
     if (wasPending) ph.capture('$pageview', {})
     notifyConsent()
@@ -642,7 +734,9 @@ export function resetAnalyticsForTests(): void {
   if (identityRepair !== null) clearTimeout(identityRepair)
   identityRepair = null
   siblingIdentities = []
+  liveSiblingIdentities = new Set()
   isSuperseded = false
+  supersededNotifiedAt = 0
   identityChannel?.close()
   identityChannel = null
   consentListeners.clear()

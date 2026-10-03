@@ -140,13 +140,21 @@ type Facade = typeof import('@/observability/analytics/analytics')
 describe('two tabs of this app', () => {
   const tabs: Facade[] = []
 
-  async function openTab(): Promise<{ facade: Facade; ph: PostHog; sent: CaptureResult[] }> {
+  async function openTab(
+    consentMode: 'opt_out' | 'required' = 'opt_out',
+    beforeLoad?: (facade: Facade) => Promise<void>
+  ): Promise<{ facade: Facade; ph: PostHog; sent: CaptureResult[] }> {
     vi.resetModules()
     const sdk = await vi.importActual<typeof import('posthog-js')>('posthog-js')
     const ph = new sdk.PostHog()
     vi.doMock('posthog-js', () => ({ ...sdk, default: ph }))
     const facade = await import('@/observability/analytics/analytics')
-    await facade.initAnalytics(analyticsConfigFor({ POSTHOG_KEY: KEY, APP_ENVIRONMENT: 'test' }))
+    await beforeLoad?.(facade)
+    // Built directly: an app without consent modes maps `required` to `opt_out`, and the facade is shared.
+    await facade.initAnalytics({
+      ...analyticsConfigFor({ POSTHOG_KEY: KEY, APP_ENVIRONMENT: 'test' }),
+      consentMode,
+    })
     await expect.poll((): unknown => ph.get_property('app')).toBe(ANALYTICS_APP)
     const sent: CaptureResult[] = []
     ph.on('eventCaptured', (event: CaptureResult) => sent.push(event))
@@ -228,5 +236,137 @@ describe('two tabs of this app', () => {
     first.facade.capturePageview()
     expect(pageviews(first.sent).every((id) => id !== 'user-a')).toBe(true)
     expect(identifies(second.sent)).toHaveLength(identifiedBefore)
+  })
+
+  /** The tab's events that were really sent under a person: cookieless ones carry a placeholder. */
+  const attributed = (sent: CaptureResult[]) =>
+    sent
+      .filter((event) => event.properties.$cookieless_mode !== true)
+      .map((event): unknown => event.properties.distinct_id)
+
+  /** Waits until `predicate` holds, for state the tabs reach through messages and timers. */
+  const until = (predicate: () => boolean) => vi.waitFor(() => expect(predicate()).toBe(true))
+
+  it('a superseded tab resumes once the identity cookie holds its user again', async () => {
+    const first = await openTab()
+    const second = await openTab()
+    const superseded = vi.fn()
+    first.facade.subscribeIdentitySuperseded(superseded)
+    first.facade.identifyUser('user-a')
+    second.facade.identifyUser('user-b')
+    await until(() => {
+      first.facade.capturePageview()
+      return superseded.mock.calls.length > 0
+    })
+    second.facade.resetAnalytics()
+    second.facade.identifyUser('user-a')
+    const from = first.sent.length
+    for (let index = 0; index < 3; index += 1) first.facade.capturePageview()
+    expect(pageviews(first.sent.slice(from))).toEqual(['user-a', 'user-a', 'user-a'])
+    expect(attributed(first.sent).every((id) => id === 'user-a')).toBe(true)
+  })
+
+  it('a superseded tab whose refresh returns its own user resumes, and the other tab yields', async () => {
+    const first = await openTab()
+    const second = await openTab()
+    const firstSuperseded = vi.fn()
+    const secondSuperseded = vi.fn()
+    first.facade.subscribeIdentitySuperseded(firstSuperseded)
+    second.facade.subscribeIdentitySuperseded(secondSuperseded)
+    first.facade.identifyUser('user-a')
+    second.facade.identifyUser('user-b')
+    await until(() => {
+      first.facade.capturePageview()
+      return firstSuperseded.mock.calls.length > 0
+    })
+    // The session cookie is still A's: the app confirms A in the first tab.
+    first.facade.confirmSignedInUser('user-a')
+    first.facade.capturePageview()
+    expect(pageviews(first.sent).at(-1)).toBe('user-a')
+    await until(() => {
+      second.facade.capturePageview()
+      return secondSuperseded.mock.calls.length > 0
+    })
+    expect(attributed(first.sent).every((id) => id === 'user-a')).toBe(true)
+    expect(attributed(second.sent).every((id) => id === 'user-b')).toBe(true)
+  })
+
+  it('a superseded tab accepting the banner never identifies over the other tab, which keeps sending', async () => {
+    const first = await openTab('required')
+    const second = await openTab('required')
+    first.facade.grantAnalyticsConsent()
+    second.facade.grantAnalyticsConsent()
+    const superseded = vi.fn()
+    first.facade.subscribeIdentitySuperseded(superseded)
+    first.facade.identifyUser('user-a')
+    second.facade.identifyUser('user-b')
+    await until(() => {
+      first.facade.capturePageview()
+      return superseded.mock.calls.length > 0
+    })
+
+    first.facade.grantAnalyticsConsent()
+    expect(second.ph.get_distinct_id()).toBe('user-b')
+    const from = second.sent.length
+    second.facade.capturePageview()
+    expect(pageviews(second.sent.slice(from))).toEqual(['user-b'])
+
+    // The first tab is signed out; the second keeps its person, its events, and is never superseded.
+    const secondSuperseded = vi.fn()
+    second.facade.subscribeIdentitySuperseded(secondSuperseded)
+    first.facade.resetAnalytics()
+    const afterSignOut = second.sent.length
+    second.facade.capturePageview()
+    await settle(
+      second.facade.IDENTITY_REPAIR_DELAY_MS + 50,
+      'absence has no event: any identity repair would be due by now'
+    )
+    second.facade.capturePageview()
+    expect(pageviews(second.sent.slice(afterSignOut))).toEqual(['user-b', 'user-b'])
+    expect(secondSuperseded).not.toHaveBeenCalled()
+    expect(attributed(first.sent)).not.toContain('user-b')
+    expect(attributed(second.sent)).not.toContain('user-a')
+  })
+
+  it('a tab whose refresh returned another user signs out without resetting that user’s identity', async () => {
+    const first = await openTab()
+    const second = await openTab()
+    first.facade.identifyUser('user-a')
+    second.facade.identifyUser('user-b')
+    const sessionBefore = second.ph.get_session_id()
+    // What refreshSession does on SessionIdentityChangedError, before logout() resets analytics.
+    first.facade.yieldSharedIdentity()
+    first.facade.resetAnalytics()
+    const from = second.sent.length
+    second.facade.capturePageview()
+    expect(pageviews(second.sent.slice(from))).toEqual(['user-b'])
+    expect(second.ph.get_session_id()).toBe(sessionBefore)
+  })
+
+  it('a new tab whose restore failed without a verdict keeps a person another tab is signed in as', async () => {
+    const signedIn = await openTab()
+    signedIn.facade.identifyUser('user-a')
+    const sessionBefore = signedIn.ph.get_session_id()
+    const restored = await openTab('opt_out', async (facade) => {
+      facade.forgetStaleIdentity({ keepIfAnotherTabHoldsThem: true })
+      // The question is answered before this tab's SDK loads, as it is while the bundle loads.
+      await settle(50, 'the other tab answers on the channel; there is no event for it here')
+    })
+    expect(restored.ph.get_distinct_id()).toBe('user-a')
+    const from = signedIn.sent.length
+    signedIn.facade.capturePageview()
+    expect(pageviews(signedIn.sent.slice(from))).toEqual(['user-a'])
+    expect(signedIn.ph.get_session_id()).toBe(sessionBefore)
+  })
+
+  it('a new tab whose restore failed with nobody answering forgets the person', async () => {
+    const earlier = await openTab()
+    earlier.facade.identifyUser('user-a')
+    earlier.facade.resetAnalyticsForTests()
+    const restored = await openTab('opt_out', async (facade) => {
+      facade.forgetStaleIdentity({ keepIfAnotherTabHoldsThem: true })
+      await settle(50, 'absence has no event: no tab answers on the channel')
+    })
+    expect(restored.ph.get_distinct_id()).not.toBe('user-a')
   })
 })

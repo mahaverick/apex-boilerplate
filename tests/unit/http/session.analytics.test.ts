@@ -3,10 +3,15 @@ import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installInterceptors } from '@/http/interceptors'
 import { ensureSession, installAnalyticsIdentity, resetSessionForTests } from '@/http/session'
-import { initAnalytics, resetAnalyticsForTests } from '@/observability/analytics/analytics'
+import {
+  initAnalytics,
+  resetAnalyticsForTests,
+  SUPERSEDED_RECHECK_MS,
+} from '@/observability/analytics/analytics'
 import { bootstrapSession } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
 import { USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
+import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { analyticsConfigFor, resetFakePosthog, sdk } from '@/tests/mocks/posthog'
 import { server } from '@/tests/mocks/server'
@@ -134,6 +139,67 @@ describe('analytics identity follows the session', () => {
     expect(sdk.distinctId).toBe(USER_ID_2)
   })
 
+  /** Puts the fake SDK under user B, a person another tab of this app announced, and sends one event. */
+  async function supersedeByAnotherTab(): Promise<(event: unknown) => unknown> {
+    const announced: unknown[] = []
+    const listener = new BroadcastChannel('analytics-identity')
+    listener.addEventListener('message', (event: MessageEvent<unknown>) =>
+      announced.push(event.data)
+    )
+    const otherTab = new BroadcastChannel('analytics-identity')
+    otherTab.postMessage({ type: 'identified', distinctId: USER_ID_2 })
+    await vi.waitFor(() => expect(announced).toHaveLength(1))
+    listener.close()
+    otherTab.close()
+    sdk.distinctId = USER_ID_2
+    sdk.userState = 'identified'
+    sdk.calls = []
+    const beforeSend = sdk.initOptions?.before_send as (event: unknown) => unknown
+    expect(
+      beforeSend({ uuid: 'u', event: '$pageview', properties: { distinct_id: USER_ID_2 } })
+    ).toBeNull()
+    return beforeSend
+  }
+
+  it('a supersession whose refresh returns this tab’s own user resumes it under that user', async () => {
+    useAuthStore.getState().login('token', userA)
+    server.use(http.get('/api/v1/profile', () => ok(userA, 'Profile retrieved.')))
+    await supersedeByAnotherTab()
+    await vi.waitFor(() => expect(sdk.calls).toContain(`identify("${USER_ID}")`))
+    expect(useAuthStore.getState().user?.id).toBe(USER_ID)
+    expect(sdk.distinctId).toBe(USER_ID)
+  })
+
+  it('a supersession whose refresh fails for a transient reason keeps the tab and retries', async () => {
+    useAuthStore.getState().login('token', userA)
+    let refreshes = 0
+    server.use(
+      http.post('/api/v1/auth/refresh', () => {
+        refreshes += 1
+        return fail('Unavailable', 503)
+      })
+    )
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+    const beforeSend = await supersedeByAnotherTab()
+    await vi.waitFor(() => expect(refreshes).toBe(1))
+    expect(useAuthStore.getState().user?.id).toBe(USER_ID)
+    now.mockReturnValue(1_000_000 + SUPERSEDED_RECHECK_MS)
+    beforeSend({ uuid: 'u', event: '$pageview', properties: { distinct_id: USER_ID_2 } })
+    await vi.waitFor(() => expect(refreshes).toBe(2))
+    expect(sdk.calls).not.toContain('reset()')
+  })
+
+  it('a refresh that returns another user signs out without resetting that user’s shared identity', async () => {
+    useAuthStore.getState().login('token', userA)
+    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, assign: vi.fn() })
+    server.use(http.get('/api/v1/profile', () => ok(userB, 'Profile retrieved.')))
+    sdk.calls = []
+    await expect(ensureSession()).rejects.toThrow()
+    expect(useAuthStore.getState().user).toBeNull()
+    expect(sdk.calls).not.toContain('reset()')
+  })
+
   it('is installed once however often it is called', () => {
     installAnalyticsIdentity()
     useAuthStore.getState().login('token', userA)
@@ -193,6 +259,43 @@ describe('a cold load that ends with nobody signed in', () => {
     await bootstrapSession()
     await initAnalytics(analyticsConfigFor({ POSTHOG_KEY: 'phc_test_key_not_real' }))
 
+    expect(sdkCalls()).toEqual(['reset()'])
+  })
+
+  /** Another open tab of this app, signed in as `distinctId`: it answers the facade's question. */
+  function anotherTabSignedInAs(distinctId: string): () => void {
+    const tab = new BroadcastChannel('analytics-identity')
+    tab.addEventListener('message', (event: MessageEvent<{ type?: string }>) => {
+      if (event.data.type === 'who') tab.postMessage({ type: 'identified', distinctId })
+    })
+    return () => tab.close()
+  }
+
+  /** The load, with time for another tab's answer to land before the SDK loads. */
+  async function coldLoadAnswered(): Promise<void> {
+    await bootstrapSession()
+    await settle(50, 'another tab answers on the channel; nothing in this tab signals it')
+    await initAnalytics(analyticsConfigFor({ POSTHOG_KEY: 'phc_test_key_not_real' }))
+  }
+
+  it('a restore that cannot reach the API keeps a person another tab is signed in as', async () => {
+    sdk.distinctId = USER_ID
+    sdk.userState = 'identified'
+    const close = anotherTabSignedInAs(USER_ID)
+    server.use(http.post('/api/v1/auth/refresh', () => fail('Unavailable', 503)))
+    await coldLoadAnswered()
+    close()
+    expect(sdkCalls()).toEqual([])
+    expect(sdk.distinctId).toBe(USER_ID)
+  })
+
+  it('a restore that answers 401 forgets the person even if another tab says it holds them', async () => {
+    sdk.distinctId = USER_ID
+    sdk.userState = 'identified'
+    const close = anotherTabSignedInAs(USER_ID)
+    server.use(http.post('/api/v1/auth/refresh', () => fail('Unauthorized', 401)))
+    await coldLoadAnswered()
+    close()
     expect(sdkCalls()).toEqual(['reset()'])
   })
 

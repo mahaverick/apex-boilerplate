@@ -490,9 +490,9 @@ signed-in person opted out in the customer app's profile
 Typed events: `command_palette_opened`, `command_palette_action_run`
 (`action`: the kind of item chosen) and `table_filtered` (`table`: which
 list, never the filter's value). Every same-origin `/api/v1/` axios request
-carries a fresh W3C `traceparent` and, only while capture is on,
-`X-POSTHOG-SESSION-ID`, so a server event links to the trace and the replay
-that caused it.
+carries a fresh W3C `traceparent` and, only while capture is on and PostHog
+holds no identified person other than the signed-in user, `X-POSTHOG-SESSION-ID`,
+so a server event links to the trace and the replay that caused it.
 
 Apex keeps its own browser identity: it stores posthog-js's state under
 `ph_ph_apex` and scopes the identity cookie to its own host, because the

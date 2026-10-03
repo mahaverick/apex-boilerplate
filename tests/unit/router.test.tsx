@@ -263,18 +263,40 @@ describe('pending navigation', () => {
 })
 
 describe('page views', () => {
-  it('captures one $pageview per navigation that changes the address, once it has resolved', async () => {
+  async function loadAt(entry: string) {
     const capture = vi.spyOn(analytics, 'capturePageview').mockImplementation(() => {})
-    const history = createMemoryHistory({ initialEntries: ['/'] })
+    const history = createMemoryHistory({ initialEntries: [entry] })
     appRouter.update({ ...appRouter.options, history })
     await appRouter.load()
+    await settle(0, 'absence has no event: let the first load, redirects included, resolve')
     capture.mockClear()
+    return capture
+  }
 
-    await appRouter.navigate({ to: '/overview', search: { range: '30d' } })
+  it('captures one $pageview per navigation to a new path, once it has resolved', async () => {
+    const capture = await loadAt('/overview?range=7d')
+
+    await appRouter.navigate({ to: '/users' })
     await vi.waitFor(() => expect(capture).toHaveBeenCalledTimes(1))
 
     await appRouter.load()
     await settle(0, 'absence has no event: let a reload of the same address resolve')
+    expect(capture).toHaveBeenCalledTimes(1)
+    capture.mockRestore()
+  })
+
+  it('sends no $pageview for a search, filter or range change on the same path', async () => {
+    const capture = await loadAt('/overview?range=7d')
+
+    await appRouter.navigate({ to: '/overview', search: { range: '30d' } })
+    await settle(0, 'absence has no event: let the range change resolve')
+    expect(appRouter.state.location.search).toMatchObject({ range: '30d' })
+
+    await appRouter.navigate({ to: '/users', search: { q: 'ab' } })
+    await vi.waitFor(() => expect(capture).toHaveBeenCalledTimes(1))
+    await appRouter.navigate({ to: '/users', search: { q: 'abc' } })
+    await settle(0, 'absence has no event: let the search change resolve')
+    expect(appRouter.state.location.search).toMatchObject({ q: 'abc' })
     expect(capture).toHaveBeenCalledTimes(1)
     capture.mockRestore()
   })

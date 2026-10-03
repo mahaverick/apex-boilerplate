@@ -8,6 +8,7 @@ import {
   ensureSession,
   installAnalyticsIdentity,
   installAuthBroadcastListener,
+  isAuthVerdict,
 } from '@/http/session'
 import { capturePageview, forgetStaleIdentity } from '@/observability/analytics'
 import { routeTree } from '@/routeTree.gen'
@@ -25,18 +26,24 @@ export const queryClient = new QueryClient({
  * logout listener and the analytics identity subscription, and flips
  * isBootstrapped, whether or not the refresh worked. A restore that ends with
  * no user also drops any person posthog-js still holds from an earlier visit
- * (`forgetStaleIdentity`), so the next visitor's pages are not theirs.
+ * (`forgetStaleIdentity`), so the next visitor's pages are not theirs. After a
+ * failure that judged nothing (a 502, say) the person is kept if another open
+ * tab answers that it is signed in as them, so that tab's replay is not split.
  */
 export async function bootstrapSession(): Promise<void> {
   if (useAuthStore.getState().isBootstrapped) return
   installAuthBroadcastListener()
   installAnalyticsIdentity()
+  let isVerdict = false
   try {
     await ensureSession()
-  } catch {
+  } catch (error) {
     // Any refresh failure leaves this load signed out; only an auth verdict also clears the store (see refreshSession).
+    isVerdict = isAuthVerdict(error)
   } finally {
-    if (!useAuthStore.getState().user) forgetStaleIdentity()
+    if (!useAuthStore.getState().user) {
+      forgetStaleIdentity({ keepIfAnotherTabHoldsThem: !isVerdict })
+    }
     useAuthStore.getState().setBootstrapped()
   }
 }
@@ -57,11 +64,12 @@ export const router = createRouter({
 /**
  * One `$pageview` per resolved navigation, captured here because posthog-js's
  * own history pageviews are off: it fires after the URL changes, before the
- * route's state has settled. A resolve that leaves the address unchanged
- * (a reload of the same match) is not a page view.
+ * route's state has settled. Only a new path is a page view, as posthog-js
+ * counts them: a search, filter or range change, or a reload of the same match,
+ * is not.
  */
-router.subscribe('onResolved', ({ fromLocation, toLocation }) => {
-  if (fromLocation?.href !== toLocation.href) capturePageview()
+router.subscribe('onResolved', ({ pathChanged }) => {
+  if (pathChanged) capturePageview()
 })
 
 declare module '@tanstack/react-router' {
