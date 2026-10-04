@@ -6,8 +6,8 @@ for the people who run a product, not the people who use it. Its sibling,
 `express-boilerplate` API. Apex ships a sign-in, a grouped-sidebar shell, a
 ⌘K command palette and nine staff pages: Overview (KPI cards and charts),
 Tenants (every customer tenant, keyset-paged, each with a detail page for its
-overview, members, invitations, activity, timeline, emails and onboarding), Users (every account, each with
-a detail page and, for admins, a PostHog timeline), Staff (the platform's own members and invitations), Emails
+overview, members, invitations, activity, timeline, errors, emails and onboarding), Users (every account, each with
+a detail page and, for admins, a PostHog timeline and error list), Staff (the platform's own members and invitations), Emails
 (every tracked message, with a delivery timeline and preview), Deliverability
 (delivery, bounce and complaint rates), Suppressions (addresses mail is held
 back from), Onboarding (the activation funnel and the tenants stuck in it) and the Activity log (the platform audit log).
@@ -113,7 +113,9 @@ Moving the API to another prefix under `/api` therefore means changing
 
 ### Environment
 
-There are no build-time variables: the same image serves every environment.
+There are no build-time settings that differ by environment: the same image
+serves every environment. (Its build arguments name the commit and where its
+sourcemaps go; see [Error tracking and sourcemaps](#error-tracking-and-sourcemaps).)
 The container reads its settings at **start**, as environment variables —
 `API_UPSTREAM`, where nginx proxies `/api`, and the analytics settings —
 listed with their patterns in [Run-time configuration](#run-time-configuration).
@@ -156,7 +158,7 @@ role goes to `/no-access`.
 | `pnpm test:coverage`  | Vitest + coverage; fails under 88/82/86/89 % (stmts/branches/funcs/lines). CI runs it                                                                                            |
 | `pnpm test:watch`     | Vitest in watch mode                                                                                                                                                             |
 | `pnpm format`         | `prettier --write`                                                                                                                                                               |
-| `pnpm check:bundle`   | Builds in memory; fails on one JS chunk, first-visit JS over budget or holding posthog-js, or devtools in a chunk                                                                |
+| `pnpm check:bundle`   | Builds in memory; fails on one JS chunk, first-visit JS over budget or holding posthog-js or `@posthog/core`, the error listener over 1 KB gzipped, or devtools in a chunk       |
 | `pnpm lint:docs`      | History phrasing and broken links in markdown and config comments                                                                                                                |
 | `pnpm test:e2e`       | Playwright `fixtures` project against the MSW harness; no backend needed. CI runs it                                                                                             |
 | `pnpm test:e2e:live`  | Playwright `live` project; needs express-boilerplate on :4040                                                                                                                    |
@@ -273,8 +275,12 @@ replaces `/etc/nginx/nginx.conf` and its only server-config include is
 `Dockerfile` never resets the unprivileged base image's `USER`. A step that needs root
 privileges has to `USER root` first and `USER 101` again before `CMD`.
 
-The image takes no build arguments: every environment-specific setting is
-read at start ([Run-time configuration](#run-time-configuration)). The API
+The image takes no environment-specific build arguments: every setting that
+differs between environments is read at start
+([Run-time configuration](#run-time-configuration)). The three it does take,
+`GIT_SHA`, `POSTHOG_SOURCEMAP_PROJECTS` and `POSTHOG_CLI_HOST`, say which
+commit it is and where its sourcemaps are uploaded, and the same image still
+serves every environment ([Error tracking and sourcemaps](#error-tracking-and-sourcemaps)). The API
 prefix is baked in and fixed — see
 [The API prefix is fixed](#the-api-prefix-is-fixed) for what has to change
 together if it ever moves.
@@ -523,6 +529,116 @@ settings and `API_UPSTREAM` pointing at that express, then
 The suite starts the fake PostHog on :4063 itself (`E2E_FAKE_POSTHOG_PORT`
 moves it).
 
+### Error tracking and sourcemaps
+
+Every crash in the browser becomes one `$exception` in PostHog Error
+Tracking, in the project `POSTHOG_KEY` names, symbolicated to the `.ts` and
+`.tsx` source. It is the same module as react-boilerplate's
+(`src/observability/errors/`). Without `POSTHOG_KEY`, or in consent mode
+`off`, nothing is sent.
+
+- **What is caught.** Uncaught errors and unhandled rejections (window
+  listeners installed before any other module runs), every error React's
+  root sees (`createRoot`'s `onUncaughtError` and `onCaughtError`, so every
+  error boundary, `WidgetBoundary` included) and every error screen the
+  router shows (`RouteError`). A chunk that fails to load is sent as
+  handled, with `origin: chunk_load`: it means a deploy left the page behind.
+- **What is not.** API errors and network failures (the API reports its own
+  5xx), aborts, ResizeObserver noise, opaque cross-origin `Script error.`,
+  and any error with no frame from this app's own files (an extension's).
+- **Where it goes.** `src/observability/errors/listen.ts` is in the entry
+  chunk (under 1 KB gzipped) and only notes errors, up to 20 before the
+  reporter loads; the reporter and `@posthog/core` load on the first error or
+  when the browser is idle, so a crash before posthog-js loads is still
+  reported. Events go to the API's `/api/v1/collect/batch/`, batched, and by
+  `sendBeacon` when the page is hidden. At most 5 per error and 30 per page
+  are sent.
+- **Identity.** With analytics consent, an exception carries the signed-in
+  user's distinct id and the replay session. Apex sets no tenant group. Without
+  consent (opted out, consent pending in `required` mode, posthog-js
+  blocked, or analytics unsettled after 10 s) it is anonymous: a new distinct
+  id per event and no person profile. An earlier anonymous crash is never
+  re-attributed.
+- **Scrubbing.** Exception types, values, frame file names and function names
+  go through the same rules as express-boilerplate's
+  (`src/observability/errors/scrub.ts`, tested against the shared
+  `tests/fixtures/error-scrub-vectors.json`): emails, JWTs, bearer tokens,
+  PostHog keys, long hex and base64 runs, query strings and Postgres key
+  details are replaced, and each text is cut to 1024 characters. URLs keep
+  only the analytics allowlist's query keys.
+- **Release.** Each exception's `release` is the commit the image was built
+  from (`GIT_SHA`); its `environment` is `APP_ENVIRONMENT`. Set
+  `APP_ENVIRONMENT` to the same value as express's `APP_ENV` (`local`, `dev`,
+  `qa` or `prod`), so an issue's `environment` reads the same for browser and
+  server errors.
+
+#### What the scrubber does not catch
+
+Regex scrubbing is best-effort; keep secrets out of error messages. It does
+not catch:
+
+- credentials in an `Authorization` header with a scheme it does not know,
+  and multi-parameter OAuth or Digest headers;
+- secrets held in arrays;
+- short non-hex signatures;
+- IP addresses, phone numbers, names and UUIDs;
+- short opaque tokens in a URL path;
+- JWTs of an unusual shape;
+- email edge forms: no TLD, double-encoded, a fullwidth `@`, a quoted local
+  part.
+
+Also unverified by the binary's hash check: the CLI's JavaScript wrapper
+(`lib/posthog-api-cli.mjs`), which comes from the npm package, not the download.
+
+#### Source maps
+
+The build always writes hidden source maps (no `sourceMappingURL` in any
+chunk), and the image's build stage then:
+
+1. injects chunk ids into every chunk with `posthog-cli sourcemap inject`,
+   offline and release-less, whether or not maps are uploaded, so one file
+   name never holds two contents across builds;
+2. uploads the maps to every project in `POSTHOG_SOURCEMAP_PROJECTS`
+   (`docker/upload-sourcemaps.sh`), one run per project; an upload that fails
+   fails the build;
+3. deletes every `.map`, so none ships (`docker/check-image.sh` checks).
+
+nginx also answers 404 for any `.map` URL outside `/api/` (the `.map`
+location in `nginx.conf`), even where a file exists. **Any deploy of `dist/`
+outside the image must delete `*.map` first.**
+
+The build downloads the `posthog-cli` binary from releases.posthog.com and
+verifies its SHA-256 against `docker/posthog-cli.sha256` (one hash per
+architecture) before it first runs. **Bumping `@posthog/cli` means updating
+those hashes** (the file says how); a mismatch fails the build.
+
+| Build input                  | Kind                          | Default                  | Meaning                                                                         |
+| ---------------------------- | ----------------------------- | ------------------------ | ------------------------------------------------------------------------------- |
+| `GIT_SHA`                    | build argument                | `dev`                    | The commit; `deploy.yml` passes `github.sha`                                    |
+| `POSTHOG_SOURCEMAP_PROJECTS` | repo variable → build arg     | unset                    | Comma-separated PostHog project ids, one per environment, that get the maps     |
+| `POSTHOG_CLI_HOST`           | repo variable → build arg     | `https://us.posthog.com` | PostHog's app host; `https://eu.posthog.com` for an EU organisation             |
+| `POSTHOG_CLI_TOKEN`          | repo secret → BuildKit secret | unset                    | A personal API key with the sourcemap upload scope; never in a layer or history |
+
+With `POSTHOG_SOURCEMAP_PROJECTS` unset the build skips the upload and
+`deploy.yml` warns `sourcemaps not uploaded`: exceptions arrive,
+unsymbolicated. With it set and the secret empty, or with any upload
+failing, the build fails: an image whose errors cannot be read is not shipped.
+Maps are uploaded only when an image is built: a promotion re-tags the image
+`main` built, so its maps are already in every listed project. **Adding an
+environment means adding its project id and rebuilding** (re-run `deploy.yml`
+on `main`); images built before that have no maps there. The one-time setup is
+under [Deploying](#one-time-setup).
+
+#### The Errors pages and the status card
+
+Staff see the issues in the app: a user's **Errors** page and a tenant's
+**Errors** tab (admins and up) list the last 30 days' issues for that person
+or tenant, with an **Unverified** badge on a row that claims to come from the
+server but carries no valid server signature, and the Overview's **System
+status** card shows the API's release and how many server errors it sent or
+dropped in the last 15 minutes. Both need express 1.7.0 or newer; the lists
+also need its PostHog personal key, and say so when it is missing.
+
 ## Deploying
 
 A push to `main` runs [`deploy.yml`](.github/workflows/deploy.yml), which
@@ -581,7 +697,7 @@ tags no image promotion — don't fall back to it.
 
 ### One-time setup
 
-Three manual steps, once:
+Three manual steps, once, and a fourth for readable stack traces:
 
 - **Create and install the release GitHub App** on this repository, then set
   its client ID as the `RELEASE_APP_CLIENT_ID` variable and its private key as
@@ -598,6 +714,17 @@ Three manual steps, once:
   merges the release PR without waiting for CI; without the blank squash
   message, each squash body would carry the branch's commit list, which
   release-please reads as extra conventional commits.
+- **For symbolicated errors, set the sourcemap upload** (optional): create a
+  PostHog **personal API key** with the error-tracking write scope (sourcemap
+  upload) for the organisation and store it as the repository **secret
+  `POSTHOG_CLI_TOKEN`**; it reaches the build as a BuildKit secret, never in a
+  layer, an image or the provenance attestation. Set the repository
+  **variable `POSTHOG_SOURCEMAP_PROJECTS`** to a comma-separated list of
+  project ids, one per environment (`12345,67890`; they appear in the image's
+  provenance and are not secrets), and optionally **`POSTHOG_CLI_HOST`**
+  (`https://eu.posthog.com` for EU cloud). Until the variable is set, images
+  build without uploading, with a warning; see
+  [Error tracking and sourcemaps](#error-tracking-and-sourcemaps).
 
 The first release was pinned with `"release-as": "1.0.0"` in
 `release-please-config.json`; that line was removed once v1.0.0 shipped, so

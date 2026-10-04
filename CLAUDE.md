@@ -12,7 +12,7 @@ of these is a deliberate act, not a tidy-up.
 Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
 `express-boilerplate` API (1.4.0 or newer, run with `APEX_URL` set to this app's
 origin, `http://localhost:5174` locally; the user and tenant timelines need
-1.6.0). `react-boilerplate`, the customer app,
+1.6.0, and the Errors pages and the system status card 1.7.0). `react-boilerplate`, the customer app,
 is its sibling. Vite, TanStack Router (file-based), TanStack Query, TanStack
 Form, TanStack Table 9, Zustand, Tailwind v4, Base UI via shadcn, recharts,
 axios, Zod v4, Vitest + Testing Library + MSW.
@@ -165,6 +165,19 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
 - **Only `src/observability/analytics/` imports posthog-js**, and only
   `analytics.ts` imports it as a value, through `import()`. `pnpm check:bundle`
   fails if it reaches the first-visit chunks.
+- **Only `src/observability/errors/` builds `$exception` events, and only its
+  lazy `report.ts` imports `@posthog/core`.** `listen.ts` is in the entry
+  chunk and stays under 1 KB gzipped; `pnpm check:bundle` fails if
+  `@posthog/core` reaches the entry or the listener grows past that. An error
+  is scrubbed before it leaves the browser and is anonymous unless analytics
+  capture is on for the signed-in person. Render errors reach it through
+  `createRoot`'s `onUncaughtError`/`onCaughtError` in `main.tsx`, so an error
+  boundary needs no reporting code of its own; `WidgetBoundary` keeps its
+  `console.error`, which names the widget and its component stack.
+- **An exception message on the Errors pages is untrusted text.** A browser
+  can send any `$exception` with the public project key, so `value` renders
+  as text inside `Pii`, never as markup, and only a row express signed is
+  trusted as the server's (the Unverified badge).
 - **`track()` takes no free text.** Properties are `AnalyticsKey` (a string
   literal through `analyticsKey`), numbers or booleans; `table_filtered`
   names the list, never the filter's value. A free `string` property fails
@@ -226,6 +239,35 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   never the value. The build ARGs the image does take (`GIT_SHA`,
   `POSTHOG_SOURCEMAP_PROJECTS`, `POSTHOG_CLI_HOST`) are the same for every
   environment: which commit it is, and every project its maps go to.
+
+## Error tracking — the rules that leak or go blind when broken
+
+- **`listen.ts` stays tiny and imports nothing.** It is in every page's entry
+  chunk (`pnpm check:bundle` caps it at 1 KB gzipped and keeps
+  `@posthog/core` out of first-visit chunks). Everything else is in the lazy
+  `report.ts`, which never imports the router: the router registers its
+  route source (`setErrorRouteSource`), so a crash in the router's own
+  module can still be reported.
+- **Inject stays release-less.** `posthog-cli sourcemap inject` in the
+  Dockerfile runs with a placeholder token, no `--release-*` flag and no
+  `.git` in the context (the Dockerfile refuses one). A release makes it
+  call PostHog and write a release id into every chunk, so an unchanged lazy
+  chunk would ship new bytes under its old hashed name.
+- **An upload failure fails the build.** `docker/upload-sourcemaps.sh` has no
+  `|| true` and the CLI gets no `--no-fail`; projects set with no token
+  fails too. Never soften either: an image with no uploaded maps reports
+  unreadable frames, silently.
+- **A `@posthog/cli` version bump updates `docker/posthog-cli.sha256`.** The
+  Dockerfile checks the downloaded binary against those per-architecture
+  hashes before it runs with the upload token; package.json cannot hold the
+  reminder, so it is here and in that file.
+- **No source map is served.** The image deletes them and `nginx.conf`'s
+  `.map` location answers 404 regardless; any deploy of `dist/` outside the
+  image must delete `*.map` first.
+- **Scrub rules change in express first.** `scrub.ts` is a port of express's
+  `error-scrubber.service.ts`, and both test the same vector file; copy the
+  file, never edit it here alone. The module itself is react's: fix it there,
+  then copy it here.
 
 ## Never install
 
@@ -416,7 +458,8 @@ checks jsdom cannot make, because jsdom has no layout: whether the webfont actua
 whether anything overflows the viewport at 390px, whether a state renders as more than a bare
 header. `?path=` picks the route; the default is `/overview`, and the harness user is a platform admin —
 or, with `?role=none`, a signed-in user with no platform role, which is the only way `/no-access` renders there,
-or, with `?role=viewer`, staff below admin, which is how the admin-only timelines' refusal renders.
+or, with `?role=viewer`, staff below admin, which is how the admin-only timelines' and Errors pages' refusal renders.
+`?errors=unconfigured` answers the Errors routes as an API without a PostHog personal key does.
 
 `playwright.config.ts` starts the dev server as `vite --force`, and that is load-bearing:
 Vite trusts a dependency cache whose lockfile and config hashes still match, so a source
