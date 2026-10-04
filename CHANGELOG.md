@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.4.0...v1.5.0) (2026-10-04)
+
+
+### Features
+
+* posthog user and tenant timelines ([#17](https://github.com/mahaverick/apex-boilerplate/issues/17)) ([4b31d82](https://github.com/mahaverick/apex-boilerplate/commit/4b31d82786d3865154566f63c87b233ea449e7e4))
+
 ## [1.4.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.3.2...v1.4.0) (2026-10-03)
 
 
