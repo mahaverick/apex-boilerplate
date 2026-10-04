@@ -220,7 +220,7 @@ describe('/users/$userId/timeline', () => {
     )
     renderAppAt(TIMELINE)
     await screen.findByRole('list', { name: 'Timeline' })
-    expect(screen.queryByRole('link', { name: /Open in PostHog/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Open in PostHog/)).not.toBeInTheDocument()
   })
 
   it('names the trail Users, the user, then Timeline', async () => {
@@ -356,31 +356,34 @@ describe('/users/$userId/timeline', () => {
 
   it('renders two blocks of one session, split by a sessionless row, without a duplicate key', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
-    serve(() =>
-      ok(
-        page([
-          timelineRow({ uuid: eventId(1), timestamp: at(30), path: '/a' }),
-          timelineRow({
-            uuid: eventId(2),
-            event: 'user_deactivated',
-            timestamp: at(20),
-            verified: true,
-            source: 'audit',
-            access: 'platform',
-            app: 'api',
-            sessionId: null,
-            path: null,
-          }),
-          timelineRow({ uuid: eventId(3), timestamp: at(10), path: '/b' }),
-        ]),
-        'Timeline retrieved.'
+    try {
+      serve(() =>
+        ok(
+          page([
+            timelineRow({ uuid: eventId(1), timestamp: at(30), path: '/a' }),
+            timelineRow({
+              uuid: eventId(2),
+              event: 'user_deactivated',
+              timestamp: at(20),
+              verified: true,
+              source: 'audit',
+              access: 'platform',
+              app: 'api',
+              sessionId: null,
+              path: null,
+            }),
+            timelineRow({ uuid: eventId(3), timestamp: at(10), path: '/b' }),
+          ]),
+          'Timeline retrieved.'
+        )
       )
-    )
-    renderAppAt(TIMELINE)
-    const list = await screen.findByRole('list', { name: 'Timeline' })
-    expect(within(list).getAllByRole('list', { name: 'Session events' })).toHaveLength(2)
-    expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key|unique "key"/)
-    errors.mockRestore()
+      renderAppAt(TIMELINE)
+      const list = await screen.findByRole('list', { name: 'Timeline' })
+      expect(within(list).getAllByRole('list', { name: 'Session events' })).toHaveLength(2)
+      expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key|unique "key"/)
+    } finally {
+      errors.mockRestore()
+    }
   })
 
   it('refreshes the first page alone', async () => {
@@ -535,6 +538,47 @@ describe('/users/$userId/timeline', () => {
     serve(() => fail('Not found', 404))
     renderAppAt(TIMELINE)
     expect(await screen.findByText(/Your role can’t see this any more/)).toBeInTheDocument()
+  })
+
+  it('asks for no timeline and never says the role is refused while the user is unresolved', async () => {
+    const seen: string[] = []
+    server.use(
+      http.get(`/api/v1/platform/users/${USER_ID_2}`, async () => {
+        await delay(300)
+        return fail('Not found', 404)
+      }),
+      http.get(API, () => {
+        seen.push('timeline')
+        return fail('Not found', 404)
+      })
+    )
+    renderAppAt(TIMELINE)
+    await screen.findByRole('heading', { name: 'Timeline', level: 1 })
+    expect(screen.queryByText(/Your role can’t see this any more/)).not.toBeInTheDocument()
+    expect(seen).toHaveLength(0)
+    expect(
+      await screen.findByRole('heading', { name: 'User not found', level: 1 })
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Your role can’t see this any more/)).not.toBeInTheDocument()
+    expect(seen).toHaveLength(0)
+  })
+
+  it('says nothing is listed, not that what is listed is correct, when Load more fails after an empty page', async () => {
+    const user = userEvent.setup()
+    serve((params) =>
+      params.has('before')
+        ? fail('PostHog unavailable', 502, 'TIMELINE_UNAVAILABLE')
+        : ok(page([], 'cursor-2'), 'OK')
+    )
+    renderAppAt(TIMELINE)
+    await user.click(await screen.findByRole('button', { name: 'Load more events' }))
+    expect(
+      await screen.findByText(
+        'We could not reach PostHog, so nothing is listed. This is not a sign of no activity.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/What is listed above/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
   it('says an unknown user is not found', async () => {

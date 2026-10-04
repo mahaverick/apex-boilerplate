@@ -106,7 +106,7 @@ export function TimelinePanel({ kind, id, range, view, onSearchChange }: Timelin
           )}
           {timeline.isFetchNextPageError ? (
             <LoadError
-              message={TIMELINE_MORE_ERROR}
+              message={rows.length === 0 ? TIMELINE_ERROR : TIMELINE_MORE_ERROR}
               onRetry={() => void timeline.fetchNextPage()}
             />
           ) : (

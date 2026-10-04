@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { TimelinePanel } from '@/components/features/timeline/timeline-panel'
 import { UserNotFound } from '@/components/features/users/user-not-found'
 import { Pii } from '@/components/shared/pii'
+import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { statusFrom } from '@/lib/api-error'
@@ -23,7 +25,9 @@ export const Route = createFileRoute('/_app/users/$userId/timeline')({
  * What one user did, across browser and server, from PostHog: their own
  * events and staff actions on them. Admins and up; below that the page
  * says so without asking the API, which would answer 404. A soft-deleted
- * account still has a timeline; an unknown or purged one is not found.
+ * account still has a timeline; an unknown or purged one is not found. The
+ * panel mounts only once the user has loaded, so an unknown user never asks
+ * for a timeline or reads its 404 as a role refusal.
  */
 function UserTimelinePage() {
   const platformRole = useAuthStore((state) => state.user?.platformRole)
@@ -56,13 +60,19 @@ function UserTimeline() {
           </Pii>
         )}
       </div>
-      <TimelinePanel
-        kind="user"
-        id={userId}
-        range={range}
-        view={view}
-        onSearchChange={(search) => void navigate({ search, replace: true })}
-      />
+      {user.data !== undefined ? (
+        <TimelinePanel
+          kind="user"
+          id={userId}
+          range={range}
+          view={view}
+          onSearchChange={(search) => void navigate({ search, replace: true })}
+        />
+      ) : user.isError ? (
+        <LoadError message="We could not load this user." onRetry={() => void user.refetch()} />
+      ) : (
+        <Skeleton className="h-16 w-full" />
+      )}
     </div>
   )
 }
