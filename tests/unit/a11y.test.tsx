@@ -12,6 +12,7 @@ import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
+import { errorIssue, errorsPage, issueId } from '@/tests/fixtures/errors'
 import {
   AUDIT_ID_1,
   AUDIT_ID_2,
@@ -58,6 +59,7 @@ import {
   testEmailPreview,
   testInvitation,
   testOnboardingFunnel,
+  testSystemStatus,
   testUser,
 } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -637,6 +639,7 @@ describe('signed-in pages', () => {
         await screen.findByRole('region', { name: 'Key figures' })
         await screen.findByRole('figure', { name: 'Sign-ups per day' })
         await screen.findByRole('figure', { name: 'Emails per day' })
+        await screen.findByText(testSystemStatus.release)
       },
     ],
     ['profile', '/profile', () => screen.findByRole('button', { name: 'Change password' })],
@@ -927,6 +930,53 @@ describe('signed-in pages', () => {
     serveUser()
     server.use(http.get(`/api/v1/platform/users/${USER_ID_2}/timeline`, answer))
     renderAppAt(`/users/${USER_ID_2}/timeline`)
+    await ready()
+    await expectNoViolations()
+  })
+
+  /** A browser crash, a signed server error, and a server row express did not sign. */
+  const ERROR_ISSUES = [
+    errorIssue(),
+    errorIssue({ issueId: issueId(2), source: 'server', app: 'api', verified: true }),
+    errorIssue({ issueId: issueId(3), source: 'server', app: 'api', verified: false }),
+  ]
+
+  it.each([
+    ['a user’s errors', `/users/${USER_ID_2}/errors`, `/api/v1/platform/users/${USER_ID_2}/errors`],
+    [
+      'a tenant’s errors',
+      `/tenants/${TENANT_ID}/errors`,
+      `/api/v1/platform/tenants/${TENANT_ID}/errors`,
+    ],
+  ])('%s with every badge has no axe violations', async (_name, path, api) => {
+    serveUser()
+    serveTenant('active')
+    server.use(http.get(api, () => ok(errorsPage(ERROR_ISSUES), 'Errors retrieved.')))
+    renderAppAt(path)
+    await screen.findByRole('table', { name: 'Errors' })
+    await expectNoViolations()
+  })
+
+  it.each([
+    [
+      'not set up',
+      () => ok({ configured: false }, 'Errors retrieved.'),
+      () => screen.findByText('PostHog error tracking is not set up for this environment.'),
+    ],
+    [
+      'empty',
+      () => ok(errorsPage([]), 'Errors retrieved.'),
+      () => screen.findByText('No errors in the last 30 days.'),
+    ],
+    [
+      'unreachable',
+      () => fail('PostHog unavailable', 502, 'TIMELINE_UNAVAILABLE'),
+      () => screen.findByRole('button', { name: 'Try again' }),
+    ],
+  ])('a user’s errors that are %s have no axe violations', async (_name, answer, ready) => {
+    serveUser()
+    server.use(http.get(`/api/v1/platform/users/${USER_ID_2}/errors`, answer))
+    renderAppAt(`/users/${USER_ID_2}/errors`)
     await ready()
     await expectNoViolations()
   })
