@@ -1,8 +1,9 @@
 /**
  * @file The user and tenant timelines (`GET /platform/users|tenants/:id/timeline`),
  * paged by express's opaque `before` cursor. Every first-page request writes
- * an audit entry and may spend PostHog query budget, so nothing here asks for
- * a first page the reader did not.
+ * an audit entry and may spend PostHog query budget, so nothing here refetches
+ * on its own except a remount after `staleTime`, and the cache is dropped as
+ * soon as the page is left, so that remount loads the first page alone.
  */
 import { infiniteQueryOptions, type InfiniteData, type QueryClient } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
@@ -33,7 +34,9 @@ const PATHS: Record<TimelineKind, (id: string) => string> = {
 /**
  * One timeline as an infinite query. Not retried: a retried first page would
  * be audited twice, and the error state offers Retry. Not refetched on window
- * focus, for the same reason; Refresh and a revisit after `staleTime` do.
+ * focus or on reconnect, for the same reason. The cache is dropped when the
+ * page unmounts (`gcTime: 0`), so a revisit loads one first page instead of
+ * refetching every page that was loaded. Refresh is the explicit refetch.
  * @param kind - A user's or a tenant's.
  * @param id - The user or tenant id.
  * @param range - The window.
@@ -60,6 +63,8 @@ export function timelineInfiniteOptions(
     staleTime: 30_000,
     retry: false,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    gcTime: 0,
   })
 }
 

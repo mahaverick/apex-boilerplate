@@ -36,6 +36,18 @@ function serveTwoPages(seen: URLSearchParams[]) {
   )
 }
 
+describe('timeline options', () => {
+  it.each([
+    ['user', userTimelineInfiniteOptions(USER_ID_2, '7d', 'all')],
+    ['tenant', tenantTimelineInfiniteOptions(TENANT_ID, '7d', 'all')],
+  ])('never refetches on its own, and drops the %s cache when left', (_kind, options) => {
+    expect(options.retry).toBe(false)
+    expect(options.refetchOnWindowFocus).toBe(false)
+    expect(options.refetchOnReconnect).toBe(false)
+    expect(options.gcTime).toBe(0)
+  })
+})
+
 beforeEach(() => {
   resetSessionForTests()
   useAuthStore.setState({ accessToken: 'access-token', user: testUser, isAuthenticated: true })

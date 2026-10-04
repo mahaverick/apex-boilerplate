@@ -112,7 +112,7 @@ export function TimelinePanel({ kind, id, range, view, onSearchChange }: Timelin
           ) : (
             timeline.isError && (
               <LoadError
-                message={TIMELINE_REFETCH_ERROR}
+                message={rows.length === 0 ? TIMELINE_ERROR : TIMELINE_REFETCH_ERROR}
                 onRetry={() => void refreshTimeline(client, options.queryKey)}
               />
             )
@@ -121,7 +121,7 @@ export function TimelinePanel({ kind, id, range, view, onSearchChange }: Timelin
             <Button
               variant="outline"
               className="justify-self-start"
-              disabled={timeline.isFetchingNextPage}
+              disabled={timeline.isFetching}
               onClick={() => void timeline.fetchNextPage()}
             >
               {timeline.isFetchingNextPage ? 'Loading…' : 'Load more events'}

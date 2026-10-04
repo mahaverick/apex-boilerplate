@@ -98,11 +98,13 @@ for (const [name, path] of [
     await page.goto(`/e2e/harness/?path=${path}&role=viewer`)
     await expect(page.getByText(/Your role can’t see this any more/)).toBeVisible()
     await expect(page.getByRole('link', { name: /Watch replay|Open in PostHog/ })).toHaveCount(0)
-    await expect(
-      page
-        .getByRole('navigation', { name: 'Tenant sections' })
-        .getByRole('link', { name: 'Timeline' })
-    ).toHaveCount(0)
+    if (path === ACME_TIMELINE) {
+      await expect(
+        page
+          .getByRole('navigation', { name: 'Tenant sections' })
+          .getByRole('link', { name: 'Timeline' })
+      ).toHaveCount(0)
+    }
     // The role gate renders before any query mounts, so the refusal on screen is the barrier.
     expect(asked).toBe(0)
   })

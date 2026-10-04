@@ -1,4 +1,3 @@
-import type { InfiniteData } from '@tanstack/react-query'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http } from 'msw'
@@ -342,14 +341,11 @@ describe('/users/$userId/timeline', () => {
 
     const keyPages = seen.filter((params) => params.get('view') === 'key')
     expect(keyPages.map((params) => params.has('before'))).toEqual([false])
-    // The held page lands in the Everything view's cache: that is the barrier for the absence below.
-    await waitFor(() =>
-      expect(
-        queryClient.getQueryData<InfiniteData<TimelinePage>>(
-          timelineKeys.page('user', USER_ID_2, '7d', 'all')
-        )?.pages
-      ).toHaveLength(2)
-    )
+    // The Everything view's query is dropped when it is left (gcTime 0): nothing is left fetching or cached for the held page to land in.
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0))
+    expect(
+      queryClient.getQueryData(timelineKeys.page('user', USER_ID_2, '7d', 'all'))
+    ).toBeUndefined()
     expect(screen.queryByText('Viewed /older')).not.toBeInTheDocument()
     expect(screen.getByText('Signed out')).toBeInTheDocument()
   })
@@ -386,22 +382,77 @@ describe('/users/$userId/timeline', () => {
     }
   })
 
-  it('refreshes the first page alone', async () => {
+  it('refreshes the first page alone, replacing it and dropping the older pages', async () => {
     const user = userEvent.setup()
-    const seen = serve((params) =>
-      params.get('before') === 'cursor-2'
-        ? ok(page([timelineRow({ uuid: eventId(8), timestamp: at(1) })]), 'OK')
-        : ok(page([timelineRow({ uuid: eventId(7), timestamp: at(2) })], 'cursor-2'), 'OK')
-    )
+    let firstPages = 0
+    const seen = serve((params) => {
+      if (params.get('before') === 'cursor-2') {
+        return ok(page([timelineRow({ uuid: eventId(8), path: '/older' })]), 'OK')
+      }
+      firstPages += 1
+      return firstPages === 1
+        ? ok(page([timelineRow({ uuid: eventId(7), path: '/first' })], 'cursor-2'), 'OK')
+        : ok(page([timelineRow({ uuid: eventId(9), path: '/fresh' })], 'cursor-2'), 'OK')
+    })
     renderAppAt(TIMELINE)
     await user.click(await screen.findByRole('button', { name: 'Load more events' }))
-    await waitFor(() => expect(seen).toHaveLength(2))
+    expect(await screen.findByText('Viewed /older')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
 
-    await waitFor(() => expect(seen).toHaveLength(3))
+    expect(await screen.findByText('Viewed /fresh')).toBeInTheDocument()
+    expect(seen).toHaveLength(3)
     expect(seen[2]?.has('before')).toBe(false)
+    expect(screen.queryByText('Viewed /older')).not.toBeInTheDocument()
+    expect(screen.queryByText('Viewed /first')).not.toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Load more events' })).toBeInTheDocument()
+  })
+
+  it('cannot load more while a refresh is in flight, so the refresh is not cancelled', async () => {
+    const user = userEvent.setup()
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let firstPages = 0
+    const seen = serve(async (params) => {
+      if (params.has('before')) return ok(page([timelineRow({ uuid: eventId(8) })]), 'OK')
+      firstPages += 1
+      if (firstPages === 1) return ok(page([timelineRow({ uuid: eventId(7) })], 'cursor-2'), 'OK')
+      await held
+      return ok(page([timelineRow({ uuid: eventId(9), path: '/fresh' })], 'cursor-2'), 'OK')
+    })
+    renderAppAt(TIMELINE)
+    await screen.findByRole('button', { name: 'Load more events' })
+
+    await user.click(screen.getByRole('button', { name: 'Refresh' }))
+    await waitFor(() => expect(seen).toHaveLength(2))
+    expect(screen.getByRole('button', { name: 'Load more events' })).toBeDisabled()
+
+    release()
+    expect(await screen.findByText('Viewed /fresh')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Load more events' })).toBeEnabled()
+    expect(seen.filter((params) => params.has('before'))).toHaveLength(0)
+  })
+
+  it('says nothing is listed, not that the list may be out of date, when a refresh fails with no rows', async () => {
+    const user = userEvent.setup()
+    let calls = 0
+    serve(() => {
+      calls += 1
+      return calls === 1
+        ? ok(page([], 'cursor-2'), 'OK')
+        : fail('PostHog unavailable', 502, 'TIMELINE_UNAVAILABLE')
+    })
+    renderAppAt(TIMELINE)
+    await screen.findByRole('button', { name: 'Load more events' })
+    await user.click(screen.getByRole('button', { name: 'Refresh' }))
+    expect(
+      await screen.findByText(
+        'We could not reach PostHog, so nothing is listed. This is not a sign of no activity.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/may be out of date/)).not.toBeInTheDocument()
   })
 
   it('says when timelines are not set up, with no toolbar', async () => {
