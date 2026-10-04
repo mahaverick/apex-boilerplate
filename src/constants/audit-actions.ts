@@ -39,6 +39,8 @@ export const AUDIT_ACTIONS = [
   'onboarding.reminder_sent',
   'user.timeline_viewed',
   'tenant.timeline_viewed',
+  'user.errors_viewed',
+  'tenant.errors_viewed',
 ] as const
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
 
@@ -83,6 +85,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'onboarding.reminder_sent': 'Onboarding reminder sent',
   'user.timeline_viewed': 'User timeline viewed',
   'tenant.timeline_viewed': 'Tenant timeline viewed',
+  'user.errors_viewed': 'User errors viewed',
+  'tenant.errors_viewed': 'Tenant errors viewed',
 }
 
 type Metadata = Record<string, unknown>
@@ -211,6 +215,8 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
     `sent an onboarding reminder to ${reminderRecipients(m)}${because(m)}`,
   'user.timeline_viewed': (m) => `viewed a user’s timeline${timelineWindow(m)}`,
   'tenant.timeline_viewed': (m) => `viewed a tenant’s timeline${timelineWindow(m)}`,
+  'user.errors_viewed': () => 'viewed a user’s errors',
+  'tenant.errors_viewed': () => 'viewed a tenant’s errors',
 }
 
 /**

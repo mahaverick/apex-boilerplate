@@ -9,7 +9,7 @@ import {
 import { EMAIL_ID, EMAIL_ID_2, INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
 describe('AUDIT_ACTIONS', () => {
-  it('lists exactly the thirty-five actions the API writes', () => {
+  it('lists exactly the thirty-seven actions the API writes', () => {
     expect([...AUDIT_ACTIONS].sort()).toEqual(
       [
         'invitation.accepted',
@@ -47,6 +47,8 @@ describe('AUDIT_ACTIONS', () => {
         'user.verification_resent',
         'user.timeline_viewed',
         'tenant.timeline_viewed',
+        'user.errors_viewed',
+        'tenant.errors_viewed',
       ].sort()
     )
     for (const action of AUDIT_ACTIONS) expect(AUDIT_ACTION_LABELS[action]).not.toBe('')
@@ -190,6 +192,8 @@ describe('auditSentence', () => {
       { range: '90d', view: 'key' },
       'viewed a tenant’s timeline (last 90 days, Key events)',
     ],
+    ['user.errors_viewed', {}, 'viewed a user’s errors'],
+    ['tenant.errors_viewed', {}, 'viewed a tenant’s errors'],
   ])('%s reads as a sentence', (action, metadata, sentence) => {
     expect(auditSentence({ action, metadata })).toBe(sentence)
   })
