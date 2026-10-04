@@ -36,6 +36,14 @@ import {
 } from '@/tests/fixtures/ids'
 import { renderAppAt } from '@/tests/fixtures/render-app'
 import {
+  at,
+  eventId,
+  SESSION_ID_2,
+  timelinePage,
+  timelineRow,
+  TRACE_ID,
+} from '@/tests/fixtures/timeline'
+import {
   emailDetail,
   emailSummary,
   emailSuppression,
@@ -821,6 +829,105 @@ describe('signed-in pages', () => {
     server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => fail('Not found', 404)))
     renderAppAt(`/users/${USER_ID_2}`)
     await screen.findByRole('heading', { name: 'User not found', level: 1 })
+    await expectNoViolations()
+  })
+
+  /** A session holding a two-event request, a staff action outside it, and a second session. */
+  const TIMELINE_ROWS = [
+    timelineRow({
+      uuid: eventId(1),
+      event: '$autocapture',
+      timestamp: at(50),
+      elementText: 'Save',
+      actor: { id: USER_ID_2, displayName: 'Cleo Doe' },
+    }),
+    timelineRow({
+      uuid: eventId(2),
+      event: 'user_signed_in',
+      timestamp: at(40),
+      verified: true,
+      source: 'product',
+      app: 'api',
+      traceId: TRACE_ID,
+      path: null,
+      props: { method: 'google' },
+      actor: { id: USER_ID_2, displayName: 'Cleo Doe' },
+    }),
+    timelineRow({
+      uuid: eventId(3),
+      event: 'auth_reauthenticated',
+      timestamp: at(39),
+      verified: true,
+      source: 'audit',
+      app: 'api',
+      traceId: TRACE_ID,
+      path: null,
+      actor: { id: USER_ID_2, displayName: 'Cleo Doe' },
+    }),
+    timelineRow({
+      uuid: eventId(4),
+      event: 'user_deactivated',
+      timestamp: at(30),
+      distinctId: STAFF_USER_ID,
+      verified: true,
+      source: 'audit',
+      access: 'platform',
+      app: 'api',
+      sessionId: null,
+      path: null,
+      actor: { id: STAFF_USER_ID, displayName: null },
+    }),
+    timelineRow({ uuid: eventId(5), timestamp: at(20), sessionId: SESSION_ID_2, app: 'apex' }),
+  ]
+
+  it.each([
+    [
+      'a user’s timeline',
+      `/users/${USER_ID_2}/timeline`,
+      `/api/v1/platform/users/${USER_ID_2}/timeline`,
+    ],
+    [
+      'a tenant’s timeline',
+      `/tenants/${TENANT_ID}/timeline`,
+      `/api/v1/platform/tenants/${TENANT_ID}/timeline`,
+    ],
+  ])(
+    '%s with sessions, a request and a staff action has no axe violations',
+    async (_name, path, api) => {
+      serveUser()
+      serveTenant('active')
+      server.use(
+        http.get(api, () => ok(timelinePage(TIMELINE_ROWS, 'next'), 'Timeline retrieved.'))
+      )
+      const user = userEvent.setup()
+      renderAppAt(path)
+      await user.click(await screen.findByRole('button', { name: '+1 related' }))
+      expect(screen.getByRole('button', { name: 'Load more events' })).toBeInTheDocument()
+      await expectNoViolations()
+    }
+  )
+
+  it.each([
+    [
+      'not set up',
+      () => ok({ configured: false }, 'Timeline retrieved.'),
+      () => screen.findByText('PostHog timelines are not set up for this environment.'),
+    ],
+    [
+      'empty',
+      () => ok(timelinePage([]), 'Timeline retrieved.'),
+      () => screen.findByText('No events in the last 7 days.'),
+    ],
+    [
+      'unreachable',
+      () => fail('PostHog unavailable', 502, 'TIMELINE_UNAVAILABLE'),
+      () => screen.findByRole('button', { name: 'Try again' }),
+    ],
+  ])('a user’s timeline that is %s has no axe violations', async (_name, answer, ready) => {
+    serveUser()
+    server.use(http.get(`/api/v1/platform/users/${USER_ID_2}/timeline`, answer))
+    renderAppAt(`/users/${USER_ID_2}/timeline`)
+    await ready()
     await expectNoViolations()
   })
 
