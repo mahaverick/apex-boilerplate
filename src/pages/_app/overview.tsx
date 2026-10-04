@@ -6,12 +6,15 @@ import { EmailsChart } from '@/components/features/overview/emails-chart'
 import { KpiCards } from '@/components/features/overview/kpi-cards'
 import { RANGE_LABELS } from '@/components/features/overview/range'
 import { SignupsChart } from '@/components/features/overview/signups-chart'
+import { SystemStatusCard } from '@/components/features/overview/system-status-card'
 import { RoleDenied } from '@/components/features/role-denied'
 import { WidgetBoundary } from '@/components/features/widget-boundary'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { pageTitle } from '@/constants/app'
+import { platformRoleAtLeast } from '@/constants/roles'
 import { isRoleDenied, platformStatsQueryOptions, STATS_RANGES } from '@/queries/platform.queries'
+import { useAuthStore } from '@/states/auth.store'
 
 export const Route = createFileRoute('/_app/overview')({
   validateSearch: z.object({ range: z.enum(STATS_RANGES).default('7d').catch('7d') }),
@@ -44,14 +47,19 @@ function OverviewSkeleton() {
 
 /**
  * The staff Overview. The window lives in the URL, so a view can be shared.
- * One request feeds every widget, so there is one skeleton shaped like the
- * loaded layout and one page-level error or role-denied state; `WidgetBoundary`
- * isolates only a render error, per widget.
+ * One request feeds every figure and chart, so there is one skeleton shaped
+ * like the loaded layout and one page-level error or role-denied state;
+ * `WidgetBoundary` isolates only a render error, per widget. Admins also get
+ * the system status card, which has its own request and its own states.
  */
 function OverviewPage() {
   const { range } = Route.useSearch()
   const navigate = Route.useNavigate()
   const stats = useQuery(platformStatsQueryOptions(range))
+  const isAdmin = platformRoleAtLeast(
+    useAuthStore((state) => state.user?.platformRole),
+    'admin'
+  )
 
   return (
     <div className="grid gap-6">
@@ -97,6 +105,11 @@ function OverviewPage() {
             </WidgetBoundary>
           </div>
         </div>
+      )}
+      {isAdmin && (
+        <WidgetBoundary name="System status">
+          <SystemStatusCard />
+        </WidgetBoundary>
       )}
     </div>
   )

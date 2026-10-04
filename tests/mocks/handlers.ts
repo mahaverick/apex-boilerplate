@@ -26,6 +26,7 @@ import type {
   OnboardingStepDetail,
   OnboardingTenantRow,
   PlatformStats,
+  SystemStatus,
   TenantAccess,
   TenantInvitation,
   TenantOnboardingDetail,
@@ -96,6 +97,19 @@ export const testStats: PlatformStats = {
     failed: index === 3 ? 1 : 0,
   })),
   emailMessages: EMAIL_MESSAGE_DAYS,
+}
+
+/** A healthy API: error tracking on, events sent, nothing dropped or refused. */
+export const testSystemStatus: SystemStatus = {
+  release: '0a1b2c3d4e5f60718293a4b5c6d7e8f901234567',
+  errorTracking: {
+    enabled: true,
+    window: '15m',
+    sent: 42,
+    dropped: { throttled: 0, buffer_full: 0, rejected: 0, retry_exhausted: 0 },
+    lastSendOkAt: '2026-10-04T10:00:00.000Z',
+    lastSendError: null,
+  },
 }
 
 /** Sums one group over the fixture days. */
@@ -532,6 +546,10 @@ export const handlers = [
   ),
   // The shell lands on Overview after every sign-in, and Overview reads these. A test about the stats overrides it.
   http.get('/api/v1/platform/stats', () => ok(testStats, 'Platform stats retrieved.')),
+  // An admin's Overview also reads the system status. A test about the card overrides it.
+  http.get('/api/v1/platform/system/status', () =>
+    ok(testSystemStatus, 'System status retrieved.')
+  ),
   // The platform audit log, empty. A test about activity overrides it.
   http.get('/api/v1/platform/audit-log', () =>
     ok({ entries: [], nextCursor: null }, 'Audit log retrieved.')
