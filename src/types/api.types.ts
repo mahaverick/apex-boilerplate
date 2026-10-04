@@ -891,7 +891,7 @@ export interface ErrorIssue {
   firstSeen: string
   lastSeen: string
   source: ErrorIssueSource
-  /** `api`, `react`, `apex`, or whatever a browser event claimed; `null` when it named none. */
+  /** `api`, `react` or `apex`; `null` when the event named none or a value the API does not know. */
   app: string | null
   verified: boolean
   /** The issue in PostHog's Error Tracking. */

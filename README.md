@@ -533,9 +533,10 @@ moves it).
 
 Every crash in the browser becomes one `$exception` in PostHog Error
 Tracking, in the project `POSTHOG_KEY` names, symbolicated to the `.ts` and
-`.tsx` source. It is the same module as react-boilerplate's
-(`src/observability/errors/`). Without `POSTHOG_KEY`, or in consent mode
-`off`, nothing is sent.
+`.tsx` source when the image's build uploaded its source maps
+([Source maps](#source-maps)). It is the same module as react-boilerplate's
+(`src/observability/errors/`). Without `POSTHOG_KEY` nothing is sent
+(`ANALYTICS_CONSENT_MODE` is ignored; Apex always runs `opt_out`).
 
 - **What is caught.** Uncaught errors and unhandled rejections (window
   listeners installed before any other module runs), every error React's
@@ -543,6 +544,11 @@ Tracking, in the project `POSTHOG_KEY` names, symbolicated to the `.ts` and
   error boundary, `WidgetBoundary` included) and every error screen the
   router shows (`RouteError`). A chunk that fails to load is sent as
   handled, with `origin: chunk_load`: it means a deploy left the page behind.
+  Each event's `origin` says where it was noticed: `window` (an uncaught
+  error), `rejection` (an unhandled rejection), `react` (an error React's root
+  saw, caught by a React error boundary, route render errors included, or
+  uncaught), `router` (a loader error the route error screen shows) or
+  `chunk_load` (a chunk that failed to load, whichever of these saw it).
 - **What is not.** API errors and network failures (the API reports its own
   5xx), aborts, ResizeObserver noise, opaque cross-origin `Script error.`,
   and any error with no frame from this app's own files (an extension's).
@@ -555,8 +561,8 @@ Tracking, in the project `POSTHOG_KEY` names, symbolicated to the `.ts` and
   are sent.
 - **Identity.** With analytics consent, an exception carries the signed-in
   user's distinct id and the replay session. Apex sets no tenant group. Without
-  consent (opted out, consent pending in `required` mode, posthog-js
-  blocked, or analytics unsettled after 10 s) it is anonymous: a new distinct
+  consent (opted out on their profile, posthog-js blocked, or analytics
+  unsettled after 10 s) it is anonymous: a new distinct
   id per event and no person profile. An earlier anonymous crash is never
   re-attributed.
 - **Scrubbing.** Exception types, values, frame file names and function names
@@ -637,7 +643,8 @@ or tenant, with an **Unverified** badge on a row that claims to come from the
 server but carries no valid server signature, and the Overview's **System
 status** card shows the API's release and how many server errors it sent or
 dropped in the last 15 minutes. Both need express 1.7.0 or newer; the lists
-also need its PostHog personal key, and say so when it is missing.
+also need its PostHog personal key and project id (`POSTHOG_PERSONAL_API_KEY`,
+`POSTHOG_PROJECT_ID`), and say they are not set up when either is missing.
 
 ## Deploying
 
