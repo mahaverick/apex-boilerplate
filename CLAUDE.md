@@ -11,7 +11,8 @@ of these is a deliberate act, not a tidy-up.
 
 Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
 `express-boilerplate` API (1.4.0 or newer, run with `APEX_URL` set to this app's
-origin, `http://localhost:5174` locally). `react-boilerplate`, the customer app,
+origin, `http://localhost:5174` locally; the user and tenant timelines need
+1.6.0). `react-boilerplate`, the customer app,
 is its sibling. Vite, TanStack Router (file-based), TanStack Query, TanStack
 Form, TanStack Table 9, Zustand, Tailwind v4, Base UI via shadcn, recharts,
 axios, Zod v4, Vitest + Testing Library + MSW.
@@ -407,7 +408,8 @@ same fixtures `tests/unit/a11y.test.tsx` uses, so it needs no backend. It exists
 checks jsdom cannot make, because jsdom has no layout: whether the webfont actually resolved,
 whether anything overflows the viewport at 390px, whether a state renders as more than a bare
 header. `?path=` picks the route; the default is `/overview`, and the harness user is a platform admin —
-or, with `?role=none`, a signed-in user with no platform role, which is the only way `/no-access` renders there.
+or, with `?role=none`, a signed-in user with no platform role, which is the only way `/no-access` renders there,
+or, with `?role=viewer`, staff below admin, which is how the admin-only timelines' refusal renders.
 
 `playwright.config.ts` starts the dev server as `vite --force`, and that is load-bearing:
 Vite trusts a dependency cache whose lockfile and config hashes still match, so a source

@@ -29,8 +29,9 @@ export const PLATFORM_PAGE_SIZE = 20
  * lacks 404s too (`/platform/stats` before 1.1.0, `/platform/users` and
  * `/platform/tenants/:id` before 1.2.0, `/platform/emails*` and
  * `/platform/email-suppressions` before 1.3.0, `/platform/onboarding/*` and
- * `/platform/tenants/:id/onboarding` before 1.4.0), so it reads as
- * role-denied: Apex needs express 1.4.0 or newer.
+ * `/platform/tenants/:id/onboarding` before 1.4.0, the user and tenant
+ * `timeline` routes before 1.6.0), so it reads as role-denied: Apex needs
+ * express 1.4.0 or newer, and 1.6.0 for timelines.
  * @param error - A query or mutation error.
  * @returns True for a 404.
  */

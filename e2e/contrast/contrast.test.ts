@@ -124,6 +124,17 @@ const SURFACES = [
     url: `/e2e/harness/?path=${ACME_PAGE}/activity`,
     heading: 'Acme Corp',
   },
+  // The timelines: session headers, source and Staff badges, the request disclosure and the toolbar.
+  {
+    name: 'user timeline',
+    url: `/e2e/harness/?path=${CLEO_PAGE}/timeline`,
+    heading: /^Timeline$/,
+  },
+  {
+    name: 'tenant timeline',
+    url: `/e2e/harness/?path=${ACME_PAGE}/timeline`,
+    heading: /^Timeline$/,
+  },
   // Frozen: the Suspended badge and the frozen notice.
   {
     name: 'suspended tenant',
