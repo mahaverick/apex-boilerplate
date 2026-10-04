@@ -8,7 +8,7 @@
  * uses, and the same signed-in store state.
  *
  * The harness user is a platform admin, so every staff page renders, unless
- * `?role=none` signs them in with no platform role (see `platformRole`).
+ * `?role=` names another role (see `platformRole`).
  */
 import '@/lib/zod-jitless'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -75,11 +75,13 @@ const MEMBERS = [
 const HARNESS_PASSWORD = 'current-password'
 
 /**
- * `?role=none` is the one other value accepted: a signed-in user who is not
- * staff, so /no-access renders instead of redirecting to the overview.
+ * `?role=none` is a signed-in user who is not staff, so /no-access renders
+ * instead of redirecting to the overview; `?role=viewer` is staff below
+ * admin, so the admin-only pages refuse. Anything else is an admin.
  */
+const roleParam = new URLSearchParams(location.search).get('role')
 const platformRole =
-  new URLSearchParams(location.search).get('role') === 'none' ? null : ('admin' as const)
+  roleParam === 'none' ? null : roleParam === 'viewer' ? ('viewer' as const) : ('admin' as const)
 
 const testUser = {
   id: USER_ID,
@@ -695,6 +697,111 @@ function tenantOnboarding(tenantId: string) {
   }
 }
 
+/** posthog-js session ids and a request's trace, shaped as PostHog stores them. */
+const SESSION_1 = '0199a000-0000-7000-8000-000000000001'
+const SESSION_2 = '0199a000-0000-7000-8000-000000000002'
+const TRACE = '0af7651916cd43dd8448eb211c80319c'
+
+/** PostHog's links for the project the harness pretends to read. */
+const TIMELINE_LINKS = {
+  replay: 'https://us.posthog.com/project/1/replay/{sessionId}',
+}
+
+/** A timeline row with every field set, unverified as a browser event is; PostHog timestamps carry microseconds. */
+function timelineRow(n: number, seconds: number, fields: Record<string, unknown>) {
+  return {
+    uuid: `0199a000-0000-7000-9000-${String(n).padStart(12, '0')}`,
+    event: '$pageview',
+    timestamp: `2026-10-04T10:${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}.123456Z`,
+    distinctId: USER_ID_2,
+    verified: false,
+    tenant: null,
+    source: 'browser',
+    access: null,
+    app: 'react',
+    sessionId: SESSION_1,
+    traceId: null,
+    path: '/settings',
+    elementText: null,
+    props: {},
+    ...fields,
+  }
+}
+
+/**
+ * A timeline's newest page: a customer-app session holding a click whose text
+ * names a person, a two-event sign-in request and a pageview; a staff action
+ * outside any session; then an Apex session. A tenant's rows name their actors,
+ * one by email and one purged. `view=key` drops PostHog's own `$` events, as
+ * express does; `range=24h` keeps the first session only; `before` answers the
+ * one older page.
+ */
+function timelineOf(kind: 'user' | 'tenant', id: string, params: URLSearchParams) {
+  const actor = (actorId: string, displayName: string | null) =>
+    kind === 'tenant' ? { actor: { id: actorId, displayName } } : {}
+  const links = {
+    ...TIMELINE_LINKS,
+    person: kind === 'user' ? `https://us.posthog.com/project/1/person/${id}` : null,
+    group: kind === 'tenant' ? `https://us.posthog.com/project/1/groups/0/${id}` : null,
+  }
+  if (params.has('before')) {
+    const older = [timelineRow(9, 1, { sessionId: SESSION_2, app: 'apex', path: '/users' })]
+    return { configured: true, rows: older, nextCursor: null, links }
+  }
+  const rows = [
+    timelineRow(1, 50, {
+      event: '$autocapture',
+      elementText: kind === 'tenant' ? 'Remove Evangeline Featherstonehaugh' : 'Resend to c@d.com',
+      ...actor(USER_ID_2, 'Cleo D'),
+    }),
+    timelineRow(2, 40, {
+      event: 'user_signed_in',
+      verified: true,
+      source: 'product',
+      access: 'member',
+      app: 'api',
+      traceId: TRACE,
+      path: null,
+      props: { method: 'google' },
+      ...actor(USER_ID_2, 'Cleo D'),
+    }),
+    timelineRow(3, 39, {
+      event: 'auth_reauthenticated',
+      verified: true,
+      source: 'audit',
+      access: 'member',
+      app: 'api',
+      traceId: TRACE,
+      path: null,
+      ...actor(USER_ID_2, 'Cleo D'),
+    }),
+    timelineRow(4, 30, { ...actor(USER_ID_2, 'Cleo D') }),
+    timelineRow(5, 20, {
+      event: kind === 'tenant' ? 'tenant_suspended' : 'user_deactivated',
+      distinctId: STAFF_USER_ID,
+      verified: true,
+      source: 'audit',
+      access: 'platform',
+      app: 'api',
+      sessionId: null,
+      path: null,
+      props: { target_type: kind, target_id: id, has_reason: true },
+      ...actor(STAFF_USER_ID, 'a-very-long-address-for-overflow@example-company-domain.com'),
+    }),
+    timelineRow(6, 10, {
+      sessionId: SESSION_2,
+      app: 'apex',
+      path: '/overview',
+      ...actor(USER_ID_3, null),
+    }),
+  ]
+  const inView =
+    params.get('view') === 'key' ? rows.filter((row) => !row.event.startsWith('$')) : rows
+  const inRange =
+    params.get('range') === '24h' ? inView.filter((row) => row.sessionId === SESSION_1) : inView
+  return { configured: true, rows: inRange, nextCursor: 'older', links }
+}
+
 /** The API's step-up refusal, for the writes the fixtures drive into the stacked dialog. */
 function reauthRequired() {
   return Response.json(
@@ -796,6 +903,19 @@ const worker = setupWorker(
   ),
   http.get('/api/v1/platform/users/:userId', ({ params }) =>
     ok(userDetail(String(params.userId)), 'User retrieved.')
+  ),
+  // The user and tenant timelines, filtered by `view` and `range` and paged by `before` as express answers them.
+  http.get('/api/v1/platform/users/:userId/timeline', ({ params, request }) =>
+    ok(
+      timelineOf('user', String(params.userId), new URL(request.url).searchParams),
+      'Timeline retrieved.'
+    )
+  ),
+  http.get('/api/v1/platform/tenants/:tenantId/timeline', ({ params, request }) =>
+    ok(
+      timelineOf('tenant', String(params.tenantId), new URL(request.url).searchParams),
+      'Timeline retrieved.'
+    )
   ),
   http.get('/api/v1/platform/tenants/:tenantId', ({ params }) =>
     ok(tenantDetail(String(params.tenantId)), 'Tenant retrieved.')
@@ -949,7 +1069,7 @@ useAuthStore.setState({
  * authenticated surfaces: the handlers above answer /profile,
  * /auth/providers, the tenants page's search, the activity page's three
  * requests, the Staff page's three, the users list and a user's page (its Emails
- * card included), a tenant's page with its tabs, the Emails list and an email's page with its
+ * card and timeline included), a tenant's page with its tabs, the Emails list and an email's page with its
  * preview, Deliverability, Suppressions and Onboarding, so those pages render without a backend.
  *
  * Only a same-origin absolute path is accepted. This harness is not

@@ -782,3 +782,90 @@ export interface OnboardingReminderResult {
   emailSent: boolean
   recipientCount: number
 }
+
+/** A timeline's window, as `GET /platform/users|tenants/:id/timeline` takes it. */
+export type TimelineRange = '24h' | '7d' | '30d' | '90d'
+
+/** `all` is every event; `key` drops PostHog's own `$` events (pageviews, clicks). */
+export type TimelineView = 'all' | 'key'
+
+/** Where an event came from: the browser SDK, or one of express's three server sources. */
+export type TimelineSource = 'browser' | 'audit' | 'product' | 'email'
+
+/** The `props` keys express lets through its allowlist (`TIMELINE_PROP_KEYS`). */
+export type TimelinePropKey =
+  | 'target_type'
+  | 'target_id'
+  | 'step_key'
+  | 'how'
+  | 'required'
+  | 'method'
+  | 'via_invitation'
+  | 'template_key'
+  | 'bounce_kind'
+  | 'has_reason'
+  | 'cta'
+  | 'table'
+  | 'action'
+
+/**
+ * Who sent a tenant-timeline row, read from Postgres by its distinct id.
+ * `displayName` is the full name, else the email, and `null` when no user
+ * row is left (purged). A system row has no actor at all (`actor: null`).
+ */
+export interface TimelineActor {
+  id: string
+  displayName: string | null
+}
+
+/**
+ * One PostHog event, built by express from a fixed allowlist: no other
+ * property leaves the server. `timestamp` is PostHog's own string
+ * (microseconds), never re-formatted. `actor` is on tenant timelines only.
+ * `verified` is true only for an event express signed itself; anything else
+ * arrived through the public project key, so express has already demoted
+ * it (`source: 'browser'`, `access: null`, no `target_type`/`target_id`).
+ */
+export interface TimelineRow {
+  uuid: string
+  event: string
+  timestamp: string
+  distinctId: string
+  /** Express signed this event; only then do its source, access and trace mean anything. */
+  verified: boolean
+  /** The tenant group the event names, or `null`. */
+  tenant: string | null
+  source: TimelineSource
+  access: AuditAccess | null
+  app: 'api' | 'react' | 'apex' | null
+  sessionId: string | null
+  traceId: string | null
+  /** The page's pathname only: no query, no hash. */
+  path: string | null
+  /** A clicked element's text, on `$autocapture` and `$rageclick` only, at most 80 characters. */
+  elementText: string | null
+  /** `required`, `via_invitation` and `has_reason` may arrive as booleans or as `'true'`/`'false'`. */
+  props: Partial<Record<TimelinePropKey, string | number | boolean>>
+  actor?: TimelineActor | null
+}
+
+/** PostHog deep links. `replay` is a template: Apex fills in `{sessionId}`. */
+export interface TimelineLinks {
+  person: string | null
+  group: string | null
+  replay: string
+}
+
+/**
+ * One timeline page, newest first. `configured: false` is an environment
+ * without the PostHog personal key: nothing was asked of PostHog and nothing
+ * was audited.
+ */
+export type TimelinePage =
+  | { configured: false }
+  | {
+      configured: true
+      rows: TimelineRow[]
+      nextCursor: string | null
+      links: TimelineLinks
+    }

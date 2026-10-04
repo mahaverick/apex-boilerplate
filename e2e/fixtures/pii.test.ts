@@ -51,6 +51,36 @@ for (const [name, path, ready] of [
   })
 }
 
+/**
+ * The timelines, once their rows have landed and a request is expanded: the
+ * actors' names and addresses (tenant), the clicked text naming a person or
+ * an address, and the paths. Each waits on a probe row first, so the guard
+ * never passes over a page still loading.
+ */
+for (const [name, path, probe] of [
+  ['a user’s timeline', `${CLEO}/timeline`, "Clicked 'Resend to c@d.com'"],
+  ['a tenant’s timeline', `${ACME}/timeline`, "Clicked 'Remove Evangeline Featherstonehaugh'"],
+] as const) {
+  test(`${name} renders every name, address and clicked text inside Pii`, async ({ page }) => {
+    await page.goto(`/e2e/harness/?path=${path}`)
+    await expect(page.getByText(probe)).toBeVisible()
+    await page.getByRole('button', { name: '+1 related' }).click()
+    await expect(page.getByText('Identity check (step-up)')).toBeVisible()
+    expect(await unmaskedPii(page, NAMES)).toEqual([])
+  })
+}
+
+test('a tenant’s timeline names its actors, each inside Pii', async ({ page }) => {
+  await page.goto(`/e2e/harness/?path=${ACME}/timeline`)
+  const list = page.getByRole('list', { name: 'Timeline' })
+  await expect(list.getByRole('link', { name: 'Cleo D' }).first()).toBeVisible()
+  await expect(
+    list.getByRole('link', { name: 'a-very-long-address-for-overflow@example-company-domain.com' })
+  ).toBeVisible()
+  await expect(list.getByText('Deleted user')).toBeVisible()
+  expect(await unmaskedPii(page, NAMES)).toEqual([])
+})
+
 test('the user menu’s initials and name, and the open palette’s people, sit inside Pii', async ({
   page,
 }) => {
