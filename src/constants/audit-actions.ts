@@ -1,5 +1,6 @@
 import { templateLabel } from '@/constants/email.constants'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
+import { TIMELINE_RANGE_LABELS, TIMELINE_VIEW_LABELS } from '@/constants/timeline.constants'
 
 /** Every action the API writes to its audit log. An action the server adds still renders, through the fallback sentence. */
 export const AUDIT_ACTIONS = [
@@ -36,6 +37,8 @@ export const AUDIT_ACTIONS = [
   'onboarding.undismissed',
   'onboarding.step_completed',
   'onboarding.reminder_sent',
+  'user.timeline_viewed',
+  'tenant.timeline_viewed',
 ] as const
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
 
@@ -78,6 +81,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'onboarding.undismissed': 'Getting started restored',
   'onboarding.step_completed': 'Onboarding step completed',
   'onboarding.reminder_sent': 'Onboarding reminder sent',
+  'user.timeline_viewed': 'User timeline viewed',
+  'tenant.timeline_viewed': 'Tenant timeline viewed',
 }
 
 type Metadata = Record<string, unknown>
@@ -126,6 +131,19 @@ function reminderRecipients(metadata: Metadata): string {
   const who =
     typeof count === 'number' ? `${count} ${count === 1 ? 'owner' : 'owners'}` : 'the owners'
   return domains.length > 0 ? `${who} at ${domains.join(', ')}` : who
+}
+
+/** " (last 7 days, Key events)", or nothing when the window is missing or unknown. */
+function timelineWindow(metadata: Metadata): string {
+  const range = text(metadata, 'range')
+  const view = text(metadata, 'view')
+  if (range === undefined || !Object.hasOwn(TIMELINE_RANGE_LABELS, range)) return ''
+  const label = TIMELINE_RANGE_LABELS[range as keyof typeof TIMELINE_RANGE_LABELS]
+  const which =
+    view !== undefined && Object.hasOwn(TIMELINE_VIEW_LABELS, view)
+      ? `, ${TIMELINE_VIEW_LABELS[view as keyof typeof TIMELINE_VIEW_LABELS]}`
+      : ''
+  return ` (last ${label}${which})`
 }
 
 /** `: “why”`, or nothing when the entry carries no reason. */
@@ -191,6 +209,8 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
   },
   'onboarding.reminder_sent': (m) =>
     `sent an onboarding reminder to ${reminderRecipients(m)}${because(m)}`,
+  'user.timeline_viewed': (m) => `viewed a user’s timeline${timelineWindow(m)}`,
+  'tenant.timeline_viewed': (m) => `viewed a tenant’s timeline${timelineWindow(m)}`,
 }
 
 /**

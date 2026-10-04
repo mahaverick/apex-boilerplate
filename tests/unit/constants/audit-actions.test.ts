@@ -9,7 +9,7 @@ import {
 import { EMAIL_ID, EMAIL_ID_2, INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
 describe('AUDIT_ACTIONS', () => {
-  it('lists exactly the thirty-three actions the API writes', () => {
+  it('lists exactly the thirty-five actions the API writes', () => {
     expect([...AUDIT_ACTIONS].sort()).toEqual(
       [
         'invitation.accepted',
@@ -45,6 +45,8 @@ describe('AUDIT_ACTIONS', () => {
         'user.signed_out',
         'user.updated',
         'user.verification_resent',
+        'user.timeline_viewed',
+        'tenant.timeline_viewed',
       ].sort()
     )
     for (const action of AUDIT_ACTIONS) expect(AUDIT_ACTION_LABELS[action]).not.toBe('')
@@ -178,6 +180,16 @@ describe('auditSentence', () => {
       { reason: 'Nudge', recipientCount: 1, emailDomains: ['acme.test'], messageIds: [EMAIL_ID] },
       'sent an onboarding reminder to 1 owner at acme.test: “Nudge”',
     ],
+    [
+      'user.timeline_viewed',
+      { range: '7d', view: 'all' },
+      'viewed a user’s timeline (last 7 days, Everything)',
+    ],
+    [
+      'tenant.timeline_viewed',
+      { range: '90d', view: 'key' },
+      'viewed a tenant’s timeline (last 90 days, Key events)',
+    ],
   ])('%s reads as a sentence', (action, metadata, sentence) => {
     expect(auditSentence({ action, metadata })).toBe(sentence)
   })
@@ -210,6 +222,12 @@ describe('auditSentence', () => {
         metadata: { role: 'viewer', emailDomain: null },
       })
     ).toBe('invited someone at an unknown domain as Viewer')
+    expect(auditSentence({ action: 'user.timeline_viewed', metadata: { range: '1y' } })).toBe(
+      'viewed a user’s timeline'
+    )
+    expect(
+      auditSentence({ action: 'tenant.timeline_viewed', metadata: { range: '24h', view: 'raw' } })
+    ).toBe('viewed a tenant’s timeline (last 24 hours)')
   })
 })
 
