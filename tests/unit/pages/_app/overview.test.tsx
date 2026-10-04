@@ -366,6 +366,34 @@ describe('the Overview’s system status card', () => {
     expect(await within(card).findByText(testSystemStatus.release)).toBeInTheDocument()
   })
 
+  it('keeps the last status up, with a note, when a refresh fails', async () => {
+    // Only the interval is faked, so the next minute's refresh can be run now.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    try {
+      let calls = 0
+      serveStatus(() => {
+        calls += 1
+        return calls === 1 ? ok(testSystemStatus, 'OK') : fail('Boom', 500)
+      })
+      renderAppAt('/overview')
+      const card = await screen.findByRole('region', { name: 'System status' })
+      expect(await within(card).findByText(testSystemStatus.release)).toBeInTheDocument()
+      vi.advanceTimersByTime(60_000)
+      // The failed refresh retries once, a second later, before it counts as failed.
+      await vi.waitFor(
+        () => expect(within(card).getByText(/Could not refresh/)).toBeInTheDocument(),
+        { timeout: 4000 }
+      )
+      expect(calls).toBe(3)
+      expect(within(card).getByText(testSystemStatus.release)).toBeInTheDocument()
+      expect(
+        within(card).queryByText('We could not load the system status.')
+      ).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('hides the card, not the Overview, when the status answers 404', async () => {
     const seen = serveStatus(() => fail('Not found', 404))
     renderAppAt('/overview')

@@ -84,7 +84,9 @@ function StatusFacts({ status }: { status: SystemStatus }) {
  * summed across every API and worker process. It warns when any event was
  * dropped or the last send failed. Browser errors go straight to PostHog,
  * so they are not counted here. Admins and up; a 404 (a role that changed,
- * or an API older than 1.7.0) hides the card rather than the Overview.
+ * or an API older than 1.7.0) hides the card rather than the Overview. A
+ * failed first load shows a retryable error; a failed refresh keeps the last
+ * status up, with a note saying when it was loaded.
  */
 export function SystemStatusCard() {
   const status = useQuery(systemStatusQueryOptions())
@@ -99,7 +101,15 @@ export function SystemStatusCard() {
           <CardDescription>The API over the last 15 minutes</CardDescription>
         </CardHeader>
         <CardContent>
-          {status.isError ? (
+          {status.isError && status.data !== undefined ? (
+            <>
+              <StatusFacts status={status.data} />
+              <p className="mt-3 text-xs text-muted-foreground">
+                Could not refresh; showing the status loaded{' '}
+                {relativeTime(new Date(status.dataUpdatedAt).toISOString())}.
+              </p>
+            </>
+          ) : status.isError ? (
             <LoadError
               message="We could not load the system status."
               onRetry={() => void status.refetch()}

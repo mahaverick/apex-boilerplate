@@ -67,7 +67,8 @@ export function platformStatsQueryOptions(range: StatsRange) {
 /**
  * The API's release and error-tracking health, for the Overview's status
  * card (admins and up). Asked again every minute, and only while the tab is
- * visible: TanStack Query pauses `refetchInterval` in a hidden tab.
+ * visible: TanStack Query pauses `refetchInterval` in a hidden tab. A 404
+ * stops the polling, since asking again could only repeat who is asking.
  * @returns Query options for `useQuery`.
  */
 export function systemStatusQueryOptions() {
@@ -75,7 +76,8 @@ export function systemStatusQueryOptions() {
     queryKey: platformKeys.systemStatus,
     queryFn: async () =>
       unwrap(await apiClient.get<ApiSuccess<SystemStatus>>('/platform/system/status')),
-    refetchInterval: SYSTEM_STATUS_REFETCH_MS,
+    refetchInterval: (query) =>
+      isRoleDenied(query.state.error) ? false : SYSTEM_STATUS_REFETCH_MS,
     /** A 404 answers who is asking, so a retry changes nothing. */
     retry: (failureCount, error) => !isRoleDenied(error) && failureCount < 1,
   })
