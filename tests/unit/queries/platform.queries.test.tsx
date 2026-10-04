@@ -4,7 +4,7 @@ import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
-import { platformStatsQueryOptions } from '@/queries/platform.queries'
+import { platformStatsQueryOptions, systemStatusQueryOptions } from '@/queries/platform.queries'
 import {
   platformTenantsQueryOptions,
   usePlatformTenantSearch,
@@ -88,10 +88,26 @@ describe('usePlatformTenantSearch', () => {
     expect(calls).toBe(1)
   })
 
+  it('systemStatusQueryOptions makes exactly one request on a 404', async () => {
+    const calls = await requestsOn404('/api/v1/platform/system/status', () =>
+      client.fetchQuery(systemStatusQueryOptions())
+    )
+    expect(calls).toBe(1)
+  })
+
   it('platformTenantsQueryOptions makes exactly one request on a 404', async () => {
     const calls = await requestsOn404('/api/v1/platform/tenants', () =>
       client.fetchQuery(platformTenantsQueryOptions({ q: '', limit: 5 }))
     )
     expect(calls).toBe(1)
+  })
+})
+
+describe('systemStatusQueryOptions', () => {
+  it('asks again every minute, and never from a hidden tab', () => {
+    const options = systemStatusQueryOptions()
+    expect(options.queryKey).toEqual(['platform', 'system', 'status'])
+    expect(options.refetchInterval).toBe(60_000)
+    expect(options.refetchIntervalInBackground).toBeUndefined()
   })
 })
