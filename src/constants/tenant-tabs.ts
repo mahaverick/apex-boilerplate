@@ -12,6 +12,7 @@ export type TenantTabPath =
   | typeof ROUTES.tenantInvitations
   | typeof ROUTES.tenantActivity
   | typeof ROUTES.tenantTimeline
+  | typeof ROUTES.tenantErrors
   | typeof ROUTES.tenantEmails
   | typeof ROUTES.tenantOnboarding
 
@@ -28,6 +29,7 @@ export const TENANT_DETAIL_TABS: readonly TenantTab[] = [
   { to: ROUTES.tenantInvitations, label: 'Invitations' },
   { to: ROUTES.tenantActivity, label: 'Activity' },
   { to: ROUTES.tenantTimeline, label: 'Timeline', minRole: 'admin' },
+  { to: ROUTES.tenantErrors, label: 'Errors', minRole: 'admin' },
   { to: ROUTES.tenantEmails, label: 'Emails' },
   { to: ROUTES.tenantOnboarding, label: 'Onboarding' },
 ]

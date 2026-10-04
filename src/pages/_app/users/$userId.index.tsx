@@ -54,8 +54,8 @@ function UserDetailPage() {
 
 /**
  * One account: who it is, its tenants, sign-in methods and pending
- * invitations, its emails and, for admins, its recorded history and a link
- * to its PostHog timeline.
+ * invitations, its emails and, for admins, its recorded history and links
+ * to its PostHog timeline and errors.
  */
 function UserDetail({ user }: { user: PlatformUserDetail }) {
   const name = fullName(user)
@@ -98,6 +98,15 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
               className={buttonVariants({ variant: 'outline', size: 'sm' })}
             >
               Timeline
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
+              to={ROUTES.userErrors}
+              params={{ userId: user.id }}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              Errors
             </Link>
           )}
           <UserActionsMenu user={user} fallbackFocus={heading} />
