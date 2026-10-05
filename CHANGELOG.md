@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.6.0...v1.7.0) (2026-10-05)
+
+
+### Features
+
+* feature flags inspector and shared flags module (sp5d) ([#21](https://github.com/mahaverick/apex-boilerplate/issues/21)) ([cbc5a92](https://github.com/mahaverick/apex-boilerplate/commit/cbc5a9250b7b1e96d4894ac7d92752ceb836cba7))
+
 ## [1.6.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.5.0...v1.6.0) (2026-10-05)
 
 
