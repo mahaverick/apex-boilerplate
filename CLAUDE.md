@@ -12,7 +12,7 @@ of these is a deliberate act, not a tidy-up.
 Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
 `express-boilerplate` API (1.4.0 or newer, run with `APEX_URL` set to this app's
 origin, `http://localhost:5174` locally; the user and tenant timelines need
-1.6.0, and the Errors pages and the system status card 1.7.0). `react-boilerplate`, the customer app,
+1.6.0, the Errors pages and the system status card 1.7.0, and the flags pages 1.8.0). `react-boilerplate`, the customer app,
 is its sibling. Vite, TanStack Router (file-based), TanStack Query, TanStack
 Form, TanStack Table 9, Zustand, Tailwind v4, Base UI via shadcn, recharts,
 axios, Zod v4, Vitest + Testing Library + MSW.
@@ -209,6 +209,21 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   one, run the tests that pin its internals: `url-sanitizer.test.ts`,
   `handoff.test.ts` and `analytics.sdk.test.ts` (all run the real SDK) and
   `e2e/nginx/analytics.test.ts`.
+
+## Feature flags — the rules that leak or mislead when broken
+
+- **express is the only evaluator.** Apex reads its values from
+  `GET /platform/me/flags`; it never calls posthog-js's `getFeatureFlag`,
+  `isFeatureEnabled` or `onFeatureFlags`, and `advanced_disable_feature_flags`
+  stays set (not `advanced_disable_flags`, which also stops session replay).
+- **`flag-keys.ts` mirrors express by hand.** Apex's slice is every express
+  entry with `client: true` and `apex` in `apps`; it is empty today, so every
+  key type is `never` and reading a flag fails typecheck until one is added.
+  The module's other files are react's: fix them there, then copy.
+- **The inspector is read-only.** Rollouts are edited in PostHog. An
+  evaluation is an audited read: `flagsEvaluateQueryOptions` never retries or
+  refetches on focus, like the timelines, and its traits are shown to admins
+  only.
 
 ## The container
 
@@ -461,6 +476,7 @@ header. `?path=` picks the route; the default is `/overview`, and the harness us
 or, with `?role=none`, a signed-in user with no platform role, which is the only way `/no-access` renders there,
 or, with `?role=viewer`, staff below admin, which is how the admin-only timelines' and Errors pages' refusal renders.
 `?errors=unconfigured` answers the Errors routes as an API without a PostHog personal key does.
+`?flags=unconfigured` answers the flags routes as an API without the feature flags key does.
 
 `playwright.config.ts` starts the dev server as `vite --force`, and that is load-bearing:
 Vite trusts a dependency cache whose lockfile and config hashes still match, so a source

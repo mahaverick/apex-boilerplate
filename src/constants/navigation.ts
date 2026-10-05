@@ -5,6 +5,7 @@
  */
 import {
   Building2,
+  Flag,
   Gauge,
   History,
   LayoutDashboard,
@@ -35,6 +36,7 @@ export type NavPath =
   | typeof ROUTES.emails
   | typeof ROUTES.deliverability
   | typeof ROUTES.suppressions
+  | typeof ROUTES.flags
   | typeof ROUTES.onboarding
   | typeof ROUTES.activity
 
@@ -72,6 +74,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Suppressions',
     to: ROUTES.suppressions,
     Icon: MailX,
+    minRole: 'viewer',
+    group: 'Operations',
+  },
+  {
+    label: 'Feature flags',
+    to: ROUTES.flags,
+    Icon: Flag,
     minRole: 'viewer',
     group: 'Operations',
   },

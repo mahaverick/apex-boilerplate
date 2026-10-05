@@ -38,7 +38,7 @@ function TenantCrumb({ params }: { params: Record<string, string> }) {
  * only the Members, Invitations and Activity tabs and the Edit details action
  * reach the tenant's own routes, and only while it is active. A 404 is an
  * unknown tenant; it never signs out. A tab above the reader's platform role
- * (Timeline and Errors, for admins) is left out of the nav.
+ * (Timeline, Errors and Flags, for admins) is left out of the nav.
  */
 function TenantLayout() {
   const { tenantId } = Route.useParams()

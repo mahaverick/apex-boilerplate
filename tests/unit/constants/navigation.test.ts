@@ -38,6 +38,7 @@ describe('navigation', () => {
       'Emails',
       'Deliverability',
       'Suppressions',
+      'Feature flags',
       'Onboarding',
     ])
   })
@@ -51,6 +52,7 @@ describe('navigation', () => {
       'Emails',
       'Deliverability',
       'Suppressions',
+      'Feature flags',
       'Onboarding',
       'Activity log',
     ])
@@ -59,6 +61,14 @@ describe('navigation', () => {
   it('gives someone who is not staff nothing', () => {
     expect(navItemsFor(null)).toEqual([])
     expect(navItemsFor(undefined)).toEqual([])
+  })
+
+  it('puts Feature flags last in Operations, for every staff role', () => {
+    const operations = navItemsFor('viewer').filter((item) => item.group === 'Operations')
+    expect(operations.map((item) => [item.label, item.to]).at(-1)).toEqual([
+      'Feature flags',
+      '/flags',
+    ])
   })
 
   it('declares no flagged item yet, since apex reads no flag', () => {

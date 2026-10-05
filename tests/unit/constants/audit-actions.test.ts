@@ -49,6 +49,7 @@ describe('AUDIT_ACTIONS', () => {
         'tenant.timeline_viewed',
         'user.errors_viewed',
         'tenant.errors_viewed',
+        'user.flags_evaluated',
       ].sort()
     )
     for (const action of AUDIT_ACTIONS) expect(AUDIT_ACTION_LABELS[action]).not.toBe('')
@@ -194,6 +195,22 @@ describe('auditSentence', () => {
     ],
     ['user.errors_viewed', {}, 'viewed a user’s errors'],
     ['tenant.errors_viewed', {}, 'viewed a tenant’s errors'],
+    [
+      'user.flags_evaluated',
+      { tenantId: null, clientApp: 'react' },
+      'evaluated a user’s feature flags for the customer app',
+    ],
+    [
+      'user.flags_evaluated',
+      { tenantId: '01a10b7b-a119-7593-8fb8-e2c6c12a8c57', clientApp: 'react' },
+      'evaluated a user’s feature flags for the customer app, in a tenant',
+    ],
+    [
+      'user.flags_evaluated',
+      { tenantId: null, clientApp: 'apex' },
+      'evaluated a user’s feature flags for Apex',
+    ],
+    ['user.flags_evaluated', {}, 'evaluated a user’s feature flags'],
   ])('%s reads as a sentence', (action, metadata, sentence) => {
     expect(auditSentence({ action, metadata })).toBe(sentence)
   })

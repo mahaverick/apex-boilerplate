@@ -84,6 +84,7 @@ test('the tenant’s Errors tab follows Timeline in its nav', async ({ page }) =
     'Errors',
     'Emails',
     'Onboarding',
+    'Flags',
   ])
 })
 
@@ -93,7 +94,8 @@ test('the Overview shows an admin the system status, warning on dropped events',
   await page.goto('/e2e/harness/?path=/overview')
   const card = page.getByRole('region', { name: 'System status' })
   await expect(card.getByText('0a1b2c3d4e5f60718293a4b5c6d7e8f901234567')).toBeVisible()
-  await expect(card.getByText('Needs attention')).toBeVisible()
+  // Error tracking dropped events and a flag is unsupported, so both sections warn.
+  await expect(card.getByText('Needs attention')).toHaveCount(2)
   await expect(card.getByText('(Throttled 2)')).toBeVisible()
 })
 

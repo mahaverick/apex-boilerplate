@@ -71,6 +71,7 @@ describe('/tenants/$tenantId/errors', () => {
       'Errors',
       'Emails',
       'Onboarding',
+      'Flags',
     ])
     expect(
       within(screen.getByRole('navigation', { name: 'Tenant sections' })).getByRole('link', {

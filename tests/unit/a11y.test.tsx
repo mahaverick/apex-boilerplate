@@ -13,6 +13,7 @@ import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
 import { errorIssue, errorsPage, issueId } from '@/tests/fixtures/errors'
+import { flagsEvaluation, flagsList } from '@/tests/fixtures/flags'
 import {
   AUDIT_ID_1,
   AUDIT_ID_2,
@@ -978,6 +979,49 @@ describe('signed-in pages', () => {
     server.use(http.get(`/api/v1/platform/users/${USER_ID_2}/errors`, answer))
     renderAppAt(`/users/${USER_ID_2}/errors`)
     await ready()
+    await expectNoViolations()
+  })
+
+  it('the flags page with every table, the traits and an evaluation has no axe violations', async () => {
+    serveUser()
+    server.use(
+      http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')),
+      http.get('/api/v1/platform/flags/evaluate', () => ok(flagsEvaluation(), 'Flags evaluated.'))
+    )
+    renderAppAt(`/flags?userId=${USER_ID_2}`)
+    await screen.findByRole('table', { name: 'Evaluation' })
+    await screen.findByRole('table', { name: 'Unregistered flags' })
+    await expectNoViolations()
+  })
+
+  it('the flags page when flags are not set up has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/flags', () =>
+        ok(
+          flagsList({
+            unregistered: [],
+            snapshot: { enabled: false, fetchedAt: null, stale: false },
+          }),
+          'Flags retrieved.'
+        )
+      )
+    )
+    renderAppAt('/flags')
+    await screen.findByText(
+      'Feature flags are not set up for this environment, so every flag serves its fallback.'
+    )
+    await screen.findByRole('searchbox', { name: 'Find a user' })
+    await expectNoViolations()
+  })
+
+  it('a tenant’s flags with a member picked has no axe violations', async () => {
+    serveTenant('active')
+    server.use(
+      http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')),
+      http.get('/api/v1/platform/flags/evaluate', () => ok(flagsEvaluation(), 'Flags evaluated.'))
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/flags?userId=${USER_ID}`)
+    await screen.findByRole('table', { name: 'Evaluation' })
     await expectNoViolations()
   })
 

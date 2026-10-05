@@ -131,6 +131,7 @@ const AUDIT_WORDING: Record<AuditAction, 'sentence' | 'label'> = {
   'tenant.timeline_viewed': 'label',
   'user.errors_viewed': 'label',
   'tenant.errors_viewed': 'label',
+  'user.flags_evaluated': 'label',
 }
 
 /**
