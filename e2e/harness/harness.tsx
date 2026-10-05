@@ -897,6 +897,10 @@ const worker = setupWorker(
   ),
   // An admin's Overview also reads the API's release and error tracking's health.
   http.get('/api/v1/platform/system/status', () => ok(SYSTEM_STATUS, 'System status retrieved.')),
+  // The staff shell's loader reads Apex's flags on every page; Apex has none yet.
+  http.get('/api/v1/platform/me/flags', () =>
+    ok({ flags: {}, evaluatedAt: '2026-10-05T10:00:00.000Z' }, 'Flags retrieved.')
+  ),
   // The activity page (the platform log, its actor filter's staff list and its tenant filter's search), and the History cards: a user's by `targetId`, a tenant's by `tenantId` with `access=platform`.
   http.get('/api/v1/platform/audit-log', ({ request }) => {
     const params = new URL(request.url).searchParams

@@ -34,7 +34,7 @@ export const queryClient = new QueryClient({
 export async function bootstrapSession(): Promise<void> {
   if (useAuthStore.getState().isBootstrapped) return
   installAuthBroadcastListener()
-  installAnalyticsIdentity()
+  installAnalyticsIdentity(queryClient)
   let isVerdict = false
   try {
     await ensureSession()

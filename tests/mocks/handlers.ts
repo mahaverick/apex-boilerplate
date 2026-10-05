@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import type { MembershipRole } from '@/constants/roles'
+import type { ClientFlagValues } from '@/observability/flags/flag-types'
 import {
   AUDIT_ID_4,
   EMAIL_ATTEMPT_ID,
@@ -494,6 +495,26 @@ export function tenantOnboardingAfterStaffCompletion(stepKey: string): TenantOnb
   })
 }
 
+/**
+ * Every apex flag at its fallback; apex has none yet. Written out rather
+ * than read from the flags module: this file loads in the setup file, before
+ * a test's `vi.mock('@/observability/flags/flag-keys', …)` could apply.
+ */
+export const TEST_FLAG_FALLBACKS = {} satisfies ClientFlagValues
+
+/**
+ * A flags read as express answers it: every flag at its fallback unless
+ * `overrides` says otherwise.
+ * @param overrides - Values that differ from the fallbacks.
+ * @returns The response data.
+ */
+export function testFlags(overrides: Readonly<Record<string, boolean | string>> = {}) {
+  return {
+    flags: { ...TEST_FLAG_FALLBACKS, ...overrides },
+    evaluatedAt: '2026-10-05T10:00:00.000Z',
+  }
+}
+
 export function ok<T>(data: T, message = 'OK', statusCode = 200) {
   return HttpResponse.json({ success: true, message, statusCode, data }, { status: statusCode })
 }
@@ -544,6 +565,9 @@ export const handlers = [
       'Invitation accepted.'
     )
   ),
+  // The staff shell's loader reads Apex's flags on every page; Apex has none yet. A test about a flag overrides it.
+  http.get('/api/v1/platform/me/flags', () => ok(testFlags(), 'Flags retrieved.')),
+  http.post('/api/v1/platform/me/flags/exposures', () => new HttpResponse(null, { status: 204 })),
   // The shell lands on Overview after every sign-in, and Overview reads these. A test about the stats overrides it.
   http.get('/api/v1/platform/stats', () => ok(testStats, 'Platform stats retrieved.')),
   // An admin's Overview also reads the system status. A test about the card overrides it.

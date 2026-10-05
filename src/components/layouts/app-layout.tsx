@@ -35,6 +35,7 @@ import { APP_NAME } from '@/constants/app'
 import { navGroupsFor } from '@/constants/navigation'
 import { ROUTES } from '@/constants/routes'
 import { paletteShortcutHint } from '@/lib/shortcut'
+import { useFeaturePropertiesSync, useFlagValues } from '@/observability/flags/flag-hooks'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
@@ -80,12 +81,14 @@ function isNavActive(pathname: string, to: string): boolean {
 
 /**
  * The staff shell: a grouped sidebar, a header with breadcrumbs and the ⌘K
- * search, and the page. Navigation comes from `navGroupsFor(role)`, so an item
- * above the user's role is absent, not disabled.
+ * search, and the page. Navigation comes from `navGroupsFor(role, flags)`, so an
+ * item above the user's role, or behind a flag that is off, is absent, not
+ * disabled.
  *
- * The palette and the theme listener live here, not in the sidebar: below
- * `md` the `Sidebar` renders into a `Sheet` whose content unmounts while
- * closed. The primary navigation sits in its own `nav` landmark, since
+ * The palette, the theme listener and the one mount of the `$feature/*`
+ * super-property sync (`useFeaturePropertiesSync`) live here, not in the
+ * sidebar: below `md` the `Sidebar` renders into a `Sheet` whose content
+ * unmounts while closed. The primary navigation sits in its own `nav` landmark, since
  * `Sidebar` renders plain divs, and the brand link in a `header` (the banner),
  * since axe's `region` rule exempts buttons but not links. `SidebarInset` is
  * the `main` element, so its own `header` is not a second banner.
@@ -101,7 +104,9 @@ export function AppLayout() {
   const openPalette = useCommandPaletteStore((s) => s.setOpen)
   const crumbs = useBreadcrumbs()
   const pathname = useLocation({ select: (location) => location.pathname })
-  const groups = navGroupsFor(user?.platformRole)
+  const groups = navGroupsFor(user?.platformRole, useFlagValues())
+
+  useFeaturePropertiesSync()
 
   useEffect(() => {
     if (theme !== 'system') return
