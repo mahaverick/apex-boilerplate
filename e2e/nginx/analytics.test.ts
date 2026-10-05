@@ -215,6 +215,10 @@ test.describe('analytics against a fake PostHog', () => {
       expect(fake.events().some((event) => event.properties.app === 'apex')).toBe(true)
       expect(fake.events().every((event) => event.properties.environment === 'ci')).toBe(true)
       expect(fake.requests.some((request) => request.path.startsWith('/static/'))).toBe(true)
+      // posthog-js does no flag work (`advanced_disable_feature_flags`): express is the only evaluator.
+      expect(fake.requests.filter((request) => /^\/(flags|decide)\/?$/.test(request.path))).toEqual(
+        []
+      )
       await flushCspReports(page)
       expect(violations).toEqual([])
       expect(workers).toEqual([])

@@ -41,6 +41,7 @@ export const AUDIT_ACTIONS = [
   'tenant.timeline_viewed',
   'user.errors_viewed',
   'tenant.errors_viewed',
+  'user.flags_evaluated',
 ] as const
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
 
@@ -87,6 +88,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'tenant.timeline_viewed': 'Tenant timeline viewed',
   'user.errors_viewed': 'User errors viewed',
   'tenant.errors_viewed': 'Tenant errors viewed',
+  'user.flags_evaluated': 'User flags evaluated',
 }
 
 type Metadata = Record<string, unknown>
@@ -148,6 +150,13 @@ function timelineWindow(metadata: Metadata): string {
       ? `, ${TIMELINE_VIEW_LABELS[view as keyof typeof TIMELINE_VIEW_LABELS]}`
       : ''
   return ` (last ${label}${which})`
+}
+
+/** " for the customer app, in a tenant", or nothing when the entry names neither. */
+function flagsEvaluatedFor(metadata: Metadata): string {
+  const app = text(metadata, 'clientApp')
+  const which = app === 'apex' ? ' for Apex' : app === 'react' ? ' for the customer app' : ''
+  return `${which}${text(metadata, 'tenantId') === undefined ? '' : ', in a tenant'}`
 }
 
 /** `: “why”`, or nothing when the entry carries no reason. */
@@ -217,6 +226,7 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
   'tenant.timeline_viewed': (m) => `viewed a tenant’s timeline${timelineWindow(m)}`,
   'user.errors_viewed': () => 'viewed a user’s errors',
   'tenant.errors_viewed': () => 'viewed a tenant’s errors',
+  'user.flags_evaluated': (m) => `evaluated a user’s feature flags${flagsEvaluatedFor(m)}`,
 }
 
 /**

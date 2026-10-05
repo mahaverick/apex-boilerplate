@@ -860,7 +860,173 @@ function errorsOf() {
   }
 }
 
-/** The API's release and error tracking's health: a few events throttled, so the card warns. */
+/**
+ * `?flags=unconfigured` answers the flags routes as an environment without
+ * the feature flags key does; anything else is configured.
+ */
+const flagsParam = new URLSearchParams(location.search).get('flags')
+
+/** A flag's PostHog page in the project the harness pretends to read. */
+function flagUrl(id: number) {
+  return `https://us.posthog.com/project/1/feature_flags/${id}`
+}
+
+/**
+ * The inspector's list: express's two reference flags (one active beta page,
+ * one experiment), a third made unsupported by a cohort condition with a
+ * long description, an unregistered PostHog flag and the five traits.
+ */
+function flagsList() {
+  const enabled = flagsParam !== 'unconfigured'
+  return {
+    items: [
+      {
+        key: 'example_beta_page',
+        description: 'Reference flag: the tenant Beta page and its API route',
+        kind: 'boolean',
+        variants: null,
+        scope: 'tenant',
+        client: true,
+        apps: ['react'],
+        experiment: false,
+        fallback: false,
+        state: enabled ? 'active' : 'missing',
+        conditions: 1,
+        maxRollout: 50,
+        posthogUrl: enabled ? flagUrl(101) : null,
+      },
+      {
+        key: 'example_cta_experiment',
+        description: 'Reference experiment: the getting-started call-to-action style',
+        kind: 'multivariate',
+        variants: ['control', 'bold'],
+        scope: 'user',
+        client: true,
+        apps: ['react'],
+        experiment: true,
+        fallback: 'control',
+        state: enabled ? 'inactive' : 'missing',
+        conditions: 1,
+        maxRollout: 0,
+        posthogUrl: enabled ? flagUrl(102) : null,
+      },
+      {
+        key: 'server_side_reconciliation_with_an_unusually_long_flag_key_x',
+        description: `Reconciles ${'every tenant ledger overnight '.repeat(4)}on the worker.`,
+        kind: 'boolean',
+        variants: null,
+        scope: 'user',
+        client: false,
+        apps: [],
+        experiment: false,
+        fallback: false,
+        state: enabled ? 'unsupported' : 'missing',
+        ...(enabled ? { unsupportedReason: 'cohort' } : {}),
+        conditions: 2,
+        maxRollout: 100,
+        posthogUrl: enabled ? flagUrl(103) : null,
+      },
+    ],
+    unregistered: enabled
+      ? [{ key: 'legacy_marketing_banner', active: true, posthogUrl: flagUrl(104) }]
+      : [],
+    traits: [
+      {
+        name: 'platform_role',
+        where: 'person',
+        description: "The user's platform (staff) role; none for a user who is not staff.",
+        examples: ['none', 'viewer', 'editor', 'manager', 'admin', 'owner'],
+      },
+      {
+        name: 'tenant_role',
+        where: 'person',
+        description:
+          "The user's membership role in the tenant the flag is evaluated for; none with no tenant or no membership.",
+        examples: ['owner', 'admin', 'manager', 'editor', 'viewer', 'none'],
+      },
+      {
+        name: 'app_env',
+        where: 'person',
+        description: 'The deployment the server runs in (APP_ENV).',
+        examples: ['local', 'dev', 'qa', 'prod'],
+      },
+      {
+        name: 'account_created_days',
+        where: 'person',
+        description: 'Whole days since the user signed up, an integer of at least 0.',
+        examples: ['0', '30', '365'],
+      },
+      {
+        name: 'tenant_created_days',
+        where: 'group',
+        description:
+          'Whole days since the tenant was created, an integer of at least 0; absent with no tenant.',
+        examples: ['0', '90', '365'],
+      },
+    ],
+    snapshot: {
+      enabled,
+      fetchedAt: enabled ? '2026-10-05T09:59:30.000Z' : null,
+      stale: false,
+    },
+  }
+}
+
+/**
+ * One evaluation: in a tenant the beta page matches its first condition;
+ * the experiment puts the user in its holdout, so they see `control` and
+ * exposure records the holdout; the unsupported flag serves its fallback.
+ */
+function flagsEvaluation(params: URLSearchParams) {
+  const tenantId = params.get('tenantId')
+  const enabled = flagsParam !== 'unconfigured'
+  return {
+    traits: {
+      platform_role: 'viewer',
+      tenant_role: tenantId === null ? 'none' : 'editor',
+      app_env: 'local',
+      account_created_days: 277,
+      ...(tenantId === null ? {} : { tenant_created_days: 277 }),
+    },
+    flags: enabled
+      ? [
+          tenantId === null
+            ? { key: 'example_beta_page', value: false, reason: 'fallback:no_tenant' }
+            : {
+                key: 'example_beta_page',
+                value: true,
+                reason: 'condition_match',
+                conditionIndex: 0,
+              },
+          {
+            key: 'example_cta_experiment',
+            value: 'control',
+            reason: 'holdout',
+            holdoutVariant: 'holdout-3605',
+          },
+          {
+            key: 'server_side_reconciliation_with_an_unusually_long_flag_key_x',
+            value: false,
+            reason: 'fallback:unsupported',
+          },
+        ]
+      : [
+          { key: 'example_beta_page', value: false, reason: 'fallback:unconfigured' },
+          { key: 'example_cta_experiment', value: 'control', reason: 'fallback:unconfigured' },
+          {
+            key: 'server_side_reconciliation_with_an_unusually_long_flag_key_x',
+            value: false,
+            reason: 'fallback:unconfigured',
+          },
+        ],
+    snapshot: { fetchedAt: enabled ? '2026-10-05T09:59:30.000Z' : null, stale: false },
+  }
+}
+
+/**
+ * The API's release, error tracking's health (a few events throttled) and
+ * feature flags' health (one flag unsupported), so the card warns on both.
+ */
 const SYSTEM_STATUS = {
   release: '0a1b2c3d4e5f60718293a4b5c6d7e8f901234567',
   errorTracking: {
@@ -870,6 +1036,24 @@ const SYSTEM_STATUS = {
     dropped: { throttled: 2, buffer_full: 0, rejected: 0, retry_exhausted: 0 },
     lastSendOkAt: '2026-10-04T10:00:00.000Z',
     lastSendError: null,
+  },
+  flags: {
+    enabled: true,
+    snapshotAt: '2026-10-05T09:59:30.000Z',
+    checkedAt: '2026-10-05T09:59:30.000Z',
+    stale: false,
+    lastFetchOk: '2026-10-05T09:59:30.000Z',
+    lastFetchError: null,
+    propertyMatchingVersion: 1,
+    counts: {
+      registered: 3,
+      active: 1,
+      inactive: 1,
+      missing: 0,
+      unsupported: 1,
+      unregistered: 1,
+      unknownVariant15m: 0,
+    },
   },
 }
 
@@ -895,8 +1079,17 @@ const worker = setupWorker(
       'Platform stats retrieved.'
     )
   ),
-  // An admin's Overview also reads the API's release and error tracking's health.
+  // An admin's Overview also reads the API's release, error tracking's and feature flags' health.
   http.get('/api/v1/platform/system/status', () => ok(SYSTEM_STATUS, 'System status retrieved.')),
+  // The staff shell's loader reads Apex's flags on every page; Apex has none yet.
+  http.get('/api/v1/platform/me/flags', () =>
+    ok({ flags: {}, evaluatedAt: '2026-10-05T10:00:00.000Z' }, 'Flags retrieved.')
+  ),
+  // The flags inspector and its evaluation, configured unless `?flags=unconfigured`.
+  http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')),
+  http.get('/api/v1/platform/flags/evaluate', ({ request }) =>
+    ok(flagsEvaluation(new URL(request.url).searchParams), 'Flags evaluated.')
+  ),
   // The activity page (the platform log, its actor filter's staff list and its tenant filter's search), and the History cards: a user's by `targetId`, a tenant's by `tenantId` with `access=platform`.
   http.get('/api/v1/platform/audit-log', ({ request }) => {
     const params = new URL(request.url).searchParams
@@ -1146,7 +1339,7 @@ useAuthStore.setState({
  * /auth/providers, the tenants page's search, the activity page's three
  * requests, the Staff page's three, the users list and a user's page (its Emails
  * card, timeline and errors included), a tenant's page with its tabs, the Emails list and an email's page with its
- * preview, Deliverability, Suppressions and Onboarding, so those pages render without a backend.
+ * preview, Deliverability, Suppressions, Onboarding and Feature flags, so those pages render without a backend.
  *
  * Only a same-origin absolute path is accepted. This harness is not
  * shipped (nothing in `src/` imports it, and `index.html` is the only Vite

@@ -3,10 +3,11 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@/states/auth.store'
+import { testFlagsStatus } from '@/tests/fixtures/flags'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testStats, testSystemStatus, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { SystemStatus } from '@/types/api.types'
+import type { FlagsStatus, SystemStatus } from '@/types/api.types'
 
 describe('/overview', () => {
   beforeEach(() => {
@@ -412,5 +413,118 @@ describe('the Overview’s system status card', () => {
     await screen.findByRole('region', { name: 'Key figures' })
     expect(screen.queryByRole('region', { name: 'System status' })).not.toBeInTheDocument()
     expect(seen).toHaveLength(0)
+  })
+})
+
+describe('the system status card’s feature flags', () => {
+  beforeEach(() => {
+    signIn({ ...testUser, platformRole: 'admin' })
+  })
+
+  /** Answers the status with flags as given. */
+  function serveFlags(flags: Partial<FlagsStatus> | undefined) {
+    const status: SystemStatus =
+      flags === undefined
+        ? testSystemStatus
+        : { ...testSystemStatus, flags: { ...testFlagsStatus, ...flags } }
+    server.use(http.get('/api/v1/platform/system/status', () => ok(status, 'OK')))
+  }
+
+  /** The card's Feature flags section, once loaded. */
+  async function flagsSection() {
+    const card = await screen.findByRole('region', { name: 'System status' })
+    const heading = await within(card).findByRole('heading', { name: 'Feature flags', level: 3 })
+    return within(heading.parentElement!)
+  }
+
+  it('shows healthy flags: enabled, the snapshot’s age and the counts, with no warning', async () => {
+    serveFlags({})
+    renderAppAt('/overview')
+    const section = await flagsSection()
+    expect(section.getByText('Enabled')).toHaveAttribute('data-tone', 'success')
+    expect(section.getByText('Checked').nextElementSibling?.querySelector('time')).toHaveAttribute(
+      'dateTime',
+      testFlagsStatus.checkedAt
+    )
+    expect(
+      section.getByText('Last changed').nextElementSibling?.querySelector('time')
+    ).toHaveAttribute('dateTime', testFlagsStatus.snapshotAt)
+    expect(
+      section.getByText(
+        '2 registered: 1 active, 1 inactive, 0 missing, 0 unsupported, 3 unregistered in PostHog'
+      )
+    ).toBeInTheDocument()
+    expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
+    expect(section.queryByText('Last failed fetch')).not.toBeInTheDocument()
+    expect(section.queryByText('Matching')).not.toBeInTheDocument()
+  })
+
+  it('says flags are not set up, without warning or listing counts', async () => {
+    serveFlags({ enabled: false, snapshotAt: null, checkedAt: null, propertyMatchingVersion: null })
+    renderAppAt('/overview')
+    const section = await flagsSection()
+    expect(section.getByText('Not set up')).toHaveAttribute('data-tone', 'muted')
+    expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
+    expect(section.queryByText(/registered:/)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['no snapshot yet', { snapshotAt: null, propertyMatchingVersion: null }],
+    ['a stale snapshot', { stale: true }],
+    ['a failed last fetch', { lastFetchError: 'timeout' }],
+    ['an unvalidated matching version', { propertyMatchingVersion: 2 }],
+    ['a matching version PostHog did not report', { propertyMatchingVersion: null }],
+    ['a missing flag', { counts: { ...testFlagsStatus.counts, missing: 1 } }],
+    ['an unsupported flag', { counts: { ...testFlagsStatus.counts, unsupported: 1 } }],
+    ['an unknown variant', { counts: { ...testFlagsStatus.counts, unknownVariant15m: 4 } }],
+  ] as const)('warns on %s', async (_name, flags) => {
+    serveFlags(flags)
+    renderAppAt('/overview')
+    const section = await flagsSection()
+    expect(section.getByText('Needs attention')).toHaveAttribute('data-tone', 'warning')
+  })
+
+  it('names the failed fetch, the stale snapshot, the matching version and unknown variants', async () => {
+    serveFlags({
+      stale: true,
+      lastFetchError: 'unauthorized',
+      propertyMatchingVersion: 2,
+      counts: { ...testFlagsStatus.counts, unknownVariant15m: 4 },
+    })
+    renderAppAt('/overview')
+    const section = await flagsSection()
+    expect(section.getByText('unauthorized')).toBeInTheDocument()
+    expect(section.getByText('(stale)')).toBeInTheDocument()
+    expect(
+      section.getByText('PostHog property matching version 2; express is validated for version 1')
+    ).toBeInTheDocument()
+    expect(section.getByText('(4 unknown variants in 15 minutes)')).toBeInTheDocument()
+  })
+
+  it('explains the warning when PostHog reported no matching version for a snapshot', async () => {
+    serveFlags({ propertyMatchingVersion: null })
+    renderAppAt('/overview')
+    const section = await flagsSection()
+    expect(section.getByText('Matching')).toBeInTheDocument()
+    expect(
+      section.getByText(
+        'PostHog did not report a property matching version; express is validated for version 1'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('says when there is no snapshot yet', async () => {
+    serveFlags({ snapshotAt: null, propertyMatchingVersion: null })
+    renderAppAt('/overview')
+    const section = await flagsSection()
+    expect(section.getByText('None yet')).toBeInTheDocument()
+  })
+
+  it('shows no flags section for an API older than 1.8.0', async () => {
+    serveFlags(undefined)
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'System status' })
+    expect(await within(card).findByText(testSystemStatus.release)).toBeInTheDocument()
+    expect(within(card).queryByRole('heading', { name: 'Feature flags' })).not.toBeInTheDocument()
   })
 })

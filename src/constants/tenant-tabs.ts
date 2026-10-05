@@ -15,6 +15,7 @@ export type TenantTabPath =
   | typeof ROUTES.tenantErrors
   | typeof ROUTES.tenantEmails
   | typeof ROUTES.tenantOnboarding
+  | typeof ROUTES.tenantFlags
 
 export interface TenantTab {
   to: TenantTabPath
@@ -32,4 +33,5 @@ export const TENANT_DETAIL_TABS: readonly TenantTab[] = [
   { to: ROUTES.tenantErrors, label: 'Errors', minRole: 'admin' },
   { to: ROUTES.tenantEmails, label: 'Emails' },
   { to: ROUTES.tenantOnboarding, label: 'Onboarding' },
+  { to: ROUTES.tenantFlags, label: 'Flags', minRole: 'admin' },
 ]

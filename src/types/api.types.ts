@@ -924,12 +924,182 @@ export interface ErrorTrackingStatus {
   lastSendError: number | null
 }
 
+/** An app whose browser is sent a flag's value. */
+export type FlagApp = 'react' | 'apex'
+
+/** The trait names express evaluates with; there is no other. */
+export type TraitName =
+  'platform_role' | 'tenant_role' | 'app_env' | 'account_created_days' | 'tenant_created_days'
+
+/**
+ * Why a flag evaluated as it did. The `fallback:*` reasons served the
+ * registry's fallback without evaluating; `holdout` served it to a user in
+ * an experiment's holdout.
+ */
+export type FlagReason =
+  | 'condition_match'
+  | 'out_of_rollout'
+  | 'no_condition_match'
+  | 'holdout'
+  | 'fallback:unconfigured'
+  | 'fallback:snapshot_missing'
+  | 'fallback:flag_missing'
+  | 'fallback:inactive'
+  | 'fallback:unsupported'
+  | 'fallback:no_tenant'
+  | 'fallback:inconclusive'
+
+/**
+ * A registered flag's state in this environment's PostHog snapshot:
+ * `missing` is absent (or deleted) there, `unsupported` uses a construct
+ * express cannot evaluate, so it serves its fallback.
+ */
+export type FlagState = 'active' | 'inactive' | 'missing' | 'unsupported'
+
+/**
+ * Why express will not evaluate a flag's PostHog definition, as a flag row's
+ * `unsupportedReason` names it. `scope_drift` and `kind_drift` mean PostHog's
+ * flag no longer matches the registry's scope or kind; `malformed` is a
+ * definition express could not parse.
+ */
+export type UnsupportedConstruct =
+  | 'experience_continuity'
+  | 'bucketing_identifier'
+  | 'evaluation_contexts'
+  | 'unknown_filter'
+  | 'early_access'
+  | 'group_type'
+  | 'cohort'
+  | 'flag_dependency'
+  | 'unknown_property_type'
+  | 'unknown_operator'
+  | 'is_not_set'
+  | 'property_key'
+  | 'malformed'
+  | 'scope_drift'
+  | 'kind_drift'
+
+/** One registered flag, its code declaration and its live PostHog state. */
+export interface FlagRow {
+  key: string
+  description: string
+  kind: 'boolean' | 'multivariate'
+  /** The variants, `control` first by convention; null on a boolean flag. */
+  variants: string[] | null
+  /** Who it is bucketed by: the user, or the tenant group. */
+  scope: 'user' | 'tenant'
+  /** Whether any browser is sent its value. */
+  client: boolean
+  /** The apps sent its value; empty when `client` is false. */
+  apps: FlagApp[]
+  experiment: boolean
+  fallback: boolean | string
+  state: FlagState
+  /** The construct that made it unsupported, such as `cohort`; set only then. */
+  unsupportedReason?: UnsupportedConstruct
+  /** Release conditions in PostHog; 0 when missing. */
+  conditions: number
+  /** The highest rollout percentage of any condition; null when there is none. */
+  maxRollout: number | null
+  /** The flag in PostHog; null when the API lacks the app host or project id. */
+  posthogUrl: string | null
+}
+
+/** A flag that exists in PostHog but not in the registry. Never evaluated. */
+export interface UnregisteredRow {
+  key: string
+  active: boolean
+  posthogUrl: string | null
+}
+
+/** One trait a PostHog release condition may use, for the Traits panel. */
+export interface TraitRow {
+  name: TraitName
+  /** `person` properties or `group` (tenant) properties in PostHog. */
+  where: 'person' | 'group'
+  description: string
+  examples: string[]
+}
+
+/** When the snapshot was fetched; `stale` once it has not been checked for 10 minutes. */
+export interface FlagSnapshotInfo {
+  fetchedAt: string | null
+  stale: boolean
+}
+
+/**
+ * The inspector list's snapshot info. `enabled: false` is an environment
+ * without the feature flags key: every flag serves its fallback.
+ */
+export interface FlagsListSnapshot extends FlagSnapshotInfo {
+  enabled: boolean
+}
+
+/** `GET /platform/flags`. */
+export interface FlagsListResponse {
+  items: FlagRow[]
+  unregistered: UnregisteredRow[]
+  traits: TraitRow[]
+  snapshot: FlagsListSnapshot
+}
+
+/** One flag's evaluation for the person asked about. */
+export interface FlagEvaluationRow {
+  key: string
+  value: boolean | string
+  reason: FlagReason
+  /** The release condition that matched, from 0. */
+  conditionIndex?: number
+  /** Set for a holdout user: they see the fallback, and exposure records this. */
+  holdoutVariant?: string
+}
+
+/**
+ * `GET /platform/flags/evaluate`: the traits express derived and every
+ * registered flag's evaluation. `tenant_created_days` is absent when no
+ * tenant was asked about.
+ */
+export interface FlagsEvaluateResponse {
+  traits: Partial<Record<TraitName, string | number>>
+  flags: FlagEvaluationRow[]
+  snapshot: FlagSnapshotInfo
+}
+
+/** Why the last definitions fetch failed, as express names it. */
+export type FlagFetchErrorCode =
+  'unauthorized' | 'http_error' | 'timeout' | 'network' | 'body_too_large' | 'invalid_body'
+
+/** Feature flags' health, as the system status reports it. */
+export interface FlagsStatus {
+  enabled: boolean
+  /** When the snapshot was last fetched with changes. */
+  snapshotAt: string | null
+  /** When PostHog was last asked, changed or not. */
+  checkedAt: string | null
+  stale: boolean
+  lastFetchOk: string | null
+  /** A fixed code naming the last failed fetch; cleared by a good one. */
+  lastFetchError: FlagFetchErrorCode | null
+  /** PostHog's `property_matching_version`; express's matching is validated for 1 only. */
+  propertyMatchingVersion: number | null
+  counts: {
+    registered: number
+    active: number
+    inactive: number
+    missing: number
+    unsupported: number
+    unregistered: number
+    unknownVariant15m: number
+  }
+}
+
 /**
  * `GET /platform/system/status`. An open object: later API versions add
- * sections, which this build ignores.
+ * sections, which this build ignores. `flags` is absent before express 1.8.0.
  */
 export interface SystemStatus {
   /** The API's git sha, or `dev`. */
   release: string
   errorTracking: ErrorTrackingStatus
+  flags?: FlagsStatus
 }

@@ -4,13 +4,13 @@ The staff admin dashboard boilerplate: a React 19 + TypeScript single-page app
 for the people who run a product, not the people who use it. Its sibling,
 `react-boilerplate`, is the customer app; both are built on the
 `express-boilerplate` API. Apex ships a sign-in, a grouped-sidebar shell, a
-⌘K command palette and nine staff pages: Overview (KPI cards and charts),
+⌘K command palette and ten staff pages: Overview (KPI cards and charts),
 Tenants (every customer tenant, keyset-paged, each with a detail page for its
-overview, members, invitations, activity, timeline, errors, emails and onboarding), Users (every account, each with
+overview, members, invitations, activity, timeline, errors, emails, onboarding and flags), Users (every account, each with
 a detail page and, for admins, a PostHog timeline and error list), Staff (the platform's own members and invitations), Emails
 (every tracked message, with a delivery timeline and preview), Deliverability
 (delivery, bounce and complaint rates), Suppressions (addresses mail is held
-back from), Onboarding (the activation funnel and the tenants stuck in it) and the Activity log (the platform audit log).
+back from), Feature flags (every registered flag's live state, and any user's evaluation), Onboarding (the activation funnel and the tenants stuck in it) and the Activity log (the platform audit log).
 
 Only platform staff get in. A signed-in user with no platform role lands on
 `/no-access`, and the API answers `/platform/*` with **404** to anyone below
@@ -140,8 +140,10 @@ ignores `API_UPSTREAM` (`pnpm dev` proxies to `http://localhost:4040`, or
 which is the sidebar's section order. `minRole` is the least platform role that
 sees the item; an item above the signed-in user's role is hidden, never shown
 disabled. The API enforces the same bar, so `minRole` is only about what to
-show. A new route also widens the `NavPath` union in that file, and needs a
-file under `src/pages/_app/`. The guard for the whole shell lives in
+show. An item may also name a boolean `flag` from Apex's slice of the flag
+registry (`src/observability/flags/flag-keys.ts`); it shows only while that
+flag is `true`, and its route enforces the same flag. A new route also widens
+the `NavPath` union in that file, and needs a file under `src/pages/_app/`. The guard for the whole shell lives in
 `src/pages/_app.tsx`: signed-out goes to `/login`, signed-in without a platform
 role goes to `/no-access`.
 
@@ -645,6 +647,54 @@ status** card shows the API's release and how many server errors it sent or
 dropped in the last 15 minutes. Both need express 1.7.0 or newer; the lists
 also need its PostHog personal key and project id (`POSTHOG_PERSONAL_API_KEY`,
 `POSTHOG_PROJECT_ID`), and say they are not set up when either is missing.
+
+## Feature flags
+
+Flags are declared in express's registry (`src/constants/flags.constants.ts`)
+and evaluated there, from a PostHog definitions snapshot, with traits express
+supplies. Apex never asks PostHog for a flag: posthog-js's own flag fetching
+is off (`advanced_disable_feature_flags`).
+
+- **Reading a flag.** `src/observability/flags/` is react-boilerplate's
+  module, copied byte for byte (see CLAUDE.md's sibling-sync table), except
+  `flag-keys.ts` and `flag-scope.ts`, which are Apex's own. The `_app`
+  layout's loader fetches Apex's values from `GET /platform/me/flags` (staff
+  are evaluated with no tenant) before the shell renders; a failed read
+  serves each flag's fallback and never blocks a page. `useFlag`,
+  `useVariant`, `<Flag>` and `requireClientFlag` read them, and a nav item's
+  `flag` hides it while off.
+- **Adding an Apex flag.** Declare it in express with `client: true` and
+  `apex` in `apps`, run express's `flags:sync` in each environment, then copy
+  its key, kind, variants, fallback and `experiment` into `CLIENT_FLAGS` in
+  `flag-keys.ts`, and its fallback into `TEST_FLAG_FALLBACKS` in
+  `tests/mocks/handlers.ts`, and add it to the `/platform/me/flags` answer in
+  `e2e/harness/harness.tsx`, or the harness serves the fallback and hides
+  flagged nav items. An unregistered key fails typecheck. Apex has no flag yet.
+- **The inspector.** **Feature flags** (Operations, every staff role) lists
+  each registered flag with its state in this environment's PostHog
+  (active, inactive, missing or unsupported, and the construct that made it
+  unsupported), PostHog's flags that no code declares, and the traits a
+  release condition may use, with copy buttons. Admins also get **Evaluate**:
+  pick a user from the directory, optionally one of their tenants, and the app
+  whose browser view to mark; every registered flag shows its value and the
+  reason, and a holdout user shows "Sees control, recorded as holdout-…". Each
+  evaluation is an audited read, so it is never refetched on its own. A
+  tenant's **Flags** tab (admins) evaluates one of its members there, and a
+  user's page links to their evaluation. Rollouts are edited in PostHog, never
+  here.
+- **Status.** The Overview's **System status** card gains a **Feature flags**
+  section: whether flags are set up, when the definitions were last checked and
+  last changed, the counts, the last
+  failed fetch, and **Needs attention** when the snapshot is missing or stale,
+  the last fetch failed, PostHog's property matching version is not 1 (or not
+  reported), or any
+  flag is missing, unsupported or answered an unknown variant.
+
+The flags pages, the tenant tab and the status section need express 1.8.0 or
+newer (an older API answers them 404, which reads as "your role can't see
+this", and its status has no flags section); evaluation needs express's
+`POSTHOG_FEATURE_FLAGS_KEY`, without which every flag serves its fallback and
+the page says flags are not set up.
 
 ## Deploying
 

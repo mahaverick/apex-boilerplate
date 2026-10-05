@@ -18,6 +18,7 @@ import { Route as ResetPasswordRouteImport } from './pages/reset-password'
 import { Route as VerifyEmailRouteImport } from './pages/verify-email'
 import { Route as AppActivityRouteImport } from './pages/_app/activity'
 import { Route as AppDeliverabilityRouteImport } from './pages/_app/deliverability'
+import { Route as AppFlagsRouteImport } from './pages/_app/flags'
 import { Route as AppOnboardingRouteImport } from './pages/_app/onboarding'
 import { Route as AppOverviewRouteImport } from './pages/_app/overview'
 import { Route as AppProfileRouteImport } from './pages/_app/profile'
@@ -38,6 +39,7 @@ import { Route as AppTenantsTenantIdIndexRouteImport } from './pages/_app/tenant
 import { Route as AppTenantsTenantIdActivityRouteImport } from './pages/_app/tenants/$tenantId.activity'
 import { Route as AppTenantsTenantIdEmailsRouteImport } from './pages/_app/tenants/$tenantId.emails'
 import { Route as AppTenantsTenantIdErrorsRouteImport } from './pages/_app/tenants/$tenantId.errors'
+import { Route as AppTenantsTenantIdFlagsRouteImport } from './pages/_app/tenants/$tenantId.flags'
 import { Route as AppTenantsTenantIdInvitationsRouteImport } from './pages/_app/tenants/$tenantId.invitations'
 import { Route as AppTenantsTenantIdMembersRouteImport } from './pages/_app/tenants/$tenantId.members'
 import { Route as AppTenantsTenantIdOnboardingRouteImport } from './pages/_app/tenants/$tenantId.onboarding'
@@ -87,6 +89,11 @@ const AppActivityRoute = AppActivityRouteImport.update({
 const AppDeliverabilityRoute = AppDeliverabilityRouteImport.update({
   id: '/deliverability',
   path: '/deliverability',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFlagsRoute = AppFlagsRouteImport.update({
+  id: '/flags',
+  path: '/flags',
   getParentRoute: () => AppRoute,
 } as any)
 const AppOnboardingRoute = AppOnboardingRouteImport.update({
@@ -192,6 +199,11 @@ const AppTenantsTenantIdErrorsRoute =
     path: '/errors',
     getParentRoute: () => AppTenantsTenantIdRoute,
   } as any)
+const AppTenantsTenantIdFlagsRoute = AppTenantsTenantIdFlagsRouteImport.update({
+  id: '/flags',
+  path: '/flags',
+  getParentRoute: () => AppTenantsTenantIdRoute,
+} as any)
 const AppTenantsTenantIdInvitationsRoute =
   AppTenantsTenantIdInvitationsRouteImport.update({
     id: '/invitations',
@@ -240,6 +252,7 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof VerifyEmailRoute
   '/activity': typeof AppActivityRoute
   '/deliverability': typeof AppDeliverabilityRoute
+  '/flags': typeof AppFlagsRoute
   '/onboarding': typeof AppOnboardingRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
@@ -259,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
   '/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/tenants/$tenantId/errors': typeof AppTenantsTenantIdErrorsRoute
+  '/tenants/$tenantId/flags': typeof AppTenantsTenantIdFlagsRoute
   '/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
   '/tenants/$tenantId/members': typeof AppTenantsTenantIdMembersRoute
   '/tenants/$tenantId/onboarding': typeof AppTenantsTenantIdOnboardingRoute
@@ -276,6 +290,7 @@ export interface FileRoutesByTo {
   '/verify-email': typeof VerifyEmailRoute
   '/activity': typeof AppActivityRoute
   '/deliverability': typeof AppDeliverabilityRoute
+  '/flags': typeof AppFlagsRoute
   '/onboarding': typeof AppOnboardingRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
@@ -293,6 +308,7 @@ export interface FileRoutesByTo {
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
   '/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/tenants/$tenantId/errors': typeof AppTenantsTenantIdErrorsRoute
+  '/tenants/$tenantId/flags': typeof AppTenantsTenantIdFlagsRoute
   '/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
   '/tenants/$tenantId/members': typeof AppTenantsTenantIdMembersRoute
   '/tenants/$tenantId/onboarding': typeof AppTenantsTenantIdOnboardingRoute
@@ -313,6 +329,7 @@ export interface FileRoutesById {
   '/verify-email': typeof VerifyEmailRoute
   '/_app/activity': typeof AppActivityRoute
   '/_app/deliverability': typeof AppDeliverabilityRoute
+  '/_app/flags': typeof AppFlagsRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/overview': typeof AppOverviewRoute
   '/_app/profile': typeof AppProfileRoute
@@ -332,6 +349,7 @@ export interface FileRoutesById {
   '/_app/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
   '/_app/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/_app/tenants/$tenantId/errors': typeof AppTenantsTenantIdErrorsRoute
+  '/_app/tenants/$tenantId/flags': typeof AppTenantsTenantIdFlagsRoute
   '/_app/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
   '/_app/tenants/$tenantId/members': typeof AppTenantsTenantIdMembersRoute
   '/_app/tenants/$tenantId/onboarding': typeof AppTenantsTenantIdOnboardingRoute
@@ -351,6 +369,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/activity'
     | '/deliverability'
+    | '/flags'
     | '/onboarding'
     | '/overview'
     | '/profile'
@@ -370,6 +389,7 @@ export interface FileRouteTypes {
     | '/tenants/$tenantId/activity'
     | '/tenants/$tenantId/emails'
     | '/tenants/$tenantId/errors'
+    | '/tenants/$tenantId/flags'
     | '/tenants/$tenantId/invitations'
     | '/tenants/$tenantId/members'
     | '/tenants/$tenantId/onboarding'
@@ -387,6 +407,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/activity'
     | '/deliverability'
+    | '/flags'
     | '/onboarding'
     | '/overview'
     | '/profile'
@@ -404,6 +425,7 @@ export interface FileRouteTypes {
     | '/tenants/$tenantId/activity'
     | '/tenants/$tenantId/emails'
     | '/tenants/$tenantId/errors'
+    | '/tenants/$tenantId/flags'
     | '/tenants/$tenantId/invitations'
     | '/tenants/$tenantId/members'
     | '/tenants/$tenantId/onboarding'
@@ -423,6 +445,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/_app/activity'
     | '/_app/deliverability'
+    | '/_app/flags'
     | '/_app/onboarding'
     | '/_app/overview'
     | '/_app/profile'
@@ -442,6 +465,7 @@ export interface FileRouteTypes {
     | '/_app/tenants/$tenantId/activity'
     | '/_app/tenants/$tenantId/emails'
     | '/_app/tenants/$tenantId/errors'
+    | '/_app/tenants/$tenantId/flags'
     | '/_app/tenants/$tenantId/invitations'
     | '/_app/tenants/$tenantId/members'
     | '/_app/tenants/$tenantId/onboarding'
@@ -527,6 +551,13 @@ declare module '@tanstack/react-router' {
       path: '/deliverability'
       fullPath: '/deliverability'
       preLoaderRoute: typeof AppDeliverabilityRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/flags': {
+      id: '/_app/flags'
+      path: '/flags'
+      fullPath: '/flags'
+      preLoaderRoute: typeof AppFlagsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/onboarding': {
@@ -669,6 +700,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantsTenantIdErrorsRouteImport
       parentRoute: typeof AppTenantsTenantIdRoute
     }
+    '/_app/tenants/$tenantId/flags': {
+      id: '/_app/tenants/$tenantId/flags'
+      path: '/flags'
+      fullPath: '/tenants/$tenantId/flags'
+      preLoaderRoute: typeof AppTenantsTenantIdFlagsRouteImport
+      parentRoute: typeof AppTenantsTenantIdRoute
+    }
     '/_app/tenants/$tenantId/invitations': {
       id: '/_app/tenants/$tenantId/invitations'
       path: '/invitations'
@@ -725,6 +763,7 @@ interface AppTenantsTenantIdRouteChildren {
   AppTenantsTenantIdActivityRoute: typeof AppTenantsTenantIdActivityRoute
   AppTenantsTenantIdEmailsRoute: typeof AppTenantsTenantIdEmailsRoute
   AppTenantsTenantIdErrorsRoute: typeof AppTenantsTenantIdErrorsRoute
+  AppTenantsTenantIdFlagsRoute: typeof AppTenantsTenantIdFlagsRoute
   AppTenantsTenantIdInvitationsRoute: typeof AppTenantsTenantIdInvitationsRoute
   AppTenantsTenantIdMembersRoute: typeof AppTenantsTenantIdMembersRoute
   AppTenantsTenantIdOnboardingRoute: typeof AppTenantsTenantIdOnboardingRoute
@@ -736,6 +775,7 @@ const AppTenantsTenantIdRouteChildren: AppTenantsTenantIdRouteChildren = {
   AppTenantsTenantIdActivityRoute: AppTenantsTenantIdActivityRoute,
   AppTenantsTenantIdEmailsRoute: AppTenantsTenantIdEmailsRoute,
   AppTenantsTenantIdErrorsRoute: AppTenantsTenantIdErrorsRoute,
+  AppTenantsTenantIdFlagsRoute: AppTenantsTenantIdFlagsRoute,
   AppTenantsTenantIdInvitationsRoute: AppTenantsTenantIdInvitationsRoute,
   AppTenantsTenantIdMembersRoute: AppTenantsTenantIdMembersRoute,
   AppTenantsTenantIdOnboardingRoute: AppTenantsTenantIdOnboardingRoute,
@@ -765,6 +805,7 @@ const AppUsersUserIdRouteWithChildren = AppUsersUserIdRoute._addFileChildren(
 interface AppRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
   AppDeliverabilityRoute: typeof AppDeliverabilityRoute
+  AppFlagsRoute: typeof AppFlagsRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppOverviewRoute: typeof AppOverviewRoute
   AppProfileRoute: typeof AppProfileRoute
@@ -781,6 +822,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppActivityRoute: AppActivityRoute,
   AppDeliverabilityRoute: AppDeliverabilityRoute,
+  AppFlagsRoute: AppFlagsRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppOverviewRoute: AppOverviewRoute,
   AppProfileRoute: AppProfileRoute,

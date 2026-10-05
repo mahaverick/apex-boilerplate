@@ -14,7 +14,8 @@ const NAMES = ['A B', 'Cleo D', 'Cleo', 'Sam Staff', 'Evangeline', 'Featherstone
 
 const ACME = '/tenants/10000000-0000-4000-8000-000000000001'
 const DELTA = '/tenants/10000000-0000-4000-8000-000000000004'
-const CLEO = '/users/20000000-0000-4000-8000-000000000002'
+const CLEO_ID = '20000000-0000-4000-8000-000000000002'
+const CLEO = `/users/${CLEO_ID}`
 const DELETED = '/users/20000000-0000-4000-8000-000000000003'
 const DELIVERED = '/emails/70000000-0000-4000-8000-000000000001'
 const BOUNCED = '/emails/70000000-0000-4000-8000-000000000002'
@@ -85,6 +86,28 @@ for (const [name, path] of [
     expect(await unmaskedPii(page, NAMES)).toEqual([])
   })
 }
+
+/**
+ * The flags pages, once an evaluation has landed: the evaluated user's name
+ * and address, the user picker's matches and a tenant's member buttons.
+ */
+for (const [name, path] of [
+  ['the flags evaluation', `/flags?userId=${CLEO_ID}`],
+  ['a tenant’s flags', `${ACME}/flags?userId=${CLEO_ID}`],
+] as const) {
+  test(`${name} renders every name and address inside Pii`, async ({ page }) => {
+    await page.goto(`/e2e/harness/?path=${path}`)
+    await expect(page.getByRole('table', { name: 'Evaluation' })).toBeVisible()
+    expect(await unmaskedPii(page, NAMES)).toEqual([])
+  })
+}
+
+test('the flags user picker lists its matches inside Pii', async ({ page }) => {
+  await page.goto('/e2e/harness/?path=/flags')
+  await page.getByRole('searchbox', { name: 'Find a user' }).fill('c')
+  await expect(page.getByRole('list', { name: 'Matching users' })).toBeVisible()
+  expect(await unmaskedPii(page, NAMES)).toEqual([])
+})
 
 test('a tenant’s timeline names its actors, each inside Pii', async ({ page }) => {
   await page.goto(`/e2e/harness/?path=${ACME}/timeline`)

@@ -31,11 +31,13 @@ export const ROUTES = {
   tenantErrors: '/tenants/$tenantId/errors',
   tenantEmails: '/tenants/$tenantId/emails',
   tenantOnboarding: '/tenants/$tenantId/onboarding',
+  tenantFlags: '/tenants/$tenantId/flags',
   emails: '/emails',
   email: '/emails/$emailId',
   deliverability: '/deliverability',
   suppressions: '/suppressions',
   onboarding: '/onboarding',
+  flags: '/flags',
   noAccess: '/no-access',
   invitationAccept: '/invitations/accept',
 } as const

@@ -4,6 +4,7 @@ import {
   API_ORIGIN,
   apiIsReady,
   apiLogin,
+  apiRequest,
   createVerifiedUser,
   freshEmail,
   grantPlatformRole,
@@ -104,4 +105,59 @@ test('an invited newcomer registers from the accept page, verifies from an Apex 
   await page.getByRole('button', { name: 'Accept invitation' }).click()
   await expect(page).toHaveURL(/\/overview(\?|$)/)
   await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
+})
+
+/** The id of the account at `email`, looked up with a staff token. */
+async function userIdOf(token: string, email: string): Promise<string> {
+  const found = await apiRequest(token, 'GET', `/platform/users?q=${encodeURIComponent(email)}`)
+  const users = (found.body as { data: { users: { id: string; email: string }[] } }).data.users
+  return users.find((user) => user.email === email)!.id
+}
+
+test('a viewer sees the flag registry with no Evaluate form', async ({ page }) => {
+  const email = freshEmail()
+  await createVerifiedUser(email)
+  await grantPlatformRole(email, 'viewer')
+  await logIn(page, email)
+
+  await page.goto('/flags')
+  await expect(page.getByRole('heading', { name: 'Feature flags', level: 1 })).toBeVisible()
+  const registry = page.getByRole('table', { name: 'Registered flags', exact: true })
+  await expect(registry.getByRole('row').nth(1)).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Traits reference' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Evaluate' })).toHaveCount(0)
+})
+
+test('an admin evaluates one user twice and the Activity log records it once', async ({ page }) => {
+  // Throttled by express: the second evaluation of the same user writes no audit entry.
+  test.setTimeout(90_000)
+  const admin = freshEmail()
+  await createVerifiedUser(admin)
+  await grantPlatformRole(admin, 'admin')
+  const subject = freshEmail()
+  await createVerifiedUser(subject)
+  const token = await apiLogin(admin)
+  const subjectId = await userIdOf(token, subject)
+  await logIn(page, admin)
+
+  await page.goto(`/flags?userId=${subjectId}&app=react`)
+  const panel = page.getByRole('region', { name: 'Evaluate' })
+  await expect(panel.getByRole('table', { name: 'Evaluation' })).toBeVisible()
+
+  // The same user again, as a fresh request (the first one's result is cached for 30 s).
+  const again = await apiRequest(
+    token,
+    'GET',
+    `/platform/flags/evaluate?userId=${subjectId}&app=react`
+  )
+  expect(again.status).toBe(200)
+
+  await page.goto('/activity')
+  await page.getByRole('combobox', { name: 'Filter by action' }).click()
+  await page.getByRole('option', { name: 'User flags evaluated', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Filter by who acted' }).click()
+  await page.getByRole('option', { name: admin, exact: false }).click()
+  const log = page.getByRole('list', { name: 'Activity' })
+  await expect(log.getByRole('listitem')).toHaveCount(1)
+  await expect(log.getByText(/evaluated a user’s feature flags for the customer app/)).toBeVisible()
 })

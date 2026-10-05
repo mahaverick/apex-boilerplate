@@ -12,7 +12,7 @@ of these is a deliberate act, not a tidy-up.
 Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
 `express-boilerplate` API (1.4.0 or newer, run with `APEX_URL` set to this app's
 origin, `http://localhost:5174` locally; the user and tenant timelines need
-1.6.0, and the Errors pages and the system status card 1.7.0). `react-boilerplate`, the customer app,
+1.6.0, the Errors pages and the system status card 1.7.0, and the flags pages 1.8.0). `react-boilerplate`, the customer app,
 is its sibling. Vite, TanStack Router (file-based), TanStack Query, TanStack
 Form, TanStack Table 9, Zustand, Tailwind v4, Base UI via shadcn, recharts,
 axios, Zod v4, Vitest + Testing Library + MSW.
@@ -28,23 +28,24 @@ These paths hold the same behaviour in both; a change to one here means
 checking the other in the same PR, and the PR description says what happened
 there ("ported in react#N", or "not applicable because …").
 
-| Path                                                                                                                                                                                  | Why it must stay in step                                                                                    |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `src/http/*`                                                                                                                                                                          | Session refresh single-flight, 401-verdict sign-out, SSE transport, trace headers, analytics identity order |
-| `src/lib/api-error.ts`                                                                                                                                                                | Error envelope parsing                                                                                      |
-| `src/schemas/auth.schemas.ts`, `src/schemas/safe-text.schemas.ts`                                                                                                                     | Mirror the backend validators                                                                               |
-| `src/components/ui/form.tsx`, `src/components/ui/sonner.tsx`                                                                                                                          | Hand-written, shared behaviour                                                                              |
-| `nginx.conf` security headers and CSP, and `location /api/v1/collect/`                                                                                                                | Same threat model; same replay batch size                                                                   |
-| `src/observability/analytics/*`, except `config.ts`'s per-app constants and `events.ts`'s registry                                                                                    | One PII, consent, handoff and identity contract for both apps                                               |
-| `src/components/shared/pii.tsx`, `e2e/helpers/fake-posthog.ts`                                                                                                                        | The masking class and the egress guard's fake PostHog                                                       |
-| `docker/10-runtime-config.sh`, `src/configs/runtime-config.ts`, `scripts/runtime-config-plugin.mjs`, `nginx.conf`'s `location = /runtime-config.js`                                   | One run-time configuration contract: the same variable names, patterns and file in both images              |
-| `public/theme-init.js`, `src/lib/zod-jitless.ts`                                                                                                                                      | CSP compatibility                                                                                           |
-| `eslint.config.js` rule set (not its file lists)                                                                                                                                      | Same conventions                                                                                            |
-| `src/observability/errors/**`, `src/observability/identity-epoch.ts`, `tests/fixtures/error-scrub-vectors.json`                                                                       | One capture, filter, scrub and consent contract; the vectors are express-boilerplate's, byte for byte       |
-| `tests/mocks/posthog.ts`                                                                                                                                                              | The posthog-js stand-in the analytics and error tests share                                                 |
-| `src/components/features/route-error.tsx`, `src/main.tsx`, the `setErrorRouteSource` line in `src/router.tsx`                                                                         | Both report router and React root errors, and the route they happened on, the same way                      |
-| `docker/upload-sourcemaps.sh`, `docker/check-image.sh`, `docker/posthog-cli.sha256`, the Dockerfile's build stage, `.github/workflows/deploy.yml` (byte-identical in all three repos) | One sourcemap pipeline: inject, upload per project, delete the maps                                         |
-| `nginx.conf`'s `.map` location                                                                                                                                                        | No source map is ever served                                                                                |
+| Path                                                                                                                                                                                                                                    | Why it must stay in step                                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `src/http/*`                                                                                                                                                                                                                            | Session refresh single-flight, 401-verdict sign-out, SSE transport, trace headers, analytics identity order |
+| `src/lib/api-error.ts`                                                                                                                                                                                                                  | Error envelope parsing                                                                                      |
+| `src/schemas/auth.schemas.ts`, `src/schemas/safe-text.schemas.ts`                                                                                                                                                                       | Mirror the backend validators                                                                               |
+| `src/components/ui/form.tsx`, `src/components/ui/sonner.tsx`                                                                                                                                                                            | Hand-written, shared behaviour                                                                              |
+| `nginx.conf` security headers and CSP, and `location /api/v1/collect/`                                                                                                                                                                  | Same threat model; same replay batch size                                                                   |
+| `src/observability/analytics/*`, except `config.ts`'s per-app constants and `events.ts`'s registry                                                                                                                                      | One PII, consent, handoff and identity contract for both apps                                               |
+| `src/components/shared/pii.tsx`, `e2e/helpers/fake-posthog.ts`                                                                                                                                                                          | The masking class and the egress guard's fake PostHog                                                       |
+| `docker/10-runtime-config.sh`, `src/configs/runtime-config.ts`, `scripts/runtime-config-plugin.mjs`, `nginx.conf`'s `location = /runtime-config.js`                                                                                     | One run-time configuration contract: the same variable names, patterns and file in both images              |
+| `public/theme-init.js`, `src/lib/zod-jitless.ts`                                                                                                                                                                                        | CSP compatibility                                                                                           |
+| `eslint.config.js` rule set (not its file lists)                                                                                                                                                                                        | Same conventions                                                                                            |
+| `src/observability/errors/**`, `src/observability/identity-epoch.ts`, `tests/fixtures/error-scrub-vectors.json`                                                                                                                         | One capture, filter, scrub and consent contract; the vectors are express-boilerplate's, byte for byte       |
+| `src/observability/flags/**`, `tests/unit/observability/flags/**` and `tests/fixtures/test-client-flags.ts`, except each app's `flag-keys.ts` and `flag-scope.ts` and their app-owned tests (`flag-keys.test.ts`, `flag-scope.test.ts`) | One flag read, refetch, exposure and `$feature/*` contract; react's is canonical, copied here by script     |
+| `tests/mocks/posthog.ts`                                                                                                                                                                                                                | The posthog-js stand-in the analytics and error tests share                                                 |
+| `src/components/features/route-error.tsx`, `src/main.tsx`, the `setErrorRouteSource` line in `src/router.tsx`                                                                                                                           | Both report router and React root errors, and the route they happened on, the same way                      |
+| `docker/upload-sourcemaps.sh`, `docker/check-image.sh`, `docker/posthog-cli.sha256`, the Dockerfile's build stage, `.github/workflows/deploy.yml` (byte-identical in all three repos)                                                   | One sourcemap pipeline: inject, upload per project, delete the maps                                         |
+| `nginx.conf`'s `.map` location                                                                                                                                                                                                          | No source map is ever served                                                                                |
 
 Apex is the home of staff screens; the customer app keeps only the staff paths
 that live on tenant pages.
@@ -208,6 +209,24 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   one, run the tests that pin its internals: `url-sanitizer.test.ts`,
   `handoff.test.ts` and `analytics.sdk.test.ts` (all run the real SDK) and
   `e2e/nginx/analytics.test.ts`.
+
+## Feature flags — the rules that leak or mislead when broken
+
+- **express is the only evaluator.** Apex reads its values from
+  `GET /platform/me/flags`; it never calls posthog-js's `getFeatureFlag`,
+  `isFeatureEnabled` or `onFeatureFlags`, and `advanced_disable_feature_flags`
+  stays set (not `advanced_disable_flags`, which also stops session replay).
+- **`flag-keys.ts` mirrors express by hand.** Apex's slice is every express
+  entry with `client: true` and `apex` in `apps`; it is empty today, so every
+  key type is `never` and reading a flag fails typecheck until one is added.
+  The module's other files are react's: fix them there, then copy. The
+  react-to-apex copy and verify scripts (`sync-from-react.sh`, and
+  `verify-sync.sh` with its optional `resolutions.tsv`) are kept in the docs
+  repo at `~/Mahaverick/docs/.sp5d-lanes/apex-sync/`.
+- **The inspector is read-only.** Rollouts are edited in PostHog. An
+  evaluation is an audited read: `flagsEvaluateQueryOptions` never retries or
+  refetches on focus, like the timelines, and its traits are shown to admins
+  only.
 
 ## The container
 
@@ -460,6 +479,7 @@ header. `?path=` picks the route; the default is `/overview`, and the harness us
 or, with `?role=none`, a signed-in user with no platform role, which is the only way `/no-access` renders there,
 or, with `?role=viewer`, staff below admin, which is how the admin-only timelines' and Errors pages' refusal renders.
 `?errors=unconfigured` answers the Errors routes as an API without a PostHog personal key does.
+`?flags=unconfigured` answers the flags routes as an API without the feature flags key does.
 
 `playwright.config.ts` starts the dev server as `vite --force`, and that is load-bearing:
 Vite trusts a dependency cache whose lockfile and config hashes still match, so a source

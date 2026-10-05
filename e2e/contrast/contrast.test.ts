@@ -146,6 +146,17 @@ const SURFACES = [
     url: `/e2e/harness/?path=${ACME_PAGE}/errors`,
     heading: /^Errors$/,
   },
+  // The flags inspector: state and reason badges, the traits' copy buttons and an evaluation.
+  {
+    name: 'flags',
+    url: `/e2e/harness/?path=/flags?userId=20000000-0000-4000-8000-000000000002&tenantId=10000000-0000-4000-8000-000000000001`,
+    heading: 'Feature flags',
+  },
+  {
+    name: 'tenant flags',
+    url: `/e2e/harness/?path=${ACME_PAGE}/flags?userId=20000000-0000-4000-8000-000000000002`,
+    heading: /^Flags$/,
+  },
   // Frozen: the Suspended badge and the frozen notice.
   {
     name: 'suspended tenant',

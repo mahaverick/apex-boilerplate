@@ -19,6 +19,7 @@ import { isStaff } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { analyticsKey, track } from '@/observability/analytics'
+import { useFlagValues } from '@/observability/flags/flag-hooks'
 import { isRoleDenied, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { platformTenantsQueryOptions } from '@/queries/tenant-admin.queries'
 import { platformUsersQueryOptions } from '@/queries/user-admin.queries'
@@ -60,6 +61,7 @@ export function CommandPalette() {
   const setOpen = useCommandPaletteStore((state) => state.setOpen)
   const toggle = useCommandPaletteStore((state) => state.toggle)
   const role = useAuthStore((state) => state.user?.platformRole)
+  const flags = useFlagValues()
   const shortcutsId = useId()
   const [query, setQuery] = useState('')
   const [wasOpen, setWasOpen] = useState(open)
@@ -100,7 +102,7 @@ export function CommandPalette() {
   }, [toggle])
 
   const needle = current.toLowerCase()
-  const pages: PaletteItem[] = navItemsFor(role)
+  const pages: PaletteItem[] = navItemsFor(role, flags)
     .filter((item) => needle === '' || item.label.toLowerCase().includes(needle))
     .map((item) => ({ kind: 'page', value: item.to, label: item.label, to: item.to }))
   // Only the current term's results: a stale list must never take the Enter.
