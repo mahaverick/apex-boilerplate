@@ -63,7 +63,7 @@ function flagCounts(counts: FlagsStatus['counts']): string {
   ].join(', ')
 }
 
-/** The feature flags section: state, snapshot age, counts and the last failed fetch. */
+/** The feature flags section: state, when definitions were checked and last changed, counts and the last failed fetch. */
 function FlagsFacts({ flags }: { flags: FlagsStatus }) {
   return (
     <div className="grid gap-2">
@@ -80,16 +80,22 @@ function FlagsFacts({ flags }: { flags: FlagsStatus }) {
         </dd>
         {flags.enabled && (
           <>
-            <dt className="text-muted-foreground">Snapshot</dt>
+            <dt className="text-muted-foreground">Checked</dt>
+            <dd>
+              {flags.checkedAt === null ? (
+                'Not yet'
+              ) : (
+                <time dateTime={flags.checkedAt}>{relativeTime(flags.checkedAt)}</time>
+              )}
+              {flags.stale && <span className="text-muted-foreground"> (stale)</span>}
+            </dd>
+            <dt className="text-muted-foreground">Last changed</dt>
             <dd>
               {flags.snapshotAt === null ? (
                 'None yet'
               ) : (
-                <>
-                  Fetched <time dateTime={flags.snapshotAt}>{relativeTime(flags.snapshotAt)}</time>
-                </>
+                <time dateTime={flags.snapshotAt}>{relativeTime(flags.snapshotAt)}</time>
               )}
-              {flags.stale && <span className="text-muted-foreground"> (stale)</span>}
             </dd>
             <dt className="text-muted-foreground">Flags</dt>
             <dd className="tabular-nums">
@@ -102,13 +108,15 @@ function FlagsFacts({ flags }: { flags: FlagsStatus }) {
                 </span>
               )}
             </dd>
-            {flags.propertyMatchingVersion !== null &&
+            {flags.snapshotAt !== null &&
               flags.propertyMatchingVersion !== VALIDATED_MATCHING_VERSION && (
                 <>
                   <dt className="text-muted-foreground">Matching</dt>
                   <dd>
-                    PostHog property matching version {flags.propertyMatchingVersion}; express is
-                    validated for version {VALIDATED_MATCHING_VERSION}
+                    {flags.propertyMatchingVersion === null
+                      ? 'PostHog did not report a property matching version'
+                      : `PostHog property matching version ${flags.propertyMatchingVersion}`}
+                    ; express is validated for version {VALIDATED_MATCHING_VERSION}
                   </dd>
                 </>
               )}

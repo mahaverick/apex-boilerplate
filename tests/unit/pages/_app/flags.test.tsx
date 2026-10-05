@@ -8,7 +8,7 @@ import { TENANT_ID, TENANT_ID_2, USER_ID_2 } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { PlatformUserDetail, PlatformUserRow } from '@/types/api.types'
+import type { FlagReason, FlagRow, PlatformUserDetail, PlatformUserRow } from '@/types/api.types'
 
 const CLEO_ROW: PlatformUserRow = {
   id: USER_ID_2,
@@ -160,10 +160,10 @@ describe('/flags', () => {
       )
     ).toBeInTheDocument()
     expect(screen.getByRole('table', { name: 'Registered flags' })).toBeInTheDocument()
-    expect(screen.queryByText(/PostHog snapshot from/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Flag definitions last changed/)).not.toBeInTheDocument()
   })
 
-  it('warns when the snapshot is stale, and says when it was fetched', async () => {
+  it('warns when the snapshot is stale, and says when the definitions last changed', async () => {
     serve(() =>
       ok(
         flagsList({
@@ -178,10 +178,23 @@ describe('/flags', () => {
         'PostHog has not been reached for over 10 minutes; flags use the last snapshot.'
       )
     ).toBeInTheDocument()
-    expect(screen.getByText(/PostHog snapshot from/).querySelector('time')).toHaveAttribute(
+    expect(screen.getByText(/Flag definitions last changed/).querySelector('time')).toHaveAttribute(
       'dateTime',
       '2026-10-05T09:00:00.000Z'
     )
+  })
+
+  it('shows a neutral badge with the raw value for a state this app does not know', async () => {
+    serve(() =>
+      ok(
+        flagsList({ items: [flagRow({ state: 'archived' as FlagRow['state'] })] }),
+        'Flags retrieved.'
+      )
+    )
+    renderAppAt('/flags')
+    await screen.findByRole('table', { name: 'Registered flags' })
+    const [row] = rowsOf('Registered flags')
+    expect(within(row!).getByText('archived')).toHaveAttribute('data-tone', 'neutral')
   })
 
   it('lists each trait with where it lives and examples, and copies its name', async () => {
@@ -313,6 +326,24 @@ describe('/flags evaluate', () => {
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
     await within(panel).findByRole('table', { name: 'Evaluation' })
     expect(evaluated).toEqual([`?userId=${USER_ID_2}&app=react`])
+  })
+
+  it('shows a neutral badge with the raw value for a reason this app does not know', async () => {
+    serve()
+    server.use(
+      http.get('/api/v1/platform/flags/evaluate', () =>
+        ok(
+          flagsEvaluation({
+            flags: [{ key: 'example_beta_page', value: true, reason: 'brand_new' as FlagReason }],
+          }),
+          'Flags evaluated.'
+        )
+      )
+    )
+    renderAppAt(`/flags?userId=${USER_ID_2}`)
+    const panel = await screen.findByRole('region', { name: 'Evaluate' })
+    const table = await within(panel).findByRole('table', { name: 'Evaluation' })
+    expect(within(table).getByText('brand_new')).toHaveAttribute('data-tone', 'neutral')
   })
 
   it('goes back to the picker when Change user is pressed', async () => {

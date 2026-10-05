@@ -667,7 +667,9 @@ is off (`advanced_disable_feature_flags`).
   `apex` in `apps`, run express's `flags:sync` in each environment, then copy
   its key, kind, variants, fallback and `experiment` into `CLIENT_FLAGS` in
   `flag-keys.ts`, and its fallback into `TEST_FLAG_FALLBACKS` in
-  `tests/mocks/handlers.ts`. An unregistered key fails typecheck. Apex has no flag yet.
+  `tests/mocks/handlers.ts`, and add it to the `/platform/me/flags` answer in
+  `e2e/harness/harness.tsx`, or the harness serves the fallback and hides
+  flagged nav items. An unregistered key fails typecheck. Apex has no flag yet.
 - **The inspector.** **Feature flags** (Operations, every staff role) lists
   each registered flag with its state in this environment's PostHog
   (active, inactive, missing or unsupported, and the construct that made it
@@ -681,9 +683,11 @@ is off (`advanced_disable_feature_flags`).
   user's page links to their evaluation. Rollouts are edited in PostHog, never
   here.
 - **Status.** The Overview's **System status** card gains a **Feature flags**
-  section: whether flags are set up, the snapshot's age, the counts, the last
+  section: whether flags are set up, when the definitions were last checked and
+  last changed, the counts, the last
   failed fetch, and **Needs attention** when the snapshot is missing or stale,
-  the last fetch failed, PostHog's property matching version is not 1, or any
+  the last fetch failed, PostHog's property matching version is not 1 (or not
+  reported), or any
   flag is missing, unsupported or answered an unknown variant.
 
 The flags pages, the tenant tab and the status section need express 1.8.0 or

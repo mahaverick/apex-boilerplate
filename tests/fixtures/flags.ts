@@ -160,7 +160,7 @@ export function flagsEvaluation(
 export const testFlagsStatus: FlagsStatus = {
   enabled: true,
   snapshotAt: '2026-10-05T09:59:30.000Z',
-  checkedAt: '2026-10-05T09:59:30.000Z',
+  checkedAt: '2026-10-05T09:59:50.000Z',
   stale: false,
   lastFetchOk: '2026-10-05T09:59:30.000Z',
   lastFetchError: null,

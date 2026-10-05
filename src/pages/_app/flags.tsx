@@ -65,7 +65,7 @@ function FlagsContent({ data, isAdmin }: { data: FlagsListResponse; isAdmin: boo
         <FlagRegistryTable items={data.items} />
         {data.snapshot.fetchedAt !== null && (
           <p className="text-xs text-muted-foreground">
-            PostHog snapshot from{' '}
+            Flag definitions last changed{' '}
             <time dateTime={data.snapshot.fetchedAt}>{relativeTime(data.snapshot.fetchedAt)}</time>.
             Rollouts are edited in PostHog.
           </p>

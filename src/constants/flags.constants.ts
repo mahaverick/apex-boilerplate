@@ -50,6 +50,36 @@ export const FLAG_REASON_BADGES: Record<FlagReason, { label: string; tone: Badge
   'fallback:inconclusive': { label: 'Fallback: inconclusive', tone: 'warning' },
 }
 
+/**
+ * A flag state's badge. A state a newer express added is shown as it came,
+ * in a neutral badge, rather than breaking the page.
+ * @param state - The state express reported.
+ * @returns The badge's label and tone.
+ */
+export function flagStateBadge(state: string): { label: string; tone: BadgeTone } {
+  return (
+    (FLAG_STATE_BADGES as Partial<Record<string, { label: string; tone: BadgeTone }>>)[state] ?? {
+      label: state,
+      tone: 'neutral',
+    }
+  )
+}
+
+/**
+ * An evaluation reason's badge. A reason a newer express added is shown as
+ * it came, in a neutral badge, rather than breaking the page.
+ * @param reason - The reason express reported.
+ * @returns The badge's label and tone.
+ */
+export function flagReasonBadge(reason: string): { label: string; tone: BadgeTone } {
+  return (
+    (FLAG_REASON_BADGES as Partial<Record<string, { label: string; tone: BadgeTone }>>)[reason] ?? {
+      label: reason,
+      tone: 'neutral',
+    }
+  )
+}
+
 /** Where a trait lives in a PostHog release condition. */
 export const TRAIT_WHERE_LABELS: Record<TraitRow['where'], string> = {
   person: 'Person property',

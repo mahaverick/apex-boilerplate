@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { FLAG_APP_LABELS, FLAG_STATE_BADGES } from '@/constants/flags.constants'
+import { FLAG_APP_LABELS, flagStateBadge } from '@/constants/flags.constants'
 import type { FlagRow } from '@/types/api.types'
 
 /** "3 conditions, up to 50%", or what PostHog holds when it has none. */
@@ -21,7 +21,7 @@ function rolloutText(row: FlagRow): string {
 
 /** One registered flag: its declaration from code and its state in PostHog. */
 function FlagRegistryRow({ row }: { row: FlagRow }) {
-  const state = FLAG_STATE_BADGES[row.state]
+  const state = flagStateBadge(row.state)
   return (
     <TableRow>
       <TableCell className="max-w-sm align-top whitespace-normal">

@@ -442,10 +442,13 @@ describe('the system status card’s feature flags', () => {
     renderAppAt('/overview')
     const section = await flagsSection()
     expect(section.getByText('Enabled')).toHaveAttribute('data-tone', 'success')
-    expect(section.getByText('Fetched', { exact: false }).querySelector('time')).toHaveAttribute(
+    expect(section.getByText('Checked').nextElementSibling?.querySelector('time')).toHaveAttribute(
       'dateTime',
-      testFlagsStatus.snapshotAt
+      testFlagsStatus.checkedAt
     )
+    expect(
+      section.getByText('Last changed').nextElementSibling?.querySelector('time')
+    ).toHaveAttribute('dateTime', testFlagsStatus.snapshotAt)
     expect(
       section.getByText(
         '2 registered: 1 active, 1 inactive, 0 missing, 0 unsupported, 3 unregistered in PostHog'
@@ -470,6 +473,7 @@ describe('the system status card’s feature flags', () => {
     ['a stale snapshot', { stale: true }],
     ['a failed last fetch', { lastFetchError: 'timeout' }],
     ['an unvalidated matching version', { propertyMatchingVersion: 2 }],
+    ['a matching version PostHog did not report', { propertyMatchingVersion: null }],
     ['a missing flag', { counts: { ...testFlagsStatus.counts, missing: 1 } }],
     ['an unsupported flag', { counts: { ...testFlagsStatus.counts, unsupported: 1 } }],
     ['an unknown variant', { counts: { ...testFlagsStatus.counts, unknownVariant15m: 4 } }],
@@ -495,6 +499,18 @@ describe('the system status card’s feature flags', () => {
       section.getByText('PostHog property matching version 2; express is validated for version 1')
     ).toBeInTheDocument()
     expect(section.getByText('(4 unknown variants in 15 minutes)')).toBeInTheDocument()
+  })
+
+  it('explains the warning when PostHog reported no matching version for a snapshot', async () => {
+    serveFlags({ propertyMatchingVersion: null })
+    renderAppAt('/overview')
+    const section = await flagsSection()
+    expect(section.getByText('Matching')).toBeInTheDocument()
+    expect(
+      section.getByText(
+        'PostHog did not report a property matching version; express is validated for version 1'
+      )
+    ).toBeInTheDocument()
   })
 
   it('says when there is no snapshot yet', async () => {

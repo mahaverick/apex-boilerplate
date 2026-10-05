@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/table'
 import {
   FLAG_APP_LABELS,
-  FLAG_REASON_BADGES,
+  flagReasonBadge,
   FLAGS_EVALUATE_ERROR,
   FLAGS_STALE_NOTE,
   TRAIT_NAMES,
@@ -49,7 +49,7 @@ function TraitValues({ traits }: { traits: FlagsEvaluateResponse['traits'] }) {
 
 /** One flag's value, why, and for a holdout user what exposure records. */
 function EvaluationRow({ row, sentToApp }: { row: FlagEvaluationRow; sentToApp: boolean }) {
-  const badge = FLAG_REASON_BADGES[row.reason]
+  const badge = flagReasonBadge(row.reason)
   return (
     <TableRow>
       <TableCell className="align-top">
