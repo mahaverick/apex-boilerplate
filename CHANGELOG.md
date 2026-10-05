@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.5.0...v1.6.0) (2026-10-05)
+
+
+### Features
+
+* error tracking, sourcemaps and the errors pages (sp5c) ([#19](https://github.com/mahaverick/apex-boilerplate/issues/19)) ([2da4bc0](https://github.com/mahaverick/apex-boilerplate/commit/2da4bc0b89e818659d8f9e50704583096903bbd6))
+
 ## [1.5.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.4.0...v1.5.0) (2026-10-04)
 
 
