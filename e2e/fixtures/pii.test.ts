@@ -70,6 +70,22 @@ for (const [name, path, probe] of [
   })
 }
 
+/**
+ * The Errors tabs, once their issues have landed: an exception message is
+ * untrusted text that can name a person (express scrubs addresses, not
+ * names), so it renders inside Pii.
+ */
+for (const [name, path] of [
+  ['a user’s errors', `${CLEO}/errors`],
+  ['a tenant’s errors', `${ACME}/errors`],
+] as const) {
+  test(`${name} renders every name and message inside Pii`, async ({ page }) => {
+    await page.goto(`/e2e/harness/?path=${path}`)
+    await expect(page.getByText('Member Evangeline Featherstonehaugh has no role')).toBeVisible()
+    expect(await unmaskedPii(page, NAMES)).toEqual([])
+  })
+}
+
 test('a tenant’s timeline names its actors, each inside Pii', async ({ page }) => {
   await page.goto(`/e2e/harness/?path=${ACME}/timeline`)
   const list = page.getByRole('list', { name: 'Timeline' })

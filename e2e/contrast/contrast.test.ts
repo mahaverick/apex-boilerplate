@@ -135,6 +135,17 @@ const SURFACES = [
     url: `/e2e/harness/?path=${ACME_PAGE}/timeline`,
     heading: /^Timeline$/,
   },
+  // The Errors pages: source, app and Unverified badges, and the PostHog links.
+  {
+    name: 'user errors',
+    url: `/e2e/harness/?path=${CLEO_PAGE}/errors`,
+    heading: /^Errors$/,
+  },
+  {
+    name: 'tenant errors',
+    url: `/e2e/harness/?path=${ACME_PAGE}/errors`,
+    heading: /^Errors$/,
+  },
   // Frozen: the Suspended badge and the frozen notice.
   {
     name: 'suspended tenant',

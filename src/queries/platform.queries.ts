@@ -5,11 +5,12 @@ import {
   type QueryClient,
   type QueryKey,
 } from '@tanstack/react-query'
+import { SYSTEM_STATUS_REFETCH_MS } from '@/constants/errors.constants'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
 import { invalidateEmails } from '@/queries/email.queries'
 import { onboardingKeys } from '@/queries/onboarding.queries'
-import type { ApiSuccess, PlatformStats, StatsRange } from '@/types/api.types'
+import type { ApiSuccess, PlatformStats, StatsRange, SystemStatus } from '@/types/api.types'
 
 /** How long a tenant search box waits for typing to stop before asking the API. */
 export const SEARCH_DEBOUNCE_MS = 250
@@ -17,6 +18,7 @@ export const SEARCH_DEBOUNCE_MS = 250
 /** Tenant search and paging live in tenant-admin.queries.ts. */
 export const platformKeys = {
   stats: (range: string) => ['platform', 'stats', range] as const,
+  systemStatus: ['platform', 'system', 'status'] as const,
 }
 
 /** The API's default page; its cap is 50. */
@@ -30,8 +32,9 @@ export const PLATFORM_PAGE_SIZE = 20
  * `/platform/tenants/:id` before 1.2.0, `/platform/emails*` and
  * `/platform/email-suppressions` before 1.3.0, `/platform/onboarding/*` and
  * `/platform/tenants/:id/onboarding` before 1.4.0, the user and tenant
- * `timeline` routes before 1.6.0), so it reads as role-denied: Apex needs
- * express 1.4.0 or newer, and 1.6.0 for timelines.
+ * `timeline` routes before 1.6.0, the `errors` routes and
+ * `/platform/system/status` before 1.7.0), so it reads as role-denied: Apex
+ * needs express 1.4.0 or newer, 1.6.0 for timelines and 1.7.0 for errors.
  * @param error - A query or mutation error.
  * @returns True for a 404.
  */
@@ -56,6 +59,25 @@ export function platformStatsQueryOptions(range: StatsRange) {
       ),
     /** Switching the window keeps the current figures up until the new ones land, rather than flashing skeletons. */
     placeholderData: keepPreviousData,
+    /** A 404 answers who is asking, so a retry changes nothing. */
+    retry: (failureCount, error) => !isRoleDenied(error) && failureCount < 1,
+  })
+}
+
+/**
+ * The API's release and error-tracking health, for the Overview's status
+ * card (admins and up). Asked again every minute, and only while the tab is
+ * visible: TanStack Query pauses `refetchInterval` in a hidden tab. A 404
+ * stops the polling, since asking again could only repeat who is asking.
+ * @returns Query options for `useQuery`.
+ */
+export function systemStatusQueryOptions() {
+  return queryOptions({
+    queryKey: platformKeys.systemStatus,
+    queryFn: async () =>
+      unwrap(await apiClient.get<ApiSuccess<SystemStatus>>('/platform/system/status')),
+    refetchInterval: (query) =>
+      isRoleDenied(query.state.error) ? false : SYSTEM_STATUS_REFETCH_MS,
     /** A 404 answers who is asking, so a retry changes nothing. */
     retry: (failureCount, error) => !isRoleDenied(error) && failureCount < 1,
   })

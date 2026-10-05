@@ -802,6 +802,77 @@ function timelineOf(kind: 'user' | 'tenant', id: string, params: URLSearchParams
   return { configured: true, rows: inRange, nextCursor: 'older', links }
 }
 
+/**
+ * `?errors=unconfigured` answers the errors routes as an environment
+ * without the PostHog personal key does; anything else is configured.
+ */
+const errorsParam = new URLSearchParams(location.search).get('errors')
+
+/** An issue in PostHog's Error Tracking for the project the harness pretends to read, with every field set. */
+function errorIssue(n: number, fields: Record<string, unknown>) {
+  const issueId = `01a107cd-0000-7000-8000-${String(n).padStart(12, '0')}`
+  return {
+    issueId,
+    type: 'TypeError',
+    value: "Cannot read properties of undefined (reading 'id')",
+    count: 3,
+    firstSeen: '2026-10-01T09:00:00.000Z',
+    lastSeen: '2026-10-04T09:58:00.000Z',
+    source: 'browser',
+    app: 'react',
+    verified: false,
+    link: `https://us.posthog.com/project/1/error_tracking/${issueId}`,
+    ...fields,
+  }
+}
+
+/**
+ * A user's or a tenant's issues, newest first: a browser crash whose message
+ * names a person (express scrubs addresses, never names), a signed API
+ * error with a long unbroken message, and a server row express did not sign.
+ */
+function errorsOf() {
+  if (errorsParam === 'unconfigured') return { configured: false }
+  return {
+    configured: true,
+    nextCursor: null,
+    items: [
+      errorIssue(1, { value: 'Member Evangeline Featherstonehaugh has no role' }),
+      errorIssue(2, {
+        type: 'PostgresError',
+        value: `duplicate key value violates unique constraint "${'tenants_slug_key_'.repeat(6)}"`,
+        count: 1284,
+        source: 'server',
+        app: 'api',
+        verified: true,
+        lastSeen: '2026-10-03T09:00:00.000Z',
+      }),
+      errorIssue(3, {
+        type: 'Error',
+        value: 'Forged server error',
+        count: 1,
+        source: 'server',
+        app: 'api',
+        verified: false,
+        lastSeen: '2026-10-02T09:00:00.000Z',
+      }),
+    ],
+  }
+}
+
+/** The API's release and error tracking's health: a few events throttled, so the card warns. */
+const SYSTEM_STATUS = {
+  release: '0a1b2c3d4e5f60718293a4b5c6d7e8f901234567',
+  errorTracking: {
+    enabled: true,
+    window: '15m',
+    sent: 42,
+    dropped: { throttled: 2, buffer_full: 0, rejected: 0, retry_exhausted: 0 },
+    lastSendOkAt: '2026-10-04T10:00:00.000Z',
+    lastSendError: null,
+  },
+}
+
 /** The API's step-up refusal, for the writes the fixtures drive into the stacked dialog. */
 function reauthRequired() {
   return Response.json(
@@ -824,6 +895,8 @@ const worker = setupWorker(
       'Platform stats retrieved.'
     )
   ),
+  // An admin's Overview also reads the API's release and error tracking's health.
+  http.get('/api/v1/platform/system/status', () => ok(SYSTEM_STATUS, 'System status retrieved.')),
   // The activity page (the platform log, its actor filter's staff list and its tenant filter's search), and the History cards: a user's by `targetId`, a tenant's by `tenantId` with `access=platform`.
   http.get('/api/v1/platform/audit-log', ({ request }) => {
     const params = new URL(request.url).searchParams
@@ -917,6 +990,9 @@ const worker = setupWorker(
       'Timeline retrieved.'
     )
   ),
+  // The user and tenant Errors tabs, configured unless `?errors=unconfigured`.
+  http.get('/api/v1/platform/users/:userId/errors', () => ok(errorsOf(), 'Errors retrieved.')),
+  http.get('/api/v1/platform/tenants/:tenantId/errors', () => ok(errorsOf(), 'Errors retrieved.')),
   http.get('/api/v1/platform/tenants/:tenantId', ({ params }) =>
     ok(tenantDetail(String(params.tenantId)), 'Tenant retrieved.')
   ),
@@ -1069,7 +1145,7 @@ useAuthStore.setState({
  * authenticated surfaces: the handlers above answer /profile,
  * /auth/providers, the tenants page's search, the activity page's three
  * requests, the Staff page's three, the users list and a user's page (its Emails
- * card and timeline included), a tenant's page with its tabs, the Emails list and an email's page with its
+ * card, timeline and errors included), a tenant's page with its tabs, the Emails list and an email's page with its
  * preview, Deliverability, Suppressions and Onboarding, so those pages render without a backend.
  *
  * Only a same-origin absolute path is accepted. This harness is not

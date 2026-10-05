@@ -869,3 +869,67 @@ export type TimelinePage =
       nextCursor: string | null
       links: TimelineLinks
     }
+
+/**
+ * Where an error issue's newest event came from. `server` is an event that
+ * claims express sent it (`app: 'api'`); `browser` is every other one.
+ */
+export type ErrorIssueSource = 'server' | 'browser'
+
+/**
+ * One PostHog Error Tracking issue seen for a user or a tenant in the last
+ * 30 days, described by its newest event. `value` is the exception message,
+ * scrubbed again by express, and still untrusted text: a browser event can
+ * say anything. `verified` is true only when express signed that event, so a
+ * `server` row with `verified: false` is a forgery or a broken signature.
+ */
+export interface ErrorIssue {
+  issueId: string
+  type: string
+  value: string
+  count: number
+  firstSeen: string
+  lastSeen: string
+  source: ErrorIssueSource
+  /** `api`, `react` or `apex`; `null` when the event named none or a value the API does not know. */
+  app: string | null
+  verified: boolean
+  /** The issue in PostHog's Error Tracking. */
+  link: string
+}
+
+/**
+ * `GET /platform/users|tenants/:id/errors`. `configured: false` is an
+ * environment without the PostHog personal key: nothing was asked of PostHog
+ * and nothing was audited. The list has one page; `nextCursor` is always null.
+ */
+export type ErrorIssuesPage =
+  { configured: false } | { configured: true; items: ErrorIssue[]; nextCursor: null }
+
+/** Why the API dropped an error event instead of sending it to PostHog. */
+export type ErrorDropReason = 'throttled' | 'buffer_full' | 'rejected' | 'retry_exhausted'
+
+/** Error tracking's health, summed over every API and worker process for the last 15 minutes. */
+export interface ErrorTrackingStatus {
+  enabled: boolean
+  window: '15m'
+  sent: number
+  dropped: Record<ErrorDropReason, number>
+  /** The last batch PostHog accepted, in the last 24 hours. */
+  lastSendOkAt: string | null
+  /**
+   * The HTTP status of the last send PostHog did not accept (refused, or
+   * answered with an error to retry); cleared once a batch is accepted.
+   */
+  lastSendError: number | null
+}
+
+/**
+ * `GET /platform/system/status`. An open object: later API versions add
+ * sections, which this build ignores.
+ */
+export interface SystemStatus {
+  /** The API's git sha, or `dev`. */
+  release: string
+  errorTracking: ErrorTrackingStatus
+}

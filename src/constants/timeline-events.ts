@@ -129,6 +129,8 @@ const AUDIT_WORDING: Record<AuditAction, 'sentence' | 'label'> = {
   'onboarding.reminder_sent': 'sentence',
   'user.timeline_viewed': 'label',
   'tenant.timeline_viewed': 'label',
+  'user.errors_viewed': 'label',
+  'tenant.errors_viewed': 'label',
 }
 
 /**

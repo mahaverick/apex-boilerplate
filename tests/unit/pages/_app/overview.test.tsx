@@ -4,8 +4,9 @@ import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@/states/auth.store'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
-import { fail, ok, testStats, testUser } from '@/tests/mocks/handlers'
+import { fail, ok, testStats, testSystemStatus, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import type { SystemStatus } from '@/types/api.types'
 
 describe('/overview', () => {
   beforeEach(() => {
@@ -274,5 +275,142 @@ describe('/overview', () => {
     vi.stubGlobal('location', { ...window.location, reload })
     await userEvent.setup().click(screen.getByRole('button', { name: 'Reload' }))
     expect(reload).toHaveBeenCalledOnce()
+  })
+})
+
+describe('the Overview’s system status card', () => {
+  beforeEach(() => {
+    signIn({ ...testUser, platformRole: 'admin' })
+  })
+
+  /** Answers the status with `status`; records each request. */
+  function serveStatus(answer: () => Response = () => ok(testSystemStatus, 'OK')) {
+    const seen: string[] = []
+    server.use(
+      http.get('/api/v1/platform/system/status', () => {
+        seen.push('status')
+        return answer()
+      })
+    )
+    return seen
+  }
+
+  function withTracking(tracking: Partial<SystemStatus['errorTracking']>): SystemStatus {
+    return {
+      ...testSystemStatus,
+      errorTracking: { ...testSystemStatus.errorTracking, ...tracking },
+    }
+  }
+
+  it('shows an admin the release, error tracking on, and the window’s sent and dropped counts', async () => {
+    serveStatus()
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'System status' })
+    expect(await within(card).findByText(testSystemStatus.release)).toBeInTheDocument()
+    expect(within(card).getByText('Enabled')).toHaveAttribute('data-tone', 'success')
+    expect(within(card).getByText('42')).toBeInTheDocument()
+    expect(within(card).getByText('0')).toBeInTheDocument()
+    expect(within(card).getByText('The API over the last 15 minutes')).toBeInTheDocument()
+    expect(card.querySelector('time')).toHaveAttribute('dateTime', '2026-10-04T10:00:00.000Z')
+    expect(within(card).queryByText('Needs attention')).not.toBeInTheDocument()
+    expect(within(card).queryByText('Last failed send')).not.toBeInTheDocument()
+  })
+
+  it('warns, naming each reason, when events were dropped', async () => {
+    serveStatus(() =>
+      ok(
+        withTracking({
+          dropped: { throttled: 3, buffer_full: 0, rejected: 1, retry_exhausted: 0 },
+        }),
+        'OK'
+      )
+    )
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'System status' })
+    expect(await within(card).findByText('Needs attention')).toHaveAttribute('data-tone', 'warning')
+    expect(within(card).getByText('Dropped').nextElementSibling).toHaveTextContent(
+      '4 (Throttled 3, Refused by PostHog 1)'
+    )
+  })
+
+  it('warns, with the status, when the last send failed, and says when nothing was sent', async () => {
+    serveStatus(() => ok(withTracking({ lastSendError: 401, lastSendOkAt: null }), 'OK'))
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'System status' })
+    expect(await within(card).findByText('Needs attention')).toBeInTheDocument()
+    expect(within(card).getByText('PostHog answered HTTP 401')).toBeInTheDocument()
+    expect(within(card).getByText('None in the last 24 hours')).toBeInTheDocument()
+  })
+
+  it('says when error tracking is off', async () => {
+    serveStatus(() => ok(withTracking({ enabled: false, sent: 0, lastSendOkAt: null }), 'OK'))
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'System status' })
+    expect(await within(card).findByText('Disabled')).toHaveAttribute('data-tone', 'muted')
+  })
+
+  it('shows a retryable error in the card alone when the status fails', async () => {
+    let calls = 0
+    serveStatus(() => {
+      calls += 1
+      return calls <= 2 ? fail('Boom', 500) : ok(testSystemStatus, 'OK')
+    })
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'System status' })
+    expect(
+      await within(card).findByText('We could not load the system status.')
+    ).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Key figures' })).toBeInTheDocument()
+    await user.click(within(card).getByRole('button', { name: 'Try again' }))
+    expect(await within(card).findByText(testSystemStatus.release)).toBeInTheDocument()
+  })
+
+  it('keeps the last status up, with a note, when a refresh fails', async () => {
+    // Only the interval is faked, so the next minute's refresh can be run now.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    try {
+      let calls = 0
+      serveStatus(() => {
+        calls += 1
+        return calls === 1 ? ok(testSystemStatus, 'OK') : fail('Boom', 500)
+      })
+      renderAppAt('/overview')
+      const card = await screen.findByRole('region', { name: 'System status' })
+      expect(await within(card).findByText(testSystemStatus.release)).toBeInTheDocument()
+      vi.advanceTimersByTime(60_000)
+      // The failed refresh retries once, a second later, before it counts as failed.
+      await vi.waitFor(
+        () => expect(within(card).getByText(/Could not refresh/)).toBeInTheDocument(),
+        { timeout: 4000 }
+      )
+      expect(calls).toBe(3)
+      expect(within(card).getByText(testSystemStatus.release)).toBeInTheDocument()
+      expect(
+        within(card).queryByText('We could not load the system status.')
+      ).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('hides the card, not the Overview, when the status answers 404', async () => {
+    const seen = serveStatus(() => fail('Not found', 404))
+    renderAppAt('/overview')
+    await screen.findByRole('region', { name: 'Key figures' })
+    await waitFor(() => expect(seen).toHaveLength(1))
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'System status' })).not.toBeInTheDocument()
+    )
+    expect(screen.queryByText(/Your role can’t see this any more/)).not.toBeInTheDocument()
+  })
+
+  it('is not shown to a viewer, who never asks for it', async () => {
+    signIn({ ...testUser, platformRole: 'viewer' })
+    const seen = serveStatus()
+    renderAppAt('/overview')
+    await screen.findByRole('region', { name: 'Key figures' })
+    expect(screen.queryByRole('region', { name: 'System status' })).not.toBeInTheDocument()
+    expect(seen).toHaveLength(0)
   })
 })

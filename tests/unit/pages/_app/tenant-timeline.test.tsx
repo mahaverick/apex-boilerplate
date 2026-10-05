@@ -131,6 +131,7 @@ describe('/tenants/$tenantId/timeline', () => {
       'Invitations',
       'Activity',
       'Timeline',
+      'Errors',
       'Emails',
       'Onboarding',
     ])
