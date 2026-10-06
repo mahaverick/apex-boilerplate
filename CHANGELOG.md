@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.2](https://github.com/mahaverick/apex-boilerplate/compare/v1.7.1...v1.7.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* **flags:** landing pageview flag properties and SP5d review follow-ups ([#25](https://github.com/mahaverick/apex-boilerplate/issues/25)) ([c35b654](https://github.com/mahaverick/apex-boilerplate/commit/c35b65482ec0c092699e07808886a277a6cf7529))
+
 ## [1.7.1](https://github.com/mahaverick/apex-boilerplate/compare/v1.7.0...v1.7.1) (2026-10-06)
 
 
