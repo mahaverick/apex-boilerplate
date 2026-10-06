@@ -12,6 +12,7 @@ import {
 } from '@/http/session'
 import { capturePageview, forgetStaleIdentity } from '@/observability/analytics'
 import { setErrorRouteSource } from '@/observability/errors'
+import { installRouteFeatureProperties } from '@/observability/flags/flag-scope'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 
@@ -72,6 +73,7 @@ export const router = createRouter({
 router.subscribe('onResolved', ({ pathChanged }) => {
   if (pathChanged) capturePageview()
 })
+installRouteFeatureProperties(router, queryClient)
 setErrorRouteSource(() => router.state.matches.at(-1)?.routeId)
 
 declare module '@tanstack/react-router' {
