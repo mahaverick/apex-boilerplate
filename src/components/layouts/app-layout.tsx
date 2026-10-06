@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation, useMatches, type LinkProps } from '@tanstack
 import { Search } from 'lucide-react'
 import { Fragment, useEffect, type ReactNode } from 'react'
 import { CommandPalette } from '@/components/features/command-palette'
+import { MaintenanceBanner } from '@/components/features/maintenance/maintenance-banner'
 import { MAIN_CONTENT_ID, SkipLink } from '@/components/features/skip-link'
 import { StepUpProvider } from '@/components/features/step-up/step-up-provider'
 import { ThemeToggle } from '@/components/features/theme-toggle'
@@ -93,7 +94,8 @@ function isNavActive(pathname: string, to: string): boolean {
  * since axe's `region` rule exempts buttons but not links. `SidebarInset` is
  * the `main` element, so its own `header` is not a second banner.
  * `StepUpProvider` wraps the shell once, so every staff page's destructive
- * action shares one step-up dialog.
+ * action shares one step-up dialog. `MaintenanceBanner` sits under the
+ * header, so every staff page says when customers are in maintenance.
  */
 export function AppLayout() {
   const user = useAuthStore((s) => s.user)
@@ -207,6 +209,7 @@ export function AppLayout() {
               <Kbd className="max-sm:hidden">{paletteShortcutHint()}</Kbd>
             </Button>
           </header>
+          <MaintenanceBanner />
           <div className="flex-1 overflow-auto p-4 md:p-6">
             <Outlet />
           </div>

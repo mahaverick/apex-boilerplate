@@ -36,7 +36,12 @@ import {
   USER_ID_2,
   USER_ID_3,
 } from '@/tests/fixtures/ids'
-import { fullMaintenanceView, maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
+import {
+  fullMaintenanceView,
+  maintenanceModeView,
+  maintenanceStatus,
+  PAUSED_QUEUES,
+} from '@/tests/fixtures/maintenance-mode'
 import { renderAppAt } from '@/tests/fixtures/render-app'
 import {
   at,
@@ -2021,6 +2026,31 @@ describe('maintenance', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Turn on maintenance' })
     await user.type(within(dialog).getByLabelText('Message for customers'), 'Back soon.')
     expect(within(dialog).getByLabelText('Type staging to confirm')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('the banner on another page, and the status card’s section, have no axe violations', async () => {
+    serveMaintenance()
+    server.use(
+      http.get('/api/v1/platform/system/status', () =>
+        ok(
+          {
+            ...testSystemStatus,
+            maintenance: maintenanceStatus({
+              mode: 'full',
+              queuesPaused: true,
+              queues: PAUSED_QUEUES,
+              noticesPending: true,
+            }),
+          },
+          'System status retrieved.'
+        )
+      )
+    )
+    renderAppAt('/overview')
+    await screen.findByText(/^Customers are in FULL maintenance/)
+    await screen.findByRole('heading', { name: 'Maintenance mode', level: 3 })
+    await screen.findByRole('figure', { name: 'Sign-ups per day' })
     await expectNoViolations()
   })
 

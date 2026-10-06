@@ -12,7 +12,7 @@ of these is a deliberate act, not a tidy-up.
 Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
 `express-boilerplate` API (1.4.0 or newer, run with `APEX_URL` set to this app's
 origin, `http://localhost:5174` locally; the user and tenant timelines need
-1.6.0, the Errors pages and the system status card 1.7.0, and the flags pages 1.8.0). `react-boilerplate`, the customer app,
+1.6.0, the Errors pages and the system status card 1.7.0, the flags pages 1.8.0, and maintenance mode 1.9.0). `react-boilerplate`, the customer app,
 is its sibling. Vite, TanStack Router (file-based), TanStack Query, TanStack
 Form, TanStack Table 9, Zustand, Tailwind v4, Base UI via shadcn, recharts,
 axios, Zod v4, Vitest + Testing Library + MSW.
@@ -209,6 +209,23 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   one, run the tests that pin its internals: `url-sanitizer.test.ts`,
   `handoff.test.ts` and `analytics.sdk.test.ts` (all run the real SDK) and
   `e2e/nginx/analytics.test.ts`.
+
+## Maintenance mode — the rules that mislead when broken
+
+- **Apex reads the platform state, never the `Maintenance-Mode` header.**
+  The banner and the Maintenance page both use `maintenanceModeQueryOptions`
+  (`GET /platform/maintenance-mode`), polled every 30 s only while the mode
+  is not `off`. The header describes what customers get; staff routes are let
+  through whatever it says.
+- **The typed confirmation compares with the API's `environment`,** from that
+  same GET, never a client setting: the image is promoted unchanged through
+  every environment, so only the API knows which one it is.
+- **A change sends the version this tab read last.** A 409 reads the state
+  again before it rejects (`useChangeMaintenanceMode`), so the dialog says
+  what someone else saved and the next submit carries the fresh version.
+- **Message, reason and actor are text inside `Pii`,** in the banner, the
+  page, the dialog's preview and the conflict sentence, like every other
+  name and free text staff typed.
 
 ## Feature flags — the rules that leak or mislead when broken
 
@@ -482,9 +499,13 @@ checks jsdom cannot make, because jsdom has no layout: whether the webfont actua
 whether anything overflows the viewport at 390px, whether a state renders as more than a bare
 header. `?path=` picks the route; the default is `/overview`, and the harness user is a platform admin —
 or, with `?role=none`, a signed-in user with no platform role, which is the only way `/no-access` renders there,
-or, with `?role=viewer`, staff below admin, which is how the admin-only timelines' and Errors pages' refusal renders.
+or, with `?role=viewer`, staff below admin, which is how the admin-only timelines' and Errors pages' refusal renders,
+or, with `?role=owner`, a platform owner, the only role that gets the Maintenance page's controls.
 `?errors=unconfigured` answers the Errors routes as an API without a PostHog personal key does.
 `?flags=unconfigured` answers the flags routes as an API without the feature flags key does.
+`?maintenance=full` answers the platform maintenance state as full maintenance, so every page shows the banner;
+`?maintenance=route` lets `GET /platform/maintenance-mode` through to the test's own `context.route`
+(a request the service worker passes through never reaches `page.route`). The harness never answers the `PUT`.
 
 `playwright.config.ts` starts the dev server as `vite --force`, and that is load-bearing:
 Vite trusts a dependency cache whose lockfile and config hashes still match, so a source

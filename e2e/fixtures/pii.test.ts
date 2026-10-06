@@ -42,6 +42,7 @@ for (const [name, path, ready] of [
   ['deliverability', '/deliverability', 'Deliverability'],
   ['suppressions, active and lifted', '/suppressions?state=all', 'Suppressions'],
   ['onboarding', '/onboarding', 'Onboarding'],
+  ['maintenance, with the banner', '/maintenance&maintenance=full', 'Maintenance'],
   ['the profile', '/profile', 'Profile'],
 ] as const) {
   test(`${name} renders every name and address inside Pii`, async ({ page }) => {

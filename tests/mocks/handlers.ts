@@ -14,6 +14,7 @@ import {
   USER_ID_2,
   USER_ID_3,
 } from '@/tests/fixtures/ids'
+import { maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
 import type {
   EmailHealth,
   EmailMessageDay,
@@ -564,6 +565,10 @@ export const handlers = [
       { tenant: testInvitationPreview.tenant, role: testInvitationPreview.role },
       'Invitation accepted.'
     )
+  ),
+  // The staff shell's maintenance banner reads this on every page; off, so no banner shows. A test about maintenance overrides it.
+  http.get('/api/v1/platform/maintenance-mode', () =>
+    ok(maintenanceModeView(), 'Maintenance mode retrieved.')
   ),
   // The staff shell's loader reads Apex's flags on every page; Apex has none yet. A test about a flag overrides it.
   http.get('/api/v1/platform/me/flags', () => ok(testFlags(), 'Flags retrieved.')),

@@ -27,6 +27,14 @@ export const CONFIRMATION_MISMATCH = 'CONFIRMATION_MISMATCH'
 /** The API's cap on the customer message and the reason. */
 export const MAINTENANCE_TEXT_MAX_LENGTH = 500
 
+/**
+ * How long after a switch to `full` the queues may still be running: the
+ * change waits up to 10 s for its notices, every replica waits 10 s more
+ * before pausing (express's reconciliation grace), and the rest is headroom
+ * for clock skew between the API and the browser.
+ */
+export const MAINTENANCE_PAUSE_SETTLE_MS = 30_000
+
 /** How often Apex asks again while maintenance is on, for the banner and the page. */
 export const MAINTENANCE_MODE_POLL_MS = 30_000
 

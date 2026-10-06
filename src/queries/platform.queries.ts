@@ -33,9 +33,10 @@ export const PLATFORM_PAGE_SIZE = 20
  * `/platform/email-suppressions` before 1.3.0, `/platform/onboarding/*` and
  * `/platform/tenants/:id/onboarding` before 1.4.0, the user and tenant
  * `timeline` routes before 1.6.0, the `errors` routes and
- * `/platform/system/status` before 1.7.0, `/platform/flags*` before 1.8.0),
- * so it reads as role-denied: Apex needs express 1.4.0 or newer, 1.6.0 for
- * timelines, 1.7.0 for errors and 1.8.0 for flags.
+ * `/platform/system/status` before 1.7.0, `/platform/flags*` before 1.8.0,
+ * `/platform/maintenance-mode` before 1.9.0), so it reads as role-denied:
+ * Apex needs express 1.4.0 or newer, 1.6.0 for timelines, 1.7.0 for errors,
+ * 1.8.0 for flags and 1.9.0 for maintenance mode.
  * @param error - A query or mutation error.
  * @returns True for a 404.
  */
