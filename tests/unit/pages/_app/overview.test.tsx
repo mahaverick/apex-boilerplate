@@ -629,6 +629,14 @@ describe('the system status card’s maintenance mode', () => {
     expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
   })
 
+  it('does not warn 29 s after a switch to full whose queues are not paused yet', async () => {
+    serveMaintenance({ mode: 'full', since: new Date(Date.now() - 29_000).toISOString() })
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(section.getByText('Full')).toBeInTheDocument()
+    expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
+  })
+
   it('warns once the settle window has passed: a full switch 31 s ago whose queues are not paused', async () => {
     serveMaintenance({
       mode: 'full',
