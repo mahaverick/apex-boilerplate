@@ -328,11 +328,11 @@ function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: n
  * feature flags warn as `flagsNeedAttention` says, maintenance mode as
  * `maintenanceNeedsAttention` says. An API older than 1.8.0 sends no flags
  * section, and one older than 1.9.0 no maintenance section; the card shows
- * none. Browser errors go
- * straight to PostHog, so they are not counted here. Admins and up; a 404 (a role that changed,
- * or an API older than 1.7.0) hides the card rather than the Overview. A
- * failed first load shows a retryable error; a failed refresh keeps the last
- * status up, with a note saying when it was loaded.
+ * none. Browser errors go straight to PostHog, so they are not counted here.
+ * Admins and up; a 404 (a role that changed, or an API older than 1.7.0)
+ * hides the card rather than the Overview. A failed first load shows a
+ * retryable error; a failed refresh keeps the last status up, with a note
+ * saying when it was loaded.
  */
 export function SystemStatusCard() {
   const status = useQuery(systemStatusQueryOptions())

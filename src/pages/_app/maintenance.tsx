@@ -69,7 +69,7 @@ function StateFacts({ view }: { view: PlatformMaintenanceModeView }) {
           </dd>
         </>
       )}
-      {view.changedBy !== null && (
+      {view.mode !== 'off' && view.changedBy !== null && (
         <>
           <dt className="text-muted-foreground">Set by</dt>
           <dd>
