@@ -223,6 +223,11 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   react-to-apex copy and verify scripts (`sync-from-react.sh`, and
   `verify-sync.sh` with its optional `resolutions.tsv`) are kept in the docs
   repo at `~/Mahaverick/docs/.sp5d-lanes/apex-sync/`.
+- **`$feature/*` is synced from the router as well as the shell.**
+  `main.tsx` runs the first load before React mounts, so the landing
+  `$pageview` (`onResolved`) comes before `useFeaturePropertiesSync` can run;
+  `installRouteFeatureProperties` syncs from the cached platform values on
+  `onLoad`, which fires before `onResolved` and never for a preload.
 - **The inspector is read-only.** Rollouts are edited in PostHog. An
   evaluation is an audited read: `flagsEvaluateQueryOptions` never retries or
   refetches on focus, like the timelines, and its traits are shown to admins
