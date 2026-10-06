@@ -48,8 +48,10 @@ export function flagsPathFor(scope: FlagScope): string {
  * included. The router emits `onLoad` before `onResolved`, where the page
  * view is captured, and never for a preload. On the first load React has not
  * mounted yet, so `useFeaturePropertiesSync` cannot have run; a page under
- * the signed-in shell has its values cached by `_app`'s loader by then, and
- * any other page has none, which unregisters them all.
+ * the signed-in shell has its values cached by `_app`'s loader by then. With
+ * nothing cached (a first load outside the shell, or after a sign-out cleared
+ * the flags) it unregisters them all; a page outside the shell reached from
+ * inside it, such as `/no-access`, keeps the cached platform values.
  * @param router - The app's router.
  * @param queryClient - The client holding the flag queries.
  * @returns The unsubscribe.
