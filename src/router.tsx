@@ -12,6 +12,7 @@ import {
 } from '@/http/session'
 import { capturePageview, forgetStaleIdentity } from '@/observability/analytics'
 import { setErrorRouteSource } from '@/observability/errors'
+import { forgetFeatureProperties } from '@/observability/flags/feature-property-names'
 import { installRouteFeatureProperties } from '@/observability/flags/flag-scope'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
@@ -45,6 +46,7 @@ export async function bootstrapSession(): Promise<void> {
   } finally {
     if (!useAuthStore.getState().user) {
       forgetStaleIdentity({ keepIfAnotherTabHoldsThem: !isVerdict })
+      forgetFeatureProperties()
     }
     useAuthStore.getState().setBootstrapped()
   }

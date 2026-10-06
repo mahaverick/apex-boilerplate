@@ -51,7 +51,7 @@ export function flagsPathFor(scope: FlagScope): string {
  * the signed-in shell has its values cached by `_app`'s loader by then. With
  * nothing cached (a first load outside the shell, or after a sign-out cleared
  * the flags) it unregisters them all; a page outside the shell reached from
- * inside it, such as `/no-access`, keeps the cached platform values.
+ * inside it, such as `/verify-email`, keeps the cached platform values.
  * @param router - The app's router.
  * @param queryClient - The client holding the flag queries.
  * @returns The unsubscribe.
