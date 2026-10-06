@@ -38,6 +38,7 @@ export const ROUTES = {
   suppressions: '/suppressions',
   onboarding: '/onboarding',
   flags: '/flags',
+  maintenance: '/maintenance',
   noAccess: '/no-access',
   invitationAccept: '/invitations/accept',
 } as const

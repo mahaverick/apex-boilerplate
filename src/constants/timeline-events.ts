@@ -132,6 +132,7 @@ const AUDIT_WORDING: Record<AuditAction, 'sentence' | 'label'> = {
   'user.errors_viewed': 'label',
   'tenant.errors_viewed': 'label',
   'user.flags_evaluated': 'label',
+  'platform.maintenance_mode_changed': 'label',
 }
 
 /**

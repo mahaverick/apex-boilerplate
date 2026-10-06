@@ -36,6 +36,7 @@ import {
   USER_ID_2,
   USER_ID_3,
 } from '@/tests/fixtures/ids'
+import { fullMaintenanceView, maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
 import { renderAppAt } from '@/tests/fixtures/render-app'
 import {
   at,
@@ -1983,6 +1984,52 @@ describe('onboarding', () => {
     await user.click(await screen.findByRole('button', { name: 'Send reminder' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Send an onboarding reminder?' })
     expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+})
+
+/**
+ * The Maintenance page for an owner, in full maintenance (every fact and
+ * control showing), and its two dialogs open. Each waits on its loaded
+ * content, never a skeleton.
+ */
+describe('maintenance', () => {
+  beforeEach(() => {
+    signIn()
+    useAuthStore.setState({ user: { ...testUser, platformRole: 'owner' } })
+  })
+
+  function serveMaintenance(view = fullMaintenanceView()) {
+    server.use(
+      http.get('/api/v1/platform/maintenance-mode', () => ok(view, 'Maintenance mode retrieved.'))
+    )
+  }
+
+  it('the page in full maintenance has no axe violations', async () => {
+    serveMaintenance()
+    renderAppAt('/maintenance')
+    await screen.findByRole('list', { name: 'Queues' })
+    await screen.findByRole('button', { name: 'Turn off…' })
+    await expectNoViolations()
+  })
+
+  it('has no violations with the switch-on dialog open, its preview and confirm showing', async () => {
+    serveMaintenance(maintenanceModeView())
+    const user = userEvent.setup()
+    renderAppAt('/maintenance')
+    await user.click(await screen.findByRole('button', { name: 'Turn on maintenance…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Turn on maintenance' })
+    await user.type(within(dialog).getByLabelText('Message for customers'), 'Back soon.')
+    expect(within(dialog).getByLabelText('Type staging to confirm')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the switch-off dialog open', async () => {
+    serveMaintenance()
+    const user = userEvent.setup()
+    renderAppAt('/maintenance')
+    await user.click(await screen.findByRole('button', { name: 'Turn off…' }))
+    await screen.findByRole('alertdialog', { name: 'Turn off maintenance?' })
     await expectNoViolations()
   })
 })

@@ -38,6 +38,7 @@ describe('navigation', () => {
       'Emails',
       'Deliverability',
       'Suppressions',
+      'Maintenance',
       'Feature flags',
       'Onboarding',
     ])
@@ -52,6 +53,7 @@ describe('navigation', () => {
       'Emails',
       'Deliverability',
       'Suppressions',
+      'Maintenance',
       'Feature flags',
       'Onboarding',
       'Activity log',
@@ -63,11 +65,11 @@ describe('navigation', () => {
     expect(navItemsFor(undefined)).toEqual([])
   })
 
-  it('puts Feature flags last in Operations, for every staff role', () => {
+  it('puts Maintenance then Feature flags last in Operations, for every staff role', () => {
     const operations = navItemsFor('viewer').filter((item) => item.group === 'Operations')
-    expect(operations.map((item) => [item.label, item.to]).at(-1)).toEqual([
-      'Feature flags',
-      '/flags',
+    expect(operations.map((item) => [item.label, item.to]).slice(-2)).toEqual([
+      ['Maintenance', '/maintenance'],
+      ['Feature flags', '/flags'],
     ])
   })
 

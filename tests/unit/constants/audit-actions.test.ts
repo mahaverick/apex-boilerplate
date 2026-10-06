@@ -9,7 +9,7 @@ import {
 import { EMAIL_ID, EMAIL_ID_2, INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
 describe('AUDIT_ACTIONS', () => {
-  it('lists exactly the thirty-seven actions the API writes', () => {
+  it('lists exactly the thirty-nine actions the API writes', () => {
     expect([...AUDIT_ACTIONS].sort()).toEqual(
       [
         'invitation.accepted',
@@ -50,6 +50,7 @@ describe('AUDIT_ACTIONS', () => {
         'user.errors_viewed',
         'tenant.errors_viewed',
         'user.flags_evaluated',
+        'platform.maintenance_mode_changed',
       ].sort()
     )
     for (const action of AUDIT_ACTIONS) expect(AUDIT_ACTION_LABELS[action]).not.toBe('')
@@ -211,6 +212,36 @@ describe('auditSentence', () => {
       'evaluated a user’s feature flags for Apex',
     ],
     ['user.flags_evaluated', {}, 'evaluated a user’s feature flags'],
+    [
+      'platform.maintenance_mode_changed',
+      { from: 'off', to: 'full', reason: 'DB upgrade', messageChanged: true },
+      'turned on full maintenance: “DB upgrade”',
+    ],
+    [
+      'platform.maintenance_mode_changed',
+      { from: 'off', to: 'read_only', reason: 'Data fix', messageChanged: true },
+      'turned on read-only maintenance: “Data fix”',
+    ],
+    [
+      'platform.maintenance_mode_changed',
+      { from: 'read_only', to: 'full', reason: 'Escalating', messageChanged: false },
+      'escalated maintenance from read-only to full: “Escalating”',
+    ],
+    [
+      'platform.maintenance_mode_changed',
+      { from: 'full', to: 'read_only', reason: null, messageChanged: false },
+      'eased maintenance from full to read-only',
+    ],
+    [
+      'platform.maintenance_mode_changed',
+      { from: 'full', to: 'full', reason: null, messageChanged: true },
+      'changed the full maintenance message',
+    ],
+    [
+      'platform.maintenance_mode_changed',
+      { from: 'full', to: 'off', reason: 'Done', messageChanged: false },
+      'turned maintenance off: “Done”',
+    ],
   ])('%s reads as a sentence', (action, metadata, sentence) => {
     expect(auditSentence({ action, metadata })).toBe(sentence)
   })
@@ -249,6 +280,16 @@ describe('auditSentence', () => {
     expect(
       auditSentence({ action: 'tenant.timeline_viewed', metadata: { range: '24h', view: 'raw' } })
     ).toBe('viewed a tenant’s timeline (last 24 hours)')
+    for (const metadata of [
+      {},
+      { from: 'off', to: 'paused' },
+      { from: 'constructor', to: 'full' },
+      { from: 'full', to: 'full', messageChanged: false },
+    ]) {
+      expect(auditSentence({ action: 'platform.maintenance_mode_changed', metadata })).toBe(
+        'changed maintenance mode'
+      )
+    }
   })
 })
 

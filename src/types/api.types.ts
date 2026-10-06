@@ -45,6 +45,13 @@ export const ACCESS_TOKEN_EXPIRED = 'ACCESS_TOKEN_EXPIRED'
  */
 export const REAUTH_REQUIRED = 'REAUTH_REQUIRED'
 
+/**
+ * 503 from a write while customers are in read-only maintenance. Apex's own
+ * `/platform/*` routes are let through, but the blocked auth routes
+ * (change-password, reset-password and the rest) answer it to staff too.
+ */
+export const READ_ONLY_MODE = 'READ_ONLY_MODE'
+
 /** A 409 for a slug a live tenant already uses: it belongs on the slug field. */
 export const SLUG_TAKEN = 'slug_taken'
 
@@ -142,6 +149,7 @@ export interface AuditTarget {
     | 'user'
     | 'email_message'
     | 'email_suppression'
+    | 'platform'
   id: string
 }
 
@@ -362,6 +370,7 @@ export const EMAIL_TEMPLATE_KEYS = [
   'password_changed',
   'registration_attempt',
   'onboarding_reminder',
+  'maintenance_mode_changed',
 ] as const
 export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number]
 
@@ -1093,13 +1102,75 @@ export interface FlagsStatus {
   }
 }
 
+/** Mirrors express's `MAINTENANCE_MODES`: customers fully shut out, writes refused, or neither. */
+export type MaintenanceMode = 'off' | 'read_only' | 'full'
+
+/**
+ * One BullMQ queue as maintenance mode sees it: paused or not, and the jobs
+ * running on it now. Either is null when Redis did not answer for that queue.
+ */
+export interface QueuePauseState {
+  name: string
+  paused: boolean | null
+  active: number | null
+}
+
+/**
+ * `GET /platform/maintenance-mode`, and a `PUT` there's answer (express
+ * 1.9.0). `environment` is the API's `APP_ENV`, the value a switch-on must
+ * type to confirm. `since` is when the mode last changed; `changedBy` is null
+ * for the row the migration seeded.
+ */
+export interface PlatformMaintenanceModeView {
+  mode: MaintenanceMode
+  /** Customer-facing plain text, shown to customers while the mode is not `off`. */
+  message: string | null
+  /** Internal; for staff only. */
+  reason: string | null
+  since: string | null
+  changedBy: { id: string; name: string } | null
+  /** Sent back as `expectedVersion`; a stale one answers 409 `MAINTENANCE_MODE_CONFLICT`. */
+  version: number
+  queues: QueuePauseState[]
+  environment: string
+}
+
+/**
+ * `PUT /platform/maintenance-mode`'s strict body. `confirm` is sent only when
+ * switching on or escalating, and `reason` only when one was given.
+ */
+export interface ChangeMaintenanceModeBody {
+  mode: MaintenanceMode
+  message?: string
+  reason?: string
+  expectedVersion: number
+  confirm?: string
+}
+
+/**
+ * The system status's maintenance section. `known: false` is a replica that
+ * has not read the state since it started, and serves customers as `off`.
+ */
+export interface MaintenanceModeStatus {
+  mode: MaintenanceMode
+  since: string | null
+  known: boolean
+  queuesPaused: boolean
+  queues: QueuePauseState[]
+  /** Change notices still queued, held back by paused queues; they go out on resume. */
+  noticesPending: boolean
+  lastReloadError: string | null
+}
+
 /**
  * `GET /platform/system/status`. An open object: later API versions add
- * sections, which this build ignores. `flags` is absent before express 1.8.0.
+ * sections, which this build ignores. `flags` is absent before express 1.8.0,
+ * `maintenance` before 1.9.0.
  */
 export interface SystemStatus {
   /** The API's git sha, or `dev`. */
   release: string
   errorTracking: ErrorTrackingStatus
   flags?: FlagsStatus
+  maintenance?: MaintenanceModeStatus
 }
