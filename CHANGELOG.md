@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/mahaverick/apex-boilerplate/compare/v1.7.0...v1.7.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **flags:** sync $feature/* in a layout effect and reset it on sign-out ([#23](https://github.com/mahaverick/apex-boilerplate/issues/23)) ([2a82d49](https://github.com/mahaverick/apex-boilerplate/commit/2a82d49c5c7477a8b666bd96aa666a3da1fa0259))
+
 ## [1.7.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.6.0...v1.7.0) (2026-10-05)
 
 
