@@ -83,7 +83,13 @@ function titleFor(from: PlatformMaintenanceModeView['mode'], modes: readonly OnM
  * next submit sends the version just read. Until then a submit sends the
  * version the dialog opened on, so a poll that lands meanwhile makes it a
  * conflict instead of silently overwriting what was read. A change that is
- * not a switch-on starts with the reason now saved in the Reason field.
+ * not a switch-on starts with the reason now saved in the Reason field. A
+ * same-mode save that leaves it empty keeps the stored reason (express
+ * coalesces); a mode change sends what the field holds, so emptying it
+ * clears the reason. The mode the form is validated against,
+ * and whether a submit is a switch-on, both come from the mode the dialog
+ * opened on, replaced only when a 409 reads a newer one; a poll in between
+ * changes neither.
  */
 export function ChangeModeDialog(props: ChangeModeDialogProps) {
   const [busy, setBusy] = useState(false)
@@ -97,12 +103,6 @@ export function ChangeModeDialog(props: ChangeModeDialogProps) {
       }}
     >
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{titleFor(props.view.mode, props.modes)}</DialogTitle>
-          <DialogDescription>
-            Every other platform owner and admin is told when maintenance is switched on or off.
-          </DialogDescription>
-        </DialogHeader>
         {props.open && <ChangeModeForm {...props} busy={busy} onBusyChange={setBusy} />}
       </DialogContent>
     </Dialog>
@@ -124,14 +124,18 @@ function ChangeModeForm({
   // What this form was opened on; only a 409's fresh read replaces it, never a poll in between.
   const [base, setBase] = useState({ mode: view.mode, version: view.version })
   const schema = useMemo(
-    () => maintenanceModeFormSchema(view.mode, view.environment),
-    [view.mode, view.environment]
+    () => maintenanceModeFormSchema(base.mode, view.environment),
+    [base.mode, view.environment]
+  )
+  // Fixed when the dialog opens, so a later `base` change does not move the form's defaults.
+  const [prefilledReason] = useState(() =>
+    isSwitchOn(view.mode, modes[0] ?? 'read_only') ? '' : (view.reason ?? '')
   )
   const defaultValues: MaintenanceModeFormValues = {
     mode: modes[0] ?? 'read_only',
     message: view.message ?? '',
-    // A change that is not a switch-on keeps the saved reason unless the owner edits it.
-    reason: isSwitchOn(view.mode, modes[0] ?? 'read_only') ? '' : (view.reason ?? ''),
+    // A change that is not a switch-on starts from the saved reason. Emptying it sends none: a same-mode save then keeps the stored reason (express coalesces), but a mode change stores no reason.
+    reason: prefilledReason,
     confirmation: '',
   }
   const form = useForm({
@@ -170,6 +174,15 @@ function ChangeModeForm({
             queryClient.getQueryData<PlatformMaintenanceModeView>(maintenanceModeKeys.view) ?? view
           // Its own alert, not FormError: the sentence names a person, so it renders inside Pii.
           setConflict(conflictSentence(fresh))
+          // In switch-on mode the field becomes required and its "starts as the reason now saved" hint is gone, so the pre-filled old reason would pass for the owner's own: clear it, unless they already changed it.
+          const wasSwitchOn = isSwitchOn(base.mode, form.state.values.mode)
+          if (
+            !wasSwitchOn &&
+            isSwitchOn(fresh.mode, form.state.values.mode) &&
+            form.state.values.reason === prefilledReason
+          ) {
+            form.setFieldValue('reason', '')
+          }
           setBase({ mode: fresh.mode, version: fresh.version })
           return
         }
@@ -187,125 +200,138 @@ function ChangeModeForm({
   })
 
   return (
-    <Form form={form} serverErrors={serverErrors} className="grid gap-4">
-      {modes.length > 1 && (
-        <form.Field name="mode">
-          {(field) => (
-            <fieldset className="grid gap-2">
-              <legend className="mb-1 text-sm font-medium">Mode</legend>
-              {modes.map((mode) => (
-                <label key={mode} className="flex items-start gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="mode"
-                    value={mode}
-                    checked={field.state.value === mode}
-                    onChange={() => field.handleChange(mode)}
-                    className="mt-0.5 accent-primary"
-                  />
-                  <span className="grid gap-0.5">
-                    <span className="font-medium">{MAINTENANCE_MODE_LABELS[mode]}</span>
-                    <span className="text-muted-foreground">{MODE_HINTS[mode]}</span>
-                  </span>
-                </label>
-              ))}
-            </fieldset>
-          )}
-        </form.Field>
-      )}
-      {modes.length === 1 && modes[0] !== undefined && (
-        <p className="text-sm text-muted-foreground">{MODE_HINTS[modes[0]]}</p>
-      )}
-      <FormField form={form} name="message">
-        {(field) => (
-          <FormItem>
-            <FormLabel>Message for customers</FormLabel>
-            <FormControl>
-              <Textarea
-                rows={3}
-                value={fieldValue(field.state.value)}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-              />
-            </FormControl>
-            <FormDescription>Plain text, shown to every customer.</FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      </FormField>
-      <form.Subscribe selector={(state) => [state.values.mode, state.values.message] as const}>
-        {([mode, message]) => <MaintenancePreview mode={mode} message={message} />}
-      </form.Subscribe>
-      <form.Subscribe selector={(state) => isSwitchOn(view.mode, state.values.mode)}>
-        {(switchOn) => (
-          <>
-            <FormField form={form} name="reason">
-              {(field) => (
-                <FormItem>
-                  <FormLabel>{switchOn ? 'Reason' : 'Reason (optional)'}</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      rows={2}
-                      value={fieldValue(field.state.value)}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
+    <>
+      <DialogHeader>
+        <DialogTitle>{titleFor(base.mode, modes)}</DialogTitle>
+        <DialogDescription>
+          Every other platform owner and admin is told when maintenance is switched on or off.
+        </DialogDescription>
+      </DialogHeader>
+      <Form form={form} serverErrors={serverErrors} className="grid gap-4">
+        {modes.length > 1 && (
+          <form.Field name="mode">
+            {(field) => (
+              <fieldset className="grid gap-2">
+                <legend className="mb-1 text-sm font-medium">Mode</legend>
+                {modes.map((mode) => (
+                  <label key={mode} className="flex items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="mode"
+                      value={mode}
+                      checked={field.state.value === mode}
+                      onChange={() => field.handleChange(mode)}
+                      className="mt-0.5 accent-primary"
                     />
-                  </FormControl>
-                  <FormDescription>
-                    {switchOn
-                      ? 'For staff only. Recorded in the audit log with your name.'
-                      : 'For staff only. Recorded in the audit log with your name. It starts as the reason now saved.'}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            </FormField>
-            {switchOn && (
-              <FormField form={form} name="confirmation">
+                    <span className="grid gap-0.5">
+                      <span className="font-medium">{MAINTENANCE_MODE_LABELS[mode]}</span>
+                      <span className="text-muted-foreground">{MODE_HINTS[mode]}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
+          </form.Field>
+        )}
+        {modes.length === 1 && modes[0] !== undefined && (
+          <p className="text-sm text-muted-foreground">{MODE_HINTS[modes[0]]}</p>
+        )}
+        <FormField form={form} name="message">
+          {(field) => (
+            <FormItem>
+              <FormLabel>Message for customers</FormLabel>
+              <FormControl>
+                <Textarea
+                  rows={3}
+                  value={fieldValue(field.state.value)}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+              </FormControl>
+              <FormDescription>Plain text, shown to every customer.</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        </FormField>
+        <form.Subscribe selector={(state) => [state.values.mode, state.values.message] as const}>
+          {([mode, message]) => <MaintenancePreview mode={mode} message={message} />}
+        </form.Subscribe>
+        <form.Subscribe selector={(state) => isSwitchOn(base.mode, state.values.mode)}>
+          {(switchOn) => (
+            <>
+              <FormField form={form} name="reason">
                 {(field) => (
                   <FormItem>
-                    <FormLabel>
-                      Type <code className="font-mono">{view.environment}</code> to confirm
-                    </FormLabel>
+                    <FormLabel>{switchOn ? 'Reason' : 'Reason (optional)'}</FormLabel>
                     <FormControl>
-                      <Input
-                        autoComplete="off"
+                      <Textarea
+                        rows={2}
                         value={fieldValue(field.state.value)}
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(e.target.value)}
                       />
                     </FormControl>
+                    <FormDescription>
+                      {switchOn
+                        ? 'For staff only. Recorded in the audit log with your name.'
+                        : 'For staff only. Recorded in the audit log with your name. It starts as the reason now saved.'}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               </FormField>
-            )}
-          </>
-        )}
-      </form.Subscribe>
-      {conflict !== null && (
-        <p role="alert" className="text-sm text-destructive">
-          <Pii>{conflict}</Pii>
-        </p>
-      )}
-      <FormError />
-      <DialogFooter>
-        <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>
-          Cancel
-        </Button>
-        <form.Subscribe selector={(state) => [state.isSubmitting, state.values.mode] as const}>
-          {([isSubmitting, mode]) => (
-            <Button
-              type="submit"
-              variant={isSwitchOn(view.mode, mode) ? 'destructive' : 'default'}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Working…' : submitLabel(view.mode, mode)}
-            </Button>
+              {switchOn && (
+                <FormField form={form} name="confirmation">
+                  {(field) => (
+                    <FormItem>
+                      <FormLabel>
+                        Type <code className="font-mono">{view.environment}</code> to confirm
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          autoComplete="off"
+                          value={fieldValue(field.state.value)}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                </FormField>
+              )}
+            </>
           )}
         </form.Subscribe>
-      </DialogFooter>
-    </Form>
+        {conflict !== null && (
+          <p role="alert" className="text-sm text-destructive">
+            <Pii>{conflict}</Pii>
+          </p>
+        )}
+        <FormError />
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <form.Subscribe selector={(state) => [state.isSubmitting, state.values.mode] as const}>
+            {([isSubmitting, mode]) => (
+              <Button
+                type="submit"
+                variant={isSwitchOn(base.mode, mode) ? 'destructive' : 'default'}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Working…' : submitLabel(base.mode, mode)}
+              </Button>
+            )}
+          </form.Subscribe>
+        </DialogFooter>
+      </Form>
+    </>
   )
 }
 

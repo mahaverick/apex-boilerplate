@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { STAFF_WRITES_NOTE } from '@/constants/maintenance-mode.constants'
 import { maintenanceModeKeys } from '@/queries/maintenance-mode.queries'
@@ -312,6 +312,114 @@ describe('/maintenance', () => {
     expect(await screen.findByText('Maintenance is now full.')).toBeInTheDocument()
     expect(state.bodies.map((body) => body.expectedVersion)).toEqual([5, 7])
     expect(state.bodies[1]).toMatchObject({ reason: 'still migrating', confirm: 'staging' })
+  })
+
+  it('clears the pre-filled reason when a 409 turns the edit into a switch-on', async () => {
+    const state = serve(fullMaintenanceView(), (_body, n) => {
+      if (n === 1) {
+        state.view = fullMaintenanceView({ mode: 'read_only', version: 7 })
+        return fail(
+          'Maintenance mode changed since you loaded it.',
+          409,
+          'MAINTENANCE_MODE_CONFLICT'
+        )
+      }
+      return ok(fullMaintenanceView({ version: 8 }), 'Updated.')
+    })
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Edit message…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
+    expect(within(dialog).getByLabelText('Reason (optional)')).toHaveValue('Postgres 18 upgrade')
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    await within(dialog).findByText(/^Someone changed maintenance mode while you were editing/)
+    // Read-only now, so keeping full is an escalation: its hint is gone, so the old reason must not linger unseen.
+    expect(within(dialog).getByLabelText('Reason')).toHaveValue('')
+    expect(within(dialog).queryByText(/It starts as the reason now saved\./)).toBeNull()
+  })
+
+  it('keeps a reason the owner typed when a 409 turns the edit into a switch-on', async () => {
+    const state = serve(fullMaintenanceView(), () => {
+      state.view = fullMaintenanceView({ mode: 'read_only', version: 7 })
+      return fail('Maintenance mode changed since you loaded it.', 409, 'MAINTENANCE_MODE_CONFLICT')
+    })
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Edit message…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
+    const reason = within(dialog).getByLabelText('Reason (optional)')
+    await user.clear(reason)
+    await user.type(reason, 'my own reason')
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    await within(dialog).findByText(/^Someone changed maintenance mode while you were editing/)
+    expect(within(dialog).getByLabelText('Reason')).toHaveValue('my own reason')
+  })
+
+  it('validates and submits from the one mode the dialog opened on, whatever a poll reads meanwhile', async () => {
+    const state = serve(fullMaintenanceView(), () =>
+      ok(fullMaintenanceView({ message: 'Nearly done.', version: 6 }), 'Updated.')
+    )
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Edit message…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
+    // A poll moves the cache to read-only: against that, keeping full would read as an escalation.
+    state.view = fullMaintenanceView({ mode: 'read_only', version: 6 })
+    await act(() => queryClient.refetchQueries({ queryKey: maintenanceModeKeys.view }))
+    // The dialog opened on full, so it is still an edit: no typed environment, an optional reason.
+    expect(within(dialog).queryByLabelText(/to confirm$/)).toBeNull()
+    await user.clear(within(dialog).getByLabelText('Reason (optional)'))
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    await waitFor(() => expect(state.bodies).toHaveLength(1))
+    expect(state.bodies[0]).toEqual({
+      mode: 'full',
+      message: 'We are upgrading the database.\nBack by 11:00 UTC.',
+      expectedVersion: 5,
+    })
+  })
+
+  it('lands a 400 "Validation failed" on the dialog’s message and reason fields', async () => {
+    serve(maintenanceModeView(), () =>
+      HttpResponse.json(
+        {
+          success: false,
+          message: 'Validation failed',
+          statusCode: 400,
+          requestId: 'r',
+          errors: {
+            message: ['Message contains characters that are not allowed.'],
+            reason: ['Reason contains characters that are not allowed.'],
+          },
+        },
+        { status: 400 }
+      )
+    )
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Turn on maintenance…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Turn on maintenance' })
+    await user.type(within(dialog).getByLabelText('Message for customers'), 'Back soon.')
+    await user.type(within(dialog).getByLabelText('Reason'), 'DB upgrade')
+    await user.type(within(dialog).getByLabelText('Type staging to confirm'), 'staging')
+    await user.click(within(dialog).getByRole('button', { name: 'Switch to read-only' }))
+    expect(
+      await within(dialog).findByText('Message contains characters that are not allowed.')
+    ).toBeVisible()
+    expect(
+      within(dialog).getByText('Reason contains characters that are not allowed.')
+    ).toBeVisible()
+    expect(within(dialog).getByLabelText('Message for customers')).toHaveAttribute(
+      'aria-invalid',
+      'true'
+    )
+    expect(within(dialog).getByLabelText('Reason')).toHaveAttribute('aria-invalid', 'true')
+    // The generic message is for a failure with no field detail; this one has some.
+    expect(within(dialog).queryByText('Validation failed')).toBeNull()
+  })
+
+  it('hides "Set by" while maintenance is off, though the API still names who switched it off', async () => {
+    serve(maintenanceModeView())
+    await openPage()
+    const state = screen.getByRole('region', { name: 'Customer access' })
+    expect(within(state).getByText('Off')).toBeInTheDocument()
+    expect(within(state).queryByText('Set by')).toBeNull()
+    expect(within(state).queryByText('Sam Staff')).toBeNull()
   })
 
   it('turns off with one confirmation, through step-up', async () => {

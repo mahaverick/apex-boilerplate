@@ -138,6 +138,27 @@ test('the user menu’s initials and name, and the open palette’s people, sit 
   expect(await unmaskedPii(page, NAMES)).toEqual([])
 })
 
+/**
+ * The owner's switch-on dialog, open over the harness's off state: what an
+ * owner types as the customer message can name a person, and the preview
+ * echoes it, so the preview's text must render inside Pii. Nothing else on
+ * the page names anyone, so the typed names are the only ones to find.
+ */
+test('the owner’s switch-on dialog and its preview keep a typed name inside Pii', async ({
+  page,
+}) => {
+  await page.goto('/e2e/harness/?path=/maintenance&role=owner')
+  await page.getByRole('button', { name: 'Turn on maintenance…' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Turn on maintenance' })
+  await dialog.getByLabel('Message for customers').fill('Ask Sam Staff or Cleo D for access.')
+  const preview = dialog.getByRole('region', { name: 'Customer preview' })
+  const echoed = preview.getByText('Ask Sam Staff or Cleo D for access.')
+  await expect(echoed).toBeVisible()
+  await expect(echoed).toHaveClass(/ph-sensitive/)
+  await expect(echoed).toHaveClass(/ph-mask/)
+  expect(await unmaskedPii(page, NAMES)).toEqual([])
+})
+
 test('the email preview’s frame is blocked from replay', async ({ page }) => {
   await page.goto(`/e2e/harness/?path=${DELIVERED}?tab=preview`)
   await expect(page.getByTitle('Email preview')).toHaveClass(/ph-no-capture/)
