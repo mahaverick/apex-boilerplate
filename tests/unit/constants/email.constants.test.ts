@@ -34,6 +34,7 @@ describe('EMAIL_TEMPLATES', () => {
   it('names a template this build does not know by its raw key', () => {
     expect(templateLabel('tenant_invitation')).toBe('Tenant invitation')
     expect(templateLabel('onboarding_reminder')).toBe('Onboarding reminder')
+    expect(templateLabel('maintenance_mode_changed')).toBe('Maintenance mode changed')
     expect(templateLabel('welcome_v2')).toBe('welcome_v2')
     expect(isEmailTemplateKey('toString')).toBe(false)
   })

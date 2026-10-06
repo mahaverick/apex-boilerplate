@@ -19,6 +19,7 @@ import { Route as VerifyEmailRouteImport } from './pages/verify-email'
 import { Route as AppActivityRouteImport } from './pages/_app/activity'
 import { Route as AppDeliverabilityRouteImport } from './pages/_app/deliverability'
 import { Route as AppFlagsRouteImport } from './pages/_app/flags'
+import { Route as AppMaintenanceRouteImport } from './pages/_app/maintenance'
 import { Route as AppOnboardingRouteImport } from './pages/_app/onboarding'
 import { Route as AppOverviewRouteImport } from './pages/_app/overview'
 import { Route as AppProfileRouteImport } from './pages/_app/profile'
@@ -94,6 +95,11 @@ const AppDeliverabilityRoute = AppDeliverabilityRouteImport.update({
 const AppFlagsRoute = AppFlagsRouteImport.update({
   id: '/flags',
   path: '/flags',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMaintenanceRoute = AppMaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
   getParentRoute: () => AppRoute,
 } as any)
 const AppOnboardingRoute = AppOnboardingRouteImport.update({
@@ -253,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/activity': typeof AppActivityRoute
   '/deliverability': typeof AppDeliverabilityRoute
   '/flags': typeof AppFlagsRoute
+  '/maintenance': typeof AppMaintenanceRoute
   '/onboarding': typeof AppOnboardingRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
@@ -291,6 +298,7 @@ export interface FileRoutesByTo {
   '/activity': typeof AppActivityRoute
   '/deliverability': typeof AppDeliverabilityRoute
   '/flags': typeof AppFlagsRoute
+  '/maintenance': typeof AppMaintenanceRoute
   '/onboarding': typeof AppOnboardingRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
@@ -330,6 +338,7 @@ export interface FileRoutesById {
   '/_app/activity': typeof AppActivityRoute
   '/_app/deliverability': typeof AppDeliverabilityRoute
   '/_app/flags': typeof AppFlagsRoute
+  '/_app/maintenance': typeof AppMaintenanceRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/overview': typeof AppOverviewRoute
   '/_app/profile': typeof AppProfileRoute
@@ -370,6 +379,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/deliverability'
     | '/flags'
+    | '/maintenance'
     | '/onboarding'
     | '/overview'
     | '/profile'
@@ -408,6 +418,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/deliverability'
     | '/flags'
+    | '/maintenance'
     | '/onboarding'
     | '/overview'
     | '/profile'
@@ -446,6 +457,7 @@ export interface FileRouteTypes {
     | '/_app/activity'
     | '/_app/deliverability'
     | '/_app/flags'
+    | '/_app/maintenance'
     | '/_app/onboarding'
     | '/_app/overview'
     | '/_app/profile'
@@ -558,6 +570,13 @@ declare module '@tanstack/react-router' {
       path: '/flags'
       fullPath: '/flags'
       preLoaderRoute: typeof AppFlagsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/maintenance': {
+      id: '/_app/maintenance'
+      path: '/maintenance'
+      fullPath: '/maintenance'
+      preLoaderRoute: typeof AppMaintenanceRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/onboarding': {
@@ -806,6 +825,7 @@ interface AppRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
   AppDeliverabilityRoute: typeof AppDeliverabilityRoute
   AppFlagsRoute: typeof AppFlagsRoute
+  AppMaintenanceRoute: typeof AppMaintenanceRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppOverviewRoute: typeof AppOverviewRoute
   AppProfileRoute: typeof AppProfileRoute
@@ -823,6 +843,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppActivityRoute: AppActivityRoute,
   AppDeliverabilityRoute: AppDeliverabilityRoute,
   AppFlagsRoute: AppFlagsRoute,
+  AppMaintenanceRoute: AppMaintenanceRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppOverviewRoute: AppOverviewRoute,
   AppProfileRoute: AppProfileRoute,

@@ -14,6 +14,7 @@ import {
   MailX,
   ShieldCheck,
   Users,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react'
 import { platformRoleAtLeast, type MembershipRole } from '@/constants/roles'
@@ -36,6 +37,7 @@ export type NavPath =
   | typeof ROUTES.emails
   | typeof ROUTES.deliverability
   | typeof ROUTES.suppressions
+  | typeof ROUTES.maintenance
   | typeof ROUTES.flags
   | typeof ROUTES.onboarding
   | typeof ROUTES.activity
@@ -74,6 +76,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Suppressions',
     to: ROUTES.suppressions,
     Icon: MailX,
+    minRole: 'viewer',
+    group: 'Operations',
+  },
+  {
+    label: 'Maintenance',
+    to: ROUTES.maintenance,
+    Icon: Wrench,
     minRole: 'viewer',
     group: 'Operations',
   },

@@ -14,8 +14,8 @@ import type {
 /**
  * Each template's label and, for the four that carry a token, the sentence
  * the Resend dialog shows: a resend re-runs the originating action, which
- * issues a fresh link. The two security notices and the onboarding reminder
- * have no resend.
+ * issues a fresh link. The two security notices, the onboarding reminder and
+ * the maintenance-mode notice have no resend.
  */
 export const EMAIL_TEMPLATES: Record<
   EmailTemplateKey,
@@ -37,6 +37,7 @@ export const EMAIL_TEMPLATES: Record<
   password_changed: { label: 'Password changed', resendLabel: null },
   registration_attempt: { label: 'Registration attempt', resendLabel: null },
   onboarding_reminder: { label: 'Onboarding reminder', resendLabel: null },
+  maintenance_mode_changed: { label: 'Maintenance mode changed', resendLabel: null },
 }
 
 /** Whether `key` is a template this build knows. */

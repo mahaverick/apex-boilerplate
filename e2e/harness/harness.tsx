@@ -13,7 +13,7 @@
 import '@/lib/zod-jitless'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
-import { http } from 'msw'
+import { http, passthrough } from 'msw'
 import { setupWorker } from 'msw/browser'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -77,11 +77,18 @@ const HARNESS_PASSWORD = 'current-password'
 /**
  * `?role=none` is a signed-in user who is not staff, so /no-access renders
  * instead of redirecting to the overview; `?role=viewer` is staff below
- * admin, so the admin-only pages refuse. Anything else is an admin.
+ * admin, so the admin-only pages refuse; `?role=owner` is a platform owner,
+ * who gets the Maintenance page's controls. Anything else is an admin.
  */
 const roleParam = new URLSearchParams(location.search).get('role')
 const platformRole =
-  roleParam === 'none' ? null : roleParam === 'viewer' ? ('viewer' as const) : ('admin' as const)
+  roleParam === 'none'
+    ? null
+    : roleParam === 'viewer'
+      ? ('viewer' as const)
+      : roleParam === 'owner'
+        ? ('owner' as const)
+        : ('admin' as const)
 
 const testUser = {
   id: USER_ID,
@@ -1057,6 +1064,48 @@ const SYSTEM_STATUS = {
   },
 }
 
+/**
+ * `?maintenance=full` answers the platform state as full maintenance, set by
+ * Sam Staff, so the banner and the page's facts render; `?maintenance=route`
+ * lets `GET /platform/maintenance-mode` through to the network, where the
+ * test's own `context.route` answers it. Anything else is off. `PUT` is never
+ * answered here: a test that changes the mode routes it itself.
+ */
+const maintenanceParam = new URLSearchParams(location.search).get('maintenance')
+
+/** Every queue `queue.service.ts` creates, paused or not, with one analytics job finishing. */
+function harnessQueues(paused: boolean) {
+  return ['email', 'notification', 'maintenance', 'analytics'].map((name) => ({
+    name,
+    paused,
+    active: name === 'analytics' ? 1 : 0,
+  }))
+}
+
+const MAINTENANCE_VIEW =
+  maintenanceParam === 'full'
+    ? {
+        mode: 'full' as const,
+        message:
+          'We are upgrading the database so the app stays fast as it grows.\nWe expect to be back by 11:00 UTC.',
+        reason: 'Postgres 18 upgrade, ticket OPS-1234, approved in the change review',
+        since: '2026-10-06T10:42:00.000Z',
+        changedBy: { id: STAFF_USER_ID, name: 'Sam Staff' },
+        version: 5,
+        queues: harnessQueues(true),
+        environment: 'staging',
+      }
+    : {
+        mode: 'off' as const,
+        message: null,
+        reason: null,
+        since: null,
+        changedBy: { id: STAFF_USER_ID, name: 'Sam Staff' },
+        version: 4,
+        queues: harnessQueues(false),
+        environment: 'staging',
+      }
+
 /** The API's step-up refusal, for the writes the fixtures drive into the stacked dialog. */
 function reauthRequired() {
   return Response.json(
@@ -1079,8 +1128,30 @@ const worker = setupWorker(
       'Platform stats retrieved.'
     )
   ),
-  // An admin's Overview also reads the API's release, error tracking's and feature flags' health.
-  http.get('/api/v1/platform/system/status', () => ok(SYSTEM_STATUS, 'System status retrieved.')),
+  // An admin's Overview also reads the API's release, error tracking's, feature flags' and maintenance mode's health.
+  http.get('/api/v1/platform/system/status', () =>
+    ok(
+      {
+        ...SYSTEM_STATUS,
+        maintenance: {
+          mode: MAINTENANCE_VIEW.mode,
+          since: MAINTENANCE_VIEW.since,
+          known: true,
+          queuesPaused: MAINTENANCE_VIEW.mode === 'full',
+          queues: MAINTENANCE_VIEW.queues,
+          noticesPending: false,
+          lastReloadError: null,
+        },
+      },
+      'System status retrieved.'
+    )
+  ),
+  // The staff shell's banner reads this on every page: off unless `?maintenance=` says otherwise.
+  http.get('/api/v1/platform/maintenance-mode', () =>
+    maintenanceParam === 'route'
+      ? passthrough()
+      : ok(MAINTENANCE_VIEW, 'Maintenance mode retrieved.')
+  ),
   // The staff shell's loader reads Apex's flags on every page; Apex has none yet.
   http.get('/api/v1/platform/me/flags', () =>
     ok({ flags: {}, evaluatedAt: '2026-10-05T10:00:00.000Z' }, 'Flags retrieved.')
@@ -1339,7 +1410,7 @@ useAuthStore.setState({
  * /auth/providers, the tenants page's search, the activity page's three
  * requests, the Staff page's three, the users list and a user's page (its Emails
  * card, timeline and errors included), a tenant's page with its tabs, the Emails list and an email's page with its
- * preview, Deliverability, Suppressions, Onboarding and Feature flags, so those pages render without a backend.
+ * preview, Deliverability, Suppressions, Onboarding, Feature flags and Maintenance, so those pages render without a backend.
  *
  * Only a same-origin absolute path is accepted. This harness is not
  * shipped (nothing in `src/` imports it, and `index.html` is the only Vite

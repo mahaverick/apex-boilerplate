@@ -4,10 +4,11 @@ import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@/states/auth.store'
 import { testFlagsStatus } from '@/tests/fixtures/flags'
+import { maintenanceStatus, PAUSED_QUEUES } from '@/tests/fixtures/maintenance-mode'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testStats, testSystemStatus, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { FlagsStatus, SystemStatus } from '@/types/api.types'
+import type { FlagsStatus, MaintenanceModeStatus, SystemStatus } from '@/types/api.types'
 
 describe('/overview', () => {
   beforeEach(() => {
@@ -526,5 +527,151 @@ describe('the system status card’s feature flags', () => {
     const card = await screen.findByRole('region', { name: 'System status' })
     expect(await within(card).findByText(testSystemStatus.release)).toBeInTheDocument()
     expect(within(card).queryByRole('heading', { name: 'Feature flags' })).not.toBeInTheDocument()
+  })
+})
+
+describe('the system status card’s maintenance mode', () => {
+  beforeEach(() => {
+    signIn({ ...testUser, platformRole: 'admin' })
+  })
+
+  /** Answers the status with a maintenance section as given, or none. */
+  function serveMaintenance(maintenance: Partial<MaintenanceModeStatus> | undefined) {
+    server.use(
+      http.get('/api/v1/platform/system/status', () =>
+        ok(
+          maintenance === undefined
+            ? testSystemStatus
+            : { ...testSystemStatus, maintenance: maintenanceStatus(maintenance) },
+          'OK'
+        )
+      )
+    )
+  }
+
+  /** The card's Maintenance mode section, once loaded. */
+  async function maintenanceSection() {
+    const card = await screen.findByRole('region', { name: 'System status' })
+    const heading = await within(card).findByRole('heading', {
+      name: 'Maintenance mode',
+      level: 3,
+    })
+    return within(heading.parentElement!)
+  }
+
+  it('shows off, since when and every queue running, with no warning', async () => {
+    serveMaintenance({})
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(section.getByText('Off')).toHaveAttribute('data-tone', 'success')
+    expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
+    expect(
+      section
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+        .at(-1)
+    ).toBe('analytics: not paused, 2 running')
+  })
+
+  it('shows full with every queue paused as expected, not as a warning', async () => {
+    serveMaintenance({ mode: 'full', queuesPaused: true, queues: PAUSED_QUEUES })
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(section.getByText('Full')).toHaveAttribute('data-tone', 'destructive')
+    expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
+    expect(section.getByText('email: paused, 0 running')).toBeInTheDocument()
+  })
+
+  it('says unknown, and warns, when this API has not read the state', async () => {
+    serveMaintenance({ known: false, lastReloadError: 'connect ECONNREFUSED 127.0.0.1:5432' })
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(section.getByText('Unknown')).toHaveAttribute('data-tone', 'warning')
+    expect(section.getByText('Needs attention')).toBeInTheDocument()
+    expect(
+      section.getByText(
+        'This API has not read the maintenance state since it started, so it lets customers in.'
+      )
+    ).toBeInTheDocument()
+    expect(section.getByText('connect ECONNREFUSED 127.0.0.1:5432')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['full with queues not paused', { mode: 'full' as const, queuesPaused: false }],
+    ['off with a queue left paused', { queues: PAUSED_QUEUES }],
+    [
+      'off with a queue Redis did not answer for',
+      { queues: [{ name: 'email', paused: null, active: null }] },
+    ],
+    [
+      'full with a queue Redis did not answer for, after the settle window',
+      {
+        mode: 'full' as const,
+        queuesPaused: false,
+        queues: [{ name: 'email', paused: null, active: null }],
+      },
+    ],
+    ['notices still waiting', { mode: 'full' as const, queuesPaused: true, noticesPending: true }],
+    ['notices not sent while off', { noticesPending: true }],
+    ['a failed reload', { lastReloadError: 'timeout' }],
+  ])('warns on %s', async (_name, maintenance) => {
+    serveMaintenance(maintenance)
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(section.getByText('Needs attention')).toBeInTheDocument()
+  })
+
+  it('does not warn while a fresh switch to full is still pausing the queues', async () => {
+    serveMaintenance({ mode: 'full', since: new Date(Date.now() - 5_000).toISOString() })
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(section.getByText('Full')).toBeInTheDocument()
+    expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
+  })
+
+  it('does not warn about notices while a fresh switch to full is still settling', async () => {
+    serveMaintenance({
+      mode: 'full',
+      since: new Date(Date.now() - 5_000).toISOString(),
+      queuesPaused: true,
+      queues: PAUSED_QUEUES,
+      noticesPending: true,
+    })
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(section.getByText('Full')).toBeInTheDocument()
+    expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
+  })
+
+  it('says notices have not been sent yet when the queues are not paused', async () => {
+    serveMaintenance({ noticesPending: true })
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(section.getByText('Change notices have not been sent yet')).toBeInTheDocument()
+    expect(section.getByText('Needs attention')).toBeInTheDocument()
+  })
+
+  it('says when change notices are waiting for the queues', async () => {
+    serveMaintenance({
+      mode: 'full',
+      queuesPaused: true,
+      queues: PAUSED_QUEUES,
+      noticesPending: true,
+    })
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(
+      section.getByText('Change notices are waiting for the queues to resume')
+    ).toBeInTheDocument()
+  })
+
+  it('shows no maintenance section for an API older than 1.9.0', async () => {
+    serveMaintenance(undefined)
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'System status' })
+    expect(await within(card).findByText(testSystemStatus.release)).toBeInTheDocument()
+    expect(
+      within(card).queryByRole('heading', { name: 'Maintenance mode' })
+    ).not.toBeInTheDocument()
   })
 })

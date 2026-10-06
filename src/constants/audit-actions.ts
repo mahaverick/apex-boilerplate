@@ -42,6 +42,7 @@ export const AUDIT_ACTIONS = [
   'user.errors_viewed',
   'tenant.errors_viewed',
   'user.flags_evaluated',
+  'platform.maintenance_mode_changed',
 ] as const
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
 
@@ -89,6 +90,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'user.errors_viewed': 'User errors viewed',
   'tenant.errors_viewed': 'Tenant errors viewed',
   'user.flags_evaluated': 'User flags evaluated',
+  'platform.maintenance_mode_changed': 'Maintenance mode changed',
 }
 
 type Metadata = Record<string, unknown>
@@ -159,6 +161,37 @@ function flagsEvaluatedFor(metadata: Metadata): string {
   return `${which}${text(metadata, 'tenantId') === undefined ? '' : ', in a tenant'}`
 }
 
+/** A maintenance mode as a sentence names it. */
+const MAINTENANCE_MODE_WORDS: Record<string, string> = {
+  off: 'off',
+  read_only: 'read-only',
+  full: 'full',
+}
+
+/**
+ * A maintenance-mode change as a sentence: on, off, escalated, eased, or a
+ * new customer message; a mode it does not know reads as a change.
+ */
+function maintenanceChange(metadata: Metadata): string {
+  const from = text(metadata, 'from')
+  const to = text(metadata, 'to')
+  if (from === undefined || to === undefined) return 'changed maintenance mode'
+  if (!Object.hasOwn(MAINTENANCE_MODE_WORDS, from) || !Object.hasOwn(MAINTENANCE_MODE_WORDS, to)) {
+    return 'changed maintenance mode'
+  }
+  const toWord = MAINTENANCE_MODE_WORDS[to]
+  if (to === 'off') return 'turned maintenance off'
+  if (from === 'off') return `turned on ${toWord} maintenance`
+  if (from === to) {
+    return metadata.messageChanged === true
+      ? `changed the ${toWord} maintenance message`
+      : 'changed maintenance mode'
+  }
+  return to === 'full'
+    ? 'escalated maintenance from read-only to full'
+    : 'eased maintenance from full to read-only'
+}
+
 /** `: “why”`, or nothing when the entry carries no reason. */
 function because(metadata: Metadata): string {
   const reason = text(metadata, 'reason')
@@ -227,6 +260,7 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
   'user.errors_viewed': () => 'viewed a user’s errors',
   'tenant.errors_viewed': () => 'viewed a tenant’s errors',
   'user.flags_evaluated': (m) => `evaluated a user’s feature flags${flagsEvaluatedFor(m)}`,
+  'platform.maintenance_mode_changed': (m) => `${maintenanceChange(m)}${because(m)}`,
 }
 
 /**

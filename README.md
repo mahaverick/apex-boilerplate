@@ -4,13 +4,13 @@ The staff admin dashboard boilerplate: a React 19 + TypeScript single-page app
 for the people who run a product, not the people who use it. Its sibling,
 `react-boilerplate`, is the customer app; both are built on the
 `express-boilerplate` API. Apex ships a sign-in, a grouped-sidebar shell, a
-⌘K command palette and ten staff pages: Overview (KPI cards and charts),
+⌘K command palette and eleven staff pages: Overview (KPI cards and charts),
 Tenants (every customer tenant, keyset-paged, each with a detail page for its
 overview, members, invitations, activity, timeline, errors, emails, onboarding and flags), Users (every account, each with
 a detail page and, for admins, a PostHog timeline and error list), Staff (the platform's own members and invitations), Emails
 (every tracked message, with a delivery timeline and preview), Deliverability
 (delivery, bounce and complaint rates), Suppressions (addresses mail is held
-back from), Feature flags (every registered flag's live state, and any user's evaluation), Onboarding (the activation funnel and the tenants stuck in it) and the Activity log (the platform audit log).
+back from), Feature flags (every registered flag's live state, and any user's evaluation), Maintenance (customer maintenance mode and the queues' pause state), Onboarding (the activation funnel and the tenants stuck in it) and the Activity log (the platform audit log).
 
 Only platform staff get in. A signed-in user with no platform role lands on
 `/no-access`, and the API answers `/platform/*` with **404** to anyone below
@@ -695,6 +695,40 @@ newer (an older API answers them 404, which reads as "your role can't see
 this", and its status has no flags section); evaluation needs express's
 `POSTHOG_FEATURE_FLAGS_KEY`, without which every flag serves its fallback and
 the page says flags are not set up.
+
+## Maintenance mode
+
+A platform owner can put customers into maintenance from **Maintenance**
+(Operations, every staff role reads it): **read-only**, where customers can
+read but every change is refused, or **full**, where customers see a
+maintenance page, cannot sign in, and every queue pauses. The page shows who
+set it, why, the customer message and each queue's pause state with its
+running jobs; while the mode is not off, every staff page carries a red
+banner. Switching on or escalating to full asks for the message (with a
+preview of what customers will see), a reason and the API's environment name
+typed out, then a password confirmation if the sign-in is more than 10 minutes
+old. Switching off is one confirmation, plus the password prompt if the sign-in is
+more than 10 minutes old. Every other owner and admin is told,
+in the app and by email. The Overview's **System status** card gains a
+**Maintenance mode** section: the mode this API serves, the queues, and
+**Needs attention** when the API has not read the state, a reload failed,
+the queues disagree with the mode, or change notices are still waiting.
+
+Runbook:
+
+1. Before **full**, confirm every staff member who will need Apex can sign in:
+   password resets are refused in full maintenance. Staff actions in Apex,
+   including the tenant, member, invitation and Staff pages, keep working and
+   writing during maintenance, so a staff change still lands while customers
+   are shut out.
+2. Use **read-only** for data fixes where reads are safe; jobs keep running.
+3. Before database work, check that every queue on the Maintenance page says
+   **0 running**.
+4. Switch off from Apex when done; paused queues resume and held notices go out.
+
+Maintenance mode needs express 1.9.0 or newer; an older API answers it 404,
+which reads as "your role can't see this", and its status has no maintenance
+section.
 
 ## Deploying
 
