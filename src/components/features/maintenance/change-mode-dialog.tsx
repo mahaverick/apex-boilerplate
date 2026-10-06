@@ -80,7 +80,10 @@ function titleFor(from: PlatformMaintenanceModeView['mode'], modes: readonly OnM
  * typed exactly, compared against the platform GET's `environment`; other
  * changes take an optional reason. The change runs through step-up. A 409
  * shows what someone else saved meanwhile and keeps the dialog open, and the
- * next submit sends the version just read.
+ * next submit sends the version just read. Until then a submit sends the
+ * version the dialog opened on, so a poll that lands meanwhile makes it a
+ * conflict instead of silently overwriting what was read. A change that is
+ * not a switch-on starts with the reason now saved in the Reason field.
  */
 export function ChangeModeDialog(props: ChangeModeDialogProps) {
   const [busy, setBusy] = useState(false)
@@ -100,7 +103,7 @@ export function ChangeModeDialog(props: ChangeModeDialogProps) {
             Every other platform owner and admin is told when maintenance is switched on or off.
           </DialogDescription>
         </DialogHeader>
-        {props.open && <ChangeModeForm {...props} onBusyChange={setBusy} />}
+        {props.open && <ChangeModeForm {...props} busy={busy} onBusyChange={setBusy} />}
       </DialogContent>
     </Dialog>
   )
@@ -110,13 +113,16 @@ function ChangeModeForm({
   view,
   modes,
   onOpenChange,
+  busy,
   onBusyChange,
-}: ChangeModeDialogProps & { onBusyChange: (busy: boolean) => void }) {
+}: ChangeModeDialogProps & { busy: boolean; onBusyChange: (busy: boolean) => void }) {
   const queryClient = useQueryClient()
   const stepUp = useStepUp()
   const change = useChangeMaintenanceMode()
   const serverErrors = useServerErrors()
   const [conflict, setConflict] = useState<string | null>(null)
+  // What this form was opened on; only a 409's fresh read replaces it, never a poll in between.
+  const [base, setBase] = useState({ mode: view.mode, version: view.version })
   const schema = useMemo(
     () => maintenanceModeFormSchema(view.mode, view.environment),
     [view.mode, view.environment]
@@ -124,7 +130,8 @@ function ChangeModeForm({
   const defaultValues: MaintenanceModeFormValues = {
     mode: modes[0] ?? 'read_only',
     message: view.message ?? '',
-    reason: '',
+    // A change that is not a switch-on keeps the saved reason unless the owner edits it.
+    reason: isSwitchOn(view.mode, modes[0] ?? 'read_only') ? '' : (view.reason ?? ''),
     confirmation: '',
   }
   const form = useForm({
@@ -134,14 +141,11 @@ function ChangeModeForm({
       serverErrors.reset()
       setConflict(null)
       const parsed = schema.parse(value)
-      // The version this tab read last: a 409 reads the state again, so a resubmit sends the fresh one.
-      const current =
-        queryClient.getQueryData<PlatformMaintenanceModeView>(maintenanceModeKeys.view) ?? view
-      const switchOn = isSwitchOn(current.mode, parsed.mode)
+      const switchOn = isSwitchOn(base.mode, parsed.mode)
       const body: ChangeMaintenanceModeBody = {
         mode: parsed.mode,
         message: parsed.message,
-        expectedVersion: current.version,
+        expectedVersion: base.version,
         ...(parsed.reason === '' ? {} : { reason: parsed.reason }),
         ...(switchOn ? { confirm: parsed.confirmation.trim() } : {}),
       }
@@ -150,7 +154,7 @@ function ChangeModeForm({
         const next = await stepUp.run(() => change.mutateAsync(body))
         onBusyChange(false)
         toast.success(
-          next.mode === current.mode
+          next.mode === base.mode
             ? 'Customer message saved.'
             : `Maintenance is now ${MAINTENANCE_MODE_LABELS[next.mode].toLowerCase()}.`
         )
@@ -166,6 +170,7 @@ function ChangeModeForm({
             queryClient.getQueryData<PlatformMaintenanceModeView>(maintenanceModeKeys.view) ?? view
           // Its own alert, not FormError: the sentence names a person, so it renders inside Pii.
           setConflict(conflictSentence(fresh))
+          setBase({ mode: fresh.mode, version: fresh.version })
           return
         }
         if (codeFrom(error) === CONFIRMATION_MISMATCH) {
@@ -247,7 +252,9 @@ function ChangeModeForm({
                     />
                   </FormControl>
                   <FormDescription>
-                    For staff only. Recorded in the audit log with your name.
+                    {switchOn
+                      ? 'For staff only. Recorded in the audit log with your name.'
+                      : 'For staff only. Recorded in the audit log with your name. It starts as the reason now saved.'}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -283,7 +290,7 @@ function ChangeModeForm({
       )}
       <FormError />
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+        <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>
           Cancel
         </Button>
         <form.Subscribe selector={(state) => [state.isSubmitting, state.values.mode] as const}>

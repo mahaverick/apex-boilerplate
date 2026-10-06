@@ -603,7 +603,16 @@ describe('the system status card’s maintenance mode', () => {
       'off with a queue Redis did not answer for',
       { queues: [{ name: 'email', paused: null, active: null }] },
     ],
+    [
+      'full with a queue Redis did not answer for, after the settle window',
+      {
+        mode: 'full' as const,
+        queuesPaused: false,
+        queues: [{ name: 'email', paused: null, active: null }],
+      },
+    ],
     ['notices still waiting', { mode: 'full' as const, queuesPaused: true, noticesPending: true }],
+    ['notices not sent while off', { noticesPending: true }],
     ['a failed reload', { lastReloadError: 'timeout' }],
   ])('warns on %s', async (_name, maintenance) => {
     serveMaintenance(maintenance)
@@ -618,6 +627,28 @@ describe('the system status card’s maintenance mode', () => {
     const section = await maintenanceSection()
     expect(section.getByText('Full')).toBeInTheDocument()
     expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
+  })
+
+  it('does not warn about notices while a fresh switch to full is still settling', async () => {
+    serveMaintenance({
+      mode: 'full',
+      since: new Date(Date.now() - 5_000).toISOString(),
+      queuesPaused: true,
+      queues: PAUSED_QUEUES,
+      noticesPending: true,
+    })
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(section.getByText('Full')).toBeInTheDocument()
+    expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
+  })
+
+  it('says notices have not been sent yet when the queues are not paused', async () => {
+    serveMaintenance({ noticesPending: true })
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(section.getByText('Change notices have not been sent yet')).toBeInTheDocument()
+    expect(section.getByText('Needs attention')).toBeInTheDocument()
   })
 
   it('says when change notices are waiting for the queues', async () => {

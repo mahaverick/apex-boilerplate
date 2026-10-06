@@ -214,15 +214,16 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
 
 - **Apex reads the platform state, never the `Maintenance-Mode` header.**
   The banner and the Maintenance page both use `maintenanceModeQueryOptions`
-  (`GET /platform/maintenance-mode`), polled every 30 s only while the mode
-  is not `off`. The header describes what customers get; staff routes are let
+  (`GET /platform/maintenance-mode`), polled every 30 s while the mode is on
+  and every 60 s while it is off (visible tab only; a 404 stops it). The header describes what customers get; staff routes are let
   through whatever it says.
 - **The typed confirmation compares with the API's `environment`,** from that
   same GET, never a client setting: the image is promoted unchanged through
   every environment, so only the API knows which one it is.
-- **A change sends the version this tab read last.** A 409 reads the state
-  again before it rejects (`useChangeMaintenanceMode`), so the dialog says
-  what someone else saved and the next submit carries the fresh version.
+- **A change sends the version its dialog opened on,** not the latest poll:
+  a state that moved meanwhile must conflict, not be overwritten. A 409 reads
+  the state again before it rejects (`useChangeMaintenanceMode`), so the dialog
+  says what someone else saved and the next submit carries the fresh version.
 - **Message, reason and actor are text inside `Pii`,** in the banner, the
   page, the dialog's preview and the conflict sentence, like every other
   name and free text staff typed.

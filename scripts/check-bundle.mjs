@@ -9,7 +9,7 @@ import path from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { build } from 'vite'
 
-/** The measured first-visit JS plus about 1 KB of headroom. Raise it only with a measured reason. */
+/** First-visit JS measured 629,355 B when this was last set, so about 645 B of headroom. Raise it only with a measured reason. */
 const ENTRY_BUDGET_BYTES = 630_000
 
 /**

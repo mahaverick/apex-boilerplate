@@ -4,13 +4,6 @@
  */
 import type { MaintenanceMode } from '@/types/api.types'
 
-/** Every mode, least to most restrictive. */
-export const MAINTENANCE_MODES = [
-  'off',
-  'read_only',
-  'full',
-] as const satisfies readonly MaintenanceMode[]
-
 /** How each mode reads in a badge or a sentence. */
 export const MAINTENANCE_MODE_LABELS: Record<MaintenanceMode, string> = {
   off: 'Off',
@@ -37,6 +30,9 @@ export const MAINTENANCE_PAUSE_SETTLE_MS = 30_000
 
 /** How often Apex asks again while maintenance is on, for the banner and the page. */
 export const MAINTENANCE_MODE_POLL_MS = 30_000
+
+/** How often Apex asks again while maintenance is off, so a switch-on by someone else shows up. */
+export const MAINTENANCE_MODE_IDLE_POLL_MS = 60_000
 
 /**
  * What maintenance leaves working for staff, said on the Maintenance page:

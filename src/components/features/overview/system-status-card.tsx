@@ -155,8 +155,9 @@ const MAINTENANCE_TONES: Record<MaintenanceMode, BadgeTone> = {
  * the last reload failed, the queues' pause state disagrees with the mode
  * (full pauses every queue once `MAINTENANCE_PAUSE_SETTLE_MS` has passed;
  * anything else pauses none; a queue Redis did not answer for matches
- * neither), or change notices are still waiting. Being in maintenance is not
- * itself a warning.
+ * neither), or change notices are still waiting once the same settle window
+ * has passed (they are held until the queues pause and resume). Being in
+ * maintenance is not itself a warning.
  * @param maintenance - The status's maintenance section.
  * @param now - When the status was fetched, in epoch milliseconds.
  * @returns True when the card should warn.
@@ -173,7 +174,7 @@ function maintenanceNeedsAttention(maintenance: MaintenanceModeStatus, now: numb
     !maintenance.known ||
     maintenance.lastReloadError !== null ||
     !queuesMatch ||
-    maintenance.noticesPending
+    (maintenance.noticesPending && !settling)
   )
 }
 
@@ -237,7 +238,11 @@ function MaintenanceFacts({
         {maintenance.noticesPending && (
           <>
             <dt className="text-muted-foreground">Notices</dt>
-            <dd>Change notices are waiting for the queues to resume</dd>
+            <dd>
+              {maintenance.mode === 'full' && maintenance.queuesPaused
+                ? 'Change notices are waiting for the queues to resume'
+                : 'Change notices have not been sent yet'}
+            </dd>
           </>
         )}
         {maintenance.lastReloadError !== null && (

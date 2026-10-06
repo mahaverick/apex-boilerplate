@@ -1068,7 +1068,7 @@ const SYSTEM_STATUS = {
  * `?maintenance=full` answers the platform state as full maintenance, set by
  * Sam Staff, so the banner and the page's facts render; `?maintenance=route`
  * lets `GET /platform/maintenance-mode` through to the network, where the
- * test's own `page.route` answers it. Anything else is off. `PUT` is never
+ * test's own `context.route` answers it. Anything else is off. `PUT` is never
  * answered here: a test that changes the mode routes it itself.
  */
 const maintenanceParam = new URLSearchParams(location.search).get('maintenance')
@@ -1099,7 +1099,7 @@ const MAINTENANCE_VIEW =
         mode: 'off' as const,
         message: null,
         reason: null,
-        since: '2026-10-05T09:00:00.000Z',
+        since: null,
         changedBy: { id: STAFF_USER_ID, name: 'Sam Staff' },
         version: 4,
         queues: harnessQueues(false),

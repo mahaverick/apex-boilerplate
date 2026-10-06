@@ -26,7 +26,7 @@ const OFF = {
   mode: 'off',
   message: null,
   reason: null,
-  since: '2026-10-05T09:00:00.000Z',
+  since: null,
   changedBy: { id: '20000000-0000-4000-8000-000000000100', name: 'Sam Staff' },
   version: 4,
   queues: [

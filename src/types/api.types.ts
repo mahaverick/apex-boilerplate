@@ -48,7 +48,8 @@ export const REAUTH_REQUIRED = 'REAUTH_REQUIRED'
 /**
  * 503 from a write while customers are in read-only maintenance. Apex's own
  * `/platform/*` routes are let through, but the blocked auth routes
- * (change-password, reset-password and the rest) answer it to staff too.
+ * (forgot-password, reset-password and verify-email, among others) answer it
+ * to staff too.
  */
 export const READ_ONLY_MODE = 'READ_ONLY_MODE'
 

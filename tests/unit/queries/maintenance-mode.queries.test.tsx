@@ -3,7 +3,10 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MAINTENANCE_MODE_POLL_MS } from '@/constants/maintenance-mode.constants'
+import {
+  MAINTENANCE_MODE_IDLE_POLL_MS,
+  MAINTENANCE_MODE_POLL_MS,
+} from '@/constants/maintenance-mode.constants'
 import { resetSessionForTests } from '@/http/session'
 import {
   isMaintenanceModeConflict,
@@ -59,7 +62,7 @@ describe('maintenanceModeQueryOptions', () => {
     expect(result.current.data?.environment).toBe('staging')
   })
 
-  it('asks again every 30 seconds while maintenance is on, and not while it is off', async () => {
+  it('asks again every 30 seconds while maintenance is on and every 60 while it is off', async () => {
     vi.useFakeTimers({
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
     })
@@ -73,9 +76,18 @@ describe('maintenanceModeQueryOptions', () => {
     await act(() => vi.advanceTimersByTimeAsync(MAINTENANCE_MODE_POLL_MS))
     expect(calls.count).toBe(2)
 
-    // Off now: the next interval asks nothing.
-    await act(() => vi.advanceTimersByTimeAsync(MAINTENANCE_MODE_POLL_MS * 3))
+    // Off now: the next ask comes after the idle interval, not the on one.
+    await act(() => vi.advanceTimersByTimeAsync(MAINTENANCE_MODE_IDLE_POLL_MS - 1))
     expect(calls.count).toBe(2)
+    await act(() => vi.advanceTimersByTimeAsync(1))
+    expect(calls.count).toBe(3)
+
+    // Someone switches it on: the poll speeds up again.
+    view = fullMaintenanceView({ version: 6 })
+    await act(() => vi.advanceTimersByTimeAsync(MAINTENANCE_MODE_IDLE_POLL_MS))
+    expect(calls.count).toBe(4)
+    await act(() => vi.advanceTimersByTimeAsync(MAINTENANCE_MODE_POLL_MS))
+    expect(calls.count).toBe(5)
   })
 
   it('treats a 404 as an older API or a changed role: no retry, no polling', async () => {
@@ -110,6 +122,33 @@ describe('useChangeMaintenanceMode', () => {
     await act(() => result.current.mutateAsync(BODY))
     expect(sent).toEqual(BODY)
     expect(client.getQueryData(maintenanceModeKeys.view)).toEqual(fullMaintenanceView())
+  })
+
+  it('lets the answer win over a read that was already in flight', async () => {
+    let releaseRead: () => void = () => {}
+    const readGate = new Promise<void>((resolve) => {
+      releaseRead = resolve
+    })
+    server.use(
+      http.get('/api/v1/platform/maintenance-mode', async () => {
+        await readGate
+        return ok(maintenanceModeView(), 'Maintenance mode retrieved.')
+      }),
+      http.put('/api/v1/platform/maintenance-mode', () =>
+        ok(fullMaintenanceView(), 'Maintenance mode updated.')
+      )
+    )
+    const { result } = renderHook(
+      () => ({ change: useChangeMaintenanceMode(), view: useQuery(maintenanceModeQueryOptions()) }),
+      { wrapper }
+    )
+    // The older read is in flight (and held) when the change lands.
+    await waitFor(() => expect(result.current.view.fetchStatus).toBe('fetching'))
+    await act(() => result.current.change.mutateAsync(BODY))
+    releaseRead()
+    await act(() => Promise.resolve())
+    expect(client.getQueryData(maintenanceModeKeys.view)).toEqual(fullMaintenanceView())
+    expect(result.current.view.data?.mode).toBe('full')
   })
 
   it('marks the status card and the audit log stale', async () => {

@@ -1,8 +1,10 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { STAFF_WRITES_NOTE } from '@/constants/maintenance-mode.constants'
+import { maintenanceModeKeys } from '@/queries/maintenance-mode.queries'
+import { queryClient } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
 import { fullMaintenanceView, maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
@@ -184,7 +186,9 @@ describe('/maintenance', () => {
     await user.click(screen.getByRole('button', { name: 'Switch to read-only…' }))
     const dialog = await screen.findByRole('dialog', { name: 'Switch to read-only maintenance' })
     expect(within(dialog).queryByLabelText(/to confirm$/)).toBeNull()
-    expect(within(dialog).getByLabelText('Reason (optional)')).toBeInTheDocument()
+    // Not a switch-on: the reason now saved is pre-filled, and the hint says so.
+    expect(within(dialog).getByLabelText('Reason (optional)')).toHaveValue('Postgres 18 upgrade')
+    expect(within(dialog).getByText(/It starts as the reason now saved\./)).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Message for customers')).toHaveValue(
       'We are upgrading the database.\nBack by 11:00 UTC.'
     )
@@ -194,6 +198,7 @@ describe('/maintenance', () => {
       {
         mode: 'read_only',
         message: 'We are upgrading the database.\nBack by 11:00 UTC.',
+        reason: 'Postgres 18 upgrade',
         expectedVersion: 5,
       },
     ])
@@ -209,7 +214,60 @@ describe('/maintenance', () => {
     await user.type(message, 'Nearly done.')
     await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
     expect(await screen.findByText('Customer message saved.')).toBeInTheDocument()
-    expect(state.bodies).toEqual([{ mode: 'full', message: 'Nearly done.', expectedVersion: 5 }])
+    expect(state.bodies).toEqual([
+      { mode: 'full', message: 'Nearly done.', reason: 'Postgres 18 upgrade', expectedVersion: 5 },
+    ])
+  })
+
+  it('leaves the reason empty for a switch-on, whatever was saved before', async () => {
+    serve(maintenanceModeView({ reason: 'old reason' }))
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Turn on maintenance…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Turn on maintenance' })
+    expect(within(dialog).getByLabelText('Reason')).toHaveValue('')
+  })
+
+  it('sends the version it opened on when a poll lands before the submit, and shows the conflict', async () => {
+    const state = serve(fullMaintenanceView(), () => {
+      return fail('Maintenance mode changed since you loaded it.', 409, 'MAINTENANCE_MODE_CONFLICT')
+    })
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Edit message…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
+    // A poll moves the cache to version 6 while the dialog is open.
+    state.view = fullMaintenanceView({
+      version: 6,
+      changedBy: { id: 'other', name: 'Ada Lovelace' },
+    })
+    await act(() => queryClient.refetchQueries({ queryKey: maintenanceModeKeys.view }))
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    expect(
+      await within(dialog).findByText(/^Someone changed maintenance mode while you were editing/)
+    ).toBeVisible()
+    expect(state.bodies.map((body) => body.expectedVersion)).toEqual([5])
+  })
+
+  it('disables Cancel while the change is running', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const state = serve(fullMaintenanceView(), () => fail('x', 500))
+    server.use(
+      http.put('/api/v1/platform/maintenance-mode', async ({ request }) => {
+        state.bodies.push((await request.json()) as Record<string, unknown>)
+        await gate
+        return ok(fullMaintenanceView({ message: 'Nearly done.', version: 6 }), 'Updated.')
+      })
+    )
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Edit message…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    await waitFor(() => expect(state.bodies).toHaveLength(1))
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    release()
+    expect(await screen.findByText('Customer message saved.')).toBeInTheDocument()
   })
 
   it('on a 409 shows what changed and resubmits with the version it just read', async () => {
@@ -246,7 +304,8 @@ describe('/maintenance', () => {
         )
       ).toBeInTheDocument()
     )
-    // Read-only now, so keeping full is an escalation: the guard applies, and the fresh version goes out.
+    // Read-only now, so keeping full is an escalation: a fresh reason replaces the pre-filled one, and the fresh version goes out.
+    await user.clear(within(dialog).getByLabelText('Reason'))
     await user.type(within(dialog).getByLabelText('Reason'), 'still migrating')
     await user.type(within(dialog).getByLabelText('Type staging to confirm'), 'staging')
     await user.click(within(dialog).getByRole('button', { name: 'Switch to full' }))
@@ -289,6 +348,22 @@ describe('/maintenance', () => {
     const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
     await user.click(within(stepUp).getByRole('button', { name: 'Cancel' }))
     expect(await within(dialog).findByText('Confirm it’s you to continue.')).toBeVisible()
+  })
+
+  it('turns off with the version it opened on when a poll lands first, and shows the conflict', async () => {
+    const state = serve(fullMaintenanceView(), () =>
+      fail('Maintenance mode changed since you loaded it.', 409, 'MAINTENANCE_MODE_CONFLICT')
+    )
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Turn off…' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Turn off maintenance?' })
+    state.view = fullMaintenanceView({ version: 6 })
+    await act(() => queryClient.refetchQueries({ queryKey: maintenanceModeKeys.view }))
+    await user.click(within(dialog).getByRole('button', { name: 'Turn off' }))
+    expect(
+      await within(dialog).findByText(/^Someone changed maintenance mode while you were editing/)
+    ).toBeVisible()
+    expect(state.bodies.map((body) => body.expectedVersion)).toEqual([5])
   })
 
   it('shows a 409 on switch-off inside its dialog', async () => {

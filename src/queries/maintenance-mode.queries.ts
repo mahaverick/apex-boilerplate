@@ -7,10 +7,12 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   MAINTENANCE_MODE_CONFLICT,
+  MAINTENANCE_MODE_IDLE_POLL_MS,
   MAINTENANCE_MODE_POLL_MS,
 } from '@/constants/maintenance-mode.constants'
 import { apiClient, unwrap } from '@/http/client'
 import { codeFrom, statusFrom } from '@/lib/api-error'
+import { auditKeys } from '@/queries/audit.queries'
 import { isRoleDenied, platformKeys } from '@/queries/platform.queries'
 import type {
   ApiSuccess,
@@ -32,10 +34,11 @@ export function isMaintenanceModeConflict(error: unknown): boolean {
 }
 
 /**
- * The platform state. Asked again every 30 seconds while maintenance is on,
- * and only while the tab is visible (TanStack Query pauses `refetchInterval`
- * in a hidden tab); while it is off, a focus or a remount asks again. A 404
- * (an express older than 1.9.0, or a role that changed) stops the polling.
+ * The platform state. Asked again every 30 seconds while maintenance is on
+ * and every 60 seconds while it is off (or not yet known), and only while the
+ * tab is visible (TanStack Query pauses `refetchInterval` in a hidden tab); a
+ * focus or a remount asks again too. A 404 (an express older than 1.9.0, or a
+ * role that changed) stops the polling.
  * @returns Query options for `useQuery`.
  */
 export function maintenanceModeQueryOptions() {
@@ -45,12 +48,13 @@ export function maintenanceModeQueryOptions() {
       unwrap(
         await apiClient.get<ApiSuccess<PlatformMaintenanceModeView>>('/platform/maintenance-mode')
       ),
-    refetchInterval: (query) =>
-      !isRoleDenied(query.state.error) &&
-      query.state.data !== undefined &&
-      query.state.data.mode !== 'off'
+    refetchInterval: (query) => {
+      if (isRoleDenied(query.state.error)) return false
+      const mode = query.state.data?.mode
+      return mode === 'read_only' || mode === 'full'
         ? MAINTENANCE_MODE_POLL_MS
-        : false,
+        : MAINTENANCE_MODE_IDLE_POLL_MS
+    },
     /** A 404 answers who is asking, so a retry changes nothing. */
     retry: (failureCount, error) => !isRoleDenied(error) && failureCount < 1,
   })
@@ -82,10 +86,12 @@ export function useChangeMaintenanceMode() {
       }
     },
     onSuccess: async (view) => {
+      // A read that started before the change must not land over the answer.
+      await queryClient.cancelQueries({ queryKey: maintenanceModeKeys.view })
       queryClient.setQueryData(maintenanceModeKeys.view, view)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: platformKeys.systemStatus }),
-        queryClient.invalidateQueries({ queryKey: ['platform', 'audit-log'] }),
+        queryClient.invalidateQueries({ queryKey: auditKeys.platformAll }),
       ])
     },
   })

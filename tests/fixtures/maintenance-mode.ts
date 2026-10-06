@@ -25,7 +25,8 @@ export const PAUSED_QUEUES: QueuePauseState[] = RUNNING_QUEUES.map((queue) => ({
 }))
 
 /**
- * The platform state: off since a staff member switched it off, in `staging`.
+ * The platform state while off, in `staging`: express sends no `since` or
+ * message then, though `changedBy` still names who switched it off.
  * @param overrides - Fields to replace.
  * @returns The view.
  */
@@ -36,7 +37,7 @@ export function maintenanceModeView(
     mode: 'off',
     message: null,
     reason: null,
-    since: '2026-10-05T09:00:00.000Z',
+    since: null,
     changedBy: { id: STAFF_USER_ID, name: 'Sam Staff' },
     version: 4,
     queues: RUNNING_QUEUES,
@@ -61,7 +62,8 @@ export function fullMaintenanceView(
 }
 
 /**
- * The status card's section: off, known, every queue running.
+ * The status card's section: off (no `since`, as express sends it), known,
+ * every queue running.
  * @param overrides - Fields to replace.
  * @returns The section.
  */
@@ -70,7 +72,7 @@ export function maintenanceStatus(
 ): MaintenanceModeStatus {
   return {
     mode: 'off',
-    since: '2026-10-05T09:00:00.000Z',
+    since: null,
     known: true,
     queuesPaused: false,
     queues: RUNNING_QUEUES,

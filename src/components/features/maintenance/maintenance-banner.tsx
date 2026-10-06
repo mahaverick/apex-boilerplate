@@ -9,10 +9,11 @@ import { maintenanceModeQueryOptions } from '@/queries/maintenance-mode.queries'
 /**
  * The red banner on every staff page while customers are in maintenance:
  * the mode, since when and who set it, and a link to the Maintenance page.
- * It reads the platform state (polled every 30 seconds while on), never the
- * `Maintenance-Mode` response header, and shows nothing while the mode is
- * `off`, before the first answer, or when the API answers 404. A failed poll
- * keeps the last answer up.
+ * It reads the platform state (polled every 30 seconds while on, every 60
+ * while off), never the `Maintenance-Mode` response header, and shows nothing
+ * while the mode is `off`, before the first answer, or when the very first
+ * answer is a 404. A failed poll, a 404 included, keeps the last answer up; a
+ * 404 also stops the polling.
  */
 export function MaintenanceBanner() {
   const state = useQuery(maintenanceModeQueryOptions())

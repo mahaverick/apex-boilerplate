@@ -707,7 +707,8 @@ running jobs; while the mode is not off, every staff page carries a red
 banner. Switching on or escalating to full asks for the message (with a
 preview of what customers will see), a reason and the API's environment name
 typed out, then a password confirmation if the sign-in is more than 10 minutes
-old. Switching off is one confirmation. Every other owner and admin is told,
+old. Switching off is one confirmation, plus the password prompt if the sign-in is
+more than 10 minutes old. Every other owner and admin is told,
 in the app and by email. The Overview's **System status** card gains a
 **Maintenance mode** section: the mode this API serves, the queues, and
 **Needs attention** when the API has not read the state, a reload failed,

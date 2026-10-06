@@ -28,7 +28,7 @@ import type { PlatformMaintenanceModeView } from '@/types/api.types'
  * Switching off: one confirmation, no reason or typed environment, through
  * step-up. A refusal shows inside the dialog, which stays open: a 409 says
  * what someone else saved meanwhile, and confirming again sends the version
- * just read.
+ * just read; until then the version sent is the one the dialog opened on.
  */
 export function TurnOffDialog({
   view,
@@ -44,14 +44,17 @@ export function TurnOffDialog({
   const change = useChangeMaintenanceMode()
   const [busy, setBusy] = useState(false)
   const [refusal, setRefusal] = useState<string | null>(null)
+  // The version the dialog opened on; only a 409's fresh read replaces it, never a poll in between.
+  const [openedOn, setOpenedOn] = useState<number | null>(null)
+  if (open && openedOn === null) setOpenedOn(view.version)
+  if (!open && openedOn !== null) setOpenedOn(null)
 
   const turnOff = async () => {
     setRefusal(null)
     setBusy(true)
-    const current =
-      queryClient.getQueryData<PlatformMaintenanceModeView>(maintenanceModeKeys.view) ?? view
+    const expectedVersion = openedOn ?? view.version
     try {
-      await stepUp.run(() => change.mutateAsync({ mode: 'off', expectedVersion: current.version }))
+      await stepUp.run(() => change.mutateAsync({ mode: 'off', expectedVersion }))
       setBusy(false)
       toast.success('Maintenance is off.')
       onOpenChange(false)
@@ -59,11 +62,10 @@ export function TurnOffDialog({
       setBusy(false)
       if (isReauthRequired(error)) setRefusal(STEP_UP_DISMISSED)
       else if (isMaintenanceModeConflict(error)) {
-        setRefusal(
-          conflictSentence(
-            queryClient.getQueryData<PlatformMaintenanceModeView>(maintenanceModeKeys.view) ?? view
-          )
-        )
+        const fresh =
+          queryClient.getQueryData<PlatformMaintenanceModeView>(maintenanceModeKeys.view) ?? view
+        setRefusal(conflictSentence(fresh))
+        setOpenedOn(fresh.version)
       } else if (statusFrom(error) === 404) setRefusal(ROLE_DENIED_ACTION)
       else setRefusal(messageFrom(error))
     }
