@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1](https://github.com/mahaverick/apex-boilerplate/compare/v1.8.0...v1.8.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **analytics:** let the sibling registry supersede a tab after a stalled event loop ([#31](https://github.com/mahaverick/apex-boilerplate/issues/31)) ([6785476](https://github.com/mahaverick/apex-boilerplate/commit/678547603a0fe28c05648aa74e19aca5f8b69815))
+
 ## [1.8.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.7.2...v1.8.0) (2026-10-06)
 
 
