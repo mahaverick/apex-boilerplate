@@ -198,7 +198,10 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   `resetAnalytics` clears facade state only), and signs out if its refresh
   returns the other user. If its refresh returns its own user it resumes
   (`confirmSignedInUser`); a failed refresh is retried every
-  `SUPERSEDED_RECHECK_MS`.
+  `SUPERSEDED_RECHECK_MS`. A person another tab announced on the
+  `analytics-identity` channel is also written first to a short-lived
+  `localStorage` registry, which narrows the race a stalled event loop opens
+  between the repair timer and the channel's message.
 - **`posthog.reset()` drops the super properties and the consent answer.**
   `resetAnalytics` and `identifyUser` go through `resetKeepingConsent`, which
   registers `app` and `environment` again and re-applies the consent; never
