@@ -30,10 +30,11 @@ const INVITATIONS_ERROR =
   'We could not load the pending invitations, so none are listed here. This is not a sign that there are none.'
 
 /**
- * Why Resend is off: resend re-checks `canActorGrantRole` against the
- * invitation's role, so an admin's resend of an owner or admin invite is refused.
+ * Why Resend and Revoke are off: both re-check `canActorGrantRole` against
+ * the invitation's role, so an admin's resend or revoke of an owner or admin
+ * invite is refused.
  */
-const RESEND_REASON = 'Only an owner can resend an invitation for this role.'
+const GRANT_REASON = 'Only an owner can resend or revoke an invitation for this role.'
 
 /** Resend or revoke found the row accepted, revoked or expired meanwhile. */
 const NO_LONGER_PENDING = 'That invitation is no longer pending.'
@@ -53,31 +54,16 @@ function expiresOn(expiresAt: string): string {
 }
 
 /**
- * Resend for one row, named after the invitee since there is one per row.
- * When the actor may not grant the invitation's role, the button is disabled
- * with the reason as visible text: a disabled button has `pointer-events:
- * none`, so a tooltip on it would never open. It uses `mutateAsync`, because
- * the list refetch can unmount this row first and `mutate`'s callbacks skip
- * an unmounted observer.
+ * Resend and Revoke for a row whose role the actor may not grant, both
+ * disabled and described by the row's one reason, shown as visible text: a
+ * disabled button has `pointer-events: none`, so a tooltip on it would never
+ * open.
  */
-function ResendInvitationButton({
-  slug,
-  invitation,
-  myRole,
-  tenantId,
-}: {
-  slug: string
-  invitation: TenantInvitation
-  myRole: MembershipRole
-  tenantId?: string
-}) {
-  const resend = useResendInvitation(slug, tenantId)
-  const stepUp = useStepUp()
-  const reasonId = `resend-reason-${invitation.id}`
-
-  if (!canActorGrantRole(myRole, invitation.role)) {
-    return (
-      <div className="grid gap-1">
+function LockedInvitationActions({ invitation }: { invitation: TenantInvitation }) {
+  const reasonId = `invitation-reason-${invitation.id}`
+  return (
+    <div className="grid gap-1">
+      <div className="flex gap-2">
         <Button
           variant="outline"
           size="sm"
@@ -87,12 +73,39 @@ function ResendInvitationButton({
         >
           Resend
         </Button>
-        <p id={reasonId} className="text-xs text-muted-foreground">
-          {RESEND_REASON}
-        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled
+          aria-label={`Revoke invitation to ${invitation.email}`}
+          aria-describedby={reasonId}
+        >
+          Revoke
+        </Button>
       </div>
-    )
-  }
+      <p id={reasonId} className="text-xs text-muted-foreground">
+        {GRANT_REASON}
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Resend for one row, named after the invitee since there is one per row. It
+ * uses `mutateAsync`, because the list refetch can unmount this row first and
+ * `mutate`'s callbacks skip an unmounted observer.
+ */
+function ResendInvitationButton({
+  slug,
+  invitation,
+  tenantId,
+}: {
+  slug: string
+  invitation: TenantInvitation
+  tenantId?: string
+}) {
+  const resend = useResendInvitation(slug, tenantId)
+  const stepUp = useStepUp()
 
   return (
     <Button
@@ -187,7 +200,9 @@ function RevokeInvitationButton({
 }
 
 /**
- * One pending invitation.
+ * One pending invitation. Resend and Revoke are offered only for a role the
+ * actor may grant (`canActorGrantRole`), as the API checks; otherwise both
+ * are shown disabled with the reason.
  *
  * A stacked item at every width rather than a table row with a card twin:
  * one render path keeps every id unique, and there is no fixed-width table
@@ -217,20 +232,19 @@ function InvitationItem({
           Expires {expiresOn(invitation.expiresAt)}
         </span>
       </div>
-      <div className="flex gap-2">
-        <ResendInvitationButton
-          slug={slug}
-          invitation={invitation}
-          myRole={myRole}
-          tenantId={tenantId}
-        />
-        <RevokeInvitationButton
-          slug={slug}
-          invitation={invitation}
-          tenantId={tenantId}
-          onRevoked={onRevoked}
-        />
-      </div>
+      {canActorGrantRole(myRole, invitation.role) ? (
+        <div className="flex gap-2">
+          <ResendInvitationButton slug={slug} invitation={invitation} tenantId={tenantId} />
+          <RevokeInvitationButton
+            slug={slug}
+            invitation={invitation}
+            tenantId={tenantId}
+            onRevoked={onRevoked}
+          />
+        </div>
+      ) : (
+        <LockedInvitationActions invitation={invitation} />
+      )}
     </li>
   )
 }

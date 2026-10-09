@@ -929,7 +929,7 @@ describe('inviting, and the pending invitations', () => {
       const resend = await screen.findByRole('button', { name: `Resend invitation to ${email}` })
       expect(resend).toBeDisabled()
       expect(resend).toHaveAccessibleDescription(
-        'Only an owner can resend an invitation for this role.'
+        'Only an owner can resend or revoke an invitation for this role.'
       )
     }
     const editorResend = screen.getByRole('button', { name: 'Resend invitation to editor@b.com' })
@@ -937,7 +937,35 @@ describe('inviting, and the pending invitations', () => {
     expect(editorResend).not.toHaveAttribute('aria-describedby')
   })
 
-  it('lets an owner resend an invitation for every role', async () => {
+  it('switches off Revoke, with the reason, for a role an admin cannot grant', async () => {
+    mockTenant('admin', [member(ME, 'admin', 'Me'), member(USER_ID_3, 'viewer', 'Vic')])
+    server.use(
+      http.get('/api/v1/tenants/acme/invitations', () =>
+        ok(
+          [
+            invitation(INVITATION_ID, 'owner@b.com', { role: 'owner' }),
+            invitation(INVITATION_ID_2, 'admin@b.com', { role: 'admin' }),
+            invitation(INVITATION_ID_3, 'editor@b.com', { role: 'editor' }),
+          ],
+          'Invitations retrieved.'
+        )
+      )
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+
+    for (const email of ['owner@b.com', 'admin@b.com']) {
+      const revoke = await screen.findByRole('button', { name: `Revoke invitation to ${email}` })
+      expect(revoke).toBeDisabled()
+      expect(revoke).toHaveAccessibleDescription(
+        'Only an owner can resend or revoke an invitation for this role.'
+      )
+    }
+    const editorRevoke = screen.getByRole('button', { name: 'Revoke invitation to editor@b.com' })
+    expect(editorRevoke).toBeEnabled()
+    expect(editorRevoke).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('lets an owner resend and revoke an invitation for every role', async () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
         ok(
@@ -956,9 +984,10 @@ describe('inviting, and the pending invitations', () => {
       expect(
         await screen.findByRole('button', { name: `Resend invitation to ${email}` })
       ).toBeEnabled()
+      expect(screen.getByRole('button', { name: `Revoke invitation to ${email}` })).toBeEnabled()
     }
     expect(
-      screen.queryByText('Only an owner can resend an invitation for this role.')
+      screen.queryByText('Only an owner can resend or revoke an invitation for this role.')
     ).not.toBeInTheDocument()
   })
 
