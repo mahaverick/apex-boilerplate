@@ -51,7 +51,7 @@ const LEAVE_PLATFORM =
 
 /** Added for a platform owner or admin. */
 const PLATFORM_INVITATIONS_REVOKED =
-  'Pending invitations you sent here are revoked, and so are any you sent in other tenants for a role your membership there cannot grant.'
+  'Pending invitations you sent here are revoked, and so are any you sent in other tenants for a role you can no longer grant there.'
 
 /** The profile as express answers it once the platform membership is gone: no platform role. */
 function serveFormerStaff() {

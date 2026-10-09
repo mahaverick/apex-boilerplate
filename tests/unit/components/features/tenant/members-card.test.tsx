@@ -119,8 +119,7 @@ function mockTenant(myRole: MembershipRole, members: ReturnType<typeof member>[]
 }
 
 /** What the Leave dialog says on a customer tenant: the caller is staff, so access stays. */
-const LEAVE_CUSTOMER =
-  'You stop being a member of this tenant. You keep your staff access to it, and each visit is recorded.'
+const LEAVE_CUSTOMER = 'You stop being a member of this tenant. You keep your staff access to it.'
 
 /**
  * Me at `myRole` among `others` until `DELETE …/membership` lands; after it,

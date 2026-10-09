@@ -85,10 +85,9 @@ function modifyRule(slug: string) {
 /**
  * What the Leave dialog says on a customer tenant. Every Apex user is staff,
  * and once the membership is gone the API lets them in through their
- * platform role, auditing each visit.
+ * platform role.
  */
-const LEAVE_CUSTOMER =
-  'You stop being a member of this tenant. You keep your staff access to it, and each visit is recorded.'
+const LEAVE_CUSTOMER = 'You stop being a member of this tenant. You keep your staff access to it.'
 
 /**
  * What the Leave dialog says on the Staff page. The platform role is the
@@ -101,9 +100,9 @@ const LEAVE_PLATFORM =
 /** Added on a customer tenant for an owner or admin, the roles that can have sent invitations: leaving revokes them. */
 const INVITATIONS_REVOKED_ON_LEAVE = 'Pending invitations you sent are revoked.'
 
-/** Added on the Staff page for an owner or admin: leaving staff also revokes what their memberships elsewhere cannot grant. */
+/** Added on the Staff page for an owner or admin: leaving staff also revokes, in each other tenant, what their membership there cannot grant, or everything where they have none. */
 const PLATFORM_INVITATIONS_REVOKED_ON_LEAVE =
-  'Pending invitations you sent here are revoked, and so are any you sent in other tenants for a role your membership there cannot grant.'
+  'Pending invitations you sent here are revoked, and so are any you sent in other tenants for a role you can no longer grant there.'
 
 /** What a leave says when the API answers 404: the membership was already gone. */
 const NO_LONGER_A_MEMBER = 'You are no longer a member of this tenant.'
