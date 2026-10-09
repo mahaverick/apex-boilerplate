@@ -94,6 +94,8 @@ const platformRole =
  * `?member=owner|admin|manager|editor|viewer` makes the harness user a member
  * of Acme at that role, with Cleo D its owner, so the members tab offers
  * Leave on their own row; otherwise they reach Acme through platform access.
+ * Once they leave, Acme answers as express does: through platform access,
+ * without their row.
  */
 const memberParam = new URLSearchParams(location.search).get('member')
 const acmeRole =
@@ -104,6 +106,14 @@ const acmeRole =
   memberParam === 'viewer'
     ? memberParam
     : null
+
+/** Whether the harness user has left Acme in this page load. */
+let hasLeftAcme = false
+
+/** The harness user's role in Acme, while they are still a member there. */
+function acmeMembership() {
+  return hasLeftAcme ? null : acmeRole
+}
 
 const testUser = {
   id: USER_ID,
@@ -1303,8 +1313,8 @@ const worker = setupWorker(
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
         isPlatform: false,
-        role: acmeRole ?? 'admin',
-        access: acmeRole ? 'member' : 'platform',
+        role: acmeMembership() ?? 'admin',
+        access: acmeMembership() ? 'member' : 'platform',
       },
       'Tenant retrieved.'
     )
@@ -1318,11 +1328,14 @@ const worker = setupWorker(
           tenantId: TENANT_ID,
           ...(acmeRole ? { role: index === 0 ? acmeRole : 'owner' } : {}),
         },
-      })),
+      })).filter((_, index) => !(acmeRole && hasLeftAcme && index === 0)),
       'Members retrieved.'
     )
   ),
-  http.delete('/api/v1/tenants/:slug/membership', () => ok(null, 'You left the tenant.')),
+  http.delete('/api/v1/tenants/:slug/membership', ({ params }) => {
+    if (params.slug === 'acme') hasLeftAcme = true
+    return ok(null, 'You left the tenant.')
+  }),
   http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.')),
   http.get('/api/v1/tenants/acme/audit-log', () =>
     ok(

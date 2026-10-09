@@ -142,7 +142,7 @@ describe('useLeaveTenant', () => {
     client.setQueryData(tenantKeys.members('acme', TENANT_ID), [member])
   })
 
-  it('leaves through the self-leave route, with no body, and refreshes the directory', async () => {
+  it('leaves through the self-leave route, with no body, and refreshes the directory and the tenant', async () => {
     let sent: { path: string; contentType: string | null; body: string } | null = null
     server.use(
       http.delete('/api/v1/tenants/:slug/membership', async ({ request }) => {
@@ -160,10 +160,11 @@ describe('useLeaveTenant', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(sent).toEqual({ path: '/api/v1/tenants/acme/membership', contentType: null, body: '' })
     expect(client.getQueryState(DIRECTORY_KEY)?.isInvalidated).toBe(true)
-    // The page drops the tenant's cache once it has left the tenant's routes (`dropTenantCache`).
-    expect(client.getQueryState(tenantKeys.detail('acme', TENANT_ID))?.data).toEqual({
-      id: TENANT_ID,
-    })
+    // Staff still read a customer tenant they left, through platform access: refetched, never dropped.
+    const detail = client.getQueryState(tenantKeys.detail('acme', TENANT_ID))
+    expect(detail?.isInvalidated).toBe(true)
+    expect(detail?.data).toEqual({ id: TENANT_ID })
+    expect(client.getQueryState(tenantKeys.members('acme', TENANT_ID))?.isInvalidated).toBe(true)
   })
 
   it('refetches the member list, and nothing else, when leaving is refused with a 409', async () => {
@@ -175,6 +176,7 @@ describe('useLeaveTenant', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(client.getQueryState(tenantKeys.members('acme', TENANT_ID))?.isInvalidated).toBe(true)
+    expect(client.getQueryState(tenantKeys.detail('acme', TENANT_ID))?.isInvalidated).toBe(false)
     expect(client.getQueryState(DIRECTORY_KEY)?.isInvalidated).toBe(false)
   })
 

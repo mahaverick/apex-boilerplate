@@ -1,10 +1,12 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Pii } from '@/components/shared/pii'
 import type { MembershipRole } from '@/constants/roles'
+import { queryClient } from '@/router'
+import { useAuthStore } from '@/states/auth.store'
 import {
   MEMBERSHIP_ID,
   MEMBERSHIP_ID_2,
@@ -13,12 +15,50 @@ import {
   USER_ID_2,
 } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
+import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
+/**
+ * A gate the members card's `navigate` waits on before navigating, so a test
+ * can hold a navigation between its call and its resolution. Open by default:
+ * every other test navigates as the real router does.
+ */
+const navigation = vi.hoisted(() => ({ gate: null as Promise<void> | null }))
+
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-router')>()
+  return {
+    ...actual,
+    useNavigate: () => {
+      const navigate = actual.useNavigate()
+      return ((options: Parameters<typeof navigate>[0]) =>
+        navigation.gate === null
+          ? navigate(options)
+          : navigation.gate.then(() => navigate(options))) as typeof navigate
+    },
+  }
+})
+
 afterEach(() => {
+  navigation.gate = null
   vi.restoreAllMocks()
 })
+
+/** What the Leave dialog says on the Staff page: leaving the platform tenant ends staff access. */
+const LEAVE_PLATFORM =
+  'You lose staff access immediately. An owner or admin will have to invite you back, unless your address is on an auto-join domain: then you rejoin as a viewer at your next sign-in.'
+
+/** Added for a platform owner or admin. */
+const PLATFORM_INVITATIONS_REVOKED =
+  'Pending invitations you sent here are revoked, and so are any you sent in other tenants for a role your membership there cannot grant.'
+
+/** The profile as express answers it once the platform membership is gone: no platform role. */
+function serveFormerStaff() {
+  server.use(
+    http.get('/api/v1/profile', () => ok({ ...testUser, platformRole: null }, 'Profile retrieved.'))
+  )
+}
 
 const PLATFORM = {
   id: PLATFORM_TENANT_ID,
@@ -168,8 +208,9 @@ describe('/staff with the real sections', () => {
     expect(calls).toBe(2)
   })
 
-  it('lets a staff viewer leave the platform tenant too', async () => {
+  it('lets a staff viewer leave the platform tenant, which ends staff access: /no-access', async () => {
     serveStaff('viewer', 'owner')
+    serveFormerStaff()
     let left = 0
     server.use(
       http.delete('/api/v1/tenants/platform/membership', () => {
@@ -181,9 +222,97 @@ describe('/staff with the real sections', () => {
     const router = renderAppAt('/staff')
     await user.click(await screen.findByRole('button', { name: 'Leave' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
+    expect(dialog).toHaveAccessibleDescription(LEAVE_PLATFORM)
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
-    await waitFor(() => expect(router.state.location.pathname).toBe('/overview'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/no-access'))
     expect(left).toBe(1)
+  })
+
+  it('tells a platform owner leaving which invitations are revoked, here and elsewhere', async () => {
+    serveStaff('owner', 'owner')
+    const user = userEvent.setup()
+    renderAppAt('/staff')
+    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    expect(
+      await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
+    ).toHaveAccessibleDescription(`${LEAVE_PLATFORM} ${PLATFORM_INVITATIONS_REVOKED}`)
+  })
+
+  it('keeps the dialog open, and says why, when the step-up for a stale leave is dismissed', async () => {
+    serveStaff('owner', 'owner')
+    let calls = 0
+    server.use(
+      http.delete('/api/v1/tenants/platform/membership', () => {
+        calls += 1
+        return fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
+      })
+    )
+    const user = userEvent.setup()
+    const router = renderAppAt('/staff')
+    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
+    await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+
+    await user.keyboard('{Escape}')
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Confirm it’s you' })).not.toBeInTheDocument()
+    )
+    const still = screen.getByRole('alertdialog', { name: 'Leave this tenant?' })
+    expect(await within(still).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
+    expect(calls).toBe(1)
+    expect(router.state.location.pathname).toBe('/staff')
+  })
+
+  it('drops the platform tenant’s cache only once the navigation away has finished', async () => {
+    serveStaff('owner', 'owner')
+    serveFormerStaff()
+    let release = () => {}
+    navigation.gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let hasLeft = false
+    const afterLeaving: string[] = []
+    const record = ({ request }: { request: Request }) => {
+      if (hasLeft) afterLeaving.push(`${request.method} ${new URL(request.url).pathname}`)
+    }
+    server.use(
+      http.delete('/api/v1/tenants/platform/membership', () => {
+        hasLeft = true
+        return ok(null, 'You left the tenant.')
+      })
+    )
+    const router = renderAppAt('/staff')
+    const dropped: string[] = []
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.type === 'removed' && event.query.queryHash.startsWith('["tenants","platform"')) {
+        dropped.push(router.state.resolvedLocation?.pathname ?? '')
+      }
+    })
+    server.events.on('request:start', record)
+    try {
+      const user = userEvent.setup()
+      await user.click(await screen.findByRole('button', { name: 'Leave' }))
+      await user.click(
+        within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' })
+      )
+      await screen.findByText('You left this tenant.')
+      // Absence has no event: the held navigation is what the drop must wait for.
+      await act(() => settle(50, 'absence has no event: a drop while the navigation is held'))
+      expect(dropped).toEqual([])
+      expect(router.state.location.pathname).toBe('/staff')
+
+      release()
+
+      await waitFor(() => expect(router.state.location.pathname).toBe('/no-access'))
+      await waitFor(() => expect(dropped.length).toBeGreaterThan(0))
+      expect(new Set(dropped)).toEqual(new Set(['/no-access']))
+      expect(afterLeaving.filter((entry) => entry.includes('/tenants/platform'))).toEqual([])
+    } finally {
+      unsubscribe()
+      server.events.removeListener('request:start', record)
+    }
   })
 
   it('asks who you are before a stale leave of the platform tenant, then leaves', async () => {
@@ -214,8 +343,9 @@ describe('/staff with the real sections', () => {
     expect(calls).toBe(2)
   })
 
-  it('goes to the overview after leaving the platform tenant', async () => {
+  it('after leaving the platform tenant, the refreshed profile has no platform role: /no-access', async () => {
     serveStaff('owner', 'owner')
+    serveFormerStaff()
     server.use(
       http.delete('/api/v1/tenants/platform/membership', () => ok(null, 'You left the tenant.'))
     )
@@ -225,6 +355,7 @@ describe('/staff with the real sections', () => {
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/overview'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/no-access'))
+    expect(useAuthStore.getState().user?.platformRole).toBeNull()
   })
 })

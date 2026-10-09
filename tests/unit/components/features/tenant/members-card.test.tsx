@@ -118,6 +118,37 @@ function mockTenant(myRole: MembershipRole, members: ReturnType<typeof member>[]
   )
 }
 
+/** What the Leave dialog says on a customer tenant: the caller is staff, so access stays. */
+const LEAVE_CUSTOMER =
+  'You stop being a member of this tenant. You keep your staff access to it, and each visit is recorded.'
+
+/**
+ * Me at `myRole` among `others` until `DELETE …/membership` lands; after it,
+ * the tenant answers as express does once the membership is gone: Me reaches
+ * it through platform access (`testUser` is a platform admin) and is no
+ * longer listed. Returns how many leaves were sent.
+ */
+function serveLeaving(myRole: MembershipRole, others: ReturnType<typeof member>[]) {
+  const state = { left: 0 }
+  mockPlatformDetail()
+  server.use(
+    http.get('/api/v1/tenants/acme', () =>
+      ok(
+        state.left > 0 ? tenantDetail(TENANT, 'admin', 'platform') : tenantDetail(TENANT, myRole),
+        'Tenant retrieved.'
+      )
+    ),
+    http.get('/api/v1/tenants/acme/members', () =>
+      ok(state.left > 0 ? others : [member(ME, myRole, 'Me'), ...others], 'Members retrieved.')
+    ),
+    http.delete('/api/v1/tenants/acme/membership', () => {
+      state.left += 1
+      return ok(null, 'You left the tenant.')
+    })
+  )
+  return state
+}
+
 /** The member table's row for one person, once the table has rendered. */
 async function rowFor(name: string) {
   const cell = await screen.findByRole('cell', { name: new RegExp(name) })
@@ -590,14 +621,8 @@ describe('removing and leaving', () => {
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
   })
 
-  it('leaves a customer tenant for the Tenants list', async () => {
-    mockTenant('owner', [member(ME, 'owner', 'Me'), member(USER_ID_4, 'owner', 'Otto')])
-    server.use(
-      http.delete('/api/v1/tenants/acme/membership', () => ok(null, 'You left the tenant.')),
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
-    )
+  it('leaves a customer tenant and stays on it, now through staff access', async () => {
+    const state = serveLeaving('owner', [member(USER_ID_4, 'owner', 'Otto')])
     const user = userEvent.setup()
     const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
 
@@ -607,36 +632,36 @@ describe('removing and leaving', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
 
     expect(await screen.findByText('You left this tenant.')).toBeInTheDocument()
-    await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
+    expect(state.left).toBe(1)
+    // The refetched list no longer has Me, and the card has switched to the staff controls.
+    await waitFor(() =>
+      expect(screen.queryByRole('cell', { name: /Me X/ })).not.toBeInTheDocument()
+    )
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Members' })).toHaveFocus())
+    expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID}/members`)
+    expect(queryClient.getQueryData(tenantKeys.detail('acme', TENANT_ID))).toMatchObject({
+      access: 'platform',
+    })
   })
 
-  it('lets a viewer leave through the self-leave route, with the same confirmation', async () => {
-    let left = 0
-    mockTenant('viewer', [member(ME, 'viewer', 'Me'), member(USER_ID_4, 'owner', 'Otto')])
-    server.use(
-      http.delete('/api/v1/tenants/acme/membership', () => {
-        left += 1
-        return ok(null, 'You left the tenant.')
-      }),
-      http.delete('/api/v1/tenants/acme/members/:userId', () => fail('Forbidden', 403)),
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
-    )
+  it('lets a viewer leave through the self-leave route, and says they keep staff access', async () => {
+    const state = serveLeaving('viewer', [member(USER_ID_4, 'owner', 'Otto')])
+    server.use(http.delete('/api/v1/tenants/acme/members/:userId', () => fail('Forbidden', 403)))
     const user = userEvent.setup()
     const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
 
     const me = await rowFor('Me')
     await user.click(me.getByRole('button', { name: 'Leave' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
-    expect(dialog).toHaveAccessibleDescription(
-      'You will lose access to this tenant immediately. An owner or admin will have to invite you back.'
-    )
+    expect(dialog).toHaveAccessibleDescription(LEAVE_CUSTOMER)
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
 
     expect(await screen.findByText('You left this tenant.')).toBeInTheDocument()
-    expect(left).toBe(1)
-    await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
+    expect(state.left).toBe(1)
+    await waitFor(() =>
+      expect(screen.queryByRole('cell', { name: /Me X/ })).not.toBeInTheDocument()
+    )
+    expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID}/members`)
   })
 
   it.each(['manager', 'editor'] as const)(
@@ -647,9 +672,7 @@ describe('removing and leaving', () => {
       renderAppAt(`/tenants/${TENANT_ID}/members`)
 
       await user.click((await rowFor('Me')).getByRole('button', { name: 'Leave' }))
-      expect(await screen.findByRole('alertdialog')).toHaveAccessibleDescription(
-        'You will lose access to this tenant immediately. An owner or admin will have to invite you back.'
-      )
+      expect(await screen.findByRole('alertdialog')).toHaveAccessibleDescription(LEAVE_CUSTOMER)
     }
   )
 
@@ -662,7 +685,7 @@ describe('removing and leaving', () => {
 
       await user.click((await rowFor('Me')).getByRole('button', { name: 'Leave' }))
       expect(await screen.findByRole('alertdialog')).toHaveAccessibleDescription(
-        'You will lose access to this tenant immediately. An owner or admin will have to invite you back. Pending invitations you sent are revoked.'
+        `${LEAVE_CUSTOMER} Pending invitations you sent are revoked.`
       )
     }
   )
@@ -699,47 +722,31 @@ describe('removing and leaving', () => {
     expect(left).toBe(1)
   })
 
-  it('forgets the tenant it left, after leaving its page, without asking the API for it again', async () => {
-    let hasLeft = false
+  it('keeps the tenant’s cache and refetches it, since staff access still reads it', async () => {
+    const state = serveLeaving('viewer', [member(USER_ID_4, 'owner', 'Otto')])
     const afterLeaving: string[] = []
     const record = ({ request }: { request: Request }) => {
-      if (hasLeft) afterLeaving.push(`${request.method} ${new URL(request.url).pathname}`)
+      if (state.left > 0) afterLeaving.push(`${request.method} ${new URL(request.url).pathname}`)
     }
-    mockTenant('viewer', [member(ME, 'viewer', 'Me'), member(USER_ID_4, 'owner', 'Otto')])
-    server.use(
-      http.delete('/api/v1/tenants/acme/membership', () => {
-        hasLeft = true
-        return ok(null, 'You left the tenant.')
-      }),
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
-    )
-    server.events.on('request:start', record)
-    const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
-    const droppedOn: string[] = []
+    const dropped: string[] = []
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
       if (event.type === 'removed' && event.query.queryHash.startsWith('["tenants","acme"')) {
-        droppedOn.push(router.state.location.pathname)
+        dropped.push(event.query.queryHash)
       }
     })
+    server.events.on('request:start', record)
     try {
       const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}/members`)
 
       await user.click((await rowFor('Me')).getByRole('button', { name: 'Leave' }))
       await user.click(
         within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' })
       )
 
-      await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
-      await waitFor(() =>
-        expect(queryClient.getQueryState(tenantKeys.detail('acme', TENANT_ID))).toBeUndefined()
-      )
-      expect(queryClient.getQueryState(tenantKeys.members('acme', TENANT_ID))).toBeUndefined()
-      expect(afterLeaving.filter((entry) => entry.includes('/tenants/acme'))).toEqual([])
-      // Dropped only once the tenant's page is gone: earlier, a still-mounted query could refetch it.
-      expect(droppedOn.length).toBeGreaterThan(0)
-      expect(new Set(droppedOn)).toEqual(new Set(['/tenants']))
+      await waitFor(() => expect(afterLeaving).toContain('GET /api/v1/tenants/acme'))
+      expect(afterLeaving).toContain('GET /api/v1/tenants/acme/members')
+      expect(dropped).toEqual([])
     } finally {
       unsubscribe()
       server.events.removeListener('request:start', record)
@@ -810,13 +817,13 @@ describe('removing and leaving', () => {
     expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID}/members`)
   })
 
-  it('lands on the Tenants list when the membership was already gone', async () => {
-    mockTenant('viewer', [member(ME, 'viewer', 'Me'), member(USER_ID_4, 'owner', 'Otto')])
+  it('says so, and stays, when the membership was already gone', async () => {
+    const state = serveLeaving('viewer', [member(USER_ID_4, 'owner', 'Otto')])
     server.use(
-      http.delete('/api/v1/tenants/acme/membership', () => fail('Tenant not found', 404)),
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
+      http.delete('/api/v1/tenants/acme/membership', () => {
+        state.left += 1
+        return fail('Tenant not found', 404)
+      })
     )
     const user = userEvent.setup()
     const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
@@ -830,7 +837,29 @@ describe('removing and leaving', () => {
       await screen.findByText('You are no longer a member of this tenant.')
     ).toBeInTheDocument()
     expect(screen.queryByText('Tenant not found')).not.toBeInTheDocument()
-    await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
+    await waitFor(() =>
+      expect(screen.queryByRole('cell', { name: /Me X/ })).not.toBeInTheDocument()
+    )
+    expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID}/members`)
+  })
+
+  it('shows the server’s message, and stays, when removing someone else answers 404', async () => {
+    mockTenant('owner', [member(ME, 'owner', 'Me'), member(USER_ID_3, 'viewer', 'Vic')])
+    server.use(
+      http.delete('/api/v1/tenants/acme/members/:userId', () => fail('Member not found', 404))
+    )
+    const user = userEvent.setup()
+    const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+    await user.click((await rowFor('Vic')).getByRole('button', { name: 'Remove' }))
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' })
+    )
+
+    expect(await screen.findByText('Member not found')).toBeInTheDocument()
+    expect(screen.queryByText('You are no longer a member of this tenant.')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID}/members`)
   })
 
   it('says why a role change was refused', async () => {

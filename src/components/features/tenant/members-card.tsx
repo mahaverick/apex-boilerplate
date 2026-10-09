@@ -82,12 +82,28 @@ function modifyRule(slug: string) {
       : canActorModifyTarget(actor, target, isSelf)
 }
 
-/** What the Leave dialog says, for every role. */
-const LEAVE_WARNING =
-  'You will lose access to this tenant immediately. An owner or admin will have to invite you back.'
+/**
+ * What the Leave dialog says on a customer tenant. Every Apex user is staff,
+ * and once the membership is gone the API lets them in through their
+ * platform role, auditing each visit.
+ */
+const LEAVE_CUSTOMER =
+  'You stop being a member of this tenant. You keep your staff access to it, and each visit is recorded.'
 
-/** Added for an owner or admin, the roles that can have sent invitations: leaving revokes them. */
+/**
+ * What the Leave dialog says on the Staff page. The platform role is the
+ * platform-tenant membership, so leaving ends it; an auto-join domain brings
+ * a verified address back as viewer at its next sign-in.
+ */
+const LEAVE_PLATFORM =
+  'You lose staff access immediately. An owner or admin will have to invite you back, unless your address is on an auto-join domain: then you rejoin as a viewer at your next sign-in.'
+
+/** Added on a customer tenant for an owner or admin, the roles that can have sent invitations: leaving revokes them. */
 const INVITATIONS_REVOKED_ON_LEAVE = 'Pending invitations you sent are revoked.'
+
+/** Added on the Staff page for an owner or admin: leaving staff also revokes what their memberships elsewhere cannot grant. */
+const PLATFORM_INVITATIONS_REVOKED_ON_LEAVE =
+  'Pending invitations you sent here are revoked, and so are any you sent in other tenants for a role your membership there cannot grant.'
 
 /** What a leave says when the API answers 404: the membership was already gone. */
 const NO_LONGER_A_MEMBER = 'You are no longer a member of this tenant.'
@@ -265,12 +281,17 @@ function StaffRemoveMemberButton({
  * is a disabled Leave button described by the row's explanation in `RoleCell`
  * (`isLastOwner` implies `isSelf`). An owner or admin leaving is told the
  * invitations they sent are revoked, as the server does. After leaving, or
- * when the API answers 404 because the membership was already gone, the page
- * navigates away, because the tenant's routes answer 404 to a caller with
- * neither a membership nor a platform role: to Overview from the platform
- * tenant, to the Tenants list from any other. Only then does it drop the
- * tenant's cache, so no query still mounted on the tenant refetches it. A
- * dismissed step-up removes no one, so the dialog stays open and says so,
+ * when the API answers 404 because the membership was already gone:
+ *
+ * - On a customer tenant the page stays. The caller is staff, so the tenant
+ *   still answers through platform access: the refetched card drops their row
+ *   and switches to the staff controls, and focus moves as after a removal.
+ * - On the platform tenant (the Staff page) staff access is gone, and the
+ *   refreshed profile says so. The page navigates to Overview, whose guard
+ *   shows /no-access, and only once that navigation has finished drops the
+ *   tenant's cache, so no query still mounted on it refetches.
+ *
+ * A dismissed step-up removes no one, so the dialog stays open and says so,
  * ready to be confirmed again.
  */
 function RemoveMemberButton({
@@ -289,7 +310,7 @@ function RemoveMemberButton({
   isLastOwner: boolean
   /** The row's one last-owner explanation, rendered by `RoleCell`. */
   reasonId: string
-  /** Called after someone else is removed: their row, and this button, are gone, so the card moves focus. */
+  /** Called after someone else is removed, or you leave a customer tenant: the row, and this button, are gone, so the card moves focus. */
   onRemoved: () => void
 }) {
   const removeMember = useRemoveMember(slug)
@@ -303,12 +324,15 @@ function RemoveMemberButton({
   const name = memberName(member)
   const isPending = isSelf ? leaveTenant.isPending : removeMember.isPending
 
-  /** Says so, leaves the tenant's routes, and only then forgets the tenant. */
-  async function leaveTheTenant(message: string) {
+  /** Says so; from the platform tenant, leaves its routes and only then forgets it. */
+  async function afterLeaving(message: string) {
     setIsOpen(false)
     toast.success(message)
-    // Leaving the platform tenant ends staff access; Overview's guard then shows /no-access.
-    await navigate({ to: slug === PLATFORM_TENANT_SLUG ? ROUTES.overview : ROUTES.tenants })
+    if (slug !== PLATFORM_TENANT_SLUG) {
+      onRemoved()
+      return
+    }
+    await navigate({ to: ROUTES.overview })
     dropTenantCache(queryClient, slug)
   }
 
@@ -345,8 +369,9 @@ function RemoveMemberButton({
           <AlertDialogDescription>
             {isSelf ? (
               <>
-                {LEAVE_WARNING}
-                {canManageTenant(myRole) && ` ${INVITATIONS_REVOKED_ON_LEAVE}`}
+                {slug === PLATFORM_TENANT_SLUG ? LEAVE_PLATFORM : LEAVE_CUSTOMER}
+                {canManageTenant(myRole) &&
+                  ` ${slug === PLATFORM_TENANT_SLUG ? PLATFORM_INVITATIONS_REVOKED_ON_LEAVE : INVITATIONS_REVOKED_ON_LEAVE}`}
               </>
             ) : slug === PLATFORM_TENANT_SLUG ? (
               <>
@@ -393,7 +418,7 @@ function RemoveMemberButton({
                   () => {
                     setBusy(false)
                     if (isSelf) {
-                      void leaveTheTenant('You left this tenant.')
+                      void afterLeaving('You left this tenant.')
                       return
                     }
                     setIsOpen(false)
@@ -407,7 +432,7 @@ function RemoveMemberButton({
                       return
                     }
                     if (isSelf && statusFrom(error) === 404) {
-                      void leaveTheTenant(NO_LONGER_A_MEMBER)
+                      void afterLeaving(NO_LONGER_A_MEMBER)
                       return
                     }
                     setIsOpen(false)

@@ -184,18 +184,19 @@ test('⌘K finds a user and choosing them opens their page', async ({ page }) =>
   await expect(page.getByRole('heading', { name: 'Cleo D', level: 1 })).toBeVisible()
 })
 
-test('lets a member leave a tenant from their own row, then lands on the Tenants list', async ({
+test('lets a member leave a tenant from their own row, and stay on it through staff access', async ({
   page,
 }) => {
   await page.goto(`/e2e/harness/?path=${ACME_PAGE}/members&member=viewer`)
   await page.getByRole('row', { name: /A B/ }).getByRole('button', { name: 'Leave' }).click()
 
   const dialog = page.getByRole('alertdialog', { name: 'Leave this tenant?' })
-  await expect(dialog).toBeVisible()
+  await expect(dialog).toContainText('You keep your staff access to it')
   await dialog.getByRole('button', { name: 'Leave' }).click()
 
   await expect(page.getByText('You left this tenant.')).toBeVisible()
-  await expect(page).toHaveURL(/\/tenants(\?|$)/)
+  await expect(page.getByRole('row', { name: /A B/ })).toHaveCount(0)
+  await expect(page).toHaveURL(new RegExp(`${ACME_PAGE}/members`))
 })
 
 test('keeps a member’s Leave and its dialog on-screen at 390px', async ({ page }) => {

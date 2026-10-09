@@ -180,18 +180,27 @@ export function useRemoveMember(slug: string) {
 /**
  * Leaves a tenant: `DELETE /tenants/:slug/membership`, open to every role but
  * the tenant's last owner (409 `LAST_OWNER`). On success, or on a 404 (the
- * membership was already gone), the staff directory refreshes, all but the
- * tenant left, which is only marked stale: its routes now answer 404, and a
- * still-mounted page would refetch them. Leaving the platform tenant also
- * refreshes the stored user's platformRole. A 409 refetches the member list,
- * since another owner changed under the page. The page drops the tenant's
- * cache with `dropTenantCache` once it has left the tenant's routes.
+ * membership was already gone), the staff directory refreshes:
+ *
+ * - A customer tenant refreshes with it. The caller is staff, so its routes
+ *   still answer, through platform access, with their row gone.
+ * - The platform tenant is only marked stale. Its membership was the
+ *   caller's platform role, so its routes now answer 404, and the still-mounted
+ *   Staff page would refetch them; the stored user's platformRole refreshes,
+ *   and the page drops the tenant's cache with `dropTenantCache` once it has
+ *   left the tenant's routes.
+ *
+ * A 409 refetches the member list, since another owner changed under the page.
  */
 export function useLeaveTenant(slug: string) {
   const queryClient = useQueryClient()
   const afterLeaving = async () => {
+    if (slug !== PLATFORM_TENANT_SLUG) {
+      await invalidateDirectory(queryClient)
+      return
+    }
     await invalidateDirectory(queryClient, undefined, tenantKeys.detail(slug))
-    if (slug === PLATFORM_TENANT_SLUG) await refreshProfile(queryClient)
+    await refreshProfile(queryClient)
   }
   return useMutation({
     mutationFn: async () => apiClient.delete<ApiSuccess<null>>(`/tenants/${slug}/membership`),
@@ -208,8 +217,9 @@ export function useLeaveTenant(slug: string) {
 
 /**
  * Drops a tenant's whole cache prefix (detail, members, invitations), for a
- * tenant the caller can no longer read. Call it after navigating away from
- * the tenant's routes, so no mounted query refetches what it drops.
+ * tenant the caller can no longer read: the platform tenant, once left. Call
+ * it after navigating away from the tenant's routes, so no mounted query
+ * refetches what it drops.
  * @param queryClient - The app's query client.
  * @param slug - The tenant left.
  */
