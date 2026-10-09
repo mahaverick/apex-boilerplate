@@ -73,7 +73,7 @@ describe('/users/$userId/errors', () => {
     expect(rows).toHaveLength(2)
 
     const browser = within(rows[0]!)
-    expect(browser.getByText('TypeError')).toBeInTheDocument()
+    expect(browser.getByText('TypeError', { selector: 'code' })).toBeInTheDocument()
     expect(
       browser.getByText("Cannot read properties of undefined (reading 'id')")
     ).toBeInTheDocument()

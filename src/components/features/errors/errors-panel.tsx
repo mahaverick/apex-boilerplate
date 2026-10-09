@@ -53,13 +53,20 @@ function SourceBadges({ issue }: { issue: ErrorIssue }) {
   )
 }
 
-/** One issue as a table row. `type` and `value` render as text, never as markup. */
+/**
+ * One issue as a table row. `type` and `value` render as text, never as
+ * markup, and inside `Pii`: a browser can send any `$exception`, so both are
+ * attacker text. The PostHog link's name carries the type, so each row's
+ * link reads differently.
+ */
 function ErrorIssueRow({ issue }: { issue: ErrorIssue }) {
   const absolute = absoluteTime(issue.lastSeen)
   return (
     <TableRow>
       <TableCell className="max-w-md align-top whitespace-normal">
-        <code className="text-sm font-medium break-all">{issue.type}</code>
+        <Pii>
+          <code className="text-sm font-medium break-all">{issue.type}</code>
+        </Pii>
         <Pii as="p" className="text-sm break-all text-muted-foreground">
           {issue.value}
         </Pii>
@@ -87,7 +94,10 @@ function ErrorIssueRow({ issue }: { issue: ErrorIssue }) {
           className="text-sm whitespace-nowrap underline-offset-4 hover:underline"
         >
           Open in PostHog <span aria-hidden="true">↗</span>
-          <span className="sr-only"> (opens in a new tab)</span>
+          <span className="sr-only">
+            {' ('}
+            <Pii>{issue.type}</Pii>, opens in a new tab)
+          </span>
         </a>
       </TableCell>
     </TableRow>
