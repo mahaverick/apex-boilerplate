@@ -29,6 +29,7 @@ import {
   CONFIRMATION_MISMATCH,
   MAINTENANCE_CONFLICT_UNREAD,
   MAINTENANCE_MODE_LABELS,
+  MAINTENANCE_UNCHANGED_SAVE,
   NOTHING_CHANGED,
 } from '@/constants/maintenance-mode.constants'
 import { fieldValue } from '@/hooks/use-form-field'
@@ -82,15 +83,20 @@ function titleFor(from: PlatformMaintenanceModeView['mode'], modes: readonly OnM
  * shows what someone else saved meanwhile and keeps the dialog open, and the
  * next submit sends the version just read. Until then a submit sends the
  * version the dialog opened on, so a poll that lands meanwhile makes it a
- * conflict instead of silently overwriting what was read. A change that is
- * not a switch-on starts with the reason now saved in the Reason field;
- * emptying it clears the stored reason (`reason: null`), and a 409 moves an
- * untouched pre-filled reason to the one just read. A save express answers
- * with the version unchanged stored nothing, and the toast says so. The mode
+ * conflict instead of silently overwriting what was read. The message starts
+ * as the one now saved and, for a change that is not a switch-on, the reason
+ * does too; emptying the reason clears the stored one (`reason: null`). A 409
+ * moves an untouched pre-filled message or reason to the one just read, keeps
+ * one the owner typed, and says which. A same-mode save that changes neither
+ * is refused in place, before step-up. A save express answers with the
+ * version unchanged stored nothing, and the toast says so; a no-op that races
+ * another owner's commit is answered with their newer version and reads as
+ * saved, which apex cannot tell apart without a signal from express. The mode
  * the form is validated against, and whether a submit is a switch-on, both
  * come from the mode the dialog opened on, replaced only when a 409 reads a
  * newer one; a poll in between changes neither. A 409 whose re-read failed
- * says so and keeps the version, so the next submit conflicts again.
+ * says so and keeps the version, so the next submit conflicts again and reads
+ * again.
  */
 export function ChangeModeDialog(props: ChangeModeDialogProps) {
   const [busy, setBusy] = useState(false)
@@ -127,13 +133,14 @@ function ChangeModeForm({
     () => maintenanceModeFormSchema(base.mode, view.environment),
     [base.mode, view.environment]
   )
-  // Set when the dialog opens and re-read only by a 409, so a poll in between does not move it.
+  // Set when the dialog opens and re-read only by a 409, so a poll in between does not move them.
+  const [prefilledMessage, setPrefilledMessage] = useState(view.message ?? '')
   const [prefilledReason, setPrefilledReason] = useState(() =>
     isSwitchOn(view.mode, modes[0] ?? 'read_only') ? '' : (view.reason ?? '')
   )
   const defaultValues: MaintenanceModeFormValues = {
     mode: modes[0] ?? 'read_only',
-    message: view.message ?? '',
+    message: prefilledMessage,
     // A change that is not a switch-on starts from the saved reason; emptying it sends `reason: null`, which clears it.
     reason: prefilledReason,
     confirmation: '',
@@ -145,6 +152,14 @@ function ChangeModeForm({
       serverErrors.reset()
       setConflict(null)
       const parsed = schema.parse(value)
+      if (
+        parsed.mode === base.mode &&
+        parsed.message === prefilledMessage &&
+        parsed.reason === prefilledReason
+      ) {
+        serverErrors.setFormErrors([MAINTENANCE_UNCHANGED_SAVE])
+        return
+      }
       const switchOn = isSwitchOn(base.mode, parsed.mode)
       const body: ChangeMaintenanceModeBody = {
         mode: parsed.mode,
@@ -180,16 +195,30 @@ function ChangeModeForm({
             return
           }
           const fresh = error.fresh
-          // Its own alert, not FormError: the sentence names a person, so it renders inside Pii.
-          setConflict(conflictSentence(fresh))
-          // An untouched pre-filled reason follows the fresh state: the other owner's reason, or empty once the edit became a switch-on (its field is required and the "starts as the reason now saved" hint is gone).
-          const freshPrefill = isSwitchOn(fresh.mode, form.state.values.mode)
-            ? ''
-            : (fresh.reason ?? '')
-          if (form.state.values.reason === prefilledReason) {
-            form.setFieldValue('reason', freshPrefill)
+          const { mode, message, reason } = form.state.values
+          const moved: PrefilledField[] = []
+          const kept: PrefilledField[] = []
+          // An untouched pre-filled message follows the other owner's; one the owner typed is kept. Off has no message to follow.
+          if (fresh.message !== null) {
+            if (fresh.message !== prefilledMessage && message !== fresh.message) {
+              if (message === prefilledMessage) {
+                form.setFieldValue('message', fresh.message)
+                moved.push('message')
+              } else kept.push('message')
+            }
+            setPrefilledMessage(fresh.message)
+          }
+          // An untouched pre-filled reason follows too: the other owner's reason, or empty once the edit became a switch-on (its field is required and the "starts as the reason now saved" hint is gone).
+          const freshSwitchOn = isSwitchOn(fresh.mode, mode)
+          const freshPrefill = freshSwitchOn ? '' : (fresh.reason ?? '')
+          if (reason === prefilledReason) form.setFieldValue('reason', freshPrefill)
+          if (!freshSwitchOn && freshPrefill !== prefilledReason && reason !== freshPrefill) {
+            if (reason === prefilledReason) moved.push('reason')
+            else kept.push('reason')
           }
           setPrefilledReason(freshPrefill)
+          // Its own alert, not FormError: the sentence names a person, so it renders inside Pii.
+          setConflict(`${conflictSentence(fresh)}${prefilledFieldsNote(moved, kept)}`)
           setBase({ mode: fresh.mode, version: fresh.version })
           return
         }
@@ -279,7 +308,7 @@ function ChangeModeForm({
                       />
                     </FormControl>
                     <FormDescription>
-                      {switchOn
+                      {switchOn || prefilledReason === ''
                         ? 'For staff only. Recorded in the audit log with your name.'
                         : 'For staff only. Recorded in the audit log with your name. It starts as the reason now saved. Empty it to clear that reason.'}
                     </FormDescription>
@@ -340,6 +369,32 @@ function ChangeModeForm({
       </Form>
     </>
   )
+}
+
+/** A field the dialog pre-fills from the saved state. */
+type PrefilledField = 'message' | 'reason'
+
+/**
+ * What a 409 did to the pre-filled fields, said after the conflict sentence
+ * so it is announced, not only visible: untouched ones now show the other
+ * owner's values, and typed ones they also changed are kept.
+ * @param moved - Untouched fields that took the other owner's value.
+ * @param kept - Fields the owner typed that the other owner also changed.
+ * @returns The sentences, each led by a space, or an empty string.
+ */
+function prefilledFieldsNote(
+  moved: readonly PrefilledField[],
+  kept: readonly PrefilledField[]
+): string {
+  const movedNote =
+    moved.length === 0
+      ? ''
+      : ` The ${moved.join(' and ')} now ${moved.length > 1 ? 'match' : 'matches'} theirs.`
+  const keptNote =
+    kept.length === 0
+      ? ''
+      : ` They also changed the ${kept.join(' and ')}; yours ${kept.length > 1 ? 'are' : 'is'} kept.`
+  return `${movedNote}${keptNote}`
 }
 
 /**

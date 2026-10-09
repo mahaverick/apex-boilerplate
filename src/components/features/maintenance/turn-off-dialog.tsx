@@ -12,7 +12,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import { MAINTENANCE_CONFLICT_UNREAD } from '@/constants/maintenance-mode.constants'
+import { MAINTENANCE_CONFLICT_UNREAD_TURN_OFF } from '@/constants/maintenance-mode.constants'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom, statusFrom } from '@/lib/api-error'
 import { conflictSentence } from '@/lib/maintenance-mode'
@@ -62,7 +62,7 @@ export function TurnOffDialog({
       if (isReauthRequired(error)) setRefusal(STEP_UP_DISMISSED)
       else if (isMaintenanceModeConflict(error)) {
         // A failed re-read keeps the version: confirming again conflicts rather than overwriting an unseen change.
-        if (error.fresh === null) setRefusal(MAINTENANCE_CONFLICT_UNREAD)
+        if (error.fresh === null) setRefusal(MAINTENANCE_CONFLICT_UNREAD_TURN_OFF)
         else {
           setRefusal(conflictSentence(error.fresh))
           setOpenedOn(error.fresh.version)

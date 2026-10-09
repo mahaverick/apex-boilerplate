@@ -20,9 +20,20 @@ export const CONFIRMATION_MISMATCH = 'CONFIRMATION_MISMATCH'
 /** A save express answered with the version unchanged: it stored nothing. */
 export const NOTHING_CHANGED = 'Nothing changed.'
 
-/** A 409 whose re-read failed: what someone else saved is unknown, so the dialog says so instead. */
+/**
+ * A 409 whose re-read failed, in the change dialog: what someone else saved is
+ * unknown. Submitting again conflicts again and retries the read, keeping what
+ * was typed.
+ */
 export const MAINTENANCE_CONFLICT_UNREAD =
-  'Someone changed maintenance mode, and the current state could not be loaded. Close and reopen to try again.'
+  'Someone changed maintenance mode, and the current state could not be loaded. Try again; what you typed is kept.'
+
+/** The same, in the switch-off dialog, which has nothing typed to keep. */
+export const MAINTENANCE_CONFLICT_UNREAD_TURN_OFF =
+  'Someone changed maintenance mode, and the current state could not be loaded. Try again.'
+
+/** A same-mode save whose message and reason are what is saved. */
+export const MAINTENANCE_UNCHANGED_SAVE = 'Change the message or reason before saving.'
 
 /** The API's cap on the customer message and the reason. */
 export const MAINTENANCE_TEXT_MAX_LENGTH = 500

@@ -224,11 +224,15 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   same GET, never a client setting: the image is promoted unchanged through
   every environment, so only the API knows which one it is.
 - **A change sends the version its dialog opened on,** not the latest poll:
-  a state that moved meanwhile must conflict, not be overwritten. A 409 reads
-  the state again before it rejects (`useChangeMaintenanceMode`), so the dialog
-  says what someone else saved and the next submit carries the fresh version;
-  when that read fails, the dialog says the state could not be loaded and keeps
-  the version it had, never the cached state passed off as the other change.
+  a state that moved meanwhile must conflict, not be overwritten. A 409
+  cancels any read in flight and reads the state again before it rejects
+  (`useChangeMaintenanceMode`), so the dialog says what someone else saved and
+  the next submit carries the fresh version. An untouched pre-filled message
+  or reason follows the state just read, and one the owner typed is kept; the
+  conflict sentence says which. When that read fails, or answers a version no
+  newer than the one sent, the dialog says the state could not be loaded and
+  keeps the version it had, never the cached state passed off as the other
+  change; trying again conflicts again and reads again, keeping what was typed.
 - **Message, reason and actor are text inside `Pii`,** in the banner, the
   page, the dialog's preview and the conflict sentence, like every other
   name and free text staff typed.

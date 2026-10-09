@@ -27,8 +27,8 @@ export const maintenanceModeKeys = {
 /**
  * A change refused because the state moved on since it was read (409
  * `MAINTENANCE_MODE_CONFLICT`), with the state read again after it. `fresh`
- * is null when that read failed: the cache then holds only what was there
- * before, which is not what someone else saved.
+ * is null when that read failed or answered a version no newer than the one
+ * sent: neither is what someone else saved.
  */
 export class MaintenanceModeConflict extends Error {
   readonly fresh: PlatformMaintenanceModeView | null
@@ -84,9 +84,11 @@ export function maintenanceModeQueryOptions() {
 /**
  * `PUT /platform/maintenance-mode`. Run it through `useStepUp().run`: the
  * route needs a recent sign-in. On success the answer replaces the cached
- * state and the status card and audit log are marked stale; on a 409 the
- * state is read again, once and without a retry, and the mutation rejects
- * with a `MaintenanceModeConflict` holding that read, or null when it failed.
+ * state and the status card and audit log are marked stale; on a 409 a read
+ * in flight is cancelled and the state is read again, once and without a
+ * retry, and the mutation rejects with a `MaintenanceModeConflict` holding
+ * that read, or null when it failed or answered a version no newer than the
+ * one sent.
  * @returns The mutation; `mutateAsync` resolves to the new state.
  */
 export function useChangeMaintenanceMode() {
@@ -102,9 +104,13 @@ export function useChangeMaintenanceMode() {
         )
       } catch (error) {
         if (statusFrom(error) === 409 && codeFrom(error) === MAINTENANCE_MODE_CONFLICT) {
-          const fresh = await queryClient
+          // A poll already on its way may have left before the other change: cancel it so the read below asks again.
+          await queryClient.cancelQueries({ queryKey: maintenanceModeKeys.view, exact: true })
+          const read = await queryClient
             .fetchQuery({ ...maintenanceModeQueryOptions(), staleTime: 0, retry: false })
             .catch(() => null)
+          // The 409 proves the stored version moved past the one sent, so a read that has not is stale.
+          const fresh = read !== null && read.version > body.expectedVersion ? read : null
           throw new MaintenanceModeConflict(fresh, error)
         }
         throw error

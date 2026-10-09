@@ -18,6 +18,7 @@ import {
 import { platformKeys } from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { fullMaintenanceView, maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
+import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type { ChangeMaintenanceModeBody } from '@/types/api.types'
@@ -212,6 +213,55 @@ describe('useChangeMaintenanceMode', () => {
     expect(isMaintenanceModeConflict(caught)).toBe(true)
     expect((caught as MaintenanceModeConflict).fresh).toBeNull()
     expect(calls.count).toBe(1)
+  })
+
+  it('on a 409 while a read is on its way, cancels it and reads again', async () => {
+    let gets = 0
+    server.use(
+      http.get('/api/v1/platform/maintenance-mode', async () => {
+        gets += 1
+        if (gets === 1) {
+          await settle(200, 'injected latency: a read still on its way when the 409 lands')
+          return ok(maintenanceModeView({ version: 4 }), 'Maintenance mode retrieved.')
+        }
+        return ok(fullMaintenanceView({ version: 9 }), 'Maintenance mode retrieved.')
+      }),
+      http.put('/api/v1/platform/maintenance-mode', () =>
+        fail('Maintenance mode changed since you loaded it.', 409, 'MAINTENANCE_MODE_CONFLICT')
+      )
+    )
+    client.setQueryData(maintenanceModeKeys.view, maintenanceModeView())
+    const { result } = renderHook(() => useChangeMaintenanceMode(), { wrapper })
+    void client
+      .fetchQuery({ ...maintenanceModeQueryOptions(), staleTime: 0 })
+      .catch(() => undefined)
+    await waitFor(() => expect(gets).toBe(1))
+    let caught: unknown
+    await act(async () => {
+      await result.current.mutateAsync(BODY).catch((error: unknown) => {
+        caught = error
+      })
+    })
+    expect(gets).toBe(2)
+    expect((caught as MaintenanceModeConflict).fresh).toEqual(fullMaintenanceView({ version: 9 }))
+  })
+
+  it('on a 409 treats a read that has not moved past the version sent as not read', async () => {
+    serveView(() => ok(maintenanceModeView({ version: 4 }), 'Maintenance mode retrieved.'))
+    server.use(
+      http.put('/api/v1/platform/maintenance-mode', () =>
+        fail('Maintenance mode changed since you loaded it.', 409, 'MAINTENANCE_MODE_CONFLICT')
+      )
+    )
+    const { result } = renderHook(() => useChangeMaintenanceMode(), { wrapper })
+    let caught: unknown
+    await act(async () => {
+      await result.current.mutateAsync(BODY).catch((error: unknown) => {
+        caught = error
+      })
+    })
+    expect(isMaintenanceModeConflict(caught)).toBe(true)
+    expect((caught as MaintenanceModeConflict).fresh).toBeNull()
   })
 
   it('rejects any other failure unchanged, without reading the state again', async () => {

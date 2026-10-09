@@ -152,6 +152,9 @@ const MAINTENANCE_TONES: Record<MaintenanceMode, BadgeTone> = {
 
 /**
  * Whether `iso` is less than `MAINTENANCE_PAUSE_SETTLE_MS` before `now`.
+ * `iso` is the API's clock and `now` the browser's, and the status carries no
+ * server time to correct by: a browser more than the window ahead warns at
+ * once, and one behind keeps a stuck change settling for as long as it lags.
  * @param iso - An instant, or null for none.
  * @param now - When the status was fetched, in epoch milliseconds.
  * @returns False for null.
