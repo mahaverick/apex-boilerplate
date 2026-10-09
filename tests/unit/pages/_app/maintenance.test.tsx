@@ -42,6 +42,10 @@ function signInAs(platformRole: 'owner' | 'admin' | 'viewer') {
   signIn({ ...testUser, platformRole })
 }
 
+/** What a dialog says when the state could not be read again after a 409. */
+const UNREAD =
+  'Someone changed maintenance mode, and the current state could not be loaded. Close and reopen to try again.'
+
 async function openPage() {
   const user = userEvent.setup()
   renderAppAt('/maintenance')
@@ -488,5 +492,63 @@ describe('/maintenance', () => {
         /^Someone changed maintenance mode while you were editing: it is now off/
       )
     ).toBeVisible()
+  })
+})
+
+describe('E1-24 / E1-40: a reason-only edit, and a 409 whose re-read fails', () => {
+  beforeEach(() => {
+    signInAs('owner')
+  })
+
+  it('E1-24 + E1-40(10): does not say "saved" when express answers a reason-only edit as a no-op (same version)', async () => {
+    // An answer with the version unchanged means express stored nothing.
+    const state = serve(fullMaintenanceView(), () =>
+      ok(fullMaintenanceView(), 'Maintenance mode updated.')
+    )
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Edit message…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
+    const reason = within(dialog).getByLabelText('Reason (optional)')
+    await user.clear(reason)
+    await user.type(reason, 'New reason, same message')
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    await waitFor(() => expect(state.bodies).toHaveLength(1))
+    expect(state.bodies[0]).toMatchObject({ reason: 'New reason, same message' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.queryByText('Customer message saved.')).toBeNull()
+    expect(await screen.findByText('Nothing changed.')).toBeInTheDocument()
+  })
+
+  it('E1-40(6): a 409 whose re-read fails is not shown as what someone else saved', async () => {
+    const state = serve(fullMaintenanceView(), () =>
+      fail('Maintenance mode changed since you loaded it.', 409, 'MAINTENANCE_MODE_CONFLICT')
+    )
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Edit message…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
+    server.use(http.get('/api/v1/platform/maintenance-mode', () => fail('Server error', 500)))
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    await waitFor(() => expect(state.bodies).toHaveLength(1))
+    await waitFor(() => expect(within(dialog).getByRole('alert')).toBeVisible())
+    // The cache still holds the version-5 state this dialog opened on; presenting it as the other owner's change is false.
+    expect(within(dialog).queryByText(/it is now full, set by Sam Staff/)).toBeNull()
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(UNREAD)
+    // The version is unknown, so a resubmit sends the one the dialog opened on and conflicts again rather than overwriting.
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    await waitFor(() => expect(state.bodies).toHaveLength(2))
+    expect(state.bodies.map((body) => body.expectedVersion)).toEqual([5, 5])
+  })
+
+  it('says the same on switch-off when the re-read after a 409 fails', async () => {
+    const state = serve(fullMaintenanceView(), () =>
+      fail('Maintenance mode changed since you loaded it.', 409, 'MAINTENANCE_MODE_CONFLICT')
+    )
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Turn off…' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Turn off maintenance?' })
+    server.use(http.get('/api/v1/platform/maintenance-mode', () => fail('Server error', 500)))
+    await user.click(within(dialog).getByRole('button', { name: 'Turn off' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(UNREAD)
+    expect(state.bodies.map((body) => body.expectedVersion)).toEqual([5])
   })
 })

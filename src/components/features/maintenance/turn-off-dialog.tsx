@@ -1,4 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
@@ -13,13 +12,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { MAINTENANCE_CONFLICT_UNREAD } from '@/constants/maintenance-mode.constants'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom, statusFrom } from '@/lib/api-error'
 import { conflictSentence } from '@/lib/maintenance-mode'
 import { isReauthRequired } from '@/lib/step-up'
 import {
   isMaintenanceModeConflict,
-  maintenanceModeKeys,
   useChangeMaintenanceMode,
 } from '@/queries/maintenance-mode.queries'
 import type { PlatformMaintenanceModeView } from '@/types/api.types'
@@ -28,7 +27,8 @@ import type { PlatformMaintenanceModeView } from '@/types/api.types'
  * Switching off: one confirmation, no reason or typed environment, through
  * step-up. A refusal shows inside the dialog, which stays open: a 409 says
  * what someone else saved meanwhile, and confirming again sends the version
- * just read; until then the version sent is the one the dialog opened on.
+ * just read; until then the version sent is the one the dialog opened on. A
+ * 409 whose re-read failed says so and keeps that version.
  */
 export function TurnOffDialog({
   view,
@@ -39,7 +39,6 @@ export function TurnOffDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const queryClient = useQueryClient()
   const stepUp = useStepUp()
   const change = useChangeMaintenanceMode()
   const [busy, setBusy] = useState(false)
@@ -62,10 +61,12 @@ export function TurnOffDialog({
       setBusy(false)
       if (isReauthRequired(error)) setRefusal(STEP_UP_DISMISSED)
       else if (isMaintenanceModeConflict(error)) {
-        const fresh =
-          queryClient.getQueryData<PlatformMaintenanceModeView>(maintenanceModeKeys.view) ?? view
-        setRefusal(conflictSentence(fresh))
-        setOpenedOn(fresh.version)
+        // A failed re-read keeps the version: confirming again conflicts rather than overwriting an unseen change.
+        if (error.fresh === null) setRefusal(MAINTENANCE_CONFLICT_UNREAD)
+        else {
+          setRefusal(conflictSentence(error.fresh))
+          setOpenedOn(error.fresh.version)
+        }
       } else if (statusFrom(error) === 404) setRefusal(ROLE_DENIED_ACTION)
       else setRefusal(messageFrom(error))
     }

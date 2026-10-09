@@ -1,5 +1,4 @@
 import { useForm } from '@tanstack/react-form'
-import { useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { MaintenancePreview } from '@/components/features/maintenance/maintenance-preview'
@@ -28,7 +27,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
   CONFIRMATION_MISMATCH,
+  MAINTENANCE_CONFLICT_UNREAD,
   MAINTENANCE_MODE_LABELS,
+  NOTHING_CHANGED,
 } from '@/constants/maintenance-mode.constants'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
@@ -38,7 +39,6 @@ import { conflictSentence, isSwitchOn } from '@/lib/maintenance-mode'
 import { isReauthRequired } from '@/lib/step-up'
 import {
   isMaintenanceModeConflict,
-  maintenanceModeKeys,
   useChangeMaintenanceMode,
 } from '@/queries/maintenance-mode.queries'
 import {
@@ -116,7 +116,6 @@ function ChangeModeForm({
   busy,
   onBusyChange,
 }: ChangeModeDialogProps & { busy: boolean; onBusyChange: (busy: boolean) => void }) {
-  const queryClient = useQueryClient()
   const stepUp = useStepUp()
   const change = useChangeMaintenanceMode()
   const serverErrors = useServerErrors()
@@ -157,11 +156,15 @@ function ChangeModeForm({
       try {
         const next = await stepUp.run(() => change.mutateAsync(body))
         onBusyChange(false)
-        toast.success(
-          next.mode === base.mode
-            ? 'Customer message saved.'
-            : `Maintenance is now ${MAINTENANCE_MODE_LABELS[next.mode].toLowerCase()}.`
-        )
+        // express answers a change that stores nothing with the current state, its version unchanged.
+        if (next.version === base.version) toast.warning(NOTHING_CHANGED)
+        else {
+          toast.success(
+            next.mode === base.mode
+              ? 'Customer message saved.'
+              : `Maintenance is now ${MAINTENANCE_MODE_LABELS[next.mode].toLowerCase()}.`
+          )
+        }
         onOpenChange(false)
       } catch (error) {
         onBusyChange(false)
@@ -170,8 +173,12 @@ function ChangeModeForm({
           return
         }
         if (isMaintenanceModeConflict(error)) {
-          const fresh =
-            queryClient.getQueryData<PlatformMaintenanceModeView>(maintenanceModeKeys.view) ?? view
+          // A failed re-read keeps `base`: a resubmit conflicts again rather than overwriting a change nobody has seen.
+          if (error.fresh === null) {
+            setConflict(MAINTENANCE_CONFLICT_UNREAD)
+            return
+          }
+          const fresh = error.fresh
           // Its own alert, not FormError: the sentence names a person, so it renders inside Pii.
           setConflict(conflictSentence(fresh))
           // In switch-on mode the field becomes required and its "starts as the reason now saved" hint is gone, so the pre-filled old reason would pass for the owner's own: clear it, unless they already changed it.

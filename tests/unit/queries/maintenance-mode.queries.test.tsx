@@ -10,6 +10,7 @@ import {
 import { resetSessionForTests } from '@/http/session'
 import {
   isMaintenanceModeConflict,
+  MaintenanceModeConflict,
   maintenanceModeKeys,
   maintenanceModeQueryOptions,
   useChangeMaintenanceMode,
@@ -190,6 +191,27 @@ describe('useChangeMaintenanceMode', () => {
     expect(client.getQueryData(maintenanceModeKeys.view)).toEqual(
       fullMaintenanceView({ version: 9 })
     )
+    expect((caught as MaintenanceModeConflict).fresh).toEqual(fullMaintenanceView({ version: 9 }))
+  })
+
+  it('on a 409 whose re-read fails rejects with no fresh state, reading once', async () => {
+    const calls = serveView(() => fail('Server error', 500))
+    server.use(
+      http.put('/api/v1/platform/maintenance-mode', () =>
+        fail('Maintenance mode changed since you loaded it.', 409, 'MAINTENANCE_MODE_CONFLICT')
+      )
+    )
+    client.setQueryData(maintenanceModeKeys.view, fullMaintenanceView())
+    const { result } = renderHook(() => useChangeMaintenanceMode(), { wrapper })
+    let caught: unknown
+    await act(async () => {
+      await result.current.mutateAsync(BODY).catch((error: unknown) => {
+        caught = error
+      })
+    })
+    expect(isMaintenanceModeConflict(caught)).toBe(true)
+    expect((caught as MaintenanceModeConflict).fresh).toBeNull()
+    expect(calls.count).toBe(1)
   })
 
   it('rejects any other failure unchanged, without reading the state again', async () => {

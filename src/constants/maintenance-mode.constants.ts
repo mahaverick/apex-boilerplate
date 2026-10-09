@@ -17,6 +17,13 @@ export const MAINTENANCE_MODE_CONFLICT = 'MAINTENANCE_MODE_CONFLICT'
 /** 400: a switch-on whose `confirm` is not the API's `APP_ENV`. */
 export const CONFIRMATION_MISMATCH = 'CONFIRMATION_MISMATCH'
 
+/** A save express answered with the version unchanged: it stored nothing. */
+export const NOTHING_CHANGED = 'Nothing changed.'
+
+/** A 409 whose re-read failed: what someone else saved is unknown, so the dialog says so instead. */
+export const MAINTENANCE_CONFLICT_UNREAD =
+  'Someone changed maintenance mode, and the current state could not be loaded. Close and reopen to try again.'
+
 /** The API's cap on the customer message and the reason. */
 export const MAINTENANCE_TEXT_MAX_LENGTH = 500
 
