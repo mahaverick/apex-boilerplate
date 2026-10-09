@@ -105,6 +105,22 @@ describe('/flags', () => {
     expect(unsupportedRow.getByText('2 conditions, up to 100%')).toBeInTheDocument()
   })
 
+  it('names a field express does not evaluate as the construct an unsupported flag uses', async () => {
+    serve(() =>
+      ok(
+        flagsList({
+          items: [flagRow({ state: 'unsupported', unsupportedReason: 'unknown_field' })],
+        }),
+        'Flags retrieved.'
+      )
+    )
+    renderAppAt('/flags')
+    await screen.findByRole('table', { name: 'Registered flags' })
+    const [row] = rowsOf('Registered flags')
+    expect(within(row!).getByText('Unsupported')).toHaveAttribute('data-tone', 'warning')
+    expect(within(row!).getByText('unknown_field')).toBeInTheDocument()
+  })
+
   it('names a missing flag, and leaves the link out when the API has none', async () => {
     serve(() =>
       ok(

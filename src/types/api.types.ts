@@ -970,13 +970,15 @@ export type FlagState = 'active' | 'inactive' | 'missing' | 'unsupported'
  * Why express will not evaluate a flag's PostHog definition, as a flag row's
  * `unsupportedReason` names it. `scope_drift` and `kind_drift` mean PostHog's
  * flag no longer matches the registry's scope or kind; `malformed` is a
- * definition express could not parse.
+ * definition express could not parse; `unknown_field` is a condition or
+ * property field express does not evaluate (it is never dropped silently).
  */
 export type UnsupportedConstruct =
   | 'experience_continuity'
   | 'bucketing_identifier'
   | 'evaluation_contexts'
   | 'unknown_filter'
+  | 'unknown_field'
   | 'early_access'
   | 'group_type'
   | 'cohort'
