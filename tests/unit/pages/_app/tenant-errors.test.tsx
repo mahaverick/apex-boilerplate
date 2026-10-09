@@ -79,7 +79,7 @@ describe('/tenants/$tenantId/errors', () => {
       })
     ).toHaveAttribute('aria-current', 'page')
     const table = await screen.findByRole('table', { name: 'Errors' })
-    expect(within(table).getByText('TypeError')).toBeInTheDocument()
+    expect(within(table).getByText('TypeError', { selector: 'code' })).toBeInTheDocument()
     expect(within(table).getByText('Customer app')).toBeInTheDocument()
     expect(seen).toEqual([''])
   })

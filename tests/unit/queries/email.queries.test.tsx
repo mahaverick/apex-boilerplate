@@ -17,7 +17,8 @@ import {
 } from '@/queries/email.queries'
 import { invalidateDirectory } from '@/queries/platform.queries'
 import { useCreatePlatformTenant } from '@/queries/tenant-admin.queries'
-import { tenantKeys, useInviteMember, useResendInvitation } from '@/queries/tenant.queries'
+import { useInviteMember, useResendInvitation } from '@/queries/tenant-writes.queries'
+import { tenantKeys } from '@/queries/tenant.queries'
 import { userAdminKeys, useSendPasswordSetup } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { EMAIL_ID, INVITATION_ID, SUPPRESSION_ID, TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
@@ -270,7 +271,7 @@ describe('email queries go stale with the directory', () => {
     const { result } = renderHook(() => useResendInvitation('acme'), {
       wrapper: wrapperWith(client),
     })
-    result.current.mutate(INVITATION_ID)
+    result.current.mutate({ invitationId: INVITATION_ID })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     await waitFor(() =>
       expectStale(client, [...EMAIL_KEYS, ...logs, tenantKeys.invitations('acme')])

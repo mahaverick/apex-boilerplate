@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http } from 'msw'
 import { toast } from 'sonner'
@@ -485,6 +485,102 @@ describe('/users/$userId', () => {
       'Change a name before saving.'
     )
     expect(calls).toBe(0)
+
+    await user.type(within(dialog).getByLabelText('Last name'), 'r')
+    await waitFor(() => {
+      expect(within(dialog).queryByText('Change a name before saving.')).not.toBeInTheDocument()
+    })
+  })
+
+  /**
+   * Serves a user detail the test can change before a refetch, and records
+   * every PATCH body; the first `failures` PATCHes answer 500.
+   */
+  function answerEditable(initial: PlatformUserDetail, failures = 0) {
+    const state = { served: initial, bodies: [] as unknown[] }
+    server.use(
+      http.get(`/api/v1/platform/users/${USER_ID_2}`, () => ok(state.served, 'User retrieved.')),
+      http.patch(`/api/v1/platform/users/${USER_ID_2}`, async ({ request }) => {
+        state.bodies.push(await request.json())
+        return state.bodies.length <= failures
+          ? fail('Something broke.', 500)
+          : ok(state.served, 'User updated.')
+      })
+    )
+    return state
+  }
+
+  /** Opens Edit name on the user page and returns the dialog. */
+  async function openEditName() {
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Edit name' }))
+    return { user, dialog: await screen.findByRole('dialog', { name: 'Edit name' }) }
+  }
+
+  it('saves an edited last name while a refused legacy first name stays as it is', async () => {
+    const state = answerEditable({ ...DETAIL, firstName: 'Cl\u{200B}eo' })
+    const { user, dialog } = await openEditName()
+    const last = within(dialog).getByLabelText('Last name')
+    await user.clear(last)
+    await user.type(last, 'Smith')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(state.bodies).toEqual([{ lastName: 'Smith' }])
+    })
+    expect(
+      screen.queryByText('This field contains characters that are not allowed')
+    ).not.toBeInTheDocument()
+  })
+
+  it('sends only the edited name after a refetch brings a change made elsewhere', async () => {
+    const state = answerEditable(DETAIL)
+    const { user, dialog } = await openEditName()
+    const last = within(dialog).getByLabelText('Last name')
+    await user.clear(last)
+    await user.type(last, 'Smith')
+    state.served = { ...DETAIL, firstName: 'Cleopatra' }
+    await act(() => queryClient.refetchQueries({ queryKey: userAdminKeys.detail(USER_ID_2) }))
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(state.bodies).toEqual([{ lastName: 'Smith' }])
+    })
+  })
+
+  it('shows a refetch in a dialog nobody has touched, and still asks for a change', async () => {
+    const state = answerEditable(DETAIL)
+    const { user, dialog } = await openEditName()
+    const first = within(dialog).getByLabelText('First name')
+    expect(first).toHaveValue('Cleo')
+    state.served = { ...DETAIL, firstName: 'Cleopatra' }
+    await act(() => queryClient.refetchQueries({ queryKey: userAdminKeys.detail(USER_ID_2) }))
+
+    await waitFor(() => {
+      expect(first).toHaveValue('Cleopatra')
+    })
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Change a name before saving.'
+    )
+    expect(state.bodies).toEqual([])
+  })
+
+  it('sends the name again when Save is pressed after a failed save', async () => {
+    const state = answerEditable(DETAIL, 1)
+    const { user, dialog } = await openEditName()
+    const first = within(dialog).getByLabelText('First name')
+    await user.clear(first)
+    await user.type(first, 'Cleopatra')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await within(dialog).findByText('Something broke.')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(state.bodies).toEqual([{ firstName: 'Cleopatra' }, { firstName: 'Cleopatra' }])
+    })
   })
 
   it('shows what was recorded on this account, filtered by target, without linking back to it', async () => {

@@ -295,10 +295,10 @@ describe('auditSentence', () => {
 
 describe('actorName', () => {
   it('prefers the name, falls back to the email, and calls a null actor the system', () => {
-    expect(actorName({ id: USER_ID, name: 'Ada Lovelace', email: 'ada@b.com' })).toBe(
+    expect(actorName({ id: USER_ID, name: 'Ada Lovelace', email: 'ada@example.com' })).toBe(
       'Ada Lovelace'
     )
-    expect(actorName({ id: USER_ID, name: '', email: 'ada@b.com' })).toBe('ada@b.com')
+    expect(actorName({ id: USER_ID, name: '', email: 'ada@example.com' })).toBe('ada@example.com')
     expect(actorName(null)).toBe('System')
   })
 })

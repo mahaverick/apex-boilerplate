@@ -168,9 +168,7 @@ describe('/deliverability', () => {
         { key: 'password_reset', messages: 600, undelivered: 10, complained: 3 },
         { key: 'retired_template', messages: 4, undelivered: 0, complained: 0 },
       ],
-      byDomain: [
-        { key: 'example-company-domain.com', messages: 1200, undelivered: 5, complained: 2 },
-      ],
+      byDomain: [{ key: 'example-corp.co.uk', messages: 1200, undelivered: 5, complained: 2 }],
     })
     renderAppAt('/deliverability')
     const byTemplate = await screen.findByRole('table', { name: 'By template' })
@@ -184,9 +182,7 @@ describe('/deliverability', () => {
       'retired_template400',
     ])
     const byDomain = screen.getByRole('table', { name: 'Top recipient domains' })
-    expect(
-      within(byDomain).getByRole('cell', { name: 'example-company-domain.com' })
-    ).toBeInTheDocument()
+    expect(within(byDomain).getByRole('cell', { name: 'example-corp.co.uk' })).toBeInTheDocument()
     expect(within(byDomain).getByRole('cell', { name: '1,200' })).toBeInTheDocument()
   })
 

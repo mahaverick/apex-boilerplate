@@ -75,6 +75,13 @@ export interface AcceptedInvitation {
   role: MembershipRole
 }
 
+/**
+ * 400 on a member or invitation write to a customer tenant by staff acting
+ * through platform access that gave no valid `reason` (express
+ * `requireRecentAuthAndReasonOnPlatformAccess`).
+ */
+export const REASON_REQUIRED = 'REASON_REQUIRED'
+
 /** 409 on invite: that address already belongs to a member of this tenant. */
 export const ALREADY_MEMBER = 'already_member'
 
@@ -86,6 +93,13 @@ export const INVITATION_CONFLICT = 'invitation_conflict'
 
 /** 404 on resend and revoke: the invitation stopped being pending meanwhile. */
 export const INVITATION_NOT_FOUND = 'invitation_not_found'
+
+/**
+ * 404 message on a member's role change or removal: the target stopped being
+ * a member meanwhile. express sends it with no code, so the message is the
+ * only mark that tells it from the access check's 404.
+ */
+export const MEMBER_NOT_FOUND_MESSAGE = 'Member not found'
 
 /** 404 on preview and accept: invalid, expired, revoked or already used. */
 export const INVITATION_INVALID = 'invitation_invalid'
@@ -970,13 +984,15 @@ export type FlagState = 'active' | 'inactive' | 'missing' | 'unsupported'
  * Why express will not evaluate a flag's PostHog definition, as a flag row's
  * `unsupportedReason` names it. `scope_drift` and `kind_drift` mean PostHog's
  * flag no longer matches the registry's scope or kind; `malformed` is a
- * definition express could not parse.
+ * definition express could not parse; `unknown_field` is a condition or
+ * property field express does not evaluate (it is never dropped silently).
  */
 export type UnsupportedConstruct =
   | 'experience_continuity'
   | 'bucketing_identifier'
   | 'evaluation_contexts'
   | 'unknown_filter'
+  | 'unknown_field'
   | 'early_access'
   | 'group_type'
   | 'cohort'
@@ -1138,12 +1154,14 @@ export interface PlatformMaintenanceModeView {
 
 /**
  * `PUT /platform/maintenance-mode`'s strict body. `confirm` is sent only when
- * switching on or escalating, and `reason` only when one was given.
+ * switching on or escalating. `reason` is sent when one was given, `null` when
+ * the owner emptied the saved reason (express clears it), and left out
+ * otherwise (a same-mode save then keeps the stored one).
  */
 export interface ChangeMaintenanceModeBody {
   mode: MaintenanceMode
   message?: string
-  reason?: string
+  reason?: string | null
   expectedVersion: number
   confirm?: string
 }
@@ -1161,6 +1179,12 @@ export interface MaintenanceModeStatus {
   /** Change notices still queued, held back by paused queues; they go out on resume. */
   noticesPending: boolean
   lastReloadError: string | null
+  /**
+   * The last mode change (a message or reason edit leaves it), switch-offs
+   * included (`since` is null while off); null only while express has never
+   * read the row. Absent from an express that predates it.
+   */
+  changedAt?: string | null
 }
 
 /**

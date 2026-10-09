@@ -112,7 +112,7 @@ describe('login page', () => {
       })
     )
     const router = renderLoginAt('/login')
-    await fillAndSubmit('a@b.com', 'secret123')
+    await fillAndSubmit('a.b@example.com', 'secret123')
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/overview')
@@ -130,11 +130,11 @@ describe('login page', () => {
       })
     )
     renderLoginAt('/login')
-    await fillAndSubmit('  ADA@B.COM  ', 'secret123')
+    await fillAndSubmit('  ADA@EXAMPLE.COM  ', 'secret123')
 
-    // The schema trims and lower-cases, but TanStack hands `onSubmit` the raw form state — only parsing the value before posting puts the transform on the wire. Without that this arrives as "  ADA@B.COM  ".
+    // The schema trims and lower-cases, but TanStack hands `onSubmit` the raw form state — only parsing the value before posting puts the transform on the wire. Without that this arrives as "  ADA@EXAMPLE.COM  ".
     await waitFor(() => {
-      expect(body).toEqual({ email: 'ada@b.com', password: 'secret123' })
+      expect(body).toEqual({ email: 'ada@example.com', password: 'secret123' })
     })
   })
 
@@ -142,7 +142,7 @@ describe('login page', () => {
     const toastError = vi.spyOn(toast, 'error')
     server.use(http.post('/api/v1/auth/login', () => fail('Invalid email or password.', 401)))
     const router = renderLoginAt('/login')
-    await fillAndSubmit('a@b.com', 'wrong-password')
+    await fillAndSubmit('a.b@example.com', 'wrong-password')
 
     const message = await screen.findByText('Invalid email or password.')
     expect(message.closest('form')).not.toBeNull()
@@ -156,7 +156,7 @@ describe('login page', () => {
   it('honours a same-origin ?redirect= after signing in', async () => {
     server.use(http.post('/api/v1/auth/login', () => signedInResponse()))
     const router = renderLoginAt('/login?redirect=%2Foverview%3Fnext%3D1')
-    await fillAndSubmit('a@b.com', 'secret123')
+    await fillAndSubmit('a.b@example.com', 'secret123')
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/overview')
@@ -168,7 +168,7 @@ describe('login page', () => {
   it('ignores an off-site ?redirect= and falls back to the overview', async () => {
     server.use(http.post('/api/v1/auth/login', () => signedInResponse()))
     const router = renderLoginAt('/login?redirect=https%3A%2F%2Fevil.example%2Fsteal')
-    await fillAndSubmit('a@b.com', 'secret123')
+    await fillAndSubmit('a.b@example.com', 'secret123')
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/overview')
@@ -179,7 +179,7 @@ describe('login page', () => {
   it('ignores a protocol-relative ?redirect=', async () => {
     server.use(http.post('/api/v1/auth/login', () => signedInResponse()))
     const router = renderLoginAt('/login?redirect=%2F%2Fevil.example%2Fsteal')
-    await fillAndSubmit('a@b.com', 'secret123')
+    await fillAndSubmit('a.b@example.com', 'secret123')
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/overview')
@@ -225,7 +225,7 @@ describe('server-side validation errors', () => {
   it('raises no toast for field errors it already shows', async () => {
     const toastError = vi.spyOn(toast, 'error')
     renderLoginAt('/login')
-    await fillAndSubmit('a@b.com', 'secret123')
+    await fillAndSubmit('a.b@example.com', 'secret123')
 
     expect(await screen.findByText('That address is not registered.')).toBeInTheDocument()
     // "Validation failed." is the envelope's own message; the fields say it better.
@@ -235,7 +235,7 @@ describe('server-side validation errors', () => {
 
   it('moves focus to the first field the server faulted, described by its message', async () => {
     renderLoginAt('/login')
-    await fillAndSubmit('a@b.com', 'secret123')
+    await fillAndSubmit('a.b@example.com', 'secret123')
 
     const email = screen.getByLabelText('Email')
     await waitFor(() => expect(email).toHaveFocus())
@@ -245,7 +245,7 @@ describe('server-side validation errors', () => {
 
   it('renders a field error under its own field and describes the control', async () => {
     renderLoginAt('/login')
-    await fillAndSubmit('a@b.com', 'secret123')
+    await fillAndSubmit('a.b@example.com', 'secret123')
 
     expect(await screen.findByText('That address is not registered.')).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toHaveAccessibleDescription(
@@ -256,7 +256,7 @@ describe('server-side validation errors', () => {
 
   it('clears a field error when that field changes — and leaves its sibling alone', async () => {
     renderLoginAt('/login')
-    await fillAndSubmit('a@b.com', 'secret123')
+    await fillAndSubmit('a.b@example.com', 'secret123')
     expect(await screen.findByText('That address is not registered.')).toBeInTheDocument()
 
     const user = userEvent.setup()
@@ -272,7 +272,7 @@ describe('server-side validation errors', () => {
 
   it('does not clear on blur alone', async () => {
     renderLoginAt('/login')
-    await fillAndSubmit('a@b.com', 'secret123')
+    await fillAndSubmit('a.b@example.com', 'secret123')
     expect(await screen.findByText('That address is not registered.')).toBeInTheDocument()
 
     const user = userEvent.setup()
@@ -284,7 +284,7 @@ describe('server-side validation errors', () => {
 
   it('renders formErrors at form level, against no input', async () => {
     renderLoginAt('/login')
-    await fillAndSubmit('a@b.com', 'secret123')
+    await fillAndSubmit('a.b@example.com', 'secret123')
 
     const message = await screen.findByText('These credentials are not valid together.')
     expect(message.closest('[role="alert"]')).not.toBeNull()
@@ -299,7 +299,7 @@ describe('server-side validation errors', () => {
 
   it('drops the previous verdict when the form is submitted again', async () => {
     renderLoginAt('/login')
-    await fillAndSubmit('a@b.com', 'secret123')
+    await fillAndSubmit('a.b@example.com', 'secret123')
     expect(await screen.findByText('Password is too short.')).toBeInTheDocument()
 
     server.use(http.post('/api/v1/auth/login', () => signedInResponse()))

@@ -12,7 +12,7 @@ of these is a deliberate act, not a tidy-up.
 Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
 `express-boilerplate` API (1.4.0 or newer, run with `APEX_URL` set to this app's
 origin, `http://localhost:5174` locally; the user and tenant timelines need
-1.6.0, the Errors pages and the system status card 1.7.0, the flags pages 1.8.0, and maintenance mode 1.9.0). `react-boilerplate`, the customer app,
+1.6.0, the Errors pages and the system status card 1.7.0, the flags pages 1.8.0, and maintenance mode 1.9.0; express 2.0.4 or newer provides the reasoned staff writes to customer tenants, Leave for every role and Sign out other sessions). `react-boilerplate`, the customer app,
 is its sibling. Vite, TanStack Router (file-based), TanStack Query, TanStack
 Form, TanStack Table 9, Zustand, Tailwind v4, Base UI via shadcn, recharts,
 axios, Zod v4, Vitest + Testing Library + MSW.
@@ -34,6 +34,7 @@ there ("ported in react#N", or "not applicable because …").
 | `src/lib/api-error.ts`                                                                                                                                                                                                                  | Error envelope parsing                                                                                      |
 | `src/schemas/auth.schemas.ts`, `src/schemas/safe-text.schemas.ts`                                                                                                                                                                       | Mirror the backend validators                                                                               |
 | `src/components/ui/form.tsx`, `src/components/ui/sonner.tsx`                                                                                                                                                                            | Hand-written, shared behaviour                                                                              |
+| `src/schemas/changed-fields.schemas.ts`, `src/hooks/use-changed-fields.ts` and their tests                                                                                                                                              | Changed-field edit forms; byte for byte, except that the schema test drops react's settings-form case       |
 | `nginx.conf` security headers and CSP, and `location /api/v1/collect/`                                                                                                                                                                  | Same threat model; same replay batch size                                                                   |
 | `src/observability/analytics/*`, except `config.ts`'s per-app constants and `events.ts`'s registry                                                                                                                                      | One PII, consent, handoff and identity contract for both apps                                               |
 | `src/components/shared/pii.tsx`, `e2e/helpers/fake-posthog.ts`                                                                                                                                                                          | The masking class and the egress guard's fake PostHog                                                       |
@@ -41,6 +42,7 @@ there ("ported in react#N", or "not applicable because …").
 | `public/theme-init.js`, `src/lib/zod-jitless.ts`                                                                                                                                                                                        | CSP compatibility                                                                                           |
 | `eslint.config.js` rule set (not its file lists)                                                                                                                                                                                        | Same conventions                                                                                            |
 | `src/observability/errors/**`, `src/observability/identity-epoch.ts`, `tests/fixtures/error-scrub-vectors.json`                                                                                                                         | One capture, filter, scrub and consent contract; the vectors are express-boilerplate's, byte for byte       |
+| `docker/nginx.main.conf`, `pnpm-workspace.yaml`, `tests/unit/docker/{check-image-script,nginx-main-conf}.test.ts`                                                                                                                       | Same container limits, dependency overrides and script tests                                                |
 | `src/observability/flags/**`, `tests/unit/observability/flags/**` and `tests/fixtures/test-client-flags.ts`, except each app's `flag-keys.ts` and `flag-scope.ts` and their app-owned tests (`flag-keys.test.ts`, `flag-scope.test.ts`) | One flag read, refetch, exposure and `$feature/*` contract; react's is canonical, copied here by script     |
 | `tests/mocks/posthog.ts`                                                                                                                                                                                                                | The posthog-js stand-in the analytics and error tests share                                                 |
 | `src/components/features/route-error.tsx`, `src/main.tsx`, the `setErrorRouteSource` line in `src/router.tsx`                                                                                                                           | Both report router and React root errors, and the route they happened on, the same way                      |
@@ -92,8 +94,10 @@ only — `:main` and the `deploy` job both run only from `main`.
 
 - `gitleaks.yml` scans each PR's commits and each push to `main` for secrets.
 - `pr-title` — the PR title must be a conventional commit; it becomes the squash commit release-please reads.
-- `ci.yml`'s `test` job ends with `pnpm audit --prod --audit-level high`: a high or critical advisory in a production dependency fails CI.
-  Because `test` is a required check, an advisory with no fixed version blocks every PR. The escape hatch is `pnpm audit --ignore <GHSA>`,
+- `ci.yml`'s `test` job runs `pnpm audit --prod --audit-level moderate`: a moderate or worse advisory in a production dependency fails CI.
+  A second, non-blocking step runs `pnpm audit --audit-level critical` over dev dependencies too, so a critical advisory in build or test tooling shows on every run.
+  Because `test` is a required check, an advisory with no fixed version blocks every PR. Prefer an `overrides` entry in `pnpm-workspace.yaml` that forces the patched version (one GHSA comment per entry).
+  When no patched version exists, the escape hatch is `pnpm audit --ignore <GHSA>`,
   which writes that one ID under `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`; add a comment there by hand giving the reason and a date to revisit.
 
 **Releases merge themselves.** `release.yml` queues release-please's PR with
@@ -148,6 +152,14 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   during a rolling restart, a timeout, a dropped connection: none of those sign
   anyone out. Widening this to any error is the single easiest way to log every
   user out during a deploy.
+- **A staff write to a customer tenant carries a reason.** Through platform
+  access (`useMyRole`'s `access: 'platform'`), changing a member's role,
+  removing a member, and sending, resending or revoking an invitation go
+  through `ReasonDialog` and send `reason` (in the body, DELETE included);
+  express needs it and a recent sign-in. A member (`access: 'member'`, the
+  Staff page included) sends none. Resending an invitation from the Emails
+  pages needs a recent sign-in on any tenant, and its reason is audited on
+  the invitation too.
 
 ## Analytics — the rules that leak data when broken
 
@@ -176,9 +188,10 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   boundary needs no reporting code of its own; `WidgetBoundary` keeps its
   `console.error`, which names the widget and its component stack.
 - **An exception message on the Errors pages is untrusted text.** A browser
-  can send any `$exception` with the public project key, so `value` renders
-  as text inside `Pii`, never as markup, and only a row express signed is
-  trusted as the server's (the Unverified badge).
+  can send any `$exception` with the public project key, so its `type` and
+  `value` render as text inside `Pii` (so does the PostHog link's
+  screen-reader name, which repeats the type), never as markup, and only a
+  row express signed is trusted as the server's (the Unverified badge).
 - **`track()` takes no free text.** Properties are `AnalyticsKey` (a string
   literal through `analyticsKey`), numbers or booleans; `table_filtered`
   names the list, never the filter's value. A free `string` property fails
@@ -206,6 +219,15 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   `resetAnalytics` and `identifyUser` go through `resetKeepingConsent`, which
   registers `app` and `environment` again and re-applies the consent; never
   call the SDK's `reset()` around it.
+- **Page titles stay static.** Session replay records the `<title>` text and
+  `$pageview` sends `document.title`, both unmasked, so a title never carries
+  a name, an address or other user data; today every title is a static
+  string (`pageTitle('<literal>')` on each route, `APP_NAME` at the root).
+  If one ever must, mask both paths:
+  `session_recording.maskTextSelector: '.ph-mask, .ph-sensitive, title'` and a
+  `before_send` that drops `properties.title`. `slimDOMOptions.headTitleMutations`
+  alone is not enough: a full snapshot still records the current title.
+  `posthog-options.ts` is shared, so that change starts in react.
 - **The URL allowlist is `range`, `tab`, `state`, `status`.** A new query
   key carrying a token, an address or a search term stays off it.
 - **posthog-js minors wait for a human** (`renovate.json`). Before taking
@@ -224,9 +246,15 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   same GET, never a client setting: the image is promoted unchanged through
   every environment, so only the API knows which one it is.
 - **A change sends the version its dialog opened on,** not the latest poll:
-  a state that moved meanwhile must conflict, not be overwritten. A 409 reads
-  the state again before it rejects (`useChangeMaintenanceMode`), so the dialog
-  says what someone else saved and the next submit carries the fresh version.
+  a state that moved meanwhile must conflict, not be overwritten. A 409
+  cancels any read in flight and reads the state again before it rejects
+  (`useChangeMaintenanceMode`), so the dialog says what someone else saved and
+  the next submit carries the fresh version. An untouched pre-filled message
+  or reason follows the state just read, and one the owner typed is kept; the
+  conflict sentence says which. When that read fails, or answers a version no
+  newer than the one sent, the dialog says the state could not be loaded and
+  keeps the version it had, never the cached state passed off as the other
+  change; trying again conflicts again and reads again, keeping what was typed.
 - **Message, reason and actor are text inside `Pii`,** in the banner, the
   page, the dialog's preview and the conflict sentence, like every other
   name and free text staff typed.
@@ -374,6 +402,18 @@ hand-written one stays out.
 - Parse before posting. TanStack hands `onSubmit` the raw form state, so a
   schema's `.trim()`/`.toLowerCase()` only reaches the wire if the value is
   parsed on the way out.
+- **Edit forms send only the fields that changed** (`useChangedFields` in
+  `src/hooks/use-changed-fields.ts`; the profile, tenant details and edit user
+  name forms). A stored value that today's rules refuse must not block saving
+  other fields, so parsing the whole form with the full schema is the wrong
+  habit here. Pass `baseline` as `defaultValues`, `changes` as
+  `validators.onSubmit` and `listeners` as the form's listeners; post
+  `changedBody(value)` unless it is `null`, and call `rebase(value)` after a
+  successful save. While the form is pristine the baseline follows refetches;
+  it freezes on the first edit, blur or save attempt; it moves only on
+  `rebase`. A save with no changes posts nothing and shows the form-level
+  message ("Change a field before saving.", "Change a name before saving." on
+  profile and edit user name), which clears when a field changes.
 - **`<Form>`'s server-error clearing covers native inputs only.** It listens for
   a change event that bubbles out of the form element. A Base UI `Select` does
   not emit one, so a form with a Select must call `serverErrors.clearField()`

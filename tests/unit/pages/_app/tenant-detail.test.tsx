@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -522,6 +522,28 @@ describe('/tenants/$tenantId', () => {
       ).toBeInTheDocument()
     })
 
+    it('refuses a website that is not an http or https URL under the field, sending nothing', async () => {
+      serve(detail())
+      let patches = 0
+      server.use(
+        http.patch('/api/v1/tenants/acme', () => {
+          patches += 1
+          return ok(detail(), 'Tenant updated.')
+        })
+      )
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Edit details' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Edit details' })
+      const website = within(dialog).getByLabelText('Website')
+      await user.clear(website)
+      await user.type(website, 'javascript:alert(1)')
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+      expect(await within(dialog).findByText('Website must be an http or https URL.')).toBeVisible()
+      expect(website).toHaveAttribute('aria-invalid', 'true')
+      expect(patches).toBe(0)
+    })
+
     it('shows an edit the tenant route refuses inside the dialog', async () => {
       serve(detail())
       server.use(
@@ -531,8 +553,119 @@ describe('/tenants/$tenantId', () => {
       const { user, menu } = await openMenu()
       await user.click(within(menu).getByRole('menuitem', { name: 'Edit details' }))
       const dialog = await screen.findByRole('dialog', { name: 'Edit details' })
+      await user.type(within(dialog).getByLabelText('Name'), ' Ltd')
       await user.click(within(dialog).getByRole('button', { name: 'Save' }))
       expect(await within(dialog).findByText('You cannot change this tenant')).toBeInTheDocument()
+    })
+
+    /**
+     * Serves a platform detail the test can change before a refetch, and
+     * records every PATCH body; the first `failures` PATCHes answer 500.
+     */
+    function serveEditable(initial: PlatformTenantDetail, failures = 0) {
+      const state = { served: initial, bodies: [] as unknown[] }
+      serve(initial)
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+          ok(state.served, 'Tenant retrieved.')
+        ),
+        http.patch('/api/v1/tenants/acme', async ({ request }) => {
+          state.bodies.push(await request.json())
+          return state.bodies.length <= failures
+            ? fail('Something broke.', 500)
+            : ok(state.served, 'Tenant updated.')
+        })
+      )
+      return state
+    }
+
+    /** Opens Edit details on the tenant page and returns the dialog. */
+    async function openEdit() {
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Edit details' }))
+      return { user, dialog: await screen.findByRole('dialog', { name: 'Edit details' }) }
+    }
+
+    it('saves an edited name while a refused legacy website and description stay as they are', async () => {
+      const state = serveEditable(
+        detail({ website: 'javascript:alert(1)', description: 'Wid\u{200B}gets' })
+      )
+      const { user, dialog } = await openEdit()
+      const name = within(dialog).getByLabelText('Name')
+      await user.clear(name)
+      await user.type(name, 'Acme Holdings')
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => {
+        expect(state.bodies).toEqual([{ name: 'Acme Holdings' }])
+      })
+      expect(screen.queryByText('Website must be an http or https URL.')).not.toBeInTheDocument()
+    })
+
+    it("sends only the user's edit after a refetch brings another staff member's change", async () => {
+      const state = serveEditable(detail())
+      const { user, dialog } = await openEdit()
+      const name = within(dialog).getByLabelText('Name')
+      await user.clear(name)
+      await user.type(name, 'Acme Holdings')
+      state.served = detail({ website: 'https://acme-new.test' })
+      await act(() => queryClient.refetchQueries({ queryKey: tenantAdminKeys.detail(TENANT_ID) }))
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => {
+        expect(state.bodies).toEqual([{ name: 'Acme Holdings' }])
+      })
+    })
+
+    it('asks for a change, and sends nothing, when Save is pressed with no changes', async () => {
+      const state = serveEditable(detail())
+      const { user, dialog } = await openEdit()
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+      // The message is the barrier: it is set where the request would have been sent.
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+        'Change a field before saving.'
+      )
+      expect(state.bodies).toEqual([])
+
+      await user.type(within(dialog).getByLabelText('Name'), ' Ltd')
+      await waitFor(() => {
+        expect(within(dialog).queryByText('Change a field before saving.')).not.toBeInTheDocument()
+      })
+    })
+
+    it('shows a refetch on a form nobody has touched, and still asks for a change', async () => {
+      const state = serveEditable(detail())
+      const { user, dialog } = await openEdit()
+      const website = within(dialog).getByLabelText('Website')
+      expect(website).toHaveValue('https://acme.test')
+      state.served = detail({ website: 'https://acme-new.test' })
+      await act(() => queryClient.refetchQueries({ queryKey: tenantAdminKeys.detail(TENANT_ID) }))
+
+      await waitFor(() => {
+        expect(website).toHaveValue('https://acme-new.test')
+      })
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+        'Change a field before saving.'
+      )
+      expect(state.bodies).toEqual([])
+    })
+
+    it('sends the edit again when Save is pressed after a failed save', async () => {
+      const state = serveEditable(detail(), 1)
+      const { user, dialog } = await openEdit()
+      const name = within(dialog).getByLabelText('Name')
+      await user.clear(name)
+      await user.type(name, 'Acme Holdings')
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+      await within(dialog).findByText('Something broke.')
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => {
+        expect(state.bodies).toEqual([{ name: 'Acme Holdings' }, { name: 'Acme Holdings' }])
+      })
     })
 
     it('reactivates a suspended tenant with a reason and no step-up', async () => {

@@ -29,7 +29,7 @@ describe('/no-access', () => {
     expect(
       await screen.findByRole('heading', { name: 'This account has no platform access', level: 1 })
     ).toBeInTheDocument()
-    expect(screen.getByText(/Signed in as a@b\.com/)).toBeInTheDocument()
+    expect(screen.getByText(/Signed in as a\.b@example\.com/)).toBeInTheDocument()
     expect(screen.getByText(/open the invitation link again/)).toBeInTheDocument()
 
     // Sign-out leaves by a full page load (`useLogout`), and jsdom's `assign` cannot be spied on, so the whole `location` is replaced.

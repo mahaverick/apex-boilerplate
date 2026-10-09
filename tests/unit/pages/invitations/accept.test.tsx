@@ -268,7 +268,7 @@ describe('accept page, signed in', () => {
   })
 
   it('matches the invited address regardless of case', async () => {
-    signIn('A@B.COM')
+    signIn('A.B@EXAMPLE.COM')
     renderAt(ACCEPT_PATH)
 
     expect(await screen.findByRole('button', { name: 'Accept invitation' })).toBeInTheDocument()
@@ -278,7 +278,7 @@ describe('accept page, signed in', () => {
     signIn()
     let accepts = 0
     countPreviews(() =>
-      ok({ ...testInvitationPreview, email: 'someone@else.com' }, 'Invitation retrieved.')
+      ok({ ...testInvitationPreview, email: 'someone-else@example.com' }, 'Invitation retrieved.')
     )
     server.use(
       http.post('/api/v1/invitations/accept', () => {
@@ -289,9 +289,9 @@ describe('accept page, signed in', () => {
     renderAt(ACCEPT_PATH)
 
     expect(
-      await screen.findByText(/This invitation was sent to someone@else\.com\./)
+      await screen.findByText(/This invitation was sent to someone-else@example\.com\./)
     ).toBeInTheDocument()
-    expect(screen.getByText(/signed in as a@b\.com\./)).toBeInTheDocument()
+    expect(screen.getByText(/signed in as a\.b@example\.com\./)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Accept invitation' })).not.toBeInTheDocument()
     expect(accepts).toBe(0)
   })
@@ -299,7 +299,7 @@ describe('accept page, signed in', () => {
   it('signs the wrong account out through the normal path and returns to this page', async () => {
     signIn()
     countPreviews(() =>
-      ok({ ...testInvitationPreview, email: 'someone@else.com' }, 'Invitation retrieved.')
+      ok({ ...testInvitationPreview, email: 'someone-else@example.com' }, 'Invitation retrieved.')
     )
     let loggedOut = false
     server.use(

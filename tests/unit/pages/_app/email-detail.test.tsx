@@ -498,6 +498,45 @@ describe('/emails/$emailId', () => {
     })
   })
 
+  it('confirms a stale sign-in for a customer tenant’s invitation too, and sends the reason each time', async () => {
+    serve({
+      templateKey: 'tenant_invitation',
+      tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
+    })
+    const bodies: unknown[] = []
+    server.use(
+      http.post(`/api/v1/platform/emails/${EMAIL_ID}/resend`, async ({ request }) => {
+        bodies.push(await request.json())
+        return bodies.length === 1
+          ? fail('Confirm your identity to continue', 401, REAUTH_REQUIRED)
+          : ok({}, 'Resend requested.', 202)
+      }),
+      http.post('/api/v1/auth/reauthenticate', () =>
+        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(PAGE)
+    await heading()
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Resend this email?' })
+    expect(within(dialog).getByText('Sends the invitation again.')).toBeInTheDocument()
+    await user.type(within(dialog).getByLabelText('Reason'), 'Customer lost the invite')
+    await user.click(within(dialog).getByRole('button', { name: 'Resend' }))
+
+    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+    await user.type(within(stepUp).getByLabelText('Password'), 'zqS7-step-up-pass')
+    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+
+    expect(
+      await screen.findByText('Resend requested — it appears in the timeline shortly')
+    ).toBeInTheDocument()
+    expect(bodies).toEqual([
+      { reason: 'Customer lost the invite' },
+      { reason: 'Customer lost the invite' },
+    ])
+  })
+
   it('shows a not-found panel on a 404, without signing out', async () => {
     server.use(http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => fail('Not found', 404)))
     renderAppAt(PAGE)

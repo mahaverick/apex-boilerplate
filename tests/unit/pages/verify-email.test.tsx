@@ -131,12 +131,12 @@ describe('verify-email page', () => {
     await user.type(await screen.findByLabelText('Password'), 'secret123')
     await user.click(screen.getByRole('button', { name: 'Verify email' }))
 
-    await user.type(await screen.findByLabelText('Email'), '  ADA@B.COM  ')
+    await user.type(await screen.findByLabelText('Email'), '  ADA@EXAMPLE.COM  ')
     await user.click(screen.getByRole('button', { name: 'Resend verification email' }))
 
     await waitFor(() => {
       // Normalised by the schema on the way out, like every other address.
-      expect(resendBody).toEqual({ email: 'ada@b.com', app: 'apex' })
+      expect(resendBody).toEqual({ email: 'ada@example.com', app: 'apex' })
     })
   })
 

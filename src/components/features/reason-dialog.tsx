@@ -28,6 +28,7 @@ import { useServerErrors } from '@/hooks/use-server-errors'
 import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
 import { isReauthRequired } from '@/lib/step-up'
 import { reasonFormSchema } from '@/schemas/reason.schemas'
+import { REASON_REQUIRED } from '@/types/api.types'
 
 /** Step-up was dismissed, so the action never ran. */
 export const STEP_UP_DISMISSED = 'Confirm it’s you to continue.'
@@ -63,10 +64,13 @@ export interface ReasonDialogProps {
  * irreversible ones, a typed confirmation. The form mounts only while open,
  * so each opening starts blank. A 403 or 409, and a 404 that carries a code,
  * is the server's own sentence (staff-on-staff refusal, invalid transition,
- * last owner, an invitation no longer pending) and is shown as is unless
- * `refusalMessage` returns a sentence to replace it; a 404
- * without a code is the role gate's. The dialog stays open so the reader
- * sees it.
+ * last owner) and is shown as is unless `refusalMessage` returns a sentence
+ * to replace it; a 404 without a code is the role gate's, and a 400
+ * `REASON_REQUIRED` goes on the Reason field. The dialog stays open so the
+ * reader sees it. A refusal that means the row is gone is the caller's to
+ * catch and resolve: a dialog inside a list its write refetches on settle is
+ * unmounted with the row before the refusal arrives (an invitation no longer
+ * pending), and express's `Member not found` carries no code.
  */
 export function ReasonDialog(props: ReasonDialogProps) {
   const [busy, setBusy] = useState(false)
@@ -115,8 +119,12 @@ function ReasonForm({
           serverErrors.setFormErrors([STEP_UP_DISMISSED])
           return
         }
+        if (codeFrom(error) === REASON_REQUIRED) {
+          serverErrors.setFieldError('reason', [messageFrom(error)])
+          return
+        }
         const status = statusFrom(error)
-        // A role gate's 404 carries no code; one with a code (`invitation_not_found`) is the action's own verdict.
+        // A role gate's 404 carries no code; one with a code is the action's own verdict.
         if (status === 404) {
           serverErrors.setFormErrors([
             codeFrom(error) === undefined ? ROLE_DENIED_ACTION : messageFrom(error),

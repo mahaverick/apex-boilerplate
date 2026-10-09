@@ -97,18 +97,57 @@ export const slugSchema = z
   )
   .refine((slug) => !RESERVED.has(slug), 'This slug is reserved and cannot be used.')
 
-/** Which of the API's `safeText` checks a field gets. Absent means none. */
-type SafeTextMode = 'single-line' | 'multiline'
+/**
+ * Which of the API's checks a field gets: `safeText` on one line or several,
+ * or `url`, a single-line `safeText` field that must also be an http or https
+ * URL. Absent means none.
+ */
+type SafeTextMode = 'single-line' | 'multiline' | 'url'
+
+/** An absolute http or https URL, as the API's `z.url({ protocol: /^https?$/ })` takes it. */
+const HTTP_URL = z.url({ protocol: /^https?$/ })
+
+/**
+ * Whether `value` is free of what the API refuses before its URL check: a
+ * backslash anywhere, or credentials (`user:pw@`) in a parsable URL, either of
+ * which can make one host read as another. An `@` in the path or query is fine.
+ * @param value - The trimmed candidate.
+ * @returns True when neither is present.
+ */
+function hasNoUserinfoOrBackslash(value: string): boolean {
+  if (value.includes('\\')) return false
+  // `new URL` in a try, not `URL.canParse`, which Safari 16 lacks.
+  try {
+    const { username, password } = new URL(value)
+    return username === '' && password === ''
+  } catch {
+    return true
+  }
+}
+
+/**
+ * The API's URL check, which it pipes so that it runs only once every earlier
+ * check passed. A blank passes, for the caller to read as "not given" or
+ * "clear it".
+ */
+function httpUrlCheck(message: string) {
+  return z.string().refine((value) => value === '' || HTTP_URL.safeParse(value).success, message)
+}
 
 /**
  * A trimmed string capped at `max`. With `safe`, it also refuses what the
- * API's `safeText` refuses, after turning `\r\n` into `\n` on a multiline field.
+ * API's `safeText` refuses, after turning `\r\n` into `\n` on a multiline field;
+ * with `url`, anything but a blank or an http or https URL as well.
  */
 function boundedText(max: number, label: string, safe?: SafeTextMode) {
   const multiline = safe === 'multiline'
   const field = multiline ? z.string().overwrite(normalizeMultilineText) : z.string()
   const bounded = field.trim().max(max, `${label} must be at most ${max} characters.`)
-  return safe ? bounded.refine(safeText({ multiline }), notAllowedMessage(label)) : bounded
+  if (!safe) return bounded
+  const safeField = bounded.refine(safeText({ multiline }), notAllowedMessage(label))
+  if (safe !== 'url') return safeField
+  const notHttpUrl = `${label} must be an http or https URL.`
+  return safeField.refine(hasNoUserinfoOrBackslash, notHttpUrl).pipe(httpUrlCheck(notHttpUrl))
 }
 
 /**
@@ -151,7 +190,7 @@ export const createPlatformTenantSchema = z.object({
   slug: slugSchema,
   ownerEmail: emailSchema,
   description: optionalText(MAX_TENANT_DESCRIPTION_LENGTH, 'Description', 'multiline'),
-  website: optionalText(MAX_TENANT_WEBSITE_LENGTH, 'Website', 'single-line'),
+  website: optionalText(MAX_TENANT_WEBSITE_LENGTH, 'Website', 'url'),
 })
 
 export type CreatePlatformTenantInput = z.infer<typeof createPlatformTenantSchema>
@@ -163,8 +202,8 @@ export type CreatePlatformTenantInput = z.infer<typeof createPlatformTenantSchem
 export const updateTenantSchema = z.object({
   name: nameSchema.optional(),
   description: clearableText(MAX_TENANT_DESCRIPTION_LENGTH, 'Description', 'multiline'),
-  logo: clearableText(MAX_TENANT_LOGO_LENGTH, 'Logo', 'single-line'),
-  website: clearableText(MAX_TENANT_WEBSITE_LENGTH, 'Website', 'single-line'),
+  logo: clearableText(MAX_TENANT_LOGO_LENGTH, 'Logo', 'url'),
+  website: clearableText(MAX_TENANT_WEBSITE_LENGTH, 'Website', 'url'),
 })
 
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>

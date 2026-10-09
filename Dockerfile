@@ -52,13 +52,11 @@ RUN test ! -e .git || { echo '.git is in the build context (see .dockerignore)' 
 # it lives in src/constants/routes.ts as API_PREFIX, and nginx.conf's SSE
 # location and the Google OAuth anchor derive from or hardcode it. A build arg
 # that moved only the axios base would ship an image whose Google sign-in and
-# SSE location are broken with nothing in any log to say so. The three ARGs
-# below are per commit, not per environment: GIT_SHA names the commit
-# (vite.config.ts bakes it in as the release), and the other two say where its
-# source maps are uploaded.
+# SSE location are broken with nothing in any log to say so. The build ARGs
+# are per commit, not per environment: GIT_SHA names the commit
+# (vite.config.ts bakes it in as the release), and the two before the upload
+# say where its source maps go.
 ARG GIT_SHA=dev
-ARG POSTHOG_SOURCEMAP_PROJECTS=
-ARG POSTHOG_CLI_HOST=https://us.posthog.com
 # vite.config.ts builds hidden source maps: no sourceMappingURL in any chunk.
 RUN pnpm build
 # Chunk ids go into every build, uploaded or not, so a file name never holds
@@ -67,6 +65,11 @@ RUN pnpm build
 # into every chunk. The token is a placeholder the CLI checks only for shape.
 RUN POSTHOG_CLI_TOKEN=phx_inject_placeholder POSTHOG_CLI_ENV_ID=0 \
     pnpm exec posthog-cli sourcemap inject --directory dist
+# Declared just before the upload, so a change to where the maps go re-runs
+# only the upload, not `pnpm build` or inject: an ARG is part of every later
+# RUN's cache key.
+ARG POSTHOG_SOURCEMAP_PROJECTS=
+ARG POSTHOG_CLI_HOST=https://us.posthog.com
 # The token is a BuildKit secret: never in a layer or in `docker history`.
 RUN --mount=type=secret,id=posthog_cli_token,required=false \
     sh docker/upload-sourcemaps.sh

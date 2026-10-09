@@ -344,7 +344,7 @@ describe('auth interceptors', () => {
     )
 
     await expect(
-      makeClient().post('/auth/login', { email: 'a@b.com', password: 'wrong' })
+      makeClient().post('/auth/login', { email: 'a.b@example.com', password: 'wrong' })
     ).rejects.toMatchObject({ response: { status: 401 } })
     expect(seen).toBeNull()
     expect(assign).not.toHaveBeenCalled()
