@@ -529,7 +529,7 @@ test.describe('user actions menu', () => {
         timeout: COLD_TRANSFORM_BUDGET_MS,
       })
 
-      await page.getByRole('button', { name: 'Actions for c@d.com' }).click()
+      await page.getByRole('button', { name: 'Actions for cleo.d@example.com' }).click()
       const menu = page.getByRole('menu')
       // The destructive item carries its own token pair; opened AND populated, or this grades nothing.
       await expect(menu.getByRole('menuitem', { name: 'Delete', exact: true })).toBeVisible()
@@ -646,12 +646,17 @@ test.describe('staff surfaces', () => {
  */
 const DELIVERED_EMAIL = '/emails/70000000-0000-4000-8000-000000000001'
 const SUPPRESSED_EMAIL = '/emails/70000000-0000-4000-8000-000000000002'
-const LONG_ADDRESS = 'a-very-long-address-for-overflow@example-company-domain.com'
+const LONG_ADDRESS = 'a-very-long-address-for-the-overflow-check@example-corp.co.uk'
 
 const TRACKING_SURFACES = [
   { name: 'emails', path: '/emails', heading: /^Emails$/, shows: ['Delivered', 'Bounced'] },
   { name: 'suppressed email', path: SUPPRESSED_EMAIL, heading: LONG_ADDRESS, shows: ['Bounced'] },
-  { name: 'email preview', path: `${DELIVERED_EMAIL}?tab=preview`, heading: 'c@d.com', shows: [] },
+  {
+    name: 'email preview',
+    path: `${DELIVERED_EMAIL}?tab=preview`,
+    heading: 'cleo.d@example.com',
+    shows: [],
+  },
   { name: 'deliverability', path: '/deliverability', heading: 'Deliverability', shows: [] },
   {
     name: 'deliverability without provider events',
@@ -711,9 +716,11 @@ test.describe('message tracking at 390px', () => {
       await page.keyboard.press('Escape')
       await expect(lift).toHaveCount(0)
       await page.goto(`/e2e/harness/?path=${DELIVERED_EMAIL}`)
-      await expect(page.getByRole('heading', { name: 'c@d.com', level: 1 })).toBeVisible({
-        timeout: COLD_TRANSFORM_BUDGET_MS,
-      })
+      await expect(page.getByRole('heading', { name: 'cleo.d@example.com', level: 1 })).toBeVisible(
+        {
+          timeout: COLD_TRANSFORM_BUDGET_MS,
+        }
+      )
       await page.getByRole('button', { name: 'Resend' }).click()
       const resend = page.getByRole('alertdialog', { name: 'Resend this email?' })
       await expect(resend.getByLabel('Reason')).toBeVisible()

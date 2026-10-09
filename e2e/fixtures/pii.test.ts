@@ -36,9 +36,9 @@ for (const [name, path, ready] of [
   ['a tenant’s emails', `${ACME}/emails`, 'Acme Corp'],
   ['a tenant’s onboarding', `${ACME}/onboarding`, 'Acme Corp'],
   ['the emails list', '/emails', 'Emails'],
-  ['an email', DELIVERED, 'c@d.com'],
-  ['an email’s preview', `${DELIVERED}?tab=preview`, 'c@d.com'],
-  ['a bounced email', BOUNCED, 'a-very-long-address-for-overflow@example-company-domain.com'],
+  ['an email', DELIVERED, 'cleo.d@example.com'],
+  ['an email’s preview', `${DELIVERED}?tab=preview`, 'cleo.d@example.com'],
+  ['a bounced email', BOUNCED, 'a-very-long-address-for-the-overflow-check@example-corp.co.uk'],
   ['deliverability', '/deliverability', 'Deliverability'],
   ['suppressions, active and lifted', '/suppressions?state=all', 'Suppressions'],
   ['onboarding', '/onboarding', 'Onboarding'],
@@ -60,7 +60,7 @@ for (const [name, path, ready] of [
  * never passes over a page still loading.
  */
 for (const [name, path, probe] of [
-  ['a user’s timeline', `${CLEO}/timeline`, "Clicked 'Resend to c@d.com'"],
+  ['a user’s timeline', `${CLEO}/timeline`, "Clicked 'Resend to cleo.d@example.com'"],
   ['a tenant’s timeline', `${ACME}/timeline`, "Clicked 'Remove Evangeline Featherstonehaugh'"],
 ] as const) {
   test(`${name} renders every name, address and clicked text inside Pii`, async ({ page }) => {
@@ -115,7 +115,9 @@ test('a tenant’s timeline names its actors, each inside Pii', async ({ page })
   const list = page.getByRole('list', { name: 'Timeline' })
   await expect(list.getByRole('link', { name: 'Cleo D' }).first()).toBeVisible()
   await expect(
-    list.getByRole('link', { name: 'a-very-long-address-for-overflow@example-company-domain.com' })
+    list.getByRole('link', {
+      name: 'a-very-long-address-for-the-overflow-check@example-corp.co.uk',
+    })
   ).toBeVisible()
   await expect(list.getByText('Deleted user')).toBeVisible()
   expect(await unmaskedPii(page, NAMES)).toEqual([])
@@ -134,7 +136,7 @@ test('the user menu’s initials and name, and the open palette’s people, sit 
 
   await page.getByRole('button', { name: /Search/ }).click()
   await page.getByRole('combobox', { name: 'Search pages, tenants and users' }).fill('c')
-  await expect(page.getByRole('option', { name: /c@d\.com/ })).toBeVisible()
+  await expect(page.getByRole('option', { name: /cleo\.d@example\.com/ })).toBeVisible()
   expect(await unmaskedPii(page, NAMES)).toEqual([])
 })
 

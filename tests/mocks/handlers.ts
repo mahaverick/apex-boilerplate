@@ -38,7 +38,7 @@ import type {
 /** A platform admin: every in-app surface is staff-only, so a test about non-staff says `platformRole: null`. */
 export const testUser: User = {
   id: USER_ID,
-  email: 'a@b.com',
+  email: 'a.b@example.com',
   firstName: 'A',
   lastName: 'B',
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -56,7 +56,7 @@ export const INVITATION_SENT_MESSAGE =
 /** One pending row, as `GET /tenants/:slug/invitations` lists it. */
 export const testInvitation: TenantInvitation = {
   id: INVITATION_ID,
-  email: 'invitee@b.com',
+  email: 'invited@example.com',
   role: 'editor',
   invitedBy: { id: USER_ID, firstName: 'A', lastName: 'B' },
   expiresAt: '2026-10-01T00:00:00.000Z',

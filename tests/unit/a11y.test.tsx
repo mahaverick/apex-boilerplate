@@ -149,7 +149,7 @@ const MEMBERS = [
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     },
-    user: { id: USER_ID, email: 'a@b.com', firstName: 'A', lastName: 'B' },
+    user: { id: USER_ID, email: 'a.b@example.com', firstName: 'A', lastName: 'B' },
   },
   {
     membership: {
@@ -160,7 +160,7 @@ const MEMBERS = [
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     },
-    user: { id: USER_ID_2, email: 'c@d.com', firstName: 'Cleo', lastName: 'D' },
+    user: { id: USER_ID_2, email: 'cleo.d@example.com', firstName: 'Cleo', lastName: 'D' },
   },
 ]
 
@@ -198,7 +198,7 @@ const AUDIT_ENTRIES: AuditEntry[] = [
     occurredAt: '2026-09-25T09:00:00.000Z',
     action: 'tenant.created',
     access: 'member',
-    actor: { id: USER_ID, name: 'A B', email: 'a@b.com' },
+    actor: { id: USER_ID, name: 'A B', email: 'a.b@example.com' },
     target: { type: 'tenant', id: TENANT_ID },
     metadata: { name: 'Acme Corp', slug: 'acme' },
   },
@@ -217,7 +217,15 @@ const ACME_DETAIL: PlatformTenantDetail = {
   deletedAt: null,
   settings: { timezone: 'UTC', locale: 'en' },
   memberCount: 2,
-  owners: [{ userId: USER_ID_2, email: 'c@d.com', firstName: 'Cleo', lastName: 'D', active: true }],
+  owners: [
+    {
+      userId: USER_ID_2,
+      email: 'cleo.d@example.com',
+      firstName: 'Cleo',
+      lastName: 'D',
+      active: true,
+    },
+  ],
   pendingInvitationCount: 0,
   pendingOwnerInvitation: null,
 }
@@ -1161,7 +1169,7 @@ describe('invitation accept states', () => {
             tenant: { name: 'Acme Corp', slug: 'acme' },
             role: 'editor',
             invitedBy: { firstName: 'Ada', lastName: 'Lovelace' },
-            email: 'someone@else.com',
+            email: 'someone-else@example.com',
           },
           'Invitation retrieved.'
         )

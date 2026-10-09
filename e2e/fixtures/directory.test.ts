@@ -121,7 +121,7 @@ for (const [name, path, trigger, item, role, dialogName, action] of [
   [
     'deactivating a user',
     CLEO_PAGE,
-    'Actions for c@d.com',
+    'Actions for cleo.d@example.com',
     'Deactivate',
     'alertdialog',
     'Deactivate account',
@@ -177,9 +177,9 @@ test('⌘K finds a user and choosing them opens their page', async ({ page }) =>
 
   await page.keyboard.press('ControlOrMeta+k')
   const palette = page.getByRole('dialog', { name: 'Command palette' })
-  await page.keyboard.type('c@d')
-  await expect(palette.getByRole('option', { name: /c@d\.com/ })).toBeVisible()
-  await palette.getByRole('option', { name: /c@d\.com/ }).click()
+  await page.keyboard.type('cleo.d@')
+  await expect(palette.getByRole('option', { name: /cleo\.d@example\.com/ })).toBeVisible()
+  await palette.getByRole('option', { name: /cleo\.d@example\.com/ }).click()
 
   await expect(page.getByRole('heading', { name: 'Cleo D', level: 1 })).toBeVisible()
 })

@@ -10,14 +10,14 @@ import { sidewaysOverflow } from '../layout'
 
 const DELIVERED = '/emails/70000000-0000-4000-8000-000000000001'
 const BOUNCED = '/emails/70000000-0000-4000-8000-000000000002'
-const LONG_ADDRESS = 'a-very-long-address-for-overflow@example-company-domain.com'
+const LONG_ADDRESS = 'a-very-long-address-for-the-overflow-check@example-corp.co.uk'
 const ACME_EMAILS = '/tenants/10000000-0000-4000-8000-000000000001/emails'
 
 for (const [name, path, ready] of [
   ['the emails list', '/emails', 'Emails'],
-  ['a delivered email', DELIVERED, 'c@d.com'],
+  ['a delivered email', DELIVERED, 'cleo.d@example.com'],
   ['a suppressed email', BOUNCED, LONG_ADDRESS],
-  ['an email’s preview', `${DELIVERED}?tab=preview`, 'c@d.com'],
+  ['an email’s preview', `${DELIVERED}?tab=preview`, 'cleo.d@example.com'],
   ['deliverability', '/deliverability', 'Deliverability'],
   ['deliverability without provider events', '/deliverability?range=30d', 'Deliverability'],
   ['suppressions, active and lifted', '/suppressions?state=all', 'Suppressions'],
@@ -83,7 +83,7 @@ test('the lift dialog fits at 390px', async ({ page }) => {
 test('the resend dialog fits at 390px', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(`/e2e/harness/?path=${DELIVERED}`)
-  await expect(page.getByRole('heading', { name: 'c@d.com', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'cleo.d@example.com', level: 1 })).toBeVisible()
 
   await page.getByRole('button', { name: 'Resend' }).click()
   const dialog = page.getByRole('alertdialog', { name: 'Resend this email?' })

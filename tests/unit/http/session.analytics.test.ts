@@ -24,7 +24,7 @@ vi.mock('posthog-js', async () => {
 })
 
 const userA = { ...testUser, id: USER_ID }
-const userB = { ...testUser, id: USER_ID_2, email: 'b@b.com' }
+const userB = { ...testUser, id: USER_ID_2, email: 'b@example.com' }
 
 /** The SDK calls after `init`'s own `register`. */
 function sdkCalls(): string[] {

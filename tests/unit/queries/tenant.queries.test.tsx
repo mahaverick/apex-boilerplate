@@ -38,7 +38,7 @@ const member: TenantMember = {
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   },
-  user: { id: USER_ID, email: 'ada@b.com', firstName: 'Ada', lastName: 'Lovelace' },
+  user: { id: USER_ID, email: 'ada@example.com', firstName: 'Ada', lastName: 'Lovelace' },
 }
 
 describe('useMembers', () => {
@@ -326,6 +326,6 @@ describe('memberName', () => {
     expect(memberName({ ...member, user: { ...member.user, lastName: null } })).toBe('Ada')
     expect(
       memberName({ ...member, user: { ...member.user, firstName: null, lastName: null } })
-    ).toBe('ada@b.com')
+    ).toBe('ada@example.com')
   })
 })

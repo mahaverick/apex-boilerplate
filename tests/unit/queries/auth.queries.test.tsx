@@ -38,22 +38,24 @@ describe('Apex auth mutations send app: "apex"', () => {
   it('on register', async () => {
     const seen = captureBody('/auth/register')
     const { result } = renderHook(() => useRegister(), { wrapper })
-    await act(() => result.current.mutateAsync({ email: 'a@b.com', password: 'longenough1' }))
-    expect(seen.body).toMatchObject({ email: 'a@b.com', app: 'apex' })
+    await act(() =>
+      result.current.mutateAsync({ email: 'a.b@example.com', password: 'longenough1' })
+    )
+    expect(seen.body).toMatchObject({ email: 'a.b@example.com', app: 'apex' })
   })
 
   it('on forgot-password', async () => {
     const seen = captureBody('/auth/forgot-password')
     const { result } = renderHook(() => useForgotPassword(), { wrapper })
-    await act(() => result.current.mutateAsync({ email: 'a@b.com' }))
-    expect(seen.body).toEqual({ email: 'a@b.com', app: 'apex' })
+    await act(() => result.current.mutateAsync({ email: 'a.b@example.com' }))
+    expect(seen.body).toEqual({ email: 'a.b@example.com', app: 'apex' })
   })
 
   it('on resend-verification', async () => {
     const seen = captureBody('/auth/resend-verification')
     const { result } = renderHook(() => useResendVerification(), { wrapper })
-    await act(() => result.current.mutateAsync({ email: 'a@b.com' }))
-    expect(seen.body).toEqual({ email: 'a@b.com', app: 'apex' })
+    await act(() => result.current.mutateAsync({ email: 'a.b@example.com' }))
+    expect(seen.body).toEqual({ email: 'a.b@example.com', app: 'apex' })
   })
 })
 

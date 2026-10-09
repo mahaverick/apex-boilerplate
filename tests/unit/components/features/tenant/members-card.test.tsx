@@ -103,7 +103,7 @@ function member(id: string, role: MembershipRole, firstName: string) {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     },
-    user: { id, email: `${id}@b.com`, firstName, lastName: 'X' },
+    user: { id, email: `${id}@example.com`, firstName, lastName: 'X' },
   }
 }
 
@@ -915,7 +915,7 @@ describe('the invite form role select', () => {
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
-    await user.type(await screen.findByLabelText('Email'), 'new@b.com')
+    await user.type(await screen.findByLabelText('Email'), 'new-member@example.com')
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
     await screen.findByText('That role is not yours to grant.')
 
@@ -957,7 +957,9 @@ describe('inviting, and the pending invitations', () => {
       http.get('/api/v1/tenants/acme/invitations', () => {
         listCalls += 1
         return ok(
-          listCalls === 1 ? [] : [invitation(INVITATION_ID_2, 'new@b.com', { role: 'viewer' })],
+          listCalls === 1
+            ? []
+            : [invitation(INVITATION_ID_2, 'new-member@example.com', { role: 'viewer' })],
           'Invitations retrieved.'
         )
       }),
@@ -969,13 +971,15 @@ describe('inviting, and the pending invitations', () => {
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
-    await user.type(await screen.findByLabelText('Email'), 'New@B.com')
+    await user.type(await screen.findByLabelText('Email'), 'New-Member@Example.com')
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
 
     // The 202 is the same for every address, so the toast names what was sent.
-    expect(await screen.findByText('Invitation sent to new@b.com.')).toBeInTheDocument()
-    expect(body).toEqual({ email: 'new@b.com', role: 'viewer' })
-    expect(await screen.findByText('new@b.com')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Invitation sent to new-member@example.com.')
+    ).toBeInTheDocument()
+    expect(body).toEqual({ email: 'new-member@example.com', role: 'viewer' })
+    expect(await screen.findByText('new-member@example.com')).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toHaveValue('')
   })
 
@@ -989,7 +993,7 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     const email = await screen.findByLabelText('Email')
-    await user.type(email, 'u3@b.com')
+    await user.type(email, 'u3@example.com')
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
 
     await waitFor(() => {
@@ -1013,7 +1017,7 @@ describe('inviting, and the pending invitations', () => {
       http.get('/api/v1/tenants/acme/invitations', () => {
         listCalls += 1
         return ok(
-          listCalls === 1 ? [] : [invitation(INVITATION_ID_9, 'new@b.com')],
+          listCalls === 1 ? [] : [invitation(INVITATION_ID_9, 'new-member@example.com')],
           'Invitations retrieved.'
         )
       }),
@@ -1024,7 +1028,7 @@ describe('inviting, and the pending invitations', () => {
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
-    await user.type(await screen.findByLabelText('Email'), 'new@b.com')
+    await user.type(await screen.findByLabelText('Email'), 'new-member@example.com')
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
 
     const raced = await screen.findByText(
@@ -1033,7 +1037,9 @@ describe('inviting, and the pending invitations', () => {
     expect(raced.closest('form')).not.toBeNull()
     expect(toastError).not.toHaveBeenCalled()
     // The winning invitation arrives with the refetch.
-    expect(await screen.findByText('new@b.com', { selector: 'span' })).toBeInTheDocument()
+    expect(
+      await screen.findByText('new-member@example.com', { selector: 'span' })
+    ).toBeInTheDocument()
   })
 
   it('shows any other refusal in the form, once, and leaves the field alone', async () => {
@@ -1047,7 +1053,7 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     const email = await screen.findByLabelText('Email')
-    await user.type(email, 'new@b.com')
+    await user.type(email, 'new-member@example.com')
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
 
     const message = await screen.findByText('Too many attempts. Please try again later.')
@@ -1063,7 +1069,10 @@ describe('inviting, and the pending invitations', () => {
         ok(
           [
             testInvitation,
-            invitation(INVITATION_ID_2, 'old@b.com', { role: 'viewer', invitedBy: null }),
+            invitation(INVITATION_ID_2, 'old-invite@example.com', {
+              role: 'viewer',
+              invitedBy: null,
+            }),
           ],
           'Invitations retrieved.'
         )
@@ -1072,11 +1081,13 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     expect(await screen.findByRole('heading', { name: 'Pending invitations' })).toBeInTheDocument()
-    const first = within((await screen.findByText('invitee@b.com')).closest('li') as HTMLElement)
+    const first = within(
+      (await screen.findByText('invited@example.com')).closest('li') as HTMLElement
+    )
     expect(first.getByText('Editor · Invited by A B')).toBeInTheDocument()
     expect(first.getByText(/^Expires /)).toBeInTheDocument()
     // An inviter whose account is gone is `null`, not a crash.
-    const second = within(screen.getByText('old@b.com').closest('li') as HTMLElement)
+    const second = within(screen.getByText('old-invite@example.com').closest('li') as HTMLElement)
     expect(second.getByText('Viewer · Invited by A teammate')).toBeInTheDocument()
   })
 
@@ -1106,7 +1117,7 @@ describe('inviting, and the pending invitations', () => {
     expect(alert).toHaveTextContent(/could not load the pending invitations/i)
     await user.click(within(alert).getByRole('button', { name: 'Try again' }))
 
-    expect(await screen.findByText('invitee@b.com')).toBeInTheDocument()
+    expect(await screen.findByText('invited@example.com')).toBeInTheDocument()
   })
 
   it('shows the section to an admin too', async () => {
@@ -1135,10 +1146,10 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invitee@b.com' })
+      await screen.findByRole('button', { name: 'Resend invitation to invited@example.com' })
     )
 
-    expect(await screen.findByText('Invitation resent to invitee@b.com.')).toBeInTheDocument()
+    expect(await screen.findByText('Invitation resent to invited@example.com.')).toBeInTheDocument()
     expect(resent).toBe(INVITATION_ID)
     expect(body).toBe('')
     // The expiry moved, so the list is fetched again.
@@ -1152,7 +1163,7 @@ describe('inviting, and the pending invitations', () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
         ok(
-          [invitation(INVITATION_ID, 'invitee@b.com', { role: 'owner' })],
+          [invitation(INVITATION_ID, 'invited@example.com', { role: 'owner' })],
           'Invitations retrieved.'
         )
       ),
@@ -1164,7 +1175,7 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invitee@b.com' })
+      await screen.findByRole('button', { name: 'Resend invitation to invited@example.com' })
     )
 
     expect(
@@ -1273,7 +1284,7 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invitee@b.com' })
+      await screen.findByRole('button', { name: 'Resend invitation to invited@example.com' })
     )
 
     expect(await screen.findByText('That invitation is no longer pending.')).toBeInTheDocument()
@@ -1297,18 +1308,18 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Revoke invitation to invitee@b.com' })
+      await screen.findByRole('button', { name: 'Revoke invitation to invited@example.com' })
     )
     // The app's AlertDialog, not a browser confirm().
     const dialog = await screen.findByRole('alertdialog')
-    expect(dialog).toHaveAccessibleName('Revoke the invitation to invitee@b.com?')
+    expect(dialog).toHaveAccessibleName('Revoke the invitation to invited@example.com?')
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
 
     await waitFor(() => {
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     })
     expect(deletes).toBe(0)
-    expect(screen.getByText('invitee@b.com')).toBeInTheDocument()
+    expect(screen.getByText('invited@example.com')).toBeInTheDocument()
   })
 
   it('revokes on confirm, says so, and drops the row', async () => {
@@ -1328,13 +1339,15 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Revoke invitation to invitee@b.com' })
+      await screen.findByRole('button', { name: 'Revoke invitation to invited@example.com' })
     )
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: 'Revoke' }))
 
     // The toast still arrives although the refetch unmounts the row first.
-    expect(await screen.findByText('Invitation to invitee@b.com revoked.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Invitation to invited@example.com revoked.')
+    ).toBeInTheDocument()
     expect(revoked).toBe(INVITATION_ID)
     expect(body).toBe('')
     expect(
@@ -1361,7 +1374,7 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     const button = await screen.findByRole('button', {
-      name: 'Revoke invitation to invitee@b.com',
+      name: 'Revoke invitation to invited@example.com',
     })
     await user.click(button)
     const dialog = await screen.findByRole('alertdialog')
@@ -1386,7 +1399,7 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Revoke invitation to invitee@b.com' })
+      await screen.findByRole('button', { name: 'Revoke invitation to invited@example.com' })
     )
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: 'Revoke' }))

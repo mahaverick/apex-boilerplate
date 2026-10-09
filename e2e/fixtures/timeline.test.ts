@@ -58,7 +58,7 @@ for (const [name, path, level] of [
 test('the view and the window change the URL and the request', async ({ page }) => {
   await page.goto(`/e2e/harness/?path=${CLEO_TIMELINE}`)
   const list = page.getByRole('list', { name: 'Timeline' })
-  await expect(list.getByText("Clicked 'Resend to c@d.com'")).toBeVisible()
+  await expect(list.getByText("Clicked 'Resend to cleo.d@example.com'")).toBeVisible()
 
   const keyRequest = page.waitForRequest(
     (request) => request.url().includes('/timeline?') && request.url().includes('view=key')
@@ -67,7 +67,7 @@ test('the view and the window change the URL and the request', async ({ page }) 
   expect(new URL((await keyRequest).url()).searchParams.get('range')).toBe('7d')
   await expect(page).toHaveURL(/[?&]view=key/)
   await expect(list.getByText('Signed in with Google')).toBeVisible()
-  await expect(list.getByText("Clicked 'Resend to c@d.com'")).toHaveCount(0)
+  await expect(list.getByText("Clicked 'Resend to cleo.d@example.com'")).toHaveCount(0)
 
   const rangeRequest = page.waitForRequest((request) => request.url().includes('range=24h'))
   await page.getByRole('combobox', { name: 'Time range' }).click()

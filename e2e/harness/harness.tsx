@@ -56,7 +56,7 @@ const MEMBERS = [
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     },
-    user: { id: USER_ID, email: 'a@b.com', firstName: 'A', lastName: 'B' },
+    user: { id: USER_ID, email: 'a.b@example.com', firstName: 'A', lastName: 'B' },
   },
   {
     membership: {
@@ -67,7 +67,7 @@ const MEMBERS = [
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     },
-    user: { id: USER_ID_2, email: 'c@d.com', firstName: 'Cleo', lastName: 'D' },
+    user: { id: USER_ID_2, email: 'cleo.d@example.com', firstName: 'Cleo', lastName: 'D' },
   },
 ]
 
@@ -117,7 +117,7 @@ function acmeMembership() {
 
 const testUser = {
   id: USER_ID,
-  email: 'a@b.com',
+  email: 'a.b@example.com',
   firstName: 'A',
   lastName: 'B',
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -189,7 +189,7 @@ function historyOf(params: URLSearchParams) {
         access: 'platform',
         actor: SAM,
         target: { type: 'user', id: targetId },
-        metadata: { emailDomain: 'example-company-domain.com' },
+        metadata: { emailDomain: 'example-corp.co.uk' },
         tenant: PLATFORM,
       },
     ]
@@ -212,7 +212,7 @@ function historyOf(params: URLSearchParams) {
 const USER_ROWS = [
   {
     id: USER_ID_2,
-    email: 'c@d.com',
+    email: 'cleo.d@example.com',
     firstName: 'Cleo',
     lastName: 'D',
     active: false,
@@ -225,7 +225,7 @@ const USER_ROWS = [
   },
   {
     id: USER_ID_3,
-    email: 'a-very-long-address-for-overflow@example-company-domain.com',
+    email: 'a-very-long-address-for-the-overflow-check@example-corp.co.uk',
     firstName: 'Evangeline',
     lastName: 'Featherstonehaugh',
     active: true,
@@ -326,12 +326,12 @@ function tenantDetail(tenantId: string) {
       slug: 'beta',
       lifecycleState: 'suspended',
       description: 'Beta’s own description, suspended while its billing is reviewed.',
-      website: 'https://beta.example-company-domain.com',
+      website: 'https://beta.example-corp.co.uk',
       memberCount: 1,
       owners: [
         {
           userId: USER_ID_3,
-          email: 'a-very-long-address-for-overflow@example-company-domain.com',
+          email: 'a-very-long-address-for-the-overflow-check@example-corp.co.uk',
           firstName: 'Evangeline',
           lastName: 'Featherstonehaugh',
           active: true,
@@ -346,11 +346,17 @@ function tenantDetail(tenantId: string) {
     lifecycleState: 'active',
     description:
       'A deliberately long description, so the overview card wraps at phone width rather than scrolling sideways.',
-    website: 'https://acme.example-company-domain.com',
+    website: 'https://acme.example-corp.co.uk',
     memberCount: 2,
     owners: [
-      { userId: USER_ID, email: 'a@b.com', firstName: 'A', lastName: 'B', active: true },
-      { userId: USER_ID_2, email: 'c@d.com', firstName: 'Cleo', lastName: 'D', active: false },
+      { userId: USER_ID, email: 'a.b@example.com', firstName: 'A', lastName: 'B', active: true },
+      {
+        userId: USER_ID_2,
+        email: 'cleo.d@example.com',
+        firstName: 'Cleo',
+        lastName: 'D',
+        active: false,
+      },
     ],
     pendingInvitationCount: 1,
   }
@@ -364,7 +370,7 @@ function tenantDetail(tenantId: string) {
 const EMAIL_ROWS = [
   {
     id: EMAIL_ID,
-    recipient: 'c@d.com',
+    recipient: 'cleo.d@example.com',
     templateKey: 'password_reset',
     status: 'delivered',
     senderClass: 'transactional',
@@ -376,7 +382,7 @@ const EMAIL_ROWS = [
   },
   {
     id: EMAIL_ID_2,
-    recipient: 'a-very-long-address-for-overflow@example-company-domain.com',
+    recipient: 'a-very-long-address-for-the-overflow-check@example-corp.co.uk',
     templateKey: 'tenant_invitation',
     status: 'bounced',
     senderClass: 'transactional',
@@ -471,8 +477,8 @@ function emailHealth(range: string) {
       { key: 'tenant_invitation', messages: 1611, undelivered: 0, complained: 4 },
     ],
     byDomain: [
-      { key: 'example-company-domain.com', messages: 3000, undelivered: 1, complained: 9 },
-      { key: 'd.com', messages: 711, undelivered: 0, complained: 1 },
+      { key: 'example-corp.co.uk', messages: 3000, undelivered: 1, complained: 9 },
+      { key: 'example.com', messages: 711, undelivered: 0, complained: 1 },
     ],
   }
 }
@@ -481,7 +487,7 @@ function emailHealth(range: string) {
 const SUPPRESSION_ROWS = [
   {
     id: SUPPRESSION_ID,
-    address: 'a-very-long-address-for-overflow@example-company-domain.com',
+    address: 'a-very-long-address-for-the-overflow-check@example-corp.co.uk',
     reason: 'hard_bounce',
     sourceMessageId: EMAIL_ID_2,
     createdAt: '2026-09-27T09:00:08.000Z',
@@ -491,7 +497,7 @@ const SUPPRESSION_ROWS = [
   },
   {
     id: SUPPRESSION_ID_2,
-    address: 'c@d.com',
+    address: 'cleo.d@example.com',
     reason: 'complaint',
     sourceMessageId: null,
     createdAt: '2026-09-20T09:00:00.000Z',
@@ -703,7 +709,7 @@ function tenantOnboarding(tenantId: string) {
       lastSentAt: '2026-09-28T09:00:00.000Z',
       nextAllowedAt: null,
       recipientCount: 2,
-      emailDomains: ['b.com', 'example-company-domain.com'],
+      emailDomains: ['example.com', 'example-corp.co.uk'],
     },
     reminders: [
       {
@@ -713,7 +719,7 @@ function tenantOnboarding(tenantId: string) {
         reason:
           'Stalled for a week after the kickoff call; nudging both owners towards inviting the team',
         recipientCount: 2,
-        emailDomains: ['b.com', 'example-company-domain.com'],
+        emailDomains: ['example.com', 'example-corp.co.uk'],
         messageIds: [EMAIL_ID, EMAIL_ID_2],
       },
       {
@@ -722,7 +728,7 @@ function tenantOnboarding(tenantId: string) {
         sentBy: null,
         reason: 'First nudge',
         recipientCount: 1,
-        emailDomains: ['b.com'],
+        emailDomains: ['example.com'],
         messageIds: [EMAIL_ID],
       },
     ],
@@ -783,7 +789,8 @@ function timelineOf(kind: 'user' | 'tenant', id: string, params: URLSearchParams
   const rows = [
     timelineRow(1, 50, {
       event: '$autocapture',
-      elementText: kind === 'tenant' ? 'Remove Evangeline Featherstonehaugh' : 'Resend to c@d.com',
+      elementText:
+        kind === 'tenant' ? 'Remove Evangeline Featherstonehaugh' : 'Resend to cleo.d@example.com',
       ...actor(USER_ID_2, 'Cleo D'),
     }),
     timelineRow(2, 40, {
@@ -818,7 +825,7 @@ function timelineOf(kind: 'user' | 'tenant', id: string, params: URLSearchParams
       sessionId: null,
       path: null,
       props: { target_type: kind, target_id: id, has_reason: true },
-      ...actor(STAFF_USER_ID, 'a-very-long-address-for-overflow@example-company-domain.com'),
+      ...actor(STAFF_USER_ID, 'a-very-long-address-for-the-overflow-check@example-corp.co.uk'),
     }),
     timelineRow(6, 10, {
       sessionId: SESSION_2,
@@ -1210,7 +1217,7 @@ const worker = setupWorker(
             occurredAt: '2026-09-25T09:00:00.000Z',
             action: 'tenant.created',
             access: 'member',
-            actor: { id: USER_ID, name: 'A B', email: 'a@b.com' },
+            actor: { id: USER_ID, name: 'A B', email: 'a.b@example.com' },
             target: { type: 'tenant', id: TENANT_ID },
             metadata: { name: 'Acme Corp', slug: 'acme' },
             tenant: ACME,
@@ -1346,7 +1353,7 @@ const worker = setupWorker(
             occurredAt: '2026-09-25T09:00:00.000Z',
             action: 'tenant.created',
             access: 'member',
-            actor: { id: USER_ID, name: 'A B', email: 'a@b.com' },
+            actor: { id: USER_ID, name: 'A B', email: 'a.b@example.com' },
             target: { type: 'tenant', id: TENANT_ID },
             metadata: { name: 'Acme Corp', slug: 'acme' },
           },
