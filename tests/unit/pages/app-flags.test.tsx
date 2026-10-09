@@ -51,6 +51,15 @@ describe('the staff shell’s flags', () => {
     expect(seen).toEqual(['flags'])
   })
 
+  it('reuses the flags read when the shell loader runs again', async () => {
+    const seen = serveFlags()
+    const router = renderAppAt('/overview')
+    await screen.findByRole('navigation', { name: 'Main' })
+    expect(seen).toEqual(['flags'])
+    await act(() => router.invalidate())
+    expect(seen).toEqual(['flags'])
+  })
+
   it('never asks for flags for a signed-in user who is not staff', async () => {
     signIn({ ...testUser, platformRole: null })
     const seen = serveFlags()

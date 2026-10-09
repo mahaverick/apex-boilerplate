@@ -357,6 +357,8 @@ describe('/maintenance', () => {
     // Read-only now, so keeping full is an escalation: its hint is gone, so the old reason must not linger unseen.
     expect(within(dialog).getByLabelText('Reason')).toHaveValue('')
     expect(within(dialog).queryByText(/It starts as the reason now saved\./)).toBeNull()
+    // The field was cleared, not matched to theirs, so the alert must not say it was.
+    expect(within(dialog).getByRole('alert')).not.toHaveTextContent(/reason now matches/)
   })
 
   it('keeps a reason the owner typed when a 409 turns the edit into a switch-on', async () => {
@@ -863,6 +865,33 @@ describe('after a 409: a fresh read, the pre-filled message, the reason hint, an
     )
   })
 
+  it('says the message and reason now match theirs when a 409 moves both untouched', async () => {
+    const state = serve(fullMaintenanceView(), () =>
+      conflictTo(
+        state,
+        fullMaintenanceView({
+          version: 7,
+          message: 'Other owner: back by 13:00.',
+          reason: 'Other owner: extended window',
+          changedBy: ADA,
+        })
+      )
+    )
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Switch to read-only…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Switch to read-only maintenance' })
+    await user.click(within(dialog).getByRole('button', { name: 'Switch to read-only' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      /Check the page and try again\. The message and reason now match theirs\.$/
+    )
+    expect(within(dialog).getByLabelText('Message for customers')).toHaveValue(
+      'Other owner: back by 13:00.'
+    )
+    expect(within(dialog).getByLabelText('Reason (optional)')).toHaveValue(
+      'Other owner: extended window'
+    )
+  })
+
   it('clears a reason a 409 brought in when the owner then empties it', async () => {
     const state = serve(fullMaintenanceView({ reason: null }), (_body, n) =>
       n === 1
@@ -907,6 +936,7 @@ describe('after a 409: a fresh read, the pre-filled message, the reason hint, an
     await user.click(screen.getByRole('button', { name: 'Edit message…' }))
     const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
     // Spaces around the text are trimmed, so they change nothing either.
+    await user.type(within(dialog).getByLabelText('Message for customers'), '  ')
     await user.type(within(dialog).getByLabelText('Reason (optional)'), '  ')
     await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
     expect(
