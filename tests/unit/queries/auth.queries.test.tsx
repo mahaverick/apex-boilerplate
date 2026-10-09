@@ -3,7 +3,12 @@ import { act, renderHook } from '@testing-library/react'
 import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
-import { useForgotPassword, useRegister, useResendVerification } from '@/queries/auth.queries'
+import {
+  useForgotPassword,
+  useRegister,
+  useResendVerification,
+  useRevokeOtherSessions,
+} from '@/queries/auth.queries'
 import { ok } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
@@ -49,5 +54,28 @@ describe('Apex auth mutations send app: "apex"', () => {
     const { result } = renderHook(() => useResendVerification(), { wrapper })
     await act(() => result.current.mutateAsync({ email: 'a@b.com' }))
     expect(seen.body).toEqual({ email: 'a@b.com', app: 'apex' })
+  })
+})
+
+describe('useRevokeOtherSessions', () => {
+  // The API spares only the chain its refresh cookie names: without the cookie it keeps the whole session, the caller's other tabs' siblings included.
+  it('posts an empty JSON body with credentials, so the refresh cookie travels, and answers the count', async () => {
+    const seen: { body?: string; contentType?: string | null; credentials?: string } = {}
+    server.use(
+      http.post('/api/v1/auth/sessions/revoke-others', async ({ request }) => {
+        seen.body = await request.text()
+        seen.contentType = request.headers.get('content-type')
+        seen.credentials = request.credentials
+        return ok({ revoked: 2 }, 'Other sessions signed out.')
+      })
+    )
+    const { result } = renderHook(() => useRevokeOtherSessions(), { wrapper })
+    const answer = await act(() => result.current.mutateAsync())
+    expect(answer).toEqual({ revoked: 2 })
+    expect(seen).toEqual({
+      body: '{}',
+      contentType: 'application/json',
+      credentials: 'include',
+    })
   })
 })
