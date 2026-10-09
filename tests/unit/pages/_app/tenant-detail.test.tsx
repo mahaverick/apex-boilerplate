@@ -522,6 +522,28 @@ describe('/tenants/$tenantId', () => {
       ).toBeInTheDocument()
     })
 
+    it('refuses a website that is not an http or https URL under the field, sending nothing', async () => {
+      serve(detail())
+      let patches = 0
+      server.use(
+        http.patch('/api/v1/tenants/acme', () => {
+          patches += 1
+          return ok(detail(), 'Tenant updated.')
+        })
+      )
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Edit details' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Edit details' })
+      const website = within(dialog).getByLabelText('Website')
+      await user.clear(website)
+      await user.type(website, 'javascript:alert(1)')
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+      expect(await within(dialog).findByText('Website must be an http or https URL.')).toBeVisible()
+      expect(website).toHaveAttribute('aria-invalid', 'true')
+      expect(patches).toBe(0)
+    })
+
     it('shows an edit the tenant route refuses inside the dialog', async () => {
       serve(detail())
       server.use(
