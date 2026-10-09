@@ -93,12 +93,11 @@ only — `:main` and the `deploy` job both run only from `main`.
 
 - `gitleaks.yml` scans each PR's commits and each push to `main` for secrets.
 - `pr-title` — the PR title must be a conventional commit; it becomes the squash commit release-please reads.
-- `ci.yml`'s `test` job runs `pnpm audit --prod --audit-level high`: a high or critical advisory in a production dependency fails CI.
-  Because `test` is a required check, an advisory with no fixed version blocks every PR. The escape hatch is `pnpm audit --ignore <GHSA>`,
+- `ci.yml`'s `test` job runs `pnpm audit --prod --audit-level moderate`: a moderate or worse advisory in a production dependency fails CI.
+  A second, non-blocking step runs `pnpm audit --audit-level critical` over dev dependencies too, so a critical advisory in build or test tooling shows on every run.
+  Because `test` is a required check, an advisory with no fixed version blocks every PR. Prefer an `overrides` entry in `pnpm-workspace.yaml` that forces the patched version (one GHSA comment per entry).
+  When no patched version exists, the escape hatch is `pnpm audit --ignore <GHSA>`,
   which writes that one ID under `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`; add a comment there by hand giving the reason and a date to revisit.
-  A second, non-blocking step runs `pnpm audit --audit-level critical` over the dev tree too; a fixed dev advisory is
-  cleared with an `overrides` entry in `pnpm-workspace.yaml` that floors the patched version (one GHSA comment per entry), as react does
-  (`pnpm-workspace.yaml` is byte-identical between the two repos).
 
 **Releases merge themselves.** `release.yml` queues release-please's PR with
 `--auto`, falling back to a direct merge if `--auto` is refused; the `main`
