@@ -7,16 +7,13 @@ import { resetSessionForTests } from '@/http/session'
 import { auditKeys } from '@/queries/audit.queries'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import {
-  memberName,
-  tenantKeys,
   useInviteMember,
-  useMembers,
   useRemoveMember,
   useResendInvitation,
   useRevokeInvitation,
   useUpdateMemberRole,
-  type TenantMember,
-} from '@/queries/tenant.queries'
+} from '@/queries/tenant-writes.queries'
+import { memberName, tenantKeys, useMembers, type TenantMember } from '@/queries/tenant.queries'
 import { userAdminKeys } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import {

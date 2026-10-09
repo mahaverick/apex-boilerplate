@@ -23,7 +23,8 @@ import { useStepUp } from '@/hooks/use-step-up'
 import { codeFrom, messageFrom } from '@/lib/api-error'
 import { formatDate } from '@/lib/format'
 import { inviterName } from '@/queries/invitation.queries'
-import { useInvitations, useResendInvitation, useRevokeInvitation } from '@/queries/tenant.queries'
+import { useResendInvitation, useRevokeInvitation } from '@/queries/tenant-writes.queries'
+import { useInvitations } from '@/queries/tenant.queries'
 import { INVITATION_NOT_FOUND, type TenantInvitation } from '@/types/api.types'
 
 /** Said of the request, not of the tenant: a failed load is not "none pending". */

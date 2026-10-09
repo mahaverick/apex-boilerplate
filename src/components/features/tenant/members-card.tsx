@@ -54,13 +54,12 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom } from '@/lib/api-error'
 import { isReauthRequired } from '@/lib/step-up'
+import { useRemoveMember, useUpdateMemberRole } from '@/queries/tenant-writes.queries'
 import {
   memberName,
   ownerCount,
   useMembers,
   useMyRole,
-  useRemoveMember,
-  useUpdateMemberRole,
   type TenantMember,
 } from '@/queries/tenant.queries'
 import { useAuthStore } from '@/states/auth.store'

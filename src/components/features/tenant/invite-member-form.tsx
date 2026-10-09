@@ -33,7 +33,7 @@ import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { useStepUp } from '@/hooks/use-step-up'
 import { codeFrom, messageFrom } from '@/lib/api-error'
-import { useInviteMember } from '@/queries/tenant.queries'
+import { useInviteMember } from '@/queries/tenant-writes.queries'
 import { inviteMemberSchema, type InviteMemberInput } from '@/schemas/tenant.schemas'
 import { ALREADY_MEMBER, INVITATION_CONFLICT } from '@/types/api.types'
 
