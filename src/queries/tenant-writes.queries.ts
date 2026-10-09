@@ -15,7 +15,7 @@ import { refreshProfile } from '@/queries/profile.queries'
 import { tenantKeys, type TenantMembership } from '@/queries/tenant.queries'
 import type { InviteMemberInput } from '@/schemas/tenant.schemas'
 import { useAuthStore } from '@/states/auth.store'
-import { INVITATION_CONFLICT, type ApiSuccess } from '@/types/api.types'
+import { INVITATION_CONFLICT, REASON_REQUIRED, type ApiSuccess } from '@/types/api.types'
 
 /**
  * The audit reason a staff write to a customer tenant carries: the API
@@ -38,6 +38,25 @@ function reasonBody(reason: string | undefined): { data: { reason: string } } | 
 }
 
 /**
+ * After a refused write: a 400 `REASON_REQUIRED` means the API now reaches
+ * the caller through platform access (their membership went meanwhile) while
+ * the page still shows member controls, so the tenant's detail refetches and
+ * `useMyRole`'s `access` switches them to the staff ones, which ask for a
+ * reason.
+ * @param queryClient - The app's query client.
+ * @param slug - The tenant written to.
+ * @param error - The write's failure.
+ */
+async function refreshAccessIfReasonRequired(
+  queryClient: QueryClient,
+  slug: string,
+  error: unknown
+): Promise<void> {
+  if (codeFrom(error) !== REASON_REQUIRED) return
+  await queryClient.invalidateQueries({ queryKey: tenantKeys.detail(slug) })
+}
+
+/**
  * Answers 202 with `data: null` whether or not the address has an account,
  * so a success never says whether one exists. Refusals still differ: 409
  * `already_member` or `invitation_conflict`, 403 for a role the caller can't
@@ -46,6 +65,7 @@ function reasonBody(reason: string | undefined): { data: { reason: string } } | 
 export function useInviteMember(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    onError: (error) => refreshAccessIfReasonRequired(queryClient, slug, error),
     mutationFn: async (input: InviteMemberInput & StaffReason) =>
       unwrap(await apiClient.post<ApiSuccess<null>>(`/tenants/${slug}/invitations`, input)),
     /** A conflict means another invite for this address just landed, so the list is stale; a success also mailed someone and added an entry to both audit logs. */
@@ -69,6 +89,7 @@ export function useInviteMember(slug: string, tenantId?: string) {
 export function useResendInvitation(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    onError: (error) => refreshAccessIfReasonRequired(queryClient, slug, error),
     mutationFn: async ({ invitationId, reason }: { invitationId: string } & StaffReason) =>
       unwrap(
         await apiClient.post<ApiSuccess<null>>(
@@ -96,6 +117,7 @@ export function useResendInvitation(slug: string, tenantId?: string) {
 export function useRevokeInvitation(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    onError: (error) => refreshAccessIfReasonRequired(queryClient, slug, error),
     mutationFn: async ({ invitationId, reason }: { invitationId: string } & StaffReason) =>
       unwrap(
         await apiClient.delete<ApiSuccess<null>>(
@@ -119,6 +141,7 @@ export function useRevokeInvitation(slug: string, tenantId?: string) {
 export function useUpdateMemberRole(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    onError: (error) => refreshAccessIfReasonRequired(queryClient, slug, error),
     mutationFn: async ({
       userId,
       role,
@@ -147,6 +170,7 @@ export function useUpdateMemberRole(slug: string) {
 export function useRemoveMember(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
+    onError: (error) => refreshAccessIfReasonRequired(queryClient, slug, error),
     mutationFn: async ({ userId, reason }: { userId: string } & StaffReason) =>
       apiClient.delete<ApiSuccess<null>>(`/tenants/${slug}/members/${userId}`, reasonBody(reason)),
     onSuccess: () => invalidateDirectory(queryClient),

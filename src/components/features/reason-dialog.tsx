@@ -28,6 +28,7 @@ import { useServerErrors } from '@/hooks/use-server-errors'
 import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
 import { isReauthRequired } from '@/lib/step-up'
 import { reasonFormSchema } from '@/schemas/reason.schemas'
+import { REASON_REQUIRED } from '@/types/api.types'
 
 /** Step-up was dismissed, so the action never ran. */
 export const STEP_UP_DISMISSED = 'Confirm it’s you to continue.'
@@ -65,8 +66,8 @@ export interface ReasonDialogProps {
  * is the server's own sentence (staff-on-staff refusal, invalid transition,
  * last owner, an invitation no longer pending) and is shown as is unless
  * `refusalMessage` returns a sentence to replace it; a 404
- * without a code is the role gate's. The dialog stays open so the reader
- * sees it.
+ * without a code is the role gate's, and a 400 `REASON_REQUIRED` goes on the
+ * Reason field. The dialog stays open so the reader sees it.
  */
 export function ReasonDialog(props: ReasonDialogProps) {
   const [busy, setBusy] = useState(false)
@@ -113,6 +114,10 @@ function ReasonForm({
         onBusyChange(false)
         if (isReauthRequired(error)) {
           serverErrors.setFormErrors([STEP_UP_DISMISSED])
+          return
+        }
+        if (codeFrom(error) === REASON_REQUIRED) {
+          serverErrors.setFieldError('reason', [messageFrom(error)])
           return
         }
         const status = statusFrom(error)

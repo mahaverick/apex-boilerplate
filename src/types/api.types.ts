@@ -75,6 +75,13 @@ export interface AcceptedInvitation {
   role: MembershipRole
 }
 
+/**
+ * 400 on a member or invitation write to a customer tenant by staff acting
+ * through platform access that gave no valid `reason` (express
+ * `requireRecentAuthAndReasonOnPlatformAccess`).
+ */
+export const REASON_REQUIRED = 'REASON_REQUIRED'
+
 /** 409 on invite: that address already belongs to a member of this tenant. */
 export const ALREADY_MEMBER = 'already_member'
 

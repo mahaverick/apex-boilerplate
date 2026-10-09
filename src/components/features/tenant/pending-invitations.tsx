@@ -261,7 +261,7 @@ function StaffInvitationActions({
       <ReasonDialog
         {...dialogProps('revoke')}
         title="Revoke this invitation?"
-        description={`The link in ${invitation.email}’s email stops working immediately. You can invite them again later.`}
+        description={`The link sent to ${invitation.email} stops working immediately. You can invite them again later.`}
         confirmLabel="Revoke"
         destructive
         onConfirm={async (reason) => {

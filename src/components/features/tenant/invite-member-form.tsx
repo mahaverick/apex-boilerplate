@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
 import { ReasonDialog } from '@/components/features/reason-dialog'
@@ -32,7 +32,7 @@ import {
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { useStepUp } from '@/hooks/use-step-up'
-import { codeFrom, messageFrom } from '@/lib/api-error'
+import { codeFrom, fieldErrorsFrom, messageFrom } from '@/lib/api-error'
 import { useInviteMember } from '@/queries/tenant-writes.queries'
 import { inviteMemberSchema, type InviteMemberInput } from '@/schemas/tenant.schemas'
 import { ALREADY_MEMBER, INVITATION_CONFLICT } from '@/types/api.types'
@@ -52,8 +52,10 @@ const RACED = 'Someone just invited this address — refresh and try again.'
  * visible trigger, so the label points at something a pointer can reach.
  *
  * Staff acting through platform access (`asStaff`) give the audited reason
- * the API requires in the reason dialog after the form validates; a refusal
- * then shows in that dialog, a racing invite with `RACED`.
+ * the API requires in the reason dialog after the form validates. A refusal
+ * about the address or the role (`already_member`, a field error) closes the
+ * dialog and shows on that field, as it does for a member, with focus on it;
+ * any other shows in the dialog, a racing invite with `RACED`.
  */
 export function InviteMemberForm({
   slug,
@@ -71,6 +73,25 @@ export function InviteMemberForm({
   const stepUp = useStepUp()
   const serverErrors = useServerErrors()
   const [toConfirm, setToConfirm] = useState<InviteMemberInput | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+  /** Set when the reason dialog closed on a field refusal, so focus goes to that field. */
+  const refusedOnField = useRef(false)
+
+  /**
+   * Puts a refusal about the address or the role on its field: `already_member`
+   * on Email, a validation 400 on whichever field it names.
+   * @returns Whether the refusal was one of those.
+   */
+  function showOnField(error: unknown): boolean {
+    if (codeFrom(error) === ALREADY_MEMBER) {
+      serverErrors.setFieldError('email', [messageFrom(error)])
+      return true
+    }
+    const fields = fieldErrorsFrom(error)
+    if (fields.email === undefined && fields.role === undefined) return false
+    serverErrors.capture(error)
+    return true
+  }
   const grantable = MEMBERSHIP_ROLES.filter((role) => canActorGrantRole(myRole, role))
 
   /** The schema's input type, so `role` stays a MembershipRole rather than widening to `string`. */
@@ -94,12 +115,8 @@ export function InviteMemberForm({
         toast.success(<Pii>{`Invitation sent to ${input.email}.`}</Pii>)
         form.reset()
       } catch (error) {
-        const code = codeFrom(error)
-        if (code === ALREADY_MEMBER) {
-          serverErrors.setFieldError('email', [messageFrom(error)])
-          return
-        }
-        if (code === INVITATION_CONFLICT) {
+        if (showOnField(error)) return
+        if (codeFrom(error) === INVITATION_CONFLICT) {
           serverErrors.setFormErrors([RACED])
           return
         }
@@ -110,7 +127,12 @@ export function InviteMemberForm({
 
   return (
     <>
-      <Form form={form} serverErrors={serverErrors} className="sm:flex sm:items-start sm:gap-3">
+      <Form
+        ref={formRef}
+        form={form}
+        serverErrors={serverErrors}
+        className="sm:flex sm:items-start sm:gap-3"
+      >
         <FormField form={form} name="email">
           {(field) => (
             <FormItem className="sm:flex-1">
@@ -178,13 +200,25 @@ export function InviteMemberForm({
           description={
             toConfirm === null
               ? ''
-              : `${toConfirm.email} is invited to this customer tenant as ${ROLE_LABELS[toConfirm.role]}.`
+              : `${toConfirm.email} will be invited to this customer tenant as ${ROLE_LABELS[toConfirm.role]}.`
           }
           confirmLabel="Send invitation"
           refusalMessage={(error) => (codeFrom(error) === INVITATION_CONFLICT ? RACED : undefined)}
+          finalFocus={() =>
+            (refusedOnField.current &&
+              formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')) ||
+            true
+          }
           onConfirm={async (reason) => {
             if (toConfirm === null) return
-            await stepUp.run(() => inviteMember.mutateAsync({ ...toConfirm, reason }))
+            refusedOnField.current = false
+            try {
+              await stepUp.run(() => inviteMember.mutateAsync({ ...toConfirm, reason }))
+            } catch (error) {
+              if (!showOnField(error)) throw error
+              refusedOnField.current = true
+              return
+            }
             toast.success(<Pii>{`Invitation sent to ${toConfirm.email}.`}</Pii>)
             form.reset()
           }}
