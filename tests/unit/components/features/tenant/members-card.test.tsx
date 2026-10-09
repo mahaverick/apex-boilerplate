@@ -1781,6 +1781,57 @@ describe('staff acting through platform access', () => {
     )
   })
 
+  it.each([
+    {
+      action: 'resend',
+      method: 'post',
+      url: '/api/v1/tenants/acme/invitations/:id/resend',
+      label: 'Resend',
+      title: 'Resend this invitation?',
+    },
+    {
+      action: 'revoke',
+      method: 'delete',
+      url: '/api/v1/tenants/acme/invitations/:id',
+      label: 'Revoke',
+      title: 'Revoke this invitation?',
+    },
+  ] as const)(
+    'says a staff $action found the invitation no longer pending, though the refetch took its row',
+    async ({ method, url, label, title }) => {
+      let listCalls = 0
+      server.use(
+        http.get('/api/v1/tenants/acme/invitations', () => {
+          listCalls += 1
+          return ok(
+            listCalls === 1 ? [invitation(INVITATION_ID, 'invitee@example.com')] : [],
+            'Invitations retrieved.'
+          )
+        }),
+        http[method](url, () => fail('Invitation not found', 404, 'invitation_not_found'))
+      )
+      const error = vi.spyOn(toast, 'error')
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+
+      await user.click(
+        await screen.findByRole('button', { name: `${label} invitation to invitee@example.com` })
+      )
+      const dialog = await screen.findByRole('alertdialog', { name: title })
+      await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
+      await user.click(within(dialog).getByRole('button', { name: label }))
+
+      expect(await screen.findByText('That invitation is no longer pending.')).toBeInTheDocument()
+      expect(error).toHaveBeenCalledTimes(1)
+      expect(
+        await screen.findByText('No invitations are waiting to be accepted.')
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      // A refusal is no success: the heading does not take focus.
+      expect(screen.getByRole('heading', { name: 'Pending invitations' })).not.toHaveFocus()
+    }
+  )
+
   /** Opens the invite reason dialog for `email` and confirms it with a reason. */
   async function inviteAsStaff(user: ReturnType<typeof userEvent.setup>, email: string) {
     await user.type(await screen.findByLabelText('Email'), email)
@@ -1839,6 +1890,27 @@ describe('staff acting through platform access', () => {
       expect.stringContaining('That person is already a member.')
     )
     await waitFor(() => expect(email).toHaveFocus())
+  })
+
+  it('returns focus to Invite member when the dialog reopened after a field refusal is cancelled', async () => {
+    server.use(
+      http.post('/api/v1/tenants/acme/invitations', () =>
+        fail('That person is already a member.', 409, 'already_member')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await inviteAsStaff(user, 'vic@example.com')
+    const email = screen.getByLabelText('Email')
+    await waitFor(() => expect(email).toHaveFocus())
+
+    const invite = screen.getByRole('button', { name: 'Invite member' })
+    await user.click(invite)
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send this invitation?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(invite).toHaveFocus())
   })
 
   it('closes the dialog and puts a refused role on the Role field', async () => {

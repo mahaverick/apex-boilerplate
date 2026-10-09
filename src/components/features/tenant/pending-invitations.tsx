@@ -50,6 +50,24 @@ function actionFailure(error: unknown): string {
   return codeFrom(error) === INVITATION_NOT_FOUND ? NO_LONGER_PENDING : messageFrom(error)
 }
 
+/**
+ * Waits for a staff resend or revoke. One that found the invitation no longer
+ * pending is said in the member buttons' words; every other refusal rejects,
+ * for the reason dialog to show.
+ * @param write - The write in flight.
+ * @returns True when the write landed, false when the invitation was no longer pending.
+ */
+async function landed(write: Promise<unknown>): Promise<boolean> {
+  try {
+    await write
+    return true
+  } catch (error) {
+    if (codeFrom(error) !== INVITATION_NOT_FOUND) throw error
+    toast.error(NO_LONGER_PENDING)
+    return false
+  }
+}
+
 /** The expiry date, in the reader's own locale. */
 function expiresOn(expiresAt: string): string {
   return formatDate(expiresAt, 'medium') ?? 'an unknown date'
@@ -205,7 +223,10 @@ function RevokeInvitationButton({
  * Resend and Revoke for staff acting on a customer tenant through platform
  * access: each asks for the audited reason the API requires, in the reason
  * dialog every other staff write uses (step-up included), and shows a
- * refusal there. The words and toasts are the member buttons'.
+ * refusal there. The words and toasts are the member buttons'. An invitation
+ * no longer pending is the exception: the hooks' `onSettled` refetch has
+ * dropped this row, and the dialog with it, before the refusal arrives, so
+ * it is a toast and the dialog closes.
  */
 function StaffInvitationActions({
   slug,
@@ -254,7 +275,10 @@ function StaffInvitationActions({
         description={`A new link goes to ${invitation.email}; the old one stops working.`}
         confirmLabel="Resend"
         onConfirm={async (reason) => {
-          await stepUp.run(() => resend.mutateAsync({ invitationId: invitation.id, reason }))
+          const write = stepUp.run(() =>
+            resend.mutateAsync({ invitationId: invitation.id, reason })
+          )
+          if (!(await landed(write))) return
           toast.success(<Pii>{`Invitation resent to ${invitation.email}.`}</Pii>)
         }}
       />
@@ -265,7 +289,10 @@ function StaffInvitationActions({
         confirmLabel="Revoke"
         destructive
         onConfirm={async (reason) => {
-          await stepUp.run(() => revoke.mutateAsync({ invitationId: invitation.id, reason }))
+          const write = stepUp.run(() =>
+            revoke.mutateAsync({ invitationId: invitation.id, reason })
+          )
+          if (!(await landed(write))) return
           onRevoked()
           toast.success(<Pii>{`Invitation to ${invitation.email} revoked.`}</Pii>)
         }}

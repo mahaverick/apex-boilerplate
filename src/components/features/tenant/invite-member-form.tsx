@@ -74,7 +74,7 @@ export function InviteMemberForm({
   const serverErrors = useServerErrors()
   const [toConfirm, setToConfirm] = useState<InviteMemberInput | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
-  /** Set when the reason dialog closed on a field refusal, so focus goes to that field. */
+  /** Set when the reason dialog closed on a field refusal, so focus goes to that field; cleared each time it opens. */
   const refusedOnField = useRef(false)
 
   /**
@@ -107,6 +107,7 @@ export function InviteMemberForm({
       serverErrors.reset()
       const input = inviteMemberSchema.parse(value)
       if (asStaff) {
+        refusedOnField.current = false
         setToConfirm(input)
         return
       }
@@ -211,7 +212,6 @@ export function InviteMemberForm({
           }
           onConfirm={async (reason) => {
             if (toConfirm === null) return
-            refusedOnField.current = false
             try {
               await stepUp.run(() => inviteMember.mutateAsync({ ...toConfirm, reason }))
             } catch (error) {
