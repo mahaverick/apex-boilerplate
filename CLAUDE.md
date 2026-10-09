@@ -188,9 +188,10 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   boundary needs no reporting code of its own; `WidgetBoundary` keeps its
   `console.error`, which names the widget and its component stack.
 - **An exception message on the Errors pages is untrusted text.** A browser
-  can send any `$exception` with the public project key, so `value` renders
-  as text inside `Pii`, never as markup, and only a row express signed is
-  trusted as the server's (the Unverified badge).
+  can send any `$exception` with the public project key, so its `type` and
+  `value` render as text inside `Pii` (so does the PostHog link's
+  screen-reader name, which repeats the type), never as markup, and only a
+  row express signed is trusted as the server's (the Unverified badge).
 - **`track()` takes no free text.** Properties are `AnalyticsKey` (a string
   literal through `analyticsKey`), numbers or booleans; `table_filtered`
   names the list, never the filter's value. A free `string` property fails
@@ -218,6 +219,14 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   `resetAnalytics` and `identifyUser` go through `resetKeepingConsent`, which
   registers `app` and `environment` again and re-applies the consent; never
   call the SDK's `reset()` around it.
+- **Page titles stay static.** Session replay records the `<title>` text and
+  `$pageview` sends `document.title`, both unmasked, so a title never carries
+  a name, an address or other user data; today every route's is a
+  `pageTitle('<literal>')`. If one ever must, mask both paths:
+  `session_recording.maskTextSelector: '.ph-mask, .ph-sensitive, title'` and a
+  `before_send` that drops `properties.title`. `slimDOMOptions.headTitleMutations`
+  alone is not enough: a full snapshot still records the current title.
+  `posthog-options.ts` is shared, so that change starts in react.
 - **The URL allowlist is `range`, `tab`, `state`, `status`.** A new query
   key carrying a token, an address or a search term stays off it.
 - **posthog-js minors wait for a human** (`renovate.json`). Before taking

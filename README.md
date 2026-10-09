@@ -189,8 +189,9 @@ src/
   lib/          small helpers with no app knowledge
   observability/analytics/  the PostHog facade (lazy posthog-js, masking, handoff, typed events)
   pages/        TanStack Router file routes (exempt from the kebab-case rules)
-  queries/      TanStack Query options and mutations, one file per resource; a resource's
-                writes that only lazy screens use get their own (tenant-writes.queries.ts)
+  queries/      TanStack Query options and mutations, one file per resource; a tenant's
+                member and invitation writes, which only lazy screens use, have their own
+                (tenant-writes.queries.ts)
   schemas/      Zod schemas mirroring the backend validators
   states/       Zustand stores
   styles/       globals.css and the design tokens

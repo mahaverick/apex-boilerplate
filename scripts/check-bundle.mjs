@@ -9,7 +9,7 @@ import path from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { build } from 'vite'
 
-/** First-visit JS measured 630,123 B when this was last set, so about 877 B of headroom. Raised from 630,000 B because the identity-race fix's sibling registry in the shared analytics module added about 768 B. Raise it again only with a measured reason. */
+/** The first-visit JS budget. It measured 627,286 B when this line was last checked, about 3.7 KB under; `pnpm check:bundle` prints the current size. Raise it only with a measured reason. */
 const ENTRY_BUDGET_BYTES = 631_000
 
 /**

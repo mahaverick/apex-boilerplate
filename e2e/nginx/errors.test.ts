@@ -351,7 +351,7 @@ test.describe('error tracking against a fake PostHog', () => {
         page.getByRole('heading', { name: 'Something went wrong', level: 1 })
       ).toBeVisible()
       await expect.poll(() => exceptions(fake).length, POLL).toBe(2)
-      // Egress so far, before the title is set: session replay would record that text.
+      // Read before the synthetic title, which replay records and $pageview sends; apex titles are static literals.
       const egress = fake.bodies()
       // A third, with the probes in the title and a form field.
       await page.evaluate(
