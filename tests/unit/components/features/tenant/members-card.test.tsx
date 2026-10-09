@@ -1880,6 +1880,34 @@ describe('staff acting through platform access', () => {
     expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
   })
 
+  it('says a staff resend lost its access in express’s words, though the refetch took the list', async () => {
+    let refused = false
+    server.use(
+      http.get('/api/v1/tenants/acme/invitations', () =>
+        refused
+          ? fail('Tenant not found', 404)
+          : ok([invitation(INVITATION_ID, 'invitee@example.com')], 'Invitations retrieved.')
+      ),
+      http.post('/api/v1/tenants/acme/invitations/:id/resend', () => {
+        refused = true
+        return fail('Tenant not found', 404)
+      })
+    )
+    const error = vi.spyOn(toast, 'error')
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Resend invitation to invitee@example.com' })
+    )
+    const dialog = await screen.findByRole('alertdialog', { name: 'Resend this invitation?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
+    await user.click(within(dialog).getByRole('button', { name: 'Resend' }))
+
+    await waitFor(() => expect(error).toHaveBeenCalledWith('Tenant not found'))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  })
+
   it('keeps the role gate’s sentence for a 404 that is not the member’s', async () => {
     server.use(
       http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => fail('Tenant not found', 404))

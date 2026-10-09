@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { canActorGrantRole, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
 import { useFocusAfter } from '@/hooks/use-focus-after'
 import { useStepUp } from '@/hooks/use-step-up'
-import { codeFrom, messageFrom } from '@/lib/api-error'
+import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
 import { formatDate } from '@/lib/format'
 import { inviterName } from '@/queries/invitation.queries'
 import { useResendInvitation, useRevokeInvitation } from '@/queries/tenant-writes.queries'
@@ -51,19 +51,19 @@ function actionFailure(error: unknown): string {
 }
 
 /**
- * Waits for a staff resend or revoke. One that found the invitation no longer
- * pending is said in the member buttons' words; every other refusal rejects,
- * for the reason dialog to show.
+ * Waits for a staff resend or revoke. A 404, the invitation no longer pending
+ * or the tenant out of reach, is said in the member buttons' words; every
+ * other refusal rejects, for the reason dialog to show.
  * @param write - The write in flight.
- * @returns True when the write landed, false when the invitation was no longer pending.
+ * @returns True when the write landed, false after a 404.
  */
 async function landed(write: Promise<unknown>): Promise<boolean> {
   try {
     await write
     return true
   } catch (error) {
-    if (codeFrom(error) !== INVITATION_NOT_FOUND) throw error
-    toast.error(NO_LONGER_PENDING)
+    if (statusFrom(error) !== 404) throw error
+    toast.error(actionFailure(error))
     return false
   }
 }
@@ -223,10 +223,11 @@ function RevokeInvitationButton({
  * Resend and Revoke for staff acting on a customer tenant through platform
  * access: each asks for the audited reason the API requires, in the reason
  * dialog every other staff write uses (step-up included), and shows a
- * refusal there. The words and toasts are the member buttons'. An invitation
- * no longer pending is the exception: the hooks' `onSettled` refetch has
- * dropped this row, and the dialog with it, before the refusal arrives, so
- * it is a toast and the dialog closes.
+ * refusal there. The words and toasts are the member buttons'. A 404 is the
+ * exception: the hooks' `onSettled` refetch has dropped this row (an
+ * invitation no longer pending) or the whole list (a tenant out of reach),
+ * and the dialog with it, before the refusal arrives, so it is a toast and
+ * the dialog closes.
  */
 function StaffInvitationActions({
   slug,
