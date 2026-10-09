@@ -1832,6 +1832,56 @@ describe('staff acting through platform access', () => {
     }
   )
 
+  it('says a staff removal found the member already gone, in the member path’s words', async () => {
+    server.use(
+      http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => fail('Member not found', 404))
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+    await user.click((await rowFor('Vic')).getByRole('button', { name: 'Remove' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove this member?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    expect(await screen.findByText('Member not found')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
+  })
+
+  it('says a staff role change found the member already gone, in the member path’s words', async () => {
+    server.use(
+      http.patch(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => fail('Member not found', 404))
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+    await user.click((await rowFor('Vic')).getByRole('combobox', { name: 'Role for Vic X' }))
+    await user.click(await screen.findByRole('option', { name: 'Editor' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Change this member’s role?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
+    await user.click(within(dialog).getByRole('button', { name: 'Change role' }))
+
+    expect(await screen.findByText('Member not found')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
+  })
+
+  it('keeps the role gate’s sentence for a 404 that is not the member’s', async () => {
+    server.use(
+      http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => fail('Tenant not found', 404))
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+    await user.click((await rowFor('Vic')).getByRole('button', { name: 'Remove' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove this member?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    expect(await within(dialog).findByText(/Your role can’t do this any more/)).toBeInTheDocument()
+  })
+
   /** Opens the invite reason dialog for `email` and confirms it with a reason. */
   async function inviteAsStaff(user: ReturnType<typeof userEvent.setup>, email: string) {
     await user.type(await screen.findByLabelText('Email'), email)
@@ -1968,5 +2018,42 @@ describe('staff acting through platform access', () => {
     expect(
       await screen.findByRole('alertdialog', { name: 'Remove this member?' })
     ).toBeInTheDocument()
+  })
+
+  it('says why a member write was refused without waiting for the access refresh', async () => {
+    let release = () => {}
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let detailCalls = 0
+    server.use(
+      http.get('/api/v1/tenants/acme', async () => {
+        detailCalls += 1
+        if (detailCalls > 1) await held
+        return ok(
+          tenantDetail(TENANT, 'owner', detailCalls === 1 ? 'member' : 'platform'),
+          'Tenant retrieved.'
+        )
+      }),
+      http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () =>
+        fail('Give a reason of 1 to 500 characters for this change.', 400, 'REASON_REQUIRED')
+      )
+    )
+    try {
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+      await user.click((await rowFor('Vic')).getByRole('button', { name: 'Remove' }))
+      const member = await screen.findByRole('alertdialog', { name: 'Remove Vic X?' })
+      await user.click(within(member).getByRole('button', { name: 'Remove' }))
+
+      expect(
+        await screen.findByText('Give a reason of 1 to 500 characters for this change.')
+      ).toBeInTheDocument()
+      // The refresh has started and is still held: the refusal did not wait for it.
+      expect(detailCalls).toBe(2)
+    } finally {
+      release()
+    }
   })
 })

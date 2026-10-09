@@ -94,6 +94,13 @@ export const INVITATION_CONFLICT = 'invitation_conflict'
 /** 404 on resend and revoke: the invitation stopped being pending meanwhile. */
 export const INVITATION_NOT_FOUND = 'invitation_not_found'
 
+/**
+ * 404 message on a member's role change or removal: the target stopped being
+ * a member meanwhile. express sends it with no code, so the message is the
+ * only mark that tells it from the access check's 404.
+ */
+export const MEMBER_NOT_FOUND_MESSAGE = 'Member not found'
+
 /** 404 on preview and accept: invalid, expired, revoked or already used. */
 export const INVITATION_INVALID = 'invitation_invalid'
 

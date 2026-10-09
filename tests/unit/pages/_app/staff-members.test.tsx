@@ -40,8 +40,22 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   }
 })
 
+/** Every error the members card reports, in order. */
+const reported = vi.hoisted(() => ({ errors: [] as unknown[] }))
+
+vi.mock('@/observability/errors', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/observability/errors')>()
+  return {
+    ...actual,
+    noteError: (error: unknown) => {
+      reported.errors.push(error)
+    },
+  }
+})
+
 afterEach(() => {
   navigation.gate = null
+  reported.errors = []
   vi.restoreAllMocks()
 })
 
@@ -137,7 +151,7 @@ describe('/staff with the real sections', () => {
     const dialog = await screen.findByRole('alertdialog', { name: 'Remove Otto Staff?' })
     expect(dialog).toHaveTextContent(/auto-join domain/)
     expect(dialog).toHaveTextContent(
-      'Pending invitations they sent here are revoked, and so are any they sent in other tenants for a role their membership there cannot grant.'
+      'Pending invitations they sent here are revoked, and so are any they sent in other tenants for a role they can no longer grant there.'
     )
     expect(dialog).toHaveTextContent(/deactivate their account from Users/)
     expect(within(dialog).getByRole('link', { name: 'Open Otto Staff in Users' })).toHaveAttribute(
@@ -312,6 +326,43 @@ describe('/staff with the real sections', () => {
     } finally {
       unsubscribe()
       server.events.removeListener('request:start', record)
+    }
+  })
+
+  it('says so, and still drops the platform tenant’s cache, when the navigation away fails', async () => {
+    serveStaff('owner', 'owner')
+    serveFormerStaff()
+    const failure = new Error('navigation failed')
+    const failed = Promise.reject(failure)
+    failed.catch(() => {})
+    navigation.gate = failed
+    server.use(
+      http.delete('/api/v1/tenants/platform/membership', () => ok(null, 'You left the tenant.'))
+    )
+    const error = vi.spyOn(toast, 'error')
+    const router = renderAppAt('/staff')
+    let dropped = 0
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.type === 'removed' && event.query.queryHash.startsWith('["tenants","platform"')) {
+        dropped += 1
+      }
+    })
+    try {
+      const user = userEvent.setup()
+      await user.click(await screen.findByRole('button', { name: 'Leave' }))
+      await user.click(
+        within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' })
+      )
+      await waitFor(() =>
+        expect(error).toHaveBeenCalledWith(
+          'You left, but this page could not move on. Reload it to continue.'
+        )
+      )
+      await waitFor(() => expect(dropped).toBeGreaterThan(0))
+      expect(reported.errors).toEqual([failure])
+      expect(router.state.location.pathname).toBe('/staff')
+    } finally {
+      unsubscribe()
     }
   })
 

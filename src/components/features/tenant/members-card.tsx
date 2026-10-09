@@ -55,6 +55,7 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom, statusFrom } from '@/lib/api-error'
 import { isReauthRequired } from '@/lib/step-up'
+import { noteError } from '@/observability/errors'
 import {
   dropTenantCache,
   useLeaveTenant,
@@ -69,6 +70,7 @@ import {
   type TenantMember,
 } from '@/queries/tenant.queries'
 import { useAuthStore } from '@/states/auth.store'
+import { MEMBER_NOT_FOUND_MESSAGE } from '@/types/api.types'
 
 /**
  * Which member each role may change or remove. The platform tenant (the Staff
@@ -107,6 +109,9 @@ const PLATFORM_INVITATIONS_REVOKED_ON_LEAVE =
 /** What a leave says when the API answers 404: the membership was already gone. */
 const NO_LONGER_A_MEMBER = 'You are no longer a member of this tenant.'
 
+/** What a leave of the platform tenant says when the page could not move to Overview afterwards. */
+const LEFT_BUT_STUCK = 'You left, but this page could not move on. Reload it to continue.'
+
 /** The reason the last owner's own controls are switched off. */
 const LAST_OWNER_REASON = 'A tenant must always have an owner. Add another owner first.'
 
@@ -118,6 +123,18 @@ const LAST_OWNER_REASON = 'A tenant must always have an owner. Add another owner
  */
 const MEMBERS_ERROR =
   'We could not load this tenant’s members, so none are listed here. This is not a sign that it has none.'
+
+/**
+ * Rethrows a staff write's refusal for the reason dialog to show, except a
+ * 404 `Member not found`: the member left meanwhile, which is said as the
+ * member path says it, in a toast, and the dialog closes. express sends that
+ * 404 with no code, so the dialog would take it for the access check's.
+ * @param error - The write's failure.
+ */
+function unlessMemberGone(error: unknown): void {
+  if (statusFrom(error) !== 404 || messageFrom(error) !== MEMBER_NOT_FOUND_MESSAGE) throw error
+  toast.error(MEMBER_NOT_FOUND_MESSAGE)
+}
 
 /**
  * The role cell: a select when the actor may change this member's role, plain
@@ -219,7 +236,9 @@ function RoleCell({
           title="Change this member’s role?"
           description={`${name} becomes ${pendingRole === null ? '' : ROLE_LABELS[pendingRole]} in this customer tenant.`}
           confirmLabel="Change role"
-          onConfirm={(reason) => changeRole(pendingRole ?? targetRole, reason)}
+          onConfirm={(reason) =>
+            changeRole(pendingRole ?? targetRole, reason).catch(unlessMemberGone)
+          }
         />
       )}
     </div>
@@ -264,7 +283,12 @@ function StaffRemoveMemberButton({
         confirmLabel="Remove"
         destructive
         onConfirm={async (reason) => {
-          await stepUp.run(() => removeMember.mutateAsync({ userId: member.user.id, reason }))
+          try {
+            await stepUp.run(() => removeMember.mutateAsync({ userId: member.user.id, reason }))
+          } catch (error) {
+            unlessMemberGone(error)
+            return
+          }
           toast.success(<Pii>{`${name} removed.`}</Pii>)
           onRemoved()
         }}
@@ -323,7 +347,12 @@ function RemoveMemberButton({
   const name = memberName(member)
   const isPending = isSelf ? leaveTenant.isPending : removeMember.isPending
 
-  /** Says so; from the platform tenant, leaves its routes and only then forgets it. */
+  /**
+   * Says so; from the platform tenant, leaves its routes and only then forgets
+   * it. A navigation that fails is reported and said, and the cache is dropped
+   * all the same: the tenant's routes answer 404 now, so the page still
+   * mounted on them refetches what is true.
+   */
   async function afterLeaving(message: string) {
     setIsOpen(false)
     toast.success(message)
@@ -331,7 +360,12 @@ function RemoveMemberButton({
       onRemoved()
       return
     }
-    await navigate({ to: ROUTES.overview })
+    try {
+      await navigate({ to: ROUTES.overview })
+    } catch (error) {
+      noteError(error, 'router', true)
+      toast.error(LEFT_BUT_STUCK)
+    }
     dropTenantCache(queryClient, slug)
   }
 
@@ -376,10 +410,10 @@ function RemoveMemberButton({
               <>
                 <Pii>
                   {name} loses staff access immediately. Pending invitations they sent here are
-                  revoked, and so are any they sent in other tenants for a role their membership
-                  there cannot grant. If their address is on an auto-join domain
-                  (PLATFORM_EMAIL_DOMAINS), they rejoin as a viewer at their next sign-in:
-                  deactivate their account from Users to offboard them.
+                  revoked, and so are any they sent in other tenants for a role they can no longer
+                  grant there. If their address is on an auto-join domain (PLATFORM_EMAIL_DOMAINS),
+                  they rejoin as a viewer at their next sign-in: deactivate their account from Users
+                  to offboard them.
                 </Pii>{' '}
                 <Link
                   to={ROUTES.user}
