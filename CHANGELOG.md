@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.8.1...v1.9.0) (2026-10-09)
+
+
+### Features
+
+* staff reasons, leave a tenant, sign out other sessions, and the cleanup P1 client fixes ([#33](https://github.com/mahaverick/apex-boilerplate/issues/33)) ([b9fe81e](https://github.com/mahaverick/apex-boilerplate/commit/b9fe81e8bc4d9223374663d43caf0c3191504501))
+
 ## [1.8.1](https://github.com/mahaverick/apex-boilerplate/compare/v1.8.0...v1.8.1) (2026-10-06)
 
 
