@@ -96,7 +96,9 @@ describe('/staff with the real sections', () => {
     await user.click(await screen.findByRole('button', { name: 'Remove' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Remove Otto Staff?' })
     expect(dialog).toHaveTextContent(/auto-join domain/)
-    expect(dialog).toHaveTextContent(/Pending invitations they sent are revoked\./)
+    expect(dialog).toHaveTextContent(
+      'Pending invitations they sent here are revoked, and so are any they sent in other tenants for a role their membership there cannot grant.'
+    )
     expect(dialog).toHaveTextContent(/deactivate their account from Users/)
     expect(within(dialog).getByRole('link', { name: 'Open Otto Staff in Users' })).toHaveAttribute(
       'href',

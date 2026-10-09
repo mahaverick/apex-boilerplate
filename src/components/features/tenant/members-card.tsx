@@ -245,10 +245,11 @@ function RemoveMemberButton({
             ) : slug === PLATFORM_TENANT_SLUG ? (
               <>
                 <Pii>
-                  {name} loses staff access immediately. Pending invitations they sent are revoked.
-                  If their address is on an auto-join domain (PLATFORM_EMAIL_DOMAINS), they rejoin
-                  as a viewer at their next sign-in: deactivate their account from Users to offboard
-                  them.
+                  {name} loses staff access immediately. Pending invitations they sent here are
+                  revoked, and so are any they sent in other tenants for a role their membership
+                  there cannot grant. If their address is on an auto-join domain
+                  (PLATFORM_EMAIL_DOMAINS), they rejoin as a viewer at their next sign-in:
+                  deactivate their account from Users to offboard them.
                 </Pii>{' '}
                 <Link
                   to={ROUTES.user}
