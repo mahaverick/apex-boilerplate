@@ -221,8 +221,9 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   call the SDK's `reset()` around it.
 - **Page titles stay static.** Session replay records the `<title>` text and
   `$pageview` sends `document.title`, both unmasked, so a title never carries
-  a name, an address or other user data; today every route's is a
-  `pageTitle('<literal>')`. If one ever must, mask both paths:
+  a name, an address or other user data; today every title is a static
+  string (`pageTitle('<literal>')` on each route, `APP_NAME` at the root).
+  If one ever must, mask both paths:
   `session_recording.maskTextSelector: '.ph-mask, .ph-sensitive, title'` and a
   `before_send` that drops `properties.title`. `slimDOMOptions.headTitleMutations`
   alone is not enough: a full snapshot still records the current title.
