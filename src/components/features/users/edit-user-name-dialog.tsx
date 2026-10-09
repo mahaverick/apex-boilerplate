@@ -18,15 +18,20 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { useChangedFields } from '@/hooks/use-changed-fields'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { useUpdateUser } from '@/queries/user-admin.queries'
-import { updateUserNameSchema, type UpdateUserNameInput } from '@/schemas/user-admin.schemas'
+import { updateUserNameSchema } from '@/schemas/user-admin.schemas'
 import type { PlatformUserDetail } from '@/types/api.types'
 
 /**
- * A user's two name fields. Only a changed field is sent; a field emptied is
- * sent as `null`, which clears it. Saving with nothing changed sends nothing.
+ * A user's two name fields. Only a name changed from the stored names (as
+ * loaded until the first edit, blur or save attempt, or as last saved) is
+ * checked and sent, so a stored name that today's rules refuse does not block
+ * changing the other, and a refetch does not send a stale name back. A field
+ * emptied is sent as `null`, which clears it. Saving with nothing changed
+ * sends nothing and asks for a change instead.
  */
 export function EditUserNameDialog({
   user,
@@ -39,22 +44,23 @@ export function EditUserNameDialog({
 }) {
   const update = useUpdateUser()
   const serverErrors = useServerErrors()
+  const { baseline, changes, changedBody, listeners, rebase } = useChangedFields(
+    updateUserNameSchema,
+    { firstName: user.firstName ?? '', lastName: user.lastName ?? '' },
+    serverErrors,
+    'Change a name before saving.'
+  )
   const form = useForm({
-    defaultValues: { firstName: user.firstName ?? '', lastName: user.lastName ?? '' },
-    validators: { onSubmit: updateUserNameSchema },
+    defaultValues: baseline,
+    validators: { onSubmit: changes },
+    listeners,
     onSubmit: async ({ value }) => {
+      const body = changedBody(value)
+      if (!body) return
       serverErrors.reset()
-      const parsed = updateUserNameSchema.parse(value)
-      const changes: UpdateUserNameInput = {
-        ...(parsed.firstName === user.firstName ? {} : { firstName: parsed.firstName }),
-        ...(parsed.lastName === user.lastName ? {} : { lastName: parsed.lastName }),
-      }
-      if (Object.keys(changes).length === 0) {
-        serverErrors.setFormErrors(['Change a name before saving.'])
-        return
-      }
       try {
-        await update.mutateAsync({ userId: user.id, ...changes })
+        await update.mutateAsync({ userId: user.id, ...body })
+        rebase(value)
         toast.success('Name updated.')
         onOpenChange(false)
       } catch (error) {

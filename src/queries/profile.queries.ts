@@ -38,7 +38,7 @@ export function useProfile() {
 export function useUpdateProfile() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: UpdateProfileInput) =>
+    mutationFn: async (input: Partial<UpdateProfileInput>) =>
       unwrap(await apiClient.patch<ApiSuccess<User>>('/profile', input)),
     onSuccess: (user) => {
       queryClient.setQueryData(profileKeys.detail, user)

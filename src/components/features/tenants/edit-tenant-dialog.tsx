@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { useChangedFields } from '@/hooks/use-changed-fields'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { messageFrom, statusFrom } from '@/lib/api-error'
@@ -56,22 +57,42 @@ export function EditTenantDialog({
   )
 }
 
+/**
+ * The edit form. Only the fields the user changed from the tenant (as loaded
+ * until the first edit, blur or save attempt, or as last saved) are checked
+ * and sent, so a stored value that today's rules refuse does not block saving
+ * the others, and a refetch that brings someone else's change does not send it
+ * back. With nothing changed, Save sends nothing and asks for a change instead.
+ * The changed fields are parsed before posting, so an emptied box goes over as
+ * `null` and clears the column.
+ */
 function EditTenantForm({ tenant, onDone }: { tenant: PlatformTenantDetail; onDone: () => void }) {
   const update = useUpdateTenant(tenant.slug, tenant.id)
   const queryClient = useQueryClient()
   const serverErrors = useServerErrors()
-  const defaultValues: z.input<typeof updateTenantSchema> = {
+  /** The schema's input type: TanStack needs the validator's input assignable to the form values. */
+  const loaded: z.input<typeof updateTenantSchema> = {
     name: tenant.name,
     description: tenant.description ?? '',
     website: tenant.website ?? '',
   }
+  const { baseline, changes, changedBody, listeners, rebase } = useChangedFields(
+    updateTenantSchema,
+    loaded,
+    serverErrors,
+    'Change a field before saving.'
+  )
   const form = useForm({
-    defaultValues,
-    validators: { onSubmit: updateTenantSchema },
+    defaultValues: baseline,
+    validators: { onSubmit: changes },
+    listeners,
     onSubmit: async ({ value }) => {
+      const body = changedBody(value)
+      if (!body) return
       serverErrors.reset()
       try {
-        await update.mutateAsync(updateTenantSchema.parse(value))
+        await update.mutateAsync(body)
+        rebase(value)
         await queryClient.invalidateQueries({ queryKey: tenantAdminKeys.detail(tenant.id) })
         await queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all })
         toast.success('Details saved.')
