@@ -179,6 +179,22 @@ describe('replayHref', () => {
       'https://x.test/replay/a%2Fb%3Fc'
     )
   })
+
+  it.each([
+    'javascript:alert(1)',
+    '//evil.test/x',
+    '../../../admin?x=1#frag',
+    '"><img src=x onerror=alert(1)>',
+    'https://evil.test/',
+    '%2F%2Fevil.test',
+  ])('keeps a hostile session id %j inside the template’s path segment', (sessionId) => {
+    const href = new URL(replayHref('https://x.test/project/1/replay/{sessionId}', sessionId))
+    expect(href.origin).toBe('https://x.test')
+    expect(href.pathname.startsWith('/project/1/replay/')).toBe(true)
+    expect(href.pathname.slice('/project/1/replay/'.length)).not.toContain('/')
+    expect(href.search).toBe('')
+    expect(href.hash).toBe('')
+  })
 })
 
 describe('sessionDuration', () => {
