@@ -83,13 +83,14 @@ function titleFor(from: PlatformMaintenanceModeView['mode'], modes: readonly OnM
  * next submit sends the version just read. Until then a submit sends the
  * version the dialog opened on, so a poll that lands meanwhile makes it a
  * conflict instead of silently overwriting what was read. A change that is
- * not a switch-on starts with the reason now saved in the Reason field. A
- * same-mode save that leaves it empty keeps the stored reason (express
- * coalesces); a mode change sends what the field holds, so emptying it
- * clears the reason. The mode the form is validated against,
- * and whether a submit is a switch-on, both come from the mode the dialog
- * opened on, replaced only when a 409 reads a newer one; a poll in between
- * changes neither.
+ * not a switch-on starts with the reason now saved in the Reason field;
+ * emptying it clears the stored reason (`reason: null`), and a 409 moves an
+ * untouched pre-filled reason to the one just read. A save express answers
+ * with the version unchanged stored nothing, and the toast says so. The mode
+ * the form is validated against, and whether a submit is a switch-on, both
+ * come from the mode the dialog opened on, replaced only when a 409 reads a
+ * newer one; a poll in between changes neither. A 409 whose re-read failed
+ * says so and keeps the version, so the next submit conflicts again.
  */
 export function ChangeModeDialog(props: ChangeModeDialogProps) {
   const [busy, setBusy] = useState(false)
@@ -126,14 +127,14 @@ function ChangeModeForm({
     () => maintenanceModeFormSchema(base.mode, view.environment),
     [base.mode, view.environment]
   )
-  // Fixed when the dialog opens, so a later `base` change does not move the form's defaults.
-  const [prefilledReason] = useState(() =>
+  // Set when the dialog opens and re-read only by a 409, so a poll in between does not move it.
+  const [prefilledReason, setPrefilledReason] = useState(() =>
     isSwitchOn(view.mode, modes[0] ?? 'read_only') ? '' : (view.reason ?? '')
   )
   const defaultValues: MaintenanceModeFormValues = {
     mode: modes[0] ?? 'read_only',
     message: view.message ?? '',
-    // A change that is not a switch-on starts from the saved reason. Emptying it sends none: a same-mode save then keeps the stored reason (express coalesces), but a mode change stores no reason.
+    // A change that is not a switch-on starts from the saved reason; emptying it sends `reason: null`, which clears it.
     reason: prefilledReason,
     confirmation: '',
   }
@@ -149,7 +150,7 @@ function ChangeModeForm({
         mode: parsed.mode,
         message: parsed.message,
         expectedVersion: base.version,
-        ...(parsed.reason === '' ? {} : { reason: parsed.reason }),
+        ...reasonField(parsed.reason, prefilledReason),
         ...(switchOn ? { confirm: parsed.confirmation.trim() } : {}),
       }
       onBusyChange(true)
@@ -181,15 +182,14 @@ function ChangeModeForm({
           const fresh = error.fresh
           // Its own alert, not FormError: the sentence names a person, so it renders inside Pii.
           setConflict(conflictSentence(fresh))
-          // In switch-on mode the field becomes required and its "starts as the reason now saved" hint is gone, so the pre-filled old reason would pass for the owner's own: clear it, unless they already changed it.
-          const wasSwitchOn = isSwitchOn(base.mode, form.state.values.mode)
-          if (
-            !wasSwitchOn &&
-            isSwitchOn(fresh.mode, form.state.values.mode) &&
-            form.state.values.reason === prefilledReason
-          ) {
-            form.setFieldValue('reason', '')
+          // An untouched pre-filled reason follows the fresh state: the other owner's reason, or empty once the edit became a switch-on (its field is required and the "starts as the reason now saved" hint is gone).
+          const freshPrefill = isSwitchOn(fresh.mode, form.state.values.mode)
+            ? ''
+            : (fresh.reason ?? '')
+          if (form.state.values.reason === prefilledReason) {
+            form.setFieldValue('reason', freshPrefill)
           }
+          setPrefilledReason(freshPrefill)
           setBase({ mode: fresh.mode, version: fresh.version })
           return
         }
@@ -281,7 +281,7 @@ function ChangeModeForm({
                     <FormDescription>
                       {switchOn
                         ? 'For staff only. Recorded in the audit log with your name.'
-                        : 'For staff only. Recorded in the audit log with your name. It starts as the reason now saved.'}
+                        : 'For staff only. Recorded in the audit log with your name. It starts as the reason now saved. Empty it to clear that reason.'}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -340,6 +340,19 @@ function ChangeModeForm({
       </Form>
     </>
   )
+}
+
+/**
+ * The body's `reason`: what the field holds, `null` when the owner emptied a
+ * pre-filled reason (express clears the stored one), or nothing when there
+ * was none to empty.
+ * @param reason - The parsed field, trimmed.
+ * @param prefilled - The reason the field started from.
+ * @returns The fields to spread into the body.
+ */
+function reasonField(reason: string, prefilled: string): Pick<ChangeMaintenanceModeBody, 'reason'> {
+  if (reason !== '') return { reason }
+  return prefilled === '' ? {} : { reason: null }
 }
 
 /** The submit button's words for a change from `from` to `to`. */

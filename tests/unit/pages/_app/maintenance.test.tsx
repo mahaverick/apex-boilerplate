@@ -375,6 +375,7 @@ describe('/maintenance', () => {
     expect(state.bodies[0]).toEqual({
       mode: 'full',
       message: 'We are upgrading the database.\nBack by 11:00 UTC.',
+      reason: null,
       expectedVersion: 5,
     })
   })
@@ -550,5 +551,98 @@ describe('E1-24 / E1-40: a reason-only edit, and a 409 whose re-read fails', () 
     await user.click(within(dialog).getByRole('button', { name: 'Turn off' }))
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(UNREAD)
     expect(state.bodies.map((body) => body.expectedVersion)).toEqual([5])
+  })
+})
+
+describe('E1-41: stale pre-filled reason, and clearing the reason on a same-mode save', () => {
+  beforeEach(() => {
+    signInAs('owner')
+  })
+
+  it('(a) after a 409 where another owner changed the reason, a resubmit does not send back the stale pre-filled one', async () => {
+    const state = serve(fullMaintenanceView(), (body, n) => {
+      if (n === 1) {
+        state.view = fullMaintenanceView({
+          version: 7,
+          reason: 'Other owner: extended window',
+          changedBy: { id: 'other', name: 'Ada Lovelace' },
+        })
+        return fail(
+          'Maintenance mode changed since you loaded it.',
+          409,
+          'MAINTENANCE_MODE_CONFLICT'
+        )
+      }
+      return ok(fullMaintenanceView({ version: 8, message: String(body.message) }), 'Updated.')
+    })
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Edit message…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
+    const message = within(dialog).getByLabelText('Message for customers')
+    await user.clear(message)
+    await user.type(message, 'Nearly done.')
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    await within(dialog).findByText(/^Someone changed maintenance mode while you were editing/)
+    expect(within(dialog).getByLabelText('Reason (optional)')).toHaveValue(
+      'Other owner: extended window'
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    await waitFor(() => expect(state.bodies).toHaveLength(2))
+    // The owner never touched Reason; resending the reason read before the 409 overwrites Ada's.
+    expect(state.bodies[1]?.reason).not.toBe('Postgres 18 upgrade')
+  })
+
+  it('keeps a reason the owner typed when a 409 finds another owner changed it', async () => {
+    const state = serve(fullMaintenanceView(), () => {
+      state.view = fullMaintenanceView({ version: 7, reason: 'Other owner: extended window' })
+      return fail('Maintenance mode changed since you loaded it.', 409, 'MAINTENANCE_MODE_CONFLICT')
+    })
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Edit message…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
+    const reason = within(dialog).getByLabelText('Reason (optional)')
+    await user.clear(reason)
+    await user.type(reason, 'my own reason')
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    await within(dialog).findByText(/^Someone changed maintenance mode while you were editing/)
+    expect(within(dialog).getByLabelText('Reason (optional)')).toHaveValue('my own reason')
+  })
+
+  it('(b) emptying Reason on a same-mode save clears the stored reason (express semantics: an absent reason keeps the stored one)', async () => {
+    const state = serve(fullMaintenanceView(), (body) =>
+      ok(
+        fullMaintenanceView({
+          version: 6,
+          message: String(body.message),
+          // express coalesces: no reason in the body keeps the stored one.
+          reason:
+            (body.reason as string | null | undefined) === undefined
+              ? 'Postgres 18 upgrade'
+              : (body.reason as string | null),
+        }),
+        'Updated.'
+      )
+    )
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Edit message…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
+    await user.clear(within(dialog).getByLabelText('Reason (optional)'))
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    await waitFor(() => expect(state.bodies).toHaveLength(1))
+    expect(state.bodies[0]).toMatchObject({ reason: null })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    const facts = screen.getByRole('region', { name: 'Customer access' })
+    expect(within(facts).queryByText('Postgres 18 upgrade')).toBeNull()
+  })
+
+  it('sends no reason on a same-mode save when none was saved and the field stays empty', async () => {
+    const state = serve(fullMaintenanceView({ reason: null }))
+    const user = await openPage()
+    await user.click(screen.getByRole('button', { name: 'Edit message…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
+    await user.type(within(dialog).getByLabelText('Message for customers'), ' More soon.')
+    await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
+    await waitFor(() => expect(state.bodies).toHaveLength(1))
+    expect(state.bodies[0]).not.toHaveProperty('reason')
   })
 })

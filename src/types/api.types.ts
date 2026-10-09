@@ -1138,12 +1138,14 @@ export interface PlatformMaintenanceModeView {
 
 /**
  * `PUT /platform/maintenance-mode`'s strict body. `confirm` is sent only when
- * switching on or escalating, and `reason` only when one was given.
+ * switching on or escalating. `reason` is sent when one was given, `null` when
+ * the owner emptied the saved reason (express clears it), and left out
+ * otherwise (a same-mode save then keeps the stored one).
  */
 export interface ChangeMaintenanceModeBody {
   mode: MaintenanceMode
   message?: string
-  reason?: string
+  reason?: string | null
   expectedVersion: number
   confirm?: string
 }
