@@ -7,7 +7,7 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import type { MembershipRole } from '@/constants/roles'
 import { PLATFORM_TENANT_SLUG } from '@/constants/routes'
 import { apiClient, unwrap } from '@/http/client'
-import { codeFrom, statusFrom } from '@/lib/api-error'
+import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
 import { auditKeys } from '@/queries/audit.queries'
 import { invalidateEmails } from '@/queries/email.queries'
 import { invalidateDirectory } from '@/queries/platform.queries'
@@ -15,7 +15,12 @@ import { refreshProfile } from '@/queries/profile.queries'
 import { tenantKeys, type TenantMembership } from '@/queries/tenant.queries'
 import type { InviteMemberInput } from '@/schemas/tenant.schemas'
 import { useAuthStore } from '@/states/auth.store'
-import { INVITATION_CONFLICT, REASON_REQUIRED, type ApiSuccess } from '@/types/api.types'
+import {
+  INVITATION_CONFLICT,
+  MEMBER_NOT_FOUND_MESSAGE,
+  REASON_REQUIRED,
+  type ApiSuccess,
+} from '@/types/api.types'
 
 /**
  * The audit reason a staff write to a customer tenant carries: the API
@@ -38,23 +43,26 @@ function reasonBody(reason: string | undefined): { data: { reason: string } } | 
 }
 
 /**
- * After a refused write: a 400 `REASON_REQUIRED` means the API now reaches
- * the caller through platform access (their membership went meanwhile) while
- * the page still shows member controls, so the tenant's detail refetches and
- * `useMyRole`'s `access` switches them to the staff ones, which ask for a
- * reason. Not awaited: a mutation waits for its `onError`, and the refusal
- * should show at once, not after the refetch.
+ * After a refused write, refreshes what it proved stale, without waiting: a
+ * mutation waits for its `onError`, and the refusal should show at once.
+ *
+ * - A 400 `REASON_REQUIRED` means the API now reaches the caller through
+ *   platform access (their membership went meanwhile) while the page still
+ *   shows member controls, so the tenant's detail refetches and
+ *   `useMyRole`'s `access` switches them to the staff ones, which ask for a
+ *   reason.
+ * - A 404 `Member not found` (express sends no code) means the target left
+ *   meanwhile, so the member list refetches and their row goes.
  * @param queryClient - The app's query client.
  * @param slug - The tenant written to.
  * @param error - The write's failure.
  */
-function refreshAccessIfReasonRequired(
-  queryClient: QueryClient,
-  slug: string,
-  error: unknown
-): void {
-  if (codeFrom(error) !== REASON_REQUIRED) return
-  void queryClient.invalidateQueries({ queryKey: tenantKeys.detail(slug) })
+function refreshAfterRefusal(queryClient: QueryClient, slug: string, error: unknown): void {
+  if (codeFrom(error) === REASON_REQUIRED) {
+    void queryClient.invalidateQueries({ queryKey: tenantKeys.detail(slug) })
+  } else if (statusFrom(error) === 404 && messageFrom(error) === MEMBER_NOT_FOUND_MESSAGE) {
+    void queryClient.invalidateQueries({ queryKey: tenantKeys.members(slug) })
+  }
 }
 
 /**
@@ -67,7 +75,7 @@ export function useInviteMember(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
     onError: (error) => {
-      refreshAccessIfReasonRequired(queryClient, slug, error)
+      refreshAfterRefusal(queryClient, slug, error)
     },
     mutationFn: async (input: InviteMemberInput & StaffReason) =>
       unwrap(await apiClient.post<ApiSuccess<null>>(`/tenants/${slug}/invitations`, input)),
@@ -93,7 +101,7 @@ export function useResendInvitation(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
     onError: (error) => {
-      refreshAccessIfReasonRequired(queryClient, slug, error)
+      refreshAfterRefusal(queryClient, slug, error)
     },
     mutationFn: async ({ invitationId, reason }: { invitationId: string } & StaffReason) =>
       unwrap(
@@ -123,7 +131,7 @@ export function useRevokeInvitation(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
     onError: (error) => {
-      refreshAccessIfReasonRequired(queryClient, slug, error)
+      refreshAfterRefusal(queryClient, slug, error)
     },
     mutationFn: async ({ invitationId, reason }: { invitationId: string } & StaffReason) =>
       unwrap(
@@ -149,7 +157,7 @@ export function useUpdateMemberRole(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
     onError: (error) => {
-      refreshAccessIfReasonRequired(queryClient, slug, error)
+      refreshAfterRefusal(queryClient, slug, error)
     },
     mutationFn: async ({
       userId,
@@ -180,7 +188,7 @@ export function useRemoveMember(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
     onError: (error) => {
-      refreshAccessIfReasonRequired(queryClient, slug, error)
+      refreshAfterRefusal(queryClient, slug, error)
     },
     mutationFn: async ({ userId, reason }: { userId: string } & StaffReason) =>
       apiClient.delete<ApiSuccess<null>>(`/tenants/${slug}/members/${userId}`, reasonBody(reason)),

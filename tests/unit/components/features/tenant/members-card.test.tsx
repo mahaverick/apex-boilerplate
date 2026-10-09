@@ -2098,3 +2098,70 @@ describe('staff acting through platform access', () => {
     }
   })
 })
+
+describe('a write that finds the member already gone', () => {
+  /** Serves Vic until the first write lands; after it, the list express answers no longer has them. */
+  function serveDeparture(asStaff: boolean) {
+    const state = { gone: false }
+    signIn(asStaff ? { ...testUser, platformRole: 'owner' } : undefined)
+    mockPlatformDetail()
+    const first = asStaff ? member(USER_ID_4, 'owner', 'Otto') : member(ME, 'owner', 'Me')
+    server.use(
+      http.get('/api/v1/tenants/acme', () =>
+        ok(tenantDetail(TENANT, 'owner', asStaff ? 'platform' : 'member'), 'Tenant retrieved.')
+      ),
+      http.get('/api/v1/tenants/acme/members', () =>
+        ok(state.gone ? [first] : [first, member(USER_ID_3, 'viewer', 'Vic')], 'Members retrieved.')
+      ),
+      http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => {
+        state.gone = true
+        return fail('Member not found', 404)
+      }),
+      http.patch(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => {
+        state.gone = true
+        return fail('Member not found', 404)
+      })
+    )
+  }
+
+  /** Confirms the reason dialog, when staff get one. */
+  async function giveReason(user: ReturnType<typeof userEvent.setup>, confirm: string) {
+    const dialog = await screen.findByRole('alertdialog')
+    await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
+    await user.click(within(dialog).getByRole('button', { name: confirm }))
+  }
+
+  it.each([
+    { path: 'member', action: 'removal', asStaff: false },
+    { path: 'staff', action: 'removal', asStaff: true },
+    { path: 'member', action: 'role change', asStaff: false },
+    { path: 'staff', action: 'role change', asStaff: true },
+  ] as const)(
+    'drops the departed row after a $path $action answers Member not found',
+    async ({ action, asStaff }) => {
+      serveDeparture(asStaff)
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+      const vic = await rowFor('Vic')
+      if (action === 'removal') {
+        await user.click(vic.getByRole('button', { name: 'Remove' }))
+        if (asStaff) await giveReason(user, 'Remove')
+        else {
+          await user.click(
+            within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' })
+          )
+        }
+      } else {
+        await user.click(vic.getByRole('combobox', { name: 'Role for Vic X' }))
+        await user.click(await screen.findByRole('option', { name: 'Editor' }))
+        if (asStaff) await giveReason(user, 'Change role')
+      }
+
+      expect(await screen.findByText('Member not found')).toBeInTheDocument()
+      await waitFor(() =>
+        expect(screen.queryByRole('cell', { name: /Vic/ })).not.toBeInTheDocument()
+      )
+    }
+  )
+})
