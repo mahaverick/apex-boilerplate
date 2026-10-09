@@ -1460,6 +1460,42 @@ describe('open overlays', () => {
     await expectNoViolations()
   })
 
+  it('has no violations with the staff role-change dialog open', async () => {
+    serveTenant('active')
+    server.use(
+      http.get('/api/v1/tenants/acme', () =>
+        ok(
+          { ...ACME_DETAIL, isPlatform: false, role: 'owner', access: 'platform' },
+          'Tenant retrieved.'
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    await user.click(await screen.findByRole('combobox', { name: 'Role for Cleo D' }))
+    await user.click(await screen.findByRole('option', { name: 'Viewer' }))
+    await screen.findByRole('alertdialog', { name: 'Change this member’s role?' })
+    await expectNoViolations()
+  })
+
+  it('has no violations with a member’s revoke-invitation dialog open, on the Staff page', async () => {
+    serveStaff()
+    server.use(
+      http.get('/api/v1/tenants/platform/invitations', () =>
+        ok([testInvitation], 'Invitations retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt('/staff')
+    await user.click(
+      await screen.findByRole('button', { name: `Revoke invitation to ${testInvitation.email}` })
+    )
+    await screen.findByRole('alertdialog', {
+      name: `Revoke the invitation to ${testInvitation.email}?`,
+    })
+    await expectNoViolations()
+  })
+
   it('has no violations with the step-up dialog open', async () => {
     serveTenant('active')
     server.use(
