@@ -915,9 +915,9 @@ describe('inviting, and the pending invitations', () => {
       http.get('/api/v1/tenants/acme/invitations', () =>
         ok(
           [
-            invitation(INVITATION_ID, 'owner@b.com', { role: 'owner' }),
-            invitation(INVITATION_ID_2, 'admin@b.com', { role: 'admin' }),
-            invitation(INVITATION_ID_3, 'editor@b.com', { role: 'editor' }),
+            invitation(INVITATION_ID, 'owner@example.com', { role: 'owner' }),
+            invitation(INVITATION_ID_2, 'admin@example.com', { role: 'admin' }),
+            invitation(INVITATION_ID_3, 'editor@example.com', { role: 'editor' }),
           ],
           'Invitations retrieved.'
         )
@@ -925,14 +925,16 @@ describe('inviting, and the pending invitations', () => {
     )
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
-    for (const email of ['owner@b.com', 'admin@b.com']) {
+    for (const email of ['owner@example.com', 'admin@example.com']) {
       const resend = await screen.findByRole('button', { name: `Resend invitation to ${email}` })
       expect(resend).toBeDisabled()
       expect(resend).toHaveAccessibleDescription(
         'Only an owner can resend or revoke an invitation for this role.'
       )
     }
-    const editorResend = screen.getByRole('button', { name: 'Resend invitation to editor@b.com' })
+    const editorResend = screen.getByRole('button', {
+      name: 'Resend invitation to editor@example.com',
+    })
     expect(editorResend).toBeEnabled()
     expect(editorResend).not.toHaveAttribute('aria-describedby')
   })
@@ -943,9 +945,9 @@ describe('inviting, and the pending invitations', () => {
       http.get('/api/v1/tenants/acme/invitations', () =>
         ok(
           [
-            invitation(INVITATION_ID, 'owner@b.com', { role: 'owner' }),
-            invitation(INVITATION_ID_2, 'admin@b.com', { role: 'admin' }),
-            invitation(INVITATION_ID_3, 'editor@b.com', { role: 'editor' }),
+            invitation(INVITATION_ID, 'owner@example.com', { role: 'owner' }),
+            invitation(INVITATION_ID_2, 'admin@example.com', { role: 'admin' }),
+            invitation(INVITATION_ID_3, 'editor@example.com', { role: 'editor' }),
           ],
           'Invitations retrieved.'
         )
@@ -953,14 +955,16 @@ describe('inviting, and the pending invitations', () => {
     )
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
-    for (const email of ['owner@b.com', 'admin@b.com']) {
+    for (const email of ['owner@example.com', 'admin@example.com']) {
       const revoke = await screen.findByRole('button', { name: `Revoke invitation to ${email}` })
       expect(revoke).toBeDisabled()
       expect(revoke).toHaveAccessibleDescription(
         'Only an owner can resend or revoke an invitation for this role.'
       )
     }
-    const editorRevoke = screen.getByRole('button', { name: 'Revoke invitation to editor@b.com' })
+    const editorRevoke = screen.getByRole('button', {
+      name: 'Revoke invitation to editor@example.com',
+    })
     expect(editorRevoke).toBeEnabled()
     expect(editorRevoke).not.toHaveAttribute('aria-describedby')
   })
@@ -970,9 +974,9 @@ describe('inviting, and the pending invitations', () => {
       http.get('/api/v1/tenants/acme/invitations', () =>
         ok(
           [
-            invitation(INVITATION_ID, 'owner@b.com', { role: 'owner' }),
-            invitation(INVITATION_ID_2, 'admin@b.com', { role: 'admin' }),
-            invitation(INVITATION_ID_3, 'editor@b.com', { role: 'editor' }),
+            invitation(INVITATION_ID, 'owner@example.com', { role: 'owner' }),
+            invitation(INVITATION_ID_2, 'admin@example.com', { role: 'admin' }),
+            invitation(INVITATION_ID_3, 'editor@example.com', { role: 'editor' }),
           ],
           'Invitations retrieved.'
         )
@@ -980,7 +984,7 @@ describe('inviting, and the pending invitations', () => {
     )
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
-    for (const email of ['owner@b.com', 'admin@b.com', 'editor@b.com']) {
+    for (const email of ['owner@example.com', 'admin@example.com', 'editor@example.com']) {
       expect(
         await screen.findByRole('button', { name: `Resend invitation to ${email}` })
       ).toBeEnabled()
