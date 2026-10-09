@@ -13,6 +13,7 @@ describe('tenant link fields', () => {
     ['website ftp:', { website: 'ftp://files.acme.test' }],
     ['website with credentials', { website: 'https://user:pw@acme.test/' }],
     ['logo with a user name', { logo: 'https://user@cdn.acme.test/l.png' }],
+    ['website with only a password', { website: 'https://:pw@acme.test/' }],
     ['website with a backslash', { website: 'https://acme.test\\@evil.test/' }],
     ['logo with a backslash in the path', { logo: 'https://cdn.acme.test/a\\b.png' }],
   ])('PATCH refuses %s', (_label, body) => {
