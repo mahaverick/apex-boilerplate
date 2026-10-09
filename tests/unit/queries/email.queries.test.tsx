@@ -270,7 +270,7 @@ describe('email queries go stale with the directory', () => {
     const { result } = renderHook(() => useResendInvitation('acme'), {
       wrapper: wrapperWith(client),
     })
-    result.current.mutate(INVITATION_ID)
+    result.current.mutate({ invitationId: INVITATION_ID })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     await waitFor(() =>
       expectStale(client, [...EMAIL_KEYS, ...logs, tenantKeys.invitations('acme')])

@@ -13,6 +13,7 @@ const DEFAULT_INVITE_DESCRIPTION =
  * Invite form and pending invitations. The invitation routes are owner/admin
  * (effective role), so for anyone else nothing is requested and the reason
  * is shown instead; `PendingInvitations` requests the list only once mounted.
+ * Staff acting through platform access give an audited reason for each write.
  */
 export function InvitationsSection({
   slug,
@@ -26,7 +27,8 @@ export function InvitationsSection({
   /** An Apex tenant page's id, scoping the cache; the Staff page passes none. */
   tenantId?: string
 }) {
-  const { role, isPending, isError, retry } = useMyRole(slug, tenantId)
+  const { role, access, isPending, isError, retry } = useMyRole(slug, tenantId)
+  const asStaff = access === 'platform'
   if (isPending) return <Skeleton className="h-40 w-full" />
   if (isError || !role) return <LoadError message={ROLE_ERROR} onRetry={retry} />
   if (!canManageTenant(role)) {
@@ -46,10 +48,10 @@ export function InvitationsSection({
           <CardDescription>{inviteDescription}</CardDescription>
         </CardHeader>
         <CardContent>
-          <InviteMemberForm slug={slug} myRole={role} tenantId={tenantId} />
+          <InviteMemberForm slug={slug} myRole={role} asStaff={asStaff} tenantId={tenantId} />
         </CardContent>
       </Card>
-      <PendingInvitations slug={slug} myRole={role} tenantId={tenantId} />
+      <PendingInvitations slug={slug} myRole={role} asStaff={asStaff} tenantId={tenantId} />
     </div>
   )
 }

@@ -9,14 +9,18 @@ import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import {
   memberName,
   tenantKeys,
+  useInviteMember,
   useMembers,
   useRemoveMember,
+  useResendInvitation,
+  useRevokeInvitation,
   useUpdateMemberRole,
   type TenantMember,
 } from '@/queries/tenant.queries'
 import { userAdminKeys } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import {
+  INVITATION_ID,
   MEMBERSHIP_ID,
   PLATFORM_TENANT_ID,
   TENANT_ID,
@@ -111,11 +115,99 @@ describe('member writes', () => {
       http.delete(`/api/v1/tenants/acme/members/${USER_ID_2}`, () => ok(null, 'Member removed.'))
     )
     const { result } = renderHook(() => useRemoveMember('acme'), { wrapper })
-    result.current.mutate(USER_ID_2)
+    result.current.mutate({ userId: USER_ID_2 })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     for (const key of DIRECTORY_KEYS) {
       expect(client.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(true)
     }
+  })
+})
+
+/** What one write put on the wire: its JSON content type, if any, and its raw body. */
+interface Sent {
+  contentType: string | null
+  body: string
+}
+
+describe('a staff reason on the wire', () => {
+  let client: QueryClient
+
+  function wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  }
+
+  beforeEach(() => {
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    resetSessionForTests()
+    useAuthStore.setState({ accessToken: 'access-token', user: testUser, isAuthenticated: true })
+  })
+
+  /** Answers every member and invitation write on `acme`, keeping what each one sent. */
+  function record(): Sent[] {
+    const sent: Sent[] = []
+    const keep = async ({ request }: { request: Request }) => {
+      sent.push({ contentType: request.headers.get('content-type'), body: await request.text() })
+      return ok(null, 'Done.')
+    }
+    server.use(
+      http.patch(`/api/v1/tenants/acme/members/${USER_ID_2}`, keep),
+      http.delete(`/api/v1/tenants/acme/members/${USER_ID_2}`, keep),
+      http.post('/api/v1/tenants/acme/invitations', keep),
+      http.post(`/api/v1/tenants/acme/invitations/${INVITATION_ID}/resend`, keep),
+      http.delete(`/api/v1/tenants/acme/invitations/${INVITATION_ID}`, keep)
+    )
+    return sent
+  }
+
+  /** Runs one write through its hook and waits for it to settle. */
+  async function run<T>(useWrite: () => { mutateAsync: (input: T) => Promise<unknown> }, input: T) {
+    const { result } = renderHook(useWrite, { wrapper })
+    await result.current.mutateAsync(input)
+  }
+
+  const REASON = 'Ticket 4411: the owner asked'
+
+  it('sends the reason in a JSON body on every write, the DELETEs included', async () => {
+    const sent = record()
+    await run(() => useUpdateMemberRole('acme'), {
+      userId: USER_ID_2,
+      role: 'editor' as const,
+      reason: REASON,
+    })
+    await run(() => useRemoveMember('acme'), { userId: USER_ID_2, reason: REASON })
+    await run(() => useInviteMember('acme'), {
+      email: 'new@example.com',
+      role: 'viewer' as const,
+      reason: REASON,
+    })
+    await run(() => useResendInvitation('acme'), { invitationId: INVITATION_ID, reason: REASON })
+    await run(() => useRevokeInvitation('acme'), { invitationId: INVITATION_ID, reason: REASON })
+
+    expect(sent.map((one) => one.contentType)).toEqual(Array(5).fill('application/json'))
+    expect(sent.map((one) => JSON.parse(one.body) as unknown)).toEqual([
+      { role: 'editor', reason: REASON },
+      { reason: REASON },
+      { email: 'new@example.com', role: 'viewer', reason: REASON },
+      { reason: REASON },
+      { reason: REASON },
+    ])
+  })
+
+  it('sends no reason, and no body where there was none, for a member', async () => {
+    const sent = record()
+    await run(() => useUpdateMemberRole('acme'), { userId: USER_ID_2, role: 'editor' as const })
+    await run(() => useRemoveMember('acme'), { userId: USER_ID_2 })
+    await run(() => useInviteMember('acme'), { email: 'new@example.com', role: 'viewer' as const })
+    await run(() => useResendInvitation('acme'), { invitationId: INVITATION_ID })
+    await run(() => useRevokeInvitation('acme'), { invitationId: INVITATION_ID })
+
+    expect(sent.map((one) => one.body)).toEqual([
+      JSON.stringify({ role: 'editor' }),
+      '',
+      JSON.stringify({ email: 'new@example.com', role: 'viewer' }),
+      '',
+      '',
+    ])
   })
 })
 

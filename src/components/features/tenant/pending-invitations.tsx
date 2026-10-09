@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { LoadError } from '@/components/features/load-error'
+import { ReasonDialog } from '@/components/features/reason-dialog'
 import { Pii } from '@/components/shared/pii'
 import {
   AlertDialog,
@@ -115,7 +116,7 @@ function ResendInvitationButton({
       aria-label={`Resend invitation to ${invitation.email}`}
       onClick={() => {
         stepUp
-          .run(() => resend.mutateAsync(invitation.id))
+          .run(() => resend.mutateAsync({ invitationId: invitation.id }))
           .then(
             () => toast.success(<Pii>{`Invitation resent to ${invitation.email}.`}</Pii>),
             (error: unknown) => toast.error(actionFailure(error))
@@ -177,7 +178,7 @@ function RevokeInvitationButton({
             disabled={revoke.isPending}
             onClick={() => {
               stepUp
-                .run(() => revoke.mutateAsync(invitation.id))
+                .run(() => revoke.mutateAsync({ invitationId: invitation.id }))
                 .then(
                   () => {
                     setIsOpen(false)
@@ -200,6 +201,79 @@ function RevokeInvitationButton({
 }
 
 /**
+ * Resend and Revoke for staff acting on a customer tenant through platform
+ * access: each asks for the audited reason the API requires, in the reason
+ * dialog every other staff write uses (step-up included), and shows a
+ * refusal there. The words and toasts are the member buttons'.
+ */
+function StaffInvitationActions({
+  slug,
+  invitation,
+  tenantId,
+  onRevoked,
+}: {
+  slug: string
+  invitation: TenantInvitation
+  tenantId?: string
+  onRevoked: () => void
+}) {
+  const resend = useResendInvitation(slug, tenantId)
+  const revoke = useRevokeInvitation(slug, tenantId)
+  const stepUp = useStepUp()
+  const [open, setOpen] = useState<'resend' | 'revoke' | null>(null)
+  /** The open state for one of the two dialogs. */
+  const dialogProps = (which: 'resend' | 'revoke') => ({
+    open: open === which,
+    onOpenChange: (next: boolean) => setOpen(next ? which : null),
+  })
+
+  return (
+    <div className="flex gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={resend.isPending}
+        aria-label={`Resend invitation to ${invitation.email}`}
+        onClick={() => setOpen('resend')}
+      >
+        Resend
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={revoke.isPending}
+        aria-label={`Revoke invitation to ${invitation.email}`}
+        onClick={() => setOpen('revoke')}
+      >
+        Revoke
+      </Button>
+      <ReasonDialog
+        {...dialogProps('resend')}
+        title="Resend this invitation?"
+        description={`A new link goes to ${invitation.email}; the old one stops working.`}
+        confirmLabel="Resend"
+        onConfirm={async (reason) => {
+          await stepUp.run(() => resend.mutateAsync({ invitationId: invitation.id, reason }))
+          toast.success(<Pii>{`Invitation resent to ${invitation.email}.`}</Pii>)
+        }}
+      />
+      <ReasonDialog
+        {...dialogProps('revoke')}
+        title="Revoke this invitation?"
+        description={`The link in ${invitation.email}’s email stops working immediately. You can invite them again later.`}
+        confirmLabel="Revoke"
+        destructive
+        onConfirm={async (reason) => {
+          await stepUp.run(() => revoke.mutateAsync({ invitationId: invitation.id, reason }))
+          onRevoked()
+          toast.success(<Pii>{`Invitation to ${invitation.email} revoked.`}</Pii>)
+        }}
+      />
+    </div>
+  )
+}
+
+/**
  * One pending invitation. Resend and Revoke are offered only for a role the
  * actor may grant (`canActorGrantRole`), as the API checks; otherwise both
  * are shown disabled with the reason.
@@ -212,12 +286,15 @@ function InvitationItem({
   slug,
   invitation,
   myRole,
+  asStaff,
   tenantId,
   onRevoked,
 }: {
   slug: string
   invitation: TenantInvitation
   myRole: MembershipRole
+  /** Acting through platform access: each action asks for a reason. */
+  asStaff: boolean
   tenantId?: string
   onRevoked: () => void
 }) {
@@ -232,7 +309,16 @@ function InvitationItem({
           Expires {expiresOn(invitation.expiresAt)}
         </span>
       </div>
-      {canActorGrantRole(myRole, invitation.role) ? (
+      {!canActorGrantRole(myRole, invitation.role) ? (
+        <LockedInvitationActions invitation={invitation} />
+      ) : asStaff ? (
+        <StaffInvitationActions
+          slug={slug}
+          invitation={invitation}
+          tenantId={tenantId}
+          onRevoked={onRevoked}
+        />
+      ) : (
         <div className="flex gap-2">
           <ResendInvitationButton slug={slug} invitation={invitation} tenantId={tenantId} />
           <RevokeInvitationButton
@@ -242,8 +328,6 @@ function InvitationItem({
             onRevoked={onRevoked}
           />
         </div>
-      ) : (
-        <LockedInvitationActions invitation={invitation} />
       )}
     </li>
   )
@@ -257,10 +341,13 @@ function InvitationItem({
 export function PendingInvitations({
   slug,
   myRole,
+  asStaff = false,
   tenantId,
 }: {
   slug: string
   myRole: MembershipRole
+  /** Acting through platform access (`access: 'platform'`): each action asks for a reason. */
+  asStaff?: boolean
   tenantId?: string
 }) {
   const invitations = useInvitations(slug, tenantId)
@@ -297,6 +384,7 @@ export function PendingInvitations({
                 slug={slug}
                 invitation={invitation}
                 myRole={myRole}
+                asStaff={asStaff}
                 tenantId={tenantId}
                 onRevoked={focusHeading}
               />

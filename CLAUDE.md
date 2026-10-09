@@ -152,6 +152,14 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
   during a rolling restart, a timeout, a dropped connection: none of those sign
   anyone out. Widening this to any error is the single easiest way to log every
   user out during a deploy.
+- **A staff write to a customer tenant carries a reason.** Through platform
+  access (`useMyRole`'s `access: 'platform'`), changing a member's role,
+  removing a member, and sending, resending or revoking an invitation go
+  through `ReasonDialog` and send `reason` (in the body, DELETE included);
+  express needs it and a recent sign-in. A member (`access: 'member'`, the
+  Staff page included) sends none. Resending an invitation from the Emails
+  pages needs a recent sign-in on any tenant, and its reason is audited on
+  the invitation too.
 
 ## Analytics — the rules that leak data when broken
 

@@ -1,6 +1,8 @@
 import { useForm } from '@tanstack/react-form'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
+import { ReasonDialog } from '@/components/features/reason-dialog'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,7 +34,7 @@ import { useServerErrors } from '@/hooks/use-server-errors'
 import { useStepUp } from '@/hooks/use-step-up'
 import { codeFrom, messageFrom } from '@/lib/api-error'
 import { useInviteMember } from '@/queries/tenant.queries'
-import { inviteMemberSchema } from '@/schemas/tenant.schemas'
+import { inviteMemberSchema, type InviteMemberInput } from '@/schemas/tenant.schemas'
 import { ALREADY_MEMBER, INVITATION_CONFLICT } from '@/types/api.types'
 
 /** A 409 `invitation_conflict`: another invite for this address just won the race. */
@@ -48,19 +50,27 @@ const RACED = 'Someone just invited this address — refresh and try again.'
  * The role select clears its own server error, since Base UI's selection does
  * not bubble a change event to the form; `FormControl`'s id lands on the
  * visible trigger, so the label points at something a pointer can reach.
+ *
+ * Staff acting through platform access (`asStaff`) give the audited reason
+ * the API requires in the reason dialog after the form validates; a refusal
+ * then shows in that dialog, a racing invite with `RACED`.
  */
 export function InviteMemberForm({
   slug,
   myRole,
+  asStaff = false,
   tenantId,
 }: {
   slug: string
   myRole: MembershipRole
+  /** Acting through platform access: the send asks for a reason first. */
+  asStaff?: boolean
   tenantId?: string
 }) {
   const inviteMember = useInviteMember(slug, tenantId)
   const stepUp = useStepUp()
   const serverErrors = useServerErrors()
+  const [toConfirm, setToConfirm] = useState<InviteMemberInput | null>(null)
   const grantable = MEMBERSHIP_ROLES.filter((role) => canActorGrantRole(myRole, role))
 
   /** The schema's input type, so `role` stays a MembershipRole rather than widening to `string`. */
@@ -74,8 +84,12 @@ export function InviteMemberForm({
     validators: { onSubmit: inviteMemberSchema },
     onSubmit: async ({ value }) => {
       serverErrors.reset()
+      const input = inviteMemberSchema.parse(value)
+      if (asStaff) {
+        setToConfirm(input)
+        return
+      }
       try {
-        const input = inviteMemberSchema.parse(value)
         await stepUp.run(() => inviteMember.mutateAsync(input))
         toast.success(<Pii>{`Invitation sent to ${input.email}.`}</Pii>)
         form.reset()
@@ -95,63 +109,87 @@ export function InviteMemberForm({
   })
 
   return (
-    <Form form={form} serverErrors={serverErrors} className="sm:flex sm:items-start sm:gap-3">
-      <FormField form={form} name="email">
-        {(field) => (
-          <FormItem className="sm:flex-1">
-            <FormLabel>Email</FormLabel>
-            <FormControl>
-              <Input
-                type="email"
-                autoComplete="off"
-                value={fieldValue(field.state.value)}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      </FormField>
-
-      <FormField form={form} name="role">
-        {(field) => (
-          <FormItem>
-            <FormLabel>Role</FormLabel>
-            <Select
-              value={fieldValue(field.state.value)}
-              onValueChange={(value: string | null) => {
-                if (value === null) return
-                field.handleChange(value)
-                serverErrors.clearField('role')
-              }}
-            >
+    <>
+      <Form form={form} serverErrors={serverErrors} className="sm:flex sm:items-start sm:gap-3">
+        <FormField form={form} name="email">
+          {(field) => (
+            <FormItem className="sm:flex-1">
+              <FormLabel>Email</FormLabel>
               <FormControl>
-                <SelectTrigger className="w-full sm:w-40">
-                  <SelectValue>
-                    {(value: string) => ROLE_LABELS[value as MembershipRole] ?? value}
-                  </SelectValue>
-                </SelectTrigger>
+                <Input
+                  type="email"
+                  autoComplete="off"
+                  value={fieldValue(field.state.value)}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
               </FormControl>
-              <SelectContent>
-                {grantable.map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {ROLE_LABELS[role]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        )}
-      </FormField>
+              <FormMessage />
+            </FormItem>
+          )}
+        </FormField>
 
-      <div className="grid gap-2 sm:pt-6">
-        <FormError />
-        <Button type="submit" disabled={inviteMember.isPending}>
-          {inviteMember.isPending ? 'Sending…' : 'Invite member'}
-        </Button>
-      </div>
-    </Form>
+        <FormField form={form} name="role">
+          {(field) => (
+            <FormItem>
+              <FormLabel>Role</FormLabel>
+              <Select
+                value={fieldValue(field.state.value)}
+                onValueChange={(value: string | null) => {
+                  if (value === null) return
+                  field.handleChange(value)
+                  serverErrors.clearField('role')
+                }}
+              >
+                <FormControl>
+                  <SelectTrigger className="w-full sm:w-40">
+                    <SelectValue>
+                      {(value: string) => ROLE_LABELS[value as MembershipRole] ?? value}
+                    </SelectValue>
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {grantable.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {ROLE_LABELS[role]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        </FormField>
+
+        <div className="grid gap-2 sm:pt-6">
+          <FormError />
+          <Button type="submit" disabled={inviteMember.isPending}>
+            {inviteMember.isPending ? 'Sending…' : 'Invite member'}
+          </Button>
+        </div>
+      </Form>
+      {asStaff && (
+        <ReasonDialog
+          open={toConfirm !== null}
+          onOpenChange={(open) => {
+            if (!open) setToConfirm(null)
+          }}
+          title="Send this invitation?"
+          description={
+            toConfirm === null
+              ? ''
+              : `${toConfirm.email} is invited to this customer tenant as ${ROLE_LABELS[toConfirm.role]}.`
+          }
+          confirmLabel="Send invitation"
+          refusalMessage={(error) => (codeFrom(error) === INVITATION_CONFLICT ? RACED : undefined)}
+          onConfirm={async (reason) => {
+            if (toConfirm === null) return
+            await stepUp.run(() => inviteMember.mutateAsync({ ...toConfirm, reason }))
+            toast.success(<Pii>{`Invitation sent to ${toConfirm.email}.`}</Pii>)
+            form.reset()
+          }}
+        />
+      )}
+    </>
   )
 }

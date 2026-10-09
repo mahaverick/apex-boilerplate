@@ -30,6 +30,7 @@ import {
   ok,
   tenantDetail,
   testInvitation,
+  testUser,
 } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import {
@@ -1132,5 +1133,246 @@ describe('inviting, and the pending invitations', () => {
     ).toBeInTheDocument()
     // A refusal is no success: the heading does not take focus.
     expect(screen.getByRole('heading', { name: 'Pending invitations' })).not.toHaveFocus()
+  })
+})
+
+describe('staff acting through platform access', () => {
+  beforeEach(() => {
+    signIn({ ...testUser, platformRole: 'owner' })
+    mockPlatformDetail()
+    server.use(
+      http.get('/api/v1/tenants/acme', () =>
+        ok(tenantDetail(TENANT, 'owner', 'platform'), 'Tenant retrieved.')
+      ),
+      http.get('/api/v1/tenants/acme/members', () =>
+        ok(
+          [member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')],
+          'Members retrieved.'
+        )
+      ),
+      http.post('/api/v1/auth/reauthenticate', () =>
+        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
+      )
+    )
+  })
+
+  /** Confirms the step-up dialog the API's first REAUTH_REQUIRED opened. */
+  async function confirmStepUp(user: ReturnType<typeof userEvent.setup>) {
+    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+    await user.type(within(stepUp).getByLabelText('Password'), 'zqS7-step-up-pass')
+    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+  }
+
+  it('asks for a reason before a role change, and sends it after the step-up', async () => {
+    const bodies: unknown[] = []
+    server.use(
+      http.patch(`/api/v1/tenants/acme/members/${USER_ID_3}`, async ({ request }) => {
+        bodies.push(await request.json())
+        return bodies.length === 1
+          ? fail('Confirm your identity to continue', 401, REAUTH_REQUIRED)
+          : ok({ ...member(USER_ID_3, 'editor', 'Vic').membership }, 'Role updated.')
+      })
+    )
+    const success = vi.spyOn(toast, 'success')
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+    const vic = await rowFor('Vic')
+    await user.click(vic.getByRole('combobox', { name: 'Role for Vic X' }))
+    await user.click(await screen.findByRole('option', { name: 'Editor' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Change this member’s role?' })
+    expect(dialog).toHaveTextContent('Vic X becomes Editor in this customer tenant.')
+    expect(bodies).toEqual([])
+    await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411: customer asked')
+    await user.click(within(dialog).getByRole('button', { name: 'Change role' }))
+    await confirmStepUp(user)
+
+    await waitFor(() => expect(success).toHaveBeenCalled())
+    expect(bodies).toEqual([
+      { role: 'editor', reason: 'Ticket 4411: customer asked' },
+      { role: 'editor', reason: 'Ticket 4411: customer asked' },
+    ])
+  })
+
+  it('sends nothing when the reason dialog is cancelled', async () => {
+    let patches = 0
+    server.use(
+      http.patch(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => {
+        patches += 1
+        return ok({ ...member(USER_ID_3, 'editor', 'Vic').membership }, 'Role updated.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    const vic = await rowFor('Vic')
+    await user.click(vic.getByRole('combobox', { name: 'Role for Vic X' }))
+    await user.click(await screen.findByRole('option', { name: 'Editor' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Change this member’s role?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(patches).toBe(0)
+    expect(vic.getByRole('combobox', { name: 'Role for Vic X' })).toHaveTextContent('Viewer')
+  })
+
+  it('asks for a reason before a removal, and sends it in the body', async () => {
+    let body: unknown
+    server.use(
+      http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, async ({ request }) => {
+        body = await request.json()
+        return ok(null, 'Member removed.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+    const vic = await rowFor('Vic')
+    await user.click(vic.getByRole('button', { name: 'Remove' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove this member?' })
+    expect(dialog).toHaveTextContent(
+      'Vic X will lose access to this tenant immediately. Pending invitations they sent are revoked.'
+    )
+    await user.type(within(dialog).getByLabelText('Reason'), 'Offboarding request')
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    expect(await screen.findByText('Vic X removed.')).toBeInTheDocument()
+    expect(body).toEqual({ reason: 'Offboarding request' })
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Members' })).toHaveFocus())
+  })
+
+  it('refuses an empty reason in the dialog and sends nothing', async () => {
+    let deletes = 0
+    server.use(
+      http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => {
+        deletes += 1
+        return ok(null, 'Member removed.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    const vic = await rowFor('Vic')
+    await user.click(vic.getByRole('button', { name: 'Remove' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove this member?' })
+    await user.type(within(dialog).getByLabelText('Reason'), '   ')
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+    expect(await within(dialog).findByText('Enter a reason.')).toBeInTheDocument()
+    expect(deletes).toBe(0)
+  })
+
+  it('shows a refusal inside the reason dialog and keeps it open', async () => {
+    server.use(
+      http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () =>
+        fail('Give a reason of 1 to 500 characters for this change.', 400, 'REASON_REQUIRED')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    const vic = await rowFor('Vic')
+    await user.click(vic.getByRole('button', { name: 'Remove' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove this member?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'x')
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+    expect(
+      await within(dialog).findByText('Give a reason of 1 to 500 characters for this change.')
+    ).toBeInTheDocument()
+  })
+
+  it('asks for a reason after the invite form validates, and sends it with the invitation', async () => {
+    let body: unknown
+    server.use(
+      http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.')),
+      http.post('/api/v1/tenants/acme/invitations', async ({ request }) => {
+        body = await request.json()
+        return ok(null, INVITATION_SENT_MESSAGE, 202)
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+
+    await user.type(await screen.findByLabelText('Email'), 'New@Example.com')
+    await user.click(screen.getByRole('button', { name: 'Invite member' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send this invitation?' })
+    expect(dialog).toHaveTextContent(
+      'new@example.com is invited to this customer tenant as Viewer.'
+    )
+    expect(body).toBeUndefined()
+    await user.type(within(dialog).getByLabelText('Reason'), 'Owner asked by email')
+    await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
+
+    expect(await screen.findByText('Invitation sent to new@example.com.')).toBeInTheDocument()
+    expect(body).toEqual({
+      email: 'new@example.com',
+      role: 'viewer',
+      reason: 'Owner asked by email',
+    })
+    expect(screen.getByLabelText('Email')).toHaveValue('')
+  })
+
+  it('says a racing invite won inside the reason dialog', async () => {
+    server.use(
+      http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.')),
+      http.post('/api/v1/tenants/acme/invitations', () =>
+        fail('An invitation is already pending.', 409, 'invitation_conflict')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await user.type(await screen.findByLabelText('Email'), 'new@example.com')
+    await user.click(screen.getByRole('button', { name: 'Invite member' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send this invitation?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'x')
+    await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
+    expect(
+      await within(dialog).findByText('Someone just invited this address — refresh and try again.')
+    ).toBeInTheDocument()
+  })
+
+  it('asks for a reason before a resend and a revoke, and sends each', async () => {
+    const bodies: Record<string, unknown> = {}
+    let revoked = false
+    server.use(
+      http.get('/api/v1/tenants/acme/invitations', () =>
+        ok(
+          revoked ? [] : [invitation(INVITATION_ID, 'invitee@example.com')],
+          'Invitations retrieved.'
+        )
+      ),
+      http.post('/api/v1/tenants/acme/invitations/:id/resend', async ({ request }) => {
+        bodies.resend = await request.json()
+        return ok(null, INVITATION_SENT_MESSAGE, 202)
+      }),
+      http.delete('/api/v1/tenants/acme/invitations/:id', async ({ request }) => {
+        bodies.revoke = await request.json()
+        revoked = true
+        return ok(null, 'Invitation revoked.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Resend invitation to invitee@example.com' })
+    )
+    const resend = await screen.findByRole('alertdialog', { name: 'Resend this invitation?' })
+    expect(resend).toHaveTextContent(
+      'A new link goes to invitee@example.com; the old one stops working.'
+    )
+    await user.type(within(resend).getByLabelText('Reason'), 'Lost the first mail')
+    await user.click(within(resend).getByRole('button', { name: 'Resend' }))
+    expect(await screen.findByText('Invitation resent to invitee@example.com.')).toBeInTheDocument()
+    expect(bodies.resend).toEqual({ reason: 'Lost the first mail' })
+
+    await user.click(
+      screen.getByRole('button', { name: 'Revoke invitation to invitee@example.com' })
+    )
+    const revoke = await screen.findByRole('alertdialog', { name: 'Revoke this invitation?' })
+    await user.type(within(revoke).getByLabelText('Reason'), 'Sent to the wrong address')
+    await user.click(within(revoke).getByRole('button', { name: 'Revoke' }))
+    expect(
+      await screen.findByText('Invitation to invitee@example.com revoked.')
+    ).toBeInTheDocument()
+    expect(bodies.revoke).toEqual({ reason: 'Sent to the wrong address' })
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Pending invitations' })).toHaveFocus()
+    )
   })
 })

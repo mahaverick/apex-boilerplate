@@ -7,7 +7,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
-import { STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
+import { ReasonDialog, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
 import { Pii } from '@/components/shared/pii'
 import {
   AlertDialog,
@@ -102,12 +102,14 @@ const MEMBERS_ERROR =
  * on it would never open, and Base UI's Tooltip sets no `role="tooltip"`.
  * `isLastOwner` is only true for an owner acting on their own membership,
  * which the predicates always leave as a select, so the explanation always
- * renders when it is needed.
+ * renders when it is needed. Staff acting through platform access (`asStaff`)
+ * pick the role first, then give the audited reason in the reason dialog.
  */
 function RoleCell({
   slug,
   member,
   myRole,
+  asStaff,
   isSelf,
   isLastOwner,
   reasonId,
@@ -115,6 +117,8 @@ function RoleCell({
   slug: string
   member: TenantMember
   myRole: MembershipRole
+  /** Acting through platform access: the change asks for an audited reason first. */
+  asStaff: boolean
   isSelf: boolean
   isLastOwner: boolean
   /** The row's one last-owner explanation, which this cell renders. */
@@ -122,12 +126,21 @@ function RoleCell({
 }) {
   const updateRole = useUpdateMemberRole(slug)
   const stepUp = useStepUp()
+  const [pendingRole, setPendingRole] = useState<MembershipRole | null>(null)
   const targetRole = member.membership.role
   const name = memberName(member)
 
   if (!canChangeRoles(myRole) || !modifyRule(slug)(myRole, targetRole, isSelf)) {
     return <span>{ROLE_LABELS[targetRole]}</span>
   }
+
+  /** Sends the change through step-up and says so; rejects with the API's refusal. */
+  const changeRole = (role: MembershipRole, reason?: string) =>
+    stepUp
+      .run(() => updateRole.mutateAsync({ userId: member.user.id, role, reason }))
+      .then(() => {
+        toast.success(<Pii>{`${name} is now ${ROLE_LABELS[role]}.`}</Pii>)
+      })
 
   return (
     <div className="grid gap-1">
@@ -136,17 +149,13 @@ function RoleCell({
         disabled={isLastOwner || updateRole.isPending}
         onValueChange={(value: string | null) => {
           if (value === null || value === targetRole) return
-          stepUp
-            .run(() =>
-              updateRole.mutateAsync({ userId: member.user.id, role: value as MembershipRole })
-            )
-            .then(
-              () =>
-                toast.success(
-                  <Pii>{`${name} is now ${ROLE_LABELS[value as MembershipRole]}.`}</Pii>
-                ),
-              (error: unknown) => toast.error(messageFrom(error))
-            )
+          if (asStaff) {
+            setPendingRole(value as MembershipRole)
+            return
+          }
+          changeRole(value as MembershipRole).catch((error: unknown) =>
+            toast.error(messageFrom(error))
+          )
         }}
       >
         <SelectTrigger
@@ -171,7 +180,66 @@ function RoleCell({
           {LAST_OWNER_REASON}
         </p>
       )}
+      {asStaff && (
+        <ReasonDialog
+          open={pendingRole !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingRole(null)
+          }}
+          title="Change this member’s role?"
+          description={`${name} becomes ${pendingRole === null ? '' : ROLE_LABELS[pendingRole]} in this customer tenant.`}
+          confirmLabel="Change role"
+          onConfirm={(reason) => changeRole(pendingRole ?? targetRole, reason)}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * Remove, for staff acting on a customer tenant through platform access: the
+ * same words as a member's Remove, behind the reason dialog the API's audited
+ * staff writes use (step-up included). Staff are never a member there, so it
+ * is never Leave.
+ */
+function StaffRemoveMemberButton({
+  slug,
+  member,
+  onRemoved,
+}: {
+  slug: string
+  member: TenantMember
+  /** Called after the removal: the row, and this button, are gone, so the card moves focus. */
+  onRemoved: () => void
+}) {
+  const removeMember = useRemoveMember(slug)
+  const stepUp = useStepUp()
+  const [isOpen, setIsOpen] = useState(false)
+  const name = memberName(member)
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={removeMember.isPending}
+        onClick={() => setIsOpen(true)}
+      >
+        Remove
+      </Button>
+      <ReasonDialog
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        title="Remove this member?"
+        description={`${name} will lose access to this tenant immediately. Pending invitations they sent are revoked.`}
+        confirmLabel="Remove"
+        destructive
+        onConfirm={async (reason) => {
+          await stepUp.run(() => removeMember.mutateAsync({ userId: member.user.id, reason }))
+          toast.success(<Pii>{`${name} removed.`}</Pii>)
+          onRemoved()
+        }}
+      />
+    </>
   )
 }
 
@@ -278,7 +346,7 @@ function RemoveMemberButton({
               setBusy(true)
               setStepUpDismissed(false)
               stepUp
-                .run(() => removeMember.mutateAsync(member.user.id))
+                .run(() => removeMember.mutateAsync({ userId: member.user.id }))
                 .then(
                   () => {
                     setBusy(false)
@@ -320,11 +388,14 @@ function RemoveMemberButton({
  * and `modifyRule(slug)`, a different pair from the role-change gate in
  * `RoleCell`. `reasonId` is one id per row: the last-owner explanation renders
  * once, in the role cell, and every control the guard disables points at it.
+ * Staff acting through platform access (`asStaff`) get the reason-dialog
+ * controls instead.
  */
 function MemberRow({
   slug,
   member,
   myRole,
+  asStaff,
   myUserId,
   owners,
   onRemoved,
@@ -333,6 +404,8 @@ function MemberRow({
   slug: string
   member: TenantMember
   myRole: MembershipRole
+  /** Acting through platform access (`access: 'platform'`): every change asks for a reason. */
+  asStaff: boolean
   myUserId: string | undefined
   owners: number
   onRemoved: () => void
@@ -353,12 +426,15 @@ function MemberRow({
       slug={slug}
       member={member}
       myRole={myRole}
+      asStaff={asStaff}
       isSelf={isSelf}
       isLastOwner={isLastOwner}
       reasonId={reasonId}
     />
   )
-  const remove = canRemove ? (
+  const remove = !canRemove ? null : asStaff ? (
+    <StaffRemoveMemberButton slug={slug} member={member} onRemoved={onRemoved} />
+  ) : (
     <RemoveMemberButton
       slug={slug}
       member={member}
@@ -367,7 +443,7 @@ function MemberRow({
       reasonId={reasonId}
       onRemoved={onRemoved}
     />
-  ) : null
+  )
 
   if (asCard) {
     return (
@@ -433,10 +509,12 @@ export function MembersCard({
   const members = useMembers(slug, tenantId)
   const {
     role: myRole,
+    access,
     isPending: isRolePending,
     isError: isRoleError,
     retry,
   } = useMyRole(slug, tenantId)
+  const asStaff = access === 'platform'
   const myUserId = useAuthStore((state) => state.user?.id)
   const owners = ownerCount(members.data)
   const isMobile = useIsMobile()
@@ -481,6 +559,7 @@ export function MembersCard({
                 slug={slug}
                 member={member}
                 myRole={myRole}
+                asStaff={asStaff}
                 myUserId={myUserId}
                 owners={owners}
                 onRemoved={focusHeading}
@@ -504,6 +583,7 @@ export function MembersCard({
                   slug={slug}
                   member={member}
                   myRole={myRole}
+                  asStaff={asStaff}
                   myUserId={myUserId}
                   owners={owners}
                   onRemoved={focusHeading}

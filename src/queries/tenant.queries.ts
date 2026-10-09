@@ -66,6 +66,26 @@ export interface TenantDetail extends Tenant {
   access: TenantAccess
 }
 
+/**
+ * The audit reason a staff write to a customer tenant carries: the API
+ * requires one (and a recent sign-in) when the caller acts through platform
+ * access, and a member leaves it out. Left `undefined` in a JSON body, it is
+ * not sent at all.
+ */
+export interface StaffReason {
+  reason?: string
+}
+
+/**
+ * A DELETE's request config: the reason as a JSON body (express reads it
+ * there, DELETE included), or no body at all when there is none.
+ * @param reason - The staff reason, or `undefined` for a member.
+ * @returns The axios config, or `undefined`.
+ */
+function reasonBody(reason: string | undefined): { data: { reason: string } } | undefined {
+  return reason === undefined ? undefined : { data: { reason } }
+}
+
 /** The id segment an Apex tenant page adds to its keys; nothing for the Staff and Activity pages. */
 function scope(tenantId: string | undefined): [] | [{ tenantId: string }] {
   return tenantId === undefined ? [] : [{ tenantId }]
@@ -178,12 +198,12 @@ export function useInvitations(slug: string, tenantId?: string) {
  * Answers 202 with `data: null` whether or not the address has an account,
  * so a success never says whether one exists. Refusals still differ: 409
  * `already_member` or `invitation_conflict`, 403 for a role the caller can't
- * grant, 400 for an invalid body.
+ * grant, 400 for an invalid body. `reason` goes only under platform access.
  */
 export function useInviteMember(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: InviteMemberInput) =>
+    mutationFn: async (input: InviteMemberInput & StaffReason) =>
       unwrap(await apiClient.post<ApiSuccess<null>>(`/tenants/${slug}/invitations`, input)),
     /** A conflict means another invite for this address just landed, so the list is stale; a success also mailed someone and added an entry to both audit logs. */
     onSettled: async (_data, error) => {
@@ -202,14 +222,15 @@ export function useInviteMember(slug: string, tenantId?: string) {
   })
 }
 
-/** A new link and a fresh expiry; the old link stops working. */
+/** A new link and a fresh expiry; the old link stops working. `reason` goes only under platform access. */
 export function useResendInvitation(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (invitationId: string) =>
+    mutationFn: async ({ invitationId, reason }: { invitationId: string } & StaffReason) =>
       unwrap(
         await apiClient.post<ApiSuccess<null>>(
-          `/tenants/${slug}/invitations/${invitationId}/resend`
+          `/tenants/${slug}/invitations/${invitationId}/resend`,
+          reason === undefined ? undefined : { reason }
         )
       ),
     /**
@@ -228,13 +249,16 @@ export function useResendInvitation(slug: string, tenantId?: string) {
   })
 }
 
-/** Revokes a pending invitation; its link stops working. */
+/** Revokes a pending invitation; its link stops working. `reason` goes only under platform access, in the body. */
 export function useRevokeInvitation(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (invitationId: string) =>
+    mutationFn: async ({ invitationId, reason }: { invitationId: string } & StaffReason) =>
       unwrap(
-        await apiClient.delete<ApiSuccess<null>>(`/tenants/${slug}/invitations/${invitationId}`)
+        await apiClient.delete<ApiSuccess<null>>(
+          `/tenants/${slug}/invitations/${invitationId}`,
+          reasonBody(reason)
+        )
       ),
     /** Settled, not success: a 404 means the row is no longer pending, so the list is stale. */
     onSettled: () =>
@@ -246,15 +270,21 @@ export function useRevokeInvitation(slug: string, tenantId?: string) {
  * Changes a member's role. The staff directory refreshes: the member list and
  * the tenant's detail (the caller may have changed their own role, which it
  * carries), the member's user page and the tenant's owners. A self change in
- * the platform tenant also refreshes the stored user's platformRole.
+ * the platform tenant also refreshes the stored user's platformRole. `reason`
+ * goes only under platform access.
  */
 export function useUpdateMemberRole(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: MembershipRole }) =>
+    mutationFn: async ({
+      userId,
+      role,
+      reason,
+    }: { userId: string; role: MembershipRole } & StaffReason) =>
       unwrap(
         await apiClient.patch<ApiSuccess<TenantMembership>>(`/tenants/${slug}/members/${userId}`, {
           role,
+          reason,
         })
       ),
     onSuccess: async (_data, { userId }) => {
@@ -271,14 +301,15 @@ export function useUpdateMemberRole(slug: string) {
  * rather than refetching queries a former member cannot read, and a self
  * removal from the platform tenant refreshes the stored user's platformRole.
  * Either way the rest of the staff directory refreshes (the member's user
- * page, the tenant's owners).
+ * page, the tenant's owners). `reason` goes only under platform access, in
+ * the body.
  */
 export function useRemoveMember(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (userId: string) =>
-      apiClient.delete<ApiSuccess<null>>(`/tenants/${slug}/members/${userId}`),
-    onSuccess: async (_data, userId) => {
+    mutationFn: async ({ userId, reason }: { userId: string } & StaffReason) =>
+      apiClient.delete<ApiSuccess<null>>(`/tenants/${slug}/members/${userId}`, reasonBody(reason)),
+    onSuccess: async (_data, { userId }) => {
       const isSelf = userId === useAuthStore.getState().user?.id
       if (isSelf) queryClient.removeQueries({ queryKey: ['tenants', slug] })
       await invalidateDirectory(queryClient)

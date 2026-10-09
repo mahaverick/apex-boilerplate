@@ -1455,9 +1455,8 @@ describe('open overlays', () => {
     await user.click(
       await screen.findByRole('button', { name: `Revoke invitation to ${testInvitation.email}` })
     )
-    await screen.findByRole('alertdialog', {
-      name: `Revoke the invitation to ${testInvitation.email}?`,
-    })
+    // Staff on a customer tenant act through platform access, so Revoke asks for a reason.
+    await screen.findByRole('alertdialog', { name: 'Revoke this invitation?' })
     await expectNoViolations()
   })
 
