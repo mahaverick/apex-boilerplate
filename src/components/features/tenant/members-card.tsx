@@ -245,9 +245,10 @@ function RemoveMemberButton({
             ) : slug === PLATFORM_TENANT_SLUG ? (
               <>
                 <Pii>
-                  {name} loses staff access immediately. If their address is on an auto-join domain
-                  (PLATFORM_EMAIL_DOMAINS), they rejoin as a viewer at their next sign-in:
-                  deactivate their account from Users to offboard them.
+                  {name} loses staff access immediately. Pending invitations they sent are revoked.
+                  If their address is on an auto-join domain (PLATFORM_EMAIL_DOMAINS), they rejoin
+                  as a viewer at their next sign-in: deactivate their account from Users to offboard
+                  them.
                 </Pii>{' '}
                 <Link
                   to={ROUTES.user}
@@ -258,7 +259,7 @@ function RemoveMemberButton({
                 </Link>
               </>
             ) : (
-              <Pii>{`${name} will lose access to this tenant immediately.`}</Pii>
+              <Pii>{`${name} will lose access to this tenant immediately. Pending invitations they sent are revoked.`}</Pii>
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>

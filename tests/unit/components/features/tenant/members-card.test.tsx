@@ -474,7 +474,9 @@ describe('removing and leaving', () => {
     const vic = await rowFor('Vic')
     await user.click(vic.getByRole('button', { name: 'Remove' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Remove Vic X?' })
-    expect(dialog).toHaveTextContent('Vic X will lose access to this tenant immediately.')
+    expect(dialog).toHaveTextContent(
+      'Vic X will lose access to this tenant immediately. Pending invitations they sent are revoked.'
+    )
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
     expect(await screen.findByText('Vic X removed.')).toBeInTheDocument()
