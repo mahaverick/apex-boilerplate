@@ -151,21 +151,34 @@ const MAINTENANCE_TONES: Record<MaintenanceMode, BadgeTone> = {
 }
 
 /**
+ * Whether `iso` is less than `MAINTENANCE_PAUSE_SETTLE_MS` before `now`.
+ * @param iso - An instant, or null for none.
+ * @param now - When the status was fetched, in epoch milliseconds.
+ * @returns False for null.
+ */
+function isSettling(iso: string | null | undefined, now: number): boolean {
+  return (
+    iso !== null && iso !== undefined && now - new Date(iso).getTime() < MAINTENANCE_PAUSE_SETTLE_MS
+  )
+}
+
+/**
  * Whether maintenance mode needs a look: the replica has not read the state,
  * the last reload failed, the queues' pause state disagrees with the mode
- * (full pauses every queue once `MAINTENANCE_PAUSE_SETTLE_MS` has passed;
- * anything else pauses none; a queue Redis did not answer for matches
- * neither), or change notices are still waiting once the same settle window
- * has passed (they are held until the queues pause and resume). Being in
- * maintenance is not itself a warning.
+ * (full pauses every queue once `MAINTENANCE_PAUSE_SETTLE_MS` has passed
+ * since `since`; anything else pauses none; a queue Redis did not answer for
+ * matches neither), or change notices are still waiting once the same settle
+ * window has passed since the last change (`changedAt`, which a switch-off
+ * also sets, or `since` from an express without it; the notices are held
+ * until the queues pause and resume). Being in maintenance is not itself a
+ * warning.
  * @param maintenance - The status's maintenance section.
  * @param now - When the status was fetched, in epoch milliseconds.
  * @returns True when the card should warn.
  */
 function maintenanceNeedsAttention(maintenance: MaintenanceModeStatus, now: number): boolean {
-  const settling =
-    maintenance.since !== null &&
-    now - new Date(maintenance.since).getTime() < MAINTENANCE_PAUSE_SETTLE_MS
+  const settling = isSettling(maintenance.since, now)
+  const noticesSettling = settling || isSettling(maintenance.changedAt, now)
   const queuesMatch =
     maintenance.mode === 'full'
       ? maintenance.queuesPaused || settling
@@ -174,7 +187,7 @@ function maintenanceNeedsAttention(maintenance: MaintenanceModeStatus, now: numb
     !maintenance.known ||
     maintenance.lastReloadError !== null ||
     !queuesMatch ||
-    (maintenance.noticesPending && !settling)
+    (maintenance.noticesPending && !noticesSettling)
   )
 }
 

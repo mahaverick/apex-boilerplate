@@ -675,6 +675,29 @@ describe('the system status card’s maintenance mode', () => {
     expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
   })
 
+  it('does not warn about notices a switch-off two seconds ago is still sending', async () => {
+    // What express answers right after a switch-off: off, no since, the switch-off notices queued, and the change time.
+    serveMaintenance({
+      noticesPending: true,
+      changedAt: new Date(Date.now() - 2000).toISOString(),
+    })
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(section.getByText('Off')).toBeInTheDocument()
+    expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
+    expect(section.getByText('Change notices have not been sent yet')).toBeInTheDocument()
+  })
+
+  it('warns about notices still waiting 31 s after a switch-off', async () => {
+    serveMaintenance({
+      noticesPending: true,
+      changedAt: new Date(Date.now() - 31_000).toISOString(),
+    })
+    renderAppAt('/overview')
+    const section = await maintenanceSection()
+    expect(section.getByText('Needs attention')).toBeInTheDocument()
+  })
+
   it('says notices have not been sent yet when the queues are not paused', async () => {
     serveMaintenance({ noticesPending: true })
     renderAppAt('/overview')

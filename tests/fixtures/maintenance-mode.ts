@@ -63,7 +63,7 @@ export function fullMaintenanceView(
 
 /**
  * The status card's section: off (no `since`, as express sends it), known,
- * every queue running.
+ * every queue running, never changed.
  * @param overrides - Fields to replace.
  * @returns The section.
  */
@@ -78,6 +78,7 @@ export function maintenanceStatus(
     queues: RUNNING_QUEUES,
     noticesPending: false,
     lastReloadError: null,
+    changedAt: null,
     ...overrides,
   }
 }

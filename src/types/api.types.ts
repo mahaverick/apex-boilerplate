@@ -1163,6 +1163,12 @@ export interface MaintenanceModeStatus {
   /** Change notices still queued, held back by paused queues; they go out on resume. */
   noticesPending: boolean
   lastReloadError: string | null
+  /**
+   * The last mode change (a message or reason edit leaves it), switch-offs
+   * included (`since` is null while off); null only while express has never
+   * read the row. Absent from an express that predates it.
+   */
+  changedAt?: string | null
 }
 
 /**
