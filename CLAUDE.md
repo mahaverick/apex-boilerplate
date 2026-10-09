@@ -384,6 +384,18 @@ hand-written one stays out.
 - Parse before posting. TanStack hands `onSubmit` the raw form state, so a
   schema's `.trim()`/`.toLowerCase()` only reaches the wire if the value is
   parsed on the way out.
+- **Edit forms send only the fields that changed** (`useChangedFields` in
+  `src/hooks/use-changed-fields.ts`; the profile, tenant details and edit user
+  name forms). A stored value that today's rules refuse must not block saving
+  other fields, so parsing the whole form with the full schema is the wrong
+  habit here. Pass `baseline` as `defaultValues`, `changes` as
+  `validators.onSubmit` and `listeners` as the form's listeners; post
+  `changedBody(value)` unless it is `null`, and call `rebase(value)` after a
+  successful save. While the form is pristine the baseline follows refetches;
+  it freezes on the first edit, blur or save attempt; it moves only on
+  `rebase`. A save with no changes posts nothing and shows the form-level
+  message ("Change a field before saving.", "Change a name before saving." on
+  profile and edit user name), which clears when a field changes.
 - **`<Form>`'s server-error clearing covers native inputs only.** It listens for
   a change event that bubbles out of the form element. A Base UI `Select` does
   not emit one, so a form with a Select must call `serverErrors.clearField()`
