@@ -183,3 +183,30 @@ test('⌘K finds a user and choosing them opens their page', async ({ page }) =>
 
   await expect(page.getByRole('heading', { name: 'Cleo D', level: 1 })).toBeVisible()
 })
+
+test('lets a member leave a tenant from their own row, then lands on the Tenants list', async ({
+  page,
+}) => {
+  await page.goto(`/e2e/harness/?path=${ACME_PAGE}/members&member=viewer`)
+  await page.getByRole('row', { name: /A B/ }).getByRole('button', { name: 'Leave' }).click()
+
+  const dialog = page.getByRole('alertdialog', { name: 'Leave this tenant?' })
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Leave' }).click()
+
+  await expect(page.getByText('You left this tenant.')).toBeVisible()
+  await expect(page).toHaveURL(/\/tenants(\?|$)/)
+})
+
+test('keeps a member’s Leave and its dialog on-screen at 390px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`/e2e/harness/?path=${ACME_PAGE}/members&member=owner`)
+  const leave = page.getByRole('button', { name: 'Leave' })
+  await expect(leave).toBeInViewport()
+  await leave.click()
+
+  const dialog = page.getByRole('alertdialog', { name: 'Leave this tenant?' })
+  await expect(dialog).toContainText('Pending invitations you sent are revoked.')
+  await expect(dialog.getByRole('button', { name: 'Leave' })).toBeInViewport()
+  expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0)
+})

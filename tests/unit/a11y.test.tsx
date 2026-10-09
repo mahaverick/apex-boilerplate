@@ -1416,7 +1416,7 @@ describe('open overlays', () => {
   })
 
   it('has no violations with the leave dialog open', async () => {
-    // Leave is an owner's own action, offered only while another owner remains.
+    // Leave is any member's own action; an owner gets it only while another owner remains.
     serveTenant('active')
     server.use(
       http.get('/api/v1/tenants/acme', () =>

@@ -1,13 +1,13 @@
 /**
- * @file A tenant's member and invitation writes, apart from the reads in
- * `tenant.queries.ts`, which the first visit loads: only the members and
- * invitations screens, lazy routes' components, write.
+ * @file A tenant's member and invitation writes, leaving included, apart
+ * from the reads in `tenant.queries.ts`, which the first visit loads: only
+ * the members and invitations screens, lazy routes' components, write.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import type { MembershipRole } from '@/constants/roles'
 import { PLATFORM_TENANT_SLUG } from '@/constants/routes'
 import { apiClient, unwrap } from '@/http/client'
-import { codeFrom } from '@/lib/api-error'
+import { codeFrom, statusFrom } from '@/lib/api-error'
 import { auditKeys } from '@/queries/audit.queries'
 import { invalidateEmails } from '@/queries/email.queries'
 import { invalidateDirectory } from '@/queries/platform.queries'
@@ -140,25 +140,55 @@ export function useUpdateMemberRole(slug: string) {
 }
 
 /**
- * Removes a member. Removing yourself drops the tenant's whole cache prefix
- * rather than refetching queries a former member cannot read, and a self
- * removal from the platform tenant refreshes the stored user's platformRole.
- * Either way the rest of the staff directory refreshes (the member's user
- * page, the tenant's owners). `reason` goes only under platform access, in
- * the body.
+ * Removes another member; the rest of the staff directory refreshes (the
+ * member's user page, the tenant's owners). Leaving, which removes yourself,
+ * is `useLeaveTenant`. `reason` goes only under platform access, in the body.
  */
 export function useRemoveMember(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ userId, reason }: { userId: string } & StaffReason) =>
       apiClient.delete<ApiSuccess<null>>(`/tenants/${slug}/members/${userId}`, reasonBody(reason)),
-    onSuccess: async (_data, { userId }) => {
-      const isSelf = userId === useAuthStore.getState().user?.id
-      if (isSelf) queryClient.removeQueries({ queryKey: ['tenants', slug] })
-      await invalidateDirectory(queryClient)
-      if (isSelf && slug === PLATFORM_TENANT_SLUG) {
-        await refreshProfile(queryClient)
+    onSuccess: () => invalidateDirectory(queryClient),
+  })
+}
+
+/**
+ * Leaves a tenant: `DELETE /tenants/:slug/membership`, open to every role but
+ * the tenant's last owner (409 `LAST_OWNER`). On success, or on a 404 (the
+ * membership was already gone), the staff directory refreshes, all but the
+ * tenant left, which is only marked stale: its routes now answer 404, and a
+ * still-mounted page would refetch them. Leaving the platform tenant also
+ * refreshes the stored user's platformRole. A 409 refetches the member list,
+ * since another owner changed under the page. The page drops the tenant's
+ * cache with `dropTenantCache` once it has left the tenant's routes.
+ */
+export function useLeaveTenant(slug: string) {
+  const queryClient = useQueryClient()
+  const afterLeaving = async () => {
+    await invalidateDirectory(queryClient, undefined, tenantKeys.detail(slug))
+    if (slug === PLATFORM_TENANT_SLUG) await refreshProfile(queryClient)
+  }
+  return useMutation({
+    mutationFn: async () => apiClient.delete<ApiSuccess<null>>(`/tenants/${slug}/membership`),
+    onSuccess: afterLeaving,
+    onError: async (error) => {
+      const status = statusFrom(error)
+      if (status === 404) await afterLeaving()
+      else if (status === 409) {
+        await queryClient.invalidateQueries({ queryKey: tenantKeys.members(slug) })
       }
     },
   })
+}
+
+/**
+ * Drops a tenant's whole cache prefix (detail, members, invitations), for a
+ * tenant the caller can no longer read. Call it after navigating away from
+ * the tenant's routes, so no mounted query refetches what it drops.
+ * @param queryClient - The app's query client.
+ * @param slug - The tenant left.
+ */
+export function dropTenantCache(queryClient: QueryClient, slug: string): void {
+  queryClient.removeQueries({ queryKey: tenantKeys.detail(slug) })
 }

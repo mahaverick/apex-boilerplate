@@ -90,6 +90,21 @@ const platformRole =
         ? ('owner' as const)
         : ('admin' as const)
 
+/**
+ * `?member=owner|admin|manager|editor|viewer` makes the harness user a member
+ * of Acme at that role, with Cleo D its owner, so the members tab offers
+ * Leave on their own row; otherwise they reach Acme through platform access.
+ */
+const memberParam = new URLSearchParams(location.search).get('member')
+const acmeRole =
+  memberParam === 'owner' ||
+  memberParam === 'admin' ||
+  memberParam === 'manager' ||
+  memberParam === 'editor' ||
+  memberParam === 'viewer'
+    ? memberParam
+    : null
+
 const testUser = {
   id: USER_ID,
   email: 'a@b.com',
@@ -1288,21 +1303,26 @@ const worker = setupWorker(
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
         isPlatform: false,
-        role: 'admin',
-        access: 'platform',
+        role: acmeRole ?? 'admin',
+        access: acmeRole ? 'member' : 'platform',
       },
       'Tenant retrieved.'
     )
   ),
   http.get('/api/v1/tenants/acme/members', () =>
     ok(
-      MEMBERS.map((member) => ({
+      MEMBERS.map((member, index) => ({
         ...member,
-        membership: { ...member.membership, tenantId: TENANT_ID },
+        membership: {
+          ...member.membership,
+          tenantId: TENANT_ID,
+          ...(acmeRole ? { role: index === 0 ? acmeRole : 'owner' } : {}),
+        },
       })),
       'Members retrieved.'
     )
   ),
+  http.delete('/api/v1/tenants/:slug/membership', () => ok(null, 'You left the tenant.')),
   http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.')),
   http.get('/api/v1/tenants/acme/audit-log', () =>
     ok(

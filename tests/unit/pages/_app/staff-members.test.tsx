@@ -168,10 +168,56 @@ describe('/staff with the real sections', () => {
     expect(calls).toBe(2)
   })
 
+  it('lets a staff viewer leave the platform tenant too', async () => {
+    serveStaff('viewer', 'owner')
+    let left = 0
+    server.use(
+      http.delete('/api/v1/tenants/platform/membership', () => {
+        left += 1
+        return ok(null, 'You left the tenant.')
+      })
+    )
+    const user = userEvent.setup()
+    const router = renderAppAt('/staff')
+    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/overview'))
+    expect(left).toBe(1)
+  })
+
+  it('asks who you are before a stale leave of the platform tenant, then leaves', async () => {
+    serveStaff('owner', 'owner')
+    let calls = 0
+    server.use(
+      http.delete('/api/v1/tenants/platform/membership', () => {
+        calls += 1
+        return calls === 1
+          ? fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
+          : ok(null, 'You left the tenant.')
+      }),
+      http.post('/api/v1/auth/reauthenticate', () =>
+        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
+      )
+    )
+    const user = userEvent.setup()
+    const router = renderAppAt('/staff')
+    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
+
+    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+    await user.type(within(stepUp).getByLabelText('Password'), 'zqS7-leave-staff')
+    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/overview'))
+    expect(calls).toBe(2)
+  })
+
   it('goes to the overview after leaving the platform tenant', async () => {
     serveStaff('owner', 'owner')
     server.use(
-      http.delete(`/api/v1/tenants/platform/members/${USER_ID}`, () => ok(null, 'Member removed.'))
+      http.delete('/api/v1/tenants/platform/membership', () => ok(null, 'You left the tenant.'))
     )
     const user = userEvent.setup()
     const router = renderAppAt('/staff')

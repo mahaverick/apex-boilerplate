@@ -3,6 +3,7 @@
  * by slug so the Staff page reuses it for the platform tenant. Its states: an
  * error per failed request, a skeleton, empty, cards on a phone, otherwise the table.
  */
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -52,9 +53,14 @@ import { PLATFORM_TENANT_SLUG, ROUTES } from '@/constants/routes'
 import { useFocusAfter } from '@/hooks/use-focus-after'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useStepUp } from '@/hooks/use-step-up'
-import { messageFrom } from '@/lib/api-error'
+import { messageFrom, statusFrom } from '@/lib/api-error'
 import { isReauthRequired } from '@/lib/step-up'
-import { useRemoveMember, useUpdateMemberRole } from '@/queries/tenant-writes.queries'
+import {
+  dropTenantCache,
+  useLeaveTenant,
+  useRemoveMember,
+  useUpdateMemberRole,
+} from '@/queries/tenant-writes.queries'
 import {
   memberName,
   ownerCount,
@@ -75,6 +81,16 @@ function modifyRule(slug: string) {
       ? canPlatformActorModifyTarget(actor, target, false)
       : canActorModifyTarget(actor, target, isSelf)
 }
+
+/** What the Leave dialog says, for every role. */
+const LEAVE_WARNING =
+  'You will lose access to this tenant immediately. An owner or admin will have to invite you back.'
+
+/** Added for an owner or admin, the roles that can have sent invitations: leaving revokes them. */
+const INVITATIONS_REVOKED_ON_LEAVE = 'Pending invitations you sent are revoked.'
+
+/** What a leave says when the API answers 404: the membership was already gone. */
+const NO_LONGER_A_MEMBER = 'You are no longer a member of this tenant.'
 
 /** The reason the last owner's own controls are switched off. */
 const LAST_OWNER_REASON = 'A tenant must always have an owner. Add another owner first.'
@@ -243,17 +259,24 @@ function StaffRemoveMemberButton({
 }
 
 /**
- * The Remove control, or Leave on your own row, behind a confirm dialog. For
- * the last owner it is a disabled Leave button described by the row's
- * explanation in `RoleCell` (`isLastOwner` implies `isSelf`). After leaving,
- * the page navigates away, because the tenant's routes answer 404 to a caller
- * with neither a membership nor a platform role: to Overview from the platform
- * tenant, to the Tenants list from any other. A dismissed step-up removes no
- * one, so the dialog stays open and says so, ready to be confirmed again.
+ * The Remove control, or Leave on your own row, behind a confirm dialog.
+ * Remove goes through the members route; Leave, which every role has, through
+ * the caller's own membership route (`useLeaveTenant`). For the last owner it
+ * is a disabled Leave button described by the row's explanation in `RoleCell`
+ * (`isLastOwner` implies `isSelf`). An owner or admin leaving is told the
+ * invitations they sent are revoked, as the server does. After leaving, or
+ * when the API answers 404 because the membership was already gone, the page
+ * navigates away, because the tenant's routes answer 404 to a caller with
+ * neither a membership nor a platform role: to Overview from the platform
+ * tenant, to the Tenants list from any other. Only then does it drop the
+ * tenant's cache, so no query still mounted on the tenant refetches it. A
+ * dismissed step-up removes no one, so the dialog stays open and says so,
+ * ready to be confirmed again.
  */
 function RemoveMemberButton({
   slug,
   member,
+  myRole,
   isSelf,
   isLastOwner,
   reasonId,
@@ -261,6 +284,7 @@ function RemoveMemberButton({
 }: {
   slug: string
   member: TenantMember
+  myRole: MembershipRole
   isSelf: boolean
   isLastOwner: boolean
   /** The row's one last-owner explanation, rendered by `RoleCell`. */
@@ -269,12 +293,24 @@ function RemoveMemberButton({
   onRemoved: () => void
 }) {
   const removeMember = useRemoveMember(slug)
+  const leaveTenant = useLeaveTenant(slug)
+  const queryClient = useQueryClient()
   const stepUp = useStepUp()
   const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [stepUpDismissed, setStepUpDismissed] = useState(false)
   const name = memberName(member)
+  const isPending = isSelf ? leaveTenant.isPending : removeMember.isPending
+
+  /** Says so, leaves the tenant's routes, and only then forgets the tenant. */
+  async function leaveTheTenant(message: string) {
+    setIsOpen(false)
+    toast.success(message)
+    // Leaving the platform tenant ends staff access; Overview's guard then shows /no-access.
+    await navigate({ to: slug === PLATFORM_TENANT_SLUG ? ROUTES.overview : ROUTES.tenants })
+    dropTenantCache(queryClient, slug)
+  }
 
   if (isLastOwner) {
     return (
@@ -296,7 +332,7 @@ function RemoveMemberButton({
     >
       <AlertDialogTrigger
         render={
-          <Button variant="outline" size="sm" disabled={removeMember.isPending}>
+          <Button variant="outline" size="sm" disabled={isPending}>
             {isSelf ? 'Leave' : 'Remove'}
           </Button>
         }
@@ -308,7 +344,10 @@ function RemoveMemberButton({
           </AlertDialogTitle>
           <AlertDialogDescription>
             {isSelf ? (
-              'You will lose access to this tenant immediately. An owner or admin will have to invite you back.'
+              <>
+                {LEAVE_WARNING}
+                {canManageTenant(myRole) && ` ${INVITATIONS_REVOKED_ON_LEAVE}`}
+              </>
             ) : slug === PLATFORM_TENANT_SLUG ? (
               <>
                 <Pii>
@@ -345,26 +384,30 @@ function RemoveMemberButton({
               setBusy(true)
               setStepUpDismissed(false)
               stepUp
-                .run(() => removeMember.mutateAsync({ userId: member.user.id }))
+                .run(() =>
+                  isSelf
+                    ? leaveTenant.mutateAsync()
+                    : removeMember.mutateAsync({ userId: member.user.id })
+                )
                 .then(
                   () => {
                     setBusy(false)
-                    setIsOpen(false)
-                    toast.success(
-                      isSelf ? 'You left this tenant.' : <Pii>{`${name} removed.`}</Pii>
-                    )
-                    if (!isSelf) onRemoved()
-                    // Leaving the platform tenant ends staff access; Overview's guard then shows /no-access.
                     if (isSelf) {
-                      void navigate({
-                        to: slug === PLATFORM_TENANT_SLUG ? ROUTES.overview : ROUTES.tenants,
-                      })
+                      void leaveTheTenant('You left this tenant.')
+                      return
                     }
+                    setIsOpen(false)
+                    toast.success(<Pii>{`${name} removed.`}</Pii>)
+                    onRemoved()
                   },
                   (error: unknown) => {
                     setBusy(false)
                     if (isReauthRequired(error)) {
                       setStepUpDismissed(true)
+                      return
+                    }
+                    if (isSelf && statusFrom(error) === 404) {
+                      void leaveTheTenant(NO_LONGER_A_MEMBER)
                       return
                     }
                     setIsOpen(false)
@@ -382,13 +425,14 @@ function RemoveMemberButton({
 }
 
 /**
- * One member, as a table row or, with `asCard`, a stacked card. Removal needs
- * `canManageTenant` (owner or admin, as the DELETE members route requires)
- * and `modifyRule(slug)`, a different pair from the role-change gate in
- * `RoleCell`. `reasonId` is one id per row: the last-owner explanation renders
- * once, in the role cell, and every control the guard disables points at it.
- * Staff acting through platform access (`asStaff`) get the reason-dialog
- * controls instead.
+ * One member, as a table row or, with `asCard`, a stacked card. Removing
+ * someone else needs `canManageTenant` (owner or admin, as the DELETE members
+ * route requires) and `modifyRule(slug)`, a different pair from the
+ * role-change gate in `RoleCell`; a member's own row always offers Leave.
+ * `reasonId` is one id per row: the last-owner explanation renders once, in
+ * the role cell, and every control the guard disables points at it. Staff
+ * acting through platform access (`asStaff`) get the reason-dialog Remove
+ * instead, and no Leave: they hold no membership there to leave.
  */
 function MemberRow({
   slug,
@@ -417,7 +461,9 @@ function MemberRow({
   const targetRole = member.membership.role
   const isSelf = member.user.id === myUserId
   const isLastOwner = isLastOwnerBlocked({ targetRole, isSelf, ownerCount: owners })
-  const canRemove = canManageTenant(myRole) && modifyRule(slug)(myRole, targetRole, isSelf)
+  const canLeave = isSelf && !asStaff
+  const canRemove =
+    canLeave || (canManageTenant(myRole) && modifyRule(slug)(myRole, targetRole, isSelf))
   const reasonId = `last-owner-${member.membership.id}`
 
   const role = (
@@ -437,6 +483,7 @@ function MemberRow({
     <RemoveMemberButton
       slug={slug}
       member={member}
+      myRole={myRole}
       isSelf={isSelf}
       isLastOwner={isLastOwner}
       reasonId={reasonId}

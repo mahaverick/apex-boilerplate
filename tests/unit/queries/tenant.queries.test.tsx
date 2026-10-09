@@ -7,7 +7,9 @@ import { resetSessionForTests } from '@/http/session'
 import { auditKeys } from '@/queries/audit.queries'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import {
+  dropTenantCache,
   useInviteMember,
+  useLeaveTenant,
   useRemoveMember,
   useResendInvitation,
   useRevokeInvitation,
@@ -24,7 +26,7 @@ import {
   USER_ID,
   USER_ID_2,
 } from '@/tests/fixtures/ids'
-import { ok, testUser } from '@/tests/mocks/handlers'
+import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
 const member: TenantMember = {
@@ -117,6 +119,114 @@ describe('member writes', () => {
     for (const key of DIRECTORY_KEYS) {
       expect(client.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(true)
     }
+  })
+})
+
+describe('useLeaveTenant', () => {
+  let client: QueryClient
+
+  function wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  }
+
+  /** A cache the staff directory refresh reaches, outside the tenant left. */
+  const DIRECTORY_KEY = userAdminKeys.detail(USER_ID_2)
+  const LAST_OWNER = 'You are the last owner: make someone else an owner before you leave.'
+
+  beforeEach(() => {
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    resetSessionForTests()
+    useAuthStore.setState({ accessToken: 'access-token', user: testUser, isAuthenticated: true })
+    client.setQueryData(DIRECTORY_KEY, {})
+    client.setQueryData(tenantKeys.detail('acme', TENANT_ID), { id: TENANT_ID })
+    client.setQueryData(tenantKeys.members('acme', TENANT_ID), [member])
+  })
+
+  it('leaves through the self-leave route, with no body, and refreshes the directory', async () => {
+    let sent: { path: string; contentType: string | null; body: string } | null = null
+    server.use(
+      http.delete('/api/v1/tenants/:slug/membership', async ({ request }) => {
+        sent = {
+          path: new URL(request.url).pathname,
+          contentType: request.headers.get('content-type'),
+          body: await request.text(),
+        }
+        return ok(null, 'You left the tenant.')
+      })
+    )
+    const { result } = renderHook(() => useLeaveTenant('acme'), { wrapper })
+    result.current.mutate()
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(sent).toEqual({ path: '/api/v1/tenants/acme/membership', contentType: null, body: '' })
+    expect(client.getQueryState(DIRECTORY_KEY)?.isInvalidated).toBe(true)
+    // The page drops the tenant's cache once it has left the tenant's routes (`dropTenantCache`).
+    expect(client.getQueryState(tenantKeys.detail('acme', TENANT_ID))?.data).toEqual({
+      id: TENANT_ID,
+    })
+  })
+
+  it('refetches the member list, and nothing else, when leaving is refused with a 409', async () => {
+    server.use(
+      http.delete('/api/v1/tenants/acme/membership', () => fail(LAST_OWNER, 409, 'LAST_OWNER'))
+    )
+    const { result } = renderHook(() => useLeaveTenant('acme'), { wrapper })
+    result.current.mutate()
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(client.getQueryState(tenantKeys.members('acme', TENANT_ID))?.isInvalidated).toBe(true)
+    expect(client.getQueryState(DIRECTORY_KEY)?.isInvalidated).toBe(false)
+  })
+
+  it('refreshes the directory when the membership was already gone (404)', async () => {
+    server.use(http.delete('/api/v1/tenants/acme/membership', () => fail('Tenant not found', 404)))
+    const { result } = renderHook(() => useLeaveTenant('acme'), { wrapper })
+    result.current.mutate()
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(client.getQueryState(DIRECTORY_KEY)?.isInvalidated).toBe(true)
+  })
+
+  it('refreshes the stored platform role after leaving the platform tenant, or finding it gone', async () => {
+    for (const answer of [
+      () => ok(null, 'You left the tenant.'),
+      () => fail('Tenant not found', 404),
+    ]) {
+      useAuthStore.setState({ user: { ...testUser, platformRole: 'viewer' } })
+      server.use(
+        http.delete('/api/v1/tenants/platform/membership', answer),
+        http.get('/api/v1/profile', () => ok({ ...testUser, platformRole: null }, 'Profile.'))
+      )
+      const { result } = renderHook(() => useLeaveTenant('platform'), { wrapper })
+      result.current.mutate()
+
+      await waitFor(() => expect(result.current.isIdle).toBe(false))
+      await waitFor(() => expect(useAuthStore.getState().user?.platformRole).toBeNull())
+    }
+  })
+
+  it('does not ask for the profile after leaving any other tenant', async () => {
+    let profileCalls = 0
+    server.use(
+      http.delete('/api/v1/tenants/acme/membership', () => ok(null, 'You left the tenant.')),
+      http.get('/api/v1/profile', () => {
+        profileCalls += 1
+        return ok(testUser, 'Profile.')
+      })
+    )
+    const { result } = renderHook(() => useLeaveTenant('acme'), { wrapper })
+    result.current.mutate()
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(profileCalls).toBe(0)
+  })
+
+  it('drops the whole tenant cache prefix with dropTenantCache, and nothing else', () => {
+    dropTenantCache(client, 'acme')
+
+    expect(client.getQueryState(tenantKeys.detail('acme', TENANT_ID))).toBeUndefined()
+    expect(client.getQueryState(tenantKeys.members('acme', TENANT_ID))).toBeUndefined()
+    expect(client.getQueryState(DIRECTORY_KEY)?.data).toEqual({})
   })
 })
 
