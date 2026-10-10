@@ -43,7 +43,7 @@ declare module 'axios' {
  * `json` opts out, and an empty body under a non-JSON content-type passes as
  * a no-content response.
  */
-export function rejectMalformedJsonResponse(response: AxiosResponse): AxiosResponse {
+function rejectMalformedJsonResponse(response: AxiosResponse): AxiosResponse {
   const responseType = response.config.responseType
   if (responseType && responseType !== 'json') return response
 
@@ -88,7 +88,7 @@ function isApiRequest(client: AxiosInstance, config: InternalAxiosRequestConfig)
  * PostHog's person is the one making the request (anonymous, or the signed-in user),
  * so the server's span and its analytics events join the browser's replay.
  */
-export function addTraceHeaders(
+function addTraceHeaders(
   client: AxiosInstance,
   config: InternalAxiosRequestConfig
 ): InternalAxiosRequestConfig {

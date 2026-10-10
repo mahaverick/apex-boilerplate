@@ -60,7 +60,7 @@ export interface TenantMember {
  * how they reached it. A member's role wins over any platform role, so
  * `access: 'platform'` only appears in a tenant the caller is not in.
  */
-export interface TenantDetail extends Tenant {
+interface TenantDetail extends Tenant {
   role: MembershipRole
   access: TenantAccess
 }
@@ -94,7 +94,7 @@ export const tenantKeys = {
  * retried (the query client's `retry: 1`) and refetched on mount. Every other
  * failure still rejects.
  */
-export function tenantQueryOptions(slug: string, tenantId?: string) {
+function tenantQueryOptions(slug: string, tenantId?: string) {
   return queryOptions({
     queryKey: tenantKeys.detail(slug, tenantId),
     queryFn: async () => {
@@ -108,7 +108,7 @@ export function tenantQueryOptions(slug: string, tenantId?: string) {
   })
 }
 
-export function useTenant(slug: string, tenantId?: string) {
+function useTenant(slug: string, tenantId?: string) {
   return useQuery(tenantQueryOptions(slug, tenantId))
 }
 

@@ -29,21 +29,13 @@ export const TIMELINE_PRODUCT_EVENTS = [
 export type TimelineProductEvent = (typeof TIMELINE_PRODUCT_EVENTS)[number]
 
 /** The events posthog-js captures on its own that a timeline words as a sentence; any other `$` event is unverified and says so. */
-export const TIMELINE_POSTHOG_EVENTS = [
-  '$pageview',
-  '$pageleave',
-  '$autocapture',
-  '$rageclick',
-] as const
-
-/** One of `TIMELINE_POSTHOG_EVENTS`. */
-export type TimelinePosthogEvent = (typeof TIMELINE_POSTHOG_EVENTS)[number]
+type TimelinePosthogEvent = '$pageview' | '$pageleave' | '$autocapture' | '$rageclick'
 
 /**
  * Mirrors express's `AUDIT_EVENT_RENAMES`: a staff-forced sign-out is sent
  * as `user_sessions_revoked`, so it never reads as the user signing out.
  */
-export const AUDIT_EVENT_RENAMES = {
+const AUDIT_EVENT_RENAMES = {
   'user.signed_out': 'user_sessions_revoked',
 } as const satisfies Partial<Record<AuditAction, string>>
 
@@ -62,14 +54,6 @@ export type TimelineAuditEvent = { [A in AuditAction]: AuditEventNameOf<A> }[Aud
 
 /** Every email event name: `email_` then the provider event type. */
 export type TimelineEmailEvent = `email_${EmailEventType}`
-
-/** The whole SP5a taxonomy, as a timeline can meet it. */
-export type TimelineTaxonomyEvent =
-  | TimelinePosthogEvent
-  | BrowserEvent
-  | TimelineProductEvent
-  | TimelineEmailEvent
-  | TimelineAuditEvent
 
 /**
  * The PostHog name of an audit action, as express's `auditEventName` builds it.

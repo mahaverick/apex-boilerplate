@@ -16,6 +16,3 @@ export const timelineSearchSchema = z.object({
   range: z.enum(TIMELINE_RANGES).default(TIMELINE_DEFAULT_RANGE).catch(TIMELINE_DEFAULT_RANGE),
   view: z.enum(TIMELINE_VIEWS).default(TIMELINE_DEFAULT_VIEW).catch(TIMELINE_DEFAULT_VIEW),
 })
-
-/** The validated search params. */
-export type TimelineSearch = z.infer<typeof timelineSearchSchema>

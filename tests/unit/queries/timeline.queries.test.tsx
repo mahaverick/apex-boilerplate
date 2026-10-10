@@ -7,9 +7,8 @@ import { resetSessionForTests } from '@/http/session'
 import {
   flattenTimelinePages,
   refreshTimeline,
-  tenantTimelineInfiniteOptions,
+  timelineInfiniteOptions,
   timelineKeys,
-  userTimelineInfiniteOptions,
 } from '@/queries/timeline.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
@@ -38,8 +37,8 @@ function serveTwoPages(seen: URLSearchParams[]) {
 
 describe('timeline options', () => {
   it.each([
-    ['user', userTimelineInfiniteOptions(USER_ID_2, '7d', 'all')],
-    ['tenant', tenantTimelineInfiniteOptions(TENANT_ID, '7d', 'all')],
+    ['user', timelineInfiniteOptions('user', USER_ID_2, '7d', 'all')],
+    ['tenant', timelineInfiniteOptions('tenant', TENANT_ID, '7d', 'all')],
   ])('never refetches on its own, and drops the %s cache when left', (_kind, options) => {
     expect(options.retry).toBe(false)
     expect(options.refetchOnWindowFocus).toBe(false)
@@ -55,17 +54,17 @@ beforeEach(() => {
 
 describe('timeline queries', () => {
   it('keys each timeline by kind, id, window and view', () => {
-    expect(userTimelineInfiniteOptions(USER_ID_2, '7d', 'all').queryKey).toEqual([
+    expect(timelineInfiniteOptions('user', USER_ID_2, '7d', 'all').queryKey).toEqual([
       'timeline',
       'user',
       USER_ID_2,
       '7d',
       'all',
     ])
-    expect(tenantTimelineInfiniteOptions(TENANT_ID, '90d', 'key').queryKey).toEqual(
+    expect(timelineInfiniteOptions('tenant', TENANT_ID, '90d', 'key').queryKey).toEqual(
       timelineKeys.page('tenant', TENANT_ID, '90d', 'key')
     )
-    expect(userTimelineInfiniteOptions(USER_ID_2, '7d', 'all').staleTime).toBe(30_000)
+    expect(timelineInfiniteOptions('user', USER_ID_2, '7d', 'all').staleTime).toBe(30_000)
   })
 
   it('asks for the first page with no cursor, then pages with the one the API returned', async () => {
@@ -73,7 +72,7 @@ describe('timeline queries', () => {
     serveTwoPages(seen)
     const client = new QueryClient()
     const { result } = renderHook(
-      () => useInfiniteQuery(userTimelineInfiniteOptions(USER_ID_2, '30d', 'key')),
+      () => useInfiniteQuery(timelineInfiniteOptions('user', USER_ID_2, '30d', 'key')),
       { wrapper: wrapperWith(client) }
     )
     await waitFor(() => expect(result.current.hasNextPage).toBe(true))
@@ -99,7 +98,7 @@ describe('timeline queries', () => {
       })
     )
     const { result } = renderHook(
-      () => useInfiniteQuery(tenantTimelineInfiniteOptions(TENANT_ID, '24h', 'all')),
+      () => useInfiniteQuery(timelineInfiniteOptions('tenant', TENANT_ID, '24h', 'all')),
       { wrapper: wrapperWith(new QueryClient()) }
     )
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
@@ -113,7 +112,7 @@ describe('timeline queries', () => {
       )
     )
     const { result } = renderHook(
-      () => useInfiniteQuery(userTimelineInfiniteOptions(USER_ID_2, '7d', 'all')),
+      () => useInfiniteQuery(timelineInfiniteOptions('user', USER_ID_2, '7d', 'all')),
       { wrapper: wrapperWith(new QueryClient()) }
     )
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
@@ -130,7 +129,7 @@ describe('timeline queries', () => {
       })
     )
     const { result } = renderHook(
-      () => useInfiniteQuery(userTimelineInfiniteOptions(USER_ID_2, '7d', 'all')),
+      () => useInfiniteQuery(timelineInfiniteOptions('user', USER_ID_2, '7d', 'all')),
       // The app's own default retry, which the timeline options must override.
       { wrapper: wrapperWith(new QueryClient({ defaultOptions: { queries: { retry: 1 } } })) }
     )
@@ -142,7 +141,7 @@ describe('timeline queries', () => {
     const seen: URLSearchParams[] = []
     serveTwoPages(seen)
     const client = new QueryClient()
-    const options = userTimelineInfiniteOptions(USER_ID_2, '7d', 'all')
+    const options = timelineInfiniteOptions('user', USER_ID_2, '7d', 'all')
     const { result } = renderHook(() => useInfiniteQuery(options), {
       wrapper: wrapperWith(client),
     })

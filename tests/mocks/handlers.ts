@@ -496,7 +496,7 @@ export function tenantOnboardingAfterStaffCompletion(stepKey: string): TenantOnb
  * than read from the flags module: this file loads in the setup file, before
  * a test's `vi.mock('@/observability/flags/flag-keys', …)` could apply.
  */
-export const TEST_FLAG_FALLBACKS = {} satisfies ClientFlagValues
+const TEST_FLAG_FALLBACKS = {} satisfies ClientFlagValues
 
 /**
  * A flags read as express answers it: every flag at its fallback unless

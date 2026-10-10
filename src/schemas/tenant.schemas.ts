@@ -22,7 +22,7 @@ const MAX_SLUG_LENGTH = 100
  * (tenant.constants.ts). Each collides with a plausible route segment, would
  * mislead as an organization's identifier, or masquerades as another value.
  */
-export const RESERVED_SLUGS = [
+const RESERVED_SLUGS = [
   'admin',
   'api',
   'app',
@@ -86,7 +86,7 @@ const RESERVED = new Set<string>(RESERVED_SLUGS)
  * the customer app's URLs, and rewriting "MyOrg" to "myorg" would register a
  * string the user did not type.
  */
-export const slugSchema = z
+const slugSchema = z
   .string()
   .trim()
   .min(MIN_SLUG_LENGTH, `Slug must be at least ${MIN_SLUG_LENGTH} characters.`)
