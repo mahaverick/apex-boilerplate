@@ -10,9 +10,16 @@ of these is a deliberate act, not a tidy-up.
 ## What this is
 
 Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
-`express-boilerplate` API (1.4.0 or newer, run with `APEX_URL` set to this app's
-origin, `http://localhost:5174` locally; the user and tenant timelines need
-1.6.0, the Errors pages and the system status card 1.7.0, the flags pages 1.8.0, and maintenance mode 1.9.0; express 2.0.4 or newer provides the reasoned staff writes to customer tenants, Leave for every role and Sign out other sessions). `react-boilerplate`, the customer app,
+`express-boilerplate` API: express 2.0.1 or newer for Apex 1.9.0 and later
+(2.0.0 added the reasoned staff writes to customer tenants, Leave for every
+role and Sign out other sessions; clearing a maintenance reason sends
+`reason: null`, which express accepts from 2.0.1), and 2.1.0 for the members page's `member_not_found` code
+and the platform tenant's `user.active`, which an older 2.x falls back from as
+the README says. Run it with `APEX_URL` set to this app's origin,
+`http://localhost:5174` locally. Older Apex releases needed less: 1.4.0 for the
+base pages, 1.6.0 for the user and tenant timelines, 1.7.0 for the Errors pages
+and the system status card, 1.8.0 for the flags pages and 1.9.0 for maintenance
+mode, so Apex 1.8.x works with express 1.9.0. `react-boilerplate`, the customer app,
 is its sibling. Vite, TanStack Router (file-based), TanStack Query, TanStack
 Form, TanStack Table 9, Zustand, Tailwind v4, Base UI via shadcn, recharts,
 axios, Zod v4, Vitest + Testing Library + MSW.
@@ -36,13 +43,14 @@ there ("ported in react#N", or "not applicable because …").
 | `src/components/ui/form.tsx`, `src/components/ui/sonner.tsx`                                                                                                                                                                            | Hand-written, shared behaviour                                                                              |
 | `src/schemas/changed-fields.schemas.ts`, `src/hooks/use-changed-fields.ts` and their tests                                                                                                                                              | Changed-field edit forms; byte for byte, except that the schema test drops react's settings-form case       |
 | `nginx.conf` security headers and CSP, and `location /api/v1/collect/`                                                                                                                                                                  | Same threat model; same replay batch size                                                                   |
+| `e2e/nginx/cors.test.ts`                                                                                                                                                                                                                | The multi-frontend CORS seam through nginx, byte for byte                                                   |
 | `src/observability/analytics/*`, except `config.ts`'s per-app constants and `events.ts`'s registry                                                                                                                                      | One PII, consent, handoff and identity contract for both apps                                               |
 | `src/components/shared/pii.tsx`, `e2e/helpers/fake-posthog.ts`                                                                                                                                                                          | The masking class and the egress guard's fake PostHog                                                       |
 | `docker/10-runtime-config.sh`, `src/configs/runtime-config.ts`, `scripts/runtime-config-plugin.mjs`, `nginx.conf`'s `location = /runtime-config.js`                                                                                     | One run-time configuration contract: the same variable names, patterns and file in both images              |
 | `public/theme-init.js`, `src/lib/zod-jitless.ts`                                                                                                                                                                                        | CSP compatibility                                                                                           |
 | `eslint.config.js` rule set (not its file lists)                                                                                                                                                                                        | Same conventions                                                                                            |
 | `src/observability/errors/**`, `src/observability/identity-epoch.ts`, `tests/fixtures/error-scrub-vectors.json`                                                                                                                         | One capture, filter, scrub and consent contract; the vectors are express-boilerplate's, byte for byte       |
-| `docker/nginx.main.conf`, `pnpm-workspace.yaml`, `tests/unit/docker/{check-image-script,nginx-main-conf}.test.ts`                                                                                                                       | Same container limits, dependency overrides and script tests                                                |
+| `docker/nginx.main.conf`, `pnpm-workspace.yaml`, `tests/unit/docker/{check-image-script,nginx-main-conf,dockerfile}.test.ts`                                                                                                            | Same container limits, dependency overrides and script tests                                                |
 | `src/observability/flags/**`, `tests/unit/observability/flags/**` and `tests/fixtures/test-client-flags.ts`, except each app's `flag-keys.ts` and `flag-scope.ts` and their app-owned tests (`flag-keys.test.ts`, `flag-scope.test.ts`) | One flag read, refetch, exposure and `$feature/*` contract; react's is canonical, copied here by script     |
 | `tests/mocks/posthog.ts`                                                                                                                                                                                                                | The posthog-js stand-in the analytics and error tests share                                                 |
 | `src/components/features/route-error.tsx`, `src/main.tsx`, the `setErrorRouteSource` line in `src/router.tsx`                                                                                                                           | Both report router and React root errors, and the route they happened on, the same way                      |
@@ -174,7 +182,14 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
 - **Attributes are not `Pii`'s job.** `aria-label="Account menu for Ada"`
   is masked by posthog-js (`mask_all_element_attributes`, and
   `maskReplayAttribute` in replay); do not move names out of labels to
-  "fix" a guard.
+  "fix" a guard. Replay masks attributes by name: `maskReplayAttribute`
+  (`mask-attribute.ts`, passed as `session_recording.maskAttributeFn`) turns
+  `aria-label`, `title`, `alt`, `placeholder`, `srcdoc`, every `data-*`, an
+  `href` with a query or a `mailto:`/`tel:` scheme, and a `src` or `srcset`
+  with a query into `***`, and rrweb applies it to the full snapshot and to
+  added nodes and attribute changes alike. That is why an accessible name may
+  carry an address ("Resend invitation to …"); an attribute outside that list
+  may not. `e2e/nginx/analytics.test.ts` pins `aria-label` on all three paths.
 - **Only `src/observability/analytics/` imports posthog-js**, and only
   `analytics.ts` imports it as a value, through `import()`. `pnpm check:bundle`
   fails if it reaches the first-visit chunks.

@@ -69,8 +69,9 @@ export function canManageTenant(actorRole: MembershipRole): boolean {
 /**
  * Would this action leave the tenant with no owner? Not a permission: the API
  * answers 409 ("Cannot remove the last owner" / "Cannot change role: you are
- * the last owner") when an owner acts on their own membership as the only
- * owner, and the UI disables that control and says why instead.
+ * the last owner") when an owner acts on their own membership and no other
+ * owner counts (`otherOwnerCount`: on the platform tenant, no other active
+ * one), and the UI disables that control and says why instead.
  *
  * Not parameterised by the new role: the API exempts an owner re-submitting
  * `{ role: 'owner' }`, but a control whose only option changes nothing is not
@@ -79,16 +80,16 @@ export function canManageTenant(actorRole: MembershipRole): boolean {
 export function isLastOwnerBlocked({
   targetRole,
   isSelf,
-  ownerCount,
+  otherOwners,
 }: {
   /** The target member's current role. */
   targetRole: MembershipRole
   /** Whether the actor and the target are the same user. */
   isSelf: boolean
-  /** How many owners this tenant has. */
-  ownerCount: number
+  /** How many other owners the API counts (`otherOwnerCount`). */
+  otherOwners: number
 }): boolean {
-  return isSelf && targetRole === 'owner' && ownerCount <= 1
+  return isSelf && targetRole === 'owner' && otherOwners === 0
 }
 
 /**
@@ -131,7 +132,8 @@ export function platformRoleAtLeast(
  * offboarded without the server script; an admin acts only on staff below
  * admin. Never on oneself: leaving the platform tenant keeps the customer
  * rule (`canActorModifyTarget`'s self case), and the API refuses every other
- * self-action. The last-active-owner guard stays the API's.
+ * self-action. On one's own row the last-active-owner guard is
+ * `isLastOwnerBlocked`, and the API's 409 backs it.
  * @param actorRole - The signed-in staff member's platform role.
  * @param targetRole - The other staff member's platform role.
  * @param isSelf - Whether the two are the same user.

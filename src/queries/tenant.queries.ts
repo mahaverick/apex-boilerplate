@@ -37,12 +37,22 @@ export interface TenantMembership {
 }
 
 /**
- * One row of `GET /tenants/:slug/members`. `user` is a four-column projection
- * on the server, never the whole users row, so no `passwordHash`.
+ * One row of `GET /tenants/:slug/members`. `user` is a narrow projection on
+ * the server, never the whole users row, so no `passwordHash`.
  */
 export interface TenantMember {
   membership: TenantMembership
-  user: { id: string; email: string; firstName: string | null; lastName: string | null }
+  user: {
+    id: string
+    email: string
+    firstName: string | null
+    lastName: string | null
+    /**
+     * False for a deactivated account. Only the platform tenant's list
+     * carries it (express 2.1.0 or later); a missing value means active.
+     */
+    active?: boolean
+  }
 }
 
 /**
@@ -163,9 +173,28 @@ export function useInvitations(slug: string, tenantId?: string) {
   })
 }
 
-/** How many owners a member list holds — the last-owner guard's input. */
-export function ownerCount(members: TenantMember[] | undefined): number {
-  return (members ?? []).filter((member) => member.membership.role === 'owner').length
+/**
+ * How many owners besides `userId` express counts toward the last-owner rule,
+ * the last-owner guard's input: on a customer tenant every listed owner,
+ * deactivated or not (`countOwners`); on the platform tenant only those whose
+ * account is active, a missing `active` counting as active
+ * (`countActiveOwners`).
+ * @param members - The member list.
+ * @param userId - The owner acting on their own membership.
+ * @param isPlatform - Whether this is the platform tenant (the Staff page).
+ * @returns The other owners that count.
+ */
+export function otherOwnerCount(
+  members: TenantMember[] | undefined,
+  userId: string | undefined,
+  isPlatform: boolean
+): number {
+  return (members ?? []).filter(
+    (member) =>
+      member.membership.role === 'owner' &&
+      member.user.id !== userId &&
+      (!isPlatform || member.user.active !== false)
+  ).length
 }
 
 /** "Ada Lovelace", or the email when the member has no name on file. */

@@ -70,7 +70,8 @@ export interface ReasonDialogProps {
  * reader sees it. A refusal that means the row is gone is the caller's to
  * catch and resolve: a dialog inside a list its write refetches on settle is
  * unmounted with the row before the refusal arrives (an invitation no longer
- * pending), and express's `Member not found` carries no code.
+ * pending, a member already gone), and an API older than 2.1.0 sends a
+ * member's `Member not found` with no code.
  */
 export function ReasonDialog(props: ReasonDialogProps) {
   const [busy, setBusy] = useState(false)

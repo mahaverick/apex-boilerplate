@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw'
 import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
-import { tenantKeys } from '@/queries/tenant.queries'
+import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
 import {
   INVITATION_ID,
@@ -24,6 +24,7 @@ import {
   USER_ID_5,
 } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
+import { settle } from '@/tests/fixtures/timing'
 import {
   fail,
   INVITATION_SENT_MESSAGE,
@@ -110,7 +111,7 @@ function member(id: string, role: MembershipRole, firstName: string) {
 /** `testUser.id` is `USER_ID`, so this is always "me". */
 const ME = USER_ID
 
-function mockTenant(myRole: MembershipRole, members: ReturnType<typeof member>[]) {
+function mockTenant(myRole: MembershipRole, members: TenantMember[]) {
   mockPlatformDetail()
   server.use(
     http.get('/api/v1/tenants/acme', () => ok(tenantDetail(TENANT, myRole), 'Tenant retrieved.')),
@@ -296,6 +297,19 @@ describe('members tab permissions', () => {
       'aria-describedby',
       reason.id
     )
+  })
+
+  it('counts a deactivated co-owner on a customer tenant, as express does there', async () => {
+    const otto = member(USER_ID_4, 'owner', 'Otto')
+    mockTenant('owner', [
+      member(ME, 'owner', 'Me'),
+      { ...otto, user: { ...otto.user, active: false } },
+    ])
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+    const me = await rowFor('Me')
+    expect(me.getByRole('combobox', { name: 'Role for Me X' })).toBeEnabled()
+    expect(me.getByRole('button', { name: 'Leave' })).toBeEnabled()
   })
 
   it('re-enables them once a second owner exists', async () => {
@@ -842,7 +856,7 @@ describe('removing and leaving', () => {
     expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID}/members`)
   })
 
-  it('shows the server’s message, and stays, when removing someone else answers 404', async () => {
+  it('says the member is gone, and stays, when removing someone else answers Member not found', async () => {
     mockTenant('owner', [member(ME, 'owner', 'Me'), member(USER_ID_3, 'viewer', 'Vic')])
     server.use(
       http.delete('/api/v1/tenants/acme/members/:userId', () => fail('Member not found', 404))
@@ -855,7 +869,7 @@ describe('removing and leaving', () => {
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' })
     )
 
-    expect(await screen.findByText('Member not found')).toBeInTheDocument()
+    expect(await screen.findByText('That member is no longer in this tenant.')).toBeInTheDocument()
     expect(screen.queryByText('You are no longer a member of this tenant.')).not.toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID}/members`)
@@ -1857,7 +1871,7 @@ describe('staff acting through platform access', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
-    expect(await screen.findByText('Member not found')).toBeInTheDocument()
+    expect(await screen.findByText('That member is no longer in this tenant.')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
   })
@@ -1875,7 +1889,7 @@ describe('staff acting through platform access', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
     await user.click(within(dialog).getByRole('button', { name: 'Change role' }))
 
-    expect(await screen.findByText('Member not found')).toBeInTheDocument()
+    expect(await screen.findByText('That member is no longer in this tenant.')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
   })
@@ -2100,9 +2114,22 @@ describe('staff acting through platform access', () => {
 })
 
 describe('a write that finds the member already gone', () => {
-  /** Serves Vic until the first write lands; after it, the list express answers no longer has them. */
-  function serveDeparture(asStaff: boolean) {
-    const state = { gone: false }
+  /**
+   * How express says the target is not a member: from 2.1.0 the
+   * `member_not_found` code (here with another wording, so the code alone
+   * decides), and before it the bare `Member not found` message.
+   */
+  const GONE_REPLIES = {
+    code: () => fail('That user is not in this tenant.', 404, 'member_not_found'),
+    message: () => fail('Member not found', 404),
+  } as const
+
+  /**
+   * Serves Vic until the first write lands; after it, the list express
+   * answers no longer has them. Returns how many member lists were read.
+   */
+  function serveDeparture(asStaff: boolean, reply: () => Response = GONE_REPLIES.message) {
+    const state = { gone: false, listReads: 0 }
     signIn(asStaff ? { ...testUser, platformRole: 'owner' } : undefined)
     mockPlatformDetail()
     const first = asStaff ? member(USER_ID_4, 'owner', 'Otto') : member(ME, 'owner', 'Me')
@@ -2110,18 +2137,23 @@ describe('a write that finds the member already gone', () => {
       http.get('/api/v1/tenants/acme', () =>
         ok(tenantDetail(TENANT, 'owner', asStaff ? 'platform' : 'member'), 'Tenant retrieved.')
       ),
-      http.get('/api/v1/tenants/acme/members', () =>
-        ok(state.gone ? [first] : [first, member(USER_ID_3, 'viewer', 'Vic')], 'Members retrieved.')
-      ),
+      http.get('/api/v1/tenants/acme/members', () => {
+        state.listReads += 1
+        return ok(
+          state.gone ? [first] : [first, member(USER_ID_3, 'viewer', 'Vic')],
+          'Members retrieved.'
+        )
+      }),
       http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => {
         state.gone = true
-        return fail('Member not found', 404)
+        return reply()
       }),
       http.patch(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => {
         state.gone = true
-        return fail('Member not found', 404)
+        return reply()
       })
     )
+    return state
   }
 
   /** Confirms the reason dialog, when staff get one. */
@@ -2131,37 +2163,119 @@ describe('a write that finds the member already gone', () => {
     await user.click(within(dialog).getByRole('button', { name: confirm }))
   }
 
-  it.each([
+  /** Sends Vic's removal or role change, through the reason dialog for staff. */
+  async function writeToVic(
+    user: ReturnType<typeof userEvent.setup>,
+    action: 'removal' | 'role change',
+    asStaff: boolean
+  ) {
+    const vic = await rowFor('Vic')
+    if (action === 'removal') {
+      await user.click(vic.getByRole('button', { name: 'Remove' }))
+      if (asStaff) await giveReason(user, 'Remove')
+      else {
+        await user.click(
+          within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' })
+        )
+      }
+    } else {
+      await user.click(vic.getByRole('combobox', { name: 'Role for Vic X' }))
+      await user.click(await screen.findByRole('option', { name: 'Editor' }))
+      if (asStaff) await giveReason(user, 'Change role')
+    }
+  }
+
+  const CASES = [
     { path: 'member', action: 'removal', asStaff: false },
     { path: 'staff', action: 'removal', asStaff: true },
     { path: 'member', action: 'role change', asStaff: false },
     { path: 'staff', action: 'role change', asStaff: true },
-  ] as const)(
-    'drops the departed row after a $path $action answers Member not found',
-    async ({ action, asStaff }) => {
-      serveDeparture(asStaff)
+  ] as const
+
+  it.each(
+    CASES.flatMap((write) => [
+      { ...write, reply: 'code' as const },
+      { ...write, reply: 'message' as const },
+    ])
+  )(
+    'drops the departed row and focuses Members after a $path $action meets the $reply',
+    async ({ action, asStaff, reply }) => {
+      serveDeparture(asStaff, GONE_REPLIES[reply])
       const user = userEvent.setup()
       renderAppAt(`/tenants/${TENANT_ID}/members`)
 
-      const vic = await rowFor('Vic')
-      if (action === 'removal') {
-        await user.click(vic.getByRole('button', { name: 'Remove' }))
-        if (asStaff) await giveReason(user, 'Remove')
-        else {
-          await user.click(
-            within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' })
-          )
-        }
-      } else {
-        await user.click(vic.getByRole('combobox', { name: 'Role for Vic X' }))
-        await user.click(await screen.findByRole('option', { name: 'Editor' }))
-        if (asStaff) await giveReason(user, 'Change role')
-      }
+      await writeToVic(user, action, asStaff)
 
-      expect(await screen.findByText('Member not found')).toBeInTheDocument()
+      expect(
+        await screen.findByText('That member is no longer in this tenant.')
+      ).toBeInTheDocument()
       await waitFor(() =>
         expect(screen.queryByRole('cell', { name: /Vic/ })).not.toBeInTheDocument()
       )
+      // The row that held the control is gone, so focus moves as after a removal, not to <body>.
+      await waitFor(() => expect(screen.getByRole('heading', { name: 'Members' })).toHaveFocus())
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    }
+  )
+
+  it.each(CASES)(
+    'says a $path $action found the member gone only once the refetched list has dropped them',
+    async ({ action, asStaff }) => {
+      serveDeparture(asStaff, GONE_REPLIES.code)
+      const rowAtToast: boolean[] = []
+      vi.spyOn(toast, 'error').mockImplementation(() => {
+        const lists = queryClient.getQueriesData<TenantMember[]>({
+          queryKey: tenantKeys.members('acme'),
+        })
+        rowAtToast.push(lists.some(([, list]) => list?.some((row) => row.user.id === USER_ID_3)))
+        return 0
+      })
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+      await writeToVic(user, action, asStaff)
+
+      await waitFor(() => expect(rowAtToast).toEqual([false]))
+    }
+  )
+
+  it.each(CASES.filter((write) => !write.asStaff))(
+    'reads the old message on a status other than 404 as no departure, on a $path $action',
+    async ({ action, asStaff }) => {
+      const state = serveDeparture(asStaff, () => fail('Member not found', 500))
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+      await writeToVic(user, action, asStaff)
+
+      expect(await screen.findByText('Member not found')).toBeInTheDocument()
+      expect(screen.queryByText('That member is no longer in this tenant.')).not.toBeInTheDocument()
+      await settle(100, 'absence has no event: no member list refetch follows')
+      expect(state.listReads).toBe(1)
+      expect(screen.getByRole('cell', { name: /Vic/ })).toBeInTheDocument()
+    }
+  )
+
+  it.each(CASES)(
+    'reads another code with the old message as no departure, on a $path $action',
+    async ({ action, asStaff }) => {
+      const state = serveDeparture(asStaff, () => fail('Member not found', 404, 'not_found'))
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+      await writeToVic(user, action, asStaff)
+
+      if (asStaff) {
+        // A 404 with a code is the action's own verdict, so the reason dialog keeps it.
+        const dialog = screen.getByRole('alertdialog')
+        expect(await within(dialog).findByText('Member not found')).toBeInTheDocument()
+      } else {
+        expect(await screen.findByText('Member not found')).toBeInTheDocument()
+      }
+      await settle(100, 'absence has no event: no member list refetch follows')
+      expect(state.listReads).toBe(1)
+      // Hidden from the accessibility tree while the staff dialog is open, but still rendered.
+      expect(screen.getByRole('cell', { name: /Vic/, hidden: true })).toBeInTheDocument()
     }
   )
 })
