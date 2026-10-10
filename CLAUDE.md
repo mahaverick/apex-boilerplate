@@ -12,7 +12,7 @@ of these is a deliberate act, not a tidy-up.
 Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
 `express-boilerplate` API (1.4.0 or newer, run with `APEX_URL` set to this app's
 origin, `http://localhost:5174` locally; the user and tenant timelines need
-1.6.0, the Errors pages and the system status card 1.7.0, the flags pages 1.8.0, and maintenance mode 1.9.0; express 2.0.4 or newer provides the reasoned staff writes to customer tenants, Leave for every role and Sign out other sessions). `react-boilerplate`, the customer app,
+1.6.0, the Errors pages and the system status card 1.7.0, the flags pages 1.8.0, and maintenance mode 1.9.0. Apex 1.9.0 and later need express 2.0.0 or newer, which added the reasoned staff writes to customer tenants, Leave for every role and Sign out other sessions; apex 1.8.x works with express 1.9.0. The members page reads express 2.1.0's `member_not_found` code and the platform tenant's `user.active`, and on an older 2.x falls back as the README says). `react-boilerplate`, the customer app,
 is its sibling. Vite, TanStack Router (file-based), TanStack Query, TanStack
 Form, TanStack Table 9, Zustand, Tailwind v4, Base UI via shadcn, recharts,
 axios, Zod v4, Vitest + Testing Library + MSW.
@@ -174,7 +174,14 @@ nothing: it waits for `:sha-<commit>` from `main`'s run and adds `:X.Y.Z`,
 - **Attributes are not `Pii`'s job.** `aria-label="Account menu for Ada"`
   is masked by posthog-js (`mask_all_element_attributes`, and
   `maskReplayAttribute` in replay); do not move names out of labels to
-  "fix" a guard.
+  "fix" a guard. Replay masks attributes by name: `maskReplayAttribute`
+  (`mask-attribute.ts`, passed as `session_recording.maskAttributeFn`) turns
+  `aria-label`, `title`, `alt`, `placeholder`, `srcdoc`, every `data-*`, an
+  `href` with a query or a `mailto:`/`tel:` scheme, and a `src` or `srcset`
+  with a query into `***`, and rrweb applies it to the full snapshot and to
+  added nodes and attribute changes alike. That is why an accessible name may
+  carry an address ("Resend invitation to …"); an attribute outside that list
+  may not. `e2e/nginx/analytics.test.ts` pins `aria-label` on all three paths.
 - **Only `src/observability/analytics/` imports posthog-js**, and only
   `analytics.ts` imports it as a value, through `import()`. `pnpm check:bundle`
   fails if it reaches the first-visit chunks.
