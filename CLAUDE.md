@@ -71,10 +71,21 @@ that live on tenant pages.
 | `pnpm test`          | Vitest, one pass                                                                                   |
 | `pnpm test:coverage` | Vitest with coverage; fails under 88/82/86/89 (statements/branches/functions/lines), as CI runs it |
 | `pnpm format`        | prettier --write                                                                                   |
+| `pnpm knip`          | Unused files, exports and dependencies (see below); CI runs it                                     |
 
 The gate is **0 errors and 0 warnings**: verify with
 `pnpm exec eslint . --max-warnings 0`, not with a bare `pnpm lint`, whose
 eslint half exits 0 on warnings.
+
+## Dead code: knip
+
+`pnpm knip` (CI's lint job runs it) fails on an unused file, export, type or
+dependency. Delete what it finds, or drop the `export` when the symbol is used
+in its own file; an export that only tests import is a test seam and stays.
+Every ignore in `knip.jsonc` carries its reason beside it. Two of them exist
+because of sibling sync: the vendored `src/components/ui/**` keeps upstream's
+export list, and `src/observability/analytics/index.ts` is react-boilerplate's
+barrel, byte for byte, so the exports only react imports stay.
 
 ## Git hooks
 
