@@ -101,14 +101,12 @@ and the JavaScript side derives from it: the axios base
 (`src/http/client.ts`) and the Google OAuth anchor (`GOOGLE_OAUTH_PATH`).
 
 `nginx.conf` hardcodes it as well, which is why it is fixed rather than a
-knob: `location /api/v1/notifications/stream` is an SSE location (buffering
-off, a 24h read timeout, a query-stripping log format) that hangs off that
-exact prefix. Apex opens no stream today; the location is kept for the
-notification stream a later sub-project adds. `nginx.conf`'s `location /api/`
+knob: `location /api/v1/collect/` (the analytics proxy's 10 MB body limit)
+hangs off that exact prefix. `nginx.conf`'s `location /api/`
 and the Vite dev proxy in `vite.config.ts` match only the `/api` segment.
 
 Moving the API to another prefix under `/api` therefore means changing
-`API_PREFIX` and that SSE `location` together, in one change; a prefix outside
+`API_PREFIX` and that `location` together, in one change; a prefix outside
 `/api` also moves `location /api/` and the Vite proxy.
 
 ### Environment
@@ -383,9 +381,8 @@ sees an environment variable.
 
 ### What `nginx.conf` is doing
 
-Two things in there are load-bearing and fail **silently** if edited away,
-and the SSE location's settings are defence in depth. `nginx.conf` explains each at the line; in
-short:
+Two things in there are load-bearing and fail **silently** if edited away.
+`nginx.conf` explains each at the line; in short:
 
 - `proxy_pass ${API_UPSTREAM};` carries **no trailing path**, and
   `API_UPSTREAM` must not bring one, not even `/`. A path there makes nginx
@@ -394,21 +391,9 @@ short:
 - The TLS terminator's `X-Forwarded-Proto` is passed through to express. express
   needs `TRUST_PROXY` set for express-session to see HTTPS and set the Secure
   `oauth.sid` cookie.
-- The SSE location sets `proxy_buffering off`, an empty `Connection` header
-  and a 24h read timeout. express already turns buffering off per response
-  (`X-Accel-Buffering: no`) and sends a `:ping` every 30s by default, inside
-  nginx's default 60s read timeout, so these keep the stream open even if
-  either of those changes.
-- That same location logs with a `stream_nolog` format that records `$uri`
-  instead of `$request`, and raises its `error_log` level to `crit`. The access
-  token is not in the query string there: the client sends an
-  `Authorization: Bearer` header, which never appears in a logged request line.
-  Both lines stay as defence in depth, so that a query parameter added to this
-  route later cannot quietly reach the access log, or the **error** log — nginx
-  puts the full request line and the full upstream URL into every
-  `connect() failed` message, which no log format can change. The cost is that
-  `error`-level upstream detail for this one location is dropped; the access log
-  still records every request and its status.
+- The server block logs with a `stream_nolog` format that records `$uri`
+  instead of `$request`, so the one-time tokens in `/reset-password?token=`
+  and `/verify-email?token=` never reach the access log.
 - `location /api/v1/collect/` is `location /api/` with a 10 MB body limit,
   streamed to express rather than buffered: posthog-js posts a replay batch
   of up to about 6.3 MB in one request (a third more as base64 when gzip is
