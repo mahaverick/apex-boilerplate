@@ -233,12 +233,6 @@ export interface PlatformStats {
    */
   signups: { date: string; users: number; tenants: number }[]
   /**
-   * Per UTC day, one count per send attempt. `failed` counts failed attempts, not failed
-   * emails: a mail retried then sent contributes to both `failed` and `sent`.
-   * @deprecated Apex reads `emailMessages`; express keeps this series for older clients.
-   */
-  emails: { date: string; sent: number; failed: number }[]
-  /**
    * Per UTC day of creation, each email counted once in one of five disjoint groups by its
    * current status (express 1.3.0). `queued` emails are in none of them. Without a provider
    * webhook no email reaches `delivered` or `complained`, so every successful send stays in `sent`.
