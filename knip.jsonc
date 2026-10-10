@@ -1,0 +1,34 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Entries, project files and plugins (vite, vitest, playwright, eslint) are
+  // knip's defaults. Each ignore below says why the finding is not dead code.
+  "ignoreIssues": {
+    // Vendored shadcn output: keeping each primitive's full export list lets
+    // `shadcn add` restore and upgrade the file. An importer-less file still
+    // shows up, because only export and type findings are ignored. The
+    // hand-written command.tsx keeps shadcn's export names, so it is covered too.
+    "src/components/ui/**": ["exports", "types"],
+    // Byte-identical with react's copy. React imports the consent, tenant-group,
+    // config and key exports this app does not (its consent banner, profile
+    // analytics section, route analytics and getting-started card).
+    "src/observability/analytics/index.ts": ["exports", "types"],
+    // That barrel re-exports `AnalyticsConsentMode` from here.
+    "src/observability/analytics/config.ts": ["types"],
+  },
+  "ignoreFiles": [
+    // Type declarations for scripts/*.mjs. TypeScript resolves them in place
+    // of the .mjs, so no import names a .d.mts.
+    "scripts/*.d.mts",
+    // MSW's service worker, fetched by the browser when
+    // e2e/harness/harness.tsx calls `setupWorker`.
+    "public/mockServiceWorker.js",
+    // StyleSeed output, committed because its manifest hashes it
+    // (STYLESEED.md); the app does not load it.
+    ".styleseed/palettes/members.css",
+  ],
+  // A shell builtin in the `test:e2e:nginx` script's wait loop, not a binary.
+  "ignoreBinaries": ["break"],
+  // Run by name in the Dockerfile (`posthog-cli sourcemap inject`) and
+  // docker/upload-sourcemaps.sh; never imported.
+  "ignoreDependencies": ["@posthog/cli"],
+}
