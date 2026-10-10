@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.9.0...v1.10.0) (2026-10-10)
+
+
+### Features
+
+* **members:** member_not_found and active owners, react re-sync, and P1 follow-ups ([#35](https://github.com/mahaverick/apex-boilerplate/issues/35)) ([785c936](https://github.com/mahaverick/apex-boilerplate/commit/785c936dad374547ed3ed3625d26365359502636))
+
 ## [1.9.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.8.1...v1.9.0) (2026-10-09)
 
 
