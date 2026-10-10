@@ -2217,6 +2217,27 @@ describe('a write that finds the member already gone', () => {
   )
 
   it.each(CASES)(
+    'says a $path $action found the member gone only once the refetched list has dropped them',
+    async ({ action, asStaff }) => {
+      serveDeparture(asStaff, GONE_REPLIES.code)
+      const rowAtToast: boolean[] = []
+      vi.spyOn(toast, 'error').mockImplementation(() => {
+        const lists = queryClient.getQueriesData<TenantMember[]>({
+          queryKey: tenantKeys.members('acme'),
+        })
+        rowAtToast.push(lists.some(([, list]) => list?.some((row) => row.user.id === USER_ID_3)))
+        return 0
+      })
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+      await writeToVic(user, action, asStaff)
+
+      await waitFor(() => expect(rowAtToast).toEqual([false]))
+    }
+  )
+
+  it.each(CASES)(
     'reads another code with the old message as no departure, on a $path $action',
     async ({ action, asStaff }) => {
       const state = serveDeparture(asStaff, () => fail('Member not found', 404, 'not_found'))
