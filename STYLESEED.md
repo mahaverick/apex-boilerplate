@@ -68,7 +68,6 @@ These are intentional and must not be "fixed" by a future pass.
 | Repo fix | `ui/button.tsx` | `transition-[color,background-color,border-color,box-shadow,transform]`, not `transition-all` | Explicit property list |
 | Repo fix | `ui/toggle.tsx` | `transition-[color,background-color,border-color,box-shadow]`, not `transition-all` | Explicit property list, same as badge |
 | Repo fix | `ui/sidebar.tsx` (rail) | `transition-[right,left,transform]`, not `transition-all` | Explicit property list |
-| TS6133 | `ui/scroll-area.tsx` | Registry's unused `import * as React from "react"` removed | `noUnusedLocals` rejects it; remove again after a re-pull |
 | Lint | `ui/chart.tsx` | Five type-aware rules off for this file in `eslint.config.js` | Upstream is kept as pulled; see the comment on that block |
 
 `min-w-24` (dropdown-menu sub-content) and `w-0.5` (sidebar rail) are spellings of the registry's `min-w-[96px]` and `w-[2px]`: a re-pull diff there is cosmetic.
