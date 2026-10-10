@@ -619,7 +619,7 @@ tears it down. The tests tagged `@no-api` (headers, the CSP, the theme script, t
 `routeCollectToFake`) need no backend and also run in CI's `e2e` job, against the image with nothing behind
 `/api`, started with `POSTHOG_KEY=phc_test_key_not_real`, `APP_ENVIRONMENT=ci` and
 `ANALYTICS_HANDOFF_ORIGINS=https://www.example.test` (the analytics tests expect exactly those);
-the rest need a live API and run only locally. The project exists first for a reason worth
+the rest need a live API and run only locally. `e2e/nginx/errors.test.ts` expects the release the image was built with in `E2E_RELEASE` (default `dev`, the Dockerfile's `GIT_SHA` when none is passed). The project exists first for a reason worth
 keeping: **the Vite dev proxy does not propagate an upstream close.**
 A `curl -N` at it stays open after the API is killed, so the reading side of a `fetch` body
 stream never sees `done: true`; a reconnect path is unreachable from a
