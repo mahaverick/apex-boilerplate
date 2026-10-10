@@ -17,6 +17,7 @@ import type { InviteMemberInput } from '@/schemas/tenant.schemas'
 import { useAuthStore } from '@/states/auth.store'
 import {
   INVITATION_CONFLICT,
+  MEMBER_NOT_FOUND,
   MEMBER_NOT_FOUND_MESSAGE,
   REASON_REQUIRED,
   type ApiSuccess,
@@ -43,26 +44,47 @@ function reasonBody(reason: string | undefined): { data: { reason: string } } | 
 }
 
 /**
- * After a refused write, refreshes what it proved stale, without waiting: a
- * mutation waits for its `onError`, and the refusal should show at once.
+ * Whether a role change or removal found its target no longer a member: the
+ * `member_not_found` code when the API sends a code (express 2.1.0 or later),
+ * otherwise a 404 with the bare `Member not found` message. A 404 with any
+ * other code is not this, whatever its message.
+ * @param error - The write's failure.
+ * @returns True when the member is gone.
+ */
+export function isMemberNotFound(error: unknown): boolean {
+  const code = codeFrom(error)
+  if (code !== undefined) return code === MEMBER_NOT_FOUND
+  return statusFrom(error) === 404 && messageFrom(error) === MEMBER_NOT_FOUND_MESSAGE
+}
+
+/**
+ * After a refused write, refreshes what it proved stale. A mutation waits
+ * for the promise its `onError` returns before it rejects.
  *
  * - A 400 `REASON_REQUIRED` means the API now reaches the caller through
  *   platform access (their membership went meanwhile) while the page still
  *   shows member controls, so the tenant's detail refetches and
  *   `useMyRole`'s `access` switches them to the staff ones, which ask for a
- *   reason.
- * - A 404 `Member not found` (express sends no code) means the target left
- *   meanwhile, so the member list refetches and their row goes.
+ *   reason. Not awaited: the refusal shows at once.
+ * - A member already gone (`isMemberNotFound`) refetches the member list,
+ *   awaited, so their row has gone when the write rejects and the card can
+ *   move focus off the control that went with it.
  * @param queryClient - The app's query client.
  * @param slug - The tenant written to.
  * @param error - The write's failure.
+ * @returns The member list's refetch, when there is one to wait for.
  */
-function refreshAfterRefusal(queryClient: QueryClient, slug: string, error: unknown): void {
+function refreshAfterRefusal(
+  queryClient: QueryClient,
+  slug: string,
+  error: unknown
+): Promise<void> | undefined {
   if (codeFrom(error) === REASON_REQUIRED) {
     void queryClient.invalidateQueries({ queryKey: tenantKeys.detail(slug) })
-  } else if (statusFrom(error) === 404 && messageFrom(error) === MEMBER_NOT_FOUND_MESSAGE) {
-    void queryClient.invalidateQueries({ queryKey: tenantKeys.members(slug) })
+  } else if (isMemberNotFound(error)) {
+    return queryClient.invalidateQueries({ queryKey: tenantKeys.members(slug) })
   }
+  return undefined
 }
 
 /**
@@ -74,9 +96,7 @@ function refreshAfterRefusal(queryClient: QueryClient, slug: string, error: unkn
 export function useInviteMember(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    onError: (error) => {
-      refreshAfterRefusal(queryClient, slug, error)
-    },
+    onError: (error) => refreshAfterRefusal(queryClient, slug, error),
     mutationFn: async (input: InviteMemberInput & StaffReason) =>
       unwrap(await apiClient.post<ApiSuccess<null>>(`/tenants/${slug}/invitations`, input)),
     /** A conflict means another invite for this address just landed, so the list is stale; a success also mailed someone and added an entry to both audit logs. */
@@ -100,9 +120,7 @@ export function useInviteMember(slug: string, tenantId?: string) {
 export function useResendInvitation(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    onError: (error) => {
-      refreshAfterRefusal(queryClient, slug, error)
-    },
+    onError: (error) => refreshAfterRefusal(queryClient, slug, error),
     mutationFn: async ({ invitationId, reason }: { invitationId: string } & StaffReason) =>
       unwrap(
         await apiClient.post<ApiSuccess<null>>(
@@ -130,9 +148,7 @@ export function useResendInvitation(slug: string, tenantId?: string) {
 export function useRevokeInvitation(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    onError: (error) => {
-      refreshAfterRefusal(queryClient, slug, error)
-    },
+    onError: (error) => refreshAfterRefusal(queryClient, slug, error),
     mutationFn: async ({ invitationId, reason }: { invitationId: string } & StaffReason) =>
       unwrap(
         await apiClient.delete<ApiSuccess<null>>(
@@ -156,9 +172,7 @@ export function useRevokeInvitation(slug: string, tenantId?: string) {
 export function useUpdateMemberRole(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    onError: (error) => {
-      refreshAfterRefusal(queryClient, slug, error)
-    },
+    onError: (error) => refreshAfterRefusal(queryClient, slug, error),
     mutationFn: async ({
       userId,
       role,
@@ -187,9 +201,7 @@ export function useUpdateMemberRole(slug: string) {
 export function useRemoveMember(slug: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    onError: (error) => {
-      refreshAfterRefusal(queryClient, slug, error)
-    },
+    onError: (error) => refreshAfterRefusal(queryClient, slug, error),
     mutationFn: async ({ userId, reason }: { userId: string } & StaffReason) =>
       apiClient.delete<ApiSuccess<null>>(`/tenants/${slug}/members/${userId}`, reasonBody(reason)),
     onSuccess: () => invalidateDirectory(queryClient),

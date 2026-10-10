@@ -87,7 +87,17 @@ const PLATFORM = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 }
 
-function staff(id: string, membershipId: string, role: MembershipRole, firstName: string) {
+/**
+ * One platform member row. `active` is express 2.1.0's flag (false for a
+ * deactivated account); left out, the row is as an older API lists it.
+ */
+function staff(
+  id: string,
+  membershipId: string,
+  role: MembershipRole,
+  firstName: string,
+  active?: boolean
+) {
   return {
     membership: {
       id: membershipId,
@@ -97,12 +107,25 @@ function staff(id: string, membershipId: string, role: MembershipRole, firstName
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     },
-    user: { id, email: `${firstName.toLowerCase()}@platform.test`, firstName, lastName: 'Staff' },
+    user: {
+      id,
+      email: `${firstName.toLowerCase()}@platform.test`,
+      firstName,
+      lastName: 'Staff',
+      ...(active === undefined ? {} : { active }),
+    },
   }
 }
 
-/** Me (`USER_ID`, `testUser`) at `myRole`, and Otto (`USER_ID_2`) at `ottoRole`. */
-function serveStaff(myRole: MembershipRole, ottoRole: MembershipRole) {
+/**
+ * Me (`USER_ID`, `testUser`) at `myRole`, and Otto (`USER_ID_2`) at
+ * `ottoRole`, each with the `active` flag given, or none.
+ */
+function serveStaff(
+  myRole: MembershipRole,
+  ottoRole: MembershipRole,
+  active: { me?: boolean; otto?: boolean } = {}
+) {
   signIn({ ...testUser, platformRole: myRole })
   server.use(
     http.get('/api/v1/tenants/platform', () =>
@@ -111,8 +134,8 @@ function serveStaff(myRole: MembershipRole, ottoRole: MembershipRole) {
     http.get('/api/v1/tenants/platform/members', () =>
       ok(
         [
-          staff(USER_ID, MEMBERSHIP_ID, myRole, 'Me'),
-          staff(USER_ID_2, MEMBERSHIP_ID_2, ottoRole, 'Otto'),
+          staff(USER_ID, MEMBERSHIP_ID, myRole, 'Me', active.me),
+          staff(USER_ID_2, MEMBERSHIP_ID_2, ottoRole, 'Otto', active.otto),
         ],
         'Members retrieved.'
       )
@@ -133,6 +156,44 @@ describe('/staff with the real sections', () => {
     renderAppAt('/staff')
     await screen.findByText('Otto Staff')
     expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
+  })
+
+  /** Me's own role select and Leave, once the list has rendered. */
+  async function myControls() {
+    return {
+      role: await screen.findByRole('combobox', { name: 'Role for Me Staff' }),
+      leave: screen.getByRole('button', { name: 'Leave' }),
+    }
+  }
+
+  it('treats a deactivated co-owner as no owner, as express counts the platform tenant', async () => {
+    serveStaff('owner', 'owner', { me: true, otto: false })
+    renderAppAt('/staff')
+    const { role, leave } = await myControls()
+    expect(role).toBeDisabled()
+    expect(leave).toBeDisabled()
+    expect(
+      screen.getByText('A tenant must always have an owner. Add another owner first.')
+    ).toBeInTheDocument()
+  })
+
+  it.each([
+    { label: 'an active co-owner', otto: true },
+    { label: 'a co-owner listed with no active flag (an API before 2.1.0)', otto: undefined },
+  ])('leaves an owner free to step down beside $label', async ({ otto }) => {
+    serveStaff('owner', 'owner', { me: true, otto })
+    renderAppAt('/staff')
+    const { role, leave } = await myControls()
+    expect(role).toBeEnabled()
+    expect(leave).toBeEnabled()
+  })
+
+  it('counts only the other owners, whatever the caller’s own flag says', async () => {
+    serveStaff('owner', 'owner', { me: false, otto: true })
+    renderAppAt('/staff')
+    const { role, leave } = await myControls()
+    expect(role).toBeEnabled()
+    expect(leave).toBeEnabled()
   })
 
   it('gives an admin no control over another admin', async () => {

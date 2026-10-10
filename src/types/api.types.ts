@@ -95,9 +95,16 @@ export const INVITATION_CONFLICT = 'invitation_conflict'
 export const INVITATION_NOT_FOUND = 'invitation_not_found'
 
 /**
- * 404 message on a member's role change or removal: the target stopped being
- * a member meanwhile. express sends it with no code, so the message is the
- * only mark that tells it from the access check's 404.
+ * 404 on a member's role change or removal: the target is not a member of
+ * the tenant (stopped being one meanwhile), from express 2.1.0. Older APIs
+ * answer the same 404 with no code and `MEMBER_NOT_FOUND_MESSAGE`.
+ */
+export const MEMBER_NOT_FOUND = 'member_not_found'
+
+/**
+ * That 404's message, and what Apex says for it. From an API older than
+ * 2.1.0, which sends no code, it is the only mark that tells the 404 from the
+ * access check's.
  */
 export const MEMBER_NOT_FOUND_MESSAGE = 'Member not found'
 

@@ -58,13 +58,14 @@ import { isReauthRequired } from '@/lib/step-up'
 import { noteError } from '@/observability/errors'
 import {
   dropTenantCache,
+  isMemberNotFound,
   useLeaveTenant,
   useRemoveMember,
   useUpdateMemberRole,
 } from '@/queries/tenant-writes.queries'
 import {
   memberName,
-  ownerCount,
+  otherOwnerCount,
   useMembers,
   useMyRole,
   type TenantMember,
@@ -125,15 +126,31 @@ const MEMBERS_ERROR =
   'We could not load this tenant’s members, so none are listed here. This is not a sign that it has none.'
 
 /**
+ * Says so when a role change or removal found its member already gone
+ * (`isMemberNotFound`), and calls `onGone`: the write awaited the member
+ * list's refetch, so the row, and the control that started the write, have
+ * gone, and the card moves focus as after a removal.
+ * @param error - The write's failure.
+ * @param onGone - The row's `onRemoved`.
+ * @returns True when the member was gone and it was said; false for any other failure.
+ */
+function sayMemberGone(error: unknown, onGone: () => void): boolean {
+  if (!isMemberNotFound(error)) return false
+  toast.error(MEMBER_NOT_FOUND_MESSAGE)
+  onGone()
+  return true
+}
+
+/**
  * Rethrows a staff write's refusal for the reason dialog to show, except a
- * 404 `Member not found`: the member left meanwhile, which is said as the
- * member path says it, in a toast, and the dialog closes. express sends that
+ * member already gone, which is said as the member path says it, in a toast,
+ * and the dialog closes (`sayMemberGone`). An API older than 2.1.0 sends that
  * 404 with no code, so the dialog would take it for the access check's.
  * @param error - The write's failure.
+ * @param onGone - The row's `onRemoved`.
  */
-function unlessMemberGone(error: unknown): void {
-  if (statusFrom(error) !== 404 || messageFrom(error) !== MEMBER_NOT_FOUND_MESSAGE) throw error
-  toast.error(MEMBER_NOT_FOUND_MESSAGE)
+function unlessMemberGone(error: unknown, onGone: () => void): void {
+  if (!sayMemberGone(error, onGone)) throw error
 }
 
 /**
@@ -150,7 +167,10 @@ function unlessMemberGone(error: unknown): void {
  * `isLastOwner` is only true for an owner acting on their own membership,
  * which the predicates always leave as a select, so the explanation always
  * renders when it is needed. Staff acting through platform access (`asStaff`)
- * pick the role first, then give the audited reason in the reason dialog.
+ * pick the role first, then give the audited reason in the reason dialog. A
+ * change that finds the member already gone calls `onGone`, through the
+ * promise rather than `mutate`'s per-call callbacks: the refetch unmounts this
+ * cell before those could run.
  */
 function RoleCell({
   slug,
@@ -160,6 +180,7 @@ function RoleCell({
   isSelf,
   isLastOwner,
   reasonId,
+  onGone,
 }: {
   slug: string
   member: TenantMember
@@ -170,6 +191,8 @@ function RoleCell({
   isLastOwner: boolean
   /** The row's one last-owner explanation, which this cell renders. */
   reasonId: string
+  /** Called when the change finds the member gone: the row, and this cell, are gone, so the card moves focus. */
+  onGone: () => void
 }) {
   const updateRole = useUpdateMemberRole(slug)
   const stepUp = useStepUp()
@@ -200,9 +223,9 @@ function RoleCell({
             setPendingRole(value as MembershipRole)
             return
           }
-          changeRole(value as MembershipRole).catch((error: unknown) =>
-            toast.error(messageFrom(error))
-          )
+          changeRole(value as MembershipRole).catch((error: unknown) => {
+            if (!sayMemberGone(error, onGone)) toast.error(messageFrom(error))
+          })
         }}
       >
         <SelectTrigger
@@ -237,7 +260,9 @@ function RoleCell({
           description={`${name} becomes ${pendingRole === null ? '' : ROLE_LABELS[pendingRole]} in this customer tenant.`}
           confirmLabel="Change role"
           onConfirm={(reason) =>
-            changeRole(pendingRole ?? targetRole, reason).catch(unlessMemberGone)
+            changeRole(pendingRole ?? targetRole, reason).catch((error: unknown) =>
+              unlessMemberGone(error, onGone)
+            )
           }
         />
       )}
@@ -258,7 +283,7 @@ function StaffRemoveMemberButton({
 }: {
   slug: string
   member: TenantMember
-  /** Called after the removal: the row, and this button, are gone, so the card moves focus. */
+  /** Called after the removal, or when the member was already gone: the row, and this button, are gone, so the card moves focus. */
   onRemoved: () => void
 }) {
   const removeMember = useRemoveMember(slug)
@@ -286,7 +311,7 @@ function StaffRemoveMemberButton({
           try {
             await stepUp.run(() => removeMember.mutateAsync({ userId: member.user.id, reason }))
           } catch (error) {
-            unlessMemberGone(error)
+            unlessMemberGone(error, onRemoved)
             return
           }
           toast.success(<Pii>{`${name} removed.`}</Pii>)
@@ -333,7 +358,7 @@ function RemoveMemberButton({
   isLastOwner: boolean
   /** The row's one last-owner explanation, rendered by `RoleCell`. */
   reasonId: string
-  /** Called after someone else is removed, or you leave a customer tenant: the row, and this button, are gone, so the card moves focus. */
+  /** Called after someone else is removed or found already gone, or you leave a customer tenant: the row, and this button, are gone, so the card moves focus. */
   onRemoved: () => void
 }) {
   const removeMember = useRemoveMember(slug)
@@ -469,6 +494,7 @@ function RemoveMemberButton({
                       return
                     }
                     setIsOpen(false)
+                    if (!isSelf && sayMemberGone(error, onRemoved)) return
                     toast.error(messageFrom(error))
                   }
                 )
@@ -498,7 +524,7 @@ function MemberRow({
   myRole,
   asStaff,
   myUserId,
-  owners,
+  otherOwners,
   onRemoved,
   asCard = false,
 }: {
@@ -508,7 +534,8 @@ function MemberRow({
   /** Acting through platform access (`access: 'platform'`): every change asks for a reason. */
   asStaff: boolean
   myUserId: string | undefined
-  owners: number
+  /** The owners besides the signed-in user that the API counts (`otherOwnerCount`). */
+  otherOwners: number
   onRemoved: () => void
   /**
    * Render a stacked card instead of a table row, for phones, where the
@@ -518,7 +545,7 @@ function MemberRow({
 }) {
   const targetRole = member.membership.role
   const isSelf = member.user.id === myUserId
-  const isLastOwner = isLastOwnerBlocked({ targetRole, isSelf, ownerCount: owners })
+  const isLastOwner = isLastOwnerBlocked({ targetRole, isSelf, otherOwners })
   const canLeave = isSelf && !asStaff
   const canRemove =
     canLeave || (canManageTenant(myRole) && modifyRule(slug)(myRole, targetRole, isSelf))
@@ -533,6 +560,7 @@ function MemberRow({
       isSelf={isSelf}
       isLastOwner={isLastOwner}
       reasonId={reasonId}
+      onGone={onRemoved}
     />
   )
   const remove = !canRemove ? null : asStaff ? (
@@ -620,7 +648,7 @@ export function MembersCard({
   } = useMyRole(slug, tenantId)
   const asStaff = access === 'platform'
   const myUserId = useAuthStore((state) => state.user?.id)
-  const owners = ownerCount(members.data)
+  const otherOwners = otherOwnerCount(members.data, myUserId, slug === PLATFORM_TENANT_SLUG)
   const isMobile = useIsMobile()
   const focus = useFocusAfter<'heading'>()
   const focusHeading = () => focus.focusAfter('heading')
@@ -665,7 +693,7 @@ export function MembersCard({
                 myRole={myRole}
                 asStaff={asStaff}
                 myUserId={myUserId}
-                owners={owners}
+                otherOwners={otherOwners}
                 onRemoved={focusHeading}
               />
             ))}
@@ -689,7 +717,7 @@ export function MembersCard({
                   myRole={myRole}
                   asStaff={asStaff}
                   myUserId={myUserId}
-                  owners={owners}
+                  otherOwners={otherOwners}
                   onRemoved={focusHeading}
                 />
               ))}
