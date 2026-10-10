@@ -13,7 +13,7 @@ Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
 `express-boilerplate` API: express 2.0.1 or newer for Apex 1.9.0 and later
 (2.0.0 added the reasoned staff writes to customer tenants, Leave for every
 role and Sign out other sessions; clearing a maintenance reason sends
-`reason: null`, which only 2.0.1 accepts), and 2.1.0 for the members page's `member_not_found` code
+`reason: null`, which express accepts from 2.0.1), and 2.1.0 for the members page's `member_not_found` code
 and the platform tenant's `user.active`, which an older 2.x falls back from as
 the README says. Run it with `APEX_URL` set to this app's origin,
 `http://localhost:5174` locally. Older Apex releases needed less: 1.4.0 for the
