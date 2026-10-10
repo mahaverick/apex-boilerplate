@@ -10,9 +10,15 @@ of these is a deliberate act, not a tidy-up.
 ## What this is
 
 Apex: the staff admin dashboard, a React 19 + TypeScript SPA that talks to the
-`express-boilerplate` API (1.4.0 or newer, run with `APEX_URL` set to this app's
-origin, `http://localhost:5174` locally; the user and tenant timelines need
-1.6.0, the Errors pages and the system status card 1.7.0, the flags pages 1.8.0, and maintenance mode 1.9.0. Apex 1.9.0 and later need express 2.0.0 or newer, which added the reasoned staff writes to customer tenants, Leave for every role and Sign out other sessions; apex 1.8.x works with express 1.9.0. The members page reads express 2.1.0's `member_not_found` code and the platform tenant's `user.active`, and on an older 2.x falls back as the README says). `react-boilerplate`, the customer app,
+`express-boilerplate` API: express 2.0.0 or newer for Apex 1.9.0 and later
+(the reasoned staff writes to customer tenants, Leave for every role and Sign
+out other sessions), and 2.1.0 for the members page's `member_not_found` code
+and the platform tenant's `user.active`, which an older 2.x falls back from as
+the README says. Run it with `APEX_URL` set to this app's origin,
+`http://localhost:5174` locally. Older Apex releases needed less: 1.4.0 for the
+base pages, 1.6.0 for the user and tenant timelines, 1.7.0 for the Errors pages
+and the system status card, 1.8.0 for the flags pages and 1.9.0 for maintenance
+mode, so Apex 1.8.x works with express 1.9.0. `react-boilerplate`, the customer app,
 is its sibling. Vite, TanStack Router (file-based), TanStack Query, TanStack
 Form, TanStack Table 9, Zustand, Tailwind v4, Base UI via shadcn, recharts,
 axios, Zod v4, Vitest + Testing Library + MSW.
