@@ -856,7 +856,7 @@ describe('removing and leaving', () => {
     expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID}/members`)
   })
 
-  it('shows the server’s message, and stays, when removing someone else answers 404', async () => {
+  it('says the member is gone, and stays, when removing someone else answers Member not found', async () => {
     mockTenant('owner', [member(ME, 'owner', 'Me'), member(USER_ID_3, 'viewer', 'Vic')])
     server.use(
       http.delete('/api/v1/tenants/acme/members/:userId', () => fail('Member not found', 404))
@@ -869,7 +869,7 @@ describe('removing and leaving', () => {
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' })
     )
 
-    expect(await screen.findByText('Member not found')).toBeInTheDocument()
+    expect(await screen.findByText('That member is no longer in this tenant.')).toBeInTheDocument()
     expect(screen.queryByText('You are no longer a member of this tenant.')).not.toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID}/members`)
@@ -1871,7 +1871,7 @@ describe('staff acting through platform access', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
-    expect(await screen.findByText('Member not found')).toBeInTheDocument()
+    expect(await screen.findByText('That member is no longer in this tenant.')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
   })
@@ -1889,7 +1889,7 @@ describe('staff acting through platform access', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
     await user.click(within(dialog).getByRole('button', { name: 'Change role' }))
 
-    expect(await screen.findByText('Member not found')).toBeInTheDocument()
+    expect(await screen.findByText('That member is no longer in this tenant.')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
   })
@@ -2206,7 +2206,9 @@ describe('a write that finds the member already gone', () => {
 
       await writeToVic(user, action, asStaff)
 
-      expect(await screen.findByText('Member not found')).toBeInTheDocument()
+      expect(
+        await screen.findByText('That member is no longer in this tenant.')
+      ).toBeInTheDocument()
       await waitFor(() =>
         expect(screen.queryByRole('cell', { name: /Vic/ })).not.toBeInTheDocument()
       )
@@ -2234,6 +2236,23 @@ describe('a write that finds the member already gone', () => {
       await writeToVic(user, action, asStaff)
 
       await waitFor(() => expect(rowAtToast).toEqual([false]))
+    }
+  )
+
+  it.each(CASES.filter((write) => !write.asStaff))(
+    'reads the old message on a status other than 404 as no departure, on a $path $action',
+    async ({ action, asStaff }) => {
+      const state = serveDeparture(asStaff, () => fail('Member not found', 500))
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+      await writeToVic(user, action, asStaff)
+
+      expect(await screen.findByText('Member not found')).toBeInTheDocument()
+      expect(screen.queryByText('That member is no longer in this tenant.')).not.toBeInTheDocument()
+      await settle(100, 'absence has no event: no member list refetch follows')
+      expect(state.listReads).toBe(1)
+      expect(screen.getByRole('cell', { name: /Vic/ })).toBeInTheDocument()
     }
   )
 

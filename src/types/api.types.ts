@@ -102,7 +102,7 @@ export const INVITATION_NOT_FOUND = 'invitation_not_found'
 export const MEMBER_NOT_FOUND = 'member_not_found'
 
 /**
- * That 404's message, and what Apex says for it. From an API older than
+ * That 404's message, used only to recognise it: from an API older than
  * 2.1.0, which sends no code, it is the only mark that tells the 404 from the
  * access check's.
  */

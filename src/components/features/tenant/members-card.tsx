@@ -71,7 +71,6 @@ import {
   type TenantMember,
 } from '@/queries/tenant.queries'
 import { useAuthStore } from '@/states/auth.store'
-import { MEMBER_NOT_FOUND_MESSAGE } from '@/types/api.types'
 
 /**
  * Which member each role may change or remove. The platform tenant (the Staff
@@ -113,6 +112,9 @@ const NO_LONGER_A_MEMBER = 'You are no longer a member of this tenant.'
 /** What a leave of the platform tenant says when the page could not move to Overview afterwards. */
 const LEFT_BUT_STUCK = 'You left, but this page could not move on. Reload it to continue.'
 
+/** What a role change or removal says when its member is already gone, in react's words. */
+const MEMBER_GONE = 'That member is no longer in this tenant.'
+
 /** The reason the last owner's own controls are switched off. */
 const LAST_OWNER_REASON = 'A tenant must always have an owner. Add another owner first.'
 
@@ -136,7 +138,7 @@ const MEMBERS_ERROR =
  */
 function sayMemberGone(error: unknown, onGone: () => void): boolean {
   if (!isMemberNotFound(error)) return false
-  toast.error(MEMBER_NOT_FOUND_MESSAGE)
+  toast.error(MEMBER_GONE)
   onGone()
   return true
 }
@@ -494,7 +496,7 @@ function RemoveMemberButton({
                       return
                     }
                     setIsOpen(false)
-                    if (!isSelf && sayMemberGone(error, onRemoved)) return
+                    if (sayMemberGone(error, onRemoved)) return
                     toast.error(messageFrom(error))
                   }
                 )
