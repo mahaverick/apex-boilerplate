@@ -705,9 +705,10 @@ is off (`advanced_disable_feature_flags`).
   `flag-keys.ts` and `flag-scope.ts`, which are Apex's own. The `_app`
   layout's loader fetches Apex's values from `GET /platform/me/flags` (staff
   are evaluated with no tenant) before the shell renders; a failed read
-  serves each flag's fallback and never blocks a page. `useFlag`,
-  `useVariant`, `<Flag>` and `requireClientFlag` read them, and a nav item's
-  `flag` hides it while off.
+  serves each flag's fallback and never blocks a page. `useVariant` and
+  `useFlagValues` (`flag-hooks.ts`) and `requireClientFlag` read them, and a
+  nav item's `flag` hides it while off. Only `useVariant` reports an
+  experiment's exposure.
 - **Adding an Apex flag.** Declare it in express with `client: true` and
   `apex` in `apps`, run express's `flags:sync` in each environment, then copy
   its key, kind, variants, fallback and `experiment` into `CLIENT_FLAGS` in
