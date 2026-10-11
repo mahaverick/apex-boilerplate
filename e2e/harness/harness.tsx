@@ -1,14 +1,10 @@
 /**
- * The e2e fixture harness. Not part of the shipped app — nothing in `src/`
- * imports it, and `index.html` is the only Vite entry that builds.
- *
- * Playwright's `fixtures` project needs the REAL shell, the real router and
- * the real CSS in a real browser, but not a real backend. This boots the
- * actual router with MSW answering the same fixtures `tests/unit/a11y.test.tsx`
- * uses, and the same signed-in store state.
- *
- * The harness user is a platform admin, so every staff page renders, unless
- * `?role=` names another role (see `platformRole`).
+ * @file The e2e fixture harness: the real shell, router and CSS in a real
+ * browser, with MSW answering the same fixtures `tests/unit/a11y.test.tsx` uses
+ * and the same signed-in store state, so Playwright's `fixtures` project needs
+ * no backend. Nothing in `src/` imports it, and `index.html` is the only Vite
+ * entry that builds. The harness user is a platform admin unless `?role=` names
+ * another role (see `platformRole`).
  */
 import '@/lib/zod-jitless'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -94,8 +90,7 @@ const platformRole =
  * `?member=owner|admin|manager|editor|viewer` makes the harness user a member
  * of Acme at that role, with Cleo D its owner, so the members tab offers
  * Leave on their own row; otherwise they reach Acme through platform access.
- * Once they leave, Acme answers as express does: through platform access,
- * without their row.
+ * Once they leave, Acme answers through platform access, without their row.
  */
 const memberParam = new URLSearchParams(location.search).get('member')
 const acmeRole =
@@ -127,10 +122,10 @@ const testUser = {
 
 /**
  * The Overview's figures: the same seven days as `testStats` in
- * `tests/mocks/handlers.ts`, restated because that file's `@/tests` imports
- * do not resolve under Vite. The emails are a no-webhook install's: every
- * day's sends in `sent`, and one undelivered on the fourth day, so the chart
- * draws eight segments (zero-height ones draw nothing).
+ * `tests/mocks/handlers.ts`, restated because `@` is aliased to `src/`, so that
+ * file's `@/tests` imports do not resolve under Vite. All sends are in `sent`
+ * and one email is undelivered on the fourth day, so the chart draws eight
+ * segments (a zero-height segment draws nothing).
  */
 const STATS = {
   range: '7d' as const,
@@ -150,11 +145,12 @@ const STATS = {
   })),
 }
 
+/** The API's success envelope around `data`. */
 function ok<T>(data: T, message = 'OK', statusCode = 200) {
   return Response.json({ success: true, message, statusCode, data })
 }
 
-/** A staff actor on the History cards, with the platform tenant the API files `user.*` entries under. */
+/** A staff actor on the History cards, and the platform tenant their `user.*` entries are filed under. */
 const SAM = { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' }
 const PLATFORM = { id: PLATFORM_TENANT_ID, name: 'Platform', slug: 'platform' }
 
@@ -294,9 +290,8 @@ const TENANT_DETAIL_BASE = {
 /**
  * A tenant's page. Acme is active, with a long description and an inactive
  * owner; Beta is suspended, with its own details and one owner, so its tabs
- * render frozen and nothing on its page is Acme's; Delta is active with no
- * owner at all, so its Actions menu offers the owner invitation. Delta is on
- * no list: only its own page is reached.
+ * render frozen; Delta is active with no owner at all, so its Actions menu
+ * offers the owner invitation. Delta is on no list: only its own page is reached.
  */
 function tenantDetail(tenantId: string) {
   if (tenantId === TENANT_ID_4) {
@@ -442,6 +437,7 @@ const EMAIL_PREVIEW = {
  */
 function emailHealth(range: string) {
   const hasProvider = range !== '30d'
+  /** A rate tile's figures; with no provider data the tile has no value. */
   const rate = (numerator: number, denominator: number) => ({
     value: hasProvider ? numerator / denominator : null,
     numerator: hasProvider ? numerator : 0,
@@ -502,7 +498,7 @@ const SUPPRESSION_ROWS = [
   },
 ]
 
-/** The four default steps' names, as express's registry serves them. */
+/** The title of each onboarding step, by key. */
 const STEP_TITLES = {
   configure_settings: 'Configure your workspace',
   invite_teammate: 'Invite a teammate',
@@ -546,9 +542,9 @@ function onboardingFunnel(range: string) {
 }
 
 /**
- * One row per tab, the onboarding list filtered the way the API filters it:
- * Acme stuck with two owners, the long-named Beta in progress, Delta waiting
- * for its owner, and the rest finished or dismissed.
+ * The onboarding list: Acme stuck with two owners, the long-named Beta in
+ * progress, Delta waiting for its owner and Gamma complete. No row is dismissed.
+ * The handler returns the rows whose state matches `?state=`.
  */
 const ONBOARDING_ROWS = [
   {
@@ -617,7 +613,7 @@ const ONBOARDING_ROWS = [
  */
 const acmeOnboardingState = new URLSearchParams(location.search).get('onboarding') ?? 'stuck'
 
-/** A tenant's Onboarding tab: every completion kind, an open member disclosure's worth of members, and two reminders. */
+/** A tenant's Onboarding tab: a step completed by staff, by the system and by the customer (with its members), and two reminders. */
 function tenantOnboarding(tenantId: string) {
   const isBeta = tenantId === TENANT_ID_2
   const isDelta = tenantId === TENANT_ID_4
@@ -628,6 +624,7 @@ function tenantOnboarding(tenantId: string) {
       ? { id: TENANT_ID_4, name: 'Delta LLC', slug: 'delta', lifecycleState: 'active' }
       : { ...ACME, lifecycleState: 'active' }
   const canAct = !isBeta && !isDelta && (state === 'stuck' || state === 'in_progress')
+  /** An open step of the tab, with a description long enough to wrap at phone width. */
   const step = (key: keyof typeof STEP_TITLES, required: boolean) => ({
     key,
     title: STEP_TITLES[key],
@@ -765,11 +762,12 @@ function timelineRow(n: number, seconds: number, fields: Record<string, unknown>
  * A timeline's newest page: a customer-app session holding a click whose text
  * names a person, a two-event sign-in request and a pageview; a staff action
  * outside any session; then an Apex session. A tenant's rows name their actors,
- * one by email and one purged. `view=key` drops PostHog's own `$` events, as
- * express does; `range=24h` keeps the first session only; `before` answers the
- * one older page.
+ * one by email and one purged. `view=key` drops events whose name starts with
+ * `$`; `range=24h` keeps the first session only; `before` answers the one older
+ * page.
  */
 function timelineOf(kind: 'user' | 'tenant', id: string, params: URLSearchParams) {
+  /** The `actor` field a tenant's rows carry; a user's rows have none. */
   const actor = (actorId: string, displayName: string | null) =>
     kind === 'tenant' ? { actor: { id: actorId, displayName } } : {}
   const links = {
@@ -862,7 +860,7 @@ function errorIssue(n: number, fields: Record<string, unknown>) {
 
 /**
  * A user's or a tenant's issues, newest first: a browser crash whose message
- * names a person (express scrubs addresses, never names), a signed API
+ * names a person (the error scrubber redacts addresses, not names), a signed API
  * error with a long unbroken message, and a server row express did not sign.
  */
 function errorsOf() {
@@ -906,8 +904,8 @@ function flagUrl(id: number) {
 }
 
 /**
- * The inspector's list: express's two reference flags (one active beta page,
- * one experiment), a third made unsupported by a cohort condition with a
+ * The inspector's list: two reference flags (an active beta page and an
+ * inactive experiment), a third made unsupported by a cohort condition with a
  * long description, an unregistered PostHog flag and the five traits.
  */
 function flagsList() {
@@ -1007,9 +1005,9 @@ function flagsList() {
 }
 
 /**
- * One evaluation: in a tenant the beta page matches its first condition;
- * the experiment puts the user in its holdout, so they see `control` and
- * exposure records the holdout; the unsupported flag serves its fallback.
+ * One evaluation: in a tenant the beta page matches its first condition; the
+ * experiment puts the user in its holdout, so they see `control`; the
+ * unsupported flag serves its fallback.
  */
 function flagsEvaluation(params: URLSearchParams) {
   const tenantId = params.get('tenantId')
@@ -1100,7 +1098,7 @@ const SYSTEM_STATUS = {
  */
 const maintenanceParam = new URLSearchParams(location.search).get('maintenance')
 
-/** Every queue `queue.service.ts` creates, paused or not, with one analytics job finishing. */
+/** The four queues, all paused or none, with one analytics job active. */
 function harnessQueues(paused: boolean) {
   return ['email', 'notification', 'maintenance', 'analytics'].map((name) => ({
     name,
@@ -1148,14 +1146,14 @@ function reauthRequired() {
 }
 
 const worker = setupWorker(
-  // The overview, the harness's default route: its KPI cards and both charts.
+  // The Overview, the default route: its KPI cards and both charts.
   http.get('/api/v1/platform/stats', ({ request }) =>
     ok(
       { ...STATS, range: new URL(request.url).searchParams.get('range') ?? STATS.range },
       'Platform stats retrieved.'
     )
   ),
-  // An admin's Overview also reads the API's release, error tracking's, feature flags' and maintenance mode's health.
+  // An admin's Overview also reads the release and the error tracking, flags and maintenance health.
   http.get('/api/v1/platform/system/status', () =>
     ok(
       {
@@ -1173,13 +1171,13 @@ const worker = setupWorker(
       'System status retrieved.'
     )
   ),
-  // The staff shell's banner reads this on every page: off unless `?maintenance=` says otherwise.
+  // The staff shell's banner reads this on every page; it is off unless `?maintenance=` says otherwise.
   http.get('/api/v1/platform/maintenance-mode', () =>
     maintenanceParam === 'route'
       ? passthrough()
       : ok(MAINTENANCE_VIEW, 'Maintenance mode retrieved.')
   ),
-  // The staff shell's loader reads Apex's flags on every page; Apex has none yet.
+  // The staff shell's loader reads Apex's flags on every page; there are none.
   http.get('/api/v1/platform/me/flags', () =>
     ok({ flags: {}, evaluatedAt: '2026-10-05T10:00:00.000Z' }, 'Flags retrieved.')
   ),
@@ -1188,7 +1186,7 @@ const worker = setupWorker(
   http.get('/api/v1/platform/flags/evaluate', ({ request }) =>
     ok(flagsEvaluation(new URL(request.url).searchParams), 'Flags evaluated.')
   ),
-  // The activity page (the platform log, its actor filter's staff list and its tenant filter's search), and the History cards: a user's by `targetId`, a tenant's by `tenantId` with `access=platform`.
+  // The activity page's log and the History cards: a user's by `targetId`, a tenant's by `tenantId` with `access=platform`.
   http.get('/api/v1/platform/audit-log', ({ request }) => {
     const params = new URL(request.url).searchParams
     if (params.has('targetId') || (params.has('tenantId') && params.get('access') === 'platform')) {
@@ -1223,7 +1221,7 @@ const worker = setupWorker(
       'Audit log retrieved.'
     )
   }),
-  // The Staff page: the harness admin's platform role, the staff list (shared with the activity page's actor filter) and no pending invitations.
+  // The Staff page: the harness admin's platform role, the staff list (also the activity page's actor filter) and no pending invitations.
   http.get('/api/v1/tenants/platform', () =>
     ok(
       {
@@ -1268,7 +1266,7 @@ const worker = setupWorker(
   http.get('/api/v1/platform/users/:userId', ({ params }) =>
     ok(userDetail(String(params.userId)), 'User retrieved.')
   ),
-  // The user and tenant timelines, filtered by `view` and `range` and paged by `before` as express answers them.
+  // The user and tenant timelines, filtered by `view` and `range` and paged by `before`.
   http.get('/api/v1/platform/users/:userId/timeline', ({ params, request }) =>
     ok(
       timelineOf('user', String(params.userId), new URL(request.url).searchParams),
@@ -1302,7 +1300,7 @@ const worker = setupWorker(
   http.get('/api/v1/platform/tenants/:tenantId/onboarding', ({ params }) =>
     ok(tenantOnboarding(String(params.tenantId)), 'Tenant onboarding retrieved.')
   ),
-  // Acme's own routes, which its Members, Invitations and Activity tabs read. Beta's are never called: a frozen tenant's tabs make no tenant-route request.
+  // Acme's own routes, which its Members, Invitations and Activity tabs read. Beta's are never called: a suspended tenant's tabs make no request.
   http.get('/api/v1/tenants/acme', () =>
     ok(
       {
@@ -1358,7 +1356,7 @@ const worker = setupWorker(
       'Audit log retrieved.'
     )
   ),
-  // Before `/platform/emails/:emailId`, as express registers it, so `health` is never read as an id.
+  // Registered before `/platform/emails/:emailId`, or `health` would match as an id.
   http.get('/api/v1/platform/emails/health', ({ request }) =>
     ok(
       emailHealth(new URL(request.url).searchParams.get('range') ?? '7d'),
@@ -1390,7 +1388,7 @@ const worker = setupWorker(
     )
     return ok({ messages: emails, nextCursor: null, prevCursor: null }, 'Emails retrieved.')
   }),
-  // Suspending a tenant, sending an owner invitation and deactivating a user always ask for a recent sign-in, so the fixtures can open the stacked step-up dialog.
+  // Suspending a tenant, inviting an owner and deactivating a user answer with the step-up refusal, so the fixtures can open the stacked step-up dialog.
   http.post('/api/v1/platform/tenants/:tenantId/suspend', reauthRequired),
   http.post('/api/v1/platform/tenants/:tenantId/owner-invitation', reauthRequired),
   http.post('/api/v1/platform/users/:userId/deactivate', reauthRequired),
@@ -1411,7 +1409,7 @@ const worker = setupWorker(
   http.post('/api/v1/auth/sessions/revoke-others', () =>
     ok({ revoked: 2 }, 'Other sessions signed out.')
   ),
-  // Any other current password gets the API's own 400.
+  // Any other current password gets a 400.
   http.post('/api/v1/auth/change-password', async ({ request }) => {
     const body = (await request.json()) as { currentPassword?: unknown }
     if (body.currentPassword === HARNESS_PASSWORD) return ok(null, 'Password has been changed.')
@@ -1425,7 +1423,7 @@ const worker = setupWorker(
       { status: 400 }
     )
   }),
-  // Belt and braces: nothing in the fixtures suite should ever reach the real backend, and a silent fall-through is how it would.
+  // A refresh is answered here so it never falls through to a real backend.
   http.post('/api/v1/auth/refresh', () =>
     ok({ accessToken: 'harness-token', user: testUser }, 'Session refreshed.')
   )
@@ -1433,7 +1431,7 @@ const worker = setupWorker(
 
 await worker.start({ onUnhandledRequest: 'bypass', quiet: true })
 
-// The real store state a signed-in user has. `isBootstrapped` skips the refresh round trip the root route would otherwise wait on.
+// `isBootstrapped` skips the session refresh that the router would otherwise run before rendering.
 useAuthStore.setState({
   accessToken: 'harness-token',
   user: testUser,
@@ -1442,32 +1440,22 @@ useAuthStore.setState({
 })
 
 /**
- * Which in-app route to mount. Defaults to the overview. `?path=` exists for
- * the contrast suite and `fixtures/security.test.ts`, which need the other
- * authenticated surfaces: the handlers above answer /profile,
- * /auth/providers, the tenants page's search, the activity page's three
- * requests, the Staff page's three, the users list and a user's page (its Emails
- * card, timeline and errors included), a tenant's page with its tabs, the Emails list and an email's page with its
- * preview, Deliverability, Suppressions, Onboarding, Feature flags and Maintenance, so those pages render without a backend.
+ * Which in-app route to mount, from `?path=`; the default is the Overview.
+ * The handlers above answer every page the fixtures and the contrast suite
+ * reach, so each renders without a backend.
  *
- * Only a same-origin absolute path is accepted. This harness is not
- * shipped (nothing in `src/` imports it, and `index.html` is the only Vite
- * entry that builds), but it does run against a real browser with a
- * signed-in store, and a query parameter that reached `replaceState`
- * unchecked would be an open-redirect shape worth never writing down in
- * the first place.
+ * Only a same-origin absolute path is accepted (one slash, then neither `/` nor
+ * `\`): a `?path=` that reached `replaceState` unchecked would be an
+ * open-redirect shape.
  */
 const requestedPath = new URLSearchParams(location.search).get('path')
 const targetPath = requestedPath && /^\/[^/\\]/.test(requestedPath) ? requestedPath : '/overview'
 
 /**
- * replaceState, NOT router.navigate: navigate before the router mounts
- * does a real navigation, and the dev server then answers
- * the path with the SPA fallback (index.html -> main.tsx), so
- * the harness never runs. The router reads location on mount, so setting
- * it first is enough. A path may carry its own query
- * (`?path=/deliverability?range=30d`); the harness's parameters follow it
- * after an `&`, so the page reads that query as written.
+ * Sets the location with `replaceState` before the router mounts, since the
+ * router reads it on mount. A path may carry its own query
+ * (`?path=/deliverability?range=30d`); the harness's parameters follow it after
+ * an `&`, so the page reads that query as written.
  */
 const harnessQuery = location.search.slice(1)
 history.replaceState(

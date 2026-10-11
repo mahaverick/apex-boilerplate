@@ -30,7 +30,7 @@ import {
 test.skip(process.env.E2E_LIVE !== '1', 'live backend required — run pnpm test:e2e:live')
 
 test.beforeAll(async () => {
-  // Two mailed registrations, then a staff viewer for the 1.3.0 and 1.4.0 probes (a third, plus platform:grant).
+  // The version probe mails two registrations and registers a staff viewer, so it outlasts the default timeout.
   test.setTimeout(90_000)
   if (!(await apiIsReady())) {
     throw new Error(`No API at ${API_ORIGIN}. Start express with APEX_URL=${APEX_ORIGIN}.`)
@@ -101,7 +101,7 @@ test('an admin creates a tenant; the invited owner accepts; suspend hides it fro
   expect(new URL(invitation).origin).toBe(WEB_ORIGIN)
   await acceptInvitationAs(owner, invitation)
   await page.reload()
-  // The owners card lists the accepted owner; nothing else on the page names them by address.
+  // The owners card lists the accepted owner.
   await expect(page.getByText(owner).first()).toBeVisible()
 
   // Signed in moments ago, so the step-up is fresh and suspend asks for nothing more.

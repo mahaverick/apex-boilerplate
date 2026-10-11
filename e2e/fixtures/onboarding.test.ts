@@ -52,7 +52,7 @@ test('the funnel draws a bar per step, with the staff share beside it', async ({
   await expect(funnel.getByText('30 of 40 tenants (75.00%) · 4 by staff')).toBeVisible()
   const bars = funnel.locator('li .rounded-full')
   await expect(bars).toHaveCount(4)
-  // The first step: 26 of 40 completed without staff and 4 with, on a track the full row wide.
+  // The first step: 26 of 40 completed without staff and 4 with, so the fills are 65% and 10% of the track.
   const [track, completed, staff] = await Promise.all([
     bars.first().boundingBox(),
     bars.first().locator('div').nth(0).boundingBox(),

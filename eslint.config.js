@@ -83,8 +83,8 @@ export default tseslint.config(
      * blocks set typed parser options), so typed rules throw on them: they are
      * linted syntactically only, and listed by name so this block never covers
      * a file under src/. The tailwind rules are off because the plugin's own
-     * `files` glob matches them, and without `cssConfigPath` (scoped to src/)
-     * it falls back to 'src/style.css' and throws ENOENT.
+     * `files` glob matches them, and without `cssConfigPath` (set only for
+     * src/) it falls back to 'src/style.css' and throws ENOENT.
      */
     files: [
       'eslint.config.js',
@@ -158,7 +158,7 @@ export default tseslint.config(
     /**
      * File and folder naming and placement. `src/pages/**` is exempt through the
      * `!(pages)` glob segment: TanStack Router's file routes need names like
-     * `__root.tsx`, `_auth.tsx` and `$slug.members.tsx`, which are not kebab-case.
+     * `__root.tsx`, `_auth.tsx` and `$tenantId.members.tsx`, which are not kebab-case.
      */
     files: ['src/!(pages)/**/*.{ts,tsx}', 'src/*.{ts,tsx}'],
     plugins: { 'check-file': checkFile },
@@ -190,8 +190,7 @@ export default tseslint.config(
      * No test file lives under src/, including src/pages/: unit tests go in
      * tests/unit/, mirroring the src/ path of their subject, so src/ holds
      * shipped code only and no test lands in the router's routes directory. The
-     * custom `errorMessage` is required: without it, check-file validates the
-     * map's values as glob patterns, and free text fails that.
+     * custom `errorMessage` replaces the generic message with the move to make.
      */
     files: ['src/**/*.{ts,tsx}'],
     plugins: { 'check-file': checkFile },
@@ -364,9 +363,9 @@ export default tseslint.config(
   },
   {
     /**
-     * Upstream's chart.tsx is kept as pulled: Recharts' payload types are `any` in places
-     * (the three no-unsafe-* rules), and its type assertions and `dataKey` templating trip
-     * no-unnecessary-type-assertion and restrict-template-expressions.
+     * Upstream's chart.tsx is kept as pulled, so the rules its Recharts payload
+     * typing (the three no-unsafe-* rules), type assertions and `dataKey`
+     * templating trip are off here.
      */
     files: ['src/components/ui/chart.tsx'],
     rules: {

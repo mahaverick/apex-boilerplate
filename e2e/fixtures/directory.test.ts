@@ -94,7 +94,7 @@ test('the tenant actions menu, the suspend reason dialog and the stacked step-up
   await expect(stepUp.getByLabel('Password')).toBeVisible()
   await afterAnimations(stepUp)
 
-  // Both dialogs are fixed-position, so they never widen the page: measure their own boxes. The reason dialog is aria-hidden under the step-up, so a role query no longer finds it.
+  // Fixed-position dialogs never widen the page, so measure their own boxes. The step-up leaves the reason dialog aria-hidden, which hides it from a role query.
   for (const [label, dialog] of [
     ['reason dialog', page.locator('[role="alertdialog"]')],
     ['step-up dialog', stepUp],

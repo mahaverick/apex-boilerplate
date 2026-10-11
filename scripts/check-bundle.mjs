@@ -1,7 +1,8 @@
 /**
  * @file Builds the app in memory and checks the chunks it would ship: more than
  * one JS chunk, first-visit JS (the entry chunk and its static imports) under
- * budget and free of posthog-js and `@posthog/core`, the error listener in the
+ * budget and free of posthog-js and `@posthog/core` (each of which must exist
+ * in some other chunk, or the check proves nothing), the error listener in the
  * entry chunk under its own budget, and no devtools module in any chunk. Run
  * with `pnpm check:bundle`.
  */
@@ -9,13 +10,13 @@ import path from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { build } from 'vite'
 
-/** The first-visit JS budget. It measured 627,286 B when this line was last checked, about 3.7 KB under; `pnpm check:bundle` prints the current size. Raise it only with a measured reason. */
+/** The first-visit JS budget in bytes, a few KB over the built size that `pnpm check:bundle` prints. Raise it only with a measured reason. */
 const ENTRY_BUDGET_BYTES = 631_000
 
 /**
  * A module inside one of the devtools packages, by its node_modules path. Module
- * ids, not code: in production both packages export a stub that returns null,
- * so a leaked chunk's code carries none of the package's name.
+ * ids, not code: outside development the packages export a component that
+ * returns null, so a leaked chunk's code carries none of the package's name.
  */
 const DEVTOOLS_MODULE =
   /[\\/]@tanstack[\\/](react-query-devtools|query-devtools|react-router-devtools|router-devtools-core)[\\/]/
@@ -35,7 +36,7 @@ const POSTHOG_CORE_MODULE = /[\\/]@posthog[\\/]core[\\/]/
 /** The entry-chunk error listener, which every page pays for. */
 const ERROR_LISTENER_MODULE = /[\\/]src[\\/]observability[\\/]errors[\\/]listen\.ts$/
 
-/** The error listener's rendered code in the entry chunk, gzipped; measured at 960 bytes. */
+/** The most the error listener's rendered code may weigh in the entry chunk, gzipped. */
 const ERROR_LISTENER_BUDGET_GZIP_BYTES = 1024
 
 const output = await build({
@@ -59,6 +60,7 @@ if (entries.length !== 1) {
   failures.push(`expected one entry chunk, found ${entries.length}`)
 } else {
   const initial = new Set()
+  /** Adds `fileName` and everything it statically imports to `initial`. */
   const visit = (fileName) => {
     if (initial.has(fileName)) return
     initial.add(fileName)

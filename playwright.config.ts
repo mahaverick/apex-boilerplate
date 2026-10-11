@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 /**
- * The e2e projects.
+ * @file The e2e projects.
  *
  * `fixtures` runs against the MSW harness in `e2e/harness/` and needs only the
  * dev server. It holds the checks that need a real browser rather than jsdom.
@@ -9,9 +9,9 @@ import { defineConfig, devices } from '@playwright/test'
  * `live` runs against a real express-boilerplate on :4040 (or `E2E_API_ORIGIN`) through the Vite
  * proxy, and is skipped unless `E2E_LIVE=1`. It covers what needs a real
  * server, cookie jar and reload: a reload keeps you signed in, and the refresh
- * cookie carries the flags
- * the SPA assumes, its `Secure` flag set by express's `COOKIE_SECURE` (default
- * from `APP_ENV`), which no `X-Forwarded-Proto` header changes.
+ * cookie carries the flags the SPA assumes, its `Secure` flag following
+ * express's `COOKIE_SECURE` (default from `APP_ENV`) and not any
+ * `X-Forwarded-Proto` header.
  *
  * Tests are `*.test.ts`, not Playwright's default `*.spec.ts`, which
  * `check-file/filename-blocklist` rejects.
@@ -61,7 +61,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     /**
-     * Colour contrast, which jsdom cannot compute (no layout, no cascade), so the
+     * Colour contrast, which jsdom cannot compute (it has no layout), so the
      * unit a11y gate disables every colour rule. Opt-in and not run in CI: run
      * `pnpm test:contrast` before merging UI work, since component composition
      * can break contrast as well as a palette change.

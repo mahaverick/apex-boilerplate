@@ -48,7 +48,7 @@ import {
  * 1.5.0+ behind the image with `POSTHOG_PROJECT_KEY=phc_test_key_not_real`
  * and `POSTHOG_HOST`/`POSTHOG_ASSETS_HOST` at this suite's fake PostHog on
  * `FAKE_POSTHOG_PORT` (4063), which then receives the browser's traffic
- * through express's proxy and express's own drain on `/batch/`. The steps
+ * through express's proxy, along with express's own server events on `/batch/`. The steps
  * are in the README's "Analytics (PostHog)" section.
  */
 
@@ -143,6 +143,7 @@ async function probeStaff(suffix: string) {
   return { email, token, id: (named.body as { data: { id: string } }).data.id }
 }
 
+/** Signs out through the account menu and waits for the sign-in page. */
 async function signOut(page: Page): Promise<void> {
   await page.getByRole('button', { name: /^Account menu for / }).click()
   await page.getByRole('menuitem', { name: 'Sign out' }).click()
@@ -485,7 +486,7 @@ test.describe('analytics end to end, through express', () => {
       new URL(await mailedLink(invitee, 'invitations/accept')).searchParams.get('token') ?? ''
     expect(invitationToken).not.toBe('')
     const emailId = await emailIdFor(staff.token, invitee, 'tenant_invitation')
-    // A customer account: staff may sign it out; another staff account's menu offers no such action.
+    // A customer account, which staff may sign out everywhere.
     const target = {
       email: `pii-probe-target-${Date.now()}@example.com`,
       id: '',
@@ -624,6 +625,7 @@ test.describe('analytics end to end, through express', () => {
     const userB = await probeStaff('b')
 
     // A page closed by an earlier test can still flush into the shared fake, so only these two count.
+    /** The `$identify` events from the browser for these two users, in arrival order. */
     const identified = () =>
       fake
         .events()

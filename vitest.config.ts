@@ -2,10 +2,10 @@ import path from 'node:path'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
-  /** vite.config.ts's `define`, which this standalone config does not inherit. */
+  /** The release constant vite.config.ts defines, which this standalone config does not inherit. */
   define: { __APP_RELEASE__: JSON.stringify('test') },
   resolve: {
-    /** `@/tests` first: aliases match in order, and `@` would resolve `@/tests/…` into src/. */
+    /** `@/tests` first: aliases match in order, and `@` would map `@/tests/…` into src/. */
     alias: [
       { find: '@/tests', replacement: path.resolve(import.meta.dirname, './tests') },
       { find: '@', replacement: path.resolve(import.meta.dirname, './src') },
@@ -20,7 +20,7 @@ export default defineConfig({
      * `*.test.ts` files and run Playwright specs under jsdom.
      */
     include: ['tests/**/*.test.{ts,tsx}'],
-    // Node's BroadcastChannel crosses worker_threads, so 'threads' lets test files hear each other.
+    // Forks, not threads: Node's BroadcastChannel crosses worker_threads, so under 'threads' one test file would hear another's messages.
     pool: 'forks',
     /**
      * Headroom over Vitest's 5s default: each test file gets its own worker and
@@ -48,7 +48,7 @@ export default defineConfig({
         'src/components/ui/{table,tabs,textarea,tooltip}.tsx',
         'src/components/ui/{calendar,chart,empty,kbd,popover,toggle,toggle-group}.tsx',
       ],
-      /** About seven points under the measured baseline, so a drop fails CI. */
+      /** A drop below any of these fails CI (`pnpm test:coverage`). */
       thresholds: { statements: 88, branches: 82, functions: 86, lines: 89 },
     },
   },

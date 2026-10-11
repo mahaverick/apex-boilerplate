@@ -18,10 +18,9 @@ import { requireServedApp } from './csp'
  * fake PostHog through Playwright. A crash has to come from the bundle's own
  * code to pass the in-app filter, so each one is a stubbed profile whose
  * `firstName` is a number: the account menu's `.trim()` throws on it while
- * rendering, as a real malformed response would make it. `/overview` is
- * not canonical (its `range` has a default), so the router replaces the
- * crashed match on mount and the menu throws again: that re-throw is the
- * same crash, and still one `$exception`.
+ * rendering, as a real malformed response would make it. The router can
+ * render `/overview` a second time on mount, so the menu throws again: that
+ * is the same crash, and still one `$exception`.
  */
 
 /** The `GIT_SHA` the image under test was built with; CI's e2e image takes none. */
@@ -37,6 +36,7 @@ const PROBES = [PROBE_EMAIL, 'pii-probe', 'Probe', PROBE_TOKEN]
 /** posthog-js's logger prefix: in its own lazy chunk, and in no chunk of the app's. */
 const POSTHOG_JS_MARKER = '[PostHog.js]'
 
+/** How `stubApi` answers: the profile it serves and how the tenant read fails. */
 interface StubOptions {
   /** A number makes the account menu throw while rendering. */
   firstName?: string | number
@@ -45,6 +45,7 @@ interface StubOptions {
   tenantDetail?: 'ok' | 500 | 'network'
 }
 
+/** The route fulfillment for the API's success envelope, or its 500-style error envelope when `status` is not 200. */
 function envelope(data: unknown, status = 200) {
   return {
     status,
@@ -244,6 +245,7 @@ test.describe('error tracking against a fake PostHog', () => {
     'a crash before posthog-js has loaded still arrives, with the user once analytics settles',
     { tag: '@no-api' },
     async ({ page }) => {
+      /** Lets the held posthog-js chunk through; the promise below installs the real one. */
       let releasePosthog: () => void = () => {}
       const posthogHeld = new Promise<void>((resolve) => {
         releasePosthog = resolve
