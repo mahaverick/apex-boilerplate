@@ -6,7 +6,7 @@ import type { PlatformTenantDetail } from '@/types/api.types'
 
 /**
  * The tenant's owners. A deactivated owner is listed but marked, because the
- * API no longer counts them: with no active owner the tenant is
+ * API does not count them: with no active owner the tenant is
  * effectively ownerless, and the sentence below says what staff can do.
  */
 export function TenantOwners({ tenant }: { tenant: PlatformTenantDetail }) {

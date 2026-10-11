@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table'
 import type { EmailBreakdownRow } from '@/types/api.types'
 
+/** A card's breakdown: its heading, the rows, and how each row's key is named. */
 interface BreakdownCardProps {
   /** The card's heading, which also names its table. */
   title: string

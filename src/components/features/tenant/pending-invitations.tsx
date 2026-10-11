@@ -51,7 +51,7 @@ function actionFailure(error: unknown): string {
 }
 
 /**
- * Waits for a staff resend or revoke. A 404, the invitation no longer pending
+ * Waits for a staff resend or revoke. A 404, the invitation not pending
  * or the tenant out of reach, is said in the member buttons' words; every
  * other refusal rejects, for the reason dialog to show.
  * @param write - The write in flight.
@@ -225,7 +225,7 @@ function RevokeInvitationButton({
  * dialog every other staff write uses (step-up included), and shows a
  * refusal there. The words and toasts are the member buttons'. A 404 is the
  * exception: the hooks' `onSettled` refetch has dropped this row (an
- * invitation no longer pending) or the whole list (a tenant out of reach),
+ * invitation that is not pending) or the whole list (a tenant out of reach),
  * and the dialog with it, before the refusal arrives, so it is a toast and
  * the dialog closes.
  */
@@ -381,6 +381,7 @@ export function PendingInvitations({
 }) {
   const invitations = useInvitations(slug, tenantId)
   const focus = useFocusAfter<'heading'>()
+  /** Moves focus to the card heading once a revoke has taken the acted-on row away. */
   const focusHeading = () => focus.focusAfter('heading')
 
   return (

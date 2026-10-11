@@ -2,7 +2,7 @@ import { templateLabel } from '@/constants/email.constants'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
 import { TIMELINE_RANGE_LABELS, TIMELINE_VIEW_LABELS } from '@/constants/timeline.constants'
 
-/** Every action the API writes to its audit log. An action the server adds still renders, through the fallback sentence. */
+/** The audit actions this build has a sentence for. One the server writes that is not listed, `member.left` among them, still renders, through the fallback sentence. */
 export const AUDIT_ACTIONS = [
   'tenant.created',
   'tenant.updated',
@@ -44,8 +44,10 @@ export const AUDIT_ACTIONS = [
   'user.flags_evaluated',
   'platform.maintenance_mode_changed',
 ] as const
+/** An audit action as the API names it (`area.event`) that this build has wording for. */
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
 
+/** Whether `value` is an audit action this build has a sentence for. */
 export function isAuditAction(value: string): value is AuditAction {
   return (AUDIT_ACTIONS as readonly string[]).includes(value)
 }
@@ -93,17 +95,21 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'platform.maintenance_mode_changed': 'Maintenance mode changed',
 }
 
+/** An audit entry's free-form metadata, whose fields are checked before use. */
 type Metadata = Record<string, unknown>
 
+/** A string field of the metadata, or undefined when it is missing or not a string. */
 function text(metadata: Metadata, key: string): string | undefined {
   const value = metadata[key]
   return typeof value === 'string' ? value : undefined
 }
 
+/** Whether `value` names a role this build knows. */
 function isMembershipRole(value: string): value is MembershipRole {
   return (MEMBERSHIP_ROLES as readonly string[]).includes(value)
 }
 
+/** A role field as a label, passing an unknown role through as sent. */
 function roleLabel(metadata: Metadata, key: string): string {
   const value = text(metadata, key)
   if (value === undefined) return 'an unknown role'
@@ -170,7 +176,7 @@ const MAINTENANCE_MODE_WORDS: Record<string, string> = {
 
 /**
  * A maintenance-mode change as a sentence: on, off, escalated, eased, or a
- * new customer message; a mode it does not know reads as a change.
+ * changed customer message; a mode it does not know reads as a change.
  */
 function maintenanceChange(metadata: Metadata): string {
   const from = text(metadata, 'from')
@@ -265,7 +271,7 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
 
 /**
  * What the actor did, as the rest of a sentence their name begins. Reads the
- * metadata defensively: a row written under an older schema still renders.
+ * metadata defensively, so a row whose fields are missing or mistyped still renders.
  */
 export function auditSentence(entry: { action: string; metadata: Metadata }): string {
   const build: ((metadata: Metadata) => string) | undefined = isAuditAction(entry.action)

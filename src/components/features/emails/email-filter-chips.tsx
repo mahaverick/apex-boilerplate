@@ -38,8 +38,8 @@ function FilterChip({
 
 /**
  * The user a `?userId=` filter names. The page's own rows name them when any
- * are listed; otherwise their record is read, and an id that no longer
- * resolves (a purged account) says so rather than showing the raw id.
+ * are listed; otherwise their record is read, and an id that does not
+ * resolve (a purged account) says so rather than showing the raw id.
  */
 export function UserFilterChip({
   userId,

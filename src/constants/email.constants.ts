@@ -64,7 +64,7 @@ export const EMAIL_STATUS_BADGE: Record<EmailMessageStatus, { label: string; ton
 
 /**
  * The five disjoint groups the Overview and Deliverability charts stack, each
- * on one of the five existing chart tokens.
+ * on one of the five chart tokens.
  */
 export const EMAIL_GROUPS: Record<EmailGroup, { label: string; color: string }> = {
   delivered: { label: 'Delivered', color: 'var(--chart-2)' },

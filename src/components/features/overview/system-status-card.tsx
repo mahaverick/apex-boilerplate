@@ -143,7 +143,7 @@ function FlagsFacts({ flags }: { flags: FlagsStatus }) {
   )
 }
 
-/** Each mode's badge tone: being in maintenance is shown, not warned about. */
+/** Each mode's badge tone; the mode alone never adds a "Needs attention" badge. */
 const MAINTENANCE_TONES: Record<MaintenanceMode, BadgeTone> = {
   off: 'success',
   read_only: 'warning',
@@ -167,14 +167,13 @@ function isSettling(iso: string | null | undefined, now: number): boolean {
 
 /**
  * Whether maintenance mode needs a look: the replica has not read the state,
- * the last reload failed, the queues' pause state disagrees with the mode
- * (full pauses every queue once `MAINTENANCE_PAUSE_SETTLE_MS` has passed
- * since `since`; anything else pauses none; a queue Redis did not answer for
- * matches neither), or change notices are still waiting once the same settle
- * window has passed since the last change (`changedAt`, which a switch-off
- * also sets, or `since` from an express without it; the notices are held
- * until the queues pause and resume). Being in maintenance is not itself a
- * warning.
+ * the last reload failed, or the queues' pause state disagrees with the mode
+ * (full pauses every queue once `MAINTENANCE_PAUSE_SETTLE_MS` has passed since
+ * `since`; any other mode pauses none; a queue Redis did not answer for
+ * matches neither). Change notices still waiting count too, once the same
+ * settle window has passed since `since` or `changedAt`, which a switch-off
+ * also sets; the notices are held until the queues pause and resume. Being in
+ * maintenance is not itself a warning.
  * @param maintenance - The status's maintenance section.
  * @param now - When the status was fetched, in epoch milliseconds.
  * @returns True when the card should warn.
@@ -274,6 +273,7 @@ function MaintenanceFacts({
   )
 }
 
+/** The status as description lists; the flags and maintenance sections appear only when the API sent them. */
 function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: number }) {
   const tracking = status.errorTracking
   const dropped = DROP_REASONS.filter((reason) => tracking.dropped[reason] > 0)
@@ -339,8 +339,7 @@ function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: n
 /**
  * The API's release, error tracking's health over the last 15 minutes,
  * summed across every API and worker process, feature flags' health, and the
- * maintenance mode this API serves customers.
- * Error tracking warns when any event was dropped or the last send failed;
+ * maintenance mode this API serves customers. Error tracking warns when any event was dropped or the last send failed;
  * feature flags warn as `flagsNeedAttention` says, maintenance mode as
  * `maintenanceNeedsAttention` says. An API older than 1.8.0 sends no flags
  * section, and one older than 1.9.0 no maintenance section; the card shows

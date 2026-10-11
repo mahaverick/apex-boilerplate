@@ -5,7 +5,7 @@ import type { OnboardingFunnel } from '@/types/api.types'
 
 /**
  * The funnel's headline figures, over the tenants that started onboarding in
- * the window: how many, and how they stand now. The four states add up to
+ * the window: how many, and how they stand. The four states add up to
  * the started count. The rate is worked out from the two counts shown beside
  * it, so it can never disagree with them; `completionRate` only says whether
  * there is one.
@@ -13,6 +13,7 @@ import type { OnboardingFunnel } from '@/types/api.types'
 export function OnboardingKpis({ funnel }: { funnel: OnboardingFunnel }) {
   const { totals } = funnel
   const { started } = totals
+  /** A count with thousands separators, as every figure here is shown. */
   const count = (value: number) => value.toLocaleString('en-US')
   const cards = [
     {

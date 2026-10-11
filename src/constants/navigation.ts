@@ -1,7 +1,7 @@
 /**
  * @file The staff navigation: one typed list the sidebar and the command
- * palette both read. Later sub-projects add entries here; an item above the
- * user's role, or behind a flag that is off, is hidden, never shown disabled.
+ * palette both read. An item above the user's role, or behind a flag that is
+ * off, is hidden, never shown disabled.
  */
 import {
   Building2,
@@ -26,9 +26,10 @@ import { fallbackFlags, filterByFlag } from '@/observability/flags/flag-values'
 /** Sidebar sections, in display order. */
 export const NAV_GROUPS = ['General', 'Directory', 'Operations', 'Growth', 'Security'] as const
 
+/** One of the sidebar's sections. */
 export type NavGroup = (typeof NAV_GROUPS)[number]
 
-/** Every route the navigation can point at; a new page widens this union. */
+/** Every route the navigation can point at; adding a page widens this union. */
 export type NavPath =
   | typeof ROUTES.overview
   | typeof ROUTES.tenants
@@ -42,6 +43,7 @@ export type NavPath =
   | typeof ROUTES.onboarding
   | typeof ROUTES.activity
 
+/** One page in the staff navigation, with who sees it and where it sits. */
 export interface NavItem {
   label: string
   to: NavPath
@@ -53,6 +55,7 @@ export interface NavItem {
   flag?: BooleanClientFlagKey
 }
 
+/** Every staff page the navigation can list, in display order within each group. */
 export const NAV_ITEMS: readonly NavItem[] = [
   {
     label: 'Overview',

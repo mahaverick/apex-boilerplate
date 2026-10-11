@@ -1,7 +1,6 @@
 /**
  * @file A tenant's member list with role and removal controls, parameterised
- * by slug so the Staff page reuses it for the platform tenant. Its states: an
- * error per failed request, a skeleton, empty, cards on a phone, otherwise the table.
+ * by slug so the Staff page reuses it for the platform tenant.
  */
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
@@ -112,7 +111,7 @@ const NO_LONGER_A_MEMBER = 'You are no longer a member of this tenant.'
 /** What a leave of the platform tenant says when the page could not move to Overview afterwards. */
 const LEFT_BUT_STUCK = 'You left, but this page could not move on. Reload it to continue.'
 
-/** What a role change or removal says when its member is already gone, in react's words. */
+/** What a role change or removal says when its member is already gone, in the customer app's words. */
 const MEMBER_GONE = 'That member is no longer in this tenant.'
 
 /** The reason the last owner's own controls are switched off. */
@@ -377,7 +376,7 @@ function RemoveMemberButton({
   /**
    * Says so; from the platform tenant, leaves its routes and only then forgets
    * it. A navigation that fails is reported and said, and the cache is dropped
-   * all the same: the tenant's routes answer 404 now, so the page still
+   * all the same: the tenant's routes answer 404 from here, so the page still
    * mounted on them refetches what is true.
    */
   async function afterLeaving(message: string) {
@@ -653,6 +652,7 @@ export function MembersCard({
   const otherOwners = otherOwnerCount(members.data, myUserId, slug === PLATFORM_TENANT_SLUG)
   const isMobile = useIsMobile()
   const focus = useFocusAfter<'heading'>()
+  /** Moves focus to the card heading once a removal has taken the acted-on row away. */
   const focusHeading = () => focus.focusAfter('heading')
 
   return (

@@ -37,6 +37,7 @@ export const STEP_UP_DISMISSED = 'Confirm it’s you to continue.'
 export const ROLE_DENIED_ACTION =
   'Your role can’t do this any more. If your access just changed, reload the page.'
 
+/** What `ReasonDialog` shows and does: its wording, the action it confirms, and how its refusals read. */
 export interface ReasonDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -62,16 +63,19 @@ export interface ReasonDialogProps {
  * The confirmation every destructive or state-changing staff action goes
  * through: a required reason (recorded in the audit log) and, for the
  * irreversible ones, a typed confirmation. The form mounts only while open,
- * so each opening starts blank. A 403 or 409, and a 404 that carries a code,
- * is the server's own sentence (staff-on-staff refusal, invalid transition,
- * last owner) and is shown as is unless `refusalMessage` returns a sentence
- * to replace it; a 404 without a code is the role gate's, and a 400
- * `REASON_REQUIRED` goes on the Reason field. The dialog stays open so the
- * reader sees it. A refusal that means the row is gone is the caller's to
- * catch and resolve: a dialog inside a list its write refetches on settle is
- * unmounted with the row before the refusal arrives (an invitation no longer
- * pending, a member already gone), and an API older than 2.1.0 sends a
- * member's `Member not found` with no code.
+ * so each opening starts blank.
+ *
+ * A refusal shows inside the dialog, which stays open. A 403 or 409 is the
+ * server's own sentence (staff-on-staff refusal, invalid transition, last
+ * owner) unless `refusalMessage` returns a sentence to replace it; a 404 that
+ * carries a code is the server's sentence as is, and one without a code is the
+ * role gate's. A 400 `REASON_REQUIRED` goes on the Reason field.
+ *
+ * A refusal that means the row is gone is the caller's to catch and resolve: a
+ * dialog inside a list its write refetches on settle is unmounted with the row
+ * before the refusal arrives (an invitation that is not pending, a member already
+ * gone), and an API older than 2.1.0 sends a member's `Member not found` with
+ * no code.
  */
 export function ReasonDialog(props: ReasonDialogProps) {
   const [busy, setBusy] = useState(false)
@@ -91,6 +95,7 @@ export function ReasonDialog(props: ReasonDialogProps) {
   )
 }
 
+/** The reason form inside the open dialog; reports `onBusyChange` so the dialog holds still while the action runs. */
 function ReasonForm({
   onOpenChange,
   title,

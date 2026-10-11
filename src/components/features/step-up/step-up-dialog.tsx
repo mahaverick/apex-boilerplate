@@ -35,10 +35,9 @@ const passwordSchema = z.object({ password: z.string().min(1, 'Enter your passwo
 /**
  * Where focus goes when the step-up closes: into the dialog still open
  * beneath it (the reason dialog waiting on this confirmation), at its first
- * enabled field, else onto that dialog's popup. Base UI's default sent focus
- * outside it (to the page's Actions trigger in a browser, to `<body>` in
- * jsdom), behind a modal that is still open. With no dialog open beneath,
- * the default stands.
+ * enabled field, else onto that dialog's popup. Left to Base UI, focus would
+ * land outside that dialog, behind a modal that is still open. With no dialog
+ * open beneath, the default stands.
  * @param self - The step-up's own popup, excluded from the search.
  * @returns The element to focus, or `true` for Base UI's default.
  */
@@ -59,8 +58,8 @@ function focusBeneath(self: HTMLElement | null): HTMLElement | true {
 
 /**
  * "Confirm it's you". The body mounts only while open, so the sign-in
- * methods are fetched when a step-up actually happens and the form starts
- * empty every time. Closing it any way other than a successful confirmation
+ * methods are read when a step-up happens and the form starts empty every
+ * time. Closing it any way other than a successful confirmation
  * (Escape, the overlay, Cancel) is a dismissal.
  */
 export function StepUpDialog({
@@ -97,6 +96,7 @@ export function StepUpDialog({
   )
 }
 
+/** Picks the confirmation the account can give: the password form, or the way to get a password. */
 function StepUpBody({
   onConfirmed,
   onDismissed,
@@ -146,7 +146,7 @@ function PasswordStepUp({
         await reauthenticate.mutateAsync(value.password)
         onConfirmed()
       } catch (error) {
-        // The API's 400s here (wrong password) name the one field there is.
+        // A wrong password is a 400, not a 401, which would sign the session out; it belongs on the one field.
         if (statusFrom(error) === 400) {
           serverErrors.setFieldError('password', [messageFrom(error)])
           return
@@ -191,12 +191,14 @@ function PasswordStepUp({
 
 /**
  * An account without a password can't confirm who it is here: the API
- * confirms by password only. Only admins and owners reach a step-up, and they
- * may mail themselves a set-password link from their own user page (the
- * link opens Apex's reset page, which works while signed in). Setting the
- * password ends every session they have, so they sign in again before
- * repeating the action. Forgot password is no route for them: the sign-in
- * pages send a signed-in user away.
+ * confirms by password only. An admin or owner may mail themselves a
+ * set-password link from their own user page (the link opens Apex's reset
+ * page, which works while signed in). A viewer reaches a step-up only by
+ * leaving the platform tenant, and the API lets only admins and owners send
+ * account mail, so a viewer has no such link. Setting the password ends every
+ * session the account has, so its owner signs in again before repeating the
+ * action. Forgot password is no route while signed in: the sign-in pages send
+ * a signed-in user away.
  */
 function NoPasswordStepUp({ onDismissed }: { onDismissed: () => void }) {
   const userId = useAuthStore((state) => state.user?.id)

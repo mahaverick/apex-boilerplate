@@ -17,13 +17,13 @@ const ACTIVITY_ERROR =
 const MORE_ERROR =
   'We could not load more activity. What is listed above is correct, but it may not be all of it.'
 /**
- * `staleTime: 0` (audit.queries.ts) makes a background refetch of the pages
- * already loaded common, and that failure is not the same event as a failed
- * "Load more": nothing new was being appended, so what's on screen is not
- * necessarily complete or current, but it is not wrong either.
+ * A failed background refetch of the loaded pages, which `staleTime: 0` in
+ * audit.queries.ts makes common. Unlike a failed "Load more", nothing was being
+ * appended, so the list is not wrong, only possibly not current.
  */
 const REFETCH_ERROR = 'We could not refresh the activity. What is listed above may be out of date.'
 
+/** The props of `ActivityList`, generic over the entry type so `renderTenant` receives the caller's own entries. */
 export interface ActivityListProps<T extends AuditEntry> {
   entries: T[]
   isPending: boolean
@@ -46,9 +46,8 @@ export interface ActivityListProps<T extends AuditEntry> {
  * One audit entry. The actor's email line is left out when it equals their
  * name, which the API sets to the email when no name is on file. Base UI's
  * Tooltip is not announced, so the absolute time is also in the trigger's own
- * text, visually hidden. The actor links to their user page; a user target,
- * and in the platform-wide view a tenant target, links to its page unless
- * it is the list's own subject. A purged
+ * text, visually hidden. A user target, and in the platform-wide view a tenant
+ * target, links to its page unless it is the list's own subject. A purged
  * user's entries have no actor (the API redacts it), and a link to a purged
  * target lands on the not-found page.
  */
@@ -125,9 +124,8 @@ function ActivityRow<T extends AuditEntry>({
 
 /**
  * An audit log, newest first: one tenant's (the Activity tab) or every
- * tenant's (the platform page). The same states as every list here: in
- * flight, failed, empty, and loaded with a keyboard-reachable Load more. The
- * error is checked before the empty state, since `[]` is what both look like.
+ * tenant's (the platform page). The error is checked before the empty state,
+ * since `[]` is what both look like.
  */
 export function ActivityList<T extends AuditEntry>({
   entries,

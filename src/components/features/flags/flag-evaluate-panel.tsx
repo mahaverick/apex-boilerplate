@@ -30,6 +30,7 @@ interface FlagEvaluateSearch {
   app: FlagApp
 }
 
+/** The evaluation form's state and its way to change it, with the registry that says which flags the chosen app receives. */
 interface FlagEvaluatePanelProps {
   search: FlagEvaluateSearch
   onSearchChange: (next: FlagEvaluateSearch) => void

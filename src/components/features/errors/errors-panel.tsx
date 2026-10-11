@@ -106,9 +106,8 @@ function ErrorIssueRow({ issue }: { issue: ErrorIssue }) {
 
 /**
  * A user's or a tenant's PostHog error issues over the last 30 days, newest
- * first. The states say what is true: not set up, loading, empty, and a
- * failure, which gets one copy whatever its status (a 502
- * `TIMELINE_UNAVAILABLE`'s message is masked). A 404 is a role refusal; the
+ * first. A failure gets one copy whatever its status, since a 502
+ * `TIMELINE_UNAVAILABLE`'s message is masked. A 404 is a role refusal; the
  * page around it handles an unknown subject.
  */
 export function ErrorsPanel({ kind, id }: { kind: TimelineKind; id: string }) {

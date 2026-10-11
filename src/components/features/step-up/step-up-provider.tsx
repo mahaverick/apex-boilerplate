@@ -3,6 +3,7 @@ import { StepUpDialog } from '@/components/features/step-up/step-up-dialog'
 import { StepUpContext, type StepUp } from '@/hooks/use-step-up'
 import { isReauthRequired, sentWithCurrentToken } from '@/lib/step-up'
 
+/** An action refused for a stale sign-in: `resolve` retries it after a confirmation, `reject` surfaces its refusal after a dismissal. */
 interface Waiter {
   resolve: () => void
   reject: () => void
@@ -43,7 +44,7 @@ export function StepUpProvider({ children }: { children: ReactNode }) {
           return await action()
         } catch (error) {
           if (!isReauthRequired(error)) throw error
-          // Refused with an older token than the store now holds: another confirmation already landed.
+          // Refused with an older token than the store holds: another confirmation already landed.
           if (!sentWithCurrentToken(error)) return action()
           try {
             await confirm()

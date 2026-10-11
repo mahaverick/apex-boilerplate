@@ -1,6 +1,6 @@
 /**
- * @file The status badge tones every status label shares (email statuses,
- * onboarding states), so a tone means the same on every page.
+ * @file The status badge tones every status label shares (for example
+ * email statuses and onboarding states), so a tone means the same on every page.
  */
 
 /**
@@ -17,4 +17,5 @@ export const BADGE_TONES = [
   'outline',
   'muted',
 ] as const
+/** The name of one shared status tone, as `ToneBadge` takes it. */
 export type BadgeTone = (typeof BADGE_TONES)[number]

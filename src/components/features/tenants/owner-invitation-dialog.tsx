@@ -35,8 +35,8 @@ import { INVITEE_DEACTIVATED, type PlatformTenantDetail } from '@/types/api.type
 /**
  * Send, or re-send, the owner invitation of a tenant with no active owner
  * as platform admin or owner, with an audited reason, behind
- * step-up. It is prefilled with the pending invitation's address; a
- * different address revokes that one. A staff address is allowed, and the
+ * step-up. It is prefilled with the pending invitation's address; whichever
+ * address is sent revokes the pending one. A staff address is allowed, and the
  * audit entry records who it resolves to. Refusals show inline: a
  * deactivated invitee on Owner email; any other 409 (an active owner joined
  * meanwhile, the tenant left `active`) or a 403 on the form; a 404, which
@@ -80,6 +80,7 @@ export function OwnerInvitationDialog({
   )
 }
 
+/** The invitation form inside the open dialog; `onBusyChange` lets the dialog hold still while a send runs. */
 function OwnerInvitationForm({
   tenant,
   onDone,

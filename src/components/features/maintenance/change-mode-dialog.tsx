@@ -56,6 +56,7 @@ const MODE_HINTS: Record<OnMode, string> = {
   full: 'Customers see a maintenance page and cannot sign in. Every queue pauses.',
 }
 
+/** What `ChangeModeDialog` is opened on and which modes it offers. */
 export interface ChangeModeDialogProps {
   /** The state the change starts from. */
   view: PlatformMaintenanceModeView
@@ -76,27 +77,25 @@ function titleFor(from: PlatformMaintenanceModeView['mode'], modes: readonly OnM
 
 /**
  * Sets maintenance to `read_only` or `full`, or edits the message of the mode
- * that is on. The message has a live preview of what customers will see.
- * Switching on or escalating also needs a reason and the API's environment
- * typed exactly, compared against the platform GET's `environment`; other
- * changes take an optional reason. The change runs through step-up. A 409
- * shows what someone else saved meanwhile and keeps the dialog open, and the
- * next submit sends the version just read. Until then a submit sends the
- * version the dialog opened on, so a poll that lands meanwhile makes it a
- * conflict instead of silently overwriting what was read. The message starts
- * as the one now saved and, for a change that is not a switch-on, the reason
- * does too; emptying the reason clears the stored one (`reason: null`). A 409
- * moves an untouched pre-filled message or reason to the one just read, keeps
- * one the owner typed, and says which. A same-mode save that changes neither
- * is refused in place, before step-up. A save express answers with the
- * version unchanged stored nothing, and the toast says so; a no-op that races
- * another owner's commit is answered with their newer version and reads as
- * saved, which apex cannot tell apart without a signal from express. The mode
- * the form is validated against, and whether a submit is a switch-on, both
- * come from the mode the dialog opened on, replaced only when a 409 reads a
- * newer one; a poll in between changes neither. A 409 whose re-read failed
- * says so and keeps the version, so the next submit conflicts again and reads
- * again.
+ * that is on, with a live preview of what customers will see. Switching on or
+ * escalating also needs a reason and the API's environment typed exactly,
+ * compared against the platform GET's `environment`; other changes take an
+ * optional reason, and emptying a pre-filled one clears the stored reason
+ * (`reason: null`). The change runs through step-up.
+ *
+ * A submit sends the version the dialog opened on, so a poll that lands
+ * meanwhile makes it a 409 instead of silently overwriting what was read. A 409
+ * shows what someone else saved and keeps the dialog open: an untouched
+ * pre-filled message or reason moves to the one just read, one the owner typed
+ * is kept, and the note says which. The next submit then sends the version just
+ * read. A 409 whose re-read failed says so and keeps the version, so the next
+ * submit conflicts again and reads again. The mode the form is validated
+ * against, and whether a submit is a switch-on, come from the mode the dialog
+ * opened on, replaced only when a 409 reads a newer one.
+ *
+ * A same-mode save that changes neither message nor reason is refused in
+ * place, before step-up. A save express answers with the version unchanged
+ * stored nothing, and the toast says so.
  */
 export function ChangeModeDialog(props: ChangeModeDialogProps) {
   const [busy, setBusy] = useState(false)
@@ -116,6 +115,7 @@ export function ChangeModeDialog(props: ChangeModeDialogProps) {
   )
 }
 
+/** The form inside the open dialog. It is mounted only while the dialog is open, so its state starts fresh each time. */
 function ChangeModeForm({
   view,
   modes,
@@ -208,7 +208,7 @@ function ChangeModeForm({
             }
             setPrefilledMessage(fresh.message)
           }
-          // An untouched pre-filled reason follows too: the other owner's reason, or empty once the edit became a switch-on (its field is required and the "starts as the reason now saved" hint is gone).
+          // An untouched pre-filled reason follows too: the other owner's, or empty once the edit became a switch-on, where the field is required and the hint is gone.
           const freshSwitchOn = isSwitchOn(fresh.mode, mode)
           const freshPrefill = freshSwitchOn ? '' : (fresh.reason ?? '')
           if (reason === prefilledReason) form.setFieldValue('reason', freshPrefill)
@@ -376,7 +376,7 @@ type PrefilledField = 'message' | 'reason'
 
 /**
  * What a 409 did to the pre-filled fields, said after the conflict sentence
- * so it is announced, not only visible: untouched ones now show the other
+ * so it is announced, not only visible: untouched ones show the other
  * owner's values, and typed ones they also changed are kept.
  * @param moved - Untouched fields that took the other owner's value.
  * @param kept - Fields the owner typed that the other owner also changed.

@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
+/** A chart card's heading, its empty-window message, and the chart with its hidden table. */
 interface ChartCardProps {
   /** The figure's name, shown as its heading: "Sign-ups per day". */
   title: string

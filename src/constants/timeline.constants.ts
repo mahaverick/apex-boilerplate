@@ -19,7 +19,7 @@ export const TIMELINE_VIEWS = ['all', 'key'] as const satisfies readonly Timelin
 /** What the API assumes when the URL names no window. */
 export const TIMELINE_DEFAULT_RANGE: TimelineRange = '7d'
 
-/** The debugging view is the default; key events is the account-understanding view. */
+/** What the API assumes when the URL names no view: every event, the debugging view. */
 export const TIMELINE_DEFAULT_VIEW: TimelineView = 'all'
 
 /** Each window as the select and the empty state name it. */

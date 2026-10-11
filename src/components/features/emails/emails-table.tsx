@@ -84,8 +84,9 @@ const columns = column.columns([
  * One page of tracked email, newest first as the API orders it. The
  * recipient opens the message; the User and Tenant columns link to their
  * records, and a dash is a mail with none, or one whose record was purged.
- * @param label - The table's accessible name, for a page that shows more than one.
- * @param omit - A column that would only repeat the page's own record: `tenant` on a tenant's Emails tab.
+ * `label` names the table for a page that shows more than one; `omit` drops
+ * a column that would only repeat the page's own record, `tenant` on a
+ * tenant's Emails tab.
  */
 export function EmailsTable({
   rows,
