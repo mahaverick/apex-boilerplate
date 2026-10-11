@@ -20,7 +20,7 @@ import type {
   PlatformMaintenanceModeView,
 } from '@/types/api.types'
 
-/** Query key for the platform's maintenance state. */
+/** The key of the platform state, `['platform', 'maintenance-mode']`, which the banner and the Maintenance page share. */
 export const maintenanceModeKeys = {
   view: ['platform', 'maintenance-mode'] as const,
 }
@@ -59,8 +59,8 @@ export function isMaintenanceModeConflict(error: unknown): error is MaintenanceM
  * The platform state. Asked again every 30 seconds while maintenance is on
  * and every 60 seconds while it is off (or not yet known), and only while the
  * tab is visible (TanStack Query pauses `refetchInterval` in a hidden tab); a
- * focus or a remount asks again when the answer is stale. A 404 (an express older than 1.9.0, or a
- * role that changed) stops the polling.
+ * focus or a remount asks again when the answer is stale. A 404 (an express
+ * older than 1.9.0, or a role that changed) stops the polling.
  * @returns Query options for `useQuery`.
  */
 export function maintenanceModeQueryOptions() {

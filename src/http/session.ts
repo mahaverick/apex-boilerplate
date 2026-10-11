@@ -142,7 +142,8 @@ let uninstallAnalyticsIdentity: (() => void) | null = null
  * it: sign-in, the session restore, a 401 verdict, or a logout broadcast from
  * another tab. A different user, or none, resets analytics first, so the next
  * person's events never carry the last one's distinct id, and drops every flag
- * value and exposure mark the last one had. A user is then identified by id
+ * value and exposure mark the last one had, so nobody sees another person's
+ * flags. A user is then identified by id
  * alone, after their opt-out is applied, so an opted-out user's identify is
  * never captured.
  *

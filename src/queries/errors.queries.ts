@@ -10,7 +10,7 @@ import { apiClient, unwrap } from '@/http/client'
 import type { TimelineKind } from '@/queries/timeline.queries'
 import type { ApiSuccess, ErrorIssuesPage } from '@/types/api.types'
 
-/** Query keys for the error lists. */
+/** Keys under `['errors']`, then kind and id; invalidating `all` reaches every user's and tenant's error list. */
 export const errorsKeys = {
   /** Every error list, whatever its subject. */
   all: ['errors'] as const,

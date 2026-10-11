@@ -39,7 +39,7 @@ export function sinceLabel(iso: string, now: Date = new Date()): string {
  * The banner's sentence: the mode in capitals, since when and by whom.
  * @param view - The state, whose mode is not `off`.
  * @param now - The clock, for tests.
- * @returns "Customers are in FULL maintenance since 10:42, set by Ada."
+ * @returns "Customers are in FULL maintenance since 10:42 AM, set by Ada."
  */
 export function bannerSentence(view: PlatformMaintenanceModeView, now?: Date): string {
   const mode = MAINTENANCE_MODE_LABELS[view.mode].toUpperCase()

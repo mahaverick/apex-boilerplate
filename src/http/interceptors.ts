@@ -137,7 +137,7 @@ export function installInterceptors(client: AxiosInstance): void {
     async (error: AxiosError<ApiErrorBody>) => {
       const config = error.config
 
-      // First: a refresh-internal request must reject plainly, or ensureSession() awaits itself.
+      // First: a skipAuthRetry request (a refresh call, logout, the invitation preview) must reject plainly; for a refresh call, ensureSession() would await itself.
       if (config?.skipAuthRetry) {
         return Promise.reject(error)
       }

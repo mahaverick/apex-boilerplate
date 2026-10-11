@@ -25,7 +25,7 @@ interface AuthPayload {
 /** Which frontend the API should link back to: this one. The API accepts only 'web' or 'apex'. */
 const APP = 'apex' as const
 
-/** Query keys for the sign-in methods. */
+/** The key of the caller's linked sign-in methods, `['auth', 'providers']`. */
 export const authKeys = { providers: ['auth', 'providers'] as const }
 
 /** Signs in with an email and password, and stores the access token and user. */

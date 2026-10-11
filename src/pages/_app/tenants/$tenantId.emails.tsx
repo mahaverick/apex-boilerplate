@@ -51,7 +51,7 @@ function TenantEmailsTab() {
   function goTo(cursor: string | null, dir: PageDirection) {
     if (cursor) void navigate({ search: { cursor, dir } })
   }
-  /** Back to the first page. */
+  /** Drops the cursor, which returns the list to its first page. */
   const firstPage = () => void navigate({ search: {} })
 
   const settled =

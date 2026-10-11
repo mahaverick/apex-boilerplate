@@ -20,7 +20,7 @@ export interface PlatformAuditFilters {
   access?: AuditAccess
 }
 
-/** A tenant audit log's filters. */
+/** The only filter `GET /tenants/:slug/audit-log` takes here; it is part of the query key. */
 export interface TenantAuditFilters {
   action?: AuditAction
 }

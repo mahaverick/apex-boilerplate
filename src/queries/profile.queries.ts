@@ -4,7 +4,7 @@ import type { UpdateProfileInput } from '@/schemas/profile.schemas'
 import { useAuthStore } from '@/states/auth.store'
 import type { ApiSuccess, User } from '@/types/api.types'
 
-/** Query key for the signed-in user's profile. */
+/** The key of the signed-in user's profile, `['profile']`; `refreshProfile` writes it. */
 export const profileKeys = { detail: ['profile'] as const }
 
 /**
@@ -27,7 +27,7 @@ export async function refreshProfile(queryClient: QueryClient): Promise<void> {
   }
 }
 
-/** The signed-in user's profile. */
+/** The signed-in user's profile, painted at once from the auth store's user. */
 export function useProfile() {
   return useQuery({
     queryKey: profileKeys.detail,

@@ -35,7 +35,7 @@ export interface UserSearchParams {
   limit?: number
 }
 
-/** Query keys for the user directory. */
+/** `all` is `['platform', 'users']` (lists); `detail` sits under `['platform', 'user']`, so invalidating `all` leaves open user pages alone. */
 export const userAdminKeys = {
   /** Every users page; a write invalidates them all, since any row may move between filters. */
   all: ['platform', 'users'] as const,
