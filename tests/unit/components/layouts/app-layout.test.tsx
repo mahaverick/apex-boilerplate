@@ -15,7 +15,7 @@ import { server } from '@/tests/mocks/server'
 
 const LOGOUT_FAILED = "Couldn't sign out. Check your connection and try again."
 
-/** Every way POST /auth/logout can fail WITHOUT the server saying the session is over. */
+/** Every way POST /auth/logout can fail without the server saying the session is over. */
 const LOGOUT_FAILURES: [string, () => Response][] = [
   ['the API cannot be reached', () => HttpResponse.error()],
   ['a 503 from a restarting upstream', () => fail('Service Unavailable', 503)],
@@ -43,7 +43,7 @@ describe('AppLayout', () => {
     renderAppAt('/overview')
     await screen.findByRole('heading', { name: 'Overview', level: 1 })
 
-    // SidebarInset already IS a <main>. A second <main> around the Outlet would be an axe `landmark-no-duplicate-main` failure.
+    // SidebarInset is already a <main>; a second one around the Outlet would fail axe's `landmark-no-duplicate-main`.
     expect(screen.getAllByRole('main')).toHaveLength(1)
   })
 
@@ -257,9 +257,8 @@ describe('AppLayout', () => {
   })
 
   /**
-   * `window.location.assign` is non-configurable in jsdom, so vi.spyOn on it
-   * throws "Cannot redefine property". Replacing the whole `location` object
-   * is the way in; `afterEach` puts the real one back.
+   * `window.location.assign` is non-configurable in jsdom, so `vi.spyOn` on it throws "Cannot redefine
+   * property"; the test replaces the whole `location` object, and `afterEach` restores it.
    */
   it('signs out from the account menu', async () => {
     server.use(http.post('/api/v1/auth/logout', () => ok(null, 'Signed out.')))
@@ -281,8 +280,11 @@ describe('AppLayout', () => {
     expect(assign).toHaveBeenCalledWith('/login')
   })
 
+  /**
+   * Replaces `window.location` with a copy whose `assign` is a spy, because jsdom's cannot be spied on.
+   * @returns The `assign` spy.
+   */
   function stubAssign() {
-    // Same reason as the test above: jsdom's assign cannot be spied on.
     const assign = vi.fn()
     Object.defineProperty(window, 'location', {
       configurable: true,
@@ -291,13 +293,14 @@ describe('AppLayout', () => {
     return assign
   }
 
+  /** Opens the account menu and chooses Sign out. */
   async function clickSignOut() {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Account menu for A B' }))
     await user.click(await screen.findByRole('menuitem', { name: 'Sign out' }))
   }
 
-  // The server never revoked the session, so clearing it here would leave a live refresh cookie behind a UI that claims the user signed out.
+  // The server never revoked the session; clearing it here would leave a live refresh cookie behind a UI that claims the user signed out.
   it.each(LOGOUT_FAILURES)(
     'keeps the session and says so when sign-out fails on %s',
     async (_label, respond) => {
@@ -314,7 +317,7 @@ describe('AppLayout', () => {
     }
   )
 
-  // A 401 means the server already considers the session over.
+  // A 401 from logout means the server already considers the session over.
   it('signs out when the logout itself answers 401, redirecting exactly once', async () => {
     server.use(http.post('/api/v1/auth/logout', () => fail('Unauthorized', 401)))
     const assign = stubAssign()
@@ -327,7 +330,7 @@ describe('AppLayout', () => {
       expect(useAuthStore.getState().isAuthenticated).toBe(false)
     })
     expect(assign).toHaveBeenCalledWith('/login')
-    // skipAuthRetry keeps the interceptor's own 401 verdict from redirecting first.
+    // The logout call sets skipAuthRetry, so the interceptor's own 401 verdict does not redirect first.
     expect(assign).toHaveBeenCalledTimes(1)
   })
 
@@ -356,18 +359,15 @@ describe('AppLayout', () => {
     renderAppAt('/overview')
     await screen.findByRole('heading', { name: 'Overview', level: 1 })
 
-    // The provider is controlled by the store, so a collapsed store means a collapsed sidebar on first paint rather than after a click.
+    // The provider is controlled by the store, so a collapsed store means a collapsed sidebar on first paint.
     expect(document.querySelector('[data-state="collapsed"]')).not.toBeNull()
   })
 })
 
 /**
- * `theme: 'system'` following a LIVE OS change.
- *
- * The listener sits in AppLayout rather than in ThemeToggle, and the mobile
- * case below is the whole reason: under `md` the sidebar renders into a Sheet
- * (a Base UI Dialog.Popup with no `keepMounted`), so ThemeToggle does not
- * exist while the drawer is closed. An effect inside it would be desktop-only.
+ * `theme: 'system'` following a live OS change. The listener sits in AppLayout rather than in
+ * ThemeToggle because, below `md`, the sidebar renders into a Sheet (a Base UI Dialog.Popup with no
+ * `keepMounted`), so ThemeToggle does not exist while the drawer is closed.
  */
 describe('AppLayout system theme', () => {
   const DARK_QUERY = '(prefers-color-scheme: dark)'
@@ -378,9 +378,8 @@ describe('AppLayout system theme', () => {
   let originalMatchMedia: typeof window.matchMedia
 
   /**
-   * A `matchMedia` stub whose listeners actually fire, unlike
-   * `tests/setup.ts`'s. It also answers the `(max-width: …)` query that
-   * `useIsMobile` asks, so setting `innerWidth` is enough to pick a viewport.
+   * Installs a `matchMedia` stub whose listeners fire, unlike the one in `tests/setup.ts`. It also
+   * answers the `(max-width: …)` query `useIsMobile` asks, so setting `innerWidth` picks a viewport.
    */
   function installMatchMedia() {
     window.matchMedia = ((query: string) => ({
@@ -411,6 +410,10 @@ describe('AppLayout system theme', () => {
     })
   }
 
+  /**
+   * Picks the viewport `useIsMobile` reports.
+   * @param width - In pixels.
+   */
   function setViewportWidth(width: number) {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
   }
@@ -424,7 +427,7 @@ describe('AppLayout system theme', () => {
     useThemeStore.setState({ theme: 'system' })
     darkListeners = new Set()
     prefersDark = false
-    // Bound, because `@typescript-eslint/unbound-method` rightly objects to lifting a method off its object — and restoring it is all it is for.
+    // Bound because `@typescript-eslint/unbound-method` rejects lifting a method off its object.
     originalMatchMedia = window.matchMedia.bind(window)
     installMatchMedia()
   })
@@ -455,7 +458,7 @@ describe('AppLayout system theme', () => {
     renderAppAt('/overview')
     await screen.findByRole('heading', { name: 'Overview', level: 1 })
 
-    // The premise, asserted rather than assumed: below `md` the closed drawer means no ThemeToggle in the document at all. If this ever starts failing, the listener could go back down into the control.
+    // The premise: below `md` the closed drawer leaves no ThemeToggle in the document. If it starts failing, the listener could move into the control.
     expect(screen.queryByRole('button', { name: /Change theme/ })).not.toBeInTheDocument()
 
     osSwitchesTo(true)
@@ -468,7 +471,7 @@ describe('AppLayout system theme', () => {
     await screen.findByRole('heading', { name: 'Overview', level: 1 })
 
     osSwitchesTo(true)
-    // The user asked for light. The OS does not get a vote.
+    // An explicit choice of light wins over the OS.
     expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 
@@ -480,7 +483,7 @@ describe('AppLayout system theme', () => {
 
     unmount()
     document.documentElement.classList.remove('dark')
-    // Asserted by behaviour rather than by counting listeners: sonner's <Toaster> registers on the same query, so the count is never just ours.
+    // Asserted by behaviour, not by counting listeners: sonner's <Toaster> registers on the same query.
     osSwitchesTo(true)
     expect(document.documentElement.classList.contains('dark')).toBe(false)
   })

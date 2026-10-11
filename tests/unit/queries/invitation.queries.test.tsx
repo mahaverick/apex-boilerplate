@@ -24,12 +24,13 @@ import { server } from '@/tests/mocks/server'
 describe('invitation queries', () => {
   let client: QueryClient
 
+  /** A provider around the suite's `client`. */
   function wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
 
   beforeEach(() => {
-    // `retry: 1` like the router's client, with no delay, so the preview's own retry rule is what decides.
+    // `retry: 1` as in the router's client, with no delay, so the preview's own retry rule decides.
     client = new QueryClient({ defaultOptions: { queries: { retry: 1, retryDelay: 0 } } })
     resetSessionForTests()
     useAuthStore.setState({
@@ -61,7 +62,7 @@ describe('invitation queries', () => {
       await waitFor(() => expect(result.current.isSuccess).toBe(true))
       expect(result.current.data).toEqual(testInvitationPreview)
       expect(body).toEqual({ token: TEST_INVITATION_TOKEN })
-      // Never in the URL, where logs and history would keep it.
+      // The token is never in the URL, where logs and history would keep it.
       expect(search).toBe('')
       expect(authorization).toBeNull()
     })

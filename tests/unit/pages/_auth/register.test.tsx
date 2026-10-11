@@ -10,6 +10,7 @@ import { server } from '@/tests/mocks/server'
 const PATH = `/register?invitation=${TEST_INVITATION_TOKEN}`
 const EMAIL = testInvitationPreview.email.toLowerCase()
 
+/** Types `password` into the invitation form and presses Create account. */
 async function submit(password = 'secret123') {
   const user = userEvent.setup()
   await user.type(await screen.findByLabelText('Password'), password)
@@ -156,6 +157,7 @@ describe('/register (invitation only)', () => {
   })
 
   it('shows one heading and no form while the invitation loads', async () => {
+    /** Lets the held invitation preview answer. */
     let release: () => void = () => {}
     const gate = new Promise<void>((resolve) => {
       release = resolve

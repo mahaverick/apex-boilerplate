@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { isApplePlatform, paletteShortcutHint } from '@/lib/shortcut'
 
+/** Makes `navigator.platform` report `name` until mocks are restored. */
 function platform(name: string) {
   vi.spyOn(navigator, 'platform', 'get').mockReturnValue(name)
 }

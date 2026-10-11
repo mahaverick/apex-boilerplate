@@ -11,6 +11,7 @@ import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type { PlatformUserRow } from '@/types/api.types'
 
+/** A user row numbered `index`, active and verified, with `overrides` applied. */
 function row(index: number, overrides: Partial<PlatformUserRow> = {}): PlatformUserRow {
   return {
     id: `20000000-0000-4000-8000-${String(100 + index).padStart(12, '0')}`,

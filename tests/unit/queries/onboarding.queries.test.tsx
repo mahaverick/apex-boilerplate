@@ -42,18 +42,21 @@ const AROUND: QueryKey[] = [
   auditKeys.platform({ tenantId: TENANT_ID, access: 'platform' }),
 ]
 
+/** A provider around `client`, so the test can read the cache a hook wrote. */
 function wrapperWith(client: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   )
 }
 
+/** A client with query retry off and an empty entry cached under each of `keys`. */
 function seeded(keys: QueryKey[]): QueryClient {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   for (const key of keys) client.setQueryData(key, {})
   return client
 }
 
+/** Asserts each of `keys` is marked invalidated in `client`. */
 function expectStale(client: QueryClient, keys: QueryKey[]) {
   for (const key of keys) {
     expect(client.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(true)

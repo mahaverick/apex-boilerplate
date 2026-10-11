@@ -117,6 +117,7 @@ function serve(
   return seen
 }
 
+/** A timeline answer holding `rows`, with `nextCursor` when more pages follow. */
 function page(rows: TimelineRow[], nextCursor: string | null = null): TimelinePage {
   return timelinePage(rows, nextCursor)
 }
@@ -308,6 +309,7 @@ describe('/users/$userId/timeline', () => {
 
   it('starts the new view from its own first page when the toggle moves during Load more', async () => {
     const user = userEvent.setup()
+    /** Lets the held older page answer. */
     let release: () => void = () => {}
     const held = new Promise<void>((resolve) => {
       release = resolve
@@ -341,7 +343,7 @@ describe('/users/$userId/timeline', () => {
 
     const keyPages = seen.filter((params) => params.get('view') === 'key')
     expect(keyPages.map((params) => params.has('before'))).toEqual([false])
-    // The Everything view's query is dropped when it is left (gcTime 0): nothing is left fetching or cached for the held page to land in.
+    // The Everything view's query is dropped when it is left (gcTime 0), so nothing is left fetching or cached for the held page to land in.
     await waitFor(() => expect(queryClient.isFetching()).toBe(0))
     expect(
       queryClient.getQueryData(timelineKeys.page('user', USER_ID_2, '7d', 'all'))
@@ -410,6 +412,7 @@ describe('/users/$userId/timeline', () => {
 
   it('cannot load more while a refresh is in flight, so the refresh is not cancelled', async () => {
     const user = userEvent.setup()
+    /** Lets the held refresh answer. */
     let release: () => void = () => {}
     const held = new Promise<void>((resolve) => {
       release = resolve

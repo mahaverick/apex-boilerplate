@@ -4,10 +4,12 @@ import { useEffect } from 'react'
 import { describe, expect, it } from 'vitest'
 import { useFocusAfter } from '@/hooks/use-focus-after'
 
+/** The focus targets the harness registers. */
 type Key = 'row' | 'heading'
+/** What `useFocusAfter` returns, as the test reaches it. */
 type Api = ReturnType<typeof useFocusAfter<Key>>
 
-/** A trigger that can be taken away, two landmarks, and an input to move focus to; the hook's api goes to the test, which has no other way to reach it. */
+/** A trigger that can be taken away, two focus targets and an unrelated input; hands the hook's api to `onApi` because a test cannot call a hook directly. */
 function Harness({
   hasTrigger,
   hasRow,
@@ -42,6 +44,7 @@ function Harness({
 
 describe('useFocusAfter', () => {
   let api: Api
+  /** Stores the latest api for the test to call. */
   const take = (value: Api) => {
     api = value
   }

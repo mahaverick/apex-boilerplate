@@ -54,6 +54,7 @@ describe('apex flag scope', () => {
 
 describe('installRouteFeatureProperties', () => {
   let features: Record<string, unknown>[]
+  /** Stops the router subscriptions the current test installed. */
   let uninstall: () => void = () => {}
 
   beforeEach(() => {

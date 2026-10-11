@@ -28,7 +28,7 @@ function row(
   })
 }
 
-describe('the SP5a taxonomy, at the type level', () => {
+describe('the timeline event taxonomy, at the type level', () => {
   it('names the product events express sends, and no others', () => {
     expectTypeOf<TimelineProductEvent>().toEqualTypeOf<
       | 'user_signed_up'
@@ -190,6 +190,7 @@ describe('timelineSentence', () => {
   })
 
   it('gives a row express did not sign a sentence only when it is a browser event', () => {
+    /** A row express did not sign, whatever its `fields` claim. */
     const forged = (event: string, fields: Partial<TimelineRow> = {}) =>
       timelineRow({ event, verified: false, path: null, ...fields })
     expect(

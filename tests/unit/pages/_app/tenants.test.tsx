@@ -10,6 +10,7 @@ import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type { PlatformTenantDetail, PlatformTenantRow } from '@/types/api.types'
 
+/** A tenant row numbered `index`: named "Tenant NN" with `index` members. */
 function row(
   index: number,
   lifecycleState: PlatformTenantRow['lifecycleState'] = 'active'
@@ -75,6 +76,7 @@ function twoPages(seen: URLSearchParams[]) {
 
 /** A promise the test resolves by hand, to hold a response in flight. */
 function deferred() {
+  /** Resolves `promise`. */
   let release = () => {}
   const promise = new Promise<void>((resolve) => {
     release = resolve
@@ -280,7 +282,7 @@ describe('/tenants', () => {
       expect(screen.getByRole('searchbox', { name: 'Search tenants' })).toHaveValue('Beta')
     )
     await waitFor(() => expect(seen.at(-1)?.get('q')).toBe('Beta'))
-    // A revert would come from the search box's debounce firing with the old term; nothing observable marks that it did not.
+    // A revert would come from the search box's debounce firing with the old term, and nothing observable marks that it did not.
     await settle(SEARCH_DEBOUNCE_MS * 2, 'the debounce window a stale term would navigate in')
     expect(router.state.location.search).toEqual({ q: 'Beta' })
   })

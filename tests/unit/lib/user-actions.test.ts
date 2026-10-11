@@ -5,6 +5,7 @@ import { availableUserActions, type UserAction, type UserActionTarget } from '@/
 const ME = '20000000-0000-4000-8000-000000000001'
 const THEM = '20000000-0000-4000-8000-000000000002'
 
+/** A user other than `ME`, active and verified with a password, unless `overrides` say otherwise. */
 function target(
   platformRole: MembershipRole | null,
   overrides: Partial<Omit<UserActionTarget, 'platformRole'>> = {}

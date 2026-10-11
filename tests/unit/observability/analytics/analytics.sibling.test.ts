@@ -13,13 +13,13 @@ import { server } from '@/tests/mocks/server'
 const KEY = 'phc_test_key_not_real'
 
 /**
- * A website on a sibling subdomain shares this app's identity cookie, and
- * posthog-js adopts whatever that cookie says before every event. These run
- * the real, pinned posthog-js twice in one page (the app's instance through
- * the facade, and a second standing in for the website) to show the facade's
- * event guard undoing a sibling's identify or reset, `IDENTITY_REPAIR_DELAY_MS`
- * later. Each test loads a fresh SDK and facade: posthog-js initialises an
- * instance once.
+ * A website on a sibling subdomain shares this app's identity cookie, and posthog-js adopts whatever that
+ * cookie says before every event. These run the real, pinned posthog-js twice in one page (the app's
+ * instance through the facade, and a second standing in for the website) to show the facade's event guard
+ * undoing a sibling's identify or reset `IDENTITY_REPAIR_DELAY_MS` later. Each test loads a fresh SDK and
+ * facade because posthog-js initialises an instance once. The block runs only for an app with no
+ * persistence name and the cross-subdomain cookie on, as react-boilerplate is; Apex sets `ph_apex` and
+ * no such cookie, so it is skipped here.
  */
 describe.runIf(ANALYTICS_PERSISTENCE_NAME === undefined && ANALYTICS_CROSS_SUBDOMAIN_COOKIE)(
   'a sibling sharing the identity cookie',
@@ -148,6 +148,7 @@ describe.runIf(ANALYTICS_PERSISTENCE_NAME === undefined && ANALYTICS_CROSS_SUBDO
         window.localStorage.getItem('analytics-identity-registry') ?? '[]'
       ) as { distinctId: string; at: number }[]
       expect(entries.map((entry) => entry.distinctId)).toEqual(['user-a'])
+      // Stamped when identify ran, so 5 s is far inside the registry's 60 s TTL (IDENTITY_REGISTRY_TTL_MS).
       expect(Date.now() - (entries[0]?.at ?? 0)).toBeLessThan(5000)
 
       facade.resetAnalytics()
@@ -179,6 +180,7 @@ describe.runIf(ANALYTICS_PERSISTENCE_NAME === undefined && ANALYTICS_CROSS_SUBDO
       const getItem = Reflect.get(Storage.prototype, 'getItem')
       const setItem = Reflect.get(Storage.prototype, 'setItem')
       const removeItem = Reflect.get(Storage.prototype, 'removeItem')
+      /** Whether `key` is the identity registry's storage key. */
       const isRegistry = (key: string) => key === 'analytics-identity-registry'
       const reads = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (
         this: Storage,
@@ -239,16 +241,22 @@ describe.runIf(ANALYTICS_PERSISTENCE_NAME === undefined && ANALYTICS_CROSS_SUBDO
   }
 )
 
+/** The analytics facade module, as `openTab` loads it fresh for each tab. */
 type Facade = typeof import('@/observability/analytics/analytics')
 
 /**
- * Two tabs of this app share the identity cookie and storage too, and a
- * person one tab identifies is that tab's legitimate sign-in. Each tab here is
- * its own SDK and facade on one cookie jar, as the review's probe ran them.
+ * Two tabs of this app share the identity cookie and storage too, and a person one tab identifies is that
+ * tab's legitimate sign-in. Each tab here is its own SDK and facade on one cookie jar.
  */
 describe('two tabs of this app', () => {
   const tabs: { facade: Facade; ph: PostHog }[] = []
 
+  /**
+   * Loads a fresh SDK and facade as one more tab of the app.
+   * @param consentMode - The consent mode the facade is initialised with.
+   * @param beforeLoad - Runs on the facade before it initialises.
+   * @returns The tab's facade, SDK instance and the events it captured.
+   */
   async function openTab(
     consentMode: 'opt_out' | 'required' = 'opt_out',
     beforeLoad?: (facade: Facade) => Promise<void>
@@ -259,7 +267,7 @@ describe('two tabs of this app', () => {
     vi.doMock('posthog-js', () => ({ ...sdk, default: ph }))
     const facade = await import('@/observability/analytics/analytics')
     await beforeLoad?.(facade)
-    // Built directly: an app without consent modes maps `required` to `opt_out`, and the facade is shared.
+    // Built directly because an app without consent modes maps `required` to `opt_out`, and the facade is shared.
     await facade.initAnalytics({
       ...analyticsConfigFor({ POSTHOG_KEY: KEY, APP_ENVIRONMENT: 'test' }),
       consentMode,
@@ -289,10 +297,12 @@ describe('two tabs of this app', () => {
     }
   })
 
+  /** The distinct id on each `$pageview` among `sent`. */
   const pageviews = (sent: CaptureResult[]) =>
     sent
       .filter((event) => event.event === '$pageview')
       .map((event): unknown => event.properties.distinct_id)
+  /** The `$identify` events among `sent`. */
   const identifies = (sent: CaptureResult[]) => sent.filter((event) => event.event === '$identify')
 
   it('a second tab signing someone else in supersedes the first instead of a fight', async () => {
@@ -310,11 +320,10 @@ describe('two tabs of this app', () => {
       first.facade.capturePageview()
       second.facade.capturePageview()
     }
-    // Long enough for any identity repair to have run.
     await vi.waitFor(() => expect(pageviews(second.sent).length).toBeGreaterThanOrEqual(3))
     expect(pageviews(second.sent).every((id) => id === 'user-b')).toBe(true)
     expect(pageviews(first.sent)).toEqual([])
-    // No identity churn: the first tab never re-identifies over the second, which never re-identifies at all.
+    // No identity churn: the first tab never re-identifies over the second, and every identify the second tab sends is its own.
     expect(identifies(first.sent).map((event): unknown => event.properties.distinct_id)).toEqual([
       'user-a',
     ])
@@ -341,6 +350,7 @@ describe('two tabs of this app', () => {
     expect(entries.map((entry) => entry.distinctId)).toEqual(['user-a'])
   })
 
+  /** The distinct ids in the identity registry. */
   const registered = () =>
     (
       JSON.parse(window.localStorage.getItem('analytics-identity-registry') ?? '[]') as {

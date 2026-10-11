@@ -2,21 +2,16 @@ import { HttpResponse } from 'msw'
 import { fail } from '@/tests/mocks/handlers'
 
 /**
- * Every way `POST /auth/refresh` can fail WITHOUT judging the caller's
- * credentials. None of these may end a session — see `isAuthVerdict`
- * (`src/http/session.ts`), which is 401 and nothing else.
+ * Every way `POST /auth/refresh` can fail without judging the caller's
+ * credentials. None of these may end a session; `isAuthVerdict`
+ * (`src/http/session.ts`) accepts a 401 and a session-identity change, and
+ * nothing else.
  *
- * ONE table, deliberately, imported by BOTH sides of that rule:
- * `session.test.ts` asserts none of these clears the store, and
- * `interceptors.test.ts` asserts none of them redirects to /login. A session
- * left intact by `session.ts` but bounced to the login page from the
- * interceptor is signed out just the same, only through a different door, so
- * the two halves have to stay in step.
- *
- * It lives here rather than in either test file so a new status is pinned
- * on both sides at once: two separate literals would let a status added to
- * only one file leave the other half unpinned, with a green suite either
- * way. Add a case here and both sides gain a test.
+ * One table serves both halves of that rule: `session.test.ts` asserts none
+ * of these clears the store, and `interceptors.test.ts` asserts none of them
+ * redirects to /login. A session left intact by `session.ts` but bounced to
+ * the login page from the interceptor is signed out just the same, so a case
+ * added here must be pinned on both sides at once.
  *
  * Why each entry is not a verdict:
  * - **502 / 503**: nginx through a rolling restart or a dead upstream. A

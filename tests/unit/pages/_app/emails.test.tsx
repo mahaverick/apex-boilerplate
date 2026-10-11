@@ -23,7 +23,7 @@ const PAGE_ONE: EmailMessageSummary[] = [
   }),
 ]
 
-/** Page one, then page two after `next`; `prev` from page two answers page one. Records every query. */
+/** Answers page one, then page two after `next`; `prev` from page two answers page one. Records every query. */
 function pages(seen: URLSearchParams[]) {
   server.use(
     http.get('/api/v1/platform/emails', ({ request }) => {

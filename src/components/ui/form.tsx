@@ -1,9 +1,9 @@
 /**
  * @file The shadcn `form` component, rewritten against TanStack Form because
  * the registry entry is built on react-hook-form, which this project does not
- * install. The component names are upstream's, plus `FormError`, and
- * server-side validator detail is handled here once: pass `useServerErrors()`
- * to `<Form>` and every field picks up its own messages.
+ * install. The export surface is upstream's, and server-side validator detail
+ * is handled here once: pass `useServerErrors()` to `<Form>` and every field
+ * picks up its own messages.
  */
 import { useRender } from '@base-ui/react/use-render'
 import type { AnyFieldApi, AnyFormApi } from '@tanstack/react-form'
@@ -14,8 +14,12 @@ import { ServerErrorsContext, type ServerErrors } from '@/hooks/use-server-error
 import { cn } from '@/lib/utils'
 
 /**
- * What a mounted `<FormError>` registers with its `<Form>`, so `<Form>` can
+ * Tracks whether a `<FormError>` is mounted inside this form, so `<Form>` can
  * say something in dev when form-level errors would otherwise go unrendered.
+ * Deliberately not exported: `react-refresh/only-export-components` rejects a
+ * non-component export beside components (a re-export included), which is
+ * also why `useFormField` and `FormFieldContext` live in
+ * `@/hooks/use-form-field`.
  */
 interface FormErrorSlot {
   /** Called by a mounted `<FormError>`; returns its own deregistration. */
@@ -23,16 +27,12 @@ interface FormErrorSlot {
   isMounted: () => boolean
 }
 
-/**
- * Not exported: `react-refresh/only-export-components` rejects a non-component
- * export beside components (a re-export included), which is also why
- * `useFormField` and `FormFieldContext` live in `@/hooks/use-form-field`.
- */
 const FormErrorSlotContext = React.createContext<FormErrorSlot | null>(null)
 
 /**
  * The names of the `<FormField>`s mounted inside this form, so `<Form>` can say
- * something in dev when a server error names a field nothing renders.
+ * something in dev when a server error names a field nothing renders. Not
+ * exported, for the same reason as `FormErrorSlot`.
  */
 interface RenderedFields {
   /** Called by a mounted field; returns its own deregistration. */
@@ -40,13 +40,10 @@ interface RenderedFields {
   has: (name: string) => boolean
 }
 
-/** The rendered field names, so `<Form>` can warn about a server error on a field nothing renders. Not exported, for the same reason as `FormErrorSlotContext`. */
 const RenderedFieldsContext = React.createContext<RenderedFields | null>(null)
 
 /**
- * The form element, which also provides the server errors, the error slot and
- * the rendered field names to the fields inside it. TanStack Form has no
- * provider component of its own.
+ * The form element itself. TanStack Form has no provider component.
  *
  * `onChange` is where a server verdict expires. It fires for every NATIVE
  * control in the form — `input`, `textarea`, `select` — because their change
@@ -62,8 +59,10 @@ const RenderedFieldsContext = React.createContext<RenderedFields | null>(null)
  * about.
  *
  * **Any non-native control must call `serverErrors.clearField('<its name>')`
- * itself, in its own change handler** — for a Select, inside `onValueChange`,
- * as `tests/unit/components/ui/form.test.tsx` drives it.
+ * itself, in its own change handler.**
+ * `src/components/features/tenant/invite-member-form.tsx` is the worked
+ * example: the add-member role Select calls it inside `onValueChange`, and a
+ * test fails if that line is removed.
  *
  * Base UI's CHECKBOX IS UNVERIFIED: nothing in this project wires one into a
  * form, and it is NOT safe to assume it behaves like the Select or like a
@@ -79,9 +78,9 @@ const RenderedFieldsContext = React.createContext<RenderedFields | null>(null)
  * counted per name, because two fields may share one and unmounting one must
  * not make the other disappear.
  *
- * On submit, once every submit settles, the first invalid control takes focus
- * so its described-by message is read. Client errors are committed by then,
- * and so are server errors: the hook commits them with flushSync.
+ * Once `handleSubmit` settles, the first `aria-invalid` control takes focus on
+ * the next frame, so its described-by message is read. Server errors are in
+ * the DOM by then: `useServerErrors` commits them with `flushSync`.
  */
 export function Form({
   form,
@@ -189,8 +188,8 @@ export function Form({
 /**
  * `AnyFormApi` is `form-core`'s `FormApi`, which has no `Field` — that is
  * added by react-form's `useForm`. Narrowing to just the shape used here
- * keeps `FormField` usable with any form without threading ten generics
- * through every page.
+ * keeps `FormField` usable with any form without threading the field API's
+ * generic parameters through every page.
  */
 type FieldComponent = React.ComponentType<{
   name: string
@@ -203,7 +202,7 @@ type FieldComponent = React.ComponentType<{
  *
  * Each value is a Standard Schema (a Zod schema, in this project) or a
  * validator function. Typed as `unknown` for the same reason `FieldComponent`
- * above is hand-rolled: naming the real generic types would thread ten
+ * above is hand-rolled: naming the real generic types would thread their
  * parameters through every page, and this bridge's whole job is to keep them
  * out of the call sites.
  */
@@ -281,12 +280,12 @@ function FieldProvider({
   return <FormFieldContext.Provider value={value}>{children}</FormFieldContext.Provider>
 }
 
-/** One field's wrapper: its label, control, description and message, stacked. */
+/** The wrapper for one field's label, control, description and message. */
 export function FormItem({ className, ...props }: React.ComponentProps<'div'>) {
   return <div className={cn('grid gap-2', className)} {...props} />
 }
 
-/** The field's label, tied to its control by id and turned red while the field has an error. */
+/** The field's label, tied to its control by `htmlFor` and shown in the destructive colour while the field has errors. */
 export function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) {
   const { errors, formItemId } = useFormField()
   return (
@@ -300,7 +299,7 @@ export function FormLabel({ className, ...props }: React.ComponentProps<typeof L
 }
 
 /**
- * Wires the id and the aria wiring onto whatever control it is given.
+ * Wires the field's id, name and aria attributes onto whatever control it is given.
  *
  * Base UI has no `Slot` component — `useRender` is its equivalent, and this
  * is the same call shape the vendored primitives (breadcrumb, badge) use.
@@ -357,7 +356,11 @@ export function FormControl({ children }: { children: React.ReactElement<{ name?
   })
 }
 
-/** Help text under a control. */
+/**
+ * Helper text under a field. `FormControl` points `aria-describedby` only at
+ * the error message, and only while there is an error, so this text is not
+ * announced with the control.
+ */
 export function FormDescription({ className, ...props }: React.ComponentProps<'p'>) {
   return <p className={cn('text-sm text-muted-foreground', className)} {...props} />
 }

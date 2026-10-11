@@ -25,6 +25,7 @@ import type { ChangeMaintenanceModeBody } from '@/types/api.types'
 
 let client: QueryClient
 
+/** A provider around the suite's `client`. */
 function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }
@@ -78,13 +79,13 @@ describe('maintenanceModeQueryOptions', () => {
     await act(() => vi.advanceTimersByTimeAsync(MAINTENANCE_MODE_POLL_MS))
     expect(calls.count).toBe(2)
 
-    // Off now: the next ask comes after the idle interval, not the on one.
+    // The mode is off, so the next ask comes after the idle interval, not the on one.
     await act(() => vi.advanceTimersByTimeAsync(MAINTENANCE_MODE_IDLE_POLL_MS - 1))
     expect(calls.count).toBe(2)
     await act(() => vi.advanceTimersByTimeAsync(1))
     expect(calls.count).toBe(3)
 
-    // Someone switches it on: the poll speeds up again.
+    // Someone switches it on, and the poll speeds up again.
     view = fullMaintenanceView({ version: 6 })
     await act(() => vi.advanceTimersByTimeAsync(MAINTENANCE_MODE_IDLE_POLL_MS))
     expect(calls.count).toBe(4)
@@ -127,6 +128,7 @@ describe('useChangeMaintenanceMode', () => {
   })
 
   it('lets the answer win over a read that was already in flight', async () => {
+    /** Lets the held read answer. */
     let releaseRead: () => void = () => {}
     const readGate = new Promise<void>((resolve) => {
       releaseRead = resolve

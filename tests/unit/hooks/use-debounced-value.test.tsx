@@ -27,7 +27,7 @@ describe('useDebouncedValue', () => {
     expect(result.current).toBe('ab')
   })
 
-  // Typing "acme" at speed must produce ONE value, not four.
+  // Typing "acme" at speed must produce one value, not four.
   it('restarts the wait on every change, so a burst settles once', () => {
     const { result, rerender } = renderHook(({ value }) => useDebouncedValue(value, 250), {
       initialProps: { value: '' },

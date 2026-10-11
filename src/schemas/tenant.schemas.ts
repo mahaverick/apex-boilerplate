@@ -1,8 +1,9 @@
 /**
- * @file Tenant form schemas, mirroring express's tenant.validators.ts field
- * for field so a form rejects locally what the API would reject. Each ceiling
- * is its column's width: over-long input reaching the database is a Postgres
- * 22001 (a 500), not a 400. Not sibling-synced: the two apps' tenant forms differ.
+ * @file Tenant form schemas, mirroring express's tenant.validators.ts and
+ * platform.validators.ts field for field so a form rejects locally what the
+ * API would reject. Each ceiling is its column's width: over-long input
+ * reaching the database is a Postgres 22001 (a 500), not a 400. Not
+ * sibling-synced: the two apps' tenant forms differ.
  */
 import { z } from 'zod'
 import { MEMBERSHIP_ROLES } from '@/constants/roles'
@@ -19,8 +20,8 @@ const MAX_SLUG_LENGTH = 100
 
 /**
  * Slugs no tenant may register, mirroring the API's `RESERVED_SLUGS`
- * (tenant.constants.ts). Each collides with a plausible route segment, would
- * mislead as an organization's identifier, or masquerades as another value.
+ * (tenant.constants.ts): route segments, misleading identifiers, strings that
+ * read as other values, and `platform`, the staff tenant's slug.
  */
 const RESERVED_SLUGS = [
   'admin',
@@ -193,6 +194,7 @@ export const createPlatformTenantSchema = z.object({
   website: optionalText(MAX_TENANT_WEBSITE_LENGTH, 'Website', 'url'),
 })
 
+/** A validated `POST /platform/tenants` body. */
 export type CreatePlatformTenantInput = z.infer<typeof createPlatformTenantSchema>
 
 /**
@@ -206,6 +208,7 @@ export const updateTenantSchema = z.object({
   website: clearableText(MAX_TENANT_WEBSITE_LENGTH, 'Website', 'url'),
 })
 
+/** A validated `PATCH /tenants/:slug` body; `null` clears a column. */
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>
 
 /** `POST /tenants/:slug/invitations`. Which roles may be offered is `canActorGrantRole`'s job. */
@@ -214,6 +217,7 @@ export const inviteMemberSchema = z.object({
   role: z.enum(MEMBERSHIP_ROLES),
 })
 
+/** A validated `POST /tenants/:slug/invitations` body. */
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>
 
 /** `POST /platform/tenants/:id/owner-invitation`: audited with its reason. */

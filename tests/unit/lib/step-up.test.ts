@@ -4,6 +4,7 @@ import { isReauthRequired, sentWithCurrentToken } from '@/lib/step-up'
 import { useAuthStore } from '@/states/auth.store'
 import { REAUTH_REQUIRED } from '@/types/api.types'
 
+/** An Axios error carrying express's error envelope with `status` and an optional `code`. */
 function axiosFailure(status: number, code?: string): AxiosError {
   const config = { headers: new AxiosHeaders() }
   return new AxiosError('failed', 'ERR_BAD_REQUEST', config, undefined, {
@@ -25,6 +26,7 @@ describe('isReauthRequired', () => {
 })
 
 describe('sentWithCurrentToken', () => {
+  /** A REAUTH_REQUIRED refusal of a request that carried `token`. */
   function refusedWith(token: string): AxiosError {
     const error = axiosFailure(401, REAUTH_REQUIRED)
     error.config?.headers.set('Authorization', `Bearer ${token}`)

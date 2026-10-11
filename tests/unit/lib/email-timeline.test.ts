@@ -10,6 +10,7 @@ import {
 } from '@/tests/fixtures/ids'
 import { emailDetail } from '@/tests/mocks/handlers'
 
+/** An ISO instant `seconds` after 10:00:00 on 2026-09-29. */
 const at = (seconds: number) => `2026-09-29T10:00:${String(seconds).padStart(2, '0')}.000Z`
 
 describe('buildEmailTimeline', () => {

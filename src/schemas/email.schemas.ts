@@ -1,6 +1,6 @@
 /**
- * @file The Emails page's URL search params. The router JSON-parses search
- * values; a `YYYY-MM-DD` date is not JSON, so it arrives as the string it is.
+ * @file The Emails pages' URL search params. A `YYYY-MM-DD` date is not JSON,
+ * so the router's JSON parse of search values leaves it a string.
  */
 import { z } from 'zod'
 import { searchText } from '@/schemas/search.schemas'
@@ -25,10 +25,12 @@ export const emailsSearchSchema = z.object({
   dir: z.enum(PAGE_DIRECTIONS).optional().catch(undefined),
 })
 
+/** The `/emails` search params after validation; a dropped param is `undefined`. */
 export type EmailsSearch = z.infer<typeof emailsSearchSchema>
 
 /** The email detail page's tabs; the first is the default, which the URL leaves out. */
 export const EMAIL_DETAIL_TABS = ['timeline', 'preview'] as const
+/** A tab the email detail page can show, as `?tab=` names it. */
 export type EmailDetailTab = (typeof EMAIL_DETAIL_TABS)[number]
 
 /** `/emails/$emailId` search: `?tab=preview`, or nothing for the timeline. */

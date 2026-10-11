@@ -1,11 +1,12 @@
+/**
+ * @file The multi-frontend seam: a second frontend on another origin calling
+ * this API through the container, not this SPA's own traffic, which is
+ * same-origin and sends no preflight.
+ */
 import { expect, test } from '@playwright/test'
 import { API_ORIGIN, apiIsReady } from '../live/helpers'
 
-/**
- * @file Tests the multi-frontend seam, where a second frontend on another
- * origin calls this API. This SPA's own traffic is same-origin (CLAUDE.md, "The
- * API prefix is fixed and relative") and never sends a preflight.
- */
+/** Where the container serves the app: `E2E_NGINX_ORIGIN`, default :8088. */
 const APP_ORIGIN = process.env.E2E_NGINX_ORIGIN ?? 'http://localhost:8088'
 
 test.skip(process.env.E2E_LIVE !== '1', 'needs the nginx container — run pnpm test:e2e:nginx')

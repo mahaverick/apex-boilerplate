@@ -57,10 +57,15 @@ const DETAIL: PlatformUserDetail = {
   ],
 }
 
+/** Answers the detail read for `USER_ID_2` with `detail`. */
 function answer(detail: PlatformUserDetail = DETAIL) {
   server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => ok(detail, 'User retrieved.')))
 }
 
+/**
+ * Opens the Actions menu for Cleo's account.
+ * @returns The open menu.
+ */
 async function openActions(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('button', { name: 'Actions for cleo@example.com' }))
   return screen.findByRole('menu')
@@ -283,7 +288,7 @@ describe('/users/$userId', () => {
     expect(await screen.findByText(/This account was deleted on/)).toBeInTheDocument()
     expect(router.state.location.pathname).toBe(`/users/${USER_ID_2}`)
     expect(body).toEqual({ reason: 'GDPR request' })
-    // An admin can't purge, so a deleted account offers them nothing.
+    // An admin cannot purge, so a deleted account offers them nothing.
     expect(screen.queryByRole('button', { name: /^Actions for/ })).not.toBeInTheDocument()
     // The trigger that opened the dialog is gone, so focus lands on the page heading, not <body>.
     await waitFor(() =>
@@ -493,8 +498,9 @@ describe('/users/$userId', () => {
   })
 
   /**
-   * Serves a user detail the test can change before a refetch, and records
-   * every PATCH body; the first `failures` PATCHes answer 500.
+   * Serves a user detail the test can change before a refetch, and records every PATCH body; the first
+   * `failures` PATCHes answer 500.
+   * @returns The served detail and the PATCH bodies.
    */
   function answerEditable(initial: PlatformUserDetail, failures = 0) {
     const state = { served: initial, bodies: [] as unknown[] }

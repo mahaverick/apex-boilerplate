@@ -6,7 +6,7 @@ import type { ErrorIssue, ErrorIssuesPage } from '@/types/api.types'
 
 /**
  * An issue id by ordinal, UUIDv7-shaped like PostHog's.
- * @param n - The ordinal, 1 to 999.
+ * @param n - The ordinal, zero-padded to 12 digits.
  * @returns The id.
  */
 export function issueId(n: number): string {

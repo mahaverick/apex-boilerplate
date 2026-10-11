@@ -44,6 +44,7 @@ const member: TenantMember = {
 describe('useMembers', () => {
   let client: QueryClient
 
+  /** A provider around the suite's `client`. */
   function wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
@@ -75,6 +76,7 @@ describe('useMembers', () => {
 describe('member writes', () => {
   let client: QueryClient
 
+  /** A provider around the suite's `client`. */
   function wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
@@ -125,6 +127,7 @@ describe('member writes', () => {
 describe('useLeaveTenant', () => {
   let client: QueryClient
 
+  /** A provider around the suite's `client`. */
   function wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
@@ -241,6 +244,7 @@ interface Sent {
 describe('a staff reason on the wire', () => {
   let client: QueryClient
 
+  /** A provider around the suite's `client`. */
   function wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
@@ -254,6 +258,7 @@ describe('a staff reason on the wire', () => {
   /** Answers every member and invitation write on `acme`, keeping what each one sent. */
   function record(): Sent[] {
     const sent: Sent[] = []
+    /** Keeps what a request sent, then answers it. */
     const keep = async ({ request }: { request: Request }) => {
       sent.push({ contentType: request.headers.get('content-type'), body: await request.text() })
       return ok(null, 'Done.')

@@ -20,6 +20,7 @@ const UNKNOWN: EmailRate = { value: null, numerator: 0, denominator: 0 }
 /** Every tile's label, then its value, then its note, in page order. */
 async function tiles(): Promise<[string, string, string][]> {
   const region = await screen.findByRole('region', { name: 'Deliverability figures' })
+  /** The text of a card's `slot`, or empty when the card lacks it. */
   const text = (card: Element, slot: string) =>
     card.querySelector(`[data-slot="${slot}"]`)?.textContent ?? ''
   return [...region.querySelectorAll('[data-slot="card"]')].map((card) => [
@@ -29,6 +30,7 @@ async function tiles(): Promise<[string, string, string][]> {
   ])
 }
 
+/** Answers the email health report with `health`. */
 function serve(health: EmailHealth) {
   server.use(
     http.get('/api/v1/platform/emails/health', () => ok(health, 'Email health retrieved.'))

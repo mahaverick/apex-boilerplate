@@ -28,6 +28,7 @@ const INVALID = 'This invitation is invalid or has expired.'
 const MISMATCH = 'This invitation was sent to a different email address.'
 const UNVERIFIED = 'Verify your email address before accepting this invitation.'
 
+/** Mounts the real route tree at `path`; returns the router. */
 function renderAt(path: string): AnyRouter {
   const router = createRouter({
     routeTree,
@@ -42,6 +43,7 @@ function renderAt(path: string): AnyRouter {
   return router as AnyRouter
 }
 
+/** Signs in as `testUser`, with `email` when the test needs a different address. */
 function signIn(email = testUser.email) {
   useAuthStore.setState({
     accessToken: 'access-token',
@@ -129,7 +131,7 @@ describe('accept page: the link itself', () => {
     let attempt = 0
     countPreviews(() => {
       attempt += 1
-      // Two failures: the preview retries a non-404 once by itself.
+      // Two failures, because the preview query retries a non-404 once by itself.
       return attempt <= 2
         ? fail('Something went wrong.', 500)
         : ok(testInvitationPreview, 'Invitation retrieved.')
@@ -213,7 +215,7 @@ describe('accept page, signed in', () => {
     const user = userEvent.setup()
     const router = renderAt(ACCEPT_PATH)
 
-    // A signed-in visitor is not bounced: this route sits outside both guards.
+    // A signed-in visitor is not bounced, because this route sits outside both guards.
     await user.click(await screen.findByRole('button', { name: 'Accept invitation' }))
 
     expect(await screen.findByText('You joined Acme Corp.')).toBeInTheDocument()
@@ -248,7 +250,7 @@ describe('accept page, signed in', () => {
 
   it('lands an existing member on the overview, without claiming the invited role', async () => {
     signIn()
-    // Invited as editor, already an admin: the server keeps the admin role and answers with it.
+    // Invited as editor but already an admin: the server keeps the admin role and answers with it.
     server.use(
       http.post('/api/v1/invitations/accept', () =>
         ok({ tenant: { name: 'Acme Corp', slug: 'acme' }, role: 'admin' }, 'Accepted.')

@@ -35,7 +35,7 @@ import type {
   User,
 } from '@/types/api.types'
 
-/** A platform admin: every in-app surface is staff-only, so a test about non-staff says `platformRole: null`. */
+/** A platform admin. Every in-app surface is staff-only, so a test about a non-staff user sets `platformRole: null`. */
 export const testUser: User = {
   id: USER_ID,
   email: 'a.b@example.com',
@@ -232,7 +232,7 @@ export function emailDetail(overrides: Partial<EmailMessageDetail> = {}): EmailM
   }
 }
 
-/** The invitation re-rendered, its accept link masked, every value on file. */
+/** The invitation email re-rendered for staff, its accept token masked as bullets. */
 export const testEmailPreview: EmailPreview = {
   subject: 'You have been invited to Acme Corp',
   html: '<p style="color:#111">A teammate invited you to join Acme Corp as Editor.</p><p><a href="http://localhost:5173/invitations/accept?token=••••••">Accept</a></p>',
@@ -261,7 +261,7 @@ export function emailSuppression(overrides: Partial<EmailSuppression> = {}): Ema
 }
 
 /**
- * Thirty days of onboarding: 40 tenants started, split by their state now,
+ * Thirty days of onboarding: 40 tenants started, split by current state,
  * and the four default steps, two with staff completions so both bar fills
  * draw. 52 tenants are tracked in all, so the page is not the empty state.
  */
@@ -492,9 +492,9 @@ export function tenantOnboardingAfterStaffCompletion(stepKey: string): TenantOnb
 }
 
 /**
- * Every apex flag at its fallback; apex has none yet. Written out rather
- * than read from the flags module: this file loads in the setup file, before
- * a test's `vi.mock('@/observability/flags/flag-keys', …)` could apply.
+ * Every Apex flag at its fallback, of which there are none. Written out rather
+ * than read from the flags module, because the setup file loads this file
+ * before a test's `vi.mock('@/observability/flags/flag-keys', …)` could apply.
  */
 const TEST_FLAG_FALLBACKS = {} satisfies ClientFlagValues
 
@@ -511,10 +511,19 @@ export function testFlags(overrides: Readonly<Record<string, boolean | string>> 
   }
 }
 
+/**
+ * A success envelope as express sends it; `statusCode` is also the HTTP status.
+ * @returns The response.
+ */
 export function ok<T>(data: T, message = 'OK', statusCode = 200) {
   return HttpResponse.json({ success: true, message, statusCode, data }, { status: statusCode })
 }
 
+/**
+ * An error envelope as express sends it, with a fixed `requestId`; `statusCode` is also the HTTP status
+ * and `code` the machine-readable error code, when the case has one.
+ * @returns The response.
+ */
 export function fail(message: string, statusCode: number, code?: string) {
   return HttpResponse.json(
     { success: false, message, statusCode, code, requestId: 'test-request-id' },
@@ -535,14 +544,15 @@ export function tenantDetail<T extends object>(
   return { ...tenant, isPlatform: false, role, access }
 }
 
+/** The default answer to every API call a page makes, so a test overrides only the endpoint it is about. */
 export const handlers = [
   http.post('/api/v1/auth/refresh', () => ok({ accessToken: 'fresh-token' }, 'Token refreshed.')),
   http.get('/api/v1/profile', () => ok(testUser, 'Profile retrieved.')),
-  // Express answers every registration this way, free address or taken: no user, ever.
+  // express answers every registration the same way, address free or taken, so it never reveals an account.
   http.post('/api/v1/auth/register', () =>
     ok(null, 'If that address can be registered, a verification email has been sent.', 202)
   ),
-  // The profile page's Security section fetches this whenever /profile mounts. A password account; a test about Google or a failed load overrides it.
+  // The profile page's Security section fetches this on mount: a password account.
   http.get('/api/v1/auth/providers', () =>
     ok(
       {
@@ -561,24 +571,24 @@ export const handlers = [
       'Invitation accepted.'
     )
   ),
-  // The staff shell's maintenance banner reads this on every page; off, so no banner shows. A test about maintenance overrides it.
+  // The staff shell's maintenance banner reads this on every page: off, so no banner shows.
   http.get('/api/v1/platform/maintenance-mode', () =>
     ok(maintenanceModeView(), 'Maintenance mode retrieved.')
   ),
-  // The staff shell's loader reads Apex's flags on every page; Apex has none yet. A test about a flag overrides it.
+  // The staff shell's loader reads Apex's flags on every page, and there are none.
   http.get('/api/v1/platform/me/flags', () => ok(testFlags(), 'Flags retrieved.')),
   http.post('/api/v1/platform/me/flags/exposures', () => new HttpResponse(null, { status: 204 })),
-  // The shell lands on Overview after every sign-in, and Overview reads these. A test about the stats overrides it.
+  // Overview, where sign-in lands, reads the stats.
   http.get('/api/v1/platform/stats', () => ok(testStats, 'Platform stats retrieved.')),
-  // An admin's Overview also reads the system status. A test about the card overrides it.
+  // An admin's Overview also reads the system status.
   http.get('/api/v1/platform/system/status', () =>
     ok(testSystemStatus, 'System status retrieved.')
   ),
-  // The platform audit log, empty. A test about activity overrides it.
+  // The platform audit log, empty.
   http.get('/api/v1/platform/audit-log', () =>
     ok({ entries: [], nextCursor: null }, 'Audit log retrieved.')
   ),
-  // The email pages, a user's Emails card and a tenant's Emails tab read these; empty lists, so a page that only embeds one renders unchanged. Health is registered before `:emailId`, which would otherwise match it.
+  // The email list defaults to empty, so a page that only embeds one renders unchanged; `/emails/health` is registered before `:emailId`, which would otherwise match it.
   http.get('/api/v1/platform/emails', () =>
     ok({ messages: [], nextCursor: null, prevCursor: null }, 'Emails retrieved.')
   ),
@@ -603,7 +613,7 @@ export const handlers = [
       'Suppression lifted.'
     )
   ),
-  // The onboarding page and a tenant's Onboarding tab. Tracked tenants exist, no list has a row, and any tenant reads as Acme's in-progress detail; a test about a state or a row overrides it.
+  // Tracked tenants exist but no list has a row, and any tenant reads as Acme's in-progress detail.
   http.get('/api/v1/platform/onboarding/funnel', ({ request }) =>
     ok(
       { ...testOnboardingFunnel, range: new URL(request.url).searchParams.get('range') ?? '30d' },

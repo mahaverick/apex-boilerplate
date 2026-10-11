@@ -12,13 +12,14 @@ const optionalName = z
   .refine(safeText(), notAllowedMessage('This field'))
   .transform((value) => (value === '' ? undefined : value))
 
-/** `POST /platform/users`. Mirrors express's create-user validator. */
+/** `POST /platform/users`. Mirrors express's `newPlatformUserSchema`. */
 export const createUserSchema = z.object({
   email: emailSchema,
   firstName: optionalName,
   lastName: optionalName,
 })
 
+/** A validated `POST /platform/users` body; a blank name is left out. */
 export type CreateUserInput = z.infer<typeof createUserSchema>
 
 /** A name field on the staff edit form: blank means "clear it", which the API takes as `null`. */

@@ -10,6 +10,7 @@ import type { PlatformTenantDetail, TenantLifecycleState } from '@/types/api.typ
 
 const ERRORS = `/tenants/${TENANT_ID}/errors`
 
+/** Acme's platform detail in `lifecycleState`; archived carries its `deletedAt`. */
 function platformDetail(lifecycleState: TenantLifecycleState = 'active'): PlatformTenantDetail {
   return {
     id: TENANT_ID,
@@ -46,6 +47,7 @@ function serve(lifecycleState: TenantLifecycleState = 'active') {
   return seen
 }
 
+/** The text of each link in the tenant page's section navigation, in order. */
 function tabLabels() {
   const nav = screen.getByRole('navigation', { name: 'Tenant sections' })
   return within(nav)

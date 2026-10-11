@@ -21,9 +21,12 @@ vi.mock('@/observability/errors', async (importOriginal) => ({
 }))
 
 /**
- * The app router's route-state options, applied to a small tree of its own.
- * No route in the real tree has a loader that fails on demand, so the
- * defaults are driven here.
+ * Mounts a small route tree that takes the app router's route-state options, so the defaults can be
+ * driven: no route in the real tree has a loader that fails on demand.
+ * @param loader - The `/page` route's loader.
+ * @param initialPath - Where the memory history starts.
+ * @param page - The `/page` route's component.
+ * @returns The router.
  */
 function renderTree(
   loader: () => unknown,
@@ -63,14 +66,14 @@ function renderTree(
 }
 
 /**
- * Records whether the pending screen was ever in the DOM, however briefly.
- * Reads `addedNodes` off each mutation record rather than querying the live
- * DOM in the callback: React can insert the pending screen and remove it
- * again within the same batch, before the observer callback ever runs, and
- * a query at callback time would miss it entirely.
+ * Watches for the pending screen entering the DOM, however briefly. It reads `addedNodes` off each
+ * mutation record instead of querying the live DOM in the callback, because React can insert the
+ * pending screen and remove it again within one batch, before the callback runs.
+ * @returns A function that stops watching and reports whether the pending screen was ever added.
  */
 function watchForPending(): () => boolean {
   let seen = false
+  /** Whether `node` is, or contains, the pending screen. */
   const matchesPending = (node: Node) =>
     node instanceof HTMLElement &&
     (node.matches('[role="status"][aria-label="Loading"]') ||
@@ -122,6 +125,7 @@ describe('route errors', () => {
     // React reports the caught render error on the console; that is expected here.
     vi.spyOn(console, 'error').mockImplementation(() => {})
     let failing = true
+    /** Throws while `failing`, then renders the page. */
     function Flaky() {
       if (failing) throw new Error('render exploded')
       return <h1>Page</h1>
@@ -277,13 +281,7 @@ describe('pending navigation', () => {
     const router = renderTree(() => gate, '/')
     await screen.findByRole('heading', { level: 1, name: 'Home' })
 
-    /**
-     * Fakes only the clock the router reads: setTimeout and Date.now.
-     * setImmediate stays real because React's async act flushes on it.
-     * While setTimeout is fake, `findBy` and `waitFor` would hang (their
-     * final drain is a setTimeout nothing advances), so this section
-     * asserts synchronously.
-     */
+    // Fakes only the clock the router reads, since React's async act flushes on `setImmediate`. Under a fake `setTimeout`, `findBy` and `waitFor` hang, so this section asserts synchronously.
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
     router.history.push('/page')
     await act(() => vi.advanceTimersByTimeAsync(defaultPendingMs - 1))
@@ -291,7 +289,7 @@ describe('pending navigation', () => {
     await act(() => vi.advanceTimersByTimeAsync(1))
     expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument()
 
-    // The loader settles the instant the pending screen appears; the page must still wait out the whole defaultPendingMinMs floor, to the ms.
+    // The loader settles the instant the pending screen appears, yet the page waits out the whole defaultPendingMinMs floor, to the millisecond.
     release()
     await act(() => vi.advanceTimersByTimeAsync(defaultPendingMinMs - 1))
     expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument()
@@ -302,6 +300,10 @@ describe('pending navigation', () => {
 })
 
 describe('page views', () => {
+  /**
+   * Loads the app router at `entry` and waits for the first load, redirects included, to resolve.
+   * @returns The `capturePageview` spy, cleared of calls made during that load.
+   */
   async function loadAt(entry: string) {
     const capture = vi.spyOn(analytics, 'capturePageview').mockImplementation(() => {})
     const history = createMemoryHistory({ initialEntries: [entry] })
