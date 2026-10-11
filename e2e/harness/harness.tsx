@@ -1453,7 +1453,9 @@ const targetPath = requestedPath && /^\/[^/\\]/.test(requestedPath) ? requestedP
 
 /**
  * Sets the location with `replaceState` before the router mounts, since the
- * router reads it on mount. A path may carry its own query
+ * router reads it on mount. `router.navigate` would be a real navigation, which
+ * the dev server answers with the root `index.html` and `main.tsx`, so the
+ * harness would never run. A path may carry its own query
  * (`?path=/deliverability?range=30d`); the harness's parameters follow it after
  * an `&`, so the page reads that query as written.
  */

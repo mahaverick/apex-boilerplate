@@ -530,7 +530,7 @@ const NON_TEXT_MINIMUM = 3
  * tell from its card would pass every other test here. All five are measured,
  * including those the overview does not use, since they are the palette the next
  * chart picks from. Each colour is resolved to sRGB by painting it on a canvas,
- * because the tokens are `oklch()` values.
+ * because Chromium's `getComputedStyle` reports `oklch()` tokens back as `oklch()`.
  */
 test.describe('chart series', () => {
   for (const theme of THEMES) {

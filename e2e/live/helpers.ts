@@ -318,7 +318,8 @@ export async function backdateStepUp(email: string): Promise<void> {
 
 /**
  * Fails before any test runs, naming the misconfiguration, when the API cannot run the
- * staff suites: express older than 1.2.0 (no `POST /auth/reauthenticate`), an email worker
+ * staff suites: express older than 1.2.0 (no `POST /auth/reauthenticate`, which answers
+ * 401 without a token on 1.2.0 and 404 before it, so the probe needs no token), an email worker
  * that delivers nothing to mailpit, `APEX_URL`/`WEB_URL` pointing somewhere other than
  * `APEX_ORIGIN` and `WEB_ORIGIN`, express older than 1.3.0 (no `GET /platform/emails`) or
  * older than 1.4.0 (no `GET /platform/onboarding/funnel`). The origins are read from the
