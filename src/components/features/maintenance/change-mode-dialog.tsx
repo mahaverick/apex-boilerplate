@@ -81,7 +81,8 @@ function titleFor(from: PlatformMaintenanceModeView['mode'], modes: readonly OnM
  * escalating also needs a reason and the API's environment typed exactly,
  * compared against the platform GET's `environment`; other changes take an
  * optional reason, and emptying a pre-filled one clears the stored reason
- * (`reason: null`). The change runs through step-up.
+ * (`reason: null`). The change runs through step-up. The message starts as the
+ * one now saved and, for a change that is not a switch-on, the reason does too.
  *
  * A submit sends the version the dialog opened on, so a poll that lands
  * meanwhile makes it a 409 instead of silently overwriting what was read. A 409
@@ -95,7 +96,11 @@ function titleFor(from: PlatformMaintenanceModeView['mode'], modes: readonly OnM
  *
  * A same-mode save that changes neither message nor reason is refused in
  * place, before step-up. A save express answers with the version unchanged
- * stored nothing, and the toast says so.
+ * stored nothing, and the toast says so. A no-op racing another owner's
+ * commit is a 409 when that commit lands before express takes its lock; one
+ * landing between express's no-op answer and its re-read is answered with the
+ * newer version and reads as saved, which Apex cannot tell apart without a
+ * signal from express.
  */
 export function ChangeModeDialog(props: ChangeModeDialogProps) {
   const [busy, setBusy] = useState(false)

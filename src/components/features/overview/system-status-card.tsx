@@ -171,8 +171,8 @@ function isSettling(iso: string | null | undefined, now: number): boolean {
  * (full pauses every queue once `MAINTENANCE_PAUSE_SETTLE_MS` has passed since
  * `since`; any other mode pauses none; a queue Redis did not answer for
  * matches neither). Change notices still waiting count too, once the same
- * settle window has passed since `since` or `changedAt`, which a switch-off
- * also sets; the notices are held until the queues pause and resume. Being in
+ * settle window has passed since both `since` and `changedAt` (which a
+ * switch-off also sets); the notices are held until the queues pause and resume. Being in
  * maintenance is not itself a warning.
  * @param maintenance - The status's maintenance section.
  * @param now - When the status was fetched, in epoch milliseconds.
@@ -339,8 +339,8 @@ function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: n
 /**
  * The API's release, error tracking's health over the last 15 minutes,
  * summed across every API and worker process, feature flags' health, and the
- * maintenance mode this API serves customers. Error tracking warns when any event was dropped or the last send failed;
- * feature flags warn as `flagsNeedAttention` says, maintenance mode as
+ * maintenance mode this API serves customers. Error tracking warns when any
+ * event was dropped or the last send failed; feature flags warn as `flagsNeedAttention` says, maintenance mode as
  * `maintenanceNeedsAttention` says. An API older than 1.8.0 sends no flags
  * section, and one older than 1.9.0 no maintenance section; the card shows
  * none. Browser errors go straight to PostHog, so they are not counted here.

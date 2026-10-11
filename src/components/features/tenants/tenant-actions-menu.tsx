@@ -32,9 +32,9 @@ type Open = 'edit' | 'owner' | 'suspend' | 'reactivate' | 'archive' | 'purge' | 
 /**
  * The tenant's staff actions, each shown only when the API would accept it:
  * admin for every soft action, owner for Delete permanently, and the
- * lifecycle state for each transition. Edit also needs the tenant route's effective role, which is the
- * platform role unless the staff member is a member there too; a refusal then
- * shows inline. Suspend, Archive, Delete permanently and the owner invitation
+ * lifecycle state for each transition. Edit also needs the tenant route's
+ * effective role, which is the platform role unless the staff member is a
+ * member there too; a refusal then shows inline. Suspend, Archive, Delete permanently and the owner invitation
  * go through step-up. No menu renders when no action applies; the dialogs
  * stay mounted, so one whose action just removed the last option still
  * closes, and sends focus to `fallbackFocus` since the trigger is gone.

@@ -1,7 +1,8 @@
 /**
  * @file A timeline row as a sentence, for each event the timelines word:
- * PostHog's browser events, the browser registry, express's product and
- * email events, and every audit action under the name express sends it.
+ * PostHog's browser events, the browser registry, and the product events,
+ * email events and audit actions this build lists, the audit actions under
+ * the name express sends them.
  * An event outside that set renders its own name.
  */
 import {

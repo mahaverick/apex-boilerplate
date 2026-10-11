@@ -49,8 +49,8 @@ function itemKey(item: TimelineItem): string {
  * failure of the first load, of Load more and of a refresh each has its own
  * copy, and every failure but a 404 gets the same copy whatever its status (a
  * 502 `TIMELINE_UNAVAILABLE`'s message is masked); a 404 is a role refusal, and
- * the page around it handles an unknown subject. Express drops forged and duplicate rows after
- * fetching, so a page can be short, or empty, and still have a next one:
+ * the page around it handles an unknown subject. Express drops forged and
+ * duplicate rows after fetching, so a page can be short, or empty, and still have a next one:
  * "empty" is said only when there is no next page.
  */
 export function TimelinePanel({ kind, id, range, view, onSearchChange }: TimelinePanelProps) {
