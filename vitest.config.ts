@@ -46,8 +46,7 @@ export default defineConfig({
         'src/components/ui/{alert-dialog,avatar,badge,breadcrumb,button,card,combobox,dialog,dropdown-menu}.tsx',
         'src/components/ui/{input,input-group,label,select,separator,sheet,sidebar,skeleton,switch}.tsx',
         'src/components/ui/{table,tabs,textarea,tooltip}.tsx',
-        'src/components/ui/{calendar,chart,empty,field,kbd,pagination,popover}.tsx',
-        'src/components/ui/{scroll-area,spinner,toggle,toggle-group}.tsx',
+        'src/components/ui/{calendar,chart,empty,kbd,popover,toggle,toggle-group}.tsx',
       ],
       /** About seven points under the measured baseline, so a drop fails CI. */
       thresholds: { statements: 88, branches: 82, functions: 86, lines: 89 },

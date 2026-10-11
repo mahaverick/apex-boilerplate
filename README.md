@@ -101,14 +101,12 @@ and the JavaScript side derives from it: the axios base
 (`src/http/client.ts`) and the Google OAuth anchor (`GOOGLE_OAUTH_PATH`).
 
 `nginx.conf` hardcodes it as well, which is why it is fixed rather than a
-knob: `location /api/v1/notifications/stream` is an SSE location (buffering
-off, a 24h read timeout, a query-stripping log format) that hangs off that
-exact prefix. Apex opens no stream today; the location is kept for the
-notification stream a later sub-project adds. `nginx.conf`'s `location /api/`
+knob: `location /api/v1/collect/` (the analytics proxy's 10 MB body limit)
+hangs off that exact prefix. `nginx.conf`'s `location /api/`
 and the Vite dev proxy in `vite.config.ts` match only the `/api` segment.
 
 Moving the API to another prefix under `/api` therefore means changing
-`API_PREFIX` and that SSE `location` together, in one change; a prefix outside
+`API_PREFIX` and that `location` together, in one change; a prefix outside
 `/api` also moves `location /api/` and the Vite proxy.
 
 ### Environment
@@ -383,9 +381,8 @@ sees an environment variable.
 
 ### What `nginx.conf` is doing
 
-Two things in there are load-bearing and fail **silently** if edited away,
-and the SSE location's settings are defence in depth. `nginx.conf` explains each at the line; in
-short:
+Two things in there are load-bearing and fail **silently** if edited away.
+`nginx.conf` explains each at the line; in short:
 
 - `proxy_pass ${API_UPSTREAM};` carries **no trailing path**, and
   `API_UPSTREAM` must not bring one, not even `/`. A path there makes nginx
@@ -394,21 +391,9 @@ short:
 - The TLS terminator's `X-Forwarded-Proto` is passed through to express. express
   needs `TRUST_PROXY` set for express-session to see HTTPS and set the Secure
   `oauth.sid` cookie.
-- The SSE location sets `proxy_buffering off`, an empty `Connection` header
-  and a 24h read timeout. express already turns buffering off per response
-  (`X-Accel-Buffering: no`) and sends a `:ping` every 30s by default, inside
-  nginx's default 60s read timeout, so these keep the stream open even if
-  either of those changes.
-- That same location logs with a `stream_nolog` format that records `$uri`
-  instead of `$request`, and raises its `error_log` level to `crit`. The access
-  token is not in the query string there: the client sends an
-  `Authorization: Bearer` header, which never appears in a logged request line.
-  Both lines stay as defence in depth, so that a query parameter added to this
-  route later cannot quietly reach the access log, or the **error** log — nginx
-  puts the full request line and the full upstream URL into every
-  `connect() failed` message, which no log format can change. The cost is that
-  `error`-level upstream detail for this one location is dropped; the access log
-  still records every request and its status.
+- The server block logs with a `stream_nolog` format that records `$uri`
+  instead of `$request`, so the one-time tokens in `/reset-password?token=`
+  and `/verify-email?token=` never reach the access log.
 - `location /api/v1/collect/` is `location /api/` with a 10 MB body limit,
   streamed to express rather than buffered: posthog-js posts a replay batch
   of up to about 6.3 MB in one request (a third more as base64 when gzip is
@@ -576,7 +561,7 @@ Tracking, in the project `POSTHOG_KEY` names, symbolicated to the `.ts` and
   id per event and no person profile. An earlier anonymous crash is never
   re-attributed.
 - **Scrubbing.** Exception types, values, frame file names and function names
-  go through the same rules as express-boilerplate's
+  go through express-boilerplate's scrubber, held here byte for byte
   (`src/observability/errors/scrub.ts`, tested against the shared
   `tests/fixtures/error-scrub-vectors.json`): Postgres key details and echoed
   values, URL credentials, query strings, fragments other than line or
@@ -633,12 +618,10 @@ does not catch:
   `%2F` (`abc/def%2Fghi@example.com` keeps `abc/`), or when it follows an
   address character directly (a letter, digit, `.`, `%`, `+`, `-`, `_`, `/` or
   `@`: `jane@example.com/<secret>@…`, `u.<secret>@…`);
-- a quoted value whose key sits inside a URL query that an encoded key's value
-  runs into (`secret%3Dhttps://…?a=1/api_key="…"` keeps the quoted value);
-- a key name glued to the end of the segment after `/reset/`, `/verify/`,
-  `/invite/` or `/accept/`, which goes into `[token]` with the segment and
-  leaves the value after it in view (`/app/reset/x.tsrefresh_token = …`
-  becomes `/app/reset/[token] = …`);
+- a secret-named key that an earlier rule took into its
+  placeholder when the key's word starts more than 80 characters before the
+  placeholder ends, and an Authorization or Cookie key taken in the same way
+  (`/reset/x.tscookie = …` keeps its value);
 - the parameters other than secret-named ones of an Authorization or Cookie
   value opened by an escaped quote and a scheme (`\"OAuth username="…",
 realm="…"` keeps `username` and `realm`; `oauth_signature`, `oauth_token`,
@@ -720,9 +703,10 @@ is off (`advanced_disable_feature_flags`).
   `flag-keys.ts` and `flag-scope.ts`, which are Apex's own. The `_app`
   layout's loader fetches Apex's values from `GET /platform/me/flags` (staff
   are evaluated with no tenant) before the shell renders; a failed read
-  serves each flag's fallback and never blocks a page. `useFlag`,
-  `useVariant`, `<Flag>` and `requireClientFlag` read them, and a nav item's
-  `flag` hides it while off.
+  serves each flag's fallback and never blocks a page. `useVariant` and
+  `useFlagValues` (`flag-hooks.ts`) and `requireClientFlag` read them, and a
+  nav item's `flag` hides it while off. Only `useVariant` reports an
+  experiment's exposure.
 - **Adding an Apex flag.** Declare it in express with `client: true` and
   `apex` in `apps`, run express's `flags:sync` in each environment, then copy
   its key, kind, variants, fallback and `experiment` into `CLIENT_FLAGS` in

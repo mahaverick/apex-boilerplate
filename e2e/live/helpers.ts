@@ -6,11 +6,11 @@ import type { MembershipRole } from '@/constants/roles'
 const execFile = promisify(execFileCallback)
 
 export const API_ORIGIN = process.env.E2E_API_ORIGIN ?? 'http://localhost:4040'
-export const MAILPIT_ORIGIN = process.env.E2E_MAILPIT_ORIGIN ?? 'http://localhost:8025'
-export const API_DIR = process.env.E2E_API_DIR ?? '../express-boilerplate'
+const MAILPIT_ORIGIN = process.env.E2E_MAILPIT_ORIGIN ?? 'http://localhost:8025'
+const API_DIR = process.env.E2E_API_DIR ?? '../express-boilerplate'
 
 /** The database that API runs on, in its compose project's postgres; a worktree's API may run on its own. */
-export const API_DB = process.env.E2E_API_DB ?? 'boilerplate'
+const API_DB = process.env.E2E_API_DB ?? 'boilerplate'
 
 /** The password every e2e account uses. Long enough for the register schema. */
 export const PASSWORD = 'a very long passphrase for e2e'
@@ -454,7 +454,7 @@ export async function mailedLinkStartingWith(email: string, prefix: string): Pro
 }
 
 /** One row of `GET /platform/emails`, as far as the suites read it. */
-export interface EmailRow {
+interface EmailRow {
   id: string
   recipient: string
   templateKey: string
@@ -469,7 +469,7 @@ export interface EmailRow {
  * @param token - A staff access token.
  * @param recipient - The address the emails went to.
  */
-export async function emailsTo(token: string, recipient: string): Promise<EmailRow[]> {
+async function emailsTo(token: string, recipient: string): Promise<EmailRow[]> {
   const found = await apiRequest(
     token,
     'GET',

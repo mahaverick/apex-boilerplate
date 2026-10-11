@@ -49,10 +49,10 @@ COPY . .
 RUN test ! -e .git || { echo '.git is in the build context (see .dockerignore)' >&2; exit 1; }
 
 # No build ARG configures an environment. The API prefix is FIXED at /api/v1 —
-# it lives in src/constants/routes.ts as API_PREFIX, and nginx.conf's SSE
+# it lives in src/constants/routes.ts as API_PREFIX, and nginx.conf's collect
 # location and the Google OAuth anchor derive from or hardcode it. A build arg
 # that moved only the axios base would ship an image whose Google sign-in and
-# SSE location are broken with nothing in any log to say so. The build ARGs
+# collect location silently stop matching it. The build ARGs
 # are per commit, not per environment: GIT_SHA names the commit
 # (vite.config.ts bakes it in as the release), and the two before the upload
 # say where its source maps go.

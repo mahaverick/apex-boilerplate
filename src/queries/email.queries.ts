@@ -28,7 +28,7 @@ import type {
 } from '@/types/api.types'
 
 /** The API's default page; its cap is 50. */
-export const EMAIL_PAGE_SIZE = 20
+const EMAIL_PAGE_SIZE = 20
 
 /** The API refuses a longer term. */
 const MAX_QUERY_LENGTH = 100

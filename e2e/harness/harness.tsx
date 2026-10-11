@@ -140,11 +140,6 @@ const STATS = {
     users: 20 + index * 3,
     tenants: 2 + (index % 3),
   })),
-  emails: ['23', '24', '25', '26', '27', '28', '29'].map((day, index) => ({
-    date: `2026-09-${day}`,
-    sent: 500 + index * 10,
-    failed: index === 3 ? 1 : 0,
-  })),
   emailMessages: ['23', '24', '25', '26', '27', '28', '29'].map((day, index) => ({
     date: `2026-09-${day}`,
     delivered: 0,

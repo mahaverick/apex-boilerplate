@@ -29,7 +29,7 @@ import type {
 } from '@/types/api.types'
 
 /** The API's default page; its cap is 50. */
-export const ONBOARDING_PAGE_SIZE = 20
+const ONBOARDING_PAGE_SIZE = 20
 
 /** `GET /platform/onboarding/tenants` params, in the API's own names. */
 export interface OnboardingTenantsParams {

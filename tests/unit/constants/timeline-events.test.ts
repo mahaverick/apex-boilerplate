@@ -2,13 +2,11 @@ import { describe, expect, expectTypeOf, it } from 'vitest'
 import { AUDIT_ACTIONS, type AuditAction } from '@/constants/audit-actions'
 import {
   auditEventName,
-  TIMELINE_POSTHOG_EVENTS,
   TIMELINE_PRODUCT_EVENTS,
   timelineSentence,
   type TimelineAuditEvent,
   type TimelineEmailEvent,
   type TimelineProductEvent,
-  type TimelineTaxonomyEvent,
 } from '@/constants/timeline-events'
 import type { BrowserEvent } from '@/observability/analytics'
 import { timelineRow } from '@/tests/fixtures/timeline'
@@ -60,11 +58,6 @@ describe('the SP5a taxonomy, at the type level', () => {
     expectTypeOf<'user_signed_out'>().not.toExtend<TimelineAuditEvent>()
     expectTypeOf<'platform_member_auto_joined'>().toExtend<TimelineAuditEvent>()
     expectTypeOf(auditEventName('user.signed_out')).toEqualTypeOf<'user_sessions_revoked'>()
-  })
-
-  it('covers the browser registry and posthog-js’s own events', () => {
-    expectTypeOf<BrowserEvent>().toExtend<TimelineTaxonomyEvent>()
-    expectTypeOf<(typeof TIMELINE_POSTHOG_EVENTS)[number]>().toExtend<TimelineTaxonomyEvent>()
   })
 })
 

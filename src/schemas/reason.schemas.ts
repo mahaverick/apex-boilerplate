@@ -8,7 +8,7 @@
 import { z } from 'zod'
 import { notAllowedMessage, safeText } from '@/schemas/safe-text.schemas'
 
-export const MAX_REASON_LENGTH = 500
+const MAX_REASON_LENGTH = 500
 
 export const reasonSchema = z
   .string()

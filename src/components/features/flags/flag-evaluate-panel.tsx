@@ -24,7 +24,7 @@ import type { FlagApp, FlagRow, PlatformUserDetail } from '@/types/api.types'
 const NO_TENANT = 'none'
 
 /** What the form evaluates; it lives in the page's URL. */
-export interface FlagEvaluateSearch {
+interface FlagEvaluateSearch {
   userId?: string
   tenantId?: string
   app: FlagApp

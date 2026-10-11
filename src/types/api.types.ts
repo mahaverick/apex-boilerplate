@@ -108,12 +108,6 @@ export const MEMBER_NOT_FOUND = 'member_not_found'
  */
 export const MEMBER_NOT_FOUND_MESSAGE = 'Member not found'
 
-/** 404 on preview and accept: invalid, expired, revoked or already used. */
-export const INVITATION_INVALID = 'invitation_invalid'
-
-/** 403 on accept: the signed-in account's email is not the invited one. */
-export const INVITATION_EMAIL_MISMATCH = 'invitation_email_mismatch'
-
 /** 403 on accept: the signed-in account is the invited one, but its email is unverified. */
 export const INVITATION_EMAIL_UNVERIFIED = 'invitation_email_unverified'
 
@@ -156,13 +150,13 @@ export interface PlatformTenantPage {
 export type AuditAccess = 'member' | 'platform' | 'system'
 
 /** The actor on an audit entry. `name` is the email when the actor has no name on file. */
-export interface AuditActor {
+interface AuditActor {
   id: string
   name: string
   email: string
 }
 
-export interface AuditTarget {
+interface AuditTarget {
   type:
     | 'tenant'
     | 'membership'
@@ -200,7 +194,7 @@ export interface AuditPage<T extends AuditEntry> {
 }
 
 /** One sign-in method linked to the account, as `GET /auth/providers` lists it. */
-export interface AuthProviderLink {
+interface AuthProviderLink {
   /** `'email'` or `'google'`. A string, so a new provider renders rather than breaks. */
   provider: string
   /** ISO timestamp of when the method was linked. */
@@ -233,12 +227,6 @@ export interface PlatformStats {
    */
   signups: { date: string; users: number; tenants: number }[]
   /**
-   * Per UTC day, one count per send attempt. `failed` counts failed attempts, not failed
-   * emails: a mail retried then sent contributes to both `failed` and `sent`.
-   * @deprecated Apex reads `emailMessages`; express keeps this series for older clients.
-   */
-  emails: { date: string; sent: number; failed: number }[]
-  /**
    * Per UTC day of creation, each email counted once in one of five disjoint groups by its
    * current status (express 1.3.0). `queued` emails are in none of them. Without a provider
    * webhook no email reaches `delivered` or `complained`, so every successful send stays in `sent`.
@@ -270,7 +258,7 @@ export interface PlatformTenantDetail {
  * the API does not count as an owner: a tenant whose only owners
  * are inactive can be sent a new owner invitation.
  */
-export interface PlatformTenantOwner {
+interface PlatformTenantOwner {
   userId: string
   email: string
   firstName: string | null
@@ -310,7 +298,7 @@ export interface PlatformUserPage {
 export const USER_STATUS_FILTERS = ['active', 'inactive', 'deleted'] as const
 export type UserStatusFilter = (typeof USER_STATUS_FILTERS)[number]
 
-export interface PlatformUserMembership {
+interface PlatformUserMembership {
   tenantId: string
   tenantName: string
   tenantSlug: string
@@ -319,7 +307,7 @@ export interface PlatformUserMembership {
   joinedAt: string
 }
 
-export interface PlatformUserPendingInvitation {
+interface PlatformUserPendingInvitation {
   id: string
   tenantId: string
   tenantName: string
@@ -351,7 +339,7 @@ export type TenantAccess = 'member' | 'platform'
  * `invitedBy` on a pending-invitation row, or `null` once the inviter's
  * account is gone (the column is `on delete set null`).
  */
-export interface InvitationInviter {
+interface InvitationInviter {
   id: string
   firstName: string | null
   lastName: string | null
@@ -587,17 +575,8 @@ export interface EmailSuppressionPage {
   prevCursor: string | null
 }
 
-/** 409 on resend: the recipient's address is suppressed; lift it first. */
-export const RECIPIENT_SUPPRESSED = 'recipient_suppressed'
-
 /** 409 on resend or preview: the stored template is no longer in the API's registry. */
 export const TEMPLATE_UNAVAILABLE = 'template_unavailable'
-
-/** 409 on resend: a security notice, or an older message without the ids its action needs. */
-export const NOT_RESENDABLE = 'not_resendable'
-
-/** 409 on lift: someone lifted it first. */
-export const ALREADY_LIFTED = 'already_lifted'
 
 /**
  * A tenant's onboarding state, derived by the API on every read. Mirrors
@@ -633,22 +612,22 @@ export const ONBOARDING_RANGES = ['7d', '30d', '90d'] as const
 export type OnboardingRange = (typeof ONBOARDING_RANGES)[number]
 
 /** Whether a step is done once per tenant or once per person. */
-export type OnboardingScope = 'tenant' | 'member'
+type OnboardingScope = 'tenant' | 'member'
 
 /** How a step completes: from a server-side event, or ticked by the customer. */
-export type OnboardingCompletionKind = 'auto' | 'manual'
+type OnboardingCompletionKind = 'auto' | 'manual'
 
 /** Who completed a step: the server, the customer, or staff with a reason. */
 export type OnboardingSource = 'auto' | 'customer' | 'staff'
 
 /** Someone an onboarding read names: their name, else their email. */
-export interface OnboardingPerson {
+interface OnboardingPerson {
   id: string
   name: string
 }
 
 /** A registry step by key and title. */
-export interface OnboardingStepSummary {
+interface OnboardingStepSummary {
   key: string
   title: string
 }
@@ -720,7 +699,7 @@ export interface OnboardingTenantPage {
 }
 
 /** One live member's own status on a member step. */
-export interface OnboardingMemberStatus {
+interface OnboardingMemberStatus {
   user: OnboardingPerson
   role: MembershipRole
   completedAt: string | null
@@ -751,7 +730,7 @@ export interface OnboardingStepDetail {
 }
 
 /** Why a reminder cannot go now: the 409 code the remind endpoint would answer. */
-export type OnboardingReminderBlock =
+type OnboardingReminderBlock =
   'tenant_state_conflict' | 'not_in_progress' | 'no_owner' | 'reminded_recently'
 
 /**
@@ -821,10 +800,10 @@ export type TimelineRange = '24h' | '7d' | '30d' | '90d'
 export type TimelineView = 'all' | 'key'
 
 /** Where an event came from: the browser SDK, or one of express's three server sources. */
-export type TimelineSource = 'browser' | 'audit' | 'product' | 'email'
+type TimelineSource = 'browser' | 'audit' | 'product' | 'email'
 
 /** The `props` keys express lets through its allowlist (`TIMELINE_PROP_KEYS`). */
-export type TimelinePropKey =
+type TimelinePropKey =
   | 'target_type'
   | 'target_id'
   | 'step_key'
@@ -844,7 +823,7 @@ export type TimelinePropKey =
  * `displayName` is the full name, else the email, and `null` when no user
  * row is left (purged). A system row has no actor at all (`actor: null`).
  */
-export interface TimelineActor {
+interface TimelineActor {
   id: string
   displayName: string | null
 }
@@ -881,7 +860,7 @@ export interface TimelineRow {
 }
 
 /** PostHog deep links. `replay` is a template: Apex fills in `{sessionId}`. */
-export interface TimelineLinks {
+interface TimelineLinks {
   person: string | null
   group: string | null
   replay: string
@@ -905,7 +884,7 @@ export type TimelinePage =
  * Where an error issue's newest event came from. `server` is an event that
  * claims express sent it (`app: 'api'`); `browser` is every other one.
  */
-export type ErrorIssueSource = 'server' | 'browser'
+type ErrorIssueSource = 'server' | 'browser'
 
 /**
  * One PostHog Error Tracking issue seen for a user or a tenant in the last
@@ -994,7 +973,7 @@ export type FlagState = 'active' | 'inactive' | 'missing' | 'unsupported'
  * definition express could not parse; `unknown_field` is a condition or
  * property field express does not evaluate (it is never dropped silently).
  */
-export type UnsupportedConstruct =
+type UnsupportedConstruct =
   | 'experience_continuity'
   | 'bucketing_identifier'
   | 'evaluation_contexts'
@@ -1055,7 +1034,7 @@ export interface TraitRow {
 }
 
 /** When the snapshot was fetched; `stale` once it has not been checked for 10 minutes. */
-export interface FlagSnapshotInfo {
+interface FlagSnapshotInfo {
   fetchedAt: string | null
   stale: boolean
 }
@@ -1064,7 +1043,7 @@ export interface FlagSnapshotInfo {
  * The inspector list's snapshot info. `enabled: false` is an environment
  * without the feature flags key: every flag serves its fallback.
  */
-export interface FlagsListSnapshot extends FlagSnapshotInfo {
+interface FlagsListSnapshot extends FlagSnapshotInfo {
   enabled: boolean
 }
 
@@ -1099,7 +1078,7 @@ export interface FlagsEvaluateResponse {
 }
 
 /** Why the last definitions fetch failed, as express names it. */
-export type FlagFetchErrorCode =
+type FlagFetchErrorCode =
   'unauthorized' | 'http_error' | 'timeout' | 'network' | 'body_too_large' | 'invalid_body'
 
 /** Feature flags' health, as the system status reports it. */

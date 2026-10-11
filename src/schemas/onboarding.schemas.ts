@@ -12,5 +12,3 @@ export const onboardingSearchSchema = z.object({
   cursor: z.string().optional().catch(undefined),
   dir: z.enum(PAGE_DIRECTIONS).optional().catch(undefined),
 })
-
-export type OnboardingSearch = z.infer<typeof onboardingSearchSchema>

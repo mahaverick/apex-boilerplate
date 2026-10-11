@@ -10,7 +10,7 @@ import type {
 } from '@/types/api.types'
 
 /** The four queues `queue.service.ts` creates, running and idle. */
-export const RUNNING_QUEUES: QueuePauseState[] = [
+const RUNNING_QUEUES: QueuePauseState[] = [
   { name: 'email', paused: false, active: 0 },
   { name: 'notification', paused: false, active: 0 },
   { name: 'maintenance', paused: false, active: 0 },

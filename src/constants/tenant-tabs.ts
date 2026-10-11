@@ -6,7 +6,7 @@
 import type { MembershipRole } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 
-export type TenantTabPath =
+type TenantTabPath =
   | typeof ROUTES.tenant
   | typeof ROUTES.tenantMembers
   | typeof ROUTES.tenantInvitations

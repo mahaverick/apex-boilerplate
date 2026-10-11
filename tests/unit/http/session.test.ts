@@ -126,7 +126,7 @@ describe('ensureSession', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
   })
 
-  // The rejected attempt must not wedge the next one: the SSE reconnect path depends on simply trying again once the API is back.
+  // The rejected attempt must not wedge the next one: a caller simply tries again once the API is back.
   it('succeeds on the next attempt once the API returns', async () => {
     useAuthStore.getState().login('live-token', testUser)
     let attempts = 0

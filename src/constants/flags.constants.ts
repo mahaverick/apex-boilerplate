@@ -28,7 +28,7 @@ export const FLAG_APP_LABELS: Record<FlagApp, string> = {
 }
 
 /** Each snapshot state as a badge. */
-export const FLAG_STATE_BADGES: Record<FlagState, { label: string; tone: BadgeTone }> = {
+const FLAG_STATE_BADGES: Record<FlagState, { label: string; tone: BadgeTone }> = {
   active: { label: 'Active', tone: 'success' },
   inactive: { label: 'Inactive', tone: 'muted' },
   missing: { label: 'Missing in PostHog', tone: 'warning' },
@@ -36,7 +36,7 @@ export const FLAG_STATE_BADGES: Record<FlagState, { label: string; tone: BadgeTo
 }
 
 /** Each evaluation reason as a badge; a `fallback:*` reason served the registry's fallback. */
-export const FLAG_REASON_BADGES: Record<FlagReason, { label: string; tone: BadgeTone }> = {
+const FLAG_REASON_BADGES: Record<FlagReason, { label: string; tone: BadgeTone }> = {
   condition_match: { label: 'Condition matched', tone: 'success' },
   out_of_rollout: { label: 'Out of rollout', tone: 'neutral' },
   no_condition_match: { label: 'No condition matched', tone: 'neutral' },

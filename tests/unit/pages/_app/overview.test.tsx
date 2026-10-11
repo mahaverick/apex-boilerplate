@@ -131,7 +131,6 @@ describe('/overview', () => {
             range,
             totals: { tenants: 0, users: 0, staff: 1, stuckTenants: 0 },
             signups: testStats.signups.map((day) => ({ ...day, users: 0, tenants: 0 })),
-            emails: testStats.emails.map((day) => ({ ...day, sent: 0, failed: 0 })),
             emailMessages: testStats.emailMessages.map((day) => ({
               ...day,
               delivered: 0,

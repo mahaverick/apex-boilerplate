@@ -26,7 +26,7 @@ export const ANALYTICS_URL_QUERY_ALLOWLIST: readonly string[] = ['range', 'tab',
  * runs `opt_out`. Apex has no consent banner: staff capture runs unless the
  * signed-in user opted out on their profile in the customer app.
  */
-export const SUPPORTS_CONSENT_MODES = false
+const SUPPORTS_CONSENT_MODES = false
 
 /**
  * Whether a website's anonymous id may be handed off into this app

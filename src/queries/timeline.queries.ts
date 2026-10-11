@@ -69,38 +69,6 @@ export function timelineInfiniteOptions(
 }
 
 /**
- * A user's timeline: their own events (pre-login ones included, once
- * PostHog merged them) and staff actions on them.
- * @param userId - The user.
- * @param range - The window.
- * @param view - Everything, or key events only.
- * @returns Options for `useInfiniteQuery`.
- */
-export function userTimelineInfiniteOptions(
-  userId: string,
-  range: TimelineRange,
-  view: TimelineView
-) {
-  return timelineInfiniteOptions('user', userId, range, view)
-}
-
-/**
- * A tenant's timeline: every event in its PostHog group, and staff actions
- * on it, each row with its actor.
- * @param tenantId - The tenant.
- * @param range - The window.
- * @param view - Everything, or key events only.
- * @returns Options for `useInfiniteQuery`.
- */
-export function tenantTimelineInfiniteOptions(
-  tenantId: string,
-  range: TimelineRange,
-  view: TimelineView
-) {
-  return timelineInfiniteOptions('tenant', tenantId, range, view)
-}
-
-/**
  * Every loaded page's rows, newest first. A `configured: false` page has none.
  * @param data - The infinite query's data.
  * @returns The rows.

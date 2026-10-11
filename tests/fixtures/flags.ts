@@ -46,7 +46,7 @@ export function flagRow(overrides: Partial<FlagRow> = {}): FlagRow {
 }
 
 /** The CTA experiment, synced but not launched: inactive at 0%. */
-export const EXPERIMENT_ROW: FlagRow = flagRow({
+const EXPERIMENT_ROW: FlagRow = flagRow({
   key: 'example_cta_experiment',
   description: 'Reference experiment: the getting-started call-to-action style',
   kind: 'multivariate',
@@ -60,7 +60,7 @@ export const EXPERIMENT_ROW: FlagRow = flagRow({
 })
 
 /** A server-only flag a cohort condition made unsupported. */
-export const UNSUPPORTED_ROW: FlagRow = flagRow({
+const UNSUPPORTED_ROW: FlagRow = flagRow({
   key: 'nightly_reconciliation',
   description: 'Reconciles tenant ledgers on the worker.',
   scope: 'user',

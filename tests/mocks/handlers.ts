@@ -84,7 +84,7 @@ const EMAIL_MESSAGE_DAYS: EmailMessageDay[] = FIXTURE_DAYS.map((date, index) => 
   suppressed: index === 6 ? 1 : 0,
 }))
 
-/** Seven days ending 2026-09-29, with one failed send attempt, so every widget has something to draw. */
+/** Seven days ending 2026-09-29, so every widget has something to draw. */
 export const testStats: PlatformStats = {
   range: '7d',
   totals: { tenants: 1284, users: 9730, staff: 18, stuckTenants: 6 },
@@ -92,11 +92,6 @@ export const testStats: PlatformStats = {
     date: `2026-09-${day}`,
     users: 20 + index * 3,
     tenants: 2 + (index % 3),
-  })),
-  emails: ['23', '24', '25', '26', '27', '28', '29'].map((day, index) => ({
-    date: `2026-09-${day}`,
-    sent: 500 + index * 10,
-    failed: index === 3 ? 1 : 0,
   })),
   emailMessages: EMAIL_MESSAGE_DAYS,
 }
@@ -501,7 +496,7 @@ export function tenantOnboardingAfterStaffCompletion(stepKey: string): TenantOnb
  * than read from the flags module: this file loads in the setup file, before
  * a test's `vi.mock('@/observability/flags/flag-keys', …)` could apply.
  */
-export const TEST_FLAG_FALLBACKS = {} satisfies ClientFlagValues
+const TEST_FLAG_FALLBACKS = {} satisfies ClientFlagValues
 
 /**
  * A flags read as express answers it: every flag at its fallback unless

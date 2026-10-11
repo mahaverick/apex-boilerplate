@@ -19,7 +19,5 @@ export const flagsSearchSchema = z.object({
   app: z.enum(FLAG_EVALUATE_APPS).default('react').catch('react'),
 })
 
-export type FlagsSearch = z.infer<typeof flagsSearchSchema>
-
 /** A tenant's Flags tab search: the member to evaluate in that tenant. */
 export const tenantFlagsSearchSchema = z.object({ userId: id })
