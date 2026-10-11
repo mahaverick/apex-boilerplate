@@ -28,7 +28,7 @@ function row(
   })
 }
 
-describe('the SP5a taxonomy, at the type level', () => {
+describe('the timeline event taxonomy, at the type level', () => {
   it('names the product events express sends, and no others', () => {
     expectTypeOf<TimelineProductEvent>().toEqualTypeOf<
       | 'user_signed_up'
