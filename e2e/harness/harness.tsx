@@ -544,7 +544,7 @@ function onboardingFunnel(range: string) {
 /**
  * The onboarding list: Acme stuck with two owners, the long-named Beta in
  * progress, Delta waiting for its owner and Gamma complete. No row is dismissed.
- * The handler returns the rows whose state matches `?state=`.
+ * The handler returns the rows whose state matches `?state=` (default `stuck`).
  */
 const ONBOARDING_ROWS = [
   {
@@ -1300,7 +1300,7 @@ const worker = setupWorker(
   http.get('/api/v1/platform/tenants/:tenantId/onboarding', ({ params }) =>
     ok(tenantOnboarding(String(params.tenantId)), 'Tenant onboarding retrieved.')
   ),
-  // Acme's own routes, which its Members, Invitations and Activity tabs read. Beta's are never called: a suspended tenant's tabs make no request.
+  // Acme's own routes, which its Members, Invitations and Activity tabs read. Beta's are never called: a suspended tenant's tabs make no tenant-route request.
   http.get('/api/v1/tenants/acme', () =>
     ok(
       {

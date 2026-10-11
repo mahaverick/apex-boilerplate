@@ -21,7 +21,8 @@ const AXE_PATH = require.resolve('axe-core/axe.min.js')
 
 /**
  * How long to wait for a heading: the dev server transforms a lazily loaded
- * route's modules on first request, and `goto` resolves on `load` before that.
+ * route's modules on first request, which has taken past 7s under load, and
+ * `goto` resolves on `load` before that.
  * Below the 30 s test timeout, so a hang is reported by the heading assertion.
  */
 const COLD_TRANSFORM_BUDGET_MS = 20_000

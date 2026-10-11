@@ -40,7 +40,7 @@ interface RenderedFields {
   has: (name: string) => boolean
 }
 
-/** Not exported, for the same reason as `FormErrorSlotContext`. */
+/** The rendered field names, so `<Form>` can warn about a server error on a field nothing renders. Not exported, for the same reason as `FormErrorSlotContext`. */
 const RenderedFieldsContext = React.createContext<RenderedFields | null>(null)
 
 /**
