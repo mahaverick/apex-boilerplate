@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { pageTitle } from '@/constants/app'
 import { PLATFORM_TENANT_SLUG } from '@/constants/routes'
 
+/** The Staff page: the platform tenant's members and invitations. */
 export const Route = createFileRoute('/_app/staff')({
   head: () => ({ meta: [{ title: pageTitle('Staff') }] }),
   staticData: { crumb: 'Staff' },

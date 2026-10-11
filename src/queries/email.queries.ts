@@ -59,7 +59,7 @@ export interface SuppressionSearchParams {
 }
 
 /**
- * `all` prefixes every list and the health report; a message's detail and
+ * `all` prefixes every email list and the health report; a message's detail and
  * preview sit under `['platform', 'email', id]`, so one prefix reaches both.
  */
 export const emailKeys = {
@@ -100,6 +100,7 @@ function normaliseEmails(params: EmailSearchParams): EmailSearchParams {
   }
 }
 
+/** The suppression params as sent: unset filters left out, so equal searches share one cache entry. */
 function normaliseSuppressions(params: SuppressionSearchParams): SuppressionSearchParams {
   return {
     ...term(params.q),
@@ -209,9 +210,9 @@ export async function invalidateEmails(queryClient: QueryClient): Promise<void> 
  * Resend a token email by re-running the action that sent it (admin; an
  * invitation, on any tenant, also needs a recent sign-in, so call it through
  * `useStepUp`). The reason also goes on the invitation's own audit entry. The
- * new message joins the timeline once enqueued. The email queries refresh
+ * resend's message joins the timeline once enqueued. The email queries refresh
  * whether or not the resend was accepted; after an accepted one the platform
- * log refreshes too, and a resent invitation carries a new expiry, which the
+ * log refreshes too, and a resent invitation gets a fresh expiry, which the
  * tenant's pages and the invitee's user page show.
  */
 export function useResendEmail() {

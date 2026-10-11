@@ -33,6 +33,7 @@ import {
   type PageDirection,
 } from '@/types/api.types'
 
+/** The API's query for the page's `?` search. */
 function toParams(search: EmailsSearch): EmailSearchParams {
   return {
     q: search.q,
@@ -50,6 +51,7 @@ function toParams(search: EmailsSearch): EmailSearchParams {
 /** This list, as `table_filtered` names it. */
 const TABLE = analyticsKey('emails')
 
+/** The Emails page: every tracked email, filtered through the URL. */
 export const Route = createFileRoute('/_app/emails/')({
   validateSearch: emailsSearchSchema,
   loaderDeps: ({ search }) => toParams(search),
@@ -75,6 +77,7 @@ const TEMPLATE_OPTIONS: readonly (readonly [string, string])[] = [
   ...EMAIL_TEMPLATE_KEYS.map((key) => [key, EMAIL_TEMPLATES[key].label] as const),
 ]
 
+/** A labelled select over `[value, label]` options, reporting `ANY` when nothing is chosen. */
 function FilterSelect({
   label,
   value,
@@ -86,6 +89,7 @@ function FilterSelect({
   options: readonly (readonly [string, string])[]
   onChange: (value: string) => void
 }) {
+  /** The label for a value, or the first option's label when none matches. */
   const labelOf = (current: string) =>
     options.find(([option]) => option === current)?.[1] ?? options[0]![1]
   return (
@@ -142,7 +146,7 @@ function EmailsPage() {
     if (q !== draft.trim() && q !== term.trim()) setDraft(q)
   }
 
-  /** New filters: every change starts from the first page, so the cursor goes. */
+  /** Applies a filter change from the first page: a cursor belongs to the list it was cut from. */
   function filter(next: Partial<FilterSearch>) {
     track('table_filtered', { table: TABLE })
     void navigate({ search: (prev) => firstPageOf({ ...prev, ...next }) })
@@ -158,10 +162,12 @@ function EmailsPage() {
     })
   }, [term, draft, q, navigate])
 
+  /** Pages to a keyset cursor; does nothing without one. */
   function goTo(cursor: string | null, dir: PageDirection) {
     if (cursor) void navigate({ search: (prev) => ({ ...prev, cursor, dir }) })
   }
 
+  /** Back to the first page, keeping the filters. */
   const firstPage = () => void navigate({ search: (prev) => firstPageOf(prev) })
 
   // The previous view's rows stay up while the next loads; its "nothing matches" would describe the wrong view.

@@ -22,6 +22,7 @@ export interface FlagEvaluateParams {
   app: FlagApp
 }
 
+/** Query keys for the inspector's reads. */
 export const flagInspectorKeys = {
   /** Every inspector read. */
   all: ['platform', 'flags'] as const,

@@ -6,6 +6,7 @@ import { ROUTES } from '@/constants/routes'
 import { fullName } from '@/lib/format'
 import { platformUserQueryOptions } from '@/queries/user-admin.queries'
 
+/** The layout of one user's pages: their trail crumb around the active page. */
 export const Route = createFileRoute('/_app/users/$userId')({
   // Started, not awaited: the page renders its skeleton while this runs.
   loader: ({ context, params }) => {

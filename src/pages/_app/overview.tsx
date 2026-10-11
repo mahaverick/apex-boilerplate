@@ -16,6 +16,7 @@ import { platformRoleAtLeast } from '@/constants/roles'
 import { isRoleDenied, platformStatsQueryOptions, STATS_RANGES } from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
 
+/** The Overview page: platform figures for a time window kept in `?range`. */
 export const Route = createFileRoute('/_app/overview')({
   validateSearch: z.object({ range: z.enum(STATS_RANGES).default('7d').catch('7d') }),
   loaderDeps: ({ search }) => ({ range: search.range }),

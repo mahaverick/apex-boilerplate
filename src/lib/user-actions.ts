@@ -31,9 +31,9 @@ export type UserActionTarget = Pick<
  * the actor to rank at or above the target. An inactive account gets no mail
  * (the API refuses it) and no sign-out: the API would accept one, but
  * deactivation already revoked every session, so it would end nothing.
- * Verification is resent only
- * to an account with a password, since the set-password link verifies the
- * others. Nobody acts on themselves except to send their own reset link.
+ * Verification is resent only to an account with a password, since the
+ * set-password link verifies the others. No write is offered on oneself; only
+ * the two mail actions can target the actor.
  * @param actor - The signed-in user and their platform role.
  * @param target - The user on the page.
  * @returns The allowed actions; empty below admin.

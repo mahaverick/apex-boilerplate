@@ -5,6 +5,7 @@ import { FrozenTenant } from '@/components/features/tenants/frozen-tenant'
 import { pageTitle } from '@/constants/app'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 
+/** A tenant's Invitations tab. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/invitations')({
   head: () => ({ meta: [{ title: pageTitle('Tenant invitations') }] }),
   staticData: { crumb: 'Invitations' },

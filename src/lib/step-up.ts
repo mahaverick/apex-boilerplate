@@ -15,9 +15,10 @@ export function isReauthRequired(error: unknown): boolean {
 
 /**
  * Whether a refused request carried the token the store holds now. False
- * means another action's confirmation swapped a fresher token in while this
- * request was in flight, so its refusal is already out of date and a plain
- * retry will do. Anything that can't be compared counts as current.
+ * means the token changed since the request went out, as another action's
+ * step-up confirmation does by swapping a fresher one in, so the refusal may
+ * be out of date and a plain retry can succeed. Anything that cannot be
+ * compared counts as current.
  * @param error - The rejection `isReauthRequired` recognised.
  * @returns False only when the request provably used an older token.
  */

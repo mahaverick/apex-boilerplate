@@ -26,7 +26,7 @@ import { resendVerificationSchema, verifyEmailSchema } from '@/schemas/auth.sche
 /**
  * The email-verification page. Top level, not under `_auth`, whose guard would
  * bounce a signed-in user who opens the link before the token is used. The
- * API mails `${WEB_URL}/verify-email?token=` (express verification.service.ts),
+ * API mails `/verify-email?token=` links (express verification.service.ts),
  * so the path is fixed, and this page renders `AuthLayout` itself. `.catch`
  * treats a non-string `?token=` as none, since the router JSON-parses search
  * values.
@@ -37,6 +37,7 @@ export const Route = createFileRoute('/verify-email')({
   component: VerifyEmailPage,
 })
 
+/** The token-and-password form that verifies the address, and a resend form once a verification fails. */
 function VerifyEmailPage() {
   const { token } = Route.useSearch()
   const navigate = useNavigate()

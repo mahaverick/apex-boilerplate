@@ -14,6 +14,7 @@ import { emailsQueryOptions } from '@/queries/email.queries'
 import { isRoleDenied } from '@/queries/platform.queries'
 import { PAGE_DIRECTIONS, type PageDirection } from '@/types/api.types'
 
+/** A tenant's Emails tab: the emails filed under it. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/emails')({
   validateSearch: z.object({
     cursor: z.string().optional().catch(undefined),
@@ -32,11 +33,11 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/emails')({
 })
 
 /**
- * The emails filed under this tenant (today, its invitations), newest first
- * and paged in the URL. This is a platform
- * read, `/platform/emails?tenantId=`, not one of the tenant's own routes, so a
- * suspended or archived tenant still lists its emails. Filtering by status,
- * template or date is the Emails list's job; the link opens it scoped here.
+ * The emails filed under this tenant, newest first and paged in the URL. This
+ * is a platform read, `/platform/emails?tenantId=`, not one of the tenant's
+ * own routes, so a suspended or archived tenant still lists its emails.
+ * Filtering by status, template or date is the Emails list's job; the link
+ * opens it scoped here.
  */
 function TenantEmailsTab() {
   const { tenantId } = Route.useParams()
@@ -46,9 +47,11 @@ function TenantEmailsTab() {
     emailsQueryOptions({ tenantId, cursor: search.cursor, direction: search.dir })
   )
 
+  /** Pages to a keyset cursor; does nothing without one. */
   function goTo(cursor: string | null, dir: PageDirection) {
     if (cursor) void navigate({ search: { cursor, dir } })
   }
+  /** Back to the first page. */
   const firstPage = () => void navigate({ search: {} })
 
   const settled =

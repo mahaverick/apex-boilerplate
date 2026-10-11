@@ -10,6 +10,7 @@ import type {
   PlatformAuditEntry,
 } from '@/types/api.types'
 
+/** The platform audit log's filters; each narrows the entries the API returns. */
 export interface PlatformAuditFilters {
   tenantId?: string
   actorUserId?: string
@@ -19,6 +20,7 @@ export interface PlatformAuditFilters {
   access?: AuditAccess
 }
 
+/** A tenant audit log's filters. */
 export interface TenantAuditFilters {
   action?: AuditAction
 }

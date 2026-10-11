@@ -4,6 +4,7 @@ import type { UpdateProfileInput } from '@/schemas/profile.schemas'
 import { useAuthStore } from '@/states/auth.store'
 import type { ApiSuccess, User } from '@/types/api.types'
 
+/** Query key for the signed-in user's profile. */
 export const profileKeys = { detail: ['profile'] as const }
 
 /**
@@ -26,6 +27,7 @@ export async function refreshProfile(queryClient: QueryClient): Promise<void> {
   }
 }
 
+/** The signed-in user's profile. */
 export function useProfile() {
   return useQuery({
     queryKey: profileKeys.detail,
@@ -35,6 +37,7 @@ export function useProfile() {
   })
 }
 
+/** Saves the changed names and stores the user the API answers with, in the cache and the auth store. */
 export function useUpdateProfile() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -25,6 +25,7 @@ import type {
   QueuePauseState,
 } from '@/types/api.types'
 
+/** The Maintenance page: customer maintenance mode and the queues' pause state. */
 export const Route = createFileRoute('/_app/maintenance')({
   head: () => ({ meta: [{ title: pageTitle('Maintenance') }] }),
   staticData: { crumb: 'Maintenance' },

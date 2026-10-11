@@ -44,6 +44,7 @@ import type { PlatformTenantRow } from '@/types/api.types'
 /** This list, as `table_filtered` names it. */
 const TABLE = analyticsKey('activity')
 
+/** The Activity page: the platform audit log across all tenants, for platform admins. */
 export const Route = createFileRoute('/_app/activity')({
   head: () => ({ meta: [{ title: pageTitle('Activity') }] }),
   staticData: { crumb: 'Activity' },
@@ -80,9 +81,9 @@ function PlatformNotFound() {
 /**
  * A tenant picker over the platform search, run only while open. The popup is
  * named and holds the search box, so Base UI makes it a `dialog`, which axe's
- * `region` rule exempts. The vendored trigger
- * and clear icon buttons are off because they carry no accessible name; the
- * Clear button beside the trigger has one. The status line stays mounted and
+ * `region` rule exempts. The input's vendored trigger and clear icon buttons
+ * are off because they carry no accessible name; the Clear button beside the
+ * trigger has one. The status line stays mounted and
  * only its text changes, so the live region announces it; while a new term
  * loads over listed results it says "Searching…".
  */
@@ -183,6 +184,7 @@ function PlatformActivity() {
   const [action, setAction] = useState(ANY)
   const [actor, setActor] = useState(ANY)
   const [staffOnly, setStaffOnly] = useState(false)
+  /** Reports a filter change to analytics: which list, never the value chosen. */
   const filtered = () => track('table_filtered', { table: TABLE })
   const staff = useMembers(PLATFORM_TENANT_SLUG)
   const filters: PlatformAuditFilters = {
@@ -194,6 +196,7 @@ function PlatformActivity() {
   const log = usePlatformAuditLog(filters)
   const isFiltered = tenant !== null || action !== ANY || actor !== ANY || staffOnly
 
+  /** The actor filter's text for a member id, or "A staff member" when the loaded members lack it. */
   function actorLabel(value: string): string {
     if (value === ANY) return 'Anyone'
     const match = staff.data?.find((member) => member.user.id === value)

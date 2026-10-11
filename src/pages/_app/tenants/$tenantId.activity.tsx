@@ -10,12 +10,14 @@ import { flattenAuditPages, useTenantAuditLog } from '@/queries/audit.queries'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { useMyRole } from '@/queries/tenant.queries'
 
+/** A tenant's Activity tab: its audit log. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/activity')({
   head: () => ({ meta: [{ title: pageTitle('Tenant activity') }] }),
   staticData: { crumb: 'Activity' },
   component: TenantActivityTab,
 })
 
+/** Shows the tenant's audit log, or the frozen state when the tenant is not active. */
 function TenantActivityTab() {
   const { tenantId } = Route.useParams()
   const { data } = useQuery(platformTenantQueryOptions(tenantId))

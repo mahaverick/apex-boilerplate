@@ -36,7 +36,6 @@ import { registerSchema, type RegisterInput } from '@/schemas/auth.schemas'
 export const Route = createFileRoute('/_auth/register')({
   validateSearch: z.object({ invitation: z.string().optional().catch(undefined) }),
   beforeLoad: ({ search }) => {
-    // Apex has no public sign-up: an account is created only to accept an invitation.
     if (!search.invitation) throw redirect({ to: ROUTES.login })
   },
   head: () => ({ meta: [{ title: pageTitle('Create an account') }] }),
@@ -86,6 +85,7 @@ function RegisterPage() {
   return <RegisterForm invitedEmail={preview.data.email} tenantName={preview.data.tenant.name} />
 }
 
+/** The register card's shape while the invitation loads. */
 function RegisterSkeleton() {
   return (
     <Card>

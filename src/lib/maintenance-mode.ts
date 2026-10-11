@@ -13,7 +13,7 @@ import type {
 /**
  * Whether going from `from` to `to` switches maintenance on or escalates it:
  * the moves the API refuses without a reason and the typed environment.
- * @param from - The mode now.
+ * @param from - The current mode.
  * @param to - The mode asked for.
  * @returns True for `off` to any other mode, and `read_only` to `full`.
  */
@@ -25,8 +25,8 @@ export function isSwitchOn(from: MaintenanceMode, to: MaintenanceMode): boolean 
  * When a mode began, short: the time alone on the same local day, else the
  * date and time.
  * @param iso - The instant.
- * @param now - Today, for tests.
- * @returns "10:42", or "Oct 5, 2026, 10:42 AM" in the reader's locale.
+ * @param now - The clock, for tests.
+ * @returns "10:42 AM", or "Oct 5, 2026, 10:42 AM", in the reader's locale; "an unknown time" for an invalid `iso`.
  */
 export function sinceLabel(iso: string, now: Date = new Date()): string {
   const date = new Date(iso)
@@ -36,9 +36,9 @@ export function sinceLabel(iso: string, now: Date = new Date()): string {
 }
 
 /**
- * The red banner's sentence: the mode in capitals, since when and by whom.
+ * The banner's sentence: the mode in capitals, since when and by whom.
  * @param view - The state, whose mode is not `off`.
- * @param now - Today, for tests.
+ * @param now - The clock, for tests.
  * @returns "Customers are in FULL maintenance since 10:42, set by Ada."
  */
 export function bannerSentence(view: PlatformMaintenanceModeView, now?: Date): string {
@@ -51,7 +51,7 @@ export function bannerSentence(view: PlatformMaintenanceModeView, now?: Date): s
 /**
  * What a 409 found: the state someone else saved meanwhile.
  * @param view - The state read again after the conflict.
- * @param now - Today, for tests.
+ * @param now - The clock, for tests.
  * @returns A sentence naming the mode, the actor and the time, and what to do.
  */
 export function conflictSentence(view: PlatformMaintenanceModeView, now?: Date): string {

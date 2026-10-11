@@ -48,8 +48,10 @@ const suppressionsSearchSchema = z.object({
   dir: z.enum(PAGE_DIRECTIONS).optional().catch(undefined),
 })
 
+/** The page's validated `?` search. */
 type SuppressionsSearch = z.infer<typeof suppressionsSearchSchema>
 
+/** The API's query for the page's `?` search. */
 function toParams(search: SuppressionsSearch): SuppressionSearchParams {
   return { q: search.q, state: search.state, cursor: search.cursor, direction: search.dir }
 }
@@ -57,6 +59,7 @@ function toParams(search: SuppressionsSearch): SuppressionSearchParams {
 /** This list, as `table_filtered` names it. */
 const TABLE = analyticsKey('suppressions')
 
+/** The Suppressions page: addresses no email is sent to, with admins able to lift them. */
 export const Route = createFileRoute('/_app/suppressions')({
   validateSearch: suppressionsSearchSchema,
   loaderDeps: ({ search }) => toParams(search),
@@ -132,6 +135,7 @@ function SuppressionsPage() {
     if (q !== draft.trim() && q !== term.trim()) setDraft(q)
   }
 
+  /** Applies a filter change from the first page: a cursor belongs to the list it was cut from. */
   function filter(next: Partial<FilterSearch>) {
     track('table_filtered', { table: TABLE })
     void navigate({ search: (prev) => firstPageOf({ ...prev, ...next }) })
@@ -147,10 +151,12 @@ function SuppressionsPage() {
     })
   }, [term, draft, q, navigate])
 
+  /** Pages to a keyset cursor; does nothing without one. */
   function goTo(cursor: string | null, dir: PageDirection) {
     if (cursor) void navigate({ search: (prev) => ({ ...prev, cursor, dir }) })
   }
 
+  /** Back to the first page, keeping the filters. */
   const firstPage = () => void navigate({ search: (prev) => firstPageOf(prev) })
   const state = search.state ?? 'active'
   const settled =

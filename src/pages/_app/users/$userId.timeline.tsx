@@ -14,6 +14,7 @@ import { platformUserQueryOptions } from '@/queries/user-admin.queries'
 import { timelineSearchSchema } from '@/schemas/timeline.schemas'
 import { useAuthStore } from '@/states/auth.store'
 
+/** A user's Timeline page: what they did and what staff did to them. */
 export const Route = createFileRoute('/_app/users/$userId/timeline')({
   validateSearch: timelineSearchSchema,
   head: () => ({ meta: [{ title: pageTitle('User timeline') }] }),
@@ -42,6 +43,7 @@ function UserTimelinePage() {
   return <UserTimeline />
 }
 
+/** Loads the user, then shows their timeline panel, a not-found state for a 404, or a load error. */
 function UserTimeline() {
   const { userId } = Route.useParams()
   const { range, view } = Route.useSearch()

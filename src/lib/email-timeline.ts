@@ -21,12 +21,11 @@ function time(iso: string): number {
 
 /**
  * The detail's attempts and provider events merged by time, oldest first,
- * between two fixed ends. "Queued" (and, for a resend, the message it
- * resent) always leads, followed by a note that a suppressed message was
- * never sent: that is when the row was created, and a provider
- * clock running behind ours must not place an event before it. The
- * messages that resent this one carry no time in the API's answer and come
- * after it, so they close the list. Equal times keep attempts before events.
+ * between fixed ends. Queued leads, then a note that a suppressed message was
+ * never sent, then the message a resend resent. All three sit at the row's
+ * creation time, so a provider clock running behind ours cannot place an
+ * event before them. The messages that resent this one carry no time in the
+ * API's answer, so they close the list. Equal times keep attempts before events.
  * @param detail - `GET /platform/emails/:id`.
  * @returns The entries in display order.
  */
@@ -37,7 +36,6 @@ export function buildEmailTimeline(
   >
 ): TimelineEntry[] {
   const opening: TimelineEntry[] = [{ kind: 'queued', key: 'queued', at: detail.createdAt }]
-  // A suppressed message was never sent: say so right after it was queued.
   if (detail.status === 'suppressed') {
     opening.push({ kind: 'suppressed', key: 'suppressed', at: detail.createdAt })
   }

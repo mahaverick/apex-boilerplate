@@ -16,6 +16,7 @@ import { formatDate } from '@/lib/format'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 
+/** The layout of one tenant's pages: the header and the tab nav around the active tab. */
 export const Route = createFileRoute('/_app/tenants/$tenantId')({
   // Started, not awaited: the header renders its skeleton while this runs.
   loader: ({ context, params }) => {
@@ -35,8 +36,8 @@ function TenantCrumb({ params }: { params: Record<string, string> }) {
 /**
  * One tenant, in any lifecycle state: its header (name, state, actions) and a
  * section nav over the tabs. Everything here reads `GET /platform/tenants/:id`;
- * only the Members, Invitations and Activity tabs and the Edit details action
- * reach the tenant's own routes, and only while it is active. A 404 is an
+ * only the Members, Invitations, Activity and Flags tabs and the Edit details
+ * action reach the tenant's own routes, and only while it is active. A 404 is an
  * unknown tenant; it never signs out. A tab above the reader's platform role
  * (Timeline, Errors and Flags, for admins) is left out of the nav.
  */

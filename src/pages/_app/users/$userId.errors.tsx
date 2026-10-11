@@ -13,6 +13,7 @@ import { fullName } from '@/lib/format'
 import { platformUserQueryOptions } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 
+/** A user's Errors page: their PostHog error issues. */
 export const Route = createFileRoute('/_app/users/$userId/errors')({
   head: () => ({ meta: [{ title: pageTitle('User errors') }] }),
   staticData: { crumb: 'Errors' },
@@ -39,6 +40,7 @@ function UserErrorsPage() {
   return <UserErrors />
 }
 
+/** Loads the user, then shows their errors panel, a not-found state for a 404, or a load error. */
 function UserErrors() {
   const { userId } = Route.useParams()
   const user = useQuery(platformUserQueryOptions(userId))

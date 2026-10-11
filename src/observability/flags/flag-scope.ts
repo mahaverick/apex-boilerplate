@@ -18,7 +18,7 @@ export type FlagScope = { kind: 'tenant'; slug: string } | { kind: 'none' } | { 
 export const PLATFORM_FLAG_SCOPE: FlagScope = { kind: 'platform' }
 
 /**
- * The scope for the current render. Apex has one.
+ * The scope for the current render, which in Apex is always the platform scope.
  * @returns The platform scope.
  */
 export function useFlagScope(): FlagScope {

@@ -147,9 +147,9 @@ export function flattenTenantPages(
 
 /**
  * `POST /platform/tenants`: a tenant with no members, and an owner invitation
- * to `ownerEmail`. The new detail is seeded into the cache, so opening the
+ * to `ownerEmail`. The created tenant's detail is seeded into the cache, so opening the
  * tenant needs no second request; every tenant list, email query and audit
- * log refreshes, and the onboarding lists, where it now awaits its owner.
+ * log refreshes, and the onboarding lists, where it awaits its owner.
  */
 export function useCreatePlatformTenant() {
   const queryClient = useQueryClient()
@@ -176,7 +176,7 @@ export function useCreatePlatformTenant() {
 
 /**
  * `GET /platform/tenants/:id`: one tenant in any lifecycle state. A 404 is an
- * unknown id (or a caller no longer staff), and asking again changes nothing.
+ * unknown id (or a caller demoted from staff), and asking again changes nothing.
  */
 export function platformTenantQueryOptions(id: string) {
   return queryOptions({
@@ -187,11 +187,12 @@ export function platformTenantQueryOptions(id: string) {
   })
 }
 
+/** The lifecycle moves a staff admin can make; each is a `POST /platform/tenants/:id/<action>`. */
 type LifecycleAction = 'suspend' | 'reactivate' | 'archive'
 
 /**
  * A lifecycle transition with its audit reason. The API answers the tenant as
- * it now is, which replaces the cached detail; the rest of the directory
+ * it stands, which replaces the cached detail; the rest of the directory
  * refreshes, since the tenant may have left the current filter and its
  * members' pages show its state. A tenant left suspended or archived has its
  * own routes marked stale without refetching them: they would answer 404, and

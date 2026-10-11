@@ -35,6 +35,7 @@ import {
 /** This list, as `table_filtered` names it. */
 const TABLE = analyticsKey('onboarding_tenants')
 
+/** The Onboarding page: the activation funnel and the tracked tenants by state. */
 export const Route = createFileRoute('/_app/onboarding')({
   validateSearch: onboardingSearchSchema,
   loaderDeps: ({ search }) => search,
@@ -78,6 +79,7 @@ const EMPTY_TAB: Record<OnboardingListState, { title: string; description: strin
   },
 }
 
+/** Whether a tab value names one of the list states. */
 function isListState(value: unknown): value is OnboardingListState {
   return (ONBOARDING_LIST_STATES as readonly unknown[]).includes(value)
 }
@@ -206,16 +208,19 @@ function TenantsByState() {
   )
 }
 
+/** One state's tenants, a page at a time by keyset cursor. */
 function TenantsPanel({ state }: { state: OnboardingListState }) {
   const { cursor, dir } = Route.useSearch()
   const navigate = Route.useNavigate()
   const page = useQuery(onboardingTenantsQueryOptions({ state, cursor, direction: dir }))
 
+  /** Pages to a keyset cursor; does nothing without one. */
   function goTo(target: string | null, direction: PageDirection) {
     if (target) {
       void navigate({ search: (prev) => ({ ...prev, cursor: target, dir: direction }) })
     }
   }
+  /** Back to the first page of this state, keeping the range. */
   const firstPage = () =>
     void navigate({ search: (prev) => ({ range: prev.range, state: prev.state }) })
 

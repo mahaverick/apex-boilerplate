@@ -172,7 +172,7 @@ async function afterStaffWrite(
 
 /**
  * Mark one of the tenant's own steps complete, with an audited reason
- * (admin). The API answers the tenant's onboarding as it now is, which
+ * (admin). The API answers the tenant's onboarding as it stands, which
  * replaces the cached detail. Settled, not success: a 409
  * (`already_complete`, `not_tracked`, `tenant_state_conflict`) means the
  * cached detail was stale, so it refreshes either way, with the funnel, the

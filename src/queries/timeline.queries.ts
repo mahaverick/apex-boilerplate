@@ -1,7 +1,7 @@
 /**
  * @file The user and tenant timelines (`GET /platform/users|tenants/:id/timeline`),
- * paged by express's opaque `before` cursor. Every first-page request writes
- * an audit entry and may spend PostHog query budget, so nothing here refetches
+ * paged by express's opaque `before` cursor. Every request writes an audit
+ * entry (throttled by express) and may spend PostHog query budget, so nothing here refetches
  * on its own except a remount after `staleTime`, and the cache is dropped as
  * soon as the page is left, so that remount loads the first page alone.
  */
@@ -18,6 +18,7 @@ import type {
 /** Whose timeline: a user's or a tenant's. */
 export type TimelineKind = 'user' | 'tenant'
 
+/** Query keys for the timelines. */
 export const timelineKeys = {
   /** Every timeline, whatever its subject, window or view. */
   all: ['timeline'] as const,
@@ -32,8 +33,8 @@ const PATHS: Record<TimelineKind, (id: string) => string> = {
 }
 
 /**
- * One timeline as an infinite query. Not retried: a retried first page would
- * be audited twice, and the error state offers Retry. Not refetched on window
+ * One timeline as an infinite query. Not retried: a retry would be a second
+ * audited read, and the error state offers Retry. Not refetched on window
  * focus or on reconnect, for the same reason. The cache is dropped when the
  * page unmounts (`gcTime: 0`), so a revisit loads one first page instead of
  * refetching every page that was loaded. Refresh is the explicit refetch.
@@ -80,7 +81,7 @@ export function flattenTimelinePages(data: InfiniteData<TimelinePage> | undefine
 /**
  * Refresh: drop every page after the first, then refetch that one, so the
  * reader gets the newest events without re-reading older pages. The
- * refetch is a first page, so express audits it.
+ * refetch is another request, so express audits it (throttled).
  * @param client - The query client.
  * @param key - The timeline's query key.
  * @returns When the refetch settles.
