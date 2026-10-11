@@ -205,7 +205,7 @@ describe('ensureSession', () => {
    * expired (clock skew, a near-zero TTL, a key-rotation race) lands here. Without `skipAuthRetry` the
    * response interceptor calls ensureSession() and awaits the promise awaiting this very request: no
    * rejection, no logout, no redirect, just a wedged session. The 2000 ms test timeout makes that
-   * regression fail fast instead of hanging the run; the passing test takes 17 to 20 ms (five local runs).
+   * regression fail fast instead of hanging the run, and sits far above what the passing test needs.
    */
   it('rejects rather than hanging when its own profile call 401s as expired', async () => {
     useAuthStore.getState().login('stale', testUser)

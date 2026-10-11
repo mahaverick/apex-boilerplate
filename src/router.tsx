@@ -27,7 +27,8 @@ export const queryClient = new QueryClient({
  * a reload starts signed out and `_app` would bounce a signed-in user to
  * /login without this. Whether or not the refresh works, it ends with
  * `isBootstrapped` set. A restore that ends with no user also drops any person
- * posthog-js still holds from an earlier visit. After a failure that judged
+ * posthog-js still holds from an earlier visit (`forgetStaleIdentity`), so the
+ * next visitor's pages are not attributed to them. After a failure that judged
  * nothing (a 502, say) that person is kept if another open tab answers that it
  * is signed in as them, so that tab's replay is not split.
  */
@@ -64,7 +65,12 @@ export const router = createRouter({
   defaultPendingMinMs: 300,
 })
 
-// posthog-js's history pageviews are off: this fires once the route has resolved and its tenant group is set, and only for a new path.
+/**
+ * One `$pageview` per resolved navigation, captured here because posthog-js's
+ * own history pageviews are off: they fire when the URL changes, before the
+ * route has resolved. Only a new path is a page view: a search or filter
+ * change is not.
+ */
 router.subscribe('onResolved', ({ pathChanged }) => {
   if (pathChanged) capturePageview()
 })

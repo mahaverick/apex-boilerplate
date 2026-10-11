@@ -59,8 +59,10 @@ const RenderedFieldsContext = React.createContext<RenderedFields | null>(null)
  * about.
  *
  * **Any non-native control must call `serverErrors.clearField('<its name>')`
- * itself, in its own change handler** — for a Select, inside `onValueChange`,
- * as `tests/unit/components/ui/form.test.tsx` drives it.
+ * itself, in its own change handler.**
+ * `src/components/features/tenant/invite-member-form.tsx` is the worked
+ * example: the add-member role Select calls it inside `onValueChange`, and a
+ * test fails if that line is removed.
  *
  * Base UI's CHECKBOX IS UNVERIFIED: nothing in this project wires one into a
  * form, and it is NOT safe to assume it behaves like the Select or like a

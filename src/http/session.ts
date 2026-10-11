@@ -42,9 +42,9 @@ export class SessionIdentityChangedError extends Error {
  * inactive. Every other failure judges nobody, and treating it as a verdict
  * signs out a user whose session is good:
  *
- * - **5xx**: nginx answers 502/503 through a rolling restart, and every open
- *   tab's 401 interceptor and page-load bootstrap refresh through
- *   `ensureSession()`, so every tab would sign out on every deploy.
+ * - **5xx**: nginx answers 502/503 through a rolling restart, and any tab that
+ *   refreshes during a deploy (a page load, an expired token) goes through
+ *   `ensureSession()`, so it would sign out.
  * - **429**: `/auth/refresh` is rate limited, and every tab's interceptor and
  *   bootstrap share that limit.
  * - **A malformed 200**: `rejectMalformedJsonResponse` throws an `AxiosError`
@@ -62,8 +62,8 @@ export function isAuthVerdict(error: unknown): boolean {
 
 /**
  * Move the browser to /login after a session has ended: the one place that
- * navigation is written, for the 401 interceptor (interceptors.ts) and the
- * cross-tab handlers in this module.
+ * navigation is written, for the 401 interceptor (interceptors.ts), the
+ * analytics identity check and a logout broadcast from another tab.
  * `_app.beforeLoad` runs only on navigation, so without this a signed-out tab
  * would stay where it was, showing cached data.
  *
@@ -194,11 +194,11 @@ export function installAnalyticsIdentity(queryClient: QueryClient): () => void {
 }
 
 /**
- * The single in-flight refresh. Every caller (`bootstrapSession()`, the 401
- * interceptor and the superseded-tab recheck) awaits this same promise,
- * because POST /auth/refresh rotates the refresh cookie and a second call
- * presents the rotated token. The API answers that with a sibling token within
- * its 10s reuse grace window, and revokes the whole session after it.
+ * The single in-flight refresh. Every caller (bootstrap, the 401 interceptor,
+ * the superseded-tab recheck) awaits this same promise, because POST
+ * /auth/refresh rotates the refresh cookie and a second call presents the
+ * rotated token. The API answers that with a sibling token within its 10s
+ * reuse grace window, and revokes the whole session after it.
  */
 let inFlight: Promise<string> | null = null
 
