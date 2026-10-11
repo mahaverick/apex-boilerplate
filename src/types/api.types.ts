@@ -1180,7 +1180,7 @@ export interface MaintenanceModeStatus {
   known: boolean
   queuesPaused: boolean
   queues: QueuePauseState[]
-  /** True while a notice of the last change (a notification or its email job) has not finished. */
+  /** True while a notice of the last change (a notification or its email job) has not finished; that happens when the queues paused first, and the notices go out on resume. */
   noticesPending: boolean
   lastReloadError: string | null
   /**
