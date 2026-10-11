@@ -94,8 +94,8 @@ function HttpResponseOk() {
 
 /**
  * The guards themselves, driven through a real RouterProvider. The bootstrap tests above prove
- * `bootstrapSession()` settles correctly but not that the guards wait for it, which is why the await
- * sits in __root's beforeLoad rather than a useEffect.
+ * `bootstrapSession()` settles correctly; these prove the guards wait for it, which is why the await
+ * sits in __root's beforeLoad and not in a useEffect.
  *
  * Each refresh handler here is delayed: a guard that ran before the session settled would observe an
  * empty store, and the signed-in case below would leave the user on /login instead of moving them to

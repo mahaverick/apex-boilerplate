@@ -309,7 +309,7 @@ function unexpectedIncomplete(results: axeCore.AxeResults): string[] {
  * `bypass`, `html-has-lang`, `document-title`) select on `html` and are inapplicable for anything
  * smaller; with `document.body` as the context they all came back inapplicable. The assertion that
  * `html-has-lang`, `document-title` and `bypass` ran pins that, since narrowing the context would
- * otherwise leave every other check passing. `region` stays on: it exempts a `button` but not an `a`.
+ * otherwise leave every other check passing. `region` stays on: it exempts a `button` but not an `a`, so the sidebar footer's buttons pass and the brand link passes only because it sits inside the `header` banner.
  *
  * `frames: 'skip'` is for a page holding an iframe: axe hands each frame its own run over `postMessage`,
  * which a jsdom frame cannot answer (axe throws "Respondable target must be a frame in the current

@@ -89,7 +89,7 @@ describe('profile page', () => {
     })
   })
 
-  /** Stores a first name, with a zero-width space, that today's name rule refuses. */
+  /** Stores a first name with a zero-width space: a value the database can hold but the current name rule refuses. */
   function mockLegacyName() {
     const legacy = { ...testUser, firstName: 'Ad\u{200B}a', lastName: 'Byron' }
     useAuthStore.setState({ user: legacy })

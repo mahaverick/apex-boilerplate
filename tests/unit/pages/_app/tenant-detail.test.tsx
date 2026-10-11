@@ -697,8 +697,8 @@ describe('/tenants/$tenantId', () => {
     it('never flashes a load error on the Members tab across suspend and a slow reactivation', async () => {
       let state: TenantLifecycleState = 'active'
       let reactivated = false
-      // A frozen tenant's own routes answer 404, as the API's do.
-      /** Answers a tenant route with `answer` while active, a 404 while frozen, and late right after reactivation. */
+      // A tenant's own routes answer 404 in any state but active, as the API's do.
+      /** Answers a tenant route with `answer` while active and a 404 otherwise; every request after reactivation waits 150 ms. */
       async function ownRoute(answer: () => Response) {
         if (state !== 'active') return fail('Tenant not found', 404)
         if (reactivated) await delay(150)

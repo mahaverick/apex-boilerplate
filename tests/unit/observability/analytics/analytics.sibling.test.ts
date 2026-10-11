@@ -323,7 +323,7 @@ describe('two tabs of this app', () => {
     await vi.waitFor(() => expect(pageviews(second.sent).length).toBeGreaterThanOrEqual(3))
     expect(pageviews(second.sent).every((id) => id === 'user-b')).toBe(true)
     expect(pageviews(first.sent)).toEqual([])
-    // No identity churn: the first tab never re-identifies over the second, and the second identifies at most once.
+    // No identity churn: the first tab never re-identifies over the second, and every identify the second tab sends is its own.
     expect(identifies(first.sent).map((event): unknown => event.properties.distinct_id)).toEqual([
       'user-a',
     ])

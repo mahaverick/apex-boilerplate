@@ -364,9 +364,9 @@ describe('safeRedirect', () => {
    * first four resolve off-origin because the URL parser strips ASCII tab, LF and CR (and reads a
    * backslash as a slash), leaving "//". The last three collapse dot segments to the same-origin
    * pathname "//evil.example", which is protocol-relative once assigned. All are typeable into the URL
-   * bar as %09, %0A, %0D and ..%2F%2F. The router may normalise these before pushState, but the guard has
-   * to hold on its own: `useLogout` navigates with `window.location.assign` (auth.queries.ts), not the
-   * router.
+   * bar as %09, %0A, %0D and ..%2F%2F. The result goes to `navigate({ href })`, and router-core takes a
+   * document navigation (`window.location`) for an href with a scheme, so the guard has to refuse anything
+   * off-origin itself.
    */
   it.each([
     ['tab', '/\t/evil.example'],

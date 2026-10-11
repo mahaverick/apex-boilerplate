@@ -588,7 +588,7 @@ export const handlers = [
   http.get('/api/v1/platform/audit-log', () =>
     ok({ entries: [], nextCursor: null }, 'Audit log retrieved.')
   ),
-  // `/emails/health` is registered before `:emailId`, which would otherwise match it.
+  // The email list defaults to empty, so a page that only embeds one renders unchanged; `/emails/health` is registered before `:emailId`, which would otherwise match it.
   http.get('/api/v1/platform/emails', () =>
     ok({ messages: [], nextCursor: null, prevCursor: null }, 'Emails retrieved.')
   ),
