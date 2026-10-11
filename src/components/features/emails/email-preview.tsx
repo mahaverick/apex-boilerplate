@@ -10,10 +10,9 @@ import { TEMPLATE_UNAVAILABLE, type EmailSenderClass } from '@/types/api.types'
 
 /**
  * Keeps the frame out of session replay, which otherwise records its whole
- * `srcdoc`: the email, recipient and all. The empty `sandbox` (an opaque
- * origin) is load-bearing for replay too: rrweb's iframe-load serializer still
- * reads a same-origin frame's document even when the frame is blocked, so the
- * sandbox must never gain `allow-same-origin`.
+ * `srcdoc`: the email, recipient and all. The empty `sandbox` is load-bearing
+ * too: its opaque origin leaves rrweb's iframe-load handler no
+ * `contentDocument` to serialize, so it must never gain `allow-same-origin`.
  */
 const NO_REPLAY = 'ph-no-capture'
 

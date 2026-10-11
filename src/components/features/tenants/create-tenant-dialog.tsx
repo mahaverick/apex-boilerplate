@@ -32,6 +32,7 @@ import { useCreatePlatformTenant } from '@/queries/tenant-admin.queries'
 import { createPlatformTenantSchema } from '@/schemas/tenant.schemas'
 import { INVITEE_DEACTIVATED, SLUG_TAKEN, type PlatformTenantDetail } from '@/types/api.types'
 
+/** The create form's values as the schema takes them. */
 type Values = z.input<typeof createPlatformTenantSchema>
 
 const TEXT_FIELDS: {
@@ -54,9 +55,10 @@ const FIELD_FOR_CODE: Partial<Record<string, 'slug' | 'ownerEmail'>> = {
 /**
  * "New tenant". It holds no role gate of its own: the API requires platform
  * admin, so the page renders it only for admins and owners. The tenant starts
- * with no members; the owner joins by accepting the emailed invitation. A 409 lands on the field its code names: a taken slug on Slug,
- * a deactivated owner account on Owner email; any other error on the form.
- * `onCreated` lets the page decide where to go next.
+ * with no members; the owner joins by accepting the emailed invitation. A 409
+ * lands on the field its code names: a taken slug on Slug, a deactivated owner
+ * account on Owner email; any other error on the form. `onCreated` lets the
+ * page decide where to go next.
  */
 export function CreateTenantDialog({
   onCreated,
@@ -90,6 +92,7 @@ export function CreateTenantDialog({
   )
 }
 
+/** The create form inside the open dialog; it is mounted only while open, so each opening starts blank. */
 function CreateTenantForm({ onDone }: { onDone: (tenant: PlatformTenantDetail) => void }) {
   const create = useCreatePlatformTenant()
   const serverErrors = useServerErrors()

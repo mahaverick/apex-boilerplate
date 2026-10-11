@@ -36,11 +36,13 @@ const PALETTE_ACTIONS = {
   user: analyticsKey('open_user'),
 } as const
 
+/** One selectable row, tagged by what choosing it opens. */
 type PaletteItem =
   | { kind: 'page'; value: string; label: string; to: NavPath }
   | { kind: 'tenant'; value: string; label: string }
   | { kind: 'user'; value: string; label: string; detail: string | null }
 
+/** A labelled group of rows; `value` is both the label shown and the React key. */
 interface PaletteGroup {
   value: string
   items: PaletteItem[]
@@ -51,9 +53,7 @@ interface PaletteGroup {
  * and customer tenants and users, filtered by the API. Choosing a tenant or a
  * user opens its detail page. Tenant and user results are each shown only for
  * the term they were fetched for, so Enter can never act on an older term's
- * list. Every close
- * clears the search, however it closed: the shortcut and the header flip the
- * store's `open` directly, and Base UI fires no `onOpenChange` for that.
+ * list. Every close clears the search, however it closed.
  */
 export function CommandPalette() {
   const navigate = useNavigate()
@@ -65,7 +65,7 @@ export function CommandPalette() {
   const shortcutsId = useId()
   const [query, setQuery] = useState('')
   const [wasOpen, setWasOpen] = useState(open)
-  // Base UI reports no change when `open` is flipped from outside, so reset here.
+  // The shortcut and the header flip the store's `open` directly, and Base UI fires no `onOpenChange` for that, so reset here.
   if (open !== wasOpen) {
     setWasOpen(open)
     if (!open) setQuery('')
@@ -89,6 +89,7 @@ export function CommandPalette() {
   }, [open])
 
   useEffect(() => {
+    /** Toggles the palette on Cmd/Ctrl+K, ignoring repeats, composition and other modifiers. */
     function onKeyDown(event: KeyboardEvent) {
       if (event.repeat || event.isComposing || event.defaultPrevented) return
       if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return
@@ -125,6 +126,7 @@ export function CommandPalette() {
     ...(userItems.length > 0 ? [{ value: 'Users', items: userItems }] : []),
   ]
 
+  /** Records the choice, closes the palette and opens the item's page. */
   function choose(item: PaletteItem) {
     track('command_palette_action_run', { action: PALETTE_ACTIONS[item.kind] })
     setOpen(false)

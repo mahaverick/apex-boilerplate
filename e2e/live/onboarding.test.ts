@@ -66,7 +66,7 @@ test('a staff reminder is a tracked email to the owner, and a staff completion i
   )!
   await logIn(page, admin)
 
-  // A customer-created tenant is tracked from the start, so it is in progress, newest first.
+  // A customer-created tenant is tracked from the start, so it is in progress.
   await page.goto('/onboarding?state=in_progress')
   await page.getByRole('table', { name: 'Onboarding tenants' }).getByRole('link', { name }).click()
   await expect(page).toHaveURL(new RegExp(`/tenants/${tenantId}/onboarding$`))
@@ -89,7 +89,7 @@ test('a staff reminder is a tracked email to the owner, and a staff completion i
   expect(new URL(link).pathname).toBe(`/tenants/${slug}`)
   expect(new URL(link).search).toBe('')
 
-  // The reminder is an SP3 email, and the history links to it.
+  // The reminder is a tracked email, and the history links to it.
   const messageId = await emailIdFor(token, owner, 'onboarding_reminder')
   const history = page.getByRole('list', { name: 'Reminders sent' })
   await expect(history).toContainText('e2e: nudge after the call')

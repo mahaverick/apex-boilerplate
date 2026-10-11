@@ -16,6 +16,7 @@ import {
 } from '@/constants/timeline.constants'
 import type { TimelineRange, TimelineView } from '@/types/api.types'
 
+/** The window and view shown, the callbacks that change them, and the refresh and PostHog link state. */
 interface TimelineToolbarProps {
   range: TimelineRange
   view: TimelineView

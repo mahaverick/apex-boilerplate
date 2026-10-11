@@ -48,6 +48,7 @@ export function TurnOffDialog({
   if (open && openedOn === null) setOpenedOn(view.version)
   if (!open && openedOn !== null) setOpenedOn(null)
 
+  /** Switches maintenance off with the version the dialog opened on, and shows any refusal in the dialog. */
   const turnOff = async () => {
     setRefusal(null)
     setBusy(true)

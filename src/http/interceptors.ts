@@ -12,11 +12,13 @@ import { useAuthStore } from '@/states/auth.store'
 import { ACCESS_TOKEN_EXPIRED, REAUTH_REQUIRED, type ApiErrorBody } from '@/types/api.types'
 
 declare module 'axios' {
+  /** Per-request flags the auth interceptors read and write. */
   interface AxiosRequestConfig {
     /**
      * Opts a request out of both the 401 retry path and the 401 verdict path.
-     * Set on the two requests refreshSession() makes itself, and on POST
-     * /auth/logout so that useLogout alone handles its failure. Without it, a
+     * Set on the two requests refreshSession() makes itself, on POST
+     * /auth/logout so that useLogout alone handles its failure, and on the
+     * invitation preview, which is asked as a stranger. Without it, a
      * 401 carrying ACCESS_TOKEN_EXPIRED on one of refreshSession()'s requests
      * sends the response interceptor into ensureSession(), which returns the
      * promise awaiting that very request: a self-wait that never settles and
@@ -117,7 +119,7 @@ function addTraceHeaders(
  * with its own error.
  *
  * A REAUTH_REQUIRED 401 is neither a verdict nor an expiry: the session is
- * fine but signed in too long ago for a destructive staff action, so it
+ * fine but signed in too long ago for the action asked, so it
  * rejects untouched, with no refresh and no sign-out, for the caller to handle.
  */
 export function installInterceptors(client: AxiosInstance): void {
@@ -135,7 +137,7 @@ export function installInterceptors(client: AxiosInstance): void {
     async (error: AxiosError<ApiErrorBody>) => {
       const config = error.config
 
-      // First: a refresh-internal request must reject plainly, or ensureSession() awaits itself.
+      // First: a skipAuthRetry request (a refresh call, logout, the invitation preview) must reject plainly; for a refresh call, ensureSession() would await itself.
       if (config?.skipAuthRetry) {
         return Promise.reject(error)
       }

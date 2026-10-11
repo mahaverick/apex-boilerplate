@@ -26,15 +26,15 @@ import {
 import { useAuthStore } from '@/states/auth.store'
 import type { PlatformTenantDetail } from '@/types/api.types'
 
+/** Which action's dialog is open, if any. */
 type Open = 'edit' | 'owner' | 'suspend' | 'reactivate' | 'archive' | 'purge' | null
 
 /**
- * The tenant's staff actions, shown only when the API would accept them
- * as the API gates them: admin for every soft
- * action, owner for Delete permanently, and the lifecycle state for each
- * transition. Edit also needs the tenant route's effective role, which is the
- * platform role unless the staff member is a member there too; a refusal then
- * shows inline. Suspend, Archive, Delete permanently and the owner invitation
+ * The tenant's staff actions, each shown only when the API would accept it:
+ * admin for every soft action, owner for Delete permanently, and the
+ * lifecycle state for each transition. Edit also needs the tenant route's
+ * effective role, which is the platform role unless the staff member is a
+ * member there too; a refusal then shows inline. Suspend, Archive, Delete permanently and the owner invitation
  * go through step-up. No menu renders when no action applies; the dialogs
  * stay mounted, so one whose action just removed the last option still
  * closes, and sends focus to `fallbackFocus` since the trigger is gone.
@@ -72,6 +72,7 @@ export function TenantActionsMenu({
   }
   const hasActions = Object.values(can).some(Boolean)
 
+  /** The open state for one of the action dialogs. */
   const dialogProps = (which: Exclude<Open, null>) => ({
     open: open === which,
     onOpenChange: (next: boolean) => setOpen(next ? which : null),

@@ -18,7 +18,7 @@ export const ERRORS_ERROR =
 /** A server row whose signature did not verify: anyone holding the public project key can send one. */
 export const ERRORS_UNVERIFIED_NOTE = 'Claims to come from the server, but express did not sign it.'
 
-/** PostHog groups an exception into an issue after ingesting it, which takes a few seconds. */
+/** PostHog groups an exception into an issue after ingesting it, so an error is not listed at once. */
 export const ERRORS_LAG_NOTE = 'Errors can take a minute to appear.'
 
 /** Each app name express or a browser sends, as the badge names it; any other is shown as sent. */

@@ -7,6 +7,7 @@
 
 /** Descending authority. Mirrors MEMBERSHIP_ROLES on the server. */
 export const MEMBERSHIP_ROLES = ['owner', 'admin', 'manager', 'editor', 'viewer'] as const
+/** A role in a tenant's membership list, which is also the shape of a platform role. */
 export type MembershipRole = (typeof MEMBERSHIP_ROLES)[number]
 
 /** The invite form's default role. */
@@ -43,7 +44,7 @@ export function canActorModifyTarget(
 
 /**
  * May `actorRole` grant `role` to someone who is not yet a member? Separate
- * from the matrix: a new member has no current role, and an admin who could
+ * from the matrix: someone who is not yet a member has no current role, and an admin who could
  * add an admin would escalate past what the matrix allows.
  */
 export function canActorGrantRole(actorRole: MembershipRole, role: MembershipRole): boolean {
@@ -73,7 +74,7 @@ export function canManageTenant(actorRole: MembershipRole): boolean {
  * owner counts (`otherOwnerCount`: on the platform tenant, no other active
  * one), and the UI disables that control and says why instead.
  *
- * Not parameterised by the new role: the API exempts an owner re-submitting
+ * Not parameterised by the role being set: the API exempts an owner re-submitting
  * `{ role: 'owner' }`, but a control whose only option changes nothing is not
  * worth offering, so one shape serves removal and role change.
  */

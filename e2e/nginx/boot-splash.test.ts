@@ -73,21 +73,16 @@ test(
     })
 
     /**
-     * Installed at document-create time, before any of the page's own
-     * scripts run — before `document.documentElement` even exists, which is
-     * why this observes `document` itself (always a valid Node) rather than
-     * waiting on an element that isn't there yet. `#root` is looked up
-     * fresh in each callback, so the empty check only starts meaning
-     * anything once it exists. Keys `__sawRoutePending` on `aria-label`,
-     * not `role`, because the splash itself carries `role="status"` too.
-     * `__mutations` counts every callback invocation, so a browser where
-     * the observer never ran at all — and so never had a chance to flip
-     * either flag — fails loudly instead of passing on two flags that both
-     * stayed false by default. Emptiness is read live, once per callback,
-     * on purpose: React's first commit sets `#root.textContent = ''` and
-     * inserts the app in the same task, so a per-record check would flag
-     * every correct boot. Only an empty #root that is still empty when a
-     * callback runs can be painted.
+     * Installed at document-create time, before any of the page's own scripts
+     * run and before `document.documentElement` exists, so it observes
+     * `document` itself and looks `#root` up fresh in each callback.
+     * `__sawRoutePending` keys on `aria-label`, not `role`, because the splash
+     * carries `role="status"` too. `__mutations` counts callbacks, so an
+     * observer that never ran fails the test instead of passing on two flags
+     * that stayed false. Emptiness is read once per callback, not per record:
+     * React's first commit empties #root and inserts the app in the same task,
+     * so a per-record check would flag every correct boot. An empty #root that
+     * is still empty when a callback runs can be painted.
      */
     await page.addInitScript(() => {
       const win = window as unknown as {
@@ -99,6 +94,7 @@ test(
       win.__sawRoutePending = false
       win.__mutations = 0
 
+      /** Whether `node` is, or contains, the router's pending screen. */
       const isRoutePending = (node: Node) =>
         node instanceof HTMLElement &&
         (node.matches('[role="status"][aria-label="Loading"]') ||

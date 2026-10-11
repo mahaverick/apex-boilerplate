@@ -4,8 +4,8 @@ import type { PlatformUserRow } from '@/types/api.types'
 
 /**
  * Account state and email verification, as badges. Tokens as on the tenants
- * table. A deleted account shows only "Deleted": whether it was active no
- * longer matters.
+ * table. A deleted account shows only "Deleted": whether it was active does
+ * not matter.
  */
 export function UserStatusBadges({
   user,

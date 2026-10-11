@@ -5,6 +5,7 @@ import { FrozenTenant } from '@/components/features/tenants/frozen-tenant'
 import { pageTitle } from '@/constants/app'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 
+/** A tenant's Invitations tab: pending invitations with invite, resend and revoke, or a frozen notice when the tenant is not active. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/invitations')({
   head: () => ({ meta: [{ title: pageTitle('Tenant invitations') }] }),
   staticData: { crumb: 'Invitations' },

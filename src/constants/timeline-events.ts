@@ -1,8 +1,9 @@
 /**
- * @file A timeline row as a sentence, for every event in the SP5a taxonomy:
- * PostHog's browser events, the browser registry, express's product and
- * email events, and every audit action under the name express sends it.
- * An event outside the taxonomy renders its own name.
+ * @file A timeline row as a sentence, for each event the timelines word:
+ * PostHog's browser events, the browser registry, and the product events,
+ * email events and audit actions this build lists, the audit actions under
+ * the name express sends them.
+ * An event outside that set renders its own name.
  */
 import {
   AUDIT_ACTION_LABELS,
@@ -14,7 +15,7 @@ import { templateLabel } from '@/constants/email.constants'
 import type { BrowserEvent } from '@/observability/analytics'
 import type { EmailEventType, TimelineRow } from '@/types/api.types'
 
-/** Mirrors express's `PRODUCT_EVENTS` (analytics.constants.ts). */
+/** The product events a timeline words, from express's `PRODUCT_EVENTS` (analytics.constants.ts); `other_sessions_revoked` is not among them and renders its own name. */
 export const TIMELINE_PRODUCT_EVENTS = [
   'user_signed_up',
   'user_signed_in',
@@ -147,7 +148,7 @@ function auditTimelineSentence(action: AuditAction, row: TimelineRow): string {
   return capitalised(auditSentence({ action, metadata: stepKey === undefined ? {} : { stepKey } }))
 }
 
-/** A boolean prop, which express may send as `true` or as the string `'true'`. */
+/** A boolean prop, read from either `true` or the string `'true'`. */
 function flag(row: TimelineRow, key: 'required' | 'via_invitation' | 'has_reason'): boolean {
   const value = row.props[key]
   return value === true || value === 'true'

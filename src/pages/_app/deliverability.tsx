@@ -16,6 +16,7 @@ import { templateLabel } from '@/constants/email.constants'
 import { emailHealthQueryOptions } from '@/queries/email.queries'
 import { isRoleDenied, STATS_RANGES } from '@/queries/platform.queries'
 
+/** The Deliverability page: email health for a time window kept in `?range`. */
 export const Route = createFileRoute('/_app/deliverability')({
   validateSearch: z.object({ range: z.enum(STATS_RANGES).default('7d').catch('7d') }),
   loaderDeps: ({ search }) => ({ range: search.range }),

@@ -16,6 +16,7 @@ import type {
 import { useAuthStore } from '@/states/auth.store'
 import type { ApiSuccess, AuthProviders, User } from '@/types/api.types'
 
+/** What `POST /auth/login` answers: the access token and the signed-in user. */
 interface AuthPayload {
   accessToken: string
   user: User
@@ -24,8 +25,10 @@ interface AuthPayload {
 /** Which frontend the API should link back to: this one. The API accepts only 'web' or 'apex'. */
 const APP = 'apex' as const
 
+/** The key of the caller's linked sign-in methods, `['auth', 'providers']`. */
 export const authKeys = { providers: ['auth', 'providers'] as const }
 
+/** Signs in with an email and password, and stores the access token and user. */
 export function useLogin() {
   const login = useAuthStore((s) => s.login)
   return useMutation({
@@ -43,6 +46,7 @@ export function useRegister() {
   })
 }
 
+/** Asks the API to mail a reset link that opens this app; it answers alike whether or not the address has an account. */
 export function useForgotPassword() {
   return useMutation({
     mutationFn: async (input: ForgotPasswordInput) =>
@@ -61,6 +65,7 @@ export function useResetPassword() {
   })
 }
 
+/** Verifies an address with the emailed token and the account's password. */
 export function useVerifyEmail() {
   return useMutation({
     mutationFn: async (input: VerifyEmailInput) =>
@@ -68,6 +73,7 @@ export function useVerifyEmail() {
   })
 }
 
+/** Asks the API to mail a fresh verification link; it answers alike whether or not the address needs one. */
 export function useResendVerification() {
   return useMutation({
     mutationFn: async (input: ResendVerificationInput) =>
@@ -122,6 +128,7 @@ const LOGOUT_FAILED_MESSAGE = "Couldn't sign out. Check your connection and try 
  */
 export function useLogout({ returnTo = ROUTES.login }: { returnTo?: string } = {}) {
   const logout = useAuthStore((s) => s.logout)
+  /** Ends this tab's session, tells the other tabs, and leaves for `returnTo`. */
   const endSession = () => {
     logout()
     broadcastLogout()
@@ -146,7 +153,7 @@ export function useLogout({ returnTo = ROUTES.login }: { returnTo?: string } = {
 /**
  * Confirms the signed-in user's password for a step-up (express
  * `POST /auth/reauthenticate`) and swaps in the fresh access token it
- * returns, which carries a new `auth_time`. A wrong password is a 400, never
+ * returns, which carries a fresh `auth_time`. A wrong password is a 400, never
  * a 401, so the interceptor never reads it as a verdict on the session.
  */
 export function useReauthenticate() {

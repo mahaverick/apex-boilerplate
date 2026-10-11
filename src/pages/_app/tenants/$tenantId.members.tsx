@@ -5,6 +5,7 @@ import { FrozenTenant } from '@/components/features/tenants/frozen-tenant'
 import { pageTitle } from '@/constants/app'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 
+/** A tenant's Members tab: the member list with role changes and removal, or a frozen notice when the tenant is not active. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/members')({
   head: () => ({ meta: [{ title: pageTitle('Tenant members') }] }),
   staticData: { crumb: 'Members' },

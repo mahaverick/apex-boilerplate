@@ -18,6 +18,7 @@ import { tenantFlagsSearchSchema } from '@/schemas/flags.schemas'
 import { useAuthStore } from '@/states/auth.store'
 import type { PlatformTenantDetail } from '@/types/api.types'
 
+/** A tenant's Flags tab: any member's flag evaluation in this tenant, kept in `?userId`. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/flags')({
   validateSearch: tenantFlagsSearchSchema,
   head: () => ({ meta: [{ title: pageTitle('Tenant flags') }] }),

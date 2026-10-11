@@ -24,12 +24,13 @@ import {
 } from '@/queries/timeline.queries'
 import type { TimelineRange, TimelineView } from '@/types/api.types'
 
+/** Whose timeline to show, over which window and view, and how a change of window or view reaches the URL. */
 interface TimelinePanelProps {
   kind: TimelineKind
   id: string
   range: TimelineRange
   view: TimelineView
-  /** Puts a new window or view in the URL. */
+  /** Puts the chosen window or view in the URL. */
   onSearchChange: (search: { range: TimelineRange; view: TimelineView }) => void
 }
 
@@ -44,13 +45,12 @@ function itemKey(item: TimelineItem): string {
 
 /**
  * A user's or a tenant's PostHog timeline: the toolbar, then sessions,
- * requests and events, newest first, regrouped over every loaded page. The
- * states say what is true: not set up, loading, empty for this window, and
- * three different failures (nothing loaded, Load more, a refresh). Every
- * failure but a 404 gets the same copy (a 502 `TIMELINE_UNAVAILABLE`'s
- * message is masked); a 404 is a role refusal, and the page around it
- * handles an unknown subject. Express drops forged and duplicate rows after
- * fetching, so a page can be short, or empty, and still have a next one:
+ * requests and events, newest first, regrouped over every loaded page. A
+ * failure of the first load, of Load more and of a refresh each has its own
+ * copy, and every failure but a 404 gets the same copy whatever its status (a
+ * 502 `TIMELINE_UNAVAILABLE`'s message is masked); a 404 is a role refusal, and
+ * the page around it handles an unknown subject. Express drops forged and
+ * duplicate rows after fetching, so a page can be short, or empty, and still have a next one:
  * "empty" is said only when there is no next page.
  */
 export function TimelinePanel({ kind, id, range, view, onSearchChange }: TimelinePanelProps) {

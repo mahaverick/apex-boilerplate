@@ -1,9 +1,9 @@
 /**
  * @file The shadcn `form` component, rewritten against TanStack Form because
  * the registry entry is built on react-hook-form, which this project does not
- * install. The export surface is upstream's, and server-side validator detail
- * is handled here once: pass `useServerErrors()` to `<Form>` and every field
- * picks up its own messages.
+ * install. The component names are upstream's, plus `FormError`, and
+ * server-side validator detail is handled here once: pass `useServerErrors()`
+ * to `<Form>` and every field picks up its own messages.
  */
 import { useRender } from '@base-ui/react/use-render'
 import type { AnyFieldApi, AnyFormApi } from '@tanstack/react-form'
@@ -14,12 +14,8 @@ import { ServerErrorsContext, type ServerErrors } from '@/hooks/use-server-error
 import { cn } from '@/lib/utils'
 
 /**
- * Tracks whether a `<FormError>` is mounted inside this form, so `<Form>` can
+ * What a mounted `<FormError>` registers with its `<Form>`, so `<Form>` can
  * say something in dev when form-level errors would otherwise go unrendered.
- * Deliberately not exported: `react-refresh/only-export-components` rejects a
- * non-component export beside components (a re-export included), which is
- * also why `useFormField` and `FormFieldContext` live in
- * `@/hooks/use-form-field`.
  */
 interface FormErrorSlot {
   /** Called by a mounted `<FormError>`; returns its own deregistration. */
@@ -27,12 +23,16 @@ interface FormErrorSlot {
   isMounted: () => boolean
 }
 
+/**
+ * Not exported: `react-refresh/only-export-components` rejects a non-component
+ * export beside components (a re-export included), which is also why
+ * `useFormField` and `FormFieldContext` live in `@/hooks/use-form-field`.
+ */
 const FormErrorSlotContext = React.createContext<FormErrorSlot | null>(null)
 
 /**
  * The names of the `<FormField>`s mounted inside this form, so `<Form>` can say
- * something in dev when a server error names a field nothing renders. Not
- * exported, for the same reason as `FormErrorSlot`.
+ * something in dev when a server error names a field nothing renders.
  */
 interface RenderedFields {
   /** Called by a mounted field; returns its own deregistration. */
@@ -40,10 +40,13 @@ interface RenderedFields {
   has: (name: string) => boolean
 }
 
+/** The rendered field names, so `<Form>` can warn about a server error on a field nothing renders. Not exported, for the same reason as `FormErrorSlotContext`. */
 const RenderedFieldsContext = React.createContext<RenderedFields | null>(null)
 
 /**
- * The form element itself. TanStack Form has no provider component.
+ * The form element, which also provides the server errors, the error slot and
+ * the rendered field names to the fields inside it. TanStack Form has no
+ * provider component of its own.
  *
  * `onChange` is where a server verdict expires. It fires for every NATIVE
  * control in the form — `input`, `textarea`, `select` — because their change
@@ -278,10 +281,12 @@ function FieldProvider({
   return <FormFieldContext.Provider value={value}>{children}</FormFieldContext.Provider>
 }
 
+/** One field's wrapper: its label, control, description and message, stacked. */
 export function FormItem({ className, ...props }: React.ComponentProps<'div'>) {
   return <div className={cn('grid gap-2', className)} {...props} />
 }
 
+/** The field's label, tied to its control by id and turned red while the field has an error. */
 export function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) {
   const { errors, formItemId } = useFormField()
   return (
@@ -352,6 +357,7 @@ export function FormControl({ children }: { children: React.ReactElement<{ name?
   })
 }
 
+/** Help text under a control. */
 export function FormDescription({ className, ...props }: React.ComponentProps<'p'>) {
   return <p className={cn('text-sm text-muted-foreground', className)} {...props} />
 }
@@ -374,8 +380,8 @@ function issueText(issue: unknown): string {
  * The form-level failure: the `errors` map's reserved `formErrors` key, or
  * the response's own message when it carried no field detail.
  *
- * Rendered above the submit button, and the one place a submit failure is
- * announced: pages raise no toast for it. It registers whether or not there
+ * Rendered above the submit button, and the one place a form's submit failure
+ * is announced: pages raise no toast for it. It registers whether or not there
  * is anything to show, so `<Form>`'s dev warning fires only when this
  * component is absent.
  */

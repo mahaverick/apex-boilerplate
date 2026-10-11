@@ -39,6 +39,7 @@ function SuppressionState({ row }: { row: EmailSuppression }) {
   )
 }
 
+/** The suppressions to list, and the optional Lift action with the focus landmarks it needs. */
 interface SuppressionsTableProps {
   rows: EmailSuppression[]
   /** Offers Lift on each active row, handing over its button so focus can return there; omitted, the table offers no action (below admin). */

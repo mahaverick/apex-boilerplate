@@ -25,6 +25,7 @@ import { useProfile, useUpdateProfile } from '@/queries/profile.queries'
 import { updateProfileSchema } from '@/schemas/profile.schemas'
 import type { User } from '@/types/api.types'
 
+/** The Profile page: the signed-in user's name, and the security section. */
 export const Route = createFileRoute('/_app/profile')({
   head: () => ({ meta: [{ title: pageTitle('Profile') }] }),
   staticData: { crumb: 'Profile' },

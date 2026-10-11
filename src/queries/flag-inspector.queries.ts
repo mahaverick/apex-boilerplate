@@ -22,6 +22,7 @@ export interface FlagEvaluateParams {
   app: FlagApp
 }
 
+/** Keys under `['platform', 'flags']`, apart from the app's own flag values; invalidating `all` reaches the list and every evaluation. */
 export const flagInspectorKeys = {
   /** Every inspector read. */
   all: ['platform', 'flags'] as const,

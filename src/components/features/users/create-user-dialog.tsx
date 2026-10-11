@@ -76,6 +76,7 @@ export function CreateUserDialog() {
     },
   })
 
+  /** Opens or closes the dialog; closing it clears the form and any server errors. */
   function close(next: boolean) {
     setOpen(next)
     if (next) return

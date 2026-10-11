@@ -49,9 +49,6 @@ const RATE_TILES: readonly RateTile[] = [
  * A rate's value and note. The share is worked out from the numerator and
  * denominator the API sends, so it reads the same whatever unit `value` is
  * in; `value` itself only says whether the rate is known.
- * @param rate - The API's rate.
- * @param tile - How the tile reads.
- * @param providerEvents - Provider events received in the window.
  * @returns "—" with the reason when the rate is unknown, else the share and its counts.
  */
 function rateText(

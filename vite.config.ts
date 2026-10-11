@@ -17,7 +17,7 @@ export default defineConfig({
     }),
     /**
      * The React Compiler through Babel (babel-plugin-react-compiler and
-     * @rolldown/plugin-babel), as @vitejs/plugin-react's README wires it.
+     * `@rolldown/plugin-babel`), as @vitejs/plugin-react's README wires it.
      * `react({ compiler: true })` would need oxc-transform-react, which is not
      * a dependency.
      */

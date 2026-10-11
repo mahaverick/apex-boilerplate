@@ -6,6 +6,7 @@ import { refreshProfile } from '@/queries/profile.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
 import type { AcceptedInvitation, ApiSuccess, InvitationPreview } from '@/types/api.types'
 
+/** Query keys for invitation previews, one per token. */
 export const invitationKeys = {
   preview: (token: string) => ['invitations', 'preview', token] as const,
 }
@@ -42,8 +43,8 @@ export function useInvitationPreview(token: string | undefined) {
 
 /**
  * Accepts as the signed-in user. Expected refusals are 403 (wrong or
- * unverified email) and 404 (no longer valid); a 401 here is a real session
- * verdict, handled by the interceptor like any other.
+ * unverified email) and 404 (invalid, expired or used); a 401 here is a real
+ * session verdict, handled by the interceptor like any other.
  *
  * On success the tenant's member list is invalidated, since the caller is now
  * on it: an observed list refetches at once, an unobserved one on its next

@@ -40,9 +40,10 @@ export const MAINTENANCE_TEXT_MAX_LENGTH = 500
 
 /**
  * How long after a switch to `full` the queues may still be running: the
- * change waits up to 10 s for its notices, every replica waits 10 s more
- * before pausing (express's reconciliation grace), and the rest is headroom
- * for clock skew between the API and the browser.
+ * change waits up to 10 s from its commit for its notices and no reload pauses
+ * the queues sooner (express's reconciliation grace), a replica reloads at
+ * least every 10 s, and the rest is headroom for clock skew between the API
+ * and the browser.
  */
 export const MAINTENANCE_PAUSE_SETTLE_MS = 30_000
 

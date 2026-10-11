@@ -25,6 +25,7 @@ import {
 } from '@/schemas/email.schemas'
 import type { EmailFailureOrigin, EmailMessageDetail } from '@/types/api.types'
 
+/** One email's page: its timeline and preview, with the tab kept in `?tab`. */
 export const Route = createFileRoute('/_app/emails/$emailId')({
   validateSearch: emailDetailSearchSchema,
   // Started, not awaited: the page renders its skeleton while this runs.
@@ -53,10 +54,12 @@ const FAILURE_LABELS: Record<EmailFailureOrigin, string> = {
 
 const TAB_LABELS: Record<EmailDetailTab, string> = { timeline: 'Timeline', preview: 'Preview' }
 
+/** Whether a `?tab` value names one of the detail tabs. */
 function isDetailTab(value: unknown): value is EmailDetailTab {
   return (EMAIL_DETAIL_TABS as readonly unknown[]).includes(value)
 }
 
+/** Loads one email and shows it, a not-found state for a 404, or a load error. */
 function EmailDetailPage() {
   const { emailId } = Route.useParams()
   const detail = useQuery(emailQueryOptions(emailId))

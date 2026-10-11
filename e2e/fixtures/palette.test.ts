@@ -11,6 +11,7 @@ import { expect, test } from '../hermetic'
 
 const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js')
 
+/** The slice of axe's run result this test reads. */
 type AxeRun = {
   violations: { id: string; nodes: { target: string[] }[] }[]
   passes: { id: string }[]

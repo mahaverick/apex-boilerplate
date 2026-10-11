@@ -2,10 +2,9 @@ import { expect, test } from '@playwright/test'
 import { API_ORIGIN, apiIsReady } from '../live/helpers'
 
 /**
- * A test of the MULTI-FRONTEND SEAM — the deployment where a second frontend
- * on another origin calls this API — not of this SPA's own traffic, which is
- * same-origin (CLAUDE.md, "The API prefix is fixed and relative") and never
- * sends a preflight at all.
+ * @file Tests the multi-frontend seam, where a second frontend on another
+ * origin calls this API. This SPA's own traffic is same-origin (CLAUDE.md, "The
+ * API prefix is fixed and relative") and never sends a preflight.
  */
 const APP_ORIGIN = process.env.E2E_NGINX_ORIGIN ?? 'http://localhost:8088'
 

@@ -74,8 +74,8 @@ for (const [name, path, probe] of [
 
 /**
  * The Errors tabs, once their issues have landed: an exception message is
- * untrusted text that can name a person (express scrubs addresses, not
- * names), so it renders inside Pii.
+ * untrusted text that can name a person (the error scrubber redacts
+ * addresses, not names), so it renders inside Pii.
  */
 for (const [name, path] of [
   ['a user’s errors', `${CLEO}/errors`],

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 /**
  * What a staff page shows when the API answers 404 for the caller's role: the
  * role changed after the page loaded. It does not sign out; reloading re-runs
- * the guards, which send a user who is no longer staff to /no-access.
+ * the guards, which send a user who is not staff to /no-access.
  */
 export function RoleDenied() {
   return (

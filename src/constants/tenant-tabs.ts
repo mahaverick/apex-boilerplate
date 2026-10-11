@@ -1,11 +1,11 @@
 /**
- * @file The tenant detail page's tabs, in display order. A later sub-project
- * (usage) adds a tab by creating its child route under
- * `src/pages/_app/tenants/$tenantId.*.tsx` and appending one entry here.
+ * @file The tenant detail page's tabs, in display order. A tab is a child route
+ * under `src/pages/_app/tenants/$tenantId.*.tsx` plus one entry here.
  */
 import type { MembershipRole } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 
+/** Every route a tenant tab can point at. */
 type TenantTabPath =
   | typeof ROUTES.tenant
   | typeof ROUTES.tenantMembers
@@ -17,6 +17,7 @@ type TenantTabPath =
   | typeof ROUTES.tenantOnboarding
   | typeof ROUTES.tenantFlags
 
+/** One tab of the tenant detail page. */
 export interface TenantTab {
   to: TenantTabPath
   label: string
@@ -24,6 +25,7 @@ export interface TenantTab {
   minRole?: MembershipRole
 }
 
+/** The tenant detail tabs in display order; a tab with `minRole` is hidden below it. */
 export const TENANT_DETAIL_TABS: readonly TenantTab[] = [
   { to: ROUTES.tenant, label: 'Overview' },
   { to: ROUTES.tenantMembers, label: 'Members' },

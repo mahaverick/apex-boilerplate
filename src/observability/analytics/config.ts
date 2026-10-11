@@ -16,7 +16,7 @@ export const ANALYTICS_APP = 'apex'
  * The query keys a captured URL may keep: the enums Apex's lists put in the
  * URL. Every other key, and the hash, is dropped before an event leaves the
  * browser: `?q=` (a search term, often an address), ids, `?token=`
- * (invitation accept, password reset, email verification), `register?email=`
+ * (invitation accept, password reset, email verification), `register?invitation=`
  * and a `?redirect=` wrapping either would otherwise reach PostHog.
  */
 export const ANALYTICS_URL_QUERY_ALLOWLIST: readonly string[] = ['range', 'tab', 'state', 'status']
@@ -47,9 +47,9 @@ export const ANALYTICS_PERSISTENCE_NAME: string | undefined = 'ph_apex'
 
 /**
  * Whether the identity cookie is shared across the registrable domain's
- * subdomains (posthog-js `cross_subdomain_cookie`). `false` scopes it to this
- * host, as it does the opt-in/out state, which posthog-js keys by project
- * key alone.
+ * subdomains (posthog-js `cross_subdomain_cookie`). `false` scopes the cookie,
+ * and the opt-in/out state with it, to this host. posthog-js keys that state
+ * by project key alone, so apps on one host and key share it.
  */
 export const ANALYTICS_CROSS_SUBDOMAIN_COOKIE = false
 

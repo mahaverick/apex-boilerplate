@@ -77,6 +77,7 @@ function InvitationCard({
   )
 }
 
+/** An outline link home, a way out of a state that offers no other link. */
 function HomeLink() {
   return (
     <Link to={ROUTES.home} className={cn(buttonVariants({ variant: 'outline' }), 'w-full')}>
@@ -85,6 +86,7 @@ function HomeLink() {
   )
 }
 
+/** The card for an invitation that cannot be used, with the reason. */
 function InvalidInvitation({ message }: { message: string }) {
   return (
     <InvitationCard title="This invitation can’t be used" description={message}>
@@ -173,6 +175,7 @@ function AcceptPanel({ token, invitation }: { token: string; invitation: Invitat
   const [refusal, setRefusal] = useState<{ message: string; unverified: boolean } | null>(null)
   const [gone, setGone] = useState<string | null>(null)
 
+  /** Accepts, then goes to Overview; a 404 replaces the panel and a 403 shows the API's refusal. */
   async function onAccept() {
     setRefusal(null)
     try {
@@ -266,6 +269,7 @@ function InvitationForToken({ token }: { token: string }) {
   return <AcceptPanel token={token} invitation={invitation} />
 }
 
+/** Checks the link's token before any request: missing and malformed ones never reach the API. */
 function AcceptInvitationPage() {
   const { token } = Route.useSearch()
 

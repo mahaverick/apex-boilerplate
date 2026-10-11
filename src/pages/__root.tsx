@@ -25,6 +25,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
 })
 
+/** The app frame: the head tags, the active page and the toast area. */
 function RootComponent() {
   return (
     <>

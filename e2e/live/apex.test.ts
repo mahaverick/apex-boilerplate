@@ -60,7 +60,7 @@ test('a verified user who is not staff lands on /no-access, and a reload keeps t
 test('an invited newcomer registers from the accept page, verifies from an Apex link, and joins the platform', async ({
   page,
 }) => {
-  // One account (the owner) set up through the API and a platform grant script, three mailpit polls of up to 15s each, then the UI flow; the invitee registers through the UI.
+  // The owner is set up through the API and a grant script, then three mailpit polls of up to 15s each, then the UI flow.
   test.setTimeout(90_000)
   const owner = freshEmail()
   await createVerifiedUser(owner)
@@ -76,7 +76,7 @@ test('an invited newcomer registers from the accept page, verifies from an Apex 
   })
   expect(invited.status).toBe(202)
 
-  // Express decides this one: a platform invitation always links to APEX_URL.
+  // express picks the origin: a platform invitation links to APEX_URL.
   const accept = new URL(await mailedLink(invitee, 'invitations/accept'))
   expect(accept.origin).toBe(APEX_ORIGIN)
 
@@ -129,7 +129,7 @@ test('a viewer sees the flag registry with no Evaluate form', async ({ page }) =
 })
 
 test('an admin evaluates one user twice and the Activity log records it once', async ({ page }) => {
-  // Throttled by express: the second evaluation of the same user writes no audit entry.
+  // express throttles the audit entry: a second evaluation of the same user inside the window writes none.
   test.setTimeout(90_000)
   const admin = freshEmail()
   await createVerifiedUser(admin)
@@ -144,7 +144,7 @@ test('an admin evaluates one user twice and the Activity log records it once', a
   const panel = page.getByRole('region', { name: 'Evaluate' })
   await expect(panel.getByRole('table', { name: 'Evaluation' })).toBeVisible()
 
-  // The same user again, as a fresh request (the first one's result is cached for 30 s).
+  // The same user again, as a direct API request: the page's own query stays fresh for 30 s.
   const again = await apiRequest(
     token,
     'GET',

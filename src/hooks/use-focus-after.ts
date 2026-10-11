@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, type RefCallback } from 'react'
 
+/** A pending move of focus: the landmarks to try, in order, and the button that started the action. */
 interface FocusRequest<Key extends string> {
   keys: readonly Key[]
   trigger: HTMLElement | null | undefined
@@ -13,11 +14,12 @@ interface FocusRequest<Key extends string> {
  * state, drops a revoked invitation's row, flips `canResend`). Without it the
  * browser drops focus to `<body>` and a keyboard user starts over from the top.
  *
- * The rule: focus moves to the nearest stable landmark. That is the acted-on
- * item's own row or title if it is still on the page, otherwise the heading of
- * the section or card that holds it. A landmark is any element that carries
- * `tabIndex={-1}` and `ref={target(key)}`, and styled `outline-none` like
- * the page headings, since it takes focus from code and is never a tab stop.
+ * Focus moves to the nearest stable landmark: the first of the keys given to
+ * `focusAfter` that is still on the page, the acted-on item's own row or title
+ * before the heading of the section or card that holds it. A landmark is any
+ * element that carries `tabIndex={-1}` and `ref={target(key)}`, and is styled
+ * `outline-none` like the page headings, since it takes focus from code and is
+ * never a tab stop.
  *
  * Call `focusAfter` only once the action has succeeded; on an error nothing is
  * requested, so focus stays on, or returns to, the trigger. The move happens
@@ -26,16 +28,16 @@ interface FocusRequest<Key extends string> {
  * while a request is armed) shows the trigger gone. A request is armed until
  * its outcome is known, and then it is over (resolved or dropped), so it cannot
  * fire on a later unrelated change. At each check:
- * - the trigger is gone and focus is on `<body>`: focus moves to the landmark;
- * - focus is inside an open dialog, or on the trigger: it waits;
+ * - focus is on `<body>` and the trigger is gone: focus moves to the landmark;
+ * - the trigger is still on the page and focus is on it or on `<body>`, or
+ *   focus is inside an open dialog: it waits;
  * - focus is anywhere else (the reader moved on): it is dropped;
  * - the reader leaves the trigger (`focusout`, which a click elsewhere or Tab
  *   fires and the trigger's removal does not): it is dropped.
- * While the trigger stays on the page with focus on it, the request stays
- * armed, because the refetch that removes it may not have rendered yet; if the
- * action left its button in place, the request ends the moment the reader
- * leaves it, and if that button is removed later with focus still on it,
- * focus moves to the landmark.
+ * The request waits while the trigger is on the page because the refetch that
+ * removes it may not have rendered yet. If the action left its button in
+ * place, the request ends the moment the reader leaves it, and if that button
+ * is removed later with focus still on it, focus moves to the landmark.
  *
  * Call the hook in a component that stays mounted: the row or button that the
  * success removes cannot move focus after it is gone.
@@ -74,7 +76,7 @@ export function useFocusAfter<Key extends string>() {
   /**
    * Ends the pending request if its outcome is known, returning the landmark
    * to focus when it is one. Waits while the trigger is still on the page, or
-   * focus is inside a dialog; drops it when focus is anywhere but `<body>`.
+   * focus is inside a dialog; drops it when focus has gone anywhere else.
    */
   const settle = useCallback(() => {
     const request = pending.current
@@ -122,7 +124,7 @@ export function useFocusAfter<Key extends string>() {
   /**
    * Asks for focus to move after the action succeeded, superseding any request still waiting.
    * @param keys - A landmark, or landmarks in order of preference: the item's own first, its section's heading last.
-   * @param trigger - The button that started the action; omitted, focus always moves.
+   * @param trigger - The button that started the action; omitted, the request waits only on an open dialog and moves once focus is on `<body>`.
    */
   const focusAfter = useCallback(
     (keys: Key | readonly Key[], trigger?: HTMLElement | null) => {
@@ -151,11 +153,12 @@ export function useFocusAfter<Key extends string>() {
    * For a dialog's `finalFocus`, called as it closes. After a success, `false`
    * (restore nothing) once focus has moved to a landmark, or when the trigger is
    * gone and the move is still to come, since the landmark takes focus itself;
-   * a returned element would not do, because the dialog focuses its first
-   * tabbable child, and a row's own button is one. While the trigger is
-   * still on the page, `true`: the dialog returns focus to it, and the request
-   * stays armed (see above). Otherwise `true`, unless a refusal that refreshed
-   * the page took the trigger away and `fallback` names a landmark.
+   * a returned element would not do, because Base UI focuses the first tabbable
+   * child of an element that is not tabbable, and a row's own button is one.
+   * While the trigger is still on the page, `true`: the dialog returns focus to
+   * it, and the request stays armed. Otherwise `true`, unless a refusal that
+   * refreshed the page took the trigger away and `fallback` names a landmark,
+   * which is returned.
    */
   const finalFocus = useCallback(
     (trigger?: HTMLElement | null, fallback?: Key) => {

@@ -6,16 +6,17 @@ import { ROUTES } from '@/constants/routes'
 import { useAuthStore } from '@/states/auth.store'
 
 /**
- * Where the API's Google callback lands. Outside `_auth`, with no guard, which
- * would bounce the freshly signed-in visitor before this ran. It makes no
- * refresh call: `__root`'s beforeLoad already awaited bootstrapSession(),
- * which used the cookie the API just set, so the store is settled.
+ * Where the API's Google callback lands. Outside `_auth`, whose guard would
+ * redirect the freshly signed-in visitor before this ran. It makes no refresh
+ * call: `__root`'s beforeLoad already awaited bootstrapSession(), which used
+ * the cookie the API just set, so the store is settled.
  */
 export const Route = createFileRoute('/auth/callback')({
   head: () => ({ meta: [{ title: pageTitle('Signing in') }] }),
   component: OAuthCallbackPage,
 })
 
+/** Goes to Overview when the store is signed in, else to the login page with `error=google_auth_failed`. */
 function OAuthCallbackPage() {
   const navigate = useNavigate()
 

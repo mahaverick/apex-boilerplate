@@ -22,6 +22,7 @@ import { flagsSearchSchema } from '@/schemas/flags.schemas'
 import { useAuthStore } from '@/states/auth.store'
 import type { FlagsListResponse } from '@/types/api.types'
 
+/** The Feature flags page: the read-only flags inspector. */
 export const Route = createFileRoute('/_app/flags')({
   validateSearch: flagsSearchSchema,
   // Started, not awaited: the page renders its skeleton while this runs.

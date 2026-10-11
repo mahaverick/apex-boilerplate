@@ -29,6 +29,7 @@ import {
 import { useAuthStore } from '@/states/auth.store'
 import type { PlatformUserDetail } from '@/types/api.types'
 
+/** Which action's dialog is open, if any. */
 type OpenDialog = 'edit' | 'signOut' | 'deactivate' | 'reactivate' | 'delete' | 'purge' | null
 
 /**
@@ -63,10 +64,12 @@ export function UserActionsMenu({
 
   const keepFocusOnPage = useMemo(() => focusFallbackOnRemoval(fallbackFocus), [fallbackFocus])
 
+  /** The dialogs' `onOpenChange`: any close clears the open dialog. */
   const close = (open: boolean) => {
     if (!open) setDialog(null)
   }
 
+  /** Sends a staff-triggered account email and toasts the outcome. */
   function mail(send: typeof passwordSetup, sentMessage: string) {
     send.mutate(
       { userId: user.id },

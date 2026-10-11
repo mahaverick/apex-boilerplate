@@ -9,6 +9,7 @@ export const FALLBACK_HEADER = 'x-e2e-api-fallback'
 /** A signed-out page's session bootstrap. The one call the fallback is there to answer. */
 const BOOTSTRAP_REFRESH = 'POST /api/v1/auth/refresh'
 
+/** Whether `url` is an API call, whose path starts with `/api/`. */
 function isApi(url: URL): boolean {
   return url.pathname.startsWith('/api/')
 }
@@ -26,6 +27,7 @@ function unauthorized(pathname: string) {
   }
 }
 
+/** The fixture a test can read to see what the fallback answered. */
 type ApiFallback = {
   /** `METHOD /path` of every request the fallback answered, in order. */
   answered: string[]

@@ -17,23 +17,23 @@ import type { User } from '@/types/api.types'
 
 /**
  * "Ada Lovelace", or the email when the profile carries no name yet. Not
- * exported: `react-refresh/only-export-components` fails lint under
- * `--max-warnings 0`.
+ * exported: `react-refresh/only-export-components` warns on a non-component
+ * export, and lint runs with `--max-warnings 0`.
  */
 function displayName(user: User | null): string {
   return fullName(user) ?? user?.email ?? 'Account'
 }
 
+/** The first letters of the first and last name, else of the email, upper-cased. */
 function initials(user: User | null): string {
   const letters = [user?.firstName?.[0], user?.lastName?.[0]].filter(Boolean).join('')
   return (letters || user?.email?.[0] || '?').toUpperCase()
 }
 
 /**
- * The account menu in the sidebar footer. Below `md` its trigger collapses to
- * the avatar, so the aria-label names it (Base UI's Tooltip emits no
- * role="tooltip" or aria-describedby); the label is on the rendered element,
- * whose own props win under useRender.
+ * The account menu in the sidebar footer. When the sidebar is collapsed to
+ * icons its trigger shrinks to the avatar, so the aria-label names it; the
+ * label is on the rendered element, whose own props win under useRender.
  */
 export function UserMenu({ user }: { user: User | null }) {
   const logout = useLogout()

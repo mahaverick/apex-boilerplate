@@ -43,8 +43,10 @@ const usersSearchSchema = z.object({
   dir: z.enum(PAGE_DIRECTIONS).optional().catch(undefined),
 })
 
+/** The page's validated `?` search. */
 type UsersSearch = z.infer<typeof usersSearchSchema>
 
+/** The API's query for the page's `?` search. */
 function toParams(search: UsersSearch): UserSearchParams {
   return {
     q: search.q,
@@ -59,6 +61,7 @@ function toParams(search: UsersSearch): UserSearchParams {
 /** This list, as `table_filtered` names it. */
 const TABLE = analyticsKey('users')
 
+/** The Users page: every user, filtered and paged through the URL. */
 export const Route = createFileRoute('/_app/users/')({
   validateSearch: usersSearchSchema,
   loaderDeps: ({ search }) => toParams(search),
@@ -92,6 +95,7 @@ const STAFF_OPTIONS = [
   ['false', 'Not staff'],
 ] as const
 
+/** A labelled select over `[value, label]` options, reporting `ANY` when nothing is chosen. */
 function FilterSelect({
   label,
   value,
@@ -103,6 +107,7 @@ function FilterSelect({
   options: readonly (readonly [string, string])[]
   onChange: (value: string) => void
 }) {
+  /** The label for a value, or the first option's label when none matches. */
   const labelOf = (current: string) =>
     options.find(([option]) => option === current)?.[1] ?? options[0]![1]
   return (
@@ -138,7 +143,9 @@ function firstPageOf(search: UsersSearch): FilterSearch {
   }
 }
 
+/** A filter select's value as the `?` search boolean; `ANY` is unset. */
 const asBoolean = (value: string) => (value === ANY ? undefined : value === 'true')
+/** The `?` search boolean as a filter select's value. */
 const fromBoolean = (value: boolean | undefined) => (value === undefined ? ANY : String(value))
 
 /**
@@ -162,7 +169,7 @@ function UsersPage() {
     if (q !== draft.trim() && q !== term.trim()) setDraft(q)
   }
 
-  /** New filters: every change starts from the first page, so the cursor goes. */
+  /** Applies a filter change from the first page: a cursor belongs to the list it was cut from. */
   function filter(next: Partial<FilterSearch>) {
     track('table_filtered', { table: TABLE })
     void navigate({ search: (prev) => firstPageOf({ ...prev, ...next }) })
@@ -178,10 +185,12 @@ function UsersPage() {
     })
   }, [term, draft, q, navigate])
 
+  /** Pages to a keyset cursor; does nothing without one. */
   function goTo(cursor: string | null, dir: PageDirection) {
     if (cursor) void navigate({ search: (prev) => ({ ...prev, cursor, dir }) })
   }
 
+  /** Back to the first page, keeping the filters. */
   const firstPage = () => void navigate({ search: (prev) => firstPageOf(prev) })
 
   // The previous view's rows stay up while the next loads; its "nothing matches" would describe the wrong view.

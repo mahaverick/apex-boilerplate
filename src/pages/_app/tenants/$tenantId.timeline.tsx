@@ -8,6 +8,7 @@ import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { timelineSearchSchema } from '@/schemas/timeline.schemas'
 import { useAuthStore } from '@/states/auth.store'
 
+/** A tenant's Timeline tab: what its people did and what staff did to it. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/timeline')({
   validateSearch: timelineSearchSchema,
   head: () => ({ meta: [{ title: pageTitle('Tenant timeline') }] }),

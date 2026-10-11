@@ -35,6 +35,7 @@ export interface UserSearchParams {
   limit?: number
 }
 
+/** `all` is `['platform', 'users']` (lists); `detail` sits under `['platform', 'user']`, so invalidating `all` leaves open user pages alone. */
 export const userAdminKeys = {
   /** Every users page; a write invalidates them all, since any row may move between filters. */
   all: ['platform', 'users'] as const,
@@ -98,6 +99,7 @@ function useInvalidateUsers() {
   return () => invalidateDirectory(queryClient)
 }
 
+/** Creates a passwordless user and mails them a set-password link (admin); `emailSent` says whether the mail was queued. */
 export function useCreateUser() {
   const invalidate = useInvalidateUsers()
   return useMutation({
@@ -112,6 +114,7 @@ export function useCreateUser() {
   })
 }
 
+/** Changes a user's names (admin). */
 export function useUpdateUser() {
   const invalidate = useInvalidateUsers()
   return useMutation({
@@ -137,14 +140,17 @@ function useReasonedChange(action: 'deactivate' | 'reactivate') {
   })
 }
 
+/** Deactivates an account, which ends its sessions (admin; behind step-up). */
 export function useDeactivateUser() {
   return useReasonedChange('deactivate')
 }
 
+/** Reactivates a deactivated account (admin). */
 export function useReactivateUser() {
   return useReasonedChange('reactivate')
 }
 
+/** Ends every session of a user with an audited reason (admin). */
 export function useSignOutUser() {
   const invalidate = useInvalidateUsers()
   return useMutation({
@@ -170,15 +176,17 @@ function useMailAction(action: 'password-setup' | 'resend-verification') {
   })
 }
 
+/** Mails a user a password-setup link (admin). */
 export function useSendPasswordSetup() {
   return useMailAction('password-setup')
 }
 
+/** Mails an unverified user a fresh verification link (admin). */
 export function useResendVerification() {
   return useMailAction('resend-verification')
 }
 
-/** Soft delete (admin; behind step-up). The account stays readable, now read-only, so its page refreshes. */
+/** Soft delete (admin; behind step-up). The account stays readable but read-only, so its page refreshes. */
 export function useDeleteUser() {
   const invalidate = useInvalidateUsers()
   return useMutation({

@@ -39,6 +39,7 @@ const searchSchema = z.object({
 /** This list, as `table_filtered` names it. */
 const TABLE = analyticsKey('tenants')
 
+/** The Tenants page: every customer tenant, filtered and paged through the URL. */
 export const Route = createFileRoute('/_app/tenants/')({
   validateSearch: searchSchema,
   loaderDeps: ({ search }) => ({
@@ -106,8 +107,10 @@ function TenantsPage() {
     })
   }, [term, draft, q, state, navigate])
 
+  /** Moves to the page behind a cursor the API handed out. */
   const pageTo = (target: string, direction: 'next' | 'prev') =>
     void navigate({ search: (prev) => ({ ...prev, cursor: target, dir: direction }) })
+  /** Back to the first page, keeping the search and the state filter. */
   const firstPage = () =>
     void navigate({
       search: (prev) => ({
@@ -115,6 +118,7 @@ function TenantsPage() {
         ...(prev.state ? { state: prev.state } : {}),
       }),
     })
+  /** Applies the state filter from the first page; `DEFAULT_STATE` clears it. */
   const setState = (value: string | null) => {
     if (value === null) return
     track('table_filtered', { table: TABLE })

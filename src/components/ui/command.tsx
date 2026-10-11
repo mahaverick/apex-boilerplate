@@ -11,7 +11,7 @@ import type { ComponentProps, ReactNode } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
-/** The Autocomplete root. A palette passes `open inline autoHighlight="always" keepHighlight`. */
+/** The Autocomplete root. The command palette passes `open inline autoHighlight="always" keepHighlight`. */
 const Command = Autocomplete.Root
 
 /**
@@ -44,6 +44,7 @@ function CommandDialog({
   )
 }
 
+/** The search box, with a leading search icon. */
 function CommandInput({ className, ...props }: ComponentProps<typeof Autocomplete.Input>) {
   return (
     <Autocomplete.InputGroup
@@ -63,6 +64,7 @@ function CommandInput({ className, ...props }: ComponentProps<typeof Autocomplet
   )
 }
 
+/** The results list, scrolling past 18rem (`max-h-72`). */
 function CommandList({ className, ...props }: ComponentProps<typeof Autocomplete.List>) {
   return (
     <ScrollArea.Root className="max-h-72">
@@ -82,6 +84,7 @@ function CommandList({ className, ...props }: ComponentProps<typeof Autocomplete
   )
 }
 
+/** The message for no results; it renders nothing while empty (`empty:hidden`). */
 function CommandEmpty({ className, ...props }: ComponentProps<typeof Autocomplete.Empty>) {
   return (
     <Autocomplete.Empty
@@ -92,6 +95,7 @@ function CommandEmpty({ className, ...props }: ComponentProps<typeof Autocomplet
   )
 }
 
+/** A group of items under a `CommandGroupLabel`. */
 function CommandGroup({ className, ...props }: ComponentProps<typeof Autocomplete.Group>) {
   return (
     <Autocomplete.Group
@@ -102,6 +106,7 @@ function CommandGroup({ className, ...props }: ComponentProps<typeof Autocomplet
   )
 }
 
+/** The heading of a `CommandGroup`. */
 function CommandGroupLabel({
   className,
   ...props
@@ -117,6 +122,7 @@ function CommandGroupLabel({
 
 const CommandCollection = Autocomplete.Collection
 
+/** One selectable result, styled while highlighted by pointer or keyboard. */
 function CommandItem({ className, ...props }: ComponentProps<typeof Autocomplete.Item>) {
   return (
     <Autocomplete.Item
@@ -130,6 +136,7 @@ function CommandItem({ className, ...props }: ComponentProps<typeof Autocomplete
   )
 }
 
+/** A rule between groups. */
 function CommandSeparator({ className, ...props }: ComponentProps<typeof Autocomplete.Separator>) {
   return (
     <Autocomplete.Separator
@@ -140,6 +147,7 @@ function CommandSeparator({ className, ...props }: ComponentProps<typeof Autocom
   )
 }
 
+/** A shortcut hint pushed to the right of an item's row. */
 function CommandShortcut({ className, ...props }: ComponentProps<'span'>) {
   return (
     <span

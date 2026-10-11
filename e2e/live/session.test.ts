@@ -58,7 +58,7 @@ test('a reload keeps a staff user signed in on the overview, and refreshes exact
   })
   await expect(page).toHaveURL(/\/overview(\?|$)/)
 
-  // EXACTLY one: `ensureSession()` is the only caller of /auth/refresh, and its single-flight wrapper is what makes N concurrent 401s produce one refresh.
+  // Exactly one: `ensureSession()` is the only caller of /auth/refresh, and its single-flight wrapper turns N concurrent 401s into one refresh.
   expect(refreshes).toHaveLength(1)
 })
 
@@ -84,8 +84,7 @@ test('the refresh cookie is scoped and flagged as the SPA assumes', async ({ req
    * `X-Forwarded-Proto` does NOT drive this cookie's Secure flag: express's
    * `isCookieSecure(env)` (env.config.ts) returns
    * `COOKIE_SECURE ?? APP_ENV !== 'local'` and never reads `req.secure`, so
-   * no request header can change it. Sending the header changes nothing,
-   * which is what this asserts.
+   * no request header can change it.
    *
    * TRUST_PROXY decides how much of X-Forwarded-For to believe for
    * `req.ip`, which the IP-keyed rate limiters consume. With
@@ -103,6 +102,6 @@ test('the refresh cookie is scoped and flagged as the SPA assumes', async ({ req
     .find((h) => h.name.toLowerCase() === 'set-cookie')?.value
   expect(forwardedCookie).not.toMatch(/;\s*Secure/i)
 
-  // And neither cookie is Secure under APP_ENV=local with COOKIE_SECURE unset, which is how express's .env.example sets the live backend up. That is deliberate: a browser refuses a Secure cookie over http://, so a hard-coded true would make local cookie login impossible.
+  // Neither cookie is Secure under APP_ENV=local with COOKIE_SECURE unset, which is how express's .env.example sets up the live backend: a browser refuses a Secure cookie over http://, so a hard-coded true would make local cookie login impossible.
   expect(cookie).not.toMatch(/;\s*Secure/i)
 })

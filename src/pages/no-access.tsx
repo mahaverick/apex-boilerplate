@@ -9,6 +9,7 @@ import { ROUTES } from '@/constants/routes'
 import { useLogout } from '@/queries/auth.queries'
 import { useAuthStore } from '@/states/auth.store'
 
+/** Where a signed-in user without a platform role lands; staff go to Overview and signed-out visitors to login. */
 export const Route = createFileRoute('/no-access')({
   beforeLoad: () => {
     const { isAuthenticated, user } = useAuthStore.getState()

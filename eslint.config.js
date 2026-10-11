@@ -2,11 +2,13 @@ import js from '@eslint/js'
 import tanstackRouter from '@tanstack/eslint-plugin-router'
 import prettier from 'eslint-config-prettier'
 import checkFile from 'eslint-plugin-check-file'
+import jsdoc from 'eslint-plugin-jsdoc'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tailwindcss from 'eslint-plugin-tailwindcss'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
+import jsdocPending from './jsdoc-pending.json' with { type: 'json' }
 import { commentStyleRule } from './scripts/comment-style.mjs'
 
 const SLEEP_MESSAGE =
@@ -15,6 +17,33 @@ const CMDK_MESSAGE = 'Use @/components/ui/command (Base UI Autocomplete); cmdk p
 const RADIX_MESSAGE = 'Base UI owns the primitives here (STYLESEED.md).'
 const NETWORKIDLE_MESSAGE =
   "networkidle waits on every request the page makes, including ones this test does not care about. Assert what the page renders (a heading's toBeVisible) or wait for the one response that matters."
+
+/**
+ * Every named function, method and class; inline callbacks and constructors
+ * are exempt by construction.
+ */
+const NAMED_FUNCTIONS = [
+  'FunctionDeclaration',
+  'TSDeclareFunction',
+  'ClassDeclaration',
+  'MethodDefinition:not([kind="constructor"]):not([value.body=null])',
+  'TSAbstractMethodDefinition',
+  'VariableDeclarator > ArrowFunctionExpression',
+  'VariableDeclarator > FunctionExpression',
+  'PropertyDefinition > ArrowFunctionExpression',
+]
+/** Named functions plus interfaces, type aliases and exported consts. */
+const JSDOC_CONTEXTS = [
+  ...NAMED_FUNCTIONS,
+  'TSInterfaceDeclaration',
+  'TSTypeAliasDeclaration',
+  'ExportNamedDeclaration[declaration.type="VariableDeclaration"]',
+]
+/**
+ * Files whose comments are not yet converted, keyed by plan task; each
+ * comment PR deletes its key.
+ */
+const PENDING = Object.values(jsdocPending).flat()
 
 export default tseslint.config(
   {
@@ -54,8 +83,8 @@ export default tseslint.config(
      * blocks set typed parser options), so typed rules throw on them: they are
      * linted syntactically only, and listed by name so this block never covers
      * a file under src/. The tailwind rules are off because the plugin's own
-     * `files` glob matches them, and without `cssConfigPath` (scoped to src/)
-     * it falls back to 'src/style.css' and throws ENOENT.
+     * `files` glob matches them, and without `cssConfigPath` (set only for
+     * src/) it falls back to 'src/style.css' and throws ENOENT.
      */
     files: [
       'eslint.config.js',
@@ -129,7 +158,7 @@ export default tseslint.config(
     /**
      * File and folder naming and placement. `src/pages/**` is exempt through the
      * `!(pages)` glob segment: TanStack Router's file routes need names like
-     * `__root.tsx`, `_auth.tsx` and `$slug.members.tsx`, which are not kebab-case.
+     * `__root.tsx`, `_auth.tsx` and `$tenantId.members.tsx`, which are not kebab-case.
      */
     files: ['src/!(pages)/**/*.{ts,tsx}', 'src/*.{ts,tsx}'],
     plugins: { 'check-file': checkFile },
@@ -161,8 +190,7 @@ export default tseslint.config(
      * No test file lives under src/, including src/pages/: unit tests go in
      * tests/unit/, mirroring the src/ path of their subject, so src/ holds
      * shipped code only and no test lands in the router's routes directory. The
-     * custom `errorMessage` is required: without it, check-file validates the
-     * map's values as glob patterns, and free text fails that.
+     * custom `errorMessage` replaces the generic message with the move to make.
      */
     files: ['src/**/*.{ts,tsx}'],
     plugins: { 'check-file': checkFile },
@@ -335,9 +363,9 @@ export default tseslint.config(
   },
   {
     /**
-     * Upstream's chart.tsx is kept as pulled: Recharts' payload types are `any` in places
-     * (the three no-unsafe-* rules), and its type assertions and `dataKey` templating trip
-     * no-unnecessary-type-assertion and restrict-template-expressions.
+     * Upstream's chart.tsx is kept as pulled, so the rules its Recharts payload
+     * typing (the three no-unsafe-* rules), type assertions and `dataKey`
+     * templating trip are off here.
      */
     files: ['src/components/ui/chart.tsx'],
     rules: {
@@ -406,5 +434,51 @@ export default tseslint.config(
     plugins: { local: { rules: { 'comment-style': commentStyleRule } } },
     rules: { 'local/comment-style': 'error' },
   },
+  {
+    // Every named function, method and class carries a JSDoc purpose line; tags only where they add what types cannot.
+    files: ['**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}'],
+    plugins: { jsdoc },
+    rules: {
+      'jsdoc/require-jsdoc': [
+        'error',
+        {
+          publicOnly: false,
+          require: { FunctionDeclaration: false },
+          contexts: JSDOC_CONTEXTS,
+          checkConstructors: false,
+          // lint-staged runs eslint --fix, and this fixer inserts blank stubs.
+          enableFixer: false,
+        },
+      ],
+      'jsdoc/require-description': ['error', { contexts: JSDOC_CONTEXTS }],
+      'jsdoc/no-blank-blocks': ['error', { enableFixer: false }],
+      'jsdoc/check-param-names': ['error', { checkDestructured: false }],
+      'jsdoc/check-tag-names': ['error', { typed: true }],
+      'jsdoc/no-types': 'error',
+    },
+  },
+  {
+    // .d.mts mirrors its .mjs exports; a second JSDoc copy would drift.
+    files: ['scripts/**/*.d.mts'],
+    rules: { 'jsdoc/require-jsdoc': 'off' },
+  },
+  {
+    // Vendored shadcn/Base UI output stays as upstream ships it.
+    files: ['src/components/ui/!(form|sonner|command).tsx'],
+    rules: { 'jsdoc/require-jsdoc': 'off', 'jsdoc/require-description': 'off' },
+  },
+  ...(PENDING.length > 0
+    ? [
+        {
+          files: PENDING,
+          rules: {
+            'jsdoc/require-jsdoc': 'off',
+            'jsdoc/require-description': 'off',
+            'jsdoc/check-param-names': 'off',
+            'jsdoc/no-types': 'off',
+          },
+        },
+      ]
+    : []),
   prettier
 )

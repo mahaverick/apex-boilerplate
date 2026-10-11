@@ -108,6 +108,7 @@ function tenantQueryOptions(slug: string, tenantId?: string) {
   })
 }
 
+/** One tenant's detail through its own route; `null` once it is gone or not reachable. */
 function useTenant(slug: string, tenantId?: string) {
   return useQuery(tenantQueryOptions(slug, tenantId))
 }
@@ -156,6 +157,7 @@ export function useUpdateTenant(slug: string, tenantId?: string) {
   })
 }
 
+/** A tenant's members through its own route, for the Members page and pickers. */
 export function useMembers(slug: string, tenantId?: string) {
   return useQuery({
     queryKey: tenantKeys.members(slug, tenantId),

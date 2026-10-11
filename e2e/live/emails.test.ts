@@ -18,11 +18,10 @@ import {
 
 /**
  * Message tracking against a real express (1.4.0 or newer, as `assertApiServesApex` requires; `APP_ENV=local`)
- * with mailpit: a real email goes out through an SP2 action, provider events
+ * with mailpit: a real email goes out through a staff action, provider events
  * reach it through express's fake webhook adapter (`pnpm email:fire-event`),
- * and the Apex pages follow. Step-up on a platform-tenant invitation resend is
- * covered by express's and Apex's unit tests; this flow's email is a customer
- * account's, so no step-up applies.
+ * and the Apex pages follow. Resending an invitation needs a recent sign-in;
+ * this flow resends a password reset, so none applies.
  */
 
 test.skip(process.env.E2E_LIVE !== '1', 'live backend required — run pnpm test:e2e:live')
@@ -62,7 +61,7 @@ test('a hard bounce suppresses the address; once lifted, a resend goes out and l
   await createVerifiedUser(customer)
   const customerId = await userIdOf(token, customer)
 
-  // An SP2 action sends a real email: the reset link reaches mailpit.
+  // The staff action sends a real email: the reset link reaches mailpit.
   await page.goto(`/users/${customerId}`)
   await page.getByRole('button', { name: `Actions for ${customer}` }).click()
   await page.getByRole('menuitem', { name: 'Send password reset link' }).click()

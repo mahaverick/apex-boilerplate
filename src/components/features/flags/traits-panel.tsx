@@ -7,7 +7,6 @@ import type { TraitRow } from '@/types/api.types'
 /**
  * Puts a trait name on the clipboard for pasting into a PostHog release
  * condition, and says whether it worked.
- * @param name - The trait name.
  */
 async function copyTrait(name: string): Promise<void> {
   try {

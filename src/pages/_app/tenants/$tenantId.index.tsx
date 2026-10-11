@@ -7,6 +7,7 @@ import { pageTitle } from '@/constants/app'
 import { formatDate } from '@/lib/format'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 
+/** A tenant's Overview tab: its details, owners and history. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/')({
   head: () => ({ meta: [{ title: pageTitle('Tenant overview') }] }),
   component: TenantOverviewTab,

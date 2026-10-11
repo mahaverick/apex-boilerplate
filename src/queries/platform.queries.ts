@@ -15,7 +15,7 @@ import type { ApiSuccess, PlatformStats, StatsRange, SystemStatus } from '@/type
 /** How long a tenant search box waits for typing to stop before asking the API. */
 export const SEARCH_DEBOUNCE_MS = 250
 
-/** Tenant search and paging live in tenant-admin.queries.ts. */
+/** Query keys for the Overview's figures and the system status; tenant search and paging live in tenant-admin.queries.ts. */
 export const platformKeys = {
   stats: (range: string) => ['platform', 'stats', range] as const,
   systemStatus: ['platform', 'system', 'status'] as const,
@@ -34,9 +34,7 @@ export const PLATFORM_PAGE_SIZE = 20
  * `/platform/tenants/:id/onboarding` before 1.4.0, the user and tenant
  * `timeline` routes before 1.6.0, the `errors` routes and
  * `/platform/system/status` before 1.7.0, `/platform/flags*` before 1.8.0,
- * `/platform/maintenance-mode` before 1.9.0), so it reads as role-denied:
- * Apex needs express 1.4.0 or newer, 1.6.0 for timelines, 1.7.0 for errors,
- * 1.8.0 for flags and 1.9.0 for maintenance mode.
+ * `/platform/maintenance-mode` before 1.9.0), so it reads as role-denied.
  * @param error - A query or mutation error.
  * @returns True for a 404.
  */

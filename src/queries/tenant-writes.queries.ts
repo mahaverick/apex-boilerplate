@@ -1,7 +1,7 @@
 /**
- * @file A tenant's member and invitation writes, leaving included, apart
- * from the reads in `tenant.queries.ts`, which the first visit loads: only
- * the members and invitations screens, lazy routes' components, write.
+ * @file A tenant's member and invitation writes, leaving included. The reads
+ * are in `tenant.queries.ts`, which the first visit loads; only the members and
+ * invitations screens, which are lazy route components, write.
  */
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import type { MembershipRole } from '@/constants/roles'
@@ -88,8 +88,9 @@ function refreshAfterRefusal(
 }
 
 /**
- * Answers 202 with `data: null` whether or not the address has an account,
- * so a success never says whether one exists. Refusals still differ: 409
+ * Invites an address to the tenant (owner or admin). The API answers 202 with
+ * `data: null` whether or not the address has an account, so a success never
+ * says whether one exists. Refusals still differ: 409
  * `already_member` or `invitation_conflict`, 403 for a role the caller can't
  * grant, 400 for an invalid body. `reason` goes only under platform access.
  */
@@ -116,7 +117,7 @@ export function useInviteMember(slug: string, tenantId?: string) {
   })
 }
 
-/** A new link and a fresh expiry; the old link stops working. `reason` goes only under platform access. */
+/** Resends a pending invitation with a fresh link and expiry; the old link stops working. `reason` goes only under platform access. */
 export function useResendInvitation(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -130,7 +131,7 @@ export function useResendInvitation(slug: string, tenantId?: string) {
       ),
     /**
      * Settled, not success: a 404 means the row is no longer pending, so the
-     * list is stale. A resend is also a new message on the Emails pages and
+     * list is stale. A resend is also a message on the Emails pages and
      * an entry in both audit logs.
      */
     onSettled: async () => {
@@ -225,6 +226,7 @@ export function useRemoveMember(slug: string) {
  */
 export function useLeaveTenant(slug: string) {
   const queryClient = useQueryClient()
+  /** Refreshes what leaving changes: the staff directory, and for the platform tenant the stored user's role. */
   const afterLeaving = async () => {
     if (slug !== PLATFORM_TENANT_SLUG) {
       await invalidateDirectory(queryClient)

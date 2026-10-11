@@ -31,6 +31,7 @@ import type {
   TenantOnboardingDetail,
 } from '@/types/api.types'
 
+/** A tenant's Onboarding tab: its state, steps and reminders. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/onboarding')({
   // Started, not awaited: the tab renders its skeleton while this runs.
   loader: ({ context, params }) => {

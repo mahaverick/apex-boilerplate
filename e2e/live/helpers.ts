@@ -5,6 +5,7 @@ import type { MembershipRole } from '@/constants/roles'
 
 const execFile = promisify(execFileCallback)
 
+/** Where the API under test listens: `E2E_API_ORIGIN`, which the dev server's `/api` proxy follows too. */
 export const API_ORIGIN = process.env.E2E_API_ORIGIN ?? 'http://localhost:4040'
 const MAILPIT_ORIGIN = process.env.E2E_MAILPIT_ORIGIN ?? 'http://localhost:8025'
 const API_DIR = process.env.E2E_API_DIR ?? '../express-boilerplate'
@@ -17,15 +18,15 @@ export const PASSWORD = 'a very long passphrase for e2e'
 
 /**
  * A fresh address per run, because the login limiter is keyed `ip:email`
- * (`rate-limit.middleware.ts:loginRateLimitKey`) at five attempts per fifteen
- * minutes. A fixed address would pass once and then rate-limit every rerun
- * for the rest of the window, which reads as a broken test rather than a
- * spent bucket.
+ * (`loginRateLimitKey` in express's `rate-limit.constants.ts`) at five attempts
+ * per fifteen minutes. A fixed address would pass once and then rate-limit
+ * every rerun for the rest of the window.
  */
 export function freshEmail(): string {
   return `e2e-${Date.now()}-${Math.floor(Math.random() * 1e4)}@example.com`
 }
 
+/** A `fetch` that answers with the status and the parsed JSON body, or `null` when the body is not JSON. */
 async function json(url: string, init?: RequestInit) {
   const response = await fetch(url, init)
   return { status: response.status, body: (await response.json().catch(() => null)) as unknown }
@@ -115,6 +116,7 @@ export async function apiIsReady(): Promise<boolean> {
   }
 }
 
+/** Polls until the API is ready, failing the test after `timeoutMs`. */
 export async function waitForApi(timeoutMs = 60_000): Promise<void> {
   await expect
     .poll(apiIsReady, {
@@ -190,7 +192,7 @@ export async function grantPlatformRole(email: string, role: MembershipRole): Pr
   await execFile('pnpm', ['platform:grant', email, role], { cwd: API_DIR, timeout: 60_000 })
 }
 
-/** A slug no earlier run has taken: lowercase, hyphenated, 3 to 100 characters. */
+/** A lowercase, hyphenated slug no earlier run has taken. */
 export function freshSlug(): string {
   return `e2e-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`
 }
@@ -317,14 +319,14 @@ export async function backdateStepUp(email: string): Promise<void> {
 /**
  * Fails before any test runs, naming the misconfiguration, when the API cannot run the
  * staff suites: express older than 1.2.0 (no `POST /auth/reauthenticate`, which answers
- * 401 without a token on 1.2.0 and 404 before it), an email worker that delivers nothing
- * to mailpit, `APEX_URL`/`WEB_URL` pointing somewhere other than `APEX_ORIGIN` and
- * `WEB_ORIGIN`, express older than 1.3.0 (no `GET /platform/emails`) or older than 1.4.0
- * (no `GET /platform/onboarding/funnel`). The origins are read from the verification links
- * two fresh registrations are mailed, one per `app`. The 1.3.0 and 1.4.0 probes need a
- * staff token, since `/platform` authenticates before it routes (an anonymous request is
- * 401 on every version), so they run last: a worker that delivers nothing is reported as
- * that, not as a failed sign-up.
+ * 401 without a token on 1.2.0 and 404 before it, so the probe needs no token), an email worker
+ * that delivers nothing to mailpit, `APEX_URL`/`WEB_URL` pointing somewhere other than
+ * `APEX_ORIGIN` and `WEB_ORIGIN`, express older than 1.3.0 (no `GET /platform/emails`) or
+ * older than 1.4.0 (no `GET /platform/onboarding/funnel`). The origins are read from the
+ * verification links that two fresh registrations are mailed, one per `app`. The 1.3.0
+ * and 1.4.0 probes need a staff token, since `/platform` authenticates before it routes
+ * (an anonymous request is 401 on every version), so they run last: a worker that
+ * delivers nothing is reported as that, not as a failed sign-up.
  */
 export async function assertApiServesApex(): Promise<void> {
   const reauthenticate = await json(`${API_ORIGIN}/api/v1/auth/reauthenticate`, {

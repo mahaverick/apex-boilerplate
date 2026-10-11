@@ -42,6 +42,7 @@ import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
 
+/** One link in the breadcrumb trail. */
 interface Crumb {
   /** Stable across renders: one crumb per matched route, and one per parent crumb. */
   key: string
@@ -113,6 +114,7 @@ export function AppLayout() {
   useEffect(() => {
     if (theme !== 'system') return
     const media = window.matchMedia('(prefers-color-scheme: dark)')
+    /** Re-applies the system theme when the OS preference changes. */
     const onChange = () => setTheme('system')
     media.addEventListener('change', onChange)
     return () => media.removeEventListener('change', onChange)

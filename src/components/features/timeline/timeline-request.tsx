@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button'
 import type { TimelineRow } from '@/types/api.types'
 
 /**
- * One request's server events (two or more, sharing a trace), collapsed to
- * its newest event plus "+N related". The disclosure expands the rest in
+ * One request's server events (two or more consecutive verified rows sharing
+ * a trace), collapsed to its newest event plus "+N related". The disclosure expands the rest in
  * place, oldest last.
  */
 export function TimelineRequest({ rows, showActor }: { rows: TimelineRow[]; showActor: boolean }) {

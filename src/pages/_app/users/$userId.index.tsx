@@ -21,6 +21,7 @@ import { platformUserQueryOptions } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import type { PlatformUserDetail } from '@/types/api.types'
 
+/** One user's page: the account, its tenants, emails and, for admins, history. */
 export const Route = createFileRoute('/_app/users/$userId/')({
   head: () => ({ meta: [{ title: pageTitle('User') }] }),
   component: UserDetailPage,
@@ -29,6 +30,7 @@ export const Route = createFileRoute('/_app/users/$userId/')({
 /** A sign-in provider's label; an unknown one renders as the API names it. */
 const PROVIDER_LABELS: Record<string, string> = { email: 'Email', google: 'Google' }
 
+/** Loads one user and shows them, a not-found state for a 404, or a load error. */
 function UserDetailPage() {
   const { userId } = Route.useParams()
   const detail = useQuery(platformUserQueryOptions(userId))

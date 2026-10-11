@@ -7,6 +7,7 @@ import { platformRoleAtLeast } from '@/constants/roles'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 
+/** A tenant's Errors tab: its PostHog error issues. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/errors')({
   head: () => ({ meta: [{ title: pageTitle('Tenant errors') }] }),
   staticData: { crumb: 'Errors' },

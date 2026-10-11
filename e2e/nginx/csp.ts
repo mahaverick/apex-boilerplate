@@ -5,7 +5,7 @@ import { afterPageTask } from '../timing'
 export const CONTENT_SECURITY_POLICY =
   "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
 
-/** Every security header nginx.conf sets on its server block, with its exact value. */
+/** Every security header nginx.conf adds when the response does not already carry it, with its exact value. */
 export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   'content-security-policy': CONTENT_SECURITY_POLICY,
   'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
@@ -18,7 +18,9 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
 /**
  * Collects every CSP violation on `page` from now on, across navigations. The
  * listener is an init script, so it is in place before any of a document's own
- * scripts run. Console errors naming the policy are collected as well.
+ * scripts run. Console errors naming the policy are collected as well, so a
+ * violation can appear in the list twice.
+ * @returns The live list, which fills as violations arrive.
  */
 export async function watchCspViolations(page: Page): Promise<string[]> {
   const violations: string[] = []
@@ -58,8 +60,8 @@ export async function requireServedApp(): Promise<void> {
 }
 
 /**
- * Waits for one round trip to the page, so a violation report sent before it
- * has reached the test. Call it before asserting on the collected list.
+ * Waits for one task to run in the page, so a violation the page reported
+ * earlier has reached the collected list. Call it before asserting on the list.
  */
 export async function flushCspReports(page: Page): Promise<void> {
   await afterPageTask(page)

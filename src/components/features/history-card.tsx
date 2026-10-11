@@ -8,6 +8,7 @@ import {
 } from '@/queries/audit.queries'
 import { useAuthStore } from '@/states/auth.store'
 
+/** What a history card needs: the audit filter, the record it sits on, and its heading and empty text. */
 interface HistoryCardProps {
   /** The platform audit-log filter that picks this record's entries. */
   filters: PlatformAuditFilters
@@ -30,6 +31,7 @@ function HistoryCard({ filters, subjectId, title, emptyMessage }: HistoryCardPro
   )
 }
 
+/** The card's body, mounted only for a role that may read the platform audit log. */
 function History({ filters, subjectId, title, emptyMessage }: HistoryCardProps) {
   const log = usePlatformAuditLog(filters)
   const headingId = `history-${subjectId}`
@@ -62,7 +64,7 @@ function History({ filters, subjectId, title, emptyMessage }: HistoryCardProps) 
 
 /**
  * Every entry whose target is this user: staff actions on the account
- * (`user.*`) and the user's own step-up confirmations. A tenant's member
+ * (`user.*`) and the user's own step-up attempts. A tenant's member
  * changes target the membership, not the user, so they are not listed here.
  */
 export function UserHistoryCard({ userId }: { userId: string }) {

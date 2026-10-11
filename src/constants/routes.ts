@@ -7,6 +7,7 @@
  */
 export const API_PREFIX = '/api/v1'
 
+/** Every route path in the app, written once; `$param` segments are TanStack Router's. */
 export const ROUTES = {
   home: '/',
   login: '/login',
