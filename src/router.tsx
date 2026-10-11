@@ -17,21 +17,19 @@ import { installRouteFeatureProperties } from '@/observability/flags/flag-scope'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 
+/** The app's one query client: data stays fresh for 30 s and a failed query retries once. */
 export const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 })
 
 /**
- * Restore the session once per page load. The access token is memory-only, so
- * every reload starts signed out; without this, `_app` would bounce a
- * signed-in user to /login. ensureSession() dedupes concurrent callers and
- * signs the store out on an auth verdict, so this only starts the cross-tab
- * logout listener and the analytics identity subscription, and flips
- * isBootstrapped, whether or not the refresh worked. A restore that ends with
- * no user also drops any person posthog-js still holds from an earlier visit
- * (`forgetStaleIdentity`), so the next visitor's pages are not theirs. After a
- * failure that judged nothing (a 502, say) the person is kept if another open
- * tab answers that it is signed in as them, so that tab's replay is not split.
+ * Restores the session once per page load. The access token is memory-only, so
+ * a reload starts signed out and `_app` would bounce a signed-in user to
+ * /login without this. Whether or not the refresh works, it ends with
+ * `isBootstrapped` set. A restore that ends with no user also drops any person
+ * posthog-js still holds from an earlier visit. After a failure that judged
+ * nothing (a 502, say) that person is kept if another open tab answers that it
+ * is signed in as them, so that tab's replay is not split.
  */
 export async function bootstrapSession(): Promise<void> {
   if (useAuthStore.getState().isBootstrapped) return
@@ -41,7 +39,7 @@ export async function bootstrapSession(): Promise<void> {
   try {
     await ensureSession()
   } catch (error) {
-    // Any refresh failure leaves this load signed out; only an auth verdict also clears the store (see refreshSession).
+    // Only an auth verdict signs the store out; any other failure judges nothing (see refreshSession).
     isVerdict = isAuthVerdict(error)
   } finally {
     if (!useAuthStore.getState().user) {
@@ -52,6 +50,7 @@ export async function bootstrapSession(): Promise<void> {
   }
 }
 
+/** The app's router; its context carries the query client, and links preload on intent. */
 export const router = createRouter({
   routeTree,
   context: { queryClient },
@@ -60,18 +59,12 @@ export const router = createRouter({
   defaultErrorComponent: RouteError,
   defaultNotFoundComponent: RouteNotFound,
   defaultPendingComponent: RoutePending,
-  /** Held back 300ms so a fast navigation never flashes it, then kept 300ms so it never blinks. */
+  /** Shown only after 300ms of waiting, then for at least 300ms: it neither flashes on a fast navigation nor blinks on a slow one. */
   defaultPendingMs: 300,
   defaultPendingMinMs: 300,
 })
 
-/**
- * One `$pageview` per resolved navigation, captured here because posthog-js's
- * own history pageviews are off: it fires after the URL changes, before the
- * route's state has settled. Only a new path is a page view, as posthog-js
- * counts them: a search, filter or range change, or a reload of the same match,
- * is not.
- */
+// posthog-js's history pageviews are off: this fires once the route has resolved and its tenant group is set, and only for a new path.
 router.subscribe('onResolved', ({ pathChanged }) => {
   if (pathChanged) capturePageview()
 })
@@ -79,23 +72,19 @@ installRouteFeatureProperties(router, queryClient)
 setErrorRouteSource(() => router.state.matches.at(-1)?.routeId)
 
 declare module '@tanstack/react-router' {
+  /** Registers the router's type so links, params and search are checked against the route tree. */
   interface Register {
     router: typeof router
   }
 
   /**
-   * A route's breadcrumb, declared on the route so each route names itself in
-   * the trail (`/activity` is `Activity`). A component receives the match's
-   * path params, so a route with params can name itself after the record it
-   * shows (a tenant's or a user's name) once that has loaded.
+   * A route's breadcrumb, declared on the route (`/activity` is `Activity`). A
+   * component receives the match's path params, so a record page can name
+   * itself after the record once it has loaded.
    */
   interface StaticDataRouteOption {
     crumb?: string | ComponentType<{ params: Record<string, string> }>
-    /**
-     * A crumb placed before this route's own, for a record page whose list is
-     * a sibling route rather than a parent (`/tenants/$tenantId` follows
-     * `Tenants`).
-     */
+    /** A crumb placed before this route's own, for a record page whose list is a sibling route, not a parent. */
     crumbParent?: { label: string; to: LinkProps['to'] }
   }
 }

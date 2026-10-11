@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 
+/** The palette's open flag and the two ways to change it. */
 interface CommandPaletteState {
   open: boolean
   setOpen: (open: boolean) => void

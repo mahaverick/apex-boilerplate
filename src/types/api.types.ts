@@ -1,6 +1,7 @@
 import type { AuditAction } from '@/constants/audit-actions'
 import type { MembershipRole } from '@/constants/roles'
 
+/** The envelope express wraps a successful response in; `data` is the payload. */
 export interface ApiSuccess<T> {
   success: true
   message: string
@@ -8,6 +9,7 @@ export interface ApiSuccess<T> {
   data: T
 }
 
+/** The envelope of an error response from express. */
 export interface ApiErrorBody {
   success: false
   message: string
@@ -20,9 +22,9 @@ export interface ApiErrorBody {
 }
 
 /**
- * `toPublicUser` on the server (AuthenticatedUser plus createdAt), plus the
- * caller's role in the platform tenant. `platformRole` is `null` for everyone
- * who is not staff; test it with `isStaff`, never by truthiness of a copy.
+ * express's `ProfileResponse`: the public user, the caller's role in the
+ * platform tenant and the analytics opt-out. `platformRole` is `null` for
+ * everyone who is not staff; test it with `isStaff`.
  */
 export interface User {
   id: string
@@ -31,17 +33,17 @@ export interface User {
   lastName: string | null
   createdAt: string
   platformRole: MembershipRole | null
-  /** The profile's "Share usage analytics" switch, off. Stops browser analytics only. */
+  /** True once the person turned off the customer app's "Share usage analytics" switch. Stops browser analytics only; server events ignore it. */
   analyticsOptOut: boolean
 }
 
+/** The `code` of a 401 for an expired access token: the client refreshes and retries rather than signing out. */
 export const ACCESS_TOKEN_EXPIRED = 'ACCESS_TOKEN_EXPIRED'
 
 /**
- * 401 on a destructive staff route whose session last authenticated too long
- * ago (express `requireRecentAuth`). Not a verdict on the session: the
- * interceptor passes it through untouched, and `useStepUp` asks the user to
- * confirm who they are, then retries once.
+ * 401 on a route that needs a recent sign-in (express `requireRecentAuth`).
+ * Not a verdict on the session: the interceptor passes it through untouched,
+ * and `useStepUp` asks the user to confirm who they are, then retries once.
  */
 export const REAUTH_REQUIRED = 'REAUTH_REQUIRED'
 
@@ -113,6 +115,7 @@ export const INVITATION_EMAIL_UNVERIFIED = 'invitation_email_unverified'
 
 /** A keyset page's direction. `prev` pages backward from the given cursor. */
 export const PAGE_DIRECTIONS = ['next', 'prev'] as const
+/** A direction a keyset list can page in. */
 export type PageDirection = (typeof PAGE_DIRECTIONS)[number]
 
 /** Mirrors express's TENANT_LIFECYCLE_STATES. */
@@ -123,6 +126,7 @@ export type TenantLifecycleState = 'active' | 'suspended' | 'archived'
  * suspended together; `archived` and `all` reach archived (soft-deleted) rows.
  */
 export const TENANT_STATE_FILTERS = ['active', 'suspended', 'archived', 'all'] as const
+/** A value the tenants list's `state` filter accepts. */
 export type TenantStateFilter = (typeof TENANT_STATE_FILTERS)[number]
 
 /** One row of `GET /platform/tenants`: staff search across every tenant. */
@@ -156,6 +160,10 @@ interface AuditActor {
   email: string
 }
 
+/**
+ * The record an audit entry acted on. `platform` is the platform as a whole
+ * (maintenance mode), whose id is the platform tenant's.
+ */
 interface AuditTarget {
   type:
     | 'tenant'
@@ -218,7 +226,7 @@ export interface PlatformStats {
   range: StatsRange
   /**
    * Live counts. `users` is active users only; `staff` is the platform tenant's members;
-   * `stuckTenants` is active tenants whose onboarding has stalled (express 1.4.0).
+   * `stuckTenants` is active, tracked tenants whose onboarding is stuck now, whatever the range.
    */
   totals: { tenants: number; users: number; staff: number; stuckTenants: number }
   /**
@@ -228,8 +236,8 @@ export interface PlatformStats {
   signups: { date: string; users: number; tenants: number }[]
   /**
    * Per UTC day of creation, each email counted once in one of five disjoint groups by its
-   * current status (express 1.3.0). `queued` emails are in none of them. Without a provider
-   * webhook no email reaches `delivered` or `complained`, so every successful send stays in `sent`.
+   * current status. `queued` emails are in none of them. Without a provider webhook every
+   * successful send stays in `sent`.
    */
   emailMessages: EmailMessageDay[]
 }
@@ -267,8 +275,9 @@ interface PlatformTenantOwner {
 }
 
 /**
- * One row of `GET /platform/users`. `membershipCount` leaves the platform
- * tenant out. `deletedAt` is set only on the rows `status=deleted` reaches.
+ * One row of `GET /platform/users`. `membershipCount` counts live customer
+ * tenants only: archived tenants and the platform tenant are left out.
+ * `deletedAt` is set only on the rows `status=deleted` reaches.
  */
 export interface PlatformUserRow {
   id: string
@@ -296,8 +305,10 @@ export interface PlatformUserPage {
  * accounts; `deleted` reaches soft-deleted ones, which only a purge removes.
  */
 export const USER_STATUS_FILTERS = ['active', 'inactive', 'deleted'] as const
+/** A value the users list's `status` filter accepts. */
 export type UserStatusFilter = (typeof USER_STATUS_FILTERS)[number]
 
+/** One customer tenant a user belongs to, archived ones included, on the staff user detail. */
 interface PlatformUserMembership {
   tenantId: string
   tenantName: string
@@ -307,6 +318,7 @@ interface PlatformUserMembership {
   joinedAt: string
 }
 
+/** One pending, unexpired invitation to the user's address, on the staff user detail. */
 interface PlatformUserPendingInvitation {
   id: string
   tenantId: string
@@ -335,10 +347,7 @@ export interface EmailSentResult {
 /** How a caller reached a tenant: as a member, or through their platform role. */
 export type TenantAccess = 'member' | 'platform'
 
-/**
- * `invitedBy` on a pending-invitation row, or `null` once the inviter's
- * account is gone (the column is `on delete set null`).
- */
+/** The inviter on a pending-invitation row; `invitedBy` is `null` once that account is gone. */
 interface InvitationInviter {
   id: string
   firstName: string | null
@@ -369,6 +378,7 @@ export const EMAIL_MESSAGE_STATUSES = [
   'failed',
   'suppressed',
 ] as const
+/** One status a logical email can hold. */
 export type EmailMessageStatus = (typeof EMAIL_MESSAGE_STATUSES)[number]
 
 /** The templates express sends. A key the API adds later still renders, by its raw name. */
@@ -382,6 +392,7 @@ export const EMAIL_TEMPLATE_KEYS = [
   'onboarding_reminder',
   'maintenance_mode_changed',
 ] as const
+/** A template key express knows; stored rows carry the wider `string`. */
 export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number]
 
 /**
@@ -390,7 +401,7 @@ export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number]
  */
 export type EmailSenderClass = 'transactional' | 'general'
 
-/** Who set a message `failed`: our send, the provider, or the queue refusing the job. */
+/** Who set a message `failed`: our send, the provider, or an enqueue that never reached the queue. */
 export type EmailFailureOrigin = 'send' | 'provider' | 'enqueue'
 
 /** Mirrors express's EMAIL_EVENT_TYPES. `opened` and `clicked` never change a status. */
@@ -402,6 +413,7 @@ export type SuppressionReason = 'hard_bounce' | 'complaint'
 
 /** `GET /platform/email-suppressions?state=`; the API's default is `active`. */
 export const SUPPRESSION_STATE_FILTERS = ['active', 'lifted', 'all'] as const
+/** A value the suppressions list's `state` filter accepts. */
 export type SuppressionStateFilter = (typeof SUPPRESSION_STATE_FILTERS)[number]
 
 /** The five disjoint status groups the stats and the health report count, in stacking order. */
@@ -412,6 +424,7 @@ export const EMAIL_GROUP_KEYS = [
   'complained',
   'suppressed',
 ] as const
+/** One status group in an email count. */
 export type EmailGroup = (typeof EMAIL_GROUP_KEYS)[number]
 
 /**
@@ -502,14 +515,15 @@ export interface EmailPreview {
 /**
  * `POST /platform/emails/:id/resend` (202). `emailSent` is present only when
  * the originating action reports it (password setup and resending a
- * verification email); `data` may be null.
+ * verification email); an invitation resend answers an empty object.
  */
 export type EmailResendResult = { emailSent?: boolean } | null
 
 /**
  * One rate of `GET /platform/emails/health`. `value` is `numerator /
  * denominator` as a fraction from 0 to 1, or null when the API has no figure:
- * a provider-dependent rate while no provider event has arrived in the range.
+ * no denominator, or a provider-dependent rate while no provider event has
+ * arrived in the range.
  */
 export interface EmailRate {
   value: number | null
@@ -517,7 +531,7 @@ export interface EmailRate {
   denominator: number
 }
 
-/** A row of the health report's by-template or top-10 by-domain table. */
+/** A row of the health report's by-template or by-domain table, each limited to its top 10. */
 export interface EmailBreakdownRow {
   key: string
   messages: number
@@ -526,17 +540,17 @@ export interface EmailBreakdownRow {
 }
 
 /**
- * `GET /platform/emails/health?range=`. Rates are over mail that left the
- * server (sent, delivered, undelivered, complained). `undeliveredRate` needs
- * no provider; the others do, and open and click rates count only
- * general-sender mail.
+ * `GET /platform/emails/health?range=`. Every rate but the open and click
+ * rates is over mail that left the server (sent, delivered, undelivered,
+ * complained); those two count only general-sender mail. `undeliveredRate`
+ * needs no provider; the others are null until a provider event arrives.
  */
 export interface EmailHealth {
   range: StatsRange
   totals: Record<EmailGroup, number> & {
     /** Messages that left the server in the range: every status except queued and suppressed. */
     messages: number
-    /** Provider events received in the range; 0 means no webhook is feeding this install. */
+    /** Provider events received in the range; every rate but `undeliveredRate` is null while it is 0. */
     providerEvents: number
   }
   rates: {
@@ -592,6 +606,7 @@ export const ONBOARDING_STATES = [
   'complete',
   'dismissed',
 ] as const
+/** One state a tenant's onboarding can read as. */
 export type OnboardingState = (typeof ONBOARDING_STATES)[number]
 
 /**
@@ -605,10 +620,12 @@ export const ONBOARDING_LIST_STATES = [
   'complete',
   'dismissed',
 ] as const satisfies readonly OnboardingState[]
+/** A tab of the onboarding list: the states a tracked tenant can be listed under. */
 export type OnboardingListState = (typeof ONBOARDING_LIST_STATES)[number]
 
 /** The funnel's windows, in toggle order. Mirrors express's ONBOARDING_RANGES; distinct from STATS_RANGES. */
 export const ONBOARDING_RANGES = ['7d', '30d', '90d'] as const
+/** A window the onboarding funnel can cover. */
 export type OnboardingRange = (typeof ONBOARDING_RANGES)[number]
 
 /** Whether a step is done once per tenant or once per person. */
@@ -672,8 +689,8 @@ export interface OnboardingFunnel {
 /**
  * One row of `GET /platform/onboarding/tenants`. `owners` are the active
  * owners. `startedAt` is null while the tenant awaits its first owner;
- * `lastProgressAt` is the latest completion, else `startedAt`; `daysStuck`
- * is set on stuck rows only. `nextStep` is the first incomplete required
+ * `lastProgressAt` is the latest of `startedAt` and the completions; `daysStuck`
+ * is the whole days since it, on stuck rows only. `nextStep` is the first incomplete required
  * step in registry order.
  */
 export interface OnboardingTenantRow {
@@ -712,7 +729,7 @@ interface OnboardingMemberStatus {
  * tenant) and `members` counts and lists every live member's own; for a
  * tenant step `members` is null. `completedBy` is null for an automatic
  * completion and once a staff completer was purged. `canMarkComplete` is
- * the API's answer, the caller's role aside: an admin still has to ask.
+ * the API's answer and ignores the caller's role, which the page checks too.
  */
 export interface OnboardingStepDetail {
   key: string
@@ -819,9 +836,9 @@ type TimelinePropKey =
   | 'action'
 
 /**
- * Who sent a tenant-timeline row, read from Postgres by its distinct id.
- * `displayName` is the full name, else the email, and `null` when no user
- * row is left (purged). A system row has no actor at all (`actor: null`).
+ * The user who caused a tenant-timeline row. `displayName` is the full name,
+ * else the email, and `null` when no user row has that id (a purged user, or
+ * an anonymous browser id). A system row has no actor at all (`actor: null`).
  */
 interface TimelineActor {
   id: string
@@ -841,7 +858,7 @@ export interface TimelineRow {
   event: string
   timestamp: string
   distinctId: string
-  /** Express signed this event; only then do its source, access and trace mean anything. */
+  /** Express signed this event; only then do its source, access and target props come from the server. */
   verified: boolean
   /** The tenant group the event names, or `null`. */
   tenant: string | null
@@ -868,8 +885,8 @@ interface TimelineLinks {
 
 /**
  * One timeline page, newest first. `configured: false` is an environment
- * without the PostHog personal key: nothing was asked of PostHog and nothing
- * was audited.
+ * without the PostHog personal key or project id: nothing was asked of
+ * PostHog and nothing was audited.
  */
 export type TimelinePage =
   | { configured: false }
@@ -910,8 +927,9 @@ export interface ErrorIssue {
 
 /**
  * `GET /platform/users|tenants/:id/errors`. `configured: false` is an
- * environment without the PostHog personal key: nothing was asked of PostHog
- * and nothing was audited. The list has one page; `nextCursor` is always null.
+ * environment without the PostHog personal key or project id: nothing was
+ * asked of PostHog and nothing was audited. The list has one page;
+ * `nextCursor` is always null.
  */
 export type ErrorIssuesPage =
   { configured: false } | { configured: true; items: ErrorIssue[]; nextCursor: null }
@@ -996,7 +1014,7 @@ export interface FlagRow {
   key: string
   description: string
   kind: 'boolean' | 'multivariate'
-  /** The variants, `control` first by convention; null on a boolean flag. */
+  /** The variants, the first being the fallback (and `control` on an experiment); null on a boolean flag. */
   variants: string[] | null
   /** Who it is bucketed by: the user, or the tenant group. */
   scope: 'user' | 'tenant'
@@ -1013,7 +1031,7 @@ export interface FlagRow {
   conditions: number
   /** The highest rollout percentage of any condition; null when there is none. */
   maxRollout: number | null
-  /** The flag in PostHog; null when the API lacks the app host or project id. */
+  /** The flag in PostHog; null when it is missing there, has no PostHog id, or the API has no project id. */
   posthogUrl: string | null
 }
 
@@ -1033,7 +1051,7 @@ export interface TraitRow {
   examples: string[]
 }
 
-/** When the snapshot was fetched; `stale` once it has not been checked for 10 minutes. */
+/** When the snapshot was fetched; `stale` once PostHog has not confirmed it for 10 minutes. */
 interface FlagSnapshotInfo {
   fetchedAt: string | null
   stale: boolean
@@ -1084,9 +1102,9 @@ type FlagFetchErrorCode =
 /** Feature flags' health, as the system status reports it. */
 export interface FlagsStatus {
   enabled: boolean
-  /** When the snapshot was last fetched with changes. */
+  /** When this replica's snapshot was fetched. */
   snapshotAt: string | null
-  /** When PostHog was last asked, changed or not. */
+  /** When PostHog last confirmed the snapshot, changed or not. */
   checkedAt: string | null
   stale: boolean
   lastFetchOk: string | null
@@ -1105,7 +1123,7 @@ export interface FlagsStatus {
   }
 }
 
-/** Mirrors express's `MAINTENANCE_MODES`: customers fully shut out, writes refused, or neither. */
+/** Mirrors express's `MAINTENANCE_MODES`: `full` shuts customers out, `read_only` refuses their writes, `off` does neither. */
 export type MaintenanceMode = 'off' | 'read_only' | 'full'
 
 /**
@@ -1119,10 +1137,10 @@ export interface QueuePauseState {
 }
 
 /**
- * `GET /platform/maintenance-mode`, and a `PUT` there's answer (express
- * 1.9.0). `environment` is the API's `APP_ENV`, the value a switch-on must
- * type to confirm. `since` is when the mode last changed; `changedBy` is null
- * for the row the migration seeded.
+ * `GET /platform/maintenance-mode`, and a `PUT` there's answer.
+ * `environment` is the API's `APP_ENV`, the value a switch-on must type to
+ * confirm. `since` is when the current mode began, null while `off`;
+ * `changedBy` is who set it, null for the seeded row or a purged user.
  */
 export interface PlatformMaintenanceModeView {
   mode: MaintenanceMode
@@ -1162,7 +1180,7 @@ export interface MaintenanceModeStatus {
   known: boolean
   queuesPaused: boolean
   queues: QueuePauseState[]
-  /** Change notices still queued, held back by paused queues; they go out on resume. */
+  /** True while a notice of the last change (a notification or its email job) has not finished. */
   noticesPending: boolean
   lastReloadError: string | null
   /**

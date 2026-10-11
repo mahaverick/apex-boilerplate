@@ -10,6 +10,7 @@ import { notAllowedMessage, safeText } from '@/schemas/safe-text.schemas'
 
 const MAX_REASON_LENGTH = 500
 
+/** A staff action's reason, as express's `reasonSchema` takes it. */
 export const reasonSchema = z
   .string()
   .trim()
@@ -19,7 +20,8 @@ export const reasonSchema = z
 
 /**
  * The reason dialog's form. With `confirmText`, the user must also type that
- * value (a slug or an email) exactly; without it, `confirmation` is ignored.
+ * value (a slug or an email; surrounding spaces are ignored); without it,
+ * `confirmation` is ignored.
  */
 export function reasonFormSchema(confirmText?: string) {
   return z

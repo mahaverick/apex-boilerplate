@@ -1,9 +1,9 @@
 /**
  * @file The maintenance-mode change form, mirroring express's
  * `changeMaintenanceModeBody`: the customer message is trimmed, 1–500
- * characters of multi-line safe text; the reason is the same, required only
- * when switching on or escalating, which also needs the API's environment
- * typed exactly.
+ * characters of multi-line safe text; the reason has the same bounds but may
+ * be blank unless the change switches on or escalates, which also needs the
+ * API's environment typed.
  */
 import { z } from 'zod'
 import { MAINTENANCE_TEXT_MAX_LENGTH } from '@/constants/maintenance-mode.constants'
@@ -11,6 +11,7 @@ import { isSwitchOn } from '@/lib/maintenance-mode'
 import { notAllowedMessage, safeText } from '@/schemas/safe-text.schemas'
 import type { MaintenanceMode } from '@/types/api.types'
 
+/** The message customers see: required, trimmed, at most 500 characters of multi-line safe text. */
 export const maintenanceMessageSchema = z
   .string()
   .trim()
@@ -61,4 +62,5 @@ export function maintenanceModeFormSchema(from: MaintenanceMode, environment: st
     })
 }
 
+/** The change form's values as TanStack Form holds them, before parsing. */
 export type MaintenanceModeFormValues = z.input<ReturnType<typeof maintenanceModeFormSchema>>

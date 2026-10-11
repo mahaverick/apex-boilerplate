@@ -127,20 +127,6 @@
     "tests/unit/states/theme.store.test.ts",
     "tests/unit/toast-isolation.test.tsx"
   ],
-  "A4": [
-    "src/router.tsx",
-    "src/schemas/email.schemas.ts",
-    "src/schemas/flags.schemas.ts",
-    "src/schemas/maintenance-mode.schemas.ts",
-    "src/schemas/onboarding.schemas.ts",
-    "src/schemas/reason.schemas.ts",
-    "src/schemas/search.schemas.ts",
-    "src/schemas/tenant.schemas.ts",
-    "src/schemas/timeline.schemas.ts",
-    "src/schemas/user-admin.schemas.ts",
-    "src/states/command-palette.store.ts",
-    "src/types/api.types.ts"
-  ],
   "A5": [
     "tests/fixtures/errors.ts",
     "tests/fixtures/flags.ts",
