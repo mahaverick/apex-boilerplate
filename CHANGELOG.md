@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.1](https://github.com/mahaverick/apex-boilerplate/compare/v1.10.0...v1.10.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **errors:** take the shared scrubber; prune the SSE client, four UI files and dead code ([#37](https://github.com/mahaverick/apex-boilerplate/issues/37)) ([17abde9](https://github.com/mahaverick/apex-boilerplate/commit/17abde91a344376c0b1cbe3a162c0ef1cd57f748))
+
 ## [1.10.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.9.0...v1.10.0) (2026-10-10)
 
 
