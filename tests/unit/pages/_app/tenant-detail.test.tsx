@@ -23,6 +23,7 @@ import {
   type TenantLifecycleState,
 } from '@/types/api.types'
 
+/** Acme's platform detail, active; `overrides` change what a test is about. */
 function detail(overrides: Partial<PlatformTenantDetail> = {}): PlatformTenantDetail {
   return {
     id: TENANT_ID,
@@ -138,6 +139,10 @@ describe('/tenants/$tenantId', () => {
   })
 
   describe('actions', () => {
+    /**
+     * Opens the Actions menu on the tenant page.
+     * @returns The `userEvent` instance and the open menu.
+     */
     async function openMenu() {
       const user = userEvent.setup()
       await user.click(await screen.findByRole('button', { name: 'Actions' }))
@@ -559,8 +564,9 @@ describe('/tenants/$tenantId', () => {
     })
 
     /**
-     * Serves a platform detail the test can change before a refetch, and
-     * records every PATCH body; the first `failures` PATCHes answer 500.
+     * Serves a platform detail the test can change before a refetch, and records every PATCH body; the
+     * first `failures` PATCHes answer 500.
+     * @returns The served detail and the PATCH bodies.
      */
     function serveEditable(initial: PlatformTenantDetail, failures = 0) {
       const state = { served: initial, bodies: [] as unknown[] }
@@ -692,6 +698,7 @@ describe('/tenants/$tenantId', () => {
       let state: TenantLifecycleState = 'active'
       let reactivated = false
       // A frozen tenant's own routes answer 404, as the API's do.
+      /** Answers a tenant route with `answer` while active, a 404 while frozen, and late right after reactivation. */
       async function ownRoute(answer: () => Response) {
         if (state !== 'active') return fail('Tenant not found', 404)
         if (reactivated) await delay(150)

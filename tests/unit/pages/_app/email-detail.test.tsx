@@ -38,6 +38,7 @@ function serve(overrides: Partial<EmailMessageDetail> = {}) {
   return calls
 }
 
+/** The page's h1, the recipient, once the detail has loaded. */
 async function heading() {
   return screen.findByRole('heading', { name: 'cleo@example.com', level: 1 })
 }
@@ -186,7 +187,7 @@ describe('/emails/$emailId', () => {
         {
           id: EMAIL_EVENT_ID,
           provider: 'resend',
-          // A type the API may add later.
+          // A type the API may add later, which this build does not list.
           type: 'unsubscribed' as 'delivered',
           bounceKind: null,
           detail: null,
@@ -410,7 +411,7 @@ describe('/emails/$emailId', () => {
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     await waitFor(() => expect(button).toHaveFocus())
 
-    // The reader clicks away; a later refetch takes the button, and focus must not jump to the heading.
+    // The reader clicks away; a later refetch removes the button, and focus must not jump to the heading.
     button.blur()
     canResend = false
     await queryClient.invalidateQueries()

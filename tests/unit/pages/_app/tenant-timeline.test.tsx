@@ -16,6 +16,7 @@ import type {
 const TIMELINE = `/tenants/${TENANT_ID}/timeline`
 const GROUP = `https://us.posthog.com/project/1/groups/0/${TENANT_ID}`
 
+/** Acme's platform detail in `lifecycleState`; archived carries its `deletedAt`. */
 function platformDetail(lifecycleState: TenantLifecycleState = 'active'): PlatformTenantDetail {
   return {
     id: TENANT_ID,
@@ -109,6 +110,7 @@ function serve(lifecycleState: TenantLifecycleState = 'active') {
   return seen
 }
 
+/** The text of each link in the tenant page's section navigation, in order. */
 function tabLabels() {
   const nav = screen.getByRole('navigation', { name: 'Tenant sections' })
   return within(nav)

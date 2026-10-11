@@ -33,6 +33,7 @@ const STAFF_VISIT: PlatformAuditEntry = {
   tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
 }
 
+/** Signs in as `testUser` with `platformRole`; `null` is a signed-in user who is not staff. */
 function signInAs(platformRole: MembershipRole | null) {
   useAuthStore.setState({
     accessToken: 'access-token',
@@ -42,6 +43,10 @@ function signInAs(platformRole: MembershipRole | null) {
   })
 }
 
+/**
+ * Serves the platform audit log through `respond`, and an empty platform member list.
+ * @returns Every audit-log URL requested, in order.
+ */
 function mockLog(respond: (url: URL) => Response) {
   const seen: URL[] = []
   server.use(
@@ -83,10 +88,12 @@ function mockTenantSearch(respond: (q: string | null) => Response | Promise<Resp
   return terms
 }
 
+/** A tenant search answer holding `tenants`, with no further pages. */
 function tenantPage(tenants: PlatformTenantRow[]) {
   return ok({ tenants, nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
 }
 
+/** Mounts the real route tree at `/activity`; returns the router. */
 function renderPlatformActivity() {
   const router = createRouter({
     routeTree,
@@ -143,7 +150,7 @@ describe('platform activity page', () => {
     const seen = mockLog(() => ok({ entries: [], nextCursor: null }, 'Audit log retrieved.'))
     const router = renderPlatformActivity()
 
-    // The guard redirects before the page mounts; the no-access heading is the barrier that any request from /activity would already have gone out by.
+    // The guard redirects before the page mounts, so reaching the no-access heading means any /activity request would already have gone out.
     expect(
       await screen.findByRole('heading', { name: 'This account has no platform access', level: 1 })
     ).toBeInTheDocument()
@@ -216,7 +223,7 @@ describe('platform activity page', () => {
     })
   })
 
-  // A visible label is part of the control, not a decoration next to it: clicking the WORDS must toggle the switch too.
+  // A visible label is part of the control: clicking its words must toggle the switch too.
   it('toggles the Staff only switch by clicking its label text', async () => {
     signInAs('owner')
     const seen = mockLog(() => ok({ entries: [STAFF_VISIT], nextCursor: null }, 'Audit log.'))
@@ -242,7 +249,7 @@ describe('platform activity page', () => {
     await screen.findByText(/opened this tenant/)
 
     await user.type(await openTenantFilter(user), 'acm')
-    // Pick from the settled `acm` answer, not from the empty-term list the debounced search replaces: Globex is only in the empty-term list.
+    // Pick from the settled `acm` answer, not the empty-term list the debounced search replaces; Globex is only in that list.
     await waitFor(() => {
       expect(terms.at(-1)).toBe('acm')
     })
@@ -265,7 +272,7 @@ describe('platform activity page', () => {
     expect(await openTenantFilter(user)).toHaveValue('')
   })
 
-  // A pick made while the next search is in flight lands on an option that is still there: the earlier results stay listed until the new ones arrive.
+  // A pick made while the next search is in flight lands on an option that is still there, because the earlier results stay listed until the new ones arrive.
   it('keeps the earlier results pickable while the next search is in flight', async () => {
     signInAs('admin')
     const seen = mockLog(() => ok({ entries: [STAFF_VISIT], nextCursor: null }, 'Audit log.'))
@@ -302,7 +309,7 @@ describe('platform activity page', () => {
     }
   })
 
-  // The empty state can't say a search is running when there's nothing empty about the list: the earlier results are still sitting there.
+  // The empty state cannot announce a running search because the list is not empty: the earlier results are still listed.
   it('shows a searching status while the earlier results are still listed', async () => {
     signInAs('admin')
     mockLog(() => ok({ entries: [STAFF_VISIT], nextCursor: null }, 'Audit log.'))
@@ -321,7 +328,7 @@ describe('platform activity page', () => {
 
     const searchBox = await openTenantFilter(user)
     expect(await screen.findByRole('option', { name: 'Globex' })).toBeInTheDocument()
-    // The status region is mounted at rest too, with nothing to announce yet: a screen reader needs it present before there's ever anything to say, not created the first time there is.
+    // The status region is mounted at rest, empty: a screen reader needs it present before it has anything to announce.
     const status = document.querySelector('p[role="status"]')
     if (!status) throw new Error('no status region')
     expect(status).toBeEmptyDOMElement()
@@ -334,7 +341,7 @@ describe('platform activity page', () => {
       // The `acm` answer is held, so these are still the empty-term results.
       expect(screen.getByRole('option', { name: 'Globex' })).toBeInTheDocument()
       expect(status).toHaveTextContent('Searching…')
-      // The same node, not a fresh one: it never unmounted to say this.
+      // The same node, not a fresh one, so the region never unmounted to announce this.
       expect(document.querySelector('p[role="status"]')).toBe(status)
     } finally {
       releaseAcm()
@@ -344,7 +351,7 @@ describe('platform activity page', () => {
       expect(status).toBeEmptyDOMElement()
     })
     expect(document.querySelector('p[role="status"]')).toBe(status)
-    // Proves the `acm` answer actually landed, not just that Acme (in both lists) is still there.
+    // Proves the `acm` answer landed, not just that Acme, which is in both lists, is still there.
     expect(screen.queryByRole('option', { name: 'Globex' })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Acme Corp' })).toBeInTheDocument()
   })
@@ -417,11 +424,9 @@ describe('platform activity page', () => {
     })
   })
   /**
-   * Closed, nothing shows the term, and the trigger still says "Any
-   * tenant": reopening must not bring back a filtered list nobody can see
-   * the reason for. Base UI clears an input that sits inside the popup
-   * when the popup closes; this pins that, so moving the input or
-   * swapping the primitive keeps it.
+   * Closed, nothing shows the term and the trigger still says "Any tenant", so reopening must not bring
+   * back a filtered list nobody can see the reason for. Base UI clears an input that sits inside the
+   * popup when the popup closes; this pins that against moving the input or swapping the primitive.
    */
   it('clears an unpicked search when the filter closes', async () => {
     signInAs('admin')

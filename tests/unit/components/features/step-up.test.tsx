@@ -65,6 +65,7 @@ function Harness() {
   )
 }
 
+/** Mounts `Harness` inside `StepUpProvider` with a query client that does not retry. */
 function renderHarness() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
@@ -101,6 +102,7 @@ describe('useStepUp', () => {
   })
 
   it('throws outside <StepUpProvider>', () => {
+    /** Calls the hook with no provider above it. */
     function Orphan() {
       useStepUp()
       return null

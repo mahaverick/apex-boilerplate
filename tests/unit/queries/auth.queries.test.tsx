@@ -12,6 +12,7 @@ import {
 import { ok } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
+/** A provider around a fresh client that does not retry mutations. */
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider
@@ -22,7 +23,7 @@ function wrapper({ children }: { children: ReactNode }) {
   )
 }
 
-/** Record the JSON body of the next POST to `path`. */
+/** Records the JSON body of the next POST to `path`; the returned object's `body` is set when it lands. */
 function captureBody(path: string): { body?: unknown } {
   const seen: { body?: unknown } = {}
   server.use(
@@ -60,7 +61,7 @@ describe('Apex auth mutations send app: "apex"', () => {
 })
 
 describe('useRevokeOtherSessions', () => {
-  // The API spares only the chain its refresh cookie names: without the cookie it keeps the whole session, the caller's other tabs' siblings included.
+  // With the refresh cookie the API spares only the chain it names; without it, the whole calling session is kept, sibling chains included.
   it('posts an empty JSON body with credentials, so the refresh cookie travels, and answers the count', async () => {
     const seen: { body?: string; contentType?: string | null; credentials?: string } = {}
     server.use(

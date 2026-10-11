@@ -13,13 +13,13 @@ import { server } from '@/tests/mocks/server'
 import { ACCESS_TOKEN_EXPIRED, REAUTH_REQUIRED, type ApiSuccess } from '@/types/api.types'
 
 /**
- * Handlers below that 401 unconditionally stop after this many attempts. If
- * `_retried` ever regresses, the retry loop is unbounded: the reviewer's run
- * hit 400+ attempts and had to be killed. Capping the HANDLER turns that into
- * a fast assertion failure instead of a wedged CI worker.
+ * Handlers below that 401 unconditionally stop after this many attempts. If `_retried` regressed, the
+ * retry loop would be unbounded; capping the handler turns that into a fast assertion failure instead
+ * of a wedged CI worker.
  */
 const RETRY_CAP = 5
 
+/** An axios client with the app's interceptors installed, as `client.ts` builds the real one. */
 function makeClient() {
   const client = axios.create({ baseURL: '/api/v1', withCredentials: true })
   installInterceptors(client)
@@ -40,11 +40,10 @@ describe('auth interceptors', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   /**
-   * jsdom's window.location is unforgeable, so assign() cannot be spied on.
-   *
-   * The spread copies the real location's fields; `href`, `pathname`,
-   * `search` and `hash` are then set explicitly so the stub carries the
-   * test's own URL, which `redirectToLogin` reads to build `?redirect=`.
+   * Replaces `location` with a stub whose `assign` is a spy, because jsdom's `window.location` is
+   * unforgeable. `href`, `pathname`, `search` and `hash` are set to the given URL, which
+   * `redirectToLogin` reads to build `?redirect=`.
+   * @returns The `assign` spy.
    */
   function stubLocation(pathname = '/widgets', search = '', hash = '') {
     const assign = vi.fn()
@@ -148,7 +147,7 @@ describe('auth interceptors', () => {
 
   it('does not retry a 401 that lacks the expiry code', async () => {
     useAuthStore.getState().login('tok', testUser)
-    // That 401 is now a verdict, which navigates; keep jsdom's navigation stub quiet.
+    // That 401 is a verdict, which navigates; the stub keeps jsdom's navigation quiet.
     stubLocation()
     let attempts = 0
     server.use(
@@ -178,10 +177,9 @@ describe('auth interceptors', () => {
     expect(attempts).toBe(2)
   })
   /**
-   * The forced logout carries the caller's whole location, query and all:
-   * `_app`'s guard already writes `?redirect=` on the navigations it blocks
-   * and login.tsx already consumes it, so a forced logout that dropped it
-   * would be the one door into /login that forgets where the user was.
+   * The forced logout carries the caller's whole location, query and all: `_app`'s guard writes
+   * `?redirect=` on the navigations it blocks and login.tsx consumes it, so a forced logout that dropped
+   * it would be the one way into /login that forgets where the user was.
    */
   it('redirects to the login page, preserving the location, when the refresh fails', async () => {
     useAuthStore.getState().login('stale', testUser)
@@ -230,10 +228,9 @@ describe('auth interceptors', () => {
   })
 
   /**
-   * The mirror of the test above: when the refresh could not REACH the
-   * API, the session was never judged, so the store still holds it, and
-   * navigating to /login here would throw the user out of a session that
-   * is still valid.
+   * The mirror of the test above: when the refresh could not reach the API, the session was never
+   * judged, so the store still holds it, and navigating to /login would throw the user out of a session
+   * that is still valid.
    */
   it('does not redirect when the refresh could not reach the API', async () => {
     useAuthStore.getState().login('live-token', testUser)
@@ -255,7 +252,7 @@ describe('auth interceptors', () => {
     expect(useAuthStore.getState().accessToken).toBe('live-token')
   })
 
-  // The redirect follows the same rule as the logout, and has to: a session left intact by session.ts but bounced to /login from here is signed out just the same, only through a different door.
+  // The redirect follows the same rule as the logout: a session left intact by session.ts but bounced to /login from here is signed out just the same.
   it.each(NON_VERDICT_FAILURES)('does not redirect on %s', async (_label, respond) => {
     useAuthStore.getState().login('live-token', testUser)
     const assign = stubLocation()

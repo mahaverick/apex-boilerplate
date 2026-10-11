@@ -19,6 +19,7 @@ import type { OnboardingFunnel, OnboardingTenantPage } from '@/types/api.types'
 /** Every tile's label, then its value, then its note, in page order. */
 async function tiles(): Promise<[string, string, string][]> {
   const region = await screen.findByRole('region', { name: 'Onboarding figures' })
+  /** The text of a card's `slot`, or empty when the card lacks it. */
   const text = (card: Element, slot: string) =>
     card.querySelector(`[data-slot="${slot}"]`)?.textContent ?? ''
   return [...region.querySelectorAll('[data-slot="card"]')].map((card) => [
@@ -28,6 +29,10 @@ async function tiles(): Promise<[string, string, string][]> {
   ])
 }
 
+/**
+ * Answers the onboarding funnel with `funnel` laid over the default.
+ * @returns The `range` of each request, in order.
+ */
 function serveFunnel(funnel: Partial<OnboardingFunnel> = {}) {
   const ranges: string[] = []
   server.use(
@@ -97,7 +102,7 @@ describe('/onboarding', () => {
     it('draws the staff share in its own colour at the end of the bar', async () => {
       renderAppAt('/onboarding')
       const funnel = await screen.findByRole('figure', { name: 'Onboarding funnel' })
-      // The first step's bar: the list is hidden from assistive tech, so it is found by its markup.
+      // The first step's bar is found by its markup because the list is hidden from assistive tech.
       const bar = funnel.querySelector('li .rounded-full')
       const [completed, staff] = [...(bar?.children ?? [])] as HTMLElement[]
       expect(completed?.style.width).toBe('65%')

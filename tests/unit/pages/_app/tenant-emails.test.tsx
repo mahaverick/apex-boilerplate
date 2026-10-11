@@ -8,6 +8,7 @@ import { emailSummary, fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type { PlatformTenantDetail, TenantLifecycleState } from '@/types/api.types'
 
+/** Acme's platform detail in `lifecycleState`; archived carries its `deletedAt`. */
 function detail(lifecycleState: TenantLifecycleState = 'active'): PlatformTenantDetail {
   return {
     id: TENANT_ID,

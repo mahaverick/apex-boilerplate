@@ -8,6 +8,7 @@ import { report } from '@/observability/errors/report'
 
 vi.mock('@/observability/errors/report', () => ({ report: vi.fn() }))
 
+/** A child that throws while rendering, for the boundary to contain. */
 function Explodes(): never {
   throw new Error('chart exploded')
 }

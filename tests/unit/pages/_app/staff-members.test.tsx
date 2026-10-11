@@ -20,9 +20,9 @@ import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
 /**
- * A gate the members card's `navigate` waits on before navigating, so a test
- * can hold a navigation between its call and its resolution. Open by default:
- * every other test navigates as the real router does.
+ * A gate the members card's `navigate` waits on before navigating, so a test can hold a navigation
+ * between its call and its resolution. It is open (null) by default, so every other test navigates as
+ * the real router does.
  */
 const navigation = vi.hoisted(() => ({ gate: null as Promise<void> | null }))
 
@@ -63,7 +63,7 @@ afterEach(() => {
 const LEAVE_PLATFORM =
   'You lose staff access immediately. An owner or admin will have to invite you back, unless your address is on an auto-join domain: then you rejoin as a viewer at your next sign-in.'
 
-/** Added for a platform owner or admin. */
+/** What the Leave dialog adds about invitations for a platform owner or admin. */
 const PLATFORM_INVITATIONS_REVOKED =
   'Pending invitations you sent here are revoked, and so are any you sent in other tenants for a role you can no longer grant there.'
 
@@ -88,8 +88,8 @@ const PLATFORM = {
 }
 
 /**
- * One platform member row. `active` is express 2.1.0's flag (false for a
- * deactivated account); left out, the row is as an older API lists it.
+ * One platform member row. `active` is express 2.1.0's flag, false for a deactivated account; left out,
+ * the row is as an older API lists it.
  */
 function staff(
   id: string,
@@ -118,8 +118,8 @@ function staff(
 }
 
 /**
- * Me (`USER_ID`, `testUser`) at `myRole`, and Otto (`USER_ID_2`) at
- * `ottoRole`, each with the `active` flag given, or none.
+ * Signs in and serves the platform tenant with Me (`USER_ID`, `testUser`) at `myRole` and Otto
+ * (`USER_ID_2`) at `ottoRole`, each with the `active` flag given, or none.
  */
 function serveStaff(
   myRole: MembershipRole,
@@ -343,12 +343,14 @@ describe('/staff with the real sections', () => {
   it('drops the platform tenant’s cache only once the navigation away has finished', async () => {
     serveStaff('owner', 'owner')
     serveFormerStaff()
+    /** Opens the held navigation. */
     let release = () => {}
     navigation.gate = new Promise<void>((resolve) => {
       release = resolve
     })
     let hasLeft = false
     const afterLeaving: string[] = []
+    /** Notes each request made once the leave has landed. */
     const record = ({ request }: { request: Request }) => {
       if (hasLeft) afterLeaving.push(`${request.method} ${new URL(request.url).pathname}`)
     }

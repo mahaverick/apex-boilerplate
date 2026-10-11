@@ -23,9 +23,8 @@ import { useServerErrors } from '@/hooks/use-server-errors'
 const VERDICT = 'That role is not yours to grant.'
 
 /**
- * A form with one Base UI Select field, wired the way `form.tsx` tells a page
- * to wire one. `clearsOwnField` is the page's `clearField` call in
- * `onValueChange`; turning it off shows why the call is needed.
+ * A form with one Base UI Select field, wired the way `form.tsx` tells a page to wire one.
+ * `clearsOwnField` is the page's `clearField` call in `onValueChange`; turning it off shows why the call is needed.
  */
 function SelectFixture({ clearsOwnField }: { clearsOwnField: boolean }) {
   const serverErrors = useServerErrors()
@@ -67,6 +66,7 @@ function SelectFixture({ clearsOwnField }: { clearsOwnField: boolean }) {
   )
 }
 
+/** Submits so the server refuses `role`, then picks Editor in the Select. */
 async function pickEditorAfterAVerdict(clearsOwnField: boolean) {
   const user = userEvent.setup()
   render(<SelectFixture clearsOwnField={clearsOwnField} />)

@@ -69,9 +69,8 @@ const PLATFORM_DETAIL: PlatformTenantDetail = {
 }
 
 /**
- * The tenant page's own read, which every test here needs whatever else it
- * mocks, and an empty pending list, which apex has no default handler for; a
- * test about invitations overrides it.
+ * The tenant page's own read, which every test here needs, and an empty pending-invitations list,
+ * which Apex has no default handler for; a test about invitations overrides the list.
  */
 function mockPlatformDetail() {
   server.use(
@@ -111,6 +110,7 @@ function member(id: string, role: MembershipRole, firstName: string) {
 /** `testUser.id` is `USER_ID`, so this is always "me". */
 const ME = USER_ID
 
+/** Serves the tenant and its member list, with the signed-in user holding `myRole` as a member. */
 function mockTenant(myRole: MembershipRole, members: TenantMember[]) {
   mockPlatformDetail()
   server.use(
@@ -123,10 +123,10 @@ function mockTenant(myRole: MembershipRole, members: TenantMember[]) {
 const LEAVE_CUSTOMER = 'You stop being a member of this tenant. You keep your staff access to it.'
 
 /**
- * Me at `myRole` among `others` until `DELETE …/membership` lands; after it,
- * the tenant answers as express does once the membership is gone: Me reaches
- * it through platform access (`testUser` is a platform admin) and is no
- * longer listed. Returns how many leaves were sent.
+ * Serves Me at `myRole` among `others` until `DELETE …/membership` lands. After it the tenant answers
+ * as express does once the membership is gone: Me reaches it through platform access (`testUser` is a
+ * platform admin) and is not listed.
+ * @returns A counter whose `left` is how many leaves were sent.
  */
 function serveLeaving(myRole: MembershipRole, others: ReturnType<typeof member>[]) {
   const state = { left: 0 }
@@ -158,8 +158,9 @@ async function rowFor(name: string) {
 }
 
 /**
- * `tests/setup.ts`'s `matchMedia` stub answers `useIsMobile`'s `max-width`
- * query from `window.innerWidth`, so setting the width is what decides.
+ * Picks the viewport `useIsMobile` reports: the `matchMedia` stub in `tests/setup.ts` answers its
+ * `max-width` query from `window.innerWidth`.
+ * @param width - In pixels.
  */
 function setViewportWidth(width: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
@@ -213,7 +214,7 @@ describe('members tab permissions', () => {
     renderAppAt(`/tenants/${TENANT_ID}/members`)
 
     const vic = await rowFor('Vic')
-    // Role CHANGE is owner-only — the route is gated requireRole('owner') — even though the matrix lets this admin REMOVE the same viewer.
+    // Role change is owner-only (the route is gated by requireRole('owner')), though the matrix lets this admin remove the same viewer.
     expect(vic.queryByRole('combobox')).not.toBeInTheDocument()
     expect(vic.getByRole('button', { name: 'Remove' })).toBeEnabled()
 
@@ -223,7 +224,7 @@ describe('members tab permissions', () => {
     const amy = await rowFor('Amy')
     expect(amy.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
 
-    // Their own admin membership is never Remove, which the matrix refuses; it is Leave, which every role has.
+    // An admin's own membership is never Remove, which the matrix refuses; it is Leave, which every role has.
     const me = await rowFor('Me')
     expect(me.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
     expect(me.getByRole('button', { name: 'Leave' })).toBeEnabled()
@@ -236,7 +237,7 @@ describe('members tab permissions', () => {
 
     await user.click(await screen.findByRole('combobox', { name: 'Role' }))
     const options = (await screen.findAllByRole('option')).map((option) => option.textContent)
-    // canActorGrantRole: an admin may grant anything EXCEPT owner and admin.
+    // canActorGrantRole: an admin may grant anything except owner and admin.
     expect(options).toEqual(['Manager', 'Editor', 'Viewer'])
   })
 
@@ -284,10 +285,10 @@ describe('members tab permissions', () => {
     renderAppAt(`/tenants/${TENANT_ID}/members`)
 
     const me = await rowFor('Me')
-    // The backend answers 409 here. The UI must not invite that error.
+    // The backend answers 409 here, so the UI must not offer the action.
     expect(me.getByRole('combobox', { name: 'Role for Me X' })).toBeDisabled()
     expect(me.getByRole('button', { name: 'Leave' })).toBeDisabled()
-    // ONCE per row, not once per disabled control: the Leave button points at the role cell's copy through aria-describedby rather than repeating the same sentence underneath itself.
+    // Once per row, not once per disabled control: the Leave button points at the role cell's copy through aria-describedby.
     expect(
       me.getAllByText('A tenant must always have an owner. Add another owner first.')
     ).toHaveLength(1)
@@ -322,10 +323,9 @@ describe('members tab permissions', () => {
   })
 
   /**
-   * At 390px the four-column table scrolls horizontally and puts both the
-   * Actions column and the last-owner explanation past the right edge. The
-   * card path is ONE render path chosen in JS, not a CSS `sm:hidden` pair:
-   * two paths in the DOM would mean two role selects sharing one id.
+   * At 390px the four-column table scrolls horizontally and puts the Actions column and the last-owner
+   * explanation past the right edge. The card layout is one render path chosen in JS, not a CSS
+   * `sm:hidden` pair, because two paths in the DOM would mean two role selects sharing one id.
    */
   it('stacks members as cards on a phone, so no control sits off-screen', async () => {
     setViewportWidth(390)
@@ -340,9 +340,8 @@ describe('members tab permissions', () => {
   })
 
   /**
-   * A header row over nothing is the "blank void for no data" tell. The
-   * error branch above still runs FIRST: [] means "no members" only once
-   * we know the request answered.
+   * A header row over nothing reads as a blank void. The error branch above still runs first: an empty
+   * list means "no members" only once the request is known to have answered.
    */
   it('says the list is empty rather than showing a bare table header', async () => {
     mockTenant('owner', [])
@@ -357,10 +356,9 @@ describe('members tab permissions', () => {
   })
 
   /**
-   * The role's error state, reachable only through a failed refetch. A FIRST load
-   * that fails is the layout's error boundary, so the tab never mounts. A
-   * REFETCH that fails keeps the cached row, the layout keeps rendering, and
-   * the tab has to say what it no longer knows instead of spinning a skeleton.
+   * The role's error state is reachable only through a failed refetch: a first load that fails is the
+   * layout's error boundary, so the tab never mounts. A failed refetch keeps the cached row and the
+   * layout rendering, so the tab has to say what it does not know instead of showing a skeleton.
    */
   it('renders an error with a working retry when the role cannot be refreshed', async () => {
     let detailFails = false
@@ -396,7 +394,7 @@ describe('members tab permissions', () => {
     detailFails = false
     await user.click(within(alert).getByRole('button', { name: 'Try again' }))
 
-    // A NEW detail request, and the controls it gates come back with it.
+    // A new detail request, and the controls it gates come back with it.
     await waitFor(() => {
       expect(detailCalls).toBeGreaterThan(before)
     })
@@ -405,9 +403,8 @@ describe('members tab permissions', () => {
   })
 
   /**
-   * The retry has to reach THE QUERY THAT FAILED, and the only proof of that
-   * is a new request on the wire, counted. The members failure's retry must
-   * refetch the members and leave the tenant detail (the role's source)
+   * The retry has to reach the query that failed, and the proof is a new request on the wire, counted:
+   * the members failure's retry refetches the members and leaves the tenant detail, the role's source,
    * untouched.
    */
   it('retries the MEMBER LIST, not the tenant detail, when the members are what failed', async () => {
@@ -465,7 +462,7 @@ describe('members tab permissions', () => {
       })
     })
 
-    // Stacked rather than chained: picking one branch would mean picking a winner whose retry cannot fix the loser.
+    // Both alerts show at once: showing only one would leave a failure whose retry cannot fix the other.
     await waitFor(() => {
       expect(screen.getAllByRole('alert')).toHaveLength(2)
     })
@@ -646,7 +643,7 @@ describe('removing and leaving', () => {
 
     expect(await screen.findByText('You left this tenant.')).toBeInTheDocument()
     expect(state.left).toBe(1)
-    // The refetched list no longer has Me, and the card has switched to the staff controls.
+    // The refetched list lacks Me, and the card shows the staff controls.
     await waitFor(() =>
       expect(screen.queryByRole('cell', { name: /Me X/ })).not.toBeInTheDocument()
     )
@@ -705,6 +702,7 @@ describe('removing and leaving', () => {
 
   it('switches Leave off while the leave is in flight, so a second click sends nothing', async () => {
     let left = 0
+    /** Lets the held DELETE answer. */
     let release = () => {}
     const held = new Promise<void>((resolve) => {
       release = resolve
@@ -738,6 +736,7 @@ describe('removing and leaving', () => {
   it('keeps the tenant’s cache and refetches it, since staff access still reads it', async () => {
     const state = serveLeaving('viewer', [member(USER_ID_4, 'owner', 'Otto')])
     const afterLeaving: string[] = []
+    /** Notes each request made once the leave has landed. */
     const record = ({ request }: { request: Request }) => {
       if (state.left > 0) afterLeaving.push(`${request.method} ${new URL(request.url).pathname}`)
     }
@@ -905,14 +904,14 @@ describe('the invite form role select', () => {
 
     const trigger = await screen.findByRole('combobox', { name: 'Role' })
     const label = screen.getByText('Role', { selector: 'label' })
-    // `FormControl`'s id lands on the Select's trigger BUTTON, so the label points at a visible control.
+    // `FormControl`'s id lands on the Select's trigger button, so the label points at a visible control.
     expect(label).toHaveAttribute('for', trigger.id)
     expect(trigger.tagName).toBe('BUTTON')
   })
 
   it('clears the server’s verdict on the role when the select changes', async () => {
     server.use(
-      // A field-level verdict on `role`, which is what the clearing rule is about. `fail()` carries no `errors` map, so this one is built here.
+      // A field-level verdict on `role`, which the clearing rule is about; `fail()` carries no `errors` map, so it is built here.
       http.post('/api/v1/tenants/acme/invitations', () =>
         HttpResponse.json(
           {
@@ -933,12 +932,7 @@ describe('the invite form role select', () => {
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
     await screen.findByText('That role is not yours to grant.')
 
-    /**
-     * Base UI's selection does NOT bubble a change event to the <form>, so
-     * <Form>'s own clearing rule never fires for this control — the page
-     * calls clearField by hand. Without that line this message would sit
-     * there while the user changed the very field it is about.
-     */
+    // Base UI's selection does not bubble a change event to the <form>, so <Form>'s clearing rule never fires; the page calls clearField by hand.
     await user.click(screen.getByRole('combobox', { name: 'Role' }))
     await user.click(await screen.findByRole('option', { name: 'Editor' }))
 
@@ -988,7 +982,7 @@ describe('inviting, and the pending invitations', () => {
     await user.type(await screen.findByLabelText('Email'), 'New-Member@Example.com')
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
 
-    // The 202 is the same for every address, so the toast names what was sent.
+    // The 202 is the same for every address, so the toast names the address sent.
     expect(
       await screen.findByText('Invitation sent to new-member@example.com.')
     ).toBeInTheDocument()
@@ -1014,10 +1008,10 @@ describe('inviting, and the pending invitations', () => {
       expect(email).toHaveAccessibleDescription('That person is already a member.')
     })
     expect(email).toHaveAttribute('aria-invalid', 'true')
-    // Once: inline. A toast as well would say the same thing twice.
+    // Shown once, inline; a toast as well would say the same thing twice.
     expect(screen.getAllByText('That person is already a member.')).toHaveLength(1)
 
-    // Changing the address clears it, like any other server verdict.
+    // Changing the address clears it, as it does any server verdict.
     await user.type(email, 'x')
     await waitFor(() => {
       expect(screen.queryByText('That person is already a member.')).not.toBeInTheDocument()
@@ -1100,7 +1094,7 @@ describe('inviting, and the pending invitations', () => {
     )
     expect(first.getByText('Editor · Invited by A B')).toBeInTheDocument()
     expect(first.getByText(/^Expires /)).toBeInTheDocument()
-    // An inviter whose account is gone is `null`, not a crash.
+    // An inviter whose account is gone is `null` and renders as a teammate.
     const second = within(screen.getByText('old-invite@example.com').closest('li') as HTMLElement)
     expect(second.getByText('Viewer · Invited by A teammate')).toBeInTheDocument()
   })
@@ -1118,7 +1112,7 @@ describe('inviting, and the pending invitations', () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () => {
         calls += 1
-        // Two failures: the router's client retries once by itself.
+        // Two failures, because the query retries once by itself.
         return calls <= 2
           ? fail('Something went wrong.', 500)
           : ok([testInvitation], 'Invitations retrieved.')
@@ -1173,7 +1167,7 @@ describe('inviting, and the pending invitations', () => {
   })
 
   it('shows the server’s message when a resend is refused, e.g. a 403', async () => {
-    // Offered to an owner, and refused anyway: the server has the last word.
+    // Offered to an owner and refused anyway: the server has the last word.
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
         ok(
@@ -1324,7 +1318,7 @@ describe('inviting, and the pending invitations', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Revoke invitation to invited@example.com' })
     )
-    // The app's AlertDialog, not a browser confirm().
+    // The app's AlertDialog, not a browser `confirm()`.
     const dialog = await screen.findByRole('alertdialog')
     expect(dialog).toHaveAccessibleName('Revoke the invitation to invited@example.com?')
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
@@ -1419,7 +1413,7 @@ describe('inviting, and the pending invitations', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Revoke' }))
 
     expect(await screen.findByText('That invitation is no longer pending.')).toBeInTheDocument()
-    // Someone else revoked or it was accepted: the row goes either way.
+    // Whether someone else revoked it or it was accepted, the row goes.
     expect(
       await screen.findByText('No invitations are waiting to be accepted.')
     ).toBeInTheDocument()
@@ -2048,7 +2042,7 @@ describe('staff acting through platform access', () => {
   it('switches to the staff controls when a member write finds the membership gone', async () => {
     let detailCalls = 0
     server.use(
-      // The first read is from before the caller's membership went; express now answers through platform access.
+      // The first read predates the loss of the caller's membership; later reads answer through platform access.
       http.get('/api/v1/tenants/acme', () => {
         detailCalls += 1
         return ok(
@@ -2076,6 +2070,7 @@ describe('staff acting through platform access', () => {
   })
 
   it('says why a member write was refused without waiting for the access refresh', async () => {
+    /** Lets the held access refresh answer. */
     let release = () => {}
     const held = new Promise<void>((resolve) => {
       release = resolve
@@ -2115,9 +2110,8 @@ describe('staff acting through platform access', () => {
 
 describe('a write that finds the member already gone', () => {
   /**
-   * How express says the target is not a member: from 2.1.0 the
-   * `member_not_found` code (here with another wording, so the code alone
-   * decides), and before it the bare `Member not found` message.
+   * How express says the target is not a member: the `member_not_found` code from 2.1.0 (worded
+   * differently here, so the code alone decides), and the bare `Member not found` message before it.
    */
   const GONE_REPLIES = {
     code: () => fail('That user is not in this tenant.', 404, 'member_not_found'),
@@ -2125,8 +2119,8 @@ describe('a write that finds the member already gone', () => {
   } as const
 
   /**
-   * Serves Vic until the first write lands; after it, the list express
-   * answers no longer has them. Returns how many member lists were read.
+   * Serves Vic until the first write lands; after it, the list lacks them.
+   * @returns A counter whose `listReads` is how many member lists were read.
    */
   function serveDeparture(asStaff: boolean, reply: () => Response = GONE_REPLIES.message) {
     const state = { gone: false, listReads: 0 }

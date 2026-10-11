@@ -42,6 +42,7 @@ const CLEO = {
   membershipCount: 1,
 }
 
+/** Mounts the palette beside a stub route for every page it can open, starting at `/overview`; returns the router. */
 function renderPalette() {
   const rootRoute = createRootRoute({
     component: () => (
@@ -67,7 +68,7 @@ function renderPalette() {
     history: createMemoryHistory({ initialEntries: ['/overview'] }),
   })
   const queryClient = new QueryClient({
-    // The palette's query sets its own `retry`; a zero delay keeps the 500 case fast.
+    // The palette's queries set their own `retry`, which wins over `retry: false`; a zero delay keeps the 500 case fast.
     defaultOptions: { queries: { retry: false, retryDelay: 0 } },
   })
   render(
@@ -82,7 +83,7 @@ describe('CommandPalette', () => {
   beforeEach(() => {
     useAuthStore.setState({ user: { ...testUser, platformRole: 'viewer' }, isAuthenticated: true })
     useCommandPaletteStore.setState({ open: false })
-    // Every search asks for both; a test's own `server.use` still wins.
+    // Every search asks for both lists; a test's own `server.use` still wins.
     server.use(
       http.get('/api/v1/platform/users', () =>
         ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
@@ -295,6 +296,7 @@ describe('CommandPalette', () => {
   it('ignores a shortcut something else already handled', async () => {
     renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
+    /** Stands in for another handler that claims the shortcut by calling `preventDefault`. */
     const claim = (event: Event) => event.preventDefault()
     window.addEventListener('keydown', claim, { capture: true })
     try {

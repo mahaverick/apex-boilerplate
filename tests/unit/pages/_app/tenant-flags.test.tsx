@@ -11,6 +11,7 @@ import type { PlatformTenantDetail, TenantLifecycleState } from '@/types/api.typ
 
 const FLAGS = `/tenants/${TENANT_ID}/flags`
 
+/** Acme's platform detail in `lifecycleState`. */
 function platformDetail(lifecycleState: TenantLifecycleState = 'active'): PlatformTenantDetail {
   return {
     id: TENANT_ID,
@@ -68,6 +69,7 @@ function serve(lifecycleState: TenantLifecycleState = 'active') {
   return seen
 }
 
+/** The text of each link in the tenant page's section navigation, in order. */
 function tabLabels() {
   const nav = screen.getByRole('navigation', { name: 'Tenant sections' })
   return within(nav)

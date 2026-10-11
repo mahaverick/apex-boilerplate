@@ -28,6 +28,7 @@ vi.mock('@/observability/analytics/analytics', async (importOriginal) => ({
   track: (event: string, props: unknown) => tracked.events.push([event, props]),
 }))
 
+/** The properties of each tracked event called `name`; `undefined` for an event sent with none. */
 function eventsNamed(name: string): unknown[] {
   return tracked.events.filter(([event]) => event === name).map(([, props]) => props)
 }

@@ -9,7 +9,7 @@ import type {
   QueuePauseState,
 } from '@/types/api.types'
 
-/** The four queues `queue.service.ts` creates, running and idle. */
+/** The four queues `queue.service.ts` creates, all running, with two analytics jobs active. */
 const RUNNING_QUEUES: QueuePauseState[] = [
   { name: 'email', paused: false, active: 0 },
   { name: 'notification', paused: false, active: 0 },

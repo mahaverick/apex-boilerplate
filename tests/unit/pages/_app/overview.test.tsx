@@ -161,7 +161,7 @@ describe('/overview', () => {
     renderAppAt('/overview')
     const signups = await screen.findByRole('figure', { name: 'Sign-ups per day' })
     const emails = screen.getByRole('figure', { name: 'Emails per day' })
-    // recharts mounts under jsdom without a ResizeObserver: the SVG is there, and no WidgetBoundary caught a throw.
+    // Under jsdom, which has no ResizeObserver, recharts still mounts its SVG and no WidgetBoundary caught a throw.
     expect(screen.queryByText(/could not be shown/)).not.toBeInTheDocument()
     expect(signups.querySelector('svg.recharts-surface')).not.toBeNull()
     expect(emails.querySelector('svg.recharts-surface')).not.toBeNull()
@@ -172,7 +172,7 @@ describe('/overview', () => {
         .getAllByRole('columnheader')
         .map((cell) => cell.textContent)
     ).toEqual(['Day', 'Users', 'Tenants'])
-    // Five disjoint groups by current status: each email is in exactly one column.
+    // Five disjoint groups by current status, so each email is in exactly one column.
     expect(
       within(emailTable)
         .getAllByRole('columnheader')
@@ -203,6 +203,7 @@ describe('/overview', () => {
   })
 
   it('keeps the current figures up, not skeletons, while the next window loads', async () => {
+    /** Lets the held 30-day request answer. */
     let release: () => void = () => {}
     const gate = new Promise<void>((resolve) => {
       release = resolve
@@ -271,7 +272,7 @@ describe('/overview', () => {
     expect(await screen.findByText(/Your role can’t see this any more/)).toBeInTheDocument()
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
 
-    // Reloading re-runs the guards, which is what moves a demoted user on; stubbed only now, so the router mounted on the real location.
+    // Reloading re-runs the guards, which moves a demoted user on; `location` is stubbed only at this point so the router mounted on the real one.
     const reload = vi.fn()
     vi.stubGlobal('location', { ...window.location, reload })
     await userEvent.setup().click(screen.getByRole('button', { name: 'Reload' }))
@@ -296,6 +297,7 @@ describe('the Overview’s system status card', () => {
     return seen
   }
 
+  /** The default status with `tracking` laid over its error-tracking section. */
   function withTracking(tracking: Partial<SystemStatus['errorTracking']>): SystemStatus {
     return {
       ...testSystemStatus,
@@ -368,7 +370,7 @@ describe('the Overview’s system status card', () => {
   })
 
   it('keeps the last status up, with a note, when a refresh fails', async () => {
-    // Only the interval is faked, so the next minute's refresh can be run now.
+    // Only the interval is faked, so the next minute's refresh can be run on demand.
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
     try {
       let calls = 0
@@ -380,7 +382,7 @@ describe('the Overview’s system status card', () => {
       const card = await screen.findByRole('region', { name: 'System status' })
       expect(await within(card).findByText(testSystemStatus.release)).toBeInTheDocument()
       vi.advanceTimersByTime(60_000)
-      // The failed refresh retries once, a second later, before it counts as failed.
+      // The failed refresh retries once after TanStack's default 1000 ms delay, in real time. The test takes about 1.4 s (three local runs), so 4000 ms is the wait budget.
       await vi.waitFor(
         () => expect(within(card).getByText(/Could not refresh/)).toBeInTheDocument(),
         { timeout: 4000 }

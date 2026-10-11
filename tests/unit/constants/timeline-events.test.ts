@@ -190,6 +190,7 @@ describe('timelineSentence', () => {
   })
 
   it('gives a row express did not sign a sentence only when it is a browser event', () => {
+    /** A row express did not sign, whatever its `fields` claim. */
     const forged = (event: string, fields: Partial<TimelineRow> = {}) =>
       timelineRow({ event, verified: false, path: null, ...fields })
     expect(

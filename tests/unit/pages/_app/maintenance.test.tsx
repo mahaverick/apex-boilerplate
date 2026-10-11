@@ -14,8 +14,9 @@ import { server } from '@/tests/mocks/server'
 import { REAUTH_REQUIRED, type PlatformMaintenanceModeView } from '@/types/api.types'
 
 /**
- * Serves the platform GET from `state.view` and answers each PUT with
- * `answer(body, n)` (n counts from 1); records every body sent.
+ * Serves the platform GET from `state.view` and answers each PUT with `answer(body, n)`, where `n` counts
+ * from 1.
+ * @returns The served state: `view`, which a test may reassign, and every PUT body sent.
  */
 function serve(
   initial: PlatformMaintenanceModeView,
@@ -39,6 +40,7 @@ function serve(
   return state
 }
 
+/** Signs in as `testUser` with `platformRole`. */
 function signInAs(platformRole: 'owner' | 'admin' | 'viewer') {
   signIn({ ...testUser, platformRole })
 }
@@ -60,6 +62,10 @@ async function touchMessage(user: ReturnType<typeof userEvent.setup>, dialog: HT
   await user.type(within(dialog).getByLabelText('Message for customers'), ' More soon.')
 }
 
+/**
+ * Mounts the Maintenance page and waits for its state card.
+ * @returns The `userEvent` instance for the test.
+ */
 async function openPage() {
   const user = userEvent.setup()
   renderAppAt('/maintenance')
@@ -204,7 +210,7 @@ describe('/maintenance', () => {
     await user.click(screen.getByRole('button', { name: 'Switch to read-only…' }))
     const dialog = await screen.findByRole('dialog', { name: 'Switch to read-only maintenance' })
     expect(within(dialog).queryByLabelText(/to confirm$/)).toBeNull()
-    // Not a switch-on: the reason now saved is pre-filled, and the hint says so.
+    // Not a switch-on, so the saved reason is pre-filled and the hint says so.
     expect(within(dialog).getByLabelText('Reason (optional)')).toHaveValue('Postgres 18 upgrade')
     expect(within(dialog).getByText(/It starts as the reason now saved\./)).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Message for customers')).toHaveValue(
@@ -267,6 +273,7 @@ describe('/maintenance', () => {
   })
 
   it('disables Cancel while the change is running', async () => {
+    /** Lets the held PUT answer. */
     let release: () => void = () => {}
     const gate = new Promise<void>((resolve) => {
       release = resolve
@@ -317,7 +324,7 @@ describe('/maintenance', () => {
         /^Someone changed maintenance mode while you were editing: it is now read-only, set by Ada Lovelace at /
       )
     ).toBeVisible()
-    // The page behind the modal dialog (hidden from the accessibility tree meanwhile) shows the state just read.
+    // The page behind the modal dialog, hidden from the accessibility tree meanwhile, shows the state just read.
     await waitFor(() =>
       expect(
         within(screen.getByRole('region', { name: 'Customer access', hidden: true })).getByText(
@@ -325,7 +332,7 @@ describe('/maintenance', () => {
         )
       ).toBeInTheDocument()
     )
-    // Read-only now, so keeping full is an escalation: a fresh reason replaces the pre-filled one, and the fresh version goes out.
+    // The state is read-only, so keeping full is an escalation: a fresh reason replaces the pre-filled one, and the fresh version goes out.
     await user.clear(within(dialog).getByLabelText('Reason'))
     await user.type(within(dialog).getByLabelText('Reason'), 'still migrating')
     await user.type(within(dialog).getByLabelText('Type staging to confirm'), 'staging')
@@ -354,7 +361,7 @@ describe('/maintenance', () => {
     await touchMessage(user, dialog)
     await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
     await within(dialog).findByText(/^Someone changed maintenance mode while you were editing/)
-    // Read-only now, so keeping full is an escalation: its hint is gone, so the old reason must not linger unseen.
+    // The state is read-only, so keeping full is an escalation: its hint is gone, so the old reason must not linger unseen.
     expect(within(dialog).getByLabelText('Reason')).toHaveValue('')
     expect(within(dialog).queryByText(/It starts as the reason now saved\./)).toBeNull()
     // The field was cleared, not matched to theirs, so the alert must not say it was.
@@ -731,7 +738,7 @@ describe('after a 409: a fresh read, the pre-filled message, the reason hint, an
     const dialog = await screen.findByRole('dialog', { name: 'Edit the customer message' })
     state.view = fullMaintenanceView({ version: 6, reason: 'Other owner: extended window' })
     await act(() => queryClient.refetchQueries({ queryKey: maintenanceModeKeys.view }))
-    // The page behind the modal dialog has taken the poll, so the dialog has its new view.
+    // The page behind the modal dialog has taken the poll, so the dialog has the new view.
     await waitFor(() =>
       expect(
         within(screen.getByRole('region', { name: 'Customer access', hidden: true })).getByText(
@@ -739,7 +746,7 @@ describe('after a 409: a fresh read, the pre-filled message, the reason hint, an
         )
       ).toBeInTheDocument()
     )
-    // The field still starts empty, so it does not start as the reason now saved.
+    // The field started empty, so it does not start as the reason the poll brought.
     expect(within(dialog).getByLabelText('Reason (optional)')).toHaveValue('')
     expect(within(dialog).getByText(HINT_BASE, { exact: true })).toBeInTheDocument()
   })

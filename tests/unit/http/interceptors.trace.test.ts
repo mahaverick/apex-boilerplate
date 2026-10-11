@@ -19,6 +19,7 @@ vi.mock('posthog-js', async () => {
 const TRACEPARENT = /^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/
 const SESSION_ID = '01a0fc35-b7fe-7546-a76f-fea28a1f3cbe'
 
+/** An axios client with the app's interceptors installed, as `client.ts` builds the real one. */
 function makeClient() {
   const client = axios.create({ baseURL: '/api/v1', withCredentials: true })
   installInterceptors(client)
@@ -122,6 +123,10 @@ describe('the session header and whose session it is', () => {
       useAuthStore.setState({ accessToken: null, user: null, isAuthenticated: false })
     })
 
+    /**
+     * Makes one request and reads the session-id header it carried.
+     * @returns The header's value, or null when none was sent.
+     */
     async function sent(): Promise<string | null | undefined> {
       const seen = echoHeaders('/api/v1/widgets')
       await makeClient().get('/widgets')

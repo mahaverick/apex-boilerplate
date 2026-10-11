@@ -17,6 +17,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** Mounts the real route tree at `/profile`; returns the router. */
 function renderProfile() {
   const router = createRouter({
     routeTree,
@@ -46,7 +47,7 @@ describe('profile page', () => {
     renderProfile()
 
     expect(await screen.findByText(testUser.email)).toBeInTheDocument()
-    // Computed with the same formatter rather than hard-coded: a UTC midnight renders as the previous day in a US-timezone runner.
+    // Computed with the same formatter, not hard-coded: a UTC midnight renders as the previous day on a runner in a US time zone.
     const expected = new Intl.DateTimeFormat(undefined, { dateStyle: 'long' }).format(
       new Date(testUser.createdAt)
     )
@@ -88,7 +89,7 @@ describe('profile page', () => {
     })
   })
 
-  /** A stored first name the name rule now refuses, saved before the rule existed. */
+  /** Stores a first name, with a zero-width space, that today's name rule refuses. */
   function mockLegacyName() {
     const legacy = { ...testUser, firstName: 'Ad\u{200B}a', lastName: 'Byron' }
     useAuthStore.setState({ user: legacy })

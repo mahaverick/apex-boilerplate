@@ -12,7 +12,7 @@ import { ROUTES } from '@/constants/routes'
 import type { BooleanClientFlagKey } from '@/observability/flags/flag-keys'
 import type { ClientFlagValues } from '@/observability/flags/flag-types'
 
-/** A flag key apex does not have: its slice is empty, so the type is `never`. */
+/** A flag key Apex does not have: its slice is empty, so the key type is `never` and this cast stands in for one. */
 const BETA = 'example_apex_beta' as BooleanClientFlagKey
 
 /** A flagged item and an unflagged one, for the filter alone. */
@@ -77,7 +77,11 @@ describe('navigation', () => {
     expect(NAV_ITEMS.filter((item) => item.flag !== undefined)).toEqual([])
   })
 
-  /** The labels `visibleNavItems` keeps from ITEMS; the cast lets a test key into apex's empty slice. */
+  /**
+   * The labels `visibleNavItems` keeps from `ITEMS`.
+   * @param flags - Flag values by key; cast because Apex's flag slice is empty.
+   * @returns The kept labels, in order.
+   */
   function visibleLabels(
     flags: Record<string, boolean | string>,
     role: 'viewer' | null = 'viewer'

@@ -83,10 +83,9 @@ function fieldOnlyFailure(): AxiosError {
 }
 
 /**
- * A form with nothing behind it, so the bridge itself is the subject rather
- * than a page's copy. `options` turns on the shapes that `<Form>` has to cope
- * with: a page that forgets `<FormError>`, a control that names itself, and a
- * page that passes its own handlers.
+ * A form with nothing behind it, so the bridge is the subject rather than a page's copy. Its props turn
+ * on the shapes `<Form>` has to cope with: a page that omits `<FormError>`, a control that names
+ * itself, and a page that passes its own handlers.
  */
 function Fixture({
   withFormError = true,
@@ -106,7 +105,7 @@ function Fixture({
   const form = useForm({
     defaultValues: { email: '', nickname: '' },
     onSubmit: async () => {
-      // A request's worth of delay, so the capture lands in a promise continuation, as it does on every page.
+      // A request's worth of delay, so the capture lands in a promise continuation, as it does on a page.
       await Promise.resolve()
       if (failure) serverErrors.capture(failure())
     },
@@ -157,6 +156,10 @@ function Fixture({
   )
 }
 
+/**
+ * Clicks Save.
+ * @returns The `userEvent` instance, for typing afterwards.
+ */
 async function submit() {
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Save' }))
@@ -190,7 +193,7 @@ describe('the server-error bridge in <Form>', () => {
         expect.arrayContaining(['Those two do not go together.'])
       )
     })
-    // The detail really is invisible — that is what the warning is for.
+    // The detail is invisible, which is what the warning is for.
     expect(screen.queryByText('Those two do not go together.')).not.toBeInTheDocument()
   })
 
@@ -209,7 +212,7 @@ describe('the server-error bridge in <Form>', () => {
     const user = await submit()
 
     expect(await screen.findByText('Already taken.')).toBeInTheDocument()
-    // Left to itself, the change event would carry name="explicit" and clear nothing — the error would sit there while the user retyped the address.
+    // Left alone, the change event would carry name="explicit" and clear nothing, so the error would stay while the user retyped the address.
     expect(screen.getByLabelText('Email')).toHaveAttribute('name', 'email')
     await user.type(screen.getByLabelText('Email'), 'a')
     await waitFor(() => {
@@ -224,7 +227,7 @@ describe('the server-error bridge in <Form>', () => {
     render(<Fixture onChange={onChange} onSubmit={onSubmit} />)
     const user = await submit()
 
-    // Both of the bridge's jobs still happen: submission ran (it is what captured the error) and clearing still works.
+    // Both of the bridge's jobs still happen: submission ran, which captured the error, and clearing still works.
     expect(onSubmit).toHaveBeenCalled()
     expect(await screen.findByText('Already taken.')).toBeInTheDocument()
 
@@ -277,7 +280,7 @@ describe('focus after submit', () => {
   })
 
   it('moves focus to the first field a server error names, described by its message', async () => {
-    // The frame fires at once: the worst case, a frame that arrives before React's own scheduled render. Only a committed error can be found then.
+    // The frame fires at once, the worst case: it arrives before React's scheduled render, so only a committed error can be found.
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
       callback(0)
       return 0

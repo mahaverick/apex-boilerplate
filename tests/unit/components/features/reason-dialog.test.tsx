@@ -14,6 +14,7 @@ import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import { REAUTH_REQUIRED } from '@/types/api.types'
 
+/** An Axios error carrying express's error envelope, as a rejected `onConfirm` would. */
 function apiFailure(status: number, message: string, code?: string): AxiosError {
   const config = { headers: new AxiosHeaders() }
   return new AxiosError(message, 'ERR_BAD_REQUEST', config, undefined, {
@@ -25,6 +26,7 @@ function apiFailure(status: number, message: string, code?: string): AxiosError 
   })
 }
 
+/** A `ReasonDialog` that starts open and prints `open: true|false`, so a test can tell when it closed. */
 function Harness({
   onConfirm,
   confirmText,
@@ -153,6 +155,7 @@ describe('ReasonDialog', () => {
       .fn<(reason: string) => Promise<void>>()
       .mockRejectedValueOnce(apiFailure(409, 'Too soon', 'reminded_recently'))
       .mockRejectedValueOnce(apiFailure(409, 'No owner', 'no_owner'))
+    /** Rewords only the `reminded_recently` refusal; any other falls back to the server's sentence. */
     const refusalMessage = (error: unknown) =>
       error instanceof AxiosError &&
       (error.response?.data as { code?: string }).code === 'reminded_recently'
@@ -201,6 +204,9 @@ describe('ReasonDialog', () => {
         ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
       )
     )
+    /**
+     * The reason dialog whose confirm runs a guarded request, so the step-up dialog stacks over it.
+     */
     function Stacked() {
       const stepUp = useStepUp()
       return (
@@ -238,7 +244,7 @@ describe('ReasonDialog', () => {
       isAuthenticated: true,
     })
 
-    // Trying again asks afresh; this time the password is confirmed and the action goes through.
+    // Trying again asks for the password afresh, and this time it is confirmed.
     await user.click(within(reason).getByRole('button', { name: 'Suspend' }))
     const password = await screen.findByLabelText('Password')
     expect(password).toHaveValue('')
@@ -261,6 +267,7 @@ describe('ReasonDialog', () => {
       http.post('/api/v1/danger', () => fail('Recent sign-in required', 401, REAUTH_REQUIRED))
     )
     // Opened from a trigger on the page, as the actions menus open it: that trigger is where focus must not go.
+    /** A page with an Actions trigger that opens the reason dialog. */
     function Page() {
       const stepUp = useStepUp()
       const [open, setOpen] = useState(false)
@@ -322,6 +329,9 @@ describe('ReasonDialog', () => {
         ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
       )
     )
+    /**
+     * The reason dialog whose confirm runs a guarded request, so the step-up dialog stacks over it.
+     */
     function Stacked() {
       const stepUp = useStepUp()
       return (

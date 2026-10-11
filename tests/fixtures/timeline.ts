@@ -6,12 +6,14 @@
 import { USER_ID_2 } from '@/tests/fixtures/ids'
 import type { TimelinePage, TimelineRow } from '@/types/api.types'
 
-/** posthog-js session ids. */
+/** A posthog-js session id. */
 export const SESSION_ID = '0199a000-0000-7000-8000-000000000001'
+/** A second posthog-js session id, for a row in a different session. */
 export const SESSION_ID_2 = '0199a000-0000-7000-8000-000000000002'
 
-/** W3C trace ids, as express copies them from the active span. */
+/** A W3C trace id, as express copies it from the active span. */
 export const TRACE_ID = '0af7651916cd43dd8448eb211c80319c'
+/** A second trace id, for a row from a different request. */
 export const TRACE_ID_2 = '4bf92f3577b34da6a3ce929d0e0e4736'
 
 /** The links express builds for a user timeline. */
@@ -23,7 +25,7 @@ export const USER_LINKS = {
 
 /**
  * An event uuid by ordinal, UUIDv7-shaped like PostHog's.
- * @param n - The ordinal, 1 to 999.
+ * @param n - The ordinal, zero-padded to 12 digits.
  * @returns The uuid.
  */
 export function eventId(n: number): string {

@@ -23,11 +23,11 @@ afterEach(() => {
 })
 
 /**
- * Driven through a real RouterProvider rather than by rendering the component
- * alone. The page reads `Route.useSearch()` and calls `useNavigate()`, neither
- * of which exists outside a router — and the only way to render it standalone
- * would be to export the component from the route file. `?redirect=` handling
- * is the heart of this page, so the router is the subject, not scaffolding.
+ * Mounts the login page through a real RouterProvider rather than rendering the component alone: the
+ * page reads `Route.useSearch()` and calls `useNavigate()`, which need a router, and rendering it alone
+ * would mean exporting the component from the route file. `?redirect=` handling is the heart of this
+ * page, so the router is the subject, not scaffolding.
+ * @returns The router.
  */
 function renderLoginAt(path: string): AnyRouter {
   const router = createRouter({
@@ -43,10 +43,12 @@ function renderLoginAt(path: string): AnyRouter {
   return router as AnyRouter
 }
 
+/** A successful sign-in answer for `testUser`. */
 function signedInResponse() {
   return ok({ accessToken: 'access-token', user: testUser }, 'Signed in.')
 }
 
+/** Types `email` and `password` into the login form and presses Sign in. */
 async function fillAndSubmit(email: string, password: string) {
   const user = userEvent.setup()
   await user.type(await screen.findByLabelText('Email'), email)
@@ -54,10 +56,7 @@ async function fillAndSubmit(email: string, password: string) {
   await user.click(screen.getByRole('button', { name: 'Sign in' }))
 }
 
-/**
- * A visitor with no refresh cookie, so `_auth`'s guard lets the login page
- * render instead of bouncing them to /overview.
- */
+/** A visitor with no refresh cookie, so `_auth`'s guard lets the login page render instead of bouncing them to /overview. */
 function arriveSignedOut() {
   resetSessionForTests()
   queryClient.clear()
@@ -97,7 +96,7 @@ describe('login page', () => {
     await fillAndSubmit('nope', 'secret123')
 
     expect(await screen.findByText('Enter a valid email address.')).toBeInTheDocument()
-    // The control itself must say it is invalid and point at the message, not merely have a message rendered somewhere near it.
+    // The control itself must say it is invalid and point at the message, not merely have one rendered near it.
     const email = screen.getByLabelText('Email')
     expect(email).toHaveAttribute('aria-invalid', 'true')
     expect(email).toHaveAccessibleDescription('Enter a valid email address.')
@@ -132,7 +131,7 @@ describe('login page', () => {
     renderLoginAt('/login')
     await fillAndSubmit('  ADA@EXAMPLE.COM  ', 'secret123')
 
-    // The schema trims and lower-cases, but TanStack hands `onSubmit` the raw form state — only parsing the value before posting puts the transform on the wire. Without that this arrives as "  ADA@EXAMPLE.COM  ".
+    // The schema trims and lower-cases, but TanStack hands `onSubmit` the raw form state, so only parsing the value before posting puts the transform on the wire; otherwise this arrives as "  ADA@EXAMPLE.COM  ".
     await waitFor(() => {
       expect(body).toEqual({ email: 'ada@example.com', password: 'secret123' })
     })
@@ -161,7 +160,7 @@ describe('login page', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/overview')
     })
-    // The discriminating part: `next=1` can only have come from the redirect param, since the fallback target carries no search at all.
+    // `next=1` can only have come from the redirect param, since the fallback target carries no search at all.
     expect(router.state.location.searchStr).toContain('next=1')
   })
 
@@ -189,16 +188,15 @@ describe('login page', () => {
 })
 
 /**
- * Spec section 9: inline errors under each field, mapped from the envelope's
- * `errors`. The clearing rule is the interesting half — a server verdict is
- * stale the moment the user starts fixing THAT field, and no sooner, and only
- * for that field.
+ * Inline errors under each field, mapped from the envelope's `errors`. The clearing rule is the half
+ * that matters: a server verdict goes stale the moment the user starts fixing that field, no sooner,
+ * and only for that field.
  */
 describe('server-side validation errors', () => {
   /**
-   * The exact envelope the backend emits: `{...fieldErrors,
-   * ...(formErrors.length > 0 && { formErrors })}`. `formErrors` is the one
-   * key that is not a field name.
+   * The envelope's `errors` as express's `parseBody` emits it: `{...fieldErrors, ...(formErrors.length > 0
+   * && { formErrors })}`. `formErrors` is the one key that is not a field name.
+   * @returns A 400 response carrying that envelope.
    */
   function validationFailure() {
     return HttpResponse.json(
@@ -228,7 +226,7 @@ describe('server-side validation errors', () => {
     await fillAndSubmit('a.b@example.com', 'secret123')
 
     expect(await screen.findByText('That address is not registered.')).toBeInTheDocument()
-    // "Validation failed." is the envelope's own message; the fields say it better.
+    // "Validation failed." is the envelope's own message, which the field errors replace.
     expect(screen.queryByText('Validation failed.')).not.toBeInTheDocument()
     expect(toastError).not.toHaveBeenCalled()
   })
@@ -265,7 +263,7 @@ describe('server-side validation errors', () => {
     await waitFor(() => {
       expect(screen.queryByText('That address is not registered.')).not.toBeInTheDocument()
     })
-    // The load-bearing half: the user has not touched the password, so what the server said about it is still true and must still be on screen.
+    // The password is untouched, so what the server said about it is still true and must stay on screen.
     expect(screen.getByText('Password is too short.')).toBeInTheDocument()
     expect(screen.getByLabelText('Password')).toHaveAccessibleDescription('Password is too short.')
   })
@@ -288,7 +286,7 @@ describe('server-side validation errors', () => {
 
     const message = await screen.findByText('These credentials are not valid together.')
     expect(message.closest('[role="alert"]')).not.toBeNull()
-    // It names no field, so it must not be wired to one — an input called "formErrors" does not exist.
+    // It names no field, so it must not be wired to one: there is no input called "formErrors".
     expect(screen.getByLabelText('Email')).not.toHaveAccessibleDescription(
       'These credentials are not valid together.'
     )
@@ -362,16 +360,13 @@ describe('safeRedirect', () => {
   })
 
   /**
-   * Every one of these starts with exactly one slash, so a
-   * `^/(?![/\\])`-shaped test passes them — and the URL standard still
-   * resolves them off-origin. The first four because the parser STRIPS ASCII
-   * tab, LF and CR, leaving "//"; the last three because dot segments collapse
-   * to "//". All are typeable into the URL bar as %09, %0A, %0D and ..%2F%2F.
-   *
-   * Nothing escapes through TanStack today, which normalises them before
-   * pushState — but that is the router's behaviour, not this guard's, and
-   * `useLogout` already reaches for `window.location.assign`, which normalises
-   * nothing.
+   * Every one of these starts with exactly one slash, so a `^/(?![/\\])`-shaped test passes them. The
+   * first four resolve off-origin because the URL parser strips ASCII tab, LF and CR (and reads a
+   * backslash as a slash), leaving "//". The last three collapse dot segments to the same-origin
+   * pathname "//evil.example", which is protocol-relative once assigned. All are typeable into the URL
+   * bar as %09, %0A, %0D and ..%2F%2F. The router may normalise these before pushState, but the guard has
+   * to hold on its own: `useLogout` navigates with `window.location.assign` (auth.queries.ts), not the
+   * router.
    */
   it.each([
     ['tab', '/\t/evil.example'],

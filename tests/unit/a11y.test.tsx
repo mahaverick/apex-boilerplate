@@ -1,3 +1,10 @@
+/**
+ * @file The accessibility gate: axe-core over the whole `document` for every routed page and the open
+ * overlays, rendered through a real `RouterProvider` on a memory history. Pages call `Route.useSearch()`,
+ * `useNavigate()` and `useMatches()`, and the app shell holds the landmarks, breadcrumbs and nav, so a page
+ * rendered alone would grade a fragment nobody sees. A rule that trips is fixed in the markup; only colour
+ * contrast is off, which jsdom cannot compute and `pnpm test:contrast` checks in a browser.
+ */
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axeCore from 'axe-core'
@@ -84,60 +91,6 @@ import {
   type TenantLifecycleState,
 } from '@/types/api.types'
 
-/**
- * THE ACCESSIBILITY GATE. Spec section 9's criteria, made enforceable.
- *
- * Five things about this file are deliberate and easy to undo by accident:
- *
- * 1. IT RUNS OVER `document`, NOT over a fragment. Not `axe(container)` and not
- *    even `axe(document.body)`: axe's PAGE-LEVEL rules — `page-has-heading-one`,
- *    `landmark-one-main`, `bypass`, `html-has-lang`, `document-title` — select on
- *    `html`, and axe reports them as `inapplicable` whenever the context is
- *    anything smaller than the document. Measured: with `document.body` as the
- *    context every one of them came back inapplicable, so the gate was silently
- *    grading a fragment. jest-axe's own `axe()` CANNOT take `document` (its
- *    `mount()` re-serialises anything not inside `body`, which destroys the
- *    DOM), so axe-core is called directly and jest-axe's default rule set is
- *    reproduced explicitly below. `toHaveNoViolations` is still jest-axe's.
- *
- * 2. WHAT COLOUR CONTRAST IS NOT CHECKED HERE. Every `cat.color` rule is
- *    disabled — by us here, exactly as jest-axe does it by default, because
- *    contrast cannot be computed in jsdom, which has no layout and no cascade
- *    (`node_modules/jest-axe/index.js`: "Color contrast checking doesnt work in
- *    a jsdom environment"). A green run on this file therefore says NOTHING
- *    about contrast. That is a browser check, and automating it belongs to the
- *    Phase B Playwright gate.
- *
- * 3. TWO PAGE-LEVEL RULES CANNOT RUN UNDER JSDOM, SO THEY ARE ASSERTED BY HAND.
- *    `page-has-heading-one` and `landmark-one-main` both query
- *    `[role=heading][aria-level=1]`, and jsdom's selector engine REJECTS an
- *    unquoted attribute value that starts with a digit — `document.querySelectorAll`
- *    throws "Invalid selector" on it. axe catches that and files the rule under
- *    `incomplete`, which `toHaveNoViolations` does not read, so both rules pass
- *    vacuously. `expectNoViolations` therefore asserts exactly one `<main>` and
- *    exactly one `<h1>` itself. That is what caught the five auth pages having
- *    no level-one heading at all.
- *
- * 4. NO RULE IS TURNED OFF beyond contrast. jest-axe's defaults are used as they
- *    come, `region` included. `region` exempts a `button` but NOT an `a`: the
- *    sidebar footer's controls are buttons and pass as they are, and the brand
- *    link in the sidebar header passes because it sits inside a `header`
- *    (banner) landmark. The rule genuinely runs (a stray `<p>` appended to
- *    `document.body` IS flagged, which the first test below asserts). If
- *    something starts tripping a rule, fix the markup.
- *
- * 5. THE DOCUMENT SHELL IS MIRRORED FROM `index.html`. jsdom's blank document
- *    has no `lang` and no `<title>`, so `html-has-lang` and `document-title`
- *    failed on every page for a reason belonging to the test harness rather than
- *    to the app — index.html really does ship both. Supplying them is providing
- *    the real shell, not suppressing a finding.
- *
- * Driven through a real `RouterProvider` on a memory history, not by rendering
- * each page component standalone as the brief sketched: the pages call
- * `Route.useSearch()`, `useNavigate()` and `useMatches()`, and the app shell is
- * where the landmarks, the breadcrumb trail and the nav actually live. Rendering
- * a page without it would gate a fragment nobody ever sees.
- */
 /** `testUser.id` is `USER_ID`, so the first row is always "me". */
 const MEMBERS = [
   {
@@ -286,10 +239,9 @@ function signOut() {
 }
 
 /**
- * jest-axe's default rule set, reproduced explicitly because axe-core is being
- * driven directly. This is exactly what `configureAxe` does on import: take
- * every rule tagged `cat.color` and switch it off, since jsdom cannot compute
- * contrast.
+ * jest-axe's default rule set: every `cat.color` rule off, because contrast needs a layout and a
+ * cascade that jsdom lacks. axe-core runs directly because jest-axe's `axe()` takes only an element
+ * or an HTML string, so it cannot take `document`. A green run therefore says nothing about contrast.
  */
 const AXE_OPTIONS: axeCore.RunOptions = {
   rules: Object.fromEntries(
@@ -298,28 +250,19 @@ const AXE_OPTIONS: axeCore.RunOptions = {
 }
 
 /**
- * The rules axe files under `incomplete` here for reasons that belong to jsdom,
- * not to the markup. Pinned as a set so a NEW one cannot appear unnoticed —
- * `toHaveNoViolations` reads only `violations`, so anything that quietly stops
- * being evaluable would otherwise look like a pass.
+ * The rules axe files under `incomplete` for reasons that belong to jsdom, not to the markup. Pinned as
+ * a set so another cannot appear unnoticed: `toHaveNoViolations` reads only `violations`, so a rule
+ * that quietly stops being evaluable would otherwise look like a pass.
  *
- * - `page-has-heading-one`, `landmark-one-main`: axe's selector contains
- *   `[aria-level=1]`, which jsdom rejects as an invalid selector. Asserted by
- *   hand below instead.
- * - `heading-order`: "Unable to determine previous heading" for the first
- *   heading in the tree. Nothing to fix.
- * - `aria-hidden-focus`: "Check that focusable elements are not tabbable in the
- *   current state". Base UI marks the background `aria-hidden` and inert while a
- *   modal is open; whether its contents are still tabbable is a layout question
- *   jsdom cannot answer.
- * - `aria-valid-attr-value`: "Unable to determine if aria-controls referenced ID
- *   exists on the page while using aria-haspopup" (axe's own `controlsWithinPopup`
- *   check). The combobox trigger and its input both carry `aria-controls`
- *   alongside `aria-haspopup`, and both referenced IDs resolving is asserted
- *   in code by the "activity tenant filter open" test below, not just claimed here.
- *   This id is NOT accepted outright: `isOnlyControlsWithinPopup`, below,
- *   still fails a node whose `aria-valid-attr-value` finding is a genuinely
- *   dangling reference (`messageKey: 'noId'`) rather than this one.
+ * - `page-has-heading-one`, `landmark-one-main`: axe's modal check calls `document.elementFromPoint`,
+ *   which jsdom lacks, so axe skips both rules. `expectNoViolations` asserts them by hand.
+ * - `heading-order`: "Unable to determine previous heading" for the first heading in the tree.
+ * - `aria-hidden-focus`: Base UI marks the background `aria-hidden` and inert while a modal is open;
+ *   whether its contents are still tabbable is a layout question jsdom cannot answer.
+ * - `aria-valid-attr-value`: axe's `controlsWithinPopup` check cannot tell whether an `aria-controls`
+ *   target exists while `aria-haspopup` is set. The combobox trigger and input both carry that pair, and
+ *   the "activity tenant filter open" test asserts both targets exist. The rule is not accepted
+ *   outright: `isOnlyControlsWithinPopup` still fails a genuinely dangling reference.
  */
 const KNOWN_INCOMPLETE = new Set([
   'page-has-heading-one',
@@ -330,14 +273,10 @@ const KNOWN_INCOMPLETE = new Set([
 ])
 
 /**
- * `aria-valid-attr-value` is pinned above for exactly ONE reason
- * (`controlsWithinPopup`), but axe files the SAME rule id for a genuinely
- * dangling `aria-describedby`/`aria-labelledby` (`messageKey: 'noId'`) or an
- * invalid enumerated value like `aria-current="bogus"`. Accepting the id
- * outright would swallow those too, so this checks every `any`/`all`/`none`
- * check on every flagged node and accepts the result only when EVERY one of
- * them is `controlsWithinPopup` — a node mixing that with a real dangling
- * reference still fails.
+ * Whether every check on every flagged node of an `aria-valid-attr-value` result is
+ * `controlsWithinPopup`. axe files the same rule id for a genuinely dangling
+ * `aria-describedby`/`aria-labelledby` (`messageKey: 'noId'`) or an invalid value such as
+ * `aria-current="bogus"`, so accepting the id outright would swallow those too.
  */
 function isOnlyControlsWithinPopup(result: axeCore.IncompleteResult): boolean {
   return result.nodes.every((node) => {
@@ -349,9 +288,8 @@ function isOnlyControlsWithinPopup(result: axeCore.IncompleteResult): boolean {
 }
 
 /**
- * `results.incomplete`, minus the ones `KNOWN_INCOMPLETE` explains — with
- * `aria-valid-attr-value` narrowed by `isOnlyControlsWithinPopup` rather than
- * accepted by id alone, so a real dangling ARIA reference still surfaces here.
+ * The ids in `results.incomplete` that `KNOWN_INCOMPLETE` does not explain.
+ * @returns The unexplained rule ids; empty when the run is fully accounted for.
  */
 function unexpectedIncomplete(results: axeCore.AxeResults): string[] {
   return results.incomplete
@@ -364,28 +302,20 @@ function unexpectedIncomplete(results: axeCore.AxeResults): string[] {
 }
 
 /**
- * Asserts the WHOLE document is clean — portals, landmarks and page-level rules
- * included — and then asserts by hand the two page-level invariants jsdom stops
- * axe from checking (see note 3 in the file header).
+ * Asserts the whole document is clean, portals, landmarks and page-level rules included, and then
+ * asserts by hand the exactly-one-`<main>` and exactly-one-`<h1>` invariants that axe skips under jsdom.
  *
- * That the axe verdict means anything is itself asserted, by the first test
- * below: a rule set that silently stopped running would make every page here
- * "pass".
+ * The context is `document` because axe's page-level rules (`page-has-heading-one`, `landmark-one-main`,
+ * `bypass`, `html-has-lang`, `document-title`) select on `html` and are inapplicable for anything
+ * smaller; with `document.body` as the context they all came back inapplicable. The assertion that
+ * `html-has-lang`, `document-title` and `bypass` ran pins that, since narrowing the context would
+ * otherwise leave every other check passing. `region` stays on: it exempts a `button` but not an `a`.
  *
- * The context itself is pinned by assertion, not by this comment: changing
- * `document` below to `document.body` (the exact regression note 1 describes)
- * makes every page-level rule inapplicable while leaving `region`, the hand
- * assertions and every other test passing. `html-has-lang`, `document-title`
- * and `bypass` only produce a result when the context IS the document, so
- * asserting they ran is what makes the context non-negotiable.
- *
- * `frames: 'skip'` is for a page holding an iframe: axe hands each frame its
- * own run over `postMessage`, which a jsdom frame cannot answer (axe throws
- * "Respondable target must be a frame in the current window"). The frame
- * element itself, its `title` included, is still graded here; only the
- * document inside it (the email preview's own markup, not the app's) is not,
- * and axe files exactly that as `frame-tested`, one node per frame, under
- * `incomplete`, which this then accepts and nothing else.
+ * `frames: 'skip'` is for a page holding an iframe: axe hands each frame its own run over `postMessage`,
+ * which a jsdom frame cannot answer (axe throws "Respondable target must be a frame in the current
+ * window"). The frame element, its `title` included, is still graded; the document inside it is not, and
+ * axe files exactly that as `frame-tested`, one node per frame, under `incomplete`.
+ * @param options - `frames`: `'skip'` for a page holding an iframe.
  */
 async function expectNoViolations({ frames = 'grade' }: { frames?: 'grade' | 'skip' } = {}) {
   const results = await axeCore.run(document, {
@@ -406,36 +336,22 @@ async function expectNoViolations({ frames = 'grade' }: { frames?: 'grade' | 'sk
     unexpectedIncomplete(results).filter((id) => frames === 'grade' || id !== 'frame-tested')
   ).toEqual([])
 
-  // `page-has-heading-one` and `landmark-one-main`, by hand.
+  // Stands in for `page-has-heading-one` and `landmark-one-main`, which axe skips here.
   expect(document.querySelectorAll('main')).toHaveLength(1)
   expect(document.querySelectorAll('h1')).toHaveLength(1)
 }
 
 /**
- * The same rule set, run against ONE OPEN OVERLAY instead of the document.
+ * The same rule set as `expectNoViolations`, run against one open overlay instead of the document.
  *
- * Why this exists rather than reusing `expectNoViolations` for menus: Base UI
- * portals a menu popup to `document.body`, so at document scope axe's `region`
- * rule reports "Some page content is not contained by landmarks" for every open
- * menu. That is a PAGE-STRUCTURE rule - landmarks are how a screen-reader user
- * navigates the standing regions of a page - and it does not describe a barrier
- * in a transient popup that focus has just been moved into. The dialog and
- * sheet tests above do not hit it only because axe exempts `role="dialog"`.
+ * Base UI portals a menu popup to `document.body`, so at document scope axe's `region` rule reports
+ * content outside landmarks for every open menu. That is a page-structure rule and does not describe a
+ * barrier in a transient popup that focus has just moved into; dialogs and sheets avoid it only because
+ * axe exempts `role="dialog"`. No rule is disabled: narrowing the context leaves the menu's own markup
+ * (`menuitem` roles, accessible names, aria wiring) to be graded, and pages stay graded at document scope.
  *
- * No rule is disabled here. The rule set is identical; the CONTEXT is narrowed,
- * so page-structure rules simply have no page to judge and the menu's own
- * markup - `menuitem` roles, accessible names, aria-* wiring - is what gets
- * graded. The page itself is still graded at document scope by the tests above.
- *
- * The crash class this block exists for is caught before axe runs at all: a
- * `DropdownMenuLabel` outside a `Menu.Group` throws on open, so `findByRole`
- * never resolves and the test fails there.
- *
- * The context is pinned by assertion, the same way `expectNoViolations` pins
- * the document: `aria-required-children` only produces a result when axe
- * really evaluated a `role="menu"`, so asserting it ran is what stops this
- * helper from passing vacuously if the context narrows further or points at
- * an element that is not the popup.
+ * `aria-required-children` only produces a result when axe evaluated a `role="menu"`, so asserting it ran
+ * stops the helper passing vacuously if the context points at something that is not the popup.
  */
 async function expectNoViolationsIn(element: HTMLElement) {
   const results = await axeCore.run(element, AXE_OPTIONS)
@@ -447,11 +363,10 @@ async function expectNoViolationsIn(element: HTMLElement) {
 }
 
 /**
- * Picks the viewport `useIsMobile` reports.
- *
- * `tests/setup.ts`'s `matchMedia` stub answers a `max-width` query from
- * `window.innerWidth`, so the width is what decides. Every test sets it before
- * rendering, so no change event is needed.
+ * Picks the viewport `useIsMobile` reports. The `matchMedia` stub in `tests/setup.ts` answers a
+ * `max-width` query from `window.innerWidth`, and no change event is needed because each test sets the
+ * width before rendering.
+ * @param width - The viewport width in pixels.
  */
 function setViewportWidth(width: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
@@ -459,13 +374,8 @@ function setViewportWidth(width: number) {
 
 const realInnerWidth = window.innerWidth
 
-/**
- * The bits of `index.html` that jsdom's blank document does not have. Without
- * them `html-has-lang` and `document-title` fail on every page for a reason
- * that belongs to the harness, not the app — index.html really does ship
- * `<html lang="en">` and `<title>Apex</title>`. Keep these two in
- * step with that file.
- */
+// jsdom's blank document has no `lang` or `<title>`, which index.html ships; keep these two in step with it.
+
 beforeAll(() => {
   document.documentElement.lang = 'en'
   document.title = 'Apex'
@@ -492,11 +402,9 @@ afterEach(() => {
 
 describe('the axe gate itself', () => {
   /**
-   * A stray `<p>` outside every landmark is exactly what `region` is about.
-   * If this test ever stops failing, the rule set below is no longer running
-   * and every other test in this file is vacuous. The assertion checks the
-   * rule, not merely "something failed": a planted violation only proves the
-   * gate if the rule it was planted for is the one that fired.
+   * A stray `<p>` outside every landmark is what `region` reports. If this stops failing, the rule set has
+   * stopped running and every other test here is vacuous; it checks that `region` fired, not merely that
+   * something failed.
    */
   it('reports a violation when there is one, so a green run means something', async () => {
     signOut()
@@ -516,12 +424,9 @@ describe('the axe gate itself', () => {
   })
 
   /**
-   * Same proof as above, for the narrower claim `unexpectedIncomplete` makes:
-   * `aria-valid-attr-value` is accepted ONLY for `controlsWithinPopup`, so a
-   * genuinely dangling reference — the `noId` messageKey, not that one — must
-   * still come back as unexpected. If this ever stops failing, the narrowing
-   * has widened back to accepting the whole rule id and every combobox on
-   * every page could grow a broken `aria-describedby` unnoticed.
+   * The same proof for `unexpectedIncomplete`: `aria-valid-attr-value` is accepted only for
+   * `controlsWithinPopup`, so a dangling reference (the `noId` messageKey) must still come back as
+   * unexpected. If this stops failing, a broken `aria-describedby` could go unnoticed on any page.
    */
   it('does not swallow a dangling aria-describedby under aria-valid-attr-value', async () => {
     const stray = document.createElement('button')
@@ -539,10 +444,7 @@ describe('the axe gate itself', () => {
   })
 })
 
-/**
- * Each routed page in its settled state — not its skeleton. Every entry waits
- * on something only the loaded page renders before axe is asked anything.
- */
+/** Each routed page in its settled state, not its skeleton: every entry waits on something only the loaded page renders. */
 describe('signed-out pages', () => {
   beforeEach(signOut)
 
@@ -632,6 +534,7 @@ const USER_DETAIL: PlatformUserDetail = {
   ],
 }
 
+/** Answers the user detail read for `USER_ID_2` with `USER_DETAIL`, `overrides` applied. */
 function serveUser(overrides: Partial<PlatformUserDetail> = {}) {
   server.use(
     http.get(`/api/v1/platform/users/${USER_ID_2}`, () =>
@@ -1150,10 +1053,7 @@ describe('signed-in pages', () => {
   })
 })
 
-/**
- * The accept page's other states, each one its own render: a default sweep
- * only ever sees the invited account arriving at a valid link.
- */
+/** The accept page's other states, each its own render, because a default sweep only sees the invited account arriving at a valid link. */
 describe('invitation accept states', () => {
   const acceptPath = `/invitations/accept?token=${TEST_INVITATION_TOKEN}`
 
@@ -1194,7 +1094,7 @@ describe('invitation accept states', () => {
   it('has no violations when the preview request failed', async () => {
     server.use(http.post('/api/v1/invitations/preview', () => fail('Something went wrong.', 500)))
     renderAppAt(acceptPath)
-    // The preview retries a non-404 once, so the failure takes a moment.
+    // The preview query retries a non-404 once, so the alert appears after the retry.
     await screen.findByRole('alert')
     await expectNoViolations()
   })
@@ -1218,12 +1118,9 @@ describe('invitation accept states', () => {
 })
 
 /**
- * The two states a default-state sweep can never see.
- *
- * A Base UI `Dialog` with no `Title` gets `aria-labelledby: null` and — unlike
- * Radix — emits NO development warning about it. The failure is invisible until
- * axe looks at the dialog while it is OPEN, which is why these drive one open
- * rather than trusting the closed markup.
+ * Open overlays, a state a default sweep never sees. A Base UI `Dialog` with no `Title` gets
+ * `aria-labelledby: null` and, unlike Radix, emits no development warning, so the failure is invisible
+ * until axe looks at the dialog while it is open.
  */
 describe('open overlays', () => {
   it('has no violations with the New tenant dialog open', async () => {
@@ -1258,11 +1155,7 @@ describe('open overlays', () => {
     await expectNoViolations()
   })
 
-  /**
-   * Every menu that exists is opened here: a composition error inside a
-   * menu (Base UI's `Menu.GroupLabel` throws outside a `Menu.Group`) is
-   * otherwise invisible until that menu is actually opened.
-   */
+  /** Every menu is opened, because a composition error inside one (Base UI's `Menu.GroupLabel` throws outside a `Menu.Group`) only shows on open. */
   it.each([['the user menu', /^Account menu for/]])(
     'has no violations with %s menu open',
     async (_label, name) => {
@@ -1272,19 +1165,15 @@ describe('open overlays', () => {
 
       await user.click(screen.getByRole('button', { name }))
 
-      // Finding the menu is what makes this a real check: a trigger that fails to open asserts nothing, and axe over a closed menu is axe over no menu.
+      // Axe over a closed menu grades no menu, so a trigger that fails to open must fail here.
       const menu = await screen.findByRole('menu')
-      // Not vacuous: a menu that opened empty would pass axe while asserting nothing about the items this block exists to grade.
+      // A menu that opened empty would pass axe while grading no items.
       expect(within(menu).getAllByRole('menuitem').length).toBeGreaterThan(0)
       await expectNoViolationsIn(menu)
     }
   )
 
-  /**
-   * A combobox whose search box lives inside
-   * the popup, so Base UI makes the popup a named `dialog` and the portaled
-   * list is not page content outside every landmark. Graded at DOCUMENT scope.
-   */
+  /** A combobox whose search box lives inside the popup, so Base UI makes the popup a named `dialog` and the portaled list is exempt from `region`; graded at document scope. */
   it('has no violations with the activity tenant filter open', async () => {
     useAuthStore.setState({ user: { ...testUser, platformRole: 'admin' } })
     server.use(
@@ -1315,9 +1204,9 @@ describe('open overlays', () => {
     const trigger = screen.getByRole('combobox', { name: /filter by tenant/i })
     await user.click(trigger)
 
-    // A popup that opened empty would pass axe while grading no list at all.
+    // A popup that opened empty would pass axe while grading no list.
     expect(await screen.findByRole('option', { name: 'Acme Corp' })).toBeInTheDocument()
-    // Enforces in code what the KNOWN_INCOMPLETE comment claims: the trigger's and the input's `aria-controls` both name a real element on the page, which is exactly why their `aria-valid-attr-value` finding is axe declining to fully resolve a reference rather than a broken one.
+    // `KNOWN_INCOMPLETE` accepts `aria-valid-attr-value` here because both `aria-controls` targets exist; this asserts that.
     const input = screen.getByLabelText('Search tenants')
     for (const element of [trigger, input]) {
       const controls = element.getAttribute('aria-controls')
@@ -1329,10 +1218,7 @@ describe('open overlays', () => {
     expect(within(popup).getByRole('listbox')).toBeInTheDocument()
   })
 
-  /**
-   * The ⌘K palette as the shell mounts it: a named `dialog`, so its portaled
-   * list is exempt from `region` and it is graded at DOCUMENT scope.
-   */
+  /** The ⌘K palette as the shell mounts it: a named `dialog`, so its portaled list is exempt from `region` and it is graded at document scope. */
   it('has no violations with the command palette open', async () => {
     const user = userEvent.setup()
     renderAppAt('/overview')
@@ -1341,7 +1227,7 @@ describe('open overlays', () => {
     await user.click(screen.getByRole('button', { name: /Search…/ }))
 
     const palette = await screen.findByRole('dialog', { name: 'Command palette' })
-    // A palette that opened empty would pass axe while grading no list at all.
+    // A palette that opened empty would pass axe while grading no list.
     expect(within(palette).getAllByRole('option').length).toBeGreaterThan(0)
     await expectNoViolations()
   })
@@ -1363,14 +1249,14 @@ describe('open overlays', () => {
     const palette = await screen.findByRole('dialog', { name: 'Command palette' })
     await user.keyboard('cleo')
 
-    // The user group is what this grades: a palette without the row would repeat the test above.
+    // The user group is what this grades; without the row it would repeat the test above.
     expect(
       await within(palette).findByRole('option', { name: /cleo@example\.com/ })
     ).toBeInTheDocument()
     await expectNoViolations()
   })
 
-  /** The calendar popover: a named `dialog`, so it is graded at DOCUMENT scope like the palette. */
+  /** The calendar popover: a named `dialog`, so it is graded at document scope like the palette. */
   it('has no violations with the emails date filter open', async () => {
     const user = userEvent.setup()
     renderAppAt('/emails?from=2026-09-01&to=2026-09-10')
@@ -1424,7 +1310,7 @@ describe('open overlays', () => {
   })
 
   it('has no violations with the leave dialog open', async () => {
-    // Leave is any member's own action; an owner gets it only while another owner remains.
+    // Every member here is an owner, so the signed-in owner can leave while another owner remains.
     serveTenant('active')
     server.use(
       http.get('/api/v1/tenants/acme', () =>
@@ -1651,7 +1537,7 @@ describe('open overlays', () => {
   })
 
   it('has no violations with the theme menu open inside the mobile sheet', async () => {
-    // ThemeToggle is not in the desktop shell - the mobile sheet is where it renders, so that is where it has to be opened.
+    // The sidebar footer's theme menu, opened from inside the modal sheet.
     setViewportWidth(500)
     const user = userEvent.setup()
     renderAppAt('/overview')
@@ -1667,21 +1553,13 @@ describe('open overlays', () => {
   })
 })
 
-/**
- * What axe cannot see: whether a focusable thing shows that it has focus.
- * axe has no layout and no cascade, so a removed outline with nothing in its
- * place is invisible to it. This is a class-level assertion for exactly that.
- */
+/** What axe cannot see: whether a focusable element shows focus. A removed outline with nothing in its place is invisible without a layout and cascade, so this asserts the class. */
 describe('focus indicators', () => {
   /**
-   * `Tabs` is rendered directly here, apart from the email detail and
-   * onboarding pages that mount it, so the primitive's own contract is
-   * checked whatever a page passes it.
-   *
-   * Base UI renders `Tabs.Panel` with `tabIndex: open ? 0 : -1`
-   * (@base-ui/react@1.8.0, tabs/panel/TabsPanel.js:76), so an open panel is
-   * reachable by keyboard. Suppressing its outline with nothing in its place
-   * is a WCAG 2.4.7 failure.
+   * `Tabs` is rendered directly, apart from the email detail and onboarding pages that mount it, so the
+   * primitive's own contract holds whatever a page passes it. Base UI renders `Tabs.Panel` with
+   * `tabIndex: open ? 0 : -1` (@base-ui/react@1.8.0, tabs/panel/TabsPanel.js), so an open panel is
+   * reachable by keyboard, and suppressing its outline with nothing in its place fails WCAG 2.4.7.
    */
   it('gives the tab panel a visible focus ring, because Base UI makes it tabbable', () => {
     render(
@@ -1700,10 +1578,7 @@ describe('focus indicators', () => {
   })
 })
 
-/**
- * What axe cannot see: the order focus actually moves in, and where it lands
- * when an overlay closes.
- */
+/** What axe cannot see: the order focus moves in, and where it lands when an overlay closes. */
 describe('keyboard', () => {
   it('tabs through the login form in the order the page reads', async () => {
     signOut()
@@ -1712,12 +1587,12 @@ describe('keyboard', () => {
     await screen.findByRole('button', { name: 'Sign in' })
 
     const expected = [
-      // Every layout's first Tab stop.
+      // The skip link is every layout's first Tab stop.
       screen.getByRole('link', { name: 'Skip to content' }),
       screen.getByLabelText('Email'),
       screen.getByLabelText('Password'),
       screen.getByRole('button', { name: 'Sign in' }),
-      // A plain anchor to a same-origin API route, not a button with a click handler — so it is in the tab order for free.
+      // A plain anchor to a same-origin API route, so it is in the tab order without a handler.
       screen.getByRole('link', { name: 'Continue with Google' }),
       screen.getByRole('link', { name: 'Forgot password?' }),
     ]
@@ -1738,7 +1613,7 @@ describe('keyboard', () => {
     render(<ThemeToggle />)
 
     const trigger = screen.getByRole('button', { name: 'Theme: system. Change theme' })
-    // Opened from the keyboard, not by a click: the restoration this checks is only observable for a keyboard user.
+    // Opened from the keyboard: focus restoration only matters to a keyboard user.
     await user.tab()
     expect(document.activeElement).toBe(trigger)
     await user.keyboard('{Enter}')
@@ -1753,11 +1628,7 @@ describe('keyboard', () => {
   })
 })
 
-/**
- * Deliverability, Suppressions (with the lift dialog), a tenant's Emails tab
- * and a user's Emails card. Each waits for its loaded content, never a
- * skeleton. The Emails list and an email's page are graded above.
- */
+/** Deliverability, Suppressions (with the lift dialog), a tenant's Emails tab and a user's Emails card, each waiting for loaded content; the Emails list and an email's page are graded above. */
 describe('deliverability, suppressions and the embedded email lists', () => {
   beforeEach(() => {
     signIn()
@@ -1772,6 +1643,7 @@ describe('deliverability, suppressions and the embedded email lists', () => {
     })
   )
 
+  /** Answers the emails list with `rows` and a next-page cursor, so the pager's Next button is enabled. */
   function serveEmails(rows: EmailMessageSummary[]) {
     server.use(
       http.get('/api/v1/platform/emails', () =>
@@ -1828,6 +1700,7 @@ describe('deliverability, suppressions and the embedded email lists', () => {
     }),
   ]
 
+  /** Answers the suppressions list with `rows`, a previous-page cursor and no next one. */
   function serveSuppressions(rows: EmailSuppression[]) {
     server.use(
       http.get('/api/v1/platform/email-suppressions', () =>
@@ -1882,12 +1755,7 @@ describe('deliverability, suppressions and the embedded email lists', () => {
   })
 })
 
-/**
- * The onboarding page on every tab, with rows, its empty states, and a
- * tenant's Onboarding tab in each state that renders differently, with both
- * reason dialogs and the member disclosure open. Each waits for its loaded
- * content, never a skeleton.
- */
+/** The onboarding page on every tab, with rows and its empty states, and a tenant's Onboarding tab in each state that renders differently, with both reason dialogs and the member disclosure open. */
 describe('onboarding', () => {
   beforeEach(() => {
     signIn()
@@ -2036,17 +1904,14 @@ describe('onboarding', () => {
   })
 })
 
-/**
- * The Maintenance page for an owner, in full maintenance (every fact and
- * control showing), and its two dialogs open. Each waits on its loaded
- * content, never a skeleton.
- */
+/** The Maintenance page for an owner in full maintenance, where every fact and control shows, and its two dialogs open. */
 describe('maintenance', () => {
   beforeEach(() => {
     signIn()
     useAuthStore.setState({ user: { ...testUser, platformRole: 'owner' } })
   })
 
+  /** Answers the platform maintenance state with `view`, full maintenance by default. */
   function serveMaintenance(view = fullMaintenanceView()) {
     server.use(
       http.get('/api/v1/platform/maintenance-mode', () => ok(view, 'Maintenance mode retrieved.'))

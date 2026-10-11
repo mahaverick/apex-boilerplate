@@ -23,6 +23,7 @@ import type {
 
 const ONBOARDING = `/tenants/${TENANT_ID}/onboarding`
 
+/** Acme's platform detail in `lifecycleState`; archived carries its `deletedAt`. */
 function platformDetail(lifecycleState: TenantLifecycleState = 'active'): PlatformTenantDetail {
   return {
     id: TENANT_ID,
@@ -62,6 +63,7 @@ function serve(onboarding: Partial<TenantOnboardingDetail> = {}) {
   return internal
 }
 
+/** The onboarding steps list, once it has rendered. */
 async function steps() {
   return screen.findByRole('list', { name: 'Onboarding steps' })
 }

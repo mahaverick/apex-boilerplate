@@ -15,6 +15,7 @@ import { TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
+/** A provider around `client`, so the test can read the cache a hook wrote. */
 function wrapperWith(client: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
