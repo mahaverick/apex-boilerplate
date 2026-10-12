@@ -84,6 +84,7 @@ const AUDIT_WORDING: Record<AuditAction, 'sentence' | 'label'> = {
   'tenant.settings_updated': 'sentence',
   'member.role_changed': 'label',
   'member.removed': 'label',
+  'member.left': 'sentence',
   'invitation.created': 'label',
   'invitation.resent': 'label',
   'invitation.revoked': 'label',
