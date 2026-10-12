@@ -198,9 +198,12 @@ The policy is enforced, not report-only:
   stays out of URLs and logs (`src/queries/invitation.queries.ts`).
 - **The error log can keep one.** nginx writes the full request line, query
   string included, into every upstream error message, and no log format
-  changes that. The error log runs at `notice` (`docker/nginx.main.conf`),
-  so an upstream failure under `location /api/` records the query. No
-  location lowers its error log level (see [Known gaps](#known-gaps)).
+  changes that. A request-line leak happens at every level up to `error`, so
+  the level (`notice`, `docker/nginx.main.conf`) does not matter; only `crit`
+  drops it. The Google OAuth callback's location
+  (`location ~* ^/api/v1/auth/google/callback/?$`) sets its error log level
+  to `crit`, which silences those messages there; no other location does
+  (see [Known gaps](#known-gaps)).
 - **No source map is served.** The image deletes every `.map` after the
   upload, and `nginx.conf` answers 404 for any `.map` path outside `/api/`
   even where a file exists. A deploy of `dist/` outside the image must
@@ -213,7 +216,9 @@ The policy is enforced, not report-only:
   built image from outside: user 101, a read-only root, each header sent
   once on proxied and unproxied responses, no source map in the image, a
   refused run-time setting that stops the container without printing its
-  value, and a bundle that carries its release and no release id written by
+  value, an upstream error on the Google OAuth callback (exact, with a
+  trailing slash, or in mixed case) that writes none of its query string to the log while another `/api/` path still logs its
+  request, and a bundle that carries its release and no release id written by
   inject.
 
 ## Run-time config injection safety
@@ -592,16 +597,16 @@ Some of what staff see comes from someone the API does not vouch for.
   `http`), and sets no per-IP connection limit, since every request arrives
   from the TLS terminator's address (`docker/nginx.main.conf`). Expose the
   container only through that terminator.
-- **The error log can hold query strings.** An upstream error under
-  `location /api/` writes the full request line to the error log at the
-  `notice` level. That includes the term (`q`) of every staff search sent as
-  a query string, often an email address: the users and tenants directories
-  (the command palette's searches among them), the emails list and the
-  suppressions list. Where express's `APP_URL` is this container's host, it
-  also includes the Google OAuth callback, which the API serves under
-  `/api/` with its `code` and `state` in the query; the `code` is
-  single-use and short-lived, but it is a credential written to disk. No
-  location lowers its error log level.
+- **The error log can hold query strings.** nginx writes the full request
+  line into every upstream error message, at the `error` level, so lowering
+  the log level from `notice` changes nothing; only `crit` silences it, and
+  with it the reason for the upstream failure. The Google OAuth callback
+  (`location ~* ^/api/v1/auth/google/callback/?$`, whose `code` and `state`
+  are credentials) sets its error log to `crit`. Every other path under
+  `/api/` still writes its query string on an upstream error, including the
+  term (`q`) of every staff search sent as a query string, often an email
+  address: the users and tenants directories (the command palette's searches
+  among them), the emails list and the suppressions list.
 - **HSTS is the edge's job.** See [CSP and headers](#csp-and-headers).
 - **Inline styles are allowed** (`style-src 'unsafe-inline'`), for sonner,
   recharts and `ChartStyle`.
