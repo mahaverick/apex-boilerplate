@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { toast } from 'sonner'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
 import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
@@ -42,6 +42,22 @@ import {
 
 afterEach(() => {
   vi.restoreAllMocks()
+})
+
+/**
+ * One render of the members page before the first test. The file's first render of the route tree pays
+ * one-time module and JIT costs: about 0.2 s alone, 1 to 1.6 s in the full suite, and 4.9 s of the 5 s
+ * `findBy*` budget with the CPU saturated (measured). Paying it here, under the hook's own budget, leaves
+ * every test a warm start without lengthening any wait.
+ */
+beforeAll(async () => {
+  signIn()
+  mockTenant('owner', [member(ME, 'owner', 'Me')])
+  const { unmount } = renderAppAt(`/tenants/${TENANT_ID}/members`)
+  await rowFor('Me')
+  unmount()
+  toast.dismiss()
+  server.resetHandlers()
 })
 
 const TENANT = {
