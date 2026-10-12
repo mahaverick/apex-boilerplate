@@ -1942,14 +1942,14 @@ describe('staff acting through platform access', () => {
 
   it('closes the dialog and puts an address the API refused on the Email field', async () => {
     server.use(
-      // Express's parseBody envelope for its stricter invite domain rule, which apex's form does not check.
+      // Express's parseBody envelope for an email error the form's own checks passed.
       http.post('/api/v1/tenants/acme/invitations', () =>
         HttpResponse.json(
           {
             success: false,
             message: 'Validation failed',
             statusCode: 400,
-            errors: { email: ['Email must have a valid domain.'] },
+            errors: { email: ['Email address is not accepted.'] },
             requestId: 'test-request-id',
           },
           { status: 400 }
@@ -1959,14 +1959,14 @@ describe('staff acting through platform access', () => {
     const success = vi.spyOn(toast, 'success')
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
-    await inviteAsStaff(user, 'x@foo-.example.com')
+    await inviteAsStaff(user, 'x@example.com')
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     const email = screen.getByLabelText('Email')
-    expect(email).toHaveValue('x@foo-.example.com')
+    expect(email).toHaveValue('x@example.com')
     expect(email).toHaveAttribute('aria-invalid', 'true')
     expect(email).toHaveAccessibleDescription(
-      expect.stringContaining('Email must have a valid domain.')
+      expect.stringContaining('Email address is not accepted.')
     )
     await waitFor(() => expect(email).toHaveFocus())
     expect(success).not.toHaveBeenCalled()

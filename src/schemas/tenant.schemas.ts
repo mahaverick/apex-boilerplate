@@ -8,6 +8,7 @@
 import { z } from 'zod'
 import { MEMBERSHIP_ROLES } from '@/constants/roles'
 import { emailSchema } from '@/schemas/auth.schemas'
+import { hostnameDomain } from '@/schemas/email-domain.schemas'
 import { reasonSchema } from '@/schemas/reason.schemas'
 import { normalizeMultilineText, notAllowedMessage, safeText } from '@/schemas/safe-text.schemas'
 
@@ -213,7 +214,9 @@ export type UpdateTenantInput = z.infer<typeof updateTenantSchema>
 
 /** `POST /tenants/:slug/invitations`. Which roles may be offered is `canActorGrantRole`'s job. */
 export const inviteMemberSchema = z.object({
-  email: emailSchema,
+  email: emailSchema.refine((email) => hostnameDomain(email) !== undefined, {
+    message: 'Email must have a valid domain.',
+  }),
   role: z.enum(MEMBERSHIP_ROLES),
 })
 
