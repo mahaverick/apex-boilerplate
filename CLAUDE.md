@@ -129,10 +129,10 @@ Each rule's reason is in [Analytics privacy](SECURITY.md#analytics-privacy).
   sentence. A sentence a builder returns as a string (`auditSentence`,
   `timelineSentence`, `bannerSentence`, `conflictSentence`, the maintenance
   preview) is masked whole, the safe default, as is a string `ReasonDialog`
-  description. Use `<Pii>`, not
-  `ph-no-capture`, which blanks the element in replay. A staff page that renders
-  person data goes into the page list in `e2e/fixtures/pii.test.ts`, and a new
-  harness person into its `NAMES`. Without them the guard cannot see it.
+  description. Use `<Pii>`, not `ph-no-capture`, which blanks the element in
+  replay. A staff page that renders person data goes into the page list in
+  `e2e/fixtures/pii.test.ts`, and a new harness person into its `NAMES`. Without
+  them the guard cannot see it.
 - **An attribute may carry personal data only if `mask-attribute.ts` masks it.**
   `e2e/nginx/analytics.test.ts` pins `aria-label` masking in the full snapshot
   and in later mutations.

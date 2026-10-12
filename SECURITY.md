@@ -293,9 +293,9 @@ allowlist is set there too.
   the text out of autocapture's `$el_text` and masks it in replay. Wrap the
   value, not the sentence. A sentence a builder returns as a string
   (`auditSentence`, `timelineSentence`, `bannerSentence`, `conflictSentence`,
-  the maintenance preview) is masked whole, the safe default, as is a string `ReasonDialog`
-  description. Inputs are masked in replay, and autocapture masks every element
-  attribute.
+  the maintenance preview) is masked whole, the safe default, as is a string
+  `ReasonDialog` description. Inputs are masked in replay, and autocapture masks
+  every element attribute.
 - **Replay masks attributes by name** (`mask-attribute.ts`): `aria-label`,
   `title`, `alt`, `placeholder`, `srcdoc`, every `data-*`, an `href` with a
   query or a `mailto:`/`tel:` scheme, and a `src` or `srcset` with a query
