@@ -28,7 +28,7 @@ The selection lives in `.styleseed/project.json` and `.styleseed/artifacts/membe
 - Page type: `detail`
 - Surface adapter `product-ui`, domain `saas`
 - Brand recipe `enterprise-workbench`, palette recipe `quiet-mineral`, profile `none`.
-  These feed the resolver only. `base-nova` is the approved visual system.
+  `base-nova` is the approved visual system.
 - Score floor: 80
 - One artifact, `members`, registered in `.styleseed/artifacts/index.json`. Its route
   locator is `/tenants/$slug/members`; apex's route for that page is
@@ -96,8 +96,8 @@ Every other `outline-none` in `src/` sits in one of these places. Read an SS005 
 before acting on it.
 
 - **Paired with a focus ring in the same class string:** `ui/button.tsx`, `ui/input.tsx`,
-  `ui/textarea.tsx`, `ui/select.tsx`, `ui/switch.tsx`, `ui/toggle.tsx` and `ui/tabs.tsx`
-  (`focus-visible:ring-3`), `ui/input-group.tsx` (a `has-[...:focus-visible]` ring on the
+  `ui/textarea.tsx`, `ui/select.tsx`, `ui/switch.tsx` and `ui/tabs.tsx`
+  (`focus-visible:ring-3`), `ui/toggle.tsx` (`focus-visible:ring-[3px]`), `ui/input-group.tsx` (a `has-[...:focus-visible]` ring on the
   group), and the `focus-visible:outline-none` tab link in `pages/_app/tenants/$tenantId.tsx`.
 - **On a focus target with `tabIndex={-1}`:** the layouts
   (`layouts/app-layout.tsx`, `layouts/auth-layout.tsx`, `pages/$.tsx`), the page and card
@@ -180,10 +180,10 @@ node "<styleseed>/skills/ss-score/scripts/styleseed-check.mjs" \
 
 The committed manifest verifies without a resolver step. Its `sources` are StyleSeed catalog
 entries (`catalog:core`, `built-in:operations-console`, and so on), not project files, so
-editing `globals.css`, a component or this file does not invalidate it. The `members`
-artifact's route locator names no apex route, and `project.json` carries the neutral
-`keyColor` above, so a scan reports on the registered source roots and not on a real apex
-route. Re-target or add artifacts before relying on a scan.
+editing `globals.css`, a component or this file does not invalidate it. The `members` locator ([Selection](#selection)) and the `keyColor`
+([Generated files](#generated-files-that-are-not-our-tokens)) do not match apex, so a scan
+reports on the registered source roots, not on a real apex route. Re-target or add artifacts
+before relying on a scan.
 
 Re-run `resolve-context.mjs` only when an artifact's `selection`, its `implementation`
 paths, `.styleseed/project.json` or the pinned engine version changes. It rewrites the
