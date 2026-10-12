@@ -165,7 +165,7 @@ means the default too, except `API_UPSTREAM`: the container refuses an empty one
   ([why that is safe](SECURITY.md#run-time-config-injection-safety)).
 
 The dev server, `pnpm preview` and the unit tests read the `VITE_` names from
-`.env`; `.env.example` lists them all but `VITE_ANALYTICS_CONSENT_MODE`.
+`.env`; `.env.example` lists them all.
 
 `docker run`, or a GitHub Actions job using repository secrets:
 
