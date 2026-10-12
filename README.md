@@ -146,22 +146,20 @@ means the default too, except `API_UPSTREAM`: the container refuses an empty one
 | `ANALYTICS_HANDOFF_ORIGINS` | `VITE_ANALYTICS_HANDOFF_ORIGINS` | comma-separated `https://` origins, no spaces | empty                    | No effect in Apex, which takes no handoff from a website.                                                               |
 | `APP_ENVIRONMENT`           | `VITE_APP_ENVIRONMENT`           | `[a-z][a-z0-9-]` up to 32                     | `development`            | Sent as `environment` on every browser event and exception. Set it to express's `APP_ENV` value.                        |
 
-- `docker/10-runtime-config.sh` checks every value against its pattern at start. An
-  invalid one **stops the container** and names the variable, never its value, so
-  a typo fails the rollout instead of quietly switching analytics off.
+- `docker/10-runtime-config.sh` checks every value against its pattern at start.
+  An invalid value **stops the container**, so a typo fails the rollout instead
+  of quietly switching analytics off.
   `API_UPSTREAM` is checked by `docker/05-prepare.sh`: no path, not even a
   trailing `/`, or the container stops with
   `API_UPSTREAM must be scheme://host[:port] with no path, got: …`.
 - `getRuntimeConfig()` (`src/configs/runtime-config.ts`) applies the patterns
   again and treats an invalid value as unset.
-- Apex has no consent banner and no handoff (`SUPPORTS_CONSENT_MODES` is false and
-  `SUPPORTS_HANDOFF` is false in `src/observability/analytics/config.ts`). It
-  always runs `opt_out`, so a staff person is captured unless they opted out on
-  their profile in the customer app. The shared entrypoint still validates both
-  variables, and `.env.example` lists no `VITE_ANALYTICS_CONSENT_MODE`; the dev
-  server reads it if you set it, with the same lack of effect.
-- Every value is public: each browser receives `/runtime-config.js`. The PostHog
-  key may come from a secret store but is not a secret.
+- Apex has no consent banner and no handoff (`SUPPORTS_CONSENT_MODES` and
+  `SUPPORTS_HANDOFF` are false in `src/observability/analytics/config.ts`), so it
+  always runs `opt_out` ([Analytics privacy](SECURITY.md#analytics-privacy)).
+  `.env.example` lists no `VITE_ANALYTICS_CONSENT_MODE`.
+- Every value is public: each browser receives `/runtime-config.js`
+  ([why that is safe](SECURITY.md#run-time-config-injection-safety)).
 
 The dev server, `pnpm preview` and the unit tests read the `VITE_` names from
 `.env` (`.env.example` lists them).
@@ -249,15 +247,11 @@ CI holds eslint to **zero warnings** as well as zero errors
 pnpm test
 ```
 
-Unit tests live under `tests/unit/`, mirroring `src/`. No test file lives under
-`src/`: eslint rejects one. A test for `src/http/session.ts` is
-`tests/unit/http/session.test.ts`.
+Unit tests live under `tests/unit/`, mirroring `src/`
+([CLAUDE.md](CLAUDE.md#conventions-the-linter-enforces)).
 
-`tests/unit/a11y.test.tsx` is an **accessibility gate**: every routed page, plus
-the open overlays it covers, must come back clean with no rule disabled to get
-there. A violation is fixed in the markup, never suppressed. It does not check
-colour contrast, because jsdom has no layout or cascade and those rules are off
-under it. [CLAUDE.md](CLAUDE.md#accessibility) has the details.
+`tests/unit/a11y.test.tsx` is an **accessibility gate** over every routed page; its
+rules are in [CLAUDE.md](CLAUDE.md#accessibility).
 
 Playwright has four projects in `e2e/`:
 
@@ -284,7 +278,8 @@ The `live` and `nginx` projects read these variables (defaults in
 
 The `live` project needs the express under test to run with
 `APEX_URL=http://localhost:5174` and `WEB_URL=http://localhost:5173`, an email
-worker that delivers to mailpit, and `APP_ENV=local` for the emails suite. The harness's traps are in [CLAUDE.md](CLAUDE.md#end-to-end-tests).
+worker that delivers to mailpit, and `APP_ENV=local` for the emails suite. The
+harness's traps are in [CLAUDE.md](CLAUDE.md#end-to-end-tests).
 
 ## Analytics (PostHog)
 
@@ -360,14 +355,8 @@ that happen in Apex:
    while customers are shut out.
 4. **Turn it off from Apex**, as an owner, with the page's **Turn off…** button.
 
-The Overview's **System status** card ("The API over the last 15 minutes") shows
-the API's release and error tracking (enabled or not, events sent, events dropped by
-reason and the last failed send), and, when the API sends them, a **Feature flags**
-section and a **Maintenance mode** section. Each section gets a **Needs
-attention** badge when something is wrong: for flags, a missing or stale
-definitions snapshot, a failed fetch, a property matching version other than 1, or a flag that is
-missing, unsupported or answered an unknown variant; for maintenance, a state the API has not read, a failed
-reload, queues that disagree with the mode, or change notices still waiting.
+Before and during a change, watch the Overview's **System status** card
+([Maintenance admin](ARCHITECTURE.md#maintenance-admin-this-app-only)).
 
 ## Docker
 
@@ -424,8 +413,8 @@ build fails if there are no `.map` files under `dist/`, if the CLI skipped a chu
 as too large, if nothing was uploaded (unless the same output line gives a
 non-zero "already uploaded" or existing count), or if an upload fails.
 
-nginx also answers 404 for any `.map` URL outside `/api/`. **Any deploy of
-`dist/` outside the image must delete `*.map` first.**
+**Any deploy of `dist/` outside the image must delete `*.map` first**
+([CSP and headers](SECURITY.md#csp-and-headers)).
 
 The build downloads the `posthog-cli` binary from releases.posthog.com and
 verifies its SHA-256 against `docker/posthog-cli.sha256` (one hash per
@@ -497,9 +486,8 @@ from the conventional commits since the last release, and
 `.github/workflows/release.yml` queues it with `--auto` (or merges it directly if
 GitHub refuses auto-merge). With the `main` ruleset below, either way it merges
 only once the required checks pass. The next run tags `vX.Y.Z` and publishes the
-GitHub Release, and the tag push makes `deploy.yml` promote the image `main`
-already built and tested: it adds `:X.Y.Z`, `:X.Y` and `:X` to that same digest
-rather than rebuilding. By release-please's defaults, which
+GitHub Release, and the tag push promotes the image `main` already built and tested,
+without rebuilding ([Deploy](ARCHITECTURE.md#deploy)). By release-please's defaults, which
 `release-please-config.json` does not change, only `feat`, `fix` and breaking
 commits cut a release; `chore`, `docs`, `ci` and the like do not.
 

@@ -211,7 +211,10 @@ The policy is enforced, not report-only:
   violations (`e2e/nginx/headers.test.ts`, `e2e/nginx/csp.test.ts`,
   `e2e/nginx/csp-live.test.ts`), and `docker/check-image.sh` checks the
   built image from outside: user 101, a read-only root, each header sent
-  once on proxied and unproxied responses, and no source map in the image.
+  once on proxied and unproxied responses, no source map in the image, a
+  refused run-time setting that stops the container without printing its
+  value, and a bundle that carries its release and no release id written by
+  inject.
 
 ## Run-time config injection safety
 
@@ -233,8 +236,9 @@ patterns and defaults are in the
 - **The bundle validates again.** `src/configs/runtime-config.ts` applies
   the same patterns. An invalid value counts as unset, except
   `ANALYTICS_CONSENT_MODE`, which fails closed to `off` rather than falling
-  back to capturing in an app whose `config.ts` honours consent modes; a handoff origin list with one origin `URL` refuses is
-  dropped whole. Its console warning names the keys, never the values. A
+  back to capturing in an app whose `config.ts` honours consent modes; a
+  handoff origin list with one origin `URL` refuses is dropped whole. Its
+  console warning names the keys, never the values. A
   production bundle reads only `window.__APP_CONFIG__`, so no build-time
   value can configure it.
 - **Two shared settings are validated but ignored here.** This app's
@@ -256,8 +260,8 @@ posthog-js loads only when a PostHog key is set, through a dynamic `import()`
 kept out of the first-visit chunks (`pnpm check:bundle`). Without it every
 call is a no-op.
 
-The analytics module is shared with react-boilerplate; four per-app constants
-in `src/observability/analytics/config.ts` set this app's side of it. Consent
+The analytics module is shared with react-boilerplate; the per-app constants at
+the top of `src/observability/analytics/config.ts` set this app's side of it. Consent
 modes are not honoured (`SUPPORTS_CONSENT_MODES` is `false`), so capture
 always runs in `opt_out` mode and there is no consent banner. No website's
 anonymous id is handed off (`SUPPORTS_HANDOFF` is `false`). The identity
@@ -480,8 +484,9 @@ everywhere, deactivating, reactivating and deleting a user; lifting a
 suppression; resending an email; marking an onboarding step complete and
 sending an onboarding reminder; and member and invitation writes through
 platform access. Reissuing a tenant's owner invitation asks in its own
-dialog, with the same `reasonSchema`. Other staff writes take no reason: creating a user or a
-tenant, renaming a user, editing a tenant's details, mailing a set-password
+dialog, with the same `reasonSchema`. Other staff writes take no reason:
+creating a user or a tenant, renaming a user, editing a tenant's details,
+mailing a set-password
 or verification link, and removing a member of, or leaving, the platform
 tenant. Maintenance changes have their own dialogs
 ([Maintenance controls](#maintenance-controls)).
@@ -583,8 +588,8 @@ Some of what staff see comes from someone the API does not vouch for.
 
 - **The container trusts its front.** nginx appends to the client's
   `X-Forwarded-For` and passes on an `X-Forwarded-Proto` of `http` or
-  `https` as received, and sets no per-IP connection limit, since every request arrives
-  from the TLS terminator's address (`docker/nginx.main.conf`). Expose the
+  `https` as received, and sets no per-IP connection limit, since every
+  request arrives from the TLS terminator's address (`docker/nginx.main.conf`). Expose the
   container only through that terminator.
 - **The error log can hold query strings.** An upstream error under
   `location /api/` writes the full request line to the error log at the

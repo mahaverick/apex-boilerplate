@@ -198,7 +198,7 @@ source cannot show. Re-run it for a current visual score.
 `directory`, `emails`, `flags`, `errors`, `timeline` and others) assert at a 390×844
 viewport that no page scrolls sideways. A regression fails a test instead of waiting for
 the next screenshot.
-CLAUDE.md's end-to-end section holds the conventions.
+[CLAUDE.md](CLAUDE.md#end-to-end-tests) holds the conventions.
 
 ## Accessibility
 

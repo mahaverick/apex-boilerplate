@@ -385,8 +385,10 @@ apart from the app's own flag values ([Feature flags](#feature-flags)).
 
 ## Analytics, flags and errors
 
-The three share one transport, the API's `/api/v1/collect` proxy, which
-forwards to PostHog; the browser never talks to PostHog. What each sends,
+Analytics and error tracking share one transport, the API's `/api/v1/collect`
+proxy, which forwards to PostHog. Flags are read from, and exposures reported
+to, the API's own flag endpoints. In every case the browser never talks to
+PostHog. What each sends,
 masks and withholds is in [Analytics privacy](SECURITY.md#analytics-privacy)
 and [Error-tracking privacy](SECURITY.md#error-tracking-privacy).
 
@@ -508,10 +510,10 @@ Error tracking is split so that every page pays almost nothing for it:
 
 Customer maintenance mode is the API's; this app shows its state to staff
 and lets platform owners change it. Staff pages are not gated by it: the API
-lets platform staff through on the routes this app calls (express's
-`MAINTENANCE_STAFF_ROUTES`), so this app keeps no maintenance store,
-lets no mode replace its routes and reads no `Maintenance-Mode` response
-header.
+lets `/platform/*` and the session routes through in both modes, and lets
+platform staff through on the customer routes this app calls (express's
+`MAINTENANCE_STAFF_ROUTES`). So this app keeps no maintenance store, lets no
+mode replace its routes and reads no `Maintenance-Mode` response header.
 
 - **One query, two readers.** `maintenanceModeQueryOptions`
   (`src/queries/maintenance-mode.queries.ts`) reads
@@ -533,6 +535,16 @@ header.
 The poll intervals, what a switch-on asks for, how a conflict avoids an
 overwrite and where the message and reason render are in
 [Maintenance controls](SECURITY.md#maintenance-controls).
+
+The Overview's **System status** card ("The API over the last 15 minutes")
+shows the API's release and error tracking (enabled or not, events sent,
+events dropped by reason and the last failed send), and, when the API sends
+them, a **Feature flags** section and a **Maintenance mode** section. Each
+section gets a **Needs attention** badge when something is wrong: for flags,
+a missing or stale definitions snapshot, a failed fetch, a property matching
+version other than 1, or a flag that is missing, unsupported or answered an
+unknown variant; for maintenance, a state the API has not read, a failed
+reload, queues that disagree with the mode, or change notices still waiting.
 
 ## The container and run-time config
 

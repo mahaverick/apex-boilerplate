@@ -131,7 +131,8 @@ Each rule's reason is in [Analytics privacy](SECURITY.md#analytics-privacy).
   into the page list in `e2e/fixtures/pii.test.ts`, and a new harness person into
   its `NAMES`. Without them the guard cannot see it.
 - **An attribute may carry personal data only if `mask-attribute.ts` masks it.**
-  `e2e/nginx/analytics.test.ts` pins `aria-label` masking in the full snapshot and in later mutations.
+  `e2e/nginx/analytics.test.ts` pins `aria-label` masking in the full snapshot
+  and in later mutations.
 - **Only `src/observability/analytics/` imports posthog-js**, and only
   `analytics.ts` imports it as a value, through `import()`. `pnpm check:bundle`
   fails if it reaches a first-visit chunk.
@@ -208,8 +209,9 @@ The reasons are in [CSP and headers](SECURITY.md#csp-and-headers) and
   under `/tmp`. `docker/check-image.sh` checks this from outside.
 - **Nothing is configured at build time.** A setting that differs between
   environments is a run-time variable, never a `VITE_*` value or a build ARG. A new
-  setting touches every file the ARCHITECTURE section lists, in one change, and
-  its pattern follows
+  setting touches every file
+  [The container and run-time config](ARCHITECTURE.md#the-container-and-run-time-config)
+  lists, in one change, and its pattern follows
   [Run-time config injection safety](SECURITY.md#run-time-config-injection-safety).
 
 ## Error tracking
@@ -227,9 +229,8 @@ is in [Error-tracking privacy](SECURITY.md#error-tracking-privacy).
   A release makes it call PostHog and write a release id into every chunk, so an
   unchanged chunk would ship new bytes under its old hashed name.
 - **Never soften `docker/upload-sourcemaps.sh`.** Every failure it detects fails
-  the build: a missing token, no maps, a failed upload, a chunk skipped as too
-  large, or nothing uploaded. Never add `|| true` or `--no-fail`. Without the maps,
-  the image reports unreadable frames, silently.
+  the build ([README](README.md#source-maps) lists them). Never add `|| true` or
+  `--no-fail`: without the maps, the image reports unreadable frames, silently.
 - **A `@posthog/cli` bump updates both hashes in `docker/posthog-cli.sha256`** in
   the same change. The Dockerfile checks the binary against them before it runs it
   with the upload token.
