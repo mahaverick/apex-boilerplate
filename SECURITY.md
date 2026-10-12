@@ -587,8 +587,8 @@ Some of what staff see comes from someone the API does not vouch for.
 
 - **The container trusts its front.** nginx appends to the client's
   `X-Forwarded-For` and passes on a client-supplied `X-Forwarded-Proto` of
-  `http` or `https` (any other value becomes `http`), and sets no per-IP
-  connection limit, since every request arrives
+  `http` or `https` in any letter case, lowercased (any other value becomes
+  `http`), and sets no per-IP connection limit, since every request arrives
   from the TLS terminator's address (`docker/nginx.main.conf`). Expose the
   container only through that terminator.
 - **The error log can hold query strings.** An upstream error under
