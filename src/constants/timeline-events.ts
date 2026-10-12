@@ -15,12 +15,13 @@ import { templateLabel } from '@/constants/email.constants'
 import type { BrowserEvent } from '@/observability/analytics'
 import type { EmailEventType, TimelineRow } from '@/types/api.types'
 
-/** The product events a timeline words, from express's `PRODUCT_EVENTS` (analytics.constants.ts); `other_sessions_revoked` is not among them and renders its own name. */
+/** The product events a timeline words, from express's `PRODUCT_EVENTS` (analytics.constants.ts); `other_sessions_revoked` is the user ending their other sessions, and carries no props. */
 export const TIMELINE_PRODUCT_EVENTS = [
   'user_signed_up',
   'user_signed_in',
   'user_signed_out',
   'password_changed',
+  'other_sessions_revoked',
   'password_reset_completed',
   'email_verified',
   'onboarding_step_completed',
@@ -200,6 +201,7 @@ const PRODUCT_SENTENCES: Record<TimelineProductEvent, (row: TimelineRow) => stri
   user_signed_in: (row) => `Signed in${viaMethod(row)}`,
   user_signed_out: () => 'Signed out',
   password_changed: () => 'Changed their password',
+  other_sessions_revoked: () => 'Signed out their other sessions',
   password_reset_completed: () => 'Reset their password',
   email_verified: () => 'Verified their email address',
   onboarding_step_completed: (row) =>

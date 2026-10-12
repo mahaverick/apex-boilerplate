@@ -35,6 +35,7 @@ describe('the timeline event taxonomy, at the type level', () => {
       | 'user_signed_in'
       | 'user_signed_out'
       | 'password_changed'
+      | 'other_sessions_revoked'
       | 'password_reset_completed'
       | 'email_verified'
       | 'onboarding_step_completed'
@@ -116,6 +117,7 @@ describe('timelineSentence', () => {
     ['user_signed_in', {}, 'Signed in'],
     ['user_signed_out', {}, 'Signed out'],
     ['password_changed', {}, 'Changed their password'],
+    ['other_sessions_revoked', {}, 'Signed out their other sessions'],
     ['password_reset_completed', {}, 'Reset their password'],
     ['email_verified', {}, 'Verified their email address'],
     [
