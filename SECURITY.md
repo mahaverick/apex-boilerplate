@@ -34,10 +34,16 @@ browser storage is readable by whoever runs the page, so:
   travels in an `Authorization` header, never a URL; the refresh token is an
   httpOnly cookie the client never reads.
 - **Shared browsers and multiple tabs.** One refresh cookie serves every tab.
-  The analytics identity cookie, `ph_apex`, is scoped to this host and shared
-  only between this app's tabs, never with a website
-  (`src/observability/analytics/config.ts`). A tab must never act as, or
-  attribute events to, someone other than its own signed-in user.
+  Where express's `COOKIE_DOMAIN` covers this app's host and the customer
+  app's, that cookie is the customer app's too, so a sign-in there as someone
+  else ends this tab's session at its next refresh
+  (`SessionIdentityChangedError`, below). The analytics identity cookie,
+  `ph_apex`, is scoped to this host and shared only between this app's tabs,
+  never with a website (`src/observability/analytics/config.ts`). The
+  analytics opt-out state is keyed by the PostHog project key alone, so
+  another app served from this host with the same key shares it. A tab must
+  never act as, or attribute events to, someone other than its own signed-in
+  user.
 - **Third parties see as little as possible.** Analytics and error tracking
   go to PostHog through the API's `/api/v1/collect` proxy, after masking and
   scrubbing in the browser.
@@ -231,10 +237,11 @@ patterns and defaults are in the
   dropped whole. Its console warning names the keys, never the values. A
   production bundle reads only `window.__APP_CONFIG__`, so no build-time
   value can configure it.
-- **Two shared settings are validated but never read here.** This app's
-  `config.ts` honours no consent mode and reads no handoff, so
-  `ANALYTICS_CONSENT_MODE` (`off` included) and `ANALYTICS_HANDOFF_ORIGINS`
-  change nothing. Analytics is off only when no PostHog key is set.
+- **Two shared settings are validated but ignored here.** This app's
+  `config.ts` honours no consent mode and reads no handoff, so a valid
+  `ANALYTICS_CONSENT_MODE` (`off` included) or `ANALYTICS_HANDOFF_ORIGINS`
+  changes nothing; an invalid one still stops the container. Analytics is off
+  only when no PostHog key is set.
 - **Every value is public.** Each browser fetches `/runtime-config.js`, so
   nothing secret goes in it. The PostHog project key may come from a secret
   store, but it is not a secret.
@@ -446,14 +453,15 @@ with a 401 whose code is `REAUTH_REQUIRED`.
   second `REAUTH_REQUIRED` rejects instead of reopening the dialog. A refusal
   whose request carried an older token than the store now holds (another
   write's confirmation landed meanwhile) retries at once, without asking
-  (`sentWithCurrentToken`). A dismissal rejects with the original refusal,
-  and the reason dialog asks the user to confirm it's them to continue.
+  (`sentWithCurrentToken`). A dismissal rejects with the original refusal.
+  After a dismissal, or a second refusal of the retry, the reason dialog
+  asks the user to confirm it's them to continue.
 - **The confirmation is a password.** The dialog posts it to
   `POST /auth/reauthenticate` and puts the access token it returns, which
   carries a fresh `auth_time`, in the auth store (`useReauthenticate`). A
   wrong password is a 400 shown on the field, never a 401, so it cannot be
   read as a verdict on the session. The account's sign-in methods are read
-  each time the dialog opens.
+  when the dialog opens, from a cache at most 30 seconds old.
 - **An account without a password cannot step up here.** The dialog says so
   and links to the user's own page, where an admin or owner can mail
   themselves a set-password link. Setting the password ends every session
@@ -464,9 +472,19 @@ with a 401 whose code is `REAUTH_REQUIRED`.
 
 ## Reason prompts
 
-A destructive or state-changing staff action goes through `ReasonDialog`
-(`src/components/features/reason-dialog.tsx`), which asks for a reason the
-API stores in the audit log with the actor's name.
+Every staff action the API records a reason for asks for one, which the
+API stores in the audit log with the actor's name. `ReasonDialog`
+(`src/components/features/reason-dialog.tsx`) asks for suspending,
+reactivating, archiving and deleting a tenant; signing a user out
+everywhere, deactivating, reactivating and deleting a user; lifting a
+suppression; resending an email; marking an onboarding step complete and
+sending an onboarding reminder; and member and invitation writes through
+platform access. Reissuing a tenant's owner invitation asks in its own
+dialog, with the same `reasonSchema`. Other staff writes take no reason: creating a user or a
+tenant, renaming a user, editing a tenant's details, mailing a set-password
+or verification link, and removing a member of, or leaving, the platform
+tenant. Maintenance changes have their own dialogs
+([Maintenance controls](#maintenance-controls)).
 
 - **The reason is bounded safe text.** `reasonSchema`
   (`src/schemas/reason.schemas.ts`) mirrors express's: trimmed, 1 to 500
@@ -487,9 +505,10 @@ API stores in the audit log with the actor's name.
   membership went while the page was open), the tenant's detail refetches
   and the staff controls, which ask for a reason, replace them
   (`src/queries/tenant-writes.queries.ts`).
-- **Refusals stay in the dialog.** A 403 or 409 shows the API's sentence; a
-  404 without a code is the role gate, worded as "your role can't do this any
-  more". None of them signs anyone out.
+- **Refusals stay in the dialog.** A 403 or 409 shows the API's sentence,
+  or the page's own wording of it; a 404 that carries a code shows the API's
+  sentence, and one without a code is the role gate, worded as "your role
+  can't do this any more". None of them signs anyone out.
 
 ## Maintenance controls
 
@@ -521,9 +540,19 @@ Maintenance page; every staff role can read it.
   every 60 while it is off, and stop on a 404. The `Maintenance-Mode`
   response header describes what customers get; the API lets staff routes
   through whatever it says.
-- **The message and the reason are bounded safe text,** 1 to 500 characters
-  each, and render as text inside `<Pii>` in the banner, the page, the
-  dialog's preview and the conflict sentence.
+- **The message and the reason are bounded safe text.** The customer
+  message is always 1 to 500 characters of multi-line safe text. The reason
+  is optional, up to 500 characters, and required (1 to 500) only when
+  switching on or escalating; emptying a pre-filled reason sends
+  `reason: null`, which clears the stored one
+  (`src/schemas/maintenance-mode.schemas.ts`).
+- **Where they render.** Both render as text inside `<Pii>` on the
+  Maintenance page (`src/pages/_app/maintenance.tsx`), and the message also
+  in the change dialog's customer preview
+  (`src/components/features/maintenance/maintenance-preview.tsx`). The
+  banner on every staff page and the conflict sentence show neither: they
+  state the mode, since when and who changed it, inside `<Pii>` because they
+  name that person (`src/lib/maintenance-mode.ts`).
 
 ## Untrusted content
 
@@ -559,8 +588,14 @@ Some of what staff see comes from someone the API does not vouch for.
   container only through that terminator.
 - **The error log can hold query strings.** An upstream error under
   `location /api/` writes the full request line to the error log at the
-  `notice` level. That includes the users directory's search term (`q`),
-  often an email address. No location lowers its error log level.
+  `notice` level. That includes the term (`q`) of every staff search sent as
+  a query string, often an email address: the users and tenants directories
+  (the command palette's searches among them), the emails list and the
+  suppressions list. Where express's `APP_URL` is this container's host, it
+  also includes the Google OAuth callback, which the API serves under
+  `/api/` with its `code` and `state` in the query; the `code` is
+  single-use and short-lived, but it is a credential written to disk. No
+  location lowers its error log level.
 - **HSTS is the edge's job.** See [CSP and headers](#csp-and-headers).
 - **Inline styles are allowed** (`style-src 'unsafe-inline'`), for sonner,
   recharts and `ChartStyle`.
