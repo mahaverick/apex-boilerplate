@@ -253,7 +253,18 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
         onOpenChange={setRemindOpen}
         finalFocus={finalFocus}
         title="Send an onboarding reminder?"
-        description={`One email goes to each active owner (${reminding?.recipientCount ?? 0}) at ${reminding?.emailDomains.join(', ') || 'their address'}, linking to the tenant in the customer app. Another reminder can go 24 hours after this one.`}
+        description={
+          <>
+            One email goes to each active owner ({reminding?.recipientCount ?? 0}) at{' '}
+            {reminding?.emailDomains.length ? (
+              <Pii>{reminding.emailDomains.join(', ')}</Pii>
+            ) : (
+              'their address'
+            )}
+            , linking to the tenant in the customer app. Another reminder can go 24 hours after this
+            one.
+          </>
+        }
         confirmLabel="Send reminder"
         refusalMessage={(error) => {
           const retryAfter = retryAfterFrom(error)

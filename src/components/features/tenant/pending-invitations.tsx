@@ -273,7 +273,11 @@ function StaffInvitationActions({
       <ReasonDialog
         {...dialogProps('resend')}
         title="Resend this invitation?"
-        description={`A new link goes to ${invitation.email}; the old one stops working.`}
+        description={
+          <>
+            A new link goes to <Pii>{invitation.email}</Pii>; the old one stops working.
+          </>
+        }
         confirmLabel="Resend"
         onConfirm={async (reason) => {
           const write = stepUp.run(() =>
@@ -286,7 +290,12 @@ function StaffInvitationActions({
       <ReasonDialog
         {...dialogProps('revoke')}
         title="Revoke this invitation?"
-        description={`The link sent to ${invitation.email} stops working immediately. You can invite them again later.`}
+        description={
+          <>
+            The link sent to <Pii>{invitation.email}</Pii> stops working immediately. You can invite
+            them again later.
+          </>
+        }
         confirmLabel="Revoke"
         destructive
         onConfirm={async (reason) => {

@@ -280,7 +280,12 @@ function SuppressionsPage() {
           if (!open) setLifting(null)
         }}
         title="Lift this suppression?"
-        description={`Emails to ${lifting?.address ?? 'this address'} are sent again. Another hard bounce or complaint suppresses it again.`}
+        description={
+          <>
+            Emails to {lifting === null ? 'this address' : <Pii>{lifting.address}</Pii>} are sent
+            again. Another hard bounce or complaint suppresses it again.
+          </>
+        }
         confirmLabel="Lift suppression"
         finalFocus={() => focus.finalFocus(opener.current, 'heading')}
         onConfirm={async (reason) => {

@@ -1,9 +1,8 @@
-import { act, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Pii } from '@/components/shared/pii'
 import type { MembershipRole } from '@/constants/roles'
 import { queryClient } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
@@ -248,9 +247,10 @@ describe('/staff with the real sections', () => {
     await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
     await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
 
-    await waitFor(() =>
-      expect(success).toHaveBeenCalledWith(<Pii>{'Otto Staff is now Admin.'}</Pii>)
-    )
+    await waitFor(() => expect(success).toHaveBeenCalledTimes(1))
+    const { container } = render(<>{success.mock.calls[0]![0]}</>)
+    expect(container).toHaveTextContent('Otto Staff is now Admin.')
+    expect(container.querySelector('.ph-sensitive.ph-mask')).toHaveTextContent(/^Otto Staff$/)
     expect(bodies).toEqual([{ role: 'admin' }, { role: 'admin' }])
   })
 
@@ -279,7 +279,10 @@ describe('/staff with the real sections', () => {
     await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
     await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
 
-    await waitFor(() => expect(success).toHaveBeenCalledWith(<Pii>{'Otto Staff removed.'}</Pii>))
+    await waitFor(() => expect(success).toHaveBeenCalledTimes(1))
+    const { container } = render(<>{success.mock.calls[0]![0]}</>)
+    expect(container).toHaveTextContent('Otto Staff removed.')
+    expect(container.querySelector('.ph-sensitive.ph-mask')).toHaveTextContent(/^Otto Staff$/)
     expect(calls).toBe(2)
   })
 

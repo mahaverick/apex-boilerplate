@@ -4,6 +4,7 @@ import { useMemo, useState, type RefObject } from 'react'
 import { toast } from 'sonner'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { EditUserNameDialog } from '@/components/features/users/edit-user-name-dialog'
+import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -167,7 +168,11 @@ export function UserActionsMenu({
         onOpenChange={close}
         finalFocus={finalFocus}
         title="Sign out everywhere"
-        description={`Ends every session ${user.email} has. They can sign in again.`}
+        description={
+          <>
+            Ends every session <Pii>{user.email}</Pii> has. They can sign in again.
+          </>
+        }
         confirmLabel="Sign out everywhere"
         onConfirm={async (reason) => {
           await signOut.mutateAsync({ userId: user.id, reason })
@@ -179,7 +184,12 @@ export function UserActionsMenu({
         onOpenChange={close}
         finalFocus={finalFocus}
         title="Deactivate account"
-        description={`${user.email} is signed out everywhere and can’t sign in until the account is reactivated.`}
+        description={
+          <>
+            <Pii>{user.email}</Pii> is signed out everywhere and can’t sign in until the account is
+            reactivated.
+          </>
+        }
         confirmLabel="Deactivate"
         destructive
         onConfirm={async (reason) => {
@@ -192,7 +202,11 @@ export function UserActionsMenu({
         onOpenChange={close}
         finalFocus={finalFocus}
         title="Reactivate account"
-        description={`${user.email} can sign in again.`}
+        description={
+          <>
+            <Pii>{user.email}</Pii> can sign in again.
+          </>
+        }
         confirmLabel="Reactivate"
         onConfirm={async (reason) => {
           await reactivate.mutateAsync({ userId: user.id, reason })
@@ -204,7 +218,13 @@ export function UserActionsMenu({
         onOpenChange={close}
         finalFocus={finalFocus}
         title="Delete user"
-        description={`This deletes ${user.email}, ends their sessions, removes their Google sign-in link and revokes invitations they sent. The address can register again. A platform owner can then delete the account permanently.`}
+        description={
+          <>
+            This deletes <Pii>{user.email}</Pii>, ends their sessions, removes their Google sign-in
+            link and revokes invitations they sent. The address can register again. A platform owner
+            can then delete the account permanently.
+          </>
+        }
         confirmLabel="Delete user"
         destructive
         confirmText={user.email}
@@ -218,7 +238,12 @@ export function UserActionsMenu({
         onOpenChange={close}
         finalFocus={finalFocus}
         title="Permanently delete this account?"
-        description={`This removes ${user.email}'s account, memberships and sign-in records for good, and anonymises their entries in the audit log. It can’t be undone.`}
+        description={
+          <>
+            This removes <Pii>{user.email}</Pii>’s account, memberships and sign-in records for
+            good, and anonymises their entries in the audit log. It can’t be undone.
+          </>
+        }
         confirmLabel="Delete permanently"
         destructive
         confirmText={user.email}

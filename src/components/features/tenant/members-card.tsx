@@ -210,7 +210,11 @@ function RoleCell({
     stepUp
       .run(() => updateRole.mutateAsync({ userId: member.user.id, role, reason }))
       .then(() => {
-        toast.success(<Pii>{`${name} is now ${ROLE_LABELS[role]}.`}</Pii>)
+        toast.success(
+          <>
+            <Pii>{name}</Pii> is now {ROLE_LABELS[role]}.
+          </>
+        )
       })
 
   return (
@@ -258,7 +262,12 @@ function RoleCell({
             if (!open) setPendingRole(null)
           }}
           title="Change this member’s role?"
-          description={`${name} becomes ${pendingRole === null ? '' : ROLE_LABELS[pendingRole]} in this customer tenant.`}
+          description={
+            <>
+              <Pii>{name}</Pii> becomes {pendingRole === null ? '' : ROLE_LABELS[pendingRole]} in
+              this customer tenant.
+            </>
+          }
           confirmLabel="Change role"
           onConfirm={(reason) =>
             changeRole(pendingRole ?? targetRole, reason).catch((error: unknown) =>
@@ -305,7 +314,12 @@ function StaffRemoveMemberButton({
         open={isOpen}
         onOpenChange={setIsOpen}
         title="Remove this member?"
-        description={`${name} will lose access to this tenant immediately. Pending invitations they sent are revoked.`}
+        description={
+          <>
+            <Pii>{name}</Pii> will lose access to this tenant immediately. Pending invitations they
+            sent are revoked.
+          </>
+        }
         confirmLabel="Remove"
         destructive
         onConfirm={async (reason) => {
@@ -315,7 +329,11 @@ function StaffRemoveMemberButton({
             unlessMemberGone(error, onRemoved)
             return
           }
-          toast.success(<Pii>{`${name} removed.`}</Pii>)
+          toast.success(
+            <>
+              <Pii>{name}</Pii> removed.
+            </>
+          )
           onRemoved()
         }}
       />
@@ -423,7 +441,13 @@ function RemoveMemberButton({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {isSelf ? 'Leave this tenant?' : <Pii>{`Remove ${name}?`}</Pii>}
+            {isSelf ? (
+              'Leave this tenant?'
+            ) : (
+              <>
+                Remove <Pii>{name}</Pii>?
+              </>
+            )}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {isSelf ? (
@@ -434,23 +458,24 @@ function RemoveMemberButton({
               </>
             ) : slug === PLATFORM_TENANT_SLUG ? (
               <>
-                <Pii>
-                  {name} loses staff access immediately. Pending invitations they sent here are
-                  revoked, and so are any they sent in other tenants for a role they can no longer
-                  grant there. If their address is on an auto-join domain (PLATFORM_EMAIL_DOMAINS),
-                  they rejoin as a viewer at their next sign-in: deactivate their account from Users
-                  to offboard them.
-                </Pii>{' '}
+                <Pii>{name}</Pii> loses staff access immediately. Pending invitations they sent here
+                are revoked, and so are any they sent in other tenants for a role they can no longer
+                grant there. If their address is on an auto-join domain (PLATFORM_EMAIL_DOMAINS),
+                they rejoin as a viewer at their next sign-in: deactivate their account from Users
+                to offboard them.{' '}
                 <Link
                   to={ROUTES.user}
                   params={{ userId: member.user.id }}
                   className="underline underline-offset-4"
                 >
-                  <Pii>{`Open ${name} in Users`}</Pii>
+                  Open <Pii>{name}</Pii> in Users
                 </Link>
               </>
             ) : (
-              <Pii>{`${name} will lose access to this tenant immediately. Pending invitations they sent are revoked.`}</Pii>
+              <>
+                <Pii>{name}</Pii> will lose access to this tenant immediately. Pending invitations
+                they sent are revoked.
+              </>
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -481,7 +506,11 @@ function RemoveMemberButton({
                       return
                     }
                     setIsOpen(false)
-                    toast.success(<Pii>{`${name} removed.`}</Pii>)
+                    toast.success(
+                      <>
+                        <Pii>{name}</Pii> removed.
+                      </>
+                    )
                     onRemoved()
                   },
                   (error: unknown) => {

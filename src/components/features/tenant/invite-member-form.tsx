@@ -199,9 +199,14 @@ export function InviteMemberForm({
           }}
           title="Send this invitation?"
           description={
-            toConfirm === null
-              ? ''
-              : `${toConfirm.email} will be invited to this customer tenant as ${ROLE_LABELS[toConfirm.role]}.`
+            toConfirm === null ? (
+              ''
+            ) : (
+              <>
+                <Pii>{toConfirm.email}</Pii> will be invited to this customer tenant as{' '}
+                {ROLE_LABELS[toConfirm.role]}.
+              </>
+            )
           }
           confirmLabel="Send invitation"
           refusalMessage={(error) => (codeFrom(error) === INVITATION_CONFLICT ? RACED : undefined)}

@@ -167,6 +167,14 @@ function setViewportWidth(width: number) {
 }
 const realInnerWidth = window.innerWidth
 
+/** Finds the toast whose text reads `text`, whether or not part of it sits in its own element. */
+function findToast(text: string) {
+  return waitFor(() => {
+    const toasts = [...document.querySelectorAll('[data-sonner-toast] [data-title]')]
+    expect(toasts.map((t) => t.textContent)).toContain(text)
+  })
+}
+
 describe('members tab permissions', () => {
   afterEach(() => {
     setViewportWidth(realInnerWidth)
@@ -525,9 +533,13 @@ describe('removing and leaving', () => {
     expect(dialog).toHaveTextContent(
       'Vic X will lose access to this tenant immediately. Pending invitations they sent are revoked.'
     )
+    // The title and the description each name the member, and each masks only the name.
+    for (const name of within(dialog).getAllByText('Vic X')) {
+      expect(name).toHaveClass('ph-sensitive', 'ph-mask')
+    }
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
-    expect(await screen.findByText('Vic X removed.')).toBeInTheDocument()
+    await findToast('Vic X removed.')
     expect(removed).toBe(USER_ID_3)
     // A member gives no reason, so the DELETE carries no body.
     expect(body).toBe('')
@@ -609,7 +621,7 @@ describe('removing and leaving', () => {
     expect(await within(still).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
     await waitFor(() => expect(still.contains(document.activeElement)).toBe(true))
     expect(calls).toBe(1)
-    expect(screen.getByText('Vic X')).toBeInTheDocument()
+    expect(vic.getByText('Vic X')).toBeInTheDocument()
   })
 
   it('says why a removal was refused, and closes the dialog', async () => {
@@ -1531,10 +1543,14 @@ describe('staff acting through platform access', () => {
     expect(dialog).toHaveTextContent(
       'Vic X will lose access to this tenant immediately. Pending invitations they sent are revoked.'
     )
+    // The title and the description each name the member, and each masks only the name.
+    for (const name of within(dialog).getAllByText('Vic X')) {
+      expect(name).toHaveClass('ph-sensitive', 'ph-mask')
+    }
     await user.type(within(dialog).getByLabelText('Reason'), 'Offboarding request')
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
-    expect(await screen.findByText('Vic X removed.')).toBeInTheDocument()
+    await findToast('Vic X removed.')
     expect(body).toEqual({ reason: 'Offboarding request' })
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Members' })).toHaveFocus())
   })
@@ -1779,7 +1795,7 @@ describe('staff acting through platform access', () => {
       await user.click(within(dialog).getByRole('button', { name: confirm }))
       await confirmStepUp(user)
 
-      expect(await screen.findByText(said)).toBeInTheDocument()
+      await findToast(said)
       expect(bodies).toEqual([body, body])
     }
   )

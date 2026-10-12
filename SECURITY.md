@@ -500,8 +500,10 @@ leaving, the platform tenant. Maintenance changes have their own dialogs
 
 - **The reason is bounded safe text.** `reasonSchema`
   (`src/schemas/reason.schemas.ts`) mirrors express's: trimmed, 1 to 500
-  characters, multi-line safe text. The dialog renders its description, and
-  the value to type, inside `<Pii>`.
+  characters, multi-line safe text. The dialog masks the value to type, and a
+  description that is a plain string whole; a description passed as a node
+  renders as given, so a caller with a person's value in it wraps only that
+  value in `<Pii>`.
 - **Irreversible actions need the target typed.** Archiving or deleting a
   tenant asks for its slug; deleting or permanently deleting a user asks for
   their email address (`confirmText`).

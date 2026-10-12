@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form'
-import { useMemo, useState, type ComponentProps } from 'react'
+import { useMemo, useState, type ComponentProps, type ReactNode } from 'react'
 import { Pii } from '@/components/shared/pii'
 import {
   AlertDialog,
@@ -42,7 +42,12 @@ export interface ReasonDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
-  description: string
+  /**
+   * What the action will do. A plain string is masked whole as `<Pii>`, the safe default;
+   * a node renders as given, so a caller whose sentence holds a person's value passes
+   * `<>… <Pii>{value}</Pii> …</>` and masks only the value.
+   */
+  description: string | ReactNode
   confirmLabel: string
   destructive?: boolean
   /** When set, the user must type this value (a slug or an email) to confirm. */
@@ -60,10 +65,12 @@ export interface ReasonDialogProps {
 }
 
 /**
- * The confirmation every destructive or state-changing staff action goes
- * through: a required reason (recorded in the audit log) and, for the
- * irreversible ones, a typed confirmation. The form mounts only while open,
- * so each opening starts blank.
+ * The confirmation for a staff action the API records a reason for: a required
+ * reason (sent with the request, recorded in the audit log) and, when the caller
+ * sets `confirmText`, a typed confirmation. Not every destructive action goes
+ * through it (removing a member of the platform tenant, leaving a tenant and the
+ * maintenance dialogs have their own `AlertDialog`); SECURITY.md "Reason prompts"
+ * lists which do. The form mounts only while open, so each opening starts blank.
  *
  * A refusal shows inside the dialog, which stays open. A 403 or 409 is the
  * server's own sentence (staff-on-staff refusal, invalid transition, last
@@ -151,7 +158,7 @@ function ReasonForm({
       <AlertDialogHeader>
         <AlertDialogTitle>{title}</AlertDialogTitle>
         <AlertDialogDescription>
-          <Pii>{description}</Pii>
+          {typeof description === 'string' ? <Pii>{description}</Pii> : description}
         </AlertDialogDescription>
       </AlertDialogHeader>
       <Form form={form} serverErrors={serverErrors} className="grid gap-4">
@@ -177,7 +184,7 @@ function ReasonForm({
             {(field) => (
               <FormItem>
                 <FormLabel>
-                  <Pii>Type {confirmText} to confirm</Pii>
+                  Type <Pii>{confirmText}</Pii> to confirm
                 </FormLabel>
                 <FormControl>
                   <Input
