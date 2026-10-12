@@ -410,25 +410,12 @@ an escape. If a fixtures test lands on `/login`, look for an unmocked endpoint.
 Its accounts are registered and verified through mailpit. Each run registers a
 fresh address (`freshEmail`), because express rate-limits sign-in per address.
 Nothing is cleaned up: every run leaves its accounts, tenants, invitations and
-audit entries in that API's database. The express under test needs:
-
-- `APEX_URL=http://localhost:5174` and `WEB_URL=http://localhost:5173`, because
-  the suites assert which app each mailed link opens;
-- an email worker that delivers to mailpit;
-- `APP_ENV=local` for the emails suite, which posts to the fake email webhook.
+audit entries in that API's database. What the express under test needs is in
+the [README](README.md#testing).
 
 `assertApiServesApex` and `assertFakeEmailWebhook` fail before any test runs and
-name what is wrong. The variables, with their defaults:
-
-- `E2E_API_ORIGIN` (`http://localhost:4040`): the express under test. The dev
-  server's `/api` proxy reads it too, so a dev server that is already running keeps
-  the target it started with.
-- `E2E_API_DIR` (`../express-boilerplate`): where `pnpm platform:grant` and the
-  step-up backdating (`docker compose exec postgres psql`) run.
-- `E2E_API_DB` (`boilerplate`): the database the backdating writes to.
-- `E2E_MAILPIT_ORIGIN` (`http://localhost:8025`): the mailpit the helpers read.
-- `E2E_WEB_ORIGIN` (`http://localhost:5173`): the customer app's origin in mailed
-  links.
+name what is wrong. The variables, with their defaults, are in the
+[README](README.md#testing).
 
 **posthog-js drops every event from a Playwright browser** (`navigator.webdriver`,
 a headless user agent). An analytics e2e test uses `HUMAN_USER_AGENT` and calls
@@ -437,10 +424,9 @@ a headless user agent). An analytics e2e test uses `HUMAN_USER_AGENT` and calls
 **`nginx`** runs against the production image (`pnpm test:e2e:nginx`), because the
 headers and the CSP are only real there. The `@no-api` tests also run in CI with
 nothing behind `/api`. The rest need a live API and run locally.
-`e2e/nginx/errors.test.ts` expects the image's release in `E2E_RELEASE` (default
-`dev`). The live half of `e2e/nginx/analytics.test.ts` also needs
-`E2E_ANALYTICS=1` and an express pointed at the fake PostHog on
-`E2E_FAKE_POSTHOG_PORT` (default 4063); its file comment gives the setup.
+The variables are in the [README](README.md#testing), and the live half of
+`e2e/nginx/analytics.test.ts` has its setup in the README's
+[Analytics](README.md#analytics-posthog) section.
 
 **`contrast`** (`pnpm test:contrast`) runs axe's `color-contrast` rule in a real
 browser, in both themes, over every surface reachable without a backend. Each

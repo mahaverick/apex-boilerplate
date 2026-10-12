@@ -35,15 +35,21 @@ shipping the app.
 - **Node 24 or later** and **pnpm** at the version `packageManager` in
   `package.json` names. Install Corepack with
   `npm i -g corepack@0.36.0 && corepack enable`; pnpm then comes from
-  `packageManager`. Node 25 and later do not ship Corepack, so this works on any
-  supported Node. `pnpm install` refuses a Node older than 24.
+  `packageManager`. `pnpm install` refuses a Node older than 24.
 - **The API running on `:4040`, with `APEX_URL` set.** See
   [Getting started](#getting-started).
-- **express-boilerplate 2.1.0 or later.** Staff writes to a customer tenant's
-  members and invitations need a reason and a recent sign-in, and the members
-  page reads the `member_not_found` code on a role change or removal whose member
-  is already gone, and `user.active` on the platform tenant's member list.
-  Clearing a maintenance reason sends `reason: null`.
+- **express-boilerplate 2.0.1 or later; 2.1.0 or later is recommended.** 2.0.1 is
+  the earliest tag that has every route and body Apex sends: Leave
+  (`DELETE /tenants/:slug/membership`), Sign out other sessions
+  (`POST /auth/sessions/revoke-others`) and the reason-gated staff writes arrive in
+  2.0.0, and clearing a maintenance reason sends `reason: null`, which the
+  maintenance validator accepts from 2.0.1. The platform routes (stats 1.1.0,
+  reauthenticate 1.2.0, emails 1.3.0, onboarding 1.4.0, timelines 1.6.0, system
+  status and errors 1.7.0, flags 1.8.0, maintenance 1.9.0) are all older. From
+  2.1.0 the members page reads the `member_not_found` code and `user.active` on
+  the platform tenant's member list. Against 2.0.x it falls back to the 404's
+  `Member not found` message and treats every member as active
+  (`src/queries/tenant-writes.queries.ts`, `src/queries/tenant.queries.ts`).
 - **Optional express settings** that switch features on. Without them the page
   says the feature is not set up:
   - `POSTHOG_PERSONAL_API_KEY` and `POSTHOG_PROJECT_ID`: a user's and a tenant's
@@ -278,16 +284,17 @@ The `live` and `nginx` projects read these variables (defaults in
 
 The `live` project needs the express under test to run with
 `APEX_URL=http://localhost:5174` and `WEB_URL=http://localhost:5173`, an email
-worker that delivers to mailpit, and `APP_ENV=local` for the emails suite. The
-full list of what each project needs, and the harness's traps, are in
-[CLAUDE.md](CLAUDE.md#end-to-end-tests).
+worker that delivers to mailpit, and `APP_ENV=local` for the emails suite. The harness's traps are in [CLAUDE.md](CLAUDE.md#end-to-end-tests).
 
 ## Analytics (PostHog)
 
 Set `POSTHOG_KEY` to turn analytics on ([Run-time configuration](#run-time-configuration)).
 Events go through the API's `/api/v1/collect` proxy, never to PostHog directly.
 The browser's analytics go to the same PostHog project as express's server-side
-events, the one express's `POSTHOG_PROJECT_KEY` names. The mechanism is in
+events, the one express's `POSTHOG_PROJECT_KEY` names. Apex takes no handoff from
+a website: `ANALYTICS_HANDOFF_ORIGINS` is validated but ignored, and a
+`?ph_did=&ph_sid=` is only stripped from the address bar, so a website visitor's
+anonymous id never joins a staff person. The mechanism is in
 [Analytics](ARCHITECTURE.md#analytics) and the privacy rules are in
 [Analytics privacy](SECURITY.md#analytics-privacy).
 
@@ -333,6 +340,35 @@ The Feature flags page inspects the registry and evaluates any user's values; it
 described in
 [Feature flags admin](ARCHITECTURE.md#feature-flags-admin-this-app-only).
 
+## Maintenance mode
+
+A platform owner switches customer maintenance mode from the **Maintenance** page
+(every staff role can read it). The mechanism is in
+[Maintenance admin](ARCHITECTURE.md#maintenance-admin-this-app-only) and the
+controls on a change are in
+[Maintenance controls](SECURITY.md#maintenance-controls). The full runbook is
+express-boilerplate's README section "Maintenance mode", which covers the API's side
+(read-only versus full, restoring a database, clock sync, notice jobs). The steps
+that happen in Apex:
+
+1. **Confirm staff can sign in before `full`.** In `full` customers cannot sign in
+   and whoever will turn it off must be able to sign in to Apex.
+2. **Before database work, check that every queue says "0 running"** on the
+   Maintenance page. Full maintenance pauses every queue, but jobs already running
+   finish first.
+3. **Staff pages keep working** during maintenance, so a staff change still lands
+   while customers are shut out.
+4. **Turn it off from Apex**, as an owner, with the page's **Turn off…** button.
+
+The Overview's **System status** card ("The API over the last 15 minutes") shows
+the API's release and error tracking (enabled or not, events sent, events dropped by
+reason and the last failed send), and, when the API sends them, a **Feature flags**
+section and a **Maintenance mode** section. Each section gets a **Needs
+attention** badge when something is wrong: for flags, a missing or stale
+definitions snapshot, a failed fetch, a property matching version other than 1, or a flag that is
+missing, unsupported or answered an unknown variant; for maintenance, a state the API has not read, a failed
+reload, queues that disagree with the mode, or change notices still waiting.
+
 ## Docker
 
 ```bash
@@ -356,7 +392,7 @@ docker run --rm -p 8080:8080 -e API_UPSTREAM=http://my-api:8080 --read-only --tm
 The image is built to run on a **read-only root filesystem**. Everything nginx
 writes goes under `/tmp`, so give it a writable one: `--tmpfs /tmp` as above, or an
 `emptyDir` in Kubernetes. With `--read-only` and no writable `/tmp` the container
-stops at start. Logs go to stdout and stderr. The stages, the entrypoint order and
+stops at start. The stages, the entrypoint order and
 the nginx locations are in
 [The container and run-time config](ARCHITECTURE.md#the-container-and-run-time-config).
 
@@ -446,10 +482,12 @@ both, each frontend proxying `/api` to it. On express:
   express's `APP_URL` host, set **`COOKIE_DOMAIN`** to a parent domain of both
   hosts. express refuses to boot otherwise: a Google sign-in started in Apex would
   lose its session on the way back.
-- Set `TRUST_PROXY` for the TLS terminator in front of the frontends. The image
-  passes its `X-Forwarded-Proto` through to express, and express needs
-  `TRUST_PROXY` for express-session to see HTTPS and set the Secure `oauth.sid`
-  cookie.
+- With Google sign-in on and Secure auth cookies (`COOKIE_SECURE`, on by default
+  outside local), set `TRUST_PROXY` to the number of proxies in front of express.
+  The image passes the TLS terminator's `X-Forwarded-Proto` through, but without
+  `TRUST_PROXY` express-session sees plain HTTP and never sends the OAuth session
+  cookie (`__Secure-oauth.sid` or `__Host-oauth.sid`), so Google sign-in fails.
+  express only warns about this at boot.
 
 ## Releases
 
@@ -461,8 +499,9 @@ GitHub refuses auto-merge). With the `main` ruleset below, either way it merges
 only once the required checks pass. The next run tags `vX.Y.Z` and publishes the
 GitHub Release, and the tag push makes `deploy.yml` promote the image `main`
 already built and tested: it adds `:X.Y.Z`, `:X.Y` and `:X` to that same digest
-rather than rebuilding. Only `feat`, `fix` and breaking commits cut a release;
-`chore`, `docs`, `ci` and the like do not.
+rather than rebuilding. By release-please's defaults, which
+`release-please-config.json` does not change, only `feat`, `fix` and breaking
+commits cut a release; `chore`, `docs`, `ci` and the like do not.
 
 Releases use a GitHub App token, from the repo variable
 **`RELEASE_APP_CLIENT_ID`** and the secret **`RELEASE_APP_PRIVATE_KEY`**; the App
