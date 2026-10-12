@@ -11,7 +11,7 @@ const PATH = `/register?invitation=${TEST_INVITATION_TOKEN}`
 const EMAIL = testInvitationPreview.email.toLowerCase()
 
 /** Types `password` into the invitation form and presses Create account. */
-async function submit(password = 'secret123') {
+async function submit(password = 'a-long-enough-password') {
   const user = userEvent.setup()
   await user.type(await screen.findByLabelText('Password'), password)
   await user.click(screen.getByRole('button', { name: 'Create account' }))
@@ -70,7 +70,7 @@ describe('/register (invitation only)', () => {
   it('registers and shows the check-your-email card', async () => {
     const user = userEvent.setup()
     renderAppAt(`/register?invitation=${TEST_INVITATION_TOKEN}`)
-    await user.type(await screen.findByLabelText('Password'), 'longenough1')
+    await user.type(await screen.findByLabelText('Password'), 'a-long-enough-password')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
     expect(await screen.findByText(/Check your email/i)).toBeInTheDocument()
   })
@@ -88,7 +88,7 @@ describe('/register (invitation only)', () => {
 
     expect(await screen.findByText(new RegExp(`verification link to ${EMAIL}`))).toBeInTheDocument()
     // Empty optional names are dropped by the schema, not posted as ''.
-    expect(body).toEqual({ email: EMAIL, password: 'secret123', app: 'apex' })
+    expect(body).toEqual({ email: EMAIL, password: 'a-long-enough-password', app: 'apex' })
   })
 
   it("maps the server's 400 field errors onto the form and stays on it", async () => {
