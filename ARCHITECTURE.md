@@ -152,10 +152,9 @@ returns the `data` of the API's success envelope. Failed requests are read
 with the helpers in `src/lib/api-error.ts`, and a form maps the API's field
 errors onto its inputs through `useServerErrors`.
 
-- **A 404 under `/platform/*` is a refusal, not a miss.** `isRoleDenied`
-  (`src/queries/platform.queries.ts`) reads it as "not available to you";
-  each staff query skips its retry on it, and the page renders `RoleDenied`
-  ([Staff-only access](SECURITY.md#staff-only-access)).
+- **A 404 under `/platform/*` is a refusal, not a miss.** Staff queries test
+  it with `isRoleDenied` (`src/queries/platform.queries.ts`); what follows is
+  in [Staff-only access](SECURITY.md#staff-only-access).
 - **Lists and details are keyed apart.** A list key sits under its plural
   prefix (`['platform', 'tenants']`, `['platform', 'users']`) and a record
   under the singular one (`['platform', 'tenant', id]`), so refreshing a list
@@ -261,8 +260,9 @@ layout every staff page renders in. It holds:
   pages, each with its sidebar group, the least platform role that sees it
   and an optional boolean flag. The sidebar groups it (`navGroupsFor`) and
   the command palette lists it (`navItemsFor`), so a new page is an entry
-  there plus a file under `src/pages/_app/`. An item above the user's role,
-  or behind a flag that is off, is absent rather than disabled.
+  there, a `ROUTES` entry (`src/constants/routes.ts`), a member of the
+  `NavPath` union and a file under `src/pages/_app/`. An item above the
+  user's role, or behind a flag that is off, is absent rather than disabled.
 - **The command palette** (`src/components/features/command-palette.tsx`),
   opened by ⌘K or Ctrl+K or the header's search button through
   `command-palette.store.ts`. It filters the visible pages itself and asks
@@ -280,9 +280,9 @@ layout every staff page renders in. It holds:
 - **The `$feature/*` sync**, mounted once here
   ([Feature flags](#feature-flags)).
 
-The palette, the banner and the flag sync live in the layout, not the
-sidebar, because below the `md` breakpoint the sidebar renders into a sheet
-whose content unmounts while it is closed.
+The palette and the flag sync live in the layout, not the sidebar, because
+below the `md` breakpoint the sidebar renders into a sheet whose content
+unmounts while it is closed.
 
 Destructive and audited writes ask for a reason in `ReasonDialog`
 (`src/components/features/reason-dialog.tsx`); which ones do, and the
@@ -340,8 +340,8 @@ still opens. `groupTimeline` (`src/lib/timeline-grouping.ts`) regroups every
 loaded page at once, so a run cut by a page boundary joins up: consecutive
 rows sharing a session id form a session block, and consecutive verified
 server rows sharing a trace form one request. Only a row express signed is
-grouped by trace, since a forged event could claim a real request's trace;
-how each row is badged is in [Untrusted content](SECURITY.md#untrusted-content).
+grouped by trace; why, and how each row is badged, is in
+[Untrusted content](SECURITY.md#untrusted-content).
 
 These pages are for admins and up. A page checks the role before it asks
 the API, and mounts its panel only once the user or tenant has loaded: an
@@ -483,8 +483,9 @@ Error tracking is split so that every page pays almost nothing for it:
   (`rootErrorOptions`, passed to `createRoot`), and `noteError` for an error
   the app catches that those hooks never see (this app's callers are
   `RouteError` and the members card's Leave action, whose failed navigation
-  it catches). It drops repeats, buffers a few errors, and loads the reporter on the first error or when
-  the browser is idle. It imports only `identity-epoch.ts`.
+  it catches). It drops repeats, buffers a few errors, and loads the
+  reporter on the first error or when the browser is idle. It imports only
+  `identity-epoch.ts`.
   `pnpm check:bundle` caps it at 1 KB gzipped and keeps `@posthog/core` and
   posthog-js out of the first-visit chunks.
 - **`report.ts`**, lazy, filters each error, builds a `$exception` with
@@ -507,7 +508,8 @@ Error tracking is split so that every page pays almost nothing for it:
 
 Customer maintenance mode is the API's; this app shows its state to staff
 and lets platform owners change it. Staff pages are not gated by it: the API
-lets staff through whatever the mode, so this app keeps no maintenance store,
+lets platform staff through on the routes this app calls (express's
+`MAINTENANCE_STAFF_ROUTES`), so this app keeps no maintenance store,
 lets no mode replace its routes and reads no `Maintenance-Mode` response
 header.
 
