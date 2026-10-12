@@ -161,12 +161,11 @@ means the default too, except `API_UPSTREAM`: the container refuses an empty one
 - Apex has no consent banner and no handoff (`SUPPORTS_CONSENT_MODES` and
   `SUPPORTS_HANDOFF` are false in `src/observability/analytics/config.ts`), so it
   always runs `opt_out` ([Analytics privacy](SECURITY.md#analytics-privacy)).
-  `.env.example` lists no `VITE_ANALYTICS_CONSENT_MODE`.
 - Every value is public: each browser receives `/runtime-config.js`
   ([why that is safe](SECURITY.md#run-time-config-injection-safety)).
 
 The dev server, `pnpm preview` and the unit tests read the `VITE_` names from
-`.env` (`.env.example` lists them).
+`.env`; `.env.example` lists them all but `VITE_ANALYTICS_CONSENT_MODE`.
 
 `docker run`, or a GitHub Actions job using repository secrets:
 

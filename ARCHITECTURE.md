@@ -94,9 +94,9 @@ them.
 
 ## Routing and data loading (this app only)
 
-Routes are files under `src/pages/`; `__root.tsx`, `_auth.tsx` and
-`$tenantId.members.tsx` follow TanStack Router's naming, not the kebab-case
-rule the rest of `src/` follows.
+Routes are files under `src/pages/`. Route files prefixed `__`, `_` or `$`
+(`__root.tsx`, `_app.tsx`, `$tenantId.members.tsx`) follow TanStack Router's
+naming, not the kebab-case rule the rest of `src/` follows.
 
 | Route group                                                                 | Guard                                                                                                                                                     |
 | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -621,9 +621,9 @@ and why the values are safe to write unescaped is in
 `docker/check-image.sh` checks a built image from outside. Its checks on the
 user, the root filesystem, the headers, the source maps, the refused run-time
 settings and the release are listed in
-[CSP and headers](SECURITY.md#csp-and-headers); the script also checks the
-`API_UPSTREAM` values nginx refuses and the content type of the JavaScript the
-image serves.
+[CSP and headers](SECURITY.md#csp-and-headers); the script also checks that
+`docker/05-prepare.sh` accepts good `API_UPSTREAM` values and refuses bad
+ones, and the content type of the JavaScript the image serves.
 
 ## Sibling sync with react-boilerplate
 

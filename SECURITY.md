@@ -463,8 +463,9 @@ with a 401 whose code is `REAUTH_REQUIRED`.
   `POST /auth/reauthenticate` and puts the access token it returns, which
   carries a fresh `auth_time`, in the auth store (`useReauthenticate`). A
   wrong password is a 400 shown on the field, never a 401, so it cannot be
-  read as a verdict on the session. The account's sign-in methods are read
-  when the dialog opens, from a cache at most 30 seconds old.
+  read as a verdict on the session. The account's sign-in methods come
+  from the query cache when the dialog opens; an answer more than 30 seconds
+  old is shown at once and read again in the background.
 - **An account without a password cannot step up here.** The dialog says so
   and links to the user's own page, where an admin or owner can mail
   themselves a set-password link. Setting the password ends every session
@@ -479,15 +480,14 @@ Every staff action the API records a reason for asks for one, which the
 API stores in the audit log with the actor's name. `ReasonDialog`
 (`src/components/features/reason-dialog.tsx`) asks for suspending,
 reactivating, archiving and deleting a tenant; signing a user out
-everywhere, deactivating, reactivating and deleting a user; lifting a
-suppression; resending an email; marking an onboarding step complete and
+everywhere, deactivating, reactivating, deleting and permanently deleting a
+user; lifting a suppression; resending an email; marking an onboarding step complete and
 sending an onboarding reminder; and member and invitation writes through
 platform access. Reissuing a tenant's owner invitation asks in its own
 dialog, with the same `reasonSchema`. Other staff writes take no reason:
 creating a user or a tenant, renaming a user, editing a tenant's details,
-mailing a set-password
-or verification link, and removing a member of, or leaving, the platform
-tenant. Maintenance changes have their own dialogs
+mailing a set-password or verification link, and removing a member of, or
+leaving, the platform tenant. Maintenance changes have their own dialogs
 ([Maintenance controls](#maintenance-controls)).
 
 - **The reason is bounded safe text.** `reasonSchema`
@@ -586,8 +586,9 @@ Some of what staff see comes from someone the API does not vouch for.
 ## Known gaps
 
 - **The container trusts its front.** nginx appends to the client's
-  `X-Forwarded-For` and passes on an `X-Forwarded-Proto` of `http` or `https` as
-  received, and sets no per-IP connection limit, since every request arrives
+  `X-Forwarded-For` and passes on a client-supplied `X-Forwarded-Proto` of
+  `http` or `https` (any other value becomes `http`), and sets no per-IP
+  connection limit, since every request arrives
   from the TLS terminator's address (`docker/nginx.main.conf`). Expose the
   container only through that terminator.
 - **The error log can hold query strings.** An upstream error under
