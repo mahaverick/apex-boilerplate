@@ -38,7 +38,7 @@ shipping the app.
   `packageManager`. `pnpm install` refuses a Node older than 24.
 - **The API running on `:4040`, with `APEX_URL` set.** See
   [Getting started](#getting-started).
-- **express-boilerplate 2.0.1 or later; 2.1.0 or later is recommended.** 2.0.1 is
+- **express-boilerplate 2.0.1 or later; 4.0.0 or later is recommended.** 2.0.1 is
   the earliest tag that has every route and body Apex sends: Leave
   (`DELETE /tenants/:slug/membership`), Sign out other sessions
   (`POST /auth/sessions/revoke-others`) and the reason-gated staff writes arrive in
@@ -49,7 +49,11 @@ shipping the app.
   2.1.0 the members page reads the `member_not_found` code and `user.active` on
   the platform tenant's member list. Against 2.0.x it falls back to the 404's
   `Member not found` message and treats every member as active
-  (`src/queries/tenant-writes.queries.ts`, `src/queries/tenant.queries.ts`).
+  (`src/queries/tenant-writes.queries.ts`, `src/queries/tenant.queries.ts`). From
+  4.0.0 a second click on a used verification link answers 409
+  `email_already_verified`, which the verify page shows as done
+  (`src/pages/verify-email.tsx`); earlier versions answer 400, which it shows as a
+  failed link.
 - **Optional express settings** that switch features on. Without them the page
   says the feature is not set up:
   - `POSTHOG_PERSONAL_API_KEY` and `POSTHOG_PROJECT_ID`: a user's and a tenant's

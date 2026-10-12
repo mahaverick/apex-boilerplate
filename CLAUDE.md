@@ -449,10 +449,11 @@ is disabled to make it pass.
 - **Every page needs exactly one `<main>` and one `<h1>`, and the test asserts both
   by hand.** Under jsdom, axe cannot evaluate `page-has-heading-one` or
   `landmark-one-main`. Both use axe's `passForModal` check, which looks for a
-  modal. When no dialog is open, the check calls `document.elementFromPoint`, which
-  jsdom lacks, so axe files both rules under `incomplete`. `toHaveNoViolations`
-  does not read that list. When a dialog is open, both rules pass without looking
-  at the page. `CardTitle` renders a `div`, so a page's `h1` goes inside it.
+  modal. When no dialog is open, the check calls `document.elementsFromPoint`,
+  which axe polyfills over `document.elementFromPoint`; jsdom has neither, so axe
+  files both rules under `incomplete`. `toHaveNoViolations` does not read that
+  list. When a dialog is open, both rules pass without looking at the page.
+  `CardTitle` renders a `div`, so a page's `h1` goes inside it.
 - **`incomplete` is pinned.** `KNOWN_INCOMPLETE` lists the rules jsdom cannot
   decide, each with its reason, and the gate fails on any other rule filed there.
   `aria-valid-attr-value` is accepted only when every check on it is
