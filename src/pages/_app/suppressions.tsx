@@ -292,7 +292,11 @@ function SuppressionsPage() {
           if (lifting === null) return
           await lift.mutateAsync({ id: lifting.id, reason })
           focus.focusAfter([`suppression:${lifting.id}`, 'heading'], opener.current)
-          toast.success(<Pii>{`Suppression lifted for ${lifting.address}.`}</Pii>)
+          toast.success(
+            <>
+              Suppression lifted for <Pii>{lifting.address}</Pii>.
+            </>
+          )
         }}
       />
     </div>

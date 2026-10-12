@@ -6,6 +6,7 @@ import type { MembershipRole } from '@/constants/roles'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import { queryClient } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
+import { byContent } from '@/tests/fixtures/content'
 import {
   AUDIT_ID_1,
   MEMBERSHIP_ID_2,
@@ -380,7 +381,7 @@ describe('/tenants/$tenantId', () => {
       await user.type(within(dialog).getByLabelText('Reason'), 'first link expired')
       await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
       expect(
-        await screen.findByText('Owner invitation sent to olive@acme.test.')
+        await screen.findByText(byContent('Owner invitation sent to olive@acme.test.'))
       ).toBeInTheDocument()
       expect(body).toEqual({ email: 'olive@acme.test', reason: 'first link expired' })
     })
@@ -822,7 +823,9 @@ describe('/tenants/$tenantId', () => {
       )
       renderAppAt(`/tenants/${TENANT_ID}`)
       expect(
-        await screen.findByText(/No owner yet\. An invitation to olive@acme\.test expires/)
+        await screen.findByText(
+          byContent(/No owner yet\. An invitation to olive@acme\.test expires/)
+        )
       ).toBeInTheDocument()
     })
 

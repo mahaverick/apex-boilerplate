@@ -36,7 +36,7 @@ function NoAccessPage() {
             <h1>This account has no platform access</h1>
           </CardTitle>
           <CardDescription>
-            <Pii>Signed in as {email}.</Pii>
+            Signed in as <Pii>{email}</Pii>.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 text-sm">

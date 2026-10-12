@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@/states/auth.store'
+import { byContent } from '@/tests/fixtures/content'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -29,7 +30,7 @@ describe('/no-access', () => {
     expect(
       await screen.findByRole('heading', { name: 'This account has no platform access', level: 1 })
     ).toBeInTheDocument()
-    expect(screen.getByText(/Signed in as a\.b@example\.com/)).toBeInTheDocument()
+    expect(screen.getByText(byContent('Signed in as a.b@example.com.'))).toBeInTheDocument()
     expect(screen.getByText(/open the invitation link again/)).toBeInTheDocument()
 
     // Sign-out leaves by a full page load (`useLogout`), and jsdom's `assign` cannot be spied on, so the whole `location` is replaced.

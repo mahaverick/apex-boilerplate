@@ -4,6 +4,7 @@ import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
+import { byContent } from '@/tests/fixtures/content'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -535,7 +536,7 @@ describe('/tenants', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
 
       expect(
-        await screen.findByText(/Owner invitation sent to owner@acme.test/)
+        await screen.findByText(byContent(/Owner invitation sent to owner@acme.test/))
       ).toBeInTheDocument()
       expect(body).toEqual({ name: 'Acme Corp', slug: 'acme', ownerEmail: 'owner@acme.test' })
       await waitFor(() =>

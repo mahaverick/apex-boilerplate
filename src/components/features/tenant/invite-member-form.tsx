@@ -113,7 +113,11 @@ export function InviteMemberForm({
       }
       try {
         await stepUp.run(() => inviteMember.mutateAsync(input))
-        toast.success(<Pii>{`Invitation sent to ${input.email}.`}</Pii>)
+        toast.success(
+          <>
+            Invitation sent to <Pii>{input.email}</Pii>.
+          </>
+        )
         form.reset()
       } catch (error) {
         if (showOnField(error)) return
@@ -224,7 +228,11 @@ export function InviteMemberForm({
               refusedOnField.current = true
               return
             }
-            toast.success(<Pii>{`Invitation sent to ${toConfirm.email}.`}</Pii>)
+            toast.success(
+              <>
+                Invitation sent to <Pii>{toConfirm.email}</Pii>.
+              </>
+            )
             form.reset()
           }}
         />

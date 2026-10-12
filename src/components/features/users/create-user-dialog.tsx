@@ -51,7 +51,11 @@ export function CreateUserDialog() {
       try {
         const { user, emailSent } = await create.mutateAsync(createUserSchema.parse(value))
         if (emailSent) {
-          toast.success(<Pii>{`Set-password email sent to ${user.email}.`}</Pii>)
+          toast.success(
+            <>
+              Set-password email sent to <Pii>{user.email}</Pii>.
+            </>
+          )
         } else {
           toast.warning('The user was created, but the set-password email could not be sent.', {
             action: {

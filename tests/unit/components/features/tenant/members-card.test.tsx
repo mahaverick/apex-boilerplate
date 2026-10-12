@@ -6,6 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import type { MembershipRole } from '@/constants/roles'
 import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
+import { byContent } from '@/tests/fixtures/content'
 import {
   INVITATION_ID,
   INVITATION_ID_2,
@@ -1011,9 +1012,7 @@ describe('inviting, and the pending invitations', () => {
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
 
     // The 202 is the same for every address, so the toast names the address sent.
-    expect(
-      await screen.findByText('Invitation sent to new-member@example.com.')
-    ).toBeInTheDocument()
+    await findToast('Invitation sent to new-member@example.com.')
     expect(body).toEqual({ email: 'new-member@example.com', role: 'viewer' })
     expect(await screen.findByText('new-member@example.com')).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toHaveValue('')
@@ -1120,11 +1119,11 @@ describe('inviting, and the pending invitations', () => {
     const first = within(
       (await screen.findByText('invited@example.com')).closest('li') as HTMLElement
     )
-    expect(first.getByText('Editor · Invited by A B')).toBeInTheDocument()
+    expect(first.getByText(byContent('Editor · Invited by A B'))).toBeInTheDocument()
     expect(first.getByText(/^Expires /)).toBeInTheDocument()
     // An inviter whose account is gone is `null` and renders as a teammate.
     const second = within(screen.getByText('old-invite@example.com').closest('li') as HTMLElement)
-    expect(second.getByText('Viewer · Invited by A teammate')).toBeInTheDocument()
+    expect(second.getByText(byContent('Viewer · Invited by A teammate'))).toBeInTheDocument()
   })
 
   it('says when nothing is pending', async () => {
@@ -1185,7 +1184,7 @@ describe('inviting, and the pending invitations', () => {
       await screen.findByRole('button', { name: 'Resend invitation to invited@example.com' })
     )
 
-    expect(await screen.findByText('Invitation resent to invited@example.com.')).toBeInTheDocument()
+    await findToast('Invitation resent to invited@example.com.')
     expect(resent).toBe(INVITATION_ID)
     expect(body).toBe('')
     // The expiry moved, so the list is fetched again.
@@ -1381,9 +1380,7 @@ describe('inviting, and the pending invitations', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Revoke' }))
 
     // The toast still arrives although the refetch unmounts the row first.
-    expect(
-      await screen.findByText('Invitation to invited@example.com revoked.')
-    ).toBeInTheDocument()
+    await findToast('Invitation to invited@example.com revoked.')
     expect(revoked).toBe(INVITATION_ID)
     expect(body).toBe('')
     expect(
@@ -1636,7 +1633,7 @@ describe('staff acting through platform access', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Owner asked by email')
     await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
 
-    expect(await screen.findByText('Invitation sent to new@example.com.')).toBeInTheDocument()
+    await findToast('Invitation sent to new@example.com.')
     expect(body).toEqual({
       email: 'new@example.com',
       role: 'viewer',
@@ -1696,7 +1693,7 @@ describe('staff acting through platform access', () => {
     )
     await user.type(within(resend).getByLabelText('Reason'), 'Lost the first mail')
     await user.click(within(resend).getByRole('button', { name: 'Resend' }))
-    expect(await screen.findByText('Invitation resent to invitee@example.com.')).toBeInTheDocument()
+    await findToast('Invitation resent to invitee@example.com.')
     expect(bodies.resend).toEqual({ reason: 'Lost the first mail' })
 
     await user.click(
@@ -1705,9 +1702,7 @@ describe('staff acting through platform access', () => {
     const revoke = await screen.findByRole('alertdialog', { name: 'Revoke this invitation?' })
     await user.type(within(revoke).getByLabelText('Reason'), 'Sent to the wrong address')
     await user.click(within(revoke).getByRole('button', { name: 'Revoke' }))
-    expect(
-      await screen.findByText('Invitation to invitee@example.com revoked.')
-    ).toBeInTheDocument()
+    await findToast('Invitation to invitee@example.com revoked.')
     expect(bodies.revoke).toEqual({ reason: 'Sent to the wrong address' })
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'Pending invitations' })).toHaveFocus()

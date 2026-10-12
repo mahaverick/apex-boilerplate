@@ -137,7 +137,12 @@ function ResendInvitationButton({
         stepUp
           .run(() => resend.mutateAsync({ invitationId: invitation.id }))
           .then(
-            () => toast.success(<Pii>{`Invitation resent to ${invitation.email}.`}</Pii>),
+            () =>
+              toast.success(
+                <>
+                  Invitation resent to <Pii>{invitation.email}</Pii>.
+                </>
+              ),
             (error: unknown) => toast.error(actionFailure(error))
           )
       }}
@@ -184,7 +189,9 @@ function RevokeInvitationButton({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            <Pii>{`Revoke the invitation to ${invitation.email}?`}</Pii>
+            <>
+              Revoke the invitation to <Pii>{invitation.email}</Pii>?
+            </>
           </AlertDialogTitle>
           <AlertDialogDescription>
             The link in their email stops working immediately. You can invite them again later.
@@ -202,7 +209,11 @@ function RevokeInvitationButton({
                   () => {
                     setIsOpen(false)
                     onRevoked()
-                    toast.success(<Pii>{`Invitation to ${invitation.email} revoked.`}</Pii>)
+                    toast.success(
+                      <>
+                        Invitation to <Pii>{invitation.email}</Pii> revoked.
+                      </>
+                    )
                   },
                   (error: unknown) => {
                     setIsOpen(false)
@@ -284,7 +295,11 @@ function StaffInvitationActions({
             resend.mutateAsync({ invitationId: invitation.id, reason })
           )
           if (!(await landed(write))) return
-          toast.success(<Pii>{`Invitation resent to ${invitation.email}.`}</Pii>)
+          toast.success(
+            <>
+              Invitation resent to <Pii>{invitation.email}</Pii>.
+            </>
+          )
         }}
       />
       <ReasonDialog
@@ -304,7 +319,11 @@ function StaffInvitationActions({
           )
           if (!(await landed(write))) return
           onRevoked()
-          toast.success(<Pii>{`Invitation to ${invitation.email} revoked.`}</Pii>)
+          toast.success(
+            <>
+              Invitation to <Pii>{invitation.email}</Pii> revoked.
+            </>
+          )
         }}
       />
     </div>
@@ -340,9 +359,9 @@ function InvitationItem({
     <li className="grid gap-3 rounded-lg border p-4 sm:flex sm:items-center sm:justify-between">
       <div className="grid min-w-0 gap-0.5">
         <Pii className="font-medium break-all">{invitation.email}</Pii>
-        <Pii className="text-sm text-muted-foreground">
-          {ROLE_LABELS[invitation.role]} · Invited by {inviterName(invitation.invitedBy)}
-        </Pii>
+        <span className="text-sm text-muted-foreground">
+          {ROLE_LABELS[invitation.role]} · Invited by <Pii>{inviterName(invitation.invitedBy)}</Pii>
+        </span>
         <span className="text-sm text-muted-foreground">
           Expires {expiresOn(invitation.expiresAt)}
         </span>

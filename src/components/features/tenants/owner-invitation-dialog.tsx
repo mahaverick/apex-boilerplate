@@ -103,7 +103,12 @@ function OwnerInvitationForm({
       try {
         const { emailSent } = await stepUp.run(() => reissue.mutateAsync(input))
         onBusyChange(false)
-        if (emailSent) toast.success(<Pii>{`Owner invitation sent to ${input.email}.`}</Pii>)
+        if (emailSent)
+          toast.success(
+            <>
+              Owner invitation sent to <Pii>{input.email}</Pii>.
+            </>
+          )
         else
           toast.warning('The invitation was created, but its email could not be sent. Try again.')
         onDone()

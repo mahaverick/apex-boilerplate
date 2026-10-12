@@ -1,13 +1,20 @@
 import { Link } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 import { Pii } from '@/components/shared/pii'
 import { ROUTES } from '@/constants/routes'
 import { formatDateTime } from '@/lib/format'
 import type { OnboardingReminderView } from '@/types/api.types'
 
 /** "1 owner at example.com", from the reminder's own counts. */
-function recipients(reminder: OnboardingReminderView): string {
+function recipients(reminder: OnboardingReminderView): ReactNode {
   const who = `${reminder.recipientCount} ${reminder.recipientCount === 1 ? 'owner' : 'owners'}`
-  return reminder.emailDomains.length > 0 ? `${who} at ${reminder.emailDomains.join(', ')}` : who
+  return reminder.emailDomains.length > 0 ? (
+    <>
+      {who} at <Pii>{reminder.emailDomains.join(', ')}</Pii>
+    </>
+  ) : (
+    who
+  )
 }
 
 /**
@@ -23,15 +30,16 @@ export function ReminderHistory({ reminders }: { reminders: OnboardingReminderVi
     <ul aria-label="Reminders sent" className="grid gap-3">
       {reminders.map((reminder) => (
         <li key={reminder.id} className="grid gap-1 text-sm">
-          <Pii as="p">
+          <p>
             <span className="font-medium">
               {formatDateTime(reminder.sentAt) ?? 'At an unknown time'}
             </span>{' '}
-            · {reminder.sentBy?.name ?? 'A removed user'} · to {recipients(reminder)}
-          </Pii>
-          <Pii as="p" className="wrap-break-word text-muted-foreground">
-            “{reminder.reason}”
-          </Pii>
+            · {reminder.sentBy === null ? 'A removed user' : <Pii>{reminder.sentBy.name}</Pii>} · to{' '}
+            {recipients(reminder)}
+          </p>
+          <p className="wrap-break-word text-muted-foreground">
+            “<Pii>{reminder.reason}</Pii>”
+          </p>
           {reminder.messageIds.length > 0 && (
             <p className="flex flex-wrap gap-x-3">
               {reminder.messageIds.map((messageId, index) => (

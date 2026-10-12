@@ -28,10 +28,15 @@ function SuppressionState({ row }: { row: EmailSuppression }) {
   if (row.liftedAt === null) return <Badge variant="outline">Active</Badge>
   return (
     <div className="grid gap-0.5 whitespace-normal">
-      <Pii>
+      <span>
         Lifted {formatDate(row.liftedAt, 'medium') ?? 'on an unknown date'}
-        {row.liftedBy === null ? '' : ` by ${row.liftedBy.name}`}
-      </Pii>
+        {row.liftedBy === null ? null : (
+          <>
+            {' '}
+            by <Pii>{row.liftedBy.name}</Pii>
+          </>
+        )}
+      </span>
       {row.liftReason !== null && (
         <Pii className="text-xs wrap-break-word text-muted-foreground">{row.liftReason}</Pii>
       )}

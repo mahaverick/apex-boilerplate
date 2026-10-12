@@ -163,10 +163,10 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
           {state === 'not_tracked' && <p className="text-sm">{NOT_TRACKED_NOTE}</p>}
           {state === 'awaiting_owner' && <p className="text-sm">{AWAITING_OWNER_NOTE}</p>}
           {state === 'dismissed' && (
-            <Pii as="p" className="text-sm">
-              {detail.dismissedBy?.name ?? 'An owner'} dismissed the getting-started checklist{' '}
-              {when(detail.dismissedAt)}.
-            </Pii>
+            <p className="text-sm">
+              {detail.dismissedBy === null ? 'An owner' : <Pii>{detail.dismissedBy.name}</Pii>}{' '}
+              dismissed the getting-started checklist {when(detail.dismissedAt)}.
+            </p>
           )}
           {isFrozen && (
             <p className="text-sm">

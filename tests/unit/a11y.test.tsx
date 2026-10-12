@@ -19,6 +19,7 @@ import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
+import { byContent } from '@/tests/fixtures/content'
 import { errorIssue, errorsPage, issueId } from '@/tests/fixtures/errors'
 import { flagsEvaluation, flagsList } from '@/tests/fixtures/flags'
 import {
@@ -1718,7 +1719,7 @@ describe('deliverability, suppressions and the embedded email lists', () => {
     expect(
       within(table).getByRole('button', { name: /^Lift suppression for / })
     ).toBeInTheDocument()
-    expect(within(table).getByText(/^Lifted .+ by Sam Staff$/)).toBeInTheDocument()
+    expect(within(table).getByText(byContent(/^Lifted .+ by Sam Staff$/))).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled()
     await expectNoViolations()
   })
