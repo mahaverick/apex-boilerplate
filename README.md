@@ -155,7 +155,7 @@ means the default too, except `API_UPSTREAM`: the container refuses an empty one
   of quietly switching analytics off.
   `API_UPSTREAM` is checked by `docker/05-prepare.sh`: no path, not even a
   trailing `/`, or the container stops with
-  `API_UPSTREAM must be scheme://host[:port] with no path, got: …`.
+  `05-prepare.sh: API_UPSTREAM must be scheme://host[:port] with no path; the value given does not match (not shown)`.
 - `getRuntimeConfig()` (`src/configs/runtime-config.ts`) applies the patterns
   again and treats an invalid value as unset.
 - Apex has no consent banner and no handoff (`SUPPORTS_CONSENT_MODES` and
