@@ -13,7 +13,7 @@ export const TENANT_ID = '10000000-0000-4000-8000-000000000001'
 export const TENANT_ID_2 = '10000000-0000-4000-8000-000000000002'
 /** A third tenant row (the archived 'Gamma Inc') in the a11y tenants list. */
 export const TENANT_ID_3 = '10000000-0000-4000-8000-000000000003'
-/** A reserved fourth tenant id; no test references it. */
+/** A fourth tenant ('Delta LLC'), which only the e2e harness serves. */
 export const TENANT_ID_4 = '10000000-0000-4000-8000-000000000004'
 /** The platform tenant that staff accounts belong to. */
 export const PLATFORM_TENANT_ID = '10000000-0000-4000-8000-000000000100'
