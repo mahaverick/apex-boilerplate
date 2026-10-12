@@ -126,7 +126,9 @@ Each rule's reason is in [Analytics privacy](SECURITY.md#analytics-privacy).
 
 - **Wrap every rendered person name, email address, avatar initial and invitation
   address, and any free text staff typed, in `<Pii>`.** Wrap the value, not the
-  sentence. A sentence a builder returns as a string (`auditSentence`, `timelineSentence`, `bannerSentence`, the maintenance preview) is masked whole, the safe default, as is a string `ReasonDialog` description. Use `<Pii>`, not `ph-no-capture`, which blanks the element in replay.
+  sentence. A sentence a builder returns as a string (`auditSentence`,
+  `timelineSentence`, `bannerSentence`, the maintenance preview) is masked whole,
+  the safe default, as is a string `ReasonDialog` description. Use `<Pii>`, not `ph-no-capture`, which blanks the element in replay.
   A staff page that renders person data goes
   into the page list in `e2e/fixtures/pii.test.ts`, and a new harness person into
   its `NAMES`. Without them the guard cannot see it.

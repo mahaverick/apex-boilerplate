@@ -185,9 +185,7 @@ function RegisterForm({ invitedEmail, tenantName }: { invitedEmail: string; tena
           <h1>Create an account</h1>
         </CardTitle>
         <CardDescription>
-          <>
-            Create an account with <Pii>{invitedEmail}</Pii> to join {tenantName}.
-          </>
+          Create an account with <Pii>{invitedEmail}</Pii> to join {tenantName}.
         </CardDescription>
       </CardHeader>
       <CardContent>

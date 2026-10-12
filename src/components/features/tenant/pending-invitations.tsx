@@ -189,9 +189,7 @@ function RevokeInvitationButton({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            <>
-              Revoke the invitation to <Pii>{invitation.email}</Pii>?
-            </>
+            Revoke the invitation to <Pii>{invitation.email}</Pii>?
           </AlertDialogTitle>
           <AlertDialogDescription>
             The link in their email stops working immediately. You can invite them again later.

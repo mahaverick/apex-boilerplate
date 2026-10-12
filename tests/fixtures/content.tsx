@@ -6,9 +6,13 @@ import { expect } from 'vitest'
  * A `getByText` matcher for a sentence whose value sits in its own `<Pii>` element, which splits the
  * text across nodes. It matches the deepest element whose whole text content matches, so a test
  * still names the sentence rather than a fragment of it.
- * @param text - A string (the element's full text) or a pattern (tested against it).
+ * @param text - A string (the element's full text) or a pattern (tested against it); a pattern must
+ *   not carry the `g` or `y` flag, which makes `test` stateful.
  */
 export function byContent(text: string | RegExp) {
+  if (text instanceof RegExp && (text.global || text.sticky)) {
+    throw new Error('byContent: a pattern with the g or y flag keeps state between calls')
+  }
   /** Whether `content` reads `text`. */
   const matches = (content: string | null) =>
     typeof text === 'string' ? content?.trim() === text : text.test(content ?? '')
@@ -36,6 +40,8 @@ export function expectMaskedToast(
   expect(container).toHaveTextContent(sentence)
   const masked = container.querySelectorAll('.ph-sensitive.ph-mask')
   expect(masked).toHaveLength(1)
-  expect(masked[0]).toHaveTextContent(new RegExp(`^${value.replaceAll('.', '\\.')}$`))
+  expect(masked[0]).toHaveTextContent(
+    new RegExp(`^${value.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`)
+  )
   unmount()
 }
