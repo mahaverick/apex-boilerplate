@@ -291,7 +291,7 @@ allowlist is set there too.
   typed (a reason, a maintenance message), is wrapped in `<Pii>`
   (`src/components/shared/pii.tsx`), whose `ph-sensitive ph-mask` class keeps
   the text out of autocapture's `$el_text` and masks it in replay. Wrap the
-  value, not the sentence. Inputs are masked in replay, and autocapture
+  value, not the sentence. A sentence a builder returns as a string (`auditSentence`, `timelineSentence`, `bannerSentence`, the maintenance preview) is masked whole, the safe default, as is a string `ReasonDialog` description. Inputs are masked in replay, and autocapture
   masks every element attribute.
 - **Replay masks attributes by name** (`mask-attribute.ts`): `aria-label`,
   `title`, `alt`, `placeholder`, `srcdoc`, every `data-*`, an `href` with a
