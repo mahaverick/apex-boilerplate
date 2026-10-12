@@ -40,7 +40,7 @@ describe('Apex auth mutations send app: "apex"', () => {
     const seen = captureBody('/auth/register')
     const { result } = renderHook(() => useRegister(), { wrapper })
     await act(() =>
-      result.current.mutateAsync({ email: 'a.b@example.com', password: 'longenough1' })
+      result.current.mutateAsync({ email: 'a.b@example.com', password: 'a-long-enough-password' })
     )
     expect(seen.body).toMatchObject({ email: 'a.b@example.com', app: 'apex' })
   })
