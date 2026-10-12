@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.2](https://github.com/mahaverick/apex-boilerplate/compare/v1.10.1...v1.10.2) (2026-10-12)
+
+
+### Bug Fixes
+
+* **errors:** sync the scrubber with express (AWS key, email query, compass) ([#41](https://github.com/mahaverick/apex-boilerplate/issues/41)) ([1ee2a5c](https://github.com/mahaverick/apex-boilerplate/commit/1ee2a5cd4ca248baefd3a8c36e61a1fbef62c813))
+
 ## [1.10.1](https://github.com/mahaverick/apex-boilerplate/compare/v1.10.0...v1.10.1) (2026-10-11)
 
 
