@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.10.3...v2.0.0) (2026-10-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **auth:** the register, reset-password, change-password and verify-email forms now refuse a password shorter than 15 characters, matching express-boilerplate 4.0.0. Sign-in still accepts existing shorter passwords.
+
+### Features
+
+* **auth:** raise the new-password minimum to 15 characters ([e2bfd9a](https://github.com/mahaverick/apex-boilerplate/commit/e2bfd9a8ef4b108a9bfbedf75eabc4c4589546c6))
+* **auth:** show a sign-in link when a verify-email link was already used ([e2bfd9a](https://github.com/mahaverick/apex-boilerplate/commit/e2bfd9a8ef4b108a9bfbedf75eabc4c4589546c6))
+
 ## [1.10.3](https://github.com/mahaverick/apex-boilerplate/compare/v1.10.2...v1.10.3) (2026-10-12)
 
 
