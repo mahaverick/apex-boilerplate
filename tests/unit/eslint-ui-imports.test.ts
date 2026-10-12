@@ -16,14 +16,17 @@ async function restrictedImports(code: string, filePath: string): Promise<string
 }
 
 describe('vendored ui imports', () => {
-  it('bans cmdk and @radix-ui in vendored ui files but lets them import cn', async () => {
-    const file = 'src/components/ui/badge.tsx'
-    expect(await restrictedImports("import { Command } from 'cmdk'", file)).toEqual([
-      expect.stringContaining('Base UI Autocomplete'),
-    ])
-    expect(await restrictedImports("import * as X from '@radix-ui/react-slot'", file)).toEqual([
-      expect.stringContaining('Base UI'),
-    ])
-    expect(await restrictedImports("import { cn } from 'cn'", file)).toEqual([])
-  }, 60_000)
+  it.each(['src/components/ui/badge.tsx', 'src/components/ui/sidebar.tsx'])(
+    'bans cmdk and @radix-ui in vendored ui file %s but lets it import cn',
+    async (file) => {
+      expect(await restrictedImports("import { Command } from 'cmdk'", file)).toEqual([
+        expect.stringContaining('Base UI Autocomplete'),
+      ])
+      expect(await restrictedImports("import * as X from '@radix-ui/react-slot'", file)).toEqual([
+        expect.stringContaining('Base UI'),
+      ])
+      expect(await restrictedImports("import { cn } from 'cn'", file)).toEqual([])
+    },
+    60_000
+  )
 })

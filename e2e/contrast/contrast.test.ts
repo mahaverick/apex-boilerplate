@@ -341,7 +341,7 @@ for (const theme of THEMES) {
   }
 }
 
-// The avatar initials sit on `bg-muted`; the registry's `text-muted-foreground` fails against it, so ui/avatar.tsx uses `text-foreground` (STYLESEED.md).
+// The avatar initials sit on `bg-muted`; ui/avatar.tsx uses `text-foreground` for a wider margin than the registry's `text-muted-foreground` (STYLESEED.md).
 for (const theme of THEMES) {
   test(`the avatar initials meet WCAG AA contrast in ${theme}`, async ({ page }) => {
     const result = await contrastOf(
