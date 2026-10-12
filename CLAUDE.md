@@ -254,8 +254,9 @@ Each has an in-repo replacement:
   pulls in Radix.
 
 Adding one back gives the project two ways to do the same thing. eslint refuses an
-import of `cmdk` or `@radix-ui/*` anywhere under `src/`, `tests/` and `e2e/`,
-except in `src/lib/utils.ts` and the vendored files under `src/components/ui/`.
+import of `cmdk` or `@radix-ui/*` anywhere under `src/`, `tests/` and `e2e/`, the
+vendored files included; only `src/lib/utils.ts` and the vendored files may import
+the `cn` package.
 
 **Never run `shadcn add form` or `shadcn add toast`.** The registry's `form.tsx` is
 built on react-hook-form and its toast on next-themes. Ours are hand-written.
