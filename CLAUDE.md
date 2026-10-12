@@ -12,7 +12,8 @@ deploy it is in [README.md](README.md).
 error tracking, most of the container and several components with this app. When
 you change a shared path, change react in the same PR, and say in the description
 what happened there ("ported in react#N", or "not applicable because …"). For a
-file the two apps hold byte for byte, change react's copy first and copy it here.
+file the two apps hold byte for byte, change react's copy first and copy it here,
+except `scrub.ts`, whose rules change in express first.
 The paths are listed in
 [Sibling sync with react-boilerplate](ARCHITECTURE.md#sibling-sync-with-react-boilerplate).
 
@@ -124,10 +125,9 @@ and [Sign-out rules](SECURITY.md#sign-out-rules).
 Each rule's reason is in [Analytics privacy](SECURITY.md#analytics-privacy).
 
 - **Wrap every rendered person name, email address, avatar initial and invitation
-  address, and any free text staff typed, in `<Pii>`.** When the value is built
-  into one string, such as a toast or a dialog description, the whole string goes
-  inside `<Pii>`, so the text stays one node. `ReasonDialog` wraps its description
-  and its confirmation text itself. A staff page that renders person data goes
+  address, and any free text staff typed, in `<Pii>`.** Wrap the value, not the
+  sentence. Use `<Pii>`, not `ph-no-capture`, which blanks the element in replay.
+  A staff page that renders person data goes
   into the page list in `e2e/fixtures/pii.test.ts`, and a new harness person into
   its `NAMES`. Without them the guard cannot see it.
 - **An attribute may carry personal data only if `mask-attribute.ts` masks it.**
@@ -146,8 +146,7 @@ Each rule's reason is in [Analytics privacy](SECURITY.md#analytics-privacy).
   `$feature/*` properties on `onLoad`, which fires first, so each page view, the
   first one included, carries its flag values
   ([Router hooks](ARCHITECTURE.md#router-hooks-this-app-only)).
-- **Page titles are fixed words.** Replay records the `<title>` and a page view
-  sends it, both unmasked, so a title never names a record or a person.
+- **Page titles are fixed words**, never a record's or a person's name.
 - **posthog-js minors and majors wait for a human** (`renovate.json`). Before
   taking one, run the suites that pin its internals: `url-sanitizer.test.ts`,
   `handoff.test.ts` and `analytics.sdk.test.ts` (in
@@ -183,12 +182,10 @@ change rules are in [Maintenance controls](SECURITY.md#maintenance-controls).
   `POST /auth/refresh` and `GET /profile` through in both modes, so a page loaded
   during `full` maintenance restores its session as usual. Add no maintenance
   store, gate or redirect here.
-- **Read the platform state, never the `Maintenance-Mode` header.** The header
-  describes what customers get. The banner and the Maintenance page read
-  `GET /platform/maintenance-mode`.
-- **A new API call outside `/platform/*` needs express's staff list.** Express
-  lets staff through on the customer routes this app calls only when they are in
-  `MAINTENANCE_STAFF_ROUTES`
+- **Read the platform state, never the `Maintenance-Mode` header.**
+- **A new call to a customer route that express blocks in maintenance needs
+  express's staff list.** Express lets staff through on such a route only when it
+  is in `MAINTENANCE_STAFF_ROUTES`
   (`express-boilerplate/src/constants/maintenance-mode.constants.ts`), checked
   against `express-boilerplate/tests/fixtures/apex-api-calls.json`. Add the route
   to both in the same change, or staff get a 503 on it during maintenance.
@@ -211,9 +208,9 @@ The reasons are in [CSP and headers](SECURITY.md#csp-and-headers) and
   under `/tmp`. `docker/check-image.sh` checks this from outside.
 - **Nothing is configured at build time.** A setting that differs between
   environments is a run-time variable, never a `VITE_*` value or a build ARG. A new
-  setting touches every file the ARCHITECTURE section lists, in one change. Its
-  pattern admits no quote, backslash, `<` or newline, and the script's error names
-  the variable, never the value.
+  setting touches every file the ARCHITECTURE section lists, in one change, and
+  its pattern follows
+  [Run-time config injection safety](SECURITY.md#run-time-config-injection-safety).
 
 ## Error tracking
 
