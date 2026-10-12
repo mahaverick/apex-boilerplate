@@ -13,10 +13,8 @@ export const TENANT_ID = '10000000-0000-4000-8000-000000000001'
 export const TENANT_ID_2 = '10000000-0000-4000-8000-000000000002'
 /** A third tenant row (the archived 'Gamma Inc') in the a11y tenants list. */
 export const TENANT_ID_3 = '10000000-0000-4000-8000-000000000003'
-/** A reserved fourth tenant id; no test references it. */
+/** A fourth tenant ('Delta LLC'), which only the e2e harness serves. */
 export const TENANT_ID_4 = '10000000-0000-4000-8000-000000000004'
-/** A reserved tenant id at ordinal 9; no test references it. */
-export const TENANT_ID_9 = '10000000-0000-4000-8000-000000000009'
 /** The platform tenant that staff accounts belong to. */
 export const PLATFORM_TENANT_ID = '10000000-0000-4000-8000-000000000100'
 
@@ -30,8 +28,6 @@ export const USER_ID_3 = '20000000-0000-4000-8000-000000000003'
 export const USER_ID_4 = '20000000-0000-4000-8000-000000000004'
 /** Amy, the second admin in the members tests that check what an admin may touch. */
 export const USER_ID_5 = '20000000-0000-4000-8000-000000000005'
-/** A reserved user id at ordinal 9; no test references it. */
-export const USER_ID_9 = '20000000-0000-4000-8000-000000000009'
 /** The staff actor ('Sam Staff') that fixture audit, maintenance and email records name. */
 export const STAFF_USER_ID = '20000000-0000-4000-8000-000000000100'
 
@@ -61,8 +57,6 @@ export const INVITATION_ID_9 = '40000000-0000-4000-8000-000000000009'
 export const AUDIT_ID_1 = '60000000-0000-4000-8000-000000000001'
 /** The newer tenant-history entry (a staff settings update), listed first; also the second reminder in the a11y onboarding page. */
 export const AUDIT_ID_2 = '60000000-0000-4000-8000-000000000002'
-/** A reserved audit id; no test references it. */
-export const AUDIT_ID_3 = '60000000-0000-4000-8000-000000000003'
 /** The id of the default `onboardingReminder`. */
 export const AUDIT_ID_4 = '60000000-0000-4000-8000-000000000004'
 /** The id of the second reminder in the onboarding tab's newest-first list. */

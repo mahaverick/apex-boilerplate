@@ -195,10 +195,10 @@ export function installAnalyticsIdentity(queryClient: QueryClient): () => void {
 
 /**
  * The single in-flight refresh. Every caller (bootstrap, the 401 interceptor,
- * the superseded-tab recheck) awaits this same promise, because POST
- * /auth/refresh rotates the refresh cookie and a second call presents the
- * rotated token. The API answers that with a sibling token within its 10s
- * reuse grace window, and revokes the whole session after it.
+ * any other code that calls `ensureSession()`) awaits this same promise,
+ * because POST /auth/refresh rotates the refresh cookie and a second call
+ * presents the rotated token. The API answers that with a sibling token within
+ * its 10s reuse grace window, and revokes the whole session after it.
  */
 let inFlight: Promise<string> | null = null
 

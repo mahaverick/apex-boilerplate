@@ -2,13 +2,14 @@ import { templateLabel } from '@/constants/email.constants'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
 import { TIMELINE_RANGE_LABELS, TIMELINE_VIEW_LABELS } from '@/constants/timeline.constants'
 
-/** The audit actions this build has a sentence for. One the server writes that is not listed, `member.left` among them, still renders, through the fallback sentence. */
+/** The audit actions this build has a sentence for. One the server writes that is not listed still renders, through the fallback sentence. */
 export const AUDIT_ACTIONS = [
   'tenant.created',
   'tenant.updated',
   'tenant.settings_updated',
   'member.role_changed',
   'member.removed',
+  'member.left',
   'invitation.created',
   'invitation.resent',
   'invitation.revoked',
@@ -59,6 +60,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'tenant.settings_updated': 'Settings changed',
   'member.role_changed': 'Role changed',
   'member.removed': 'Member removed',
+  'member.left': 'Member left',
   'invitation.created': 'Invitation sent',
   'invitation.resent': 'Invitation resent',
   'invitation.revoked': 'Invitation revoked',
@@ -212,6 +214,7 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
     `changed a member’s role from ${roleLabel(m, 'from')} to ${roleLabel(m, 'to')}`,
   'member.removed': (m) =>
     m.self === true ? 'left the tenant' : `removed a member (${roleLabel(m, 'role')})`,
+  'member.left': () => 'left the tenant',
   'invitation.created': (m) => `invited someone at ${domain(m)} as ${roleLabel(m, 'role')}`,
   'invitation.resent': (m) => `resent the invitation to someone at ${domain(m)}`,
   'invitation.revoked': (m) => `revoked the invitation to someone at ${domain(m)}`,
