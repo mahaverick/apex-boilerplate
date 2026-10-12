@@ -6,28 +6,33 @@ import { fullName } from '@/lib/format'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { platformUserQueryOptions } from '@/queries/user-admin.queries'
 
-/** A filter the URL carries by id, shown by name with a control that removes it. */
+/**
+ * A filter the URL carries by id, shown by name with a control that removes it.
+ * The `prefix` is fixed text; the `value` is the name, which masks only when
+ * `isPersonal` says it names a person.
+ */
 function FilterChip({
-  label,
+  prefix,
+  value,
   isPersonal = false,
   onRemove,
 }: {
-  label: string
-  /** The label names a person, so it is masked from analytics. */
+  prefix: string
+  value: string
+  /** The value names a person, so it is masked from analytics. */
   isPersonal?: boolean
   onRemove: () => void
 }) {
   return (
     <span className="inline-flex max-w-full items-center gap-1 rounded-4xl border py-0.5 pr-0.5 pl-2.5 text-xs">
-      {isPersonal ? (
-        <Pii className="truncate">{label}</Pii>
-      ) : (
-        <span className="truncate">{label}</span>
-      )}
+      <span className="truncate">
+        {prefix}
+        {isPersonal ? <Pii>{value}</Pii> : value}
+      </span>
       <Button
         variant="ghost"
         size="icon-xs"
-        aria-label={`Remove filter: ${label}`}
+        aria-label={`Remove filter: ${prefix}${value}`}
         onClick={onRemove}
       >
         <X aria-hidden />
@@ -58,7 +63,7 @@ export function UserFilterChip({
       : user.isError
         ? 'Unknown user'
         : 'Loading…')
-  return <FilterChip label={`User: ${name}`} isPersonal onRemove={onRemove} />
+  return <FilterChip prefix="User: " value={name} isPersonal onRemove={onRemove} />
 }
 
 /** The tenant a `?tenantId=` filter names, resolved as `UserFilterChip` resolves a user. */
@@ -76,5 +81,5 @@ export function TenantFilterChip({
     enabled: knownName === undefined,
   })
   const name = knownName ?? tenant.data?.name ?? (tenant.isError ? 'Unknown tenant' : 'Loading…')
-  return <FilterChip label={`Tenant: ${name}`} onRemove={onRemove} />
+  return <FilterChip prefix="Tenant: " value={name} onRemove={onRemove} />
 }

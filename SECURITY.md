@@ -162,7 +162,7 @@ The policy is enforced, not report-only:
   this policy reports as a violation; it is the first import of
   `src/main.tsx`.
 - **`style-src 'unsafe-inline'`** is there because sonner injects a `<style>`
-  element at runtime, recharts sets inline styles, and `ChartStyle` writes a
+  element at runtime and `ChartStyle` (`src/components/ui/chart.tsx`) writes a
   `<style>` element; `e2e/nginx/charts.test.ts` checks the Overview's charts
   draw under this policy with no violation.
 - **`connect-src 'self'`** holds because the API, analytics and error
@@ -219,9 +219,9 @@ The policy is enforced, not report-only:
   once on proxied and unproxied responses, no source map in the image, a
   refused run-time setting that stops the container without printing its
   value, an upstream error on the Google OAuth callback (exact, with a
-  trailing slash, or in mixed case) that writes none of its query string to the log while another `/api/` path still logs its
-  request, and a bundle that carries its release and no release id written by
-  inject.
+  trailing slash, or in mixed case) that writes none of its query string to
+  the log while another `/api/` path still logs its request, and a bundle
+  that carries its release and no release id written by inject.
 
 ## Run-time config injection safety
 
@@ -292,8 +292,8 @@ allowlist is set there too.
   (`src/components/shared/pii.tsx`), whose `ph-sensitive ph-mask` class keeps
   the text out of autocapture's `$el_text` and masks it in replay. Wrap the
   value, not the sentence. A sentence a builder returns as a string
-  (`auditSentence`, `timelineSentence`, `bannerSentence`, the maintenance
-  preview) is masked whole, the safe default, as is a string `ReasonDialog`
+  (`auditSentence`, `timelineSentence`, `bannerSentence`, `conflictSentence`,
+  the maintenance preview) is masked whole, the safe default, as is a string `ReasonDialog`
   description. Inputs are masked in replay, and autocapture masks every element
   attribute.
 - **Replay masks attributes by name** (`mask-attribute.ts`): `aria-label`,
@@ -390,10 +390,9 @@ strings, fragments other than line or heading anchors, the token segment
 after `/reset/`, `/verify/`, `/invite/` or `/accept/`, Bearer, Basic and
 other Authorization credentials (Bearer and Basic with the unquoted or
 quoted `,key=value` or `;key=value` pairs glued to them), Cookie values,
-secret-named keys' values,
-JWTs, emails, PostHog and other vendor keys, IP addresses, `+`-prefixed phone
-numbers, and long hex and base64 runs, then cuts each text to 1024
-characters.
+secret-named keys' values, JWTs, emails, PostHog and other vendor keys, IP
+addresses, `+`-prefixed phone numbers, and long hex and base64 runs, then cuts
+each text to 1024 characters.
 
 ### What it does not catch
 
@@ -623,8 +622,8 @@ Some of what staff see comes from someone the API does not vouch for.
   address: the users and tenants directories (the command palette's searches
   among them), the emails list and the suppressions list.
 - **HSTS is the edge's job.** See [CSP and headers](#csp-and-headers).
-- **Inline styles are allowed** (`style-src 'unsafe-inline'`), for sonner,
-  recharts and `ChartStyle`.
+- **Inline styles are allowed** (`style-src 'unsafe-inline'`), for sonner
+  and `ChartStyle`.
   An injected `<style>` cannot run script, but it can restyle the page.
 - **The in-memory token is reachable by an injected script.** Memory-only
   storage stops persistence, not same-origin code; the CSP and React's
