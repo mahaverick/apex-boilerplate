@@ -100,8 +100,8 @@ function FlagsContent({ data, isAdmin }: { data: FlagsListResponse; isAdmin: boo
 /**
  * The flags inspector, read-only: every registered flag with its live
  * PostHog state, PostHog's unregistered flags, the traits a release
- * condition may use. For admins, any user's evaluation; other staff see that it exists. Rollouts are
- * edited in PostHog, never here.
+ * condition may use. For admins, any user's evaluation; other staff see
+ * that it exists. Rollouts are edited in PostHog, never here.
  */
 function FlagsPage() {
   const flags = useQuery(flagsListQueryOptions())

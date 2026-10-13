@@ -203,6 +203,15 @@ describe('/staff with the real sections', () => {
     expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
   })
 
+  it('shows a platform viewer the members with no role select and no Remove', async () => {
+    serveStaff('viewer', 'viewer')
+    renderAppAt('/settings/platform/staff')
+    await screen.findByText('Otto Staff')
+    expect(screen.getByText('Me Staff')).toBeInTheDocument()
+    expect(screen.queryAllByRole('combobox', { name: /^Role for / })).toEqual([])
+    expect(screen.queryAllByRole('button', { name: 'Remove' })).toEqual([])
+  })
+
   it('warns, when removing staff, that domain auto-join can bring them back', async () => {
     serveStaff('owner', 'viewer')
     const user = userEvent.setup()
