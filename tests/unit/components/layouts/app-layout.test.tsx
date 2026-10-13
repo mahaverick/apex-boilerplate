@@ -13,6 +13,21 @@ import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
+/**
+ * A `matchMedia` that answers every `max-width` query true, so `useIsMobile` reports a
+ * phone and the sidebar renders as a drawer. Listeners are no-ops.
+ */
+const mobileMatchMedia = ((query: string) => ({
+  matches: query.includes('max-width'),
+  media: query,
+  onchange: null,
+  addListener: () => {},
+  removeListener: () => {},
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  dispatchEvent: () => false,
+})) as unknown as typeof window.matchMedia
+
 const LOGOUT_FAILED = "Couldn't sign out. Check your connection and try again."
 
 /** Every way POST /auth/logout can fail without the server saying the session is over. */
@@ -33,9 +48,11 @@ describe('AppLayout', () => {
   })
 
   const realLocation = window.location
+  const realMatchMedia = window.matchMedia.bind(window)
 
   afterEach(() => {
     vi.restoreAllMocks()
+    window.matchMedia = realMatchMedia
     Object.defineProperty(window, 'location', { configurable: true, value: realLocation })
   })
 
@@ -265,6 +282,22 @@ describe('AppLayout', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Settings' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
+  })
+
+  it.each([
+    ['Profile', '/settings/account/profile'],
+    ['Settings', '/settings'],
+  ])('closes the mobile drawer when %s is chosen from the account menu', async (name, path) => {
+    window.matchMedia = mobileMatchMedia
+    const user = userEvent.setup()
+    const router = renderAppAt('/overview')
+    await user.click(await screen.findByRole('button', { name: 'Toggle sidebar' }))
+    const drawer = await screen.findByRole('dialog')
+    await user.click(within(drawer).getByRole('button', { name: 'Account menu for A B' }))
+
+    await user.click(await screen.findByRole('menuitem', { name }))
+    await waitFor(() => expect(router.state.location.pathname).toBe(path))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
   /**
