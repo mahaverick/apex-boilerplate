@@ -1,5 +1,5 @@
+import { IconX } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
-import { X } from 'lucide-react'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { fullName } from '@/lib/format'
@@ -35,7 +35,7 @@ function FilterChip({
         aria-label={`Remove filter: ${prefix}${value}`}
         onClick={onRemove}
       >
-        <X aria-hidden />
+        <IconX aria-hidden="true" />
       </Button>
     </span>
   )

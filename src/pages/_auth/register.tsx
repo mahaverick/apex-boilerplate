@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { LoadError } from '@/components/features/load-error'
+import { AuthCard } from '@/components/layouts/auth-card'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { FieldDescription, FieldGroup } from '@/components/ui/field'
 import {
   Form,
   FormControl,
@@ -53,33 +54,20 @@ function RegisterPage() {
   if (preview.isPending) return <RegisterSkeleton />
   if (preview.isError && statusFrom(preview.error) !== 404) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <h1>Create an account</h1>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <LoadError
-            message="We could not check your invitation."
-            onRetry={() => void preview.refetch()}
-          />
-        </CardContent>
-      </Card>
+      <AuthCard title="Create an account">
+        <LoadError
+          message="We could not check your invitation."
+          onRetry={() => void preview.refetch()}
+        />
+      </AuthCard>
     )
   }
   if (preview.isError) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <h1>This invitation can’t be used</h1>
-          </CardTitle>
-          <CardDescription>
-            It may have expired or been revoked. Ask the person who invited you for a new one.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <AuthCard
+        title="This invitation can’t be used"
+        description="It may have expired or been revoked. Ask the person who invited you for a new one."
+      />
     )
   }
   return <RegisterForm invitedEmail={preview.data.email} tenantName={preview.data.tenant.name} />
@@ -88,17 +76,12 @@ function RegisterPage() {
 /** The register card's shape while the invitation loads. */
 function RegisterSkeleton() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h1>Create an account</h1>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-2">
+    <AuthCard title="Create an account">
+      <div className="grid gap-2">
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
-      </CardContent>
-    </Card>
+      </div>
+    </AuthCard>
   )
 }
 
@@ -140,56 +123,50 @@ function RegisterForm({ invitedEmail, tenantName }: { invitedEmail: string; tena
 
   if (registeredEmail) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <h1>Check your email</h1>
-          </CardTitle>
-          <CardDescription>
+      <AuthCard
+        title="Check your email"
+        description={
+          <>
             We sent a verification link to <Pii>{registeredEmail}</Pii>. Open it to finish setting
             up your account, then open your invitation link again to join.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="outline"
-            className="w-full"
-            disabled={resend.isPending}
-            onClick={() => {
-              resend.mutate(
-                { email: registeredEmail },
-                {
-                  // The same message either way, so it never reveals whether the address is pending.
-                  onSettled: () =>
-                    toast.success('If that address needs verifying, a new email is on its way.'),
-                }
-              )
-            }}
-          >
-            {resend.isPending ? 'Sending…' : 'Resend verification email'}
-          </Button>
-          <div className="mt-4 text-sm">
-            <Link to={ROUTES.login} className="underline underline-offset-4">
-              Back to sign in
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+          </>
+        }
+      >
+        <Button
+          variant="outline"
+          className="w-full"
+          disabled={resend.isPending}
+          onClick={() => {
+            resend.mutate(
+              { email: registeredEmail },
+              {
+                // The same message either way, so it never reveals whether the address is pending.
+                onSettled: () =>
+                  toast.success('If that address needs verifying, a new email is on its way.'),
+              }
+            )
+          }}
+        >
+          {resend.isPending ? 'Sending…' : 'Resend verification email'}
+        </Button>
+        <FieldDescription className="text-center">
+          <Link to={ROUTES.login}>Back to sign in</Link>
+        </FieldDescription>
+      </AuthCard>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h1>Create an account</h1>
-        </CardTitle>
-        <CardDescription>
+    <AuthCard
+      title="Create an account"
+      description={
+        <>
           Create an account with <Pii>{invitedEmail}</Pii> to join {tenantName}.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form form={form} serverErrors={serverErrors}>
+        </>
+      }
+    >
+      <Form form={form} serverErrors={serverErrors} className="space-y-0">
+        <FieldGroup className="gap-6">
           <FormField form={form} name="firstName">
             {(field) => (
               <FormItem>
@@ -266,14 +243,12 @@ function RegisterForm({ invitedEmail, tenantName }: { invitedEmail: string; tena
           <Button type="submit" className="w-full" disabled={register.isPending}>
             {register.isPending ? 'Creating account…' : 'Create account'}
           </Button>
-        </Form>
 
-        <div className="mt-4 text-sm">
-          <Link to={ROUTES.login} className="underline underline-offset-4">
-            Already have an account? Sign in
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
+          <FieldDescription className="text-center">
+            Already have an account? <Link to={ROUTES.login}>Sign in</Link>
+          </FieldDescription>
+        </FieldGroup>
+      </Form>
+    </AuthCard>
   )
 }

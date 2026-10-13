@@ -1,4 +1,4 @@
-import { Copy } from 'lucide-react'
+import { IconCopy } from '@tabler/icons-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { TRAIT_WHERE_LABELS } from '@/constants/flags.constants'
@@ -40,7 +40,7 @@ export function TraitsPanel({ traits }: { traits: TraitRow[] }) {
               aria-label={`Copy ${trait.name}`}
               onClick={() => void copyTrait(trait.name)}
             >
-              <Copy aria-hidden="true" />
+              <IconCopy aria-hidden="true" />
               Copy
             </Button>
           </div>

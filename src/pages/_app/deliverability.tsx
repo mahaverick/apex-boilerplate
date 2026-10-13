@@ -39,7 +39,7 @@ function DeliverabilitySkeleton() {
         ))}
       </div>
       <Skeleton className="h-74 rounded-xl" />
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Skeleton className="h-48 rounded-xl" />
         <Skeleton className="h-48 rounded-xl" />
       </div>
@@ -96,7 +96,7 @@ function DeliverabilityPage() {
           <WidgetBoundary name="Emails per day">
             <EmailsChart days={health.data.days} range={health.data.range} />
           </WidgetBoundary>
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <WidgetBoundary name="By template">
               <BreakdownCard
                 title="By template"

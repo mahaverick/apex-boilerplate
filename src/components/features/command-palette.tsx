@@ -1,6 +1,6 @@
+import { IconBuilding, IconUser } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Building2, UserRound } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { Pii } from '@/components/shared/pii'
 import {
@@ -180,8 +180,8 @@ export function CommandPalette() {
               <CommandCollection>
                 {(item: PaletteItem) => (
                   <CommandItem key={item.value} value={item} onClick={() => choose(item)}>
-                    {item.kind === 'tenant' && <Building2 aria-hidden />}
-                    {item.kind === 'user' && <UserRound aria-hidden />}
+                    {item.kind === 'tenant' && <IconBuilding aria-hidden="true" />}
+                    {item.kind === 'user' && <IconUser aria-hidden="true" />}
                     {item.kind === 'user' ? (
                       <Pii className="truncate">{item.label}</Pii>
                     ) : (

@@ -1,12 +1,12 @@
 /**
- * @file Hand-written, not vendored: shadcn's base-nova `command` is built on
+ * @file Hand-written, not vendored: shadcn's base-vega `command` is built on
  * cmdk, which pulls in Radix (shadcn-ui/ui#9191). This composes Base UI's
  * Autocomplete the way Base UI's own command-palette example does, keeping
- * shadcn's export names and base-nova styling.
+ * shadcn's export names and base-vega styling.
  */
 import { Autocomplete } from '@base-ui/react/autocomplete'
 import { ScrollArea } from '@base-ui/react/scroll-area'
-import { SearchIcon } from 'lucide-react'
+import { IconSearch } from '@tabler/icons-react'
 import type { ComponentProps, ReactNode } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
@@ -44,23 +44,22 @@ function CommandDialog({
   )
 }
 
-/** The search box, with a leading search icon. */
+/** The search box, with a leading search icon, in base-vega's inset field. */
 function CommandInput({ className, ...props }: ComponentProps<typeof Autocomplete.Input>) {
   return (
-    <Autocomplete.InputGroup
-      data-slot="command-input-wrapper"
-      className="flex items-center gap-2 border-b px-3"
-    >
-      <SearchIcon aria-hidden className="size-4 shrink-0 opacity-50" />
-      <Autocomplete.Input
-        data-slot="command-input"
-        className={cn(
-          'flex h-10 w-full bg-transparent py-3 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
-          className
-        )}
-        {...props}
-      />
-    </Autocomplete.InputGroup>
+    <div data-slot="command-input-wrapper" className="p-1 pb-0">
+      <Autocomplete.InputGroup className="flex h-8 items-center gap-2 rounded-lg border border-input/30 bg-input/30 px-2">
+        <IconSearch aria-hidden="true" className="size-4 shrink-0 opacity-50" />
+        <Autocomplete.Input
+          data-slot="command-input"
+          className={cn(
+            'flex size-full bg-transparent text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
+            className
+          )}
+          {...props}
+        />
+      </Autocomplete.InputGroup>
+    </div>
   )
 }
 
@@ -128,7 +127,7 @@ function CommandItem({ className, ...props }: ComponentProps<typeof Autocomplete
     <Autocomplete.Item
       data-slot="command-item"
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg data-highlighted:bg-muted data-highlighted:text-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -152,7 +151,10 @@ function CommandShortcut({ className, ...props }: ComponentProps<'span'>) {
   return (
     <span
       data-slot="command-shortcut"
-      className={cn('ml-auto text-xs tracking-widest text-muted-foreground', className)}
+      className={cn(
+        'ml-auto text-xs tracking-widest text-muted-foreground group-data-highlighted/command-item:text-foreground',
+        className
+      )}
       {...props}
     />
   )

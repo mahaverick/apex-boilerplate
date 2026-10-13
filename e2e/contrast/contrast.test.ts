@@ -368,7 +368,7 @@ test.describe('popups that are not menus', () => {
         timeout: COLD_TRANSFORM_BUDGET_MS,
       })
 
-      await page.getByRole('button', { name: 'Toggle sidebar' }).click()
+      await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click()
       const sheet = page.getByRole('dialog')
       await expect(sheet).toBeVisible()
       // Populated: an empty sheet grades clean and proves nothing.

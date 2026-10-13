@@ -1,5 +1,5 @@
+import { IconPlus } from '@tabler/icons-react'
 import { useForm } from '@tanstack/react-form'
-import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import type { z } from 'zod'
@@ -69,7 +69,7 @@ export function CreateTenantDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button />}>
-        <Plus aria-hidden />
+        <IconPlus aria-hidden="true" />
         New tenant
       </DialogTrigger>
       <DialogContent>

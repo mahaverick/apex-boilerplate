@@ -1,5 +1,5 @@
+import { IconSearch } from '@tabler/icons-react'
 import { Link, Outlet, useLocation, useMatches, type LinkProps } from '@tanstack/react-router'
-import { Search } from 'lucide-react'
 import { Fragment, useEffect, type ReactNode } from 'react'
 import { CommandPalette } from '@/components/features/command-palette'
 import { MaintenanceBanner } from '@/components/features/maintenance/maintenance-banner'
@@ -7,6 +7,8 @@ import { MAIN_CONTENT_ID, SkipLink } from '@/components/features/skip-link'
 import { StepUpProvider } from '@/components/features/step-up/step-up-provider'
 import { ThemeToggle } from '@/components/features/theme-toggle'
 import { UserMenu } from '@/components/features/user-menu'
+import { NavMain } from '@/components/layouts/nav-main'
+import { AppMark } from '@/components/shared/app-mark'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -22,19 +24,19 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarRail,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { APP_NAME } from '@/constants/app'
 import { navGroupsFor } from '@/constants/navigation'
 import { ROUTES } from '@/constants/routes'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { paletteShortcutHint } from '@/lib/shortcut'
 import { useFeaturePropertiesSync, useFlagValues } from '@/observability/flags/flag-hooks'
 import { useAuthStore } from '@/states/auth.store'
@@ -76,24 +78,48 @@ function useBreadcrumbs(): Crumb[] {
   })
 }
 
-/** Whether a nav item's route contains the current location. */
-function isNavActive(pathname: string, to: string): boolean {
-  return pathname === to || pathname.startsWith(`${to}/`)
+/**
+ * The sidebar's header: the Apex mark, name and a caption, styled like
+ * sidebar-07's team switcher but a plain link to Overview, since staff have
+ * no tenant to switch. It sits in a `header` (the banner), since axe's
+ * `region` rule exempts buttons but not links. Collapsed to icons, only the
+ * mark shows and the tooltip names it.
+ */
+function SidebarBrand() {
+  return (
+    <header>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton size="lg" tooltip={APP_NAME} render={<Link to={ROUTES.overview} />}>
+            <AppMark className="size-8 bg-sidebar-primary text-sm text-sidebar-primary-foreground" />
+            <span className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-semibold">{APP_NAME}</span>
+              {/* A grid drops this whitespace from the layout, but it keeps the link's name "Apex Staff console", not "ApexStaff console". */}{' '}
+              <span className="truncate text-xs text-muted-foreground">Staff console</span>
+            </span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </header>
+  )
 }
 
 /**
- * The staff shell: a grouped sidebar, a header with breadcrumbs and the ⌘K
- * search, and the page. Navigation comes from `navGroupsFor(role, flags)`, so an
+ * The staff shell, after shadcn's sidebar-07 block: a sidebar that collapses
+ * to icons (with a rail to toggle it) holding the brand, the sectioned
+ * navigation (`NavMain`) and the account menu; a header with breadcrumbs, the
+ * ⌘K search and, from `md` up, the theme toggle; and the page. Navigation comes from `navGroupsFor(role, flags)`, so an
  * item above the user's role, or behind a flag that is off, is absent, not
  * disabled.
  *
  * The palette, the theme listener and the one mount of the `$feature/*`
  * super-property sync (`useFeaturePropertiesSync`) live here, not in the
  * sidebar: below `md` the `Sidebar` renders into a `Sheet` whose content
- * unmounts while closed. The primary navigation sits in its own `nav` landmark, since
- * `Sidebar` renders plain divs, and the brand link in a `header` (the banner),
- * since axe's `region` rule exempts buttons but not links. `SidebarInset` is
- * the `main` element, so its own `header` is not a second banner.
+ * unmounts while closed. The theme toggle sits in the header from `md` up
+ * and in the drawer's footer below it, where the header has no room left
+ * beside a full breadcrumb trail; it is never an item in the account menu,
+ * which unmounts its content whenever the menu closes. `SidebarInset` is the
+ * `main` element, so its own `header` is not a second banner.
  * `StepUpProvider` wraps the shell once, so every staff page's destructive
  * action shares one step-up dialog. `MaintenanceBanner` sits under the
  * header, so every staff page says when customers are in maintenance.
@@ -105,6 +131,7 @@ export function AppLayout() {
   const theme = useThemeStore((s) => s.theme)
   const setTheme = useThemeStore((s) => s.setTheme)
   const openPalette = useCommandPaletteStore((s) => s.setOpen)
+  const isMobile = useIsMobile()
   const crumbs = useBreadcrumbs()
   const pathname = useLocation({ select: (location) => location.pathname })
   const groups = navGroupsFor(user?.platformRole, useFlagValues())
@@ -126,60 +153,28 @@ export function AppLayout() {
         <SkipLink />
         <Sidebar collapsible="icon">
           <SidebarHeader>
-            <header>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    size="lg"
-                    tooltip={APP_NAME}
-                    render={<Link to={ROUTES.overview} />}
-                  >
-                    <span
-                      aria-hidden
-                      className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground"
-                    >
-                      {APP_NAME.charAt(0)}
-                    </span>
-                    <span className="font-semibold">{APP_NAME}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </header>
+            <SidebarBrand />
           </SidebarHeader>
           <SidebarContent>
-            <nav aria-label="Main">
-              {groups.map(({ group, items }) => (
-                <SidebarGroup key={group}>
-                  <SidebarGroupLabel>{group}</SidebarGroupLabel>
-                  <SidebarMenu>
-                    {items.map(({ to, label, Icon }) => (
-                      <SidebarMenuItem key={to}>
-                        <SidebarMenuButton
-                          isActive={isNavActive(pathname, to)}
-                          tooltip={label}
-                          render={<Link to={to} />}
-                        >
-                          <Icon />
-                          <span>{label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroup>
-              ))}
-            </nav>
+            <NavMain sections={groups} pathname={pathname} />
           </SidebarContent>
           <SidebarFooter>
             <UserMenu user={user} />
-            <div className="flex justify-center">
-              <ThemeToggle />
-            </div>
+            {isMobile && (
+              <div className="flex justify-center">
+                <ThemeToggle />
+              </div>
+            )}
           </SidebarFooter>
+          <SidebarRail />
         </Sidebar>
         <SidebarInset id={MAIN_CONTENT_ID} tabIndex={-1} className="outline-none">
-          <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-            <SidebarTrigger aria-label="Toggle sidebar" />
-            <Separator orientation="vertical" className="mr-2 h-4" />
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+            <SidebarTrigger aria-label="Toggle sidebar" className="-ml-1" />
+            <Separator
+              orientation="vertical"
+              className="mr-2 data-vertical:h-4 data-vertical:self-auto"
+            />
             <Breadcrumb className="min-w-0">
               <BreadcrumbList className="flex-nowrap">
                 {crumbs.map((crumb, index) => (
@@ -205,11 +200,12 @@ export function AppLayout() {
               onClick={() => openPalette(true)}
             >
               <span className="flex items-center gap-2">
-                <Search aria-hidden className="size-4" />
+                <IconSearch aria-hidden="true" className="size-4" />
                 <span className="max-sm:sr-only">Search…</span>
               </span>
               <Kbd className="max-sm:hidden">{paletteShortcutHint()}</Kbd>
             </Button>
+            {!isMobile && <ThemeToggle />}
           </header>
           <MaintenanceBanner />
           <div className="flex-1 overflow-auto p-4 md:p-6">

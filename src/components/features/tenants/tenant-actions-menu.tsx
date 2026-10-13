@@ -1,5 +1,5 @@
+import { IconChevronDown } from '@tabler/icons-react'
 import { useNavigate } from '@tanstack/react-router'
-import { ChevronDown } from 'lucide-react'
 import { useMemo, useState, type RefObject } from 'react'
 import { toast } from 'sonner'
 import { ReasonDialog } from '@/components/features/reason-dialog'
@@ -85,7 +85,7 @@ export function TenantActionsMenu({
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button ref={keepFocusOnPage} variant="outline" />}>
             Actions
-            <ChevronDown aria-hidden />
+            <IconChevronDown aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-56">
             {can.edit && (

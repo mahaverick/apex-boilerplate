@@ -110,10 +110,12 @@ describe('AppLayout', () => {
     expect(await screen.findByRole('dialog', { name: 'Command palette' })).toBeInTheDocument()
   })
 
-  it('marks the brand with the first letter of the app name', async () => {
+  it('marks the brand with the first letter of the app name, over a caption', async () => {
     renderAppAt('/overview')
-    const brand = await screen.findByRole('link', { name: APP_NAME })
-    expect(brand).toHaveTextContent(`${APP_NAME.charAt(0)}${APP_NAME}`)
+    // The mark is aria-hidden, so the link is named by the name and the caption.
+    const brand = await screen.findByRole('link', { name: `${APP_NAME} Staff console` })
+    expect(brand).toHaveTextContent(`${APP_NAME.charAt(0)}${APP_NAME} Staff console`)
+    expect(brand).toHaveAttribute('href', '/overview')
   })
 
   it.each([
@@ -133,6 +135,16 @@ describe('AppLayout', () => {
     expect(screen.getByRole('button', { name: 'Toggle sidebar' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Account menu for A B' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Theme: system. Change theme' })).toBeInTheDocument()
+  })
+
+  it('puts the theme toggle in the header beside the search, from md up', async () => {
+    renderAppAt('/overview')
+    await screen.findByRole('heading', { name: 'Overview', level: 1 })
+
+    // SidebarInset is the main element, and its header holds the trigger, the search and the toggle.
+    const main = screen.getByRole('main')
+    expect(within(main).getByRole('button', { name: /Change theme/ })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Change theme/ })).toHaveLength(1)
   })
 
   it('shows a breadcrumb for the current route', async () => {

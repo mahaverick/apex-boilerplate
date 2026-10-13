@@ -1,6 +1,6 @@
+import { IconAlertTriangle } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { TriangleAlert } from 'lucide-react'
 import { Pii } from '@/components/shared/pii'
 import { ROUTES } from '@/constants/routes'
 import { bannerSentence } from '@/lib/maintenance-mode'
@@ -24,7 +24,7 @@ export function MaintenanceBanner() {
       role="status"
       className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-sm"
     >
-      <TriangleAlert aria-hidden className="size-4 shrink-0 text-destructive" />
+      <IconAlertTriangle aria-hidden="true" className="size-4 shrink-0 text-destructive" />
       <Pii className="font-medium">{bannerSentence(view)}</Pii>
       <Link to={ROUTES.maintenance} className="underline underline-offset-4">
         Manage

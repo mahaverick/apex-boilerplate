@@ -1,5 +1,5 @@
+import { IconDots } from '@tabler/icons-react'
 import { useNavigate } from '@tanstack/react-router'
-import { MoreHorizontal } from 'lucide-react'
 import { useMemo, useState, type RefObject } from 'react'
 import { toast } from 'sonner'
 import { ReasonDialog } from '@/components/features/reason-dialog'
@@ -103,7 +103,7 @@ export function UserActionsMenu({
               />
             }
           >
-            <MoreHorizontal aria-hidden />
+            <IconDots aria-hidden="true" />
             Actions
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-56">
