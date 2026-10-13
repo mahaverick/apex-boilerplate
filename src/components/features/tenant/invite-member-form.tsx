@@ -113,7 +113,11 @@ export function InviteMemberForm({
       }
       try {
         await stepUp.run(() => inviteMember.mutateAsync(input))
-        toast.success(<Pii>{`Invitation sent to ${input.email}.`}</Pii>)
+        toast.success(
+          <>
+            Invitation sent to <Pii>{input.email}</Pii>.
+          </>
+        )
         form.reset()
       } catch (error) {
         if (showOnField(error)) return
@@ -199,9 +203,14 @@ export function InviteMemberForm({
           }}
           title="Send this invitation?"
           description={
-            toConfirm === null
-              ? ''
-              : `${toConfirm.email} will be invited to this customer tenant as ${ROLE_LABELS[toConfirm.role]}.`
+            toConfirm === null ? (
+              ''
+            ) : (
+              <>
+                <Pii>{toConfirm.email}</Pii> will be invited to this customer tenant as{' '}
+                {ROLE_LABELS[toConfirm.role]}.
+              </>
+            )
           }
           confirmLabel="Send invitation"
           refusalMessage={(error) => (codeFrom(error) === INVITATION_CONFLICT ? RACED : undefined)}
@@ -219,7 +228,11 @@ export function InviteMemberForm({
               refusedOnField.current = true
               return
             }
-            toast.success(<Pii>{`Invitation sent to ${toConfirm.email}.`}</Pii>)
+            toast.success(
+              <>
+                Invitation sent to <Pii>{toConfirm.email}</Pii>.
+              </>
+            )
             form.reset()
           }}
         />

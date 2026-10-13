@@ -10,7 +10,7 @@ import path from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { build } from 'vite'
 
-/** The first-visit JS budget in bytes, a few KB over the built size that `pnpm check:bundle` prints. Raise it only with a measured reason. */
+/** The ceiling for first-visit JS in bytes. Raise it only with a measured reason. */
 const ENTRY_BUDGET_BYTES = 631_000
 
 /**
@@ -23,7 +23,7 @@ const DEVTOOLS_MODULE =
 
 /**
  * A posthog-js module, by its node_modules path. The analytics facade imports
- * it with a dynamic `import()`, so it must sit in a lazy chunk of its own.
+ * it with a dynamic `import()`, so it must stay out of every first-visit chunk.
  */
 const POSTHOG_MODULE = /[\\/]posthog-js[\\/]/
 
@@ -60,7 +60,10 @@ if (entries.length !== 1) {
   failures.push(`expected one entry chunk, found ${entries.length}`)
 } else {
   const initial = new Set()
-  /** Adds `fileName` and everything it statically imports to `initial`. */
+  /**
+   * Adds `fileName` and, recursively, every chunk it statically imports to `initial`.
+   * @param fileName - A chunk's file name.
+   */
   const visit = (fileName) => {
     if (initial.has(fileName)) return
     initial.add(fileName)

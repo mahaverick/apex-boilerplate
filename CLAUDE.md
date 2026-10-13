@@ -126,10 +126,13 @@ Each rule's reason is in [Analytics privacy](SECURITY.md#analytics-privacy).
 
 - **Wrap every rendered person name, email address, avatar initial and invitation
   address, and any free text staff typed, in `<Pii>`.** Wrap the value, not the
-  sentence. Use `<Pii>`, not `ph-no-capture`, which blanks the element in replay.
-  A staff page that renders person data goes
-  into the page list in `e2e/fixtures/pii.test.ts`, and a new harness person into
-  its `NAMES`. Without them the guard cannot see it.
+  sentence. A sentence a builder returns as a string (`auditSentence`,
+  `timelineSentence`, `bannerSentence`, `conflictSentence`, the maintenance
+  preview) is masked whole, the safe default, as is a string `ReasonDialog`
+  description. Use `<Pii>`, not `ph-no-capture`, which blanks the element in
+  replay. A staff page that renders person data goes into the page list in
+  `e2e/fixtures/pii.test.ts`, and a new harness person into its `NAMES`. Without
+  them the guard cannot see it.
 - **An attribute may carry personal data only if `mask-attribute.ts` masks it.**
   `e2e/nginx/analytics.test.ts` pins `aria-label` masking in the full snapshot
   and in later mutations.
@@ -252,8 +255,9 @@ Each has an in-repo replacement:
   pulls in Radix.
 
 Adding one back gives the project two ways to do the same thing. eslint refuses an
-import of `cmdk` or `@radix-ui/*` anywhere under `src/`, `tests/` and `e2e/`,
-except in `src/lib/utils.ts` and the vendored files under `src/components/ui/`.
+import of `cmdk` or `@radix-ui/*` anywhere under `src/`, `tests/` and `e2e/`, the
+vendored files included; only `src/lib/utils.ts` and the vendored files may import
+the `cn` package.
 
 **Never run `shadcn add form` or `shadcn add toast`.** The registry's `form.tsx` is
 built on react-hook-form and its toast on next-themes. Ours are hand-written.

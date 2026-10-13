@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Pii } from '@/components/shared/pii'
 import { navItemsFor } from '@/constants/navigation'
 import { useAuthStore } from '@/states/auth.store'
+import { byContent, expectMaskedToast } from '@/tests/fixtures/content'
 import { EMAIL_ID, STAFF_USER_ID, SUPPRESSION_ID, SUPPRESSION_ID_2 } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { emailSuppression, fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -73,7 +73,7 @@ describe('/suppressions', () => {
     ).toHaveAttribute('href', `/emails/${EMAIL_ID}`)
 
     expect(within(lifted!).getByText('Spam complaint')).toBeInTheDocument()
-    expect(within(lifted!).getByText(/^Lifted .+ by Sam Staff$/)).toBeInTheDocument()
+    expect(within(lifted!).getByText(byContent(/^Lifted .+ by Sam Staff$/))).toBeInTheDocument()
     expect(within(lifted!).getByText('The customer asked to be mailed again')).toBeInTheDocument()
     expect(within(lifted!).queryByRole('link')).not.toBeInTheDocument()
     expect(within(lifted!).queryByRole('button', { name: /Lift/ })).not.toBeInTheDocument()
@@ -186,10 +186,11 @@ describe('/suppressions', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Lift suppression' }))
 
     await waitFor(() => expect(bodies).toEqual([{ reason: 'Mailbox fixed by the customer' }]))
-    await waitFor(() =>
-      expect(success).toHaveBeenCalledWith(
-        <Pii>{'Suppression lifted for bounced@example.com.'}</Pii>
-      )
+    await waitFor(() => expect(success).toHaveBeenCalledTimes(1))
+    expectMaskedToast(
+      success.mock.calls[0]![0],
+      'Suppression lifted for bounced@example.com.',
+      'bounced@example.com'
     )
     await waitFor(() => expect(seen.length).toBeGreaterThan(before))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())

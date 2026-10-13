@@ -3,10 +3,11 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AxiosError, AxiosHeaders } from 'axios'
 import { http } from 'msw'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { StepUpProvider } from '@/components/features/step-up/step-up-provider'
+import { Pii } from '@/components/shared/pii'
 import { useStepUp } from '@/hooks/use-step-up'
 import { apiClient } from '@/http/client'
 import { useAuthStore } from '@/states/auth.store'
@@ -31,9 +32,11 @@ function Harness({
   onConfirm,
   confirmText,
   refusalMessage,
+  description = 'Members lose access until it is reactivated.',
 }: {
   onConfirm: (reason: string) => Promise<void>
   confirmText?: string
+  description?: ReactNode
   refusalMessage?: (error: unknown) => string | undefined
 }) {
   const [open, setOpen] = useState(true)
@@ -44,7 +47,7 @@ function Harness({
         open={open}
         onOpenChange={setOpen}
         title="Suspend Acme?"
-        description="Members lose access until it is reactivated."
+        description={description}
         confirmLabel="Suspend"
         destructive
         confirmText={confirmText}
@@ -110,6 +113,40 @@ describe('ReasonDialog', () => {
     await user.type(screen.getByLabelText('Type acme to confirm'), 'e')
     await user.click(screen.getByRole('button', { name: 'Suspend' }))
     await waitFor(() => expect(onConfirm).toHaveBeenCalledWith('closed'))
+  })
+
+  it('masks only the value to type', async () => {
+    render(<Harness onConfirm={vi.fn(async () => {})} confirmText="cleo@example.com" />)
+    const value = await screen.findByText('cleo@example.com')
+    expect(value).toHaveClass('ph-sensitive', 'ph-mask')
+    const label = value.closest('label')
+    expect(label).toHaveTextContent('Type cleo@example.com to confirm')
+    expect(label).not.toHaveClass('ph-mask')
+  })
+
+  it('masks a string description whole', async () => {
+    render(<Harness onConfirm={vi.fn(async () => {})} />)
+    const description = await screen.findByText('Members lose access until it is reactivated.')
+    expect(description).toHaveClass('ph-sensitive', 'ph-mask')
+  })
+
+  it('renders a node description as given, masking only what the caller wrapped', async () => {
+    render(
+      <Harness
+        onConfirm={vi.fn(async () => {})}
+        description={
+          <>
+            <Pii>Cleo D</Pii> loses access.
+          </>
+        }
+      />
+    )
+    const value = await screen.findByText('Cleo D')
+    expect(value).toHaveClass('ph-sensitive', 'ph-mask')
+    const description = value.parentElement
+    expect(description).toHaveTextContent('Cleo D loses access.')
+    expect(description).not.toHaveClass('ph-mask')
+    expect(description?.querySelectorAll('.ph-mask')).toHaveLength(1)
   })
 
   it.each([

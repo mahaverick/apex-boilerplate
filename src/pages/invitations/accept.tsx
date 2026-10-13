@@ -48,8 +48,13 @@ function acceptHref(token: string): string {
 }
 
 /** "{inviter} invited you to join {tenant} as {role}." */
-function invitationSentence(invitation: InvitationPreview): string {
-  return `${inviterName(invitation.invitedBy)} invited you to join ${invitation.tenant.name} as ${ROLE_LABELS[invitation.role]}.`
+function invitationSentence(invitation: InvitationPreview): ReactNode {
+  return (
+    <>
+      <Pii>{inviterName(invitation.invitedBy)}</Pii> invited you to join {invitation.tenant.name} as{' '}
+      {ROLE_LABELS[invitation.role]}.
+    </>
+  )
 }
 
 /** Every state's frame: one `<main>` (AuthLayout) and one `<h1>`. */
@@ -100,7 +105,7 @@ function SignedOut({ token, invitation }: { token: string; invitation: Invitatio
   return (
     <InvitationCard
       title={`Join ${invitation.tenant.name}`}
-      description={<Pii>{invitationSentence(invitation)}</Pii>}
+      description={invitationSentence(invitation)}
     >
       <div className="grid gap-3">
         <Link
@@ -117,10 +122,10 @@ function SignedOut({ token, invitation }: { token: string; invitation: Invitatio
         >
           Create account
         </Link>
-        <Pii as="p" className="text-sm text-muted-foreground">
-          New here? Create an account with {invitation.email}, verify it from your inbox, then open
-          this invitation link again.
-        </Pii>
+        <p className="text-sm text-muted-foreground">
+          New here? Create an account with <Pii>{invitation.email}</Pii>, verify it from your inbox,
+          then open this invitation link again.
+        </p>
       </div>
     </InvitationCard>
   )
@@ -145,12 +150,13 @@ function WrongAccount({
   return (
     <InvitationCard
       title={`Join ${invitation.tenant.name}`}
-      description={<Pii>{invitationSentence(invitation)}</Pii>}
+      description={invitationSentence(invitation)}
     >
       <div className="grid gap-3">
-        <Pii as="p" className="text-sm">
-          This invitation was sent to {invitation.email}. You’re signed in as {currentEmail}.
-        </Pii>
+        <p className="text-sm">
+          This invitation was sent to <Pii>{invitation.email}</Pii>. You’re signed in as{' '}
+          <Pii>{currentEmail}</Pii>.
+        </p>
         <Button className="w-full" disabled={logout.isPending} onClick={() => logout.mutate()}>
           {logout.isPending ? 'Signing out…' : 'Sign out'}
         </Button>
@@ -204,7 +210,7 @@ function AcceptPanel({ token, invitation }: { token: string; invitation: Invitat
   return (
     <InvitationCard
       title={`Join ${invitation.tenant.name}`}
-      description={<Pii>{invitationSentence(invitation)}</Pii>}
+      description={invitationSentence(invitation)}
     >
       <div className="grid gap-3">
         {refusal && (

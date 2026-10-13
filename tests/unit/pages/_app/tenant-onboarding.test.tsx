@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw'
 import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@/states/auth.store'
+import { byContent } from '@/tests/fixtures/content'
 import { AUDIT_ID_5, EMAIL_ID, EMAIL_ID_2, TENANT_ID } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import {
@@ -111,7 +112,9 @@ describe('/tenants/$tenantId/onboarding', () => {
       expect(within(items[0]!).getByText(/· Detected automatically$/)).toBeInTheDocument()
       expect(within(items[1]!).getByText(', not done')).toBeInTheDocument()
       expect(within(items[2]!).getByText('Optional')).toBeInTheDocument()
-      expect(within(items[2]!).getByText(/· by staff: A B — Done on the call$/)).toBeInTheDocument()
+      expect(
+        within(items[2]!).getByText(byContent(/· by staff: A B — Done on the call$/))
+      ).toBeInTheDocument()
       expect(within(items[3]!).getByText('Optional · each person')).toBeInTheDocument()
       expect(within(items[3]!).getByText(/· Ticked by the customer$/)).toBeInTheDocument()
     })
@@ -127,7 +130,7 @@ describe('/tenants/$tenantId/onboarding', () => {
       renderAppAt(ONBOARDING)
       await steps()
       expect(
-        screen.getByText(/· by staff: a removed user — Set up on the call$/)
+        screen.getByText(byContent(/· by staff: a removed user — Set up on the call$/))
       ).toBeInTheDocument()
     })
 
@@ -184,7 +187,7 @@ describe('/tenants/$tenantId/onboarding', () => {
       })
       renderAppAt(ONBOARDING)
       expect(
-        await screen.findByText(/^Cleo Doe dismissed the getting-started checklist /)
+        await screen.findByText(byContent(/^Cleo Doe dismissed the getting-started checklist /))
       ).toBeInTheDocument()
       expect(screen.getByText('Dismissed')).toHaveAttribute('data-tone', 'outline')
     })
@@ -313,7 +316,9 @@ describe('/tenants/$tenantId/onboarding', () => {
         screen.queryByRole('button', { name: 'Mark complete: Invite a teammate' })
       ).not.toBeInTheDocument()
       const invite = (await steps()).children[1] as HTMLElement
-      expect(within(invite).getByText(/· by staff: A B — Done on the call$/)).toBeInTheDocument()
+      expect(
+        within(invite).getByText(byContent(/· by staff: A B — Done on the call$/))
+      ).toBeInTheDocument()
       await waitFor(() => expect(invite).toHaveFocus())
     })
 

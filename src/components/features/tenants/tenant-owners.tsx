@@ -28,12 +28,18 @@ export function TenantOwners({ tenant }: { tenant: PlatformTenantDetail }) {
         </ul>
       )}
       {ownerless && (
-        <Pii as="p" className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {tenant.owners.length === 0 ? 'No owner yet.' : 'No active owner.'}
-          {invitation
-            ? ` An invitation to ${invitation.email} expires ${formatDate(invitation.expiresAt, 'medium') ?? 'soon'}.`
-            : ' Send an owner invitation from the Actions menu.'}
-        </Pii>
+          {invitation ? (
+            <>
+              {' '}
+              An invitation to <Pii>{invitation.email}</Pii> expires{' '}
+              {formatDate(invitation.expiresAt, 'medium') ?? 'soon'}.
+            </>
+          ) : (
+            ' Send an owner invitation from the Actions menu.'
+          )}
+        </p>
       )}
     </div>
   )

@@ -146,10 +146,8 @@ function RegisterForm({ invitedEmail, tenantName }: { invitedEmail: string; tena
             <h1>Check your email</h1>
           </CardTitle>
           <CardDescription>
-            <Pii>
-              We sent a verification link to {registeredEmail}. Open it to finish setting up your
-              account, then open your invitation link again to join.
-            </Pii>
+            We sent a verification link to <Pii>{registeredEmail}</Pii>. Open it to finish setting
+            up your account, then open your invitation link again to join.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -187,7 +185,7 @@ function RegisterForm({ invitedEmail, tenantName }: { invitedEmail: string; tena
           <h1>Create an account</h1>
         </CardTitle>
         <CardDescription>
-          <Pii>{`Create an account with ${invitedEmail} to join ${tenantName}.`}</Pii>
+          Create an account with <Pii>{invitedEmail}</Pii> to join {tenantName}.
         </CardDescription>
       </CardHeader>
       <CardContent>

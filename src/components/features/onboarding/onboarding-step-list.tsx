@@ -1,5 +1,5 @@
 import { CircleCheck, CircleDashed } from 'lucide-react'
-import type { RefCallback } from 'react'
+import type { ReactNode, RefCallback } from 'react'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { ONBOARDING_SOURCE_LABELS } from '@/constants/onboarding.constants'
@@ -8,14 +8,24 @@ import { formatDateTime } from '@/lib/format'
 import type { OnboardingStepDetail } from '@/types/api.types'
 
 /** When and how a step was done: "Completed Sep 12, 2026, 9:00 AM · Detected automatically". */
-function completionLine(step: OnboardingStepDetail): string | null {
+function completionLine(step: OnboardingStepDetail): ReactNode {
   if (step.completedAt === null) return null
   const when = `Completed ${formatDateTime(step.completedAt) ?? 'at an unknown time'}`
   if (step.source !== 'staff') {
     return step.source === null ? when : `${when} · ${ONBOARDING_SOURCE_LABELS[step.source]}`
   }
-  const who = step.completedBy?.name ?? 'a removed user'
-  return `${when} · by staff: ${who}${step.reason ? ` — ${step.reason}` : ''}`
+  return (
+    <>
+      {when} · by staff:{' '}
+      {step.completedBy === null ? 'a removed user' : <Pii>{step.completedBy.name}</Pii>}
+      {step.reason ? (
+        <>
+          {' '}
+          — <Pii>{step.reason}</Pii>
+        </>
+      ) : null}
+    </>
+  )
 }
 
 /** A member step's per-person status, behind a disclosure: "1 of 2 members". */
@@ -90,11 +100,7 @@ export function OnboardingStepList({
                 </span>
               </div>
               <p className="text-sm text-muted-foreground">{step.description}</p>
-              {line !== null && (
-                <Pii as="p" className="text-sm wrap-break-word">
-                  {line}
-                </Pii>
-              )}
+              {line !== null && <p className="text-sm wrap-break-word">{line}</p>}
               {step.members !== null && <MemberStatuses members={step.members} />}
             </div>
             {canAct && step.canMarkComplete && (

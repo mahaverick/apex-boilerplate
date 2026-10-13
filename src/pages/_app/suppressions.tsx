@@ -280,14 +280,23 @@ function SuppressionsPage() {
           if (!open) setLifting(null)
         }}
         title="Lift this suppression?"
-        description={`Emails to ${lifting?.address ?? 'this address'} are sent again. Another hard bounce or complaint suppresses it again.`}
+        description={
+          <>
+            Emails to {lifting === null ? 'this address' : <Pii>{lifting.address}</Pii>} are sent
+            again. Another hard bounce or complaint suppresses it again.
+          </>
+        }
         confirmLabel="Lift suppression"
         finalFocus={() => focus.finalFocus(opener.current, 'heading')}
         onConfirm={async (reason) => {
           if (lifting === null) return
           await lift.mutateAsync({ id: lifting.id, reason })
           focus.focusAfter([`suppression:${lifting.id}`, 'heading'], opener.current)
-          toast.success(<Pii>{`Suppression lifted for ${lifting.address}.`}</Pii>)
+          toast.success(
+            <>
+              Suppression lifted for <Pii>{lifting.address}</Pii>.
+            </>
+          )
         }}
       />
     </div>

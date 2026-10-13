@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Pii } from '@/components/shared/pii'
 import { navItemsFor } from '@/constants/navigation'
+import { expectMaskedToast } from '@/tests/fixtures/content'
 import { USER_ID_2, USER_ID_3 } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -235,8 +235,11 @@ describe('/users', () => {
 
       await waitFor(() => expect(router.state.location.pathname).toBe(`/users/${USER_ID_2}`))
       expect(body).toEqual({ email: 'new@example.com', firstName: 'Nia' })
-      expect(success).toHaveBeenCalledWith(
-        <Pii>{'Set-password email sent to new@example.com.'}</Pii>
+      expect(success).toHaveBeenCalledTimes(1)
+      expectMaskedToast(
+        success.mock.calls[0]![0],
+        'Set-password email sent to new@example.com.',
+        'new@example.com'
       )
     })
 

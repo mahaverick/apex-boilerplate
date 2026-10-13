@@ -289,6 +289,19 @@ export default tseslint.config(
     },
   },
   {
+    /** Vendored shadcn files import `cn` from the package, so they are exempt from the `cn` ban only. */
+    files: ['src/components/ui/!(form|sonner|command).tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [{ name: 'cmdk', message: CMDK_MESSAGE }],
+          patterns: [{ group: ['@radix-ui/*'], message: RADIX_MESSAGE }],
+        },
+      ],
+    },
+  },
+  {
     /**
      * A test waits on a condition, never on a duration (see CLAUDE.md). The two
      * timing.ts files are exempt because they implement the deliberate waits.

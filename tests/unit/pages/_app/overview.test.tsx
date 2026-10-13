@@ -533,7 +533,13 @@ describe('the system status card’s feature flags', () => {
 
 describe('the system status card’s maintenance mode', () => {
   beforeEach(() => {
+    // Freezes only `Date`: a 29 s switch must stay inside the 30 s window however long the first render takes.
+    vi.useFakeTimers({ toFake: ['Date'] })
     signIn({ ...testUser, platformRole: 'admin' })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   /** Answers the status with a maintenance section as given, or none. */

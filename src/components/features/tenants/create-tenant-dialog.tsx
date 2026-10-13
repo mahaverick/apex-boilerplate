@@ -107,7 +107,9 @@ function CreateTenantForm({ onDone }: { onDone: (tenant: PlatformTenantDetail) =
         const { tenant, emailSent } = await create.mutateAsync(input)
         if (emailSent) {
           toast.success(
-            <Pii>{`Tenant created. Owner invitation sent to ${input.ownerEmail}.`}</Pii>
+            <>
+              Tenant created. Owner invitation sent to <Pii>{input.ownerEmail}</Pii>.
+            </>
           )
         } else {
           toast.warning(

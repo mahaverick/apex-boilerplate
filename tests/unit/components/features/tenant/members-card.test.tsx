@@ -2,10 +2,11 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { toast } from 'sonner'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
 import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
+import { byContent } from '@/tests/fixtures/content'
 import {
   INVITATION_ID,
   INVITATION_ID_2,
@@ -42,6 +43,22 @@ import {
 
 afterEach(() => {
   vi.restoreAllMocks()
+})
+
+/**
+ * One render of the members page before the first test. The file's first render of the route tree pays
+ * one-time module and JIT costs: about 0.2 s alone, 1 to 1.6 s in the full suite, and 4.9 s of the 5 s
+ * `findBy*` budget with the CPU saturated (measured). Paying it here, under the hook's own budget, leaves
+ * every test a warm start without lengthening any wait.
+ */
+beforeAll(async () => {
+  signIn()
+  mockTenant('owner', [member(ME, 'owner', 'Me')])
+  const { unmount } = renderAppAt(`/tenants/${TENANT_ID}/members`)
+  await rowFor('Me')
+  unmount()
+  toast.dismiss()
+  server.resetHandlers()
 })
 
 const TENANT = {
@@ -166,6 +183,14 @@ function setViewportWidth(width: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
 }
 const realInnerWidth = window.innerWidth
+
+/** Finds the toast whose text reads `text`, whether or not part of it sits in its own element. */
+function findToast(text: string) {
+  return waitFor(() => {
+    const toasts = [...document.querySelectorAll('[data-sonner-toast] [data-title]')]
+    expect(toasts.map((t) => t.textContent)).toContain(text)
+  })
+}
 
 describe('members tab permissions', () => {
   afterEach(() => {
@@ -525,9 +550,13 @@ describe('removing and leaving', () => {
     expect(dialog).toHaveTextContent(
       'Vic X will lose access to this tenant immediately. Pending invitations they sent are revoked.'
     )
+    // The title and the description each name the member, and each masks only the name.
+    for (const name of within(dialog).getAllByText('Vic X')) {
+      expect(name).toHaveClass('ph-sensitive', 'ph-mask')
+    }
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
-    expect(await screen.findByText('Vic X removed.')).toBeInTheDocument()
+    await findToast('Vic X removed.')
     expect(removed).toBe(USER_ID_3)
     // A member gives no reason, so the DELETE carries no body.
     expect(body).toBe('')
@@ -609,7 +638,7 @@ describe('removing and leaving', () => {
     expect(await within(still).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
     await waitFor(() => expect(still.contains(document.activeElement)).toBe(true))
     expect(calls).toBe(1)
-    expect(screen.getByText('Vic X')).toBeInTheDocument()
+    expect(vic.getByText('Vic X')).toBeInTheDocument()
   })
 
   it('says why a removal was refused, and closes the dialog', async () => {
@@ -983,9 +1012,7 @@ describe('inviting, and the pending invitations', () => {
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
 
     // The 202 is the same for every address, so the toast names the address sent.
-    expect(
-      await screen.findByText('Invitation sent to new-member@example.com.')
-    ).toBeInTheDocument()
+    await findToast('Invitation sent to new-member@example.com.')
     expect(body).toEqual({ email: 'new-member@example.com', role: 'viewer' })
     expect(await screen.findByText('new-member@example.com')).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toHaveValue('')
@@ -1092,11 +1119,11 @@ describe('inviting, and the pending invitations', () => {
     const first = within(
       (await screen.findByText('invited@example.com')).closest('li') as HTMLElement
     )
-    expect(first.getByText('Editor · Invited by A B')).toBeInTheDocument()
+    expect(first.getByText(byContent('Editor · Invited by A B'))).toBeInTheDocument()
     expect(first.getByText(/^Expires /)).toBeInTheDocument()
     // An inviter whose account is gone is `null` and renders as a teammate.
     const second = within(screen.getByText('old-invite@example.com').closest('li') as HTMLElement)
-    expect(second.getByText('Viewer · Invited by A teammate')).toBeInTheDocument()
+    expect(second.getByText(byContent('Viewer · Invited by A teammate'))).toBeInTheDocument()
   })
 
   it('says when nothing is pending', async () => {
@@ -1157,7 +1184,7 @@ describe('inviting, and the pending invitations', () => {
       await screen.findByRole('button', { name: 'Resend invitation to invited@example.com' })
     )
 
-    expect(await screen.findByText('Invitation resent to invited@example.com.')).toBeInTheDocument()
+    await findToast('Invitation resent to invited@example.com.')
     expect(resent).toBe(INVITATION_ID)
     expect(body).toBe('')
     // The expiry moved, so the list is fetched again.
@@ -1353,9 +1380,7 @@ describe('inviting, and the pending invitations', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Revoke' }))
 
     // The toast still arrives although the refetch unmounts the row first.
-    expect(
-      await screen.findByText('Invitation to invited@example.com revoked.')
-    ).toBeInTheDocument()
+    await findToast('Invitation to invited@example.com revoked.')
     expect(revoked).toBe(INVITATION_ID)
     expect(body).toBe('')
     expect(
@@ -1531,10 +1556,14 @@ describe('staff acting through platform access', () => {
     expect(dialog).toHaveTextContent(
       'Vic X will lose access to this tenant immediately. Pending invitations they sent are revoked.'
     )
+    // The title and the description each name the member, and each masks only the name.
+    for (const name of within(dialog).getAllByText('Vic X')) {
+      expect(name).toHaveClass('ph-sensitive', 'ph-mask')
+    }
     await user.type(within(dialog).getByLabelText('Reason'), 'Offboarding request')
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
-    expect(await screen.findByText('Vic X removed.')).toBeInTheDocument()
+    await findToast('Vic X removed.')
     expect(body).toEqual({ reason: 'Offboarding request' })
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Members' })).toHaveFocus())
   })
@@ -1604,7 +1633,7 @@ describe('staff acting through platform access', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Owner asked by email')
     await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
 
-    expect(await screen.findByText('Invitation sent to new@example.com.')).toBeInTheDocument()
+    await findToast('Invitation sent to new@example.com.')
     expect(body).toEqual({
       email: 'new@example.com',
       role: 'viewer',
@@ -1664,7 +1693,7 @@ describe('staff acting through platform access', () => {
     )
     await user.type(within(resend).getByLabelText('Reason'), 'Lost the first mail')
     await user.click(within(resend).getByRole('button', { name: 'Resend' }))
-    expect(await screen.findByText('Invitation resent to invitee@example.com.')).toBeInTheDocument()
+    await findToast('Invitation resent to invitee@example.com.')
     expect(bodies.resend).toEqual({ reason: 'Lost the first mail' })
 
     await user.click(
@@ -1673,9 +1702,7 @@ describe('staff acting through platform access', () => {
     const revoke = await screen.findByRole('alertdialog', { name: 'Revoke this invitation?' })
     await user.type(within(revoke).getByLabelText('Reason'), 'Sent to the wrong address')
     await user.click(within(revoke).getByRole('button', { name: 'Revoke' }))
-    expect(
-      await screen.findByText('Invitation to invitee@example.com revoked.')
-    ).toBeInTheDocument()
+    await findToast('Invitation to invitee@example.com revoked.')
     expect(bodies.revoke).toEqual({ reason: 'Sent to the wrong address' })
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'Pending invitations' })).toHaveFocus()
@@ -1779,7 +1806,7 @@ describe('staff acting through platform access', () => {
       await user.click(within(dialog).getByRole('button', { name: confirm }))
       await confirmStepUp(user)
 
-      expect(await screen.findByText(said)).toBeInTheDocument()
+      await findToast(said)
       expect(bodies).toEqual([body, body])
     }
   )

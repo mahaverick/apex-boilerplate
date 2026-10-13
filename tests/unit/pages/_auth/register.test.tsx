@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { byContent } from '@/tests/fixtures/content'
 import { renderAppAt, signOut } from '@/tests/fixtures/render-app'
 import { fail, ok, TEST_INVITATION_TOKEN, testInvitationPreview } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -86,7 +87,9 @@ describe('/register (invitation only)', () => {
     renderAppAt(PATH)
     await submit()
 
-    expect(await screen.findByText(new RegExp(`verification link to ${EMAIL}`))).toBeInTheDocument()
+    expect(
+      await screen.findByText(byContent(new RegExp(`verification link to ${EMAIL}`)))
+    ).toBeInTheDocument()
     // Empty optional names are dropped by the schema, not posted as ''.
     expect(body).toEqual({ email: EMAIL, password: 'a-long-enough-password', app: 'apex' })
   })

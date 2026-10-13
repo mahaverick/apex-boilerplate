@@ -19,6 +19,7 @@ import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
+import { byContent } from '@/tests/fixtures/content'
 import { errorIssue, errorsPage, issueId } from '@/tests/fixtures/errors'
 import { flagsEvaluation, flagsList } from '@/tests/fixtures/flags'
 import {
@@ -254,8 +255,10 @@ const AXE_OPTIONS: axeCore.RunOptions = {
  * a set so another cannot appear unnoticed: `toHaveNoViolations` reads only `violations`, so a rule
  * that quietly stops being evaluable would otherwise look like a pass.
  *
- * - `page-has-heading-one`, `landmark-one-main`: axe's modal check calls `document.elementFromPoint`,
- *   which jsdom lacks, so axe skips both rules. `expectNoViolations` asserts them by hand.
+ * - `page-has-heading-one`, `landmark-one-main`: axe's modal check (`isModalOpen`) calls
+ *   `document.elementsFromPoint`, which axe polyfills over `document.elementFromPoint`; jsdom
+ *   implements neither, so the check throws and axe files both rules under `incomplete`.
+ *   `expectNoViolations` asserts them by hand.
  * - `heading-order`: "Unable to determine previous heading" for the first heading in the tree.
  * - `aria-hidden-focus`: Base UI marks the background `aria-hidden` and inert while a modal is open;
  *   whether its contents are still tabbable is a layout question jsdom cannot answer.
@@ -1716,7 +1719,7 @@ describe('deliverability, suppressions and the embedded email lists', () => {
     expect(
       within(table).getByRole('button', { name: /^Lift suppression for / })
     ).toBeInTheDocument()
-    expect(within(table).getByText(/^Lifted .+ by Sam Staff$/)).toBeInTheDocument()
+    expect(within(table).getByText(byContent(/^Lifted .+ by Sam Staff$/))).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled()
     await expectNoViolations()
   })

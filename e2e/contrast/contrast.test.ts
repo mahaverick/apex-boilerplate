@@ -341,6 +341,22 @@ for (const theme of THEMES) {
   }
 }
 
+// The avatar initials sit on `bg-muted`; ui/avatar.tsx uses `text-foreground` for a wider margin than the registry's `text-muted-foreground` (STYLESEED.md).
+for (const theme of THEMES) {
+  test(`the avatar initials meet WCAG AA contrast in ${theme}`, async ({ page }) => {
+    const result = await contrastOf(
+      page,
+      '/e2e/harness/',
+      theme,
+      'Overview',
+      '[data-slot="avatar-fallback"]'
+    )
+    // An absent avatar would grade clean without checking the initials this test exists for.
+    expect(await page.locator('[data-slot="avatar-fallback"]').count()).toBeGreaterThan(0)
+    expect(report('avatar', theme, result), report('avatar', theme, result)).toBe('')
+  })
+}
+
 test.describe('popups that are not menus', () => {
   for (const theme of THEMES) {
     test(`the mobile navigation sheet meets WCAG AA contrast in ${theme}`, async ({ page }) => {

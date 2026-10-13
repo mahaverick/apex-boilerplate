@@ -13,6 +13,7 @@ import { resetSessionForTests } from '@/http/session'
 import { queryClient } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
+import { byContent } from '@/tests/fixtures/content'
 import { signIn as signInAs } from '@/tests/fixtures/render-app'
 import {
   fail,
@@ -157,8 +158,11 @@ describe('accept page, signed out', () => {
 
     expect(await screen.findByRole('heading', { name: 'Join Acme Corp' })).toBeInTheDocument()
     expect(
-      screen.getByText('Ada Lovelace invited you to join Acme Corp as Editor.')
+      screen.getByText(byContent('Ada Lovelace invited you to join Acme Corp as Editor.'))
     ).toBeInTheDocument()
+    // Only the inviter's name is masked; the tenant and role stay readable in replay.
+    expect(screen.getByText('Ada Lovelace')).toHaveClass('ph-sensitive', 'ph-mask')
+    expect(screen.queryByText('Acme Corp', { selector: '.ph-mask' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Log in' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Create account' })).toBeInTheDocument()
     // Nothing to accept until someone is signed in.
@@ -291,9 +295,9 @@ describe('accept page, signed in', () => {
     renderAt(ACCEPT_PATH)
 
     expect(
-      await screen.findByText(/This invitation was sent to someone-else@example\.com\./)
+      await screen.findByText(byContent(/This invitation was sent to someone-else@example\.com\./))
     ).toBeInTheDocument()
-    expect(screen.getByText(/signed in as a\.b@example\.com\./)).toBeInTheDocument()
+    expect(screen.getByText(byContent(/signed in as a\.b@example\.com\./))).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Accept invitation' })).not.toBeInTheDocument()
     expect(accepts).toBe(0)
   })

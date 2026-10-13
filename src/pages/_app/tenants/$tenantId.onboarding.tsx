@@ -163,10 +163,10 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
           {state === 'not_tracked' && <p className="text-sm">{NOT_TRACKED_NOTE}</p>}
           {state === 'awaiting_owner' && <p className="text-sm">{AWAITING_OWNER_NOTE}</p>}
           {state === 'dismissed' && (
-            <Pii as="p" className="text-sm">
-              {detail.dismissedBy?.name ?? 'An owner'} dismissed the getting-started checklist{' '}
-              {when(detail.dismissedAt)}.
-            </Pii>
+            <p className="text-sm">
+              {detail.dismissedBy === null ? 'An owner' : <Pii>{detail.dismissedBy.name}</Pii>}{' '}
+              dismissed the getting-started checklist {when(detail.dismissedAt)}.
+            </p>
           )}
           {isFrozen && (
             <p className="text-sm">
@@ -253,7 +253,18 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
         onOpenChange={setRemindOpen}
         finalFocus={finalFocus}
         title="Send an onboarding reminder?"
-        description={`One email goes to each active owner (${reminding?.recipientCount ?? 0}) at ${reminding?.emailDomains.join(', ') || 'their address'}, linking to the tenant in the customer app. Another reminder can go 24 hours after this one.`}
+        description={
+          <>
+            One email goes to each active owner ({reminding?.recipientCount ?? 0}) at{' '}
+            {reminding?.emailDomains.length ? (
+              <Pii>{reminding.emailDomains.join(', ')}</Pii>
+            ) : (
+              'their address'
+            )}
+            , linking to the tenant in the customer app. Another reminder can go 24 hours after this
+            one.
+          </>
+        }
         confirmLabel="Send reminder"
         refusalMessage={(error) => {
           const retryAfter = retryAfterFrom(error)
