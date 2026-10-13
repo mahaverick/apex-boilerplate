@@ -15,6 +15,7 @@ import {
   FLAGS_STALE_NOTE,
 } from '@/constants/flags.constants'
 import { platformRoleAtLeast } from '@/constants/roles'
+import { useNow } from '@/hooks/use-now'
 import { relativeTime } from '@/lib/relative-time'
 import { flagsListQueryOptions } from '@/queries/flag-inspector.queries'
 import { isRoleDenied } from '@/queries/platform.queries'
@@ -48,6 +49,7 @@ function FlagsSection({ id, title, children }: { id: string; title: string; chil
 
 /** The loaded page: notes on the snapshot, then each section. */
 function FlagsContent({ data, isAdmin }: { data: FlagsListResponse; isAdmin: boolean }) {
+  const now = useNow()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   return (
@@ -67,8 +69,10 @@ function FlagsContent({ data, isAdmin }: { data: FlagsListResponse; isAdmin: boo
         {data.snapshot.fetchedAt !== null && (
           <p className="text-xs text-muted-foreground">
             Flag definitions last changed{' '}
-            <time dateTime={data.snapshot.fetchedAt}>{relativeTime(data.snapshot.fetchedAt)}</time>.
-            Rollouts are edited in PostHog.
+            <time dateTime={data.snapshot.fetchedAt}>
+              {relativeTime(data.snapshot.fetchedAt, now)}
+            </time>
+            . Rollouts are edited in PostHog.
           </p>
         )}
       </FlagsSection>

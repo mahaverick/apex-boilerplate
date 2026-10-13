@@ -22,6 +22,7 @@ import {
   ERRORS_NOT_CONFIGURED,
   ERRORS_UNVERIFIED_NOTE,
 } from '@/constants/errors.constants'
+import { useNow } from '@/hooks/use-now'
 import { absoluteTime, relativeTime } from '@/lib/relative-time'
 import { errorIssuesQueryOptions } from '@/queries/errors.queries'
 import { isRoleDenied } from '@/queries/platform.queries'
@@ -60,6 +61,7 @@ function SourceBadges({ issue }: { issue: ErrorIssue }) {
  * link reads differently.
  */
 function ErrorIssueRow({ issue }: { issue: ErrorIssue }) {
+  const now = useNow()
   const absolute = absoluteTime(issue.lastSeen)
   return (
     <TableRow>
@@ -80,7 +82,7 @@ function ErrorIssueRow({ issue }: { issue: ErrorIssue }) {
       <TableCell className="align-top">
         <Tooltip>
           <TooltipTrigger className="cursor-default text-sm underline decoration-dotted underline-offset-2">
-            <time dateTime={issue.lastSeen}>{relativeTime(issue.lastSeen)}</time>
+            <time dateTime={issue.lastSeen}>{relativeTime(issue.lastSeen, now)}</time>
             <span className="sr-only">, {absolute}</span>
           </TooltipTrigger>
           <TooltipContent>{absolute}</TooltipContent>

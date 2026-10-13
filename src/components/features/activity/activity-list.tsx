@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { actorName, auditSentence } from '@/constants/audit-actions'
 import { ROUTES } from '@/constants/routes'
+import { useNow } from '@/hooks/use-now'
 import { absoluteTime, relativeTime } from '@/lib/relative-time'
 import type { AuditEntry } from '@/types/api.types'
 
@@ -60,6 +61,7 @@ function ActivityRow<T extends AuditEntry>({
   renderTenant?: (entry: T) => ReactNode
   subjectId?: string
 }) {
+  const now = useNow()
   const absolute = absoluteTime(entry.occurredAt)
   const target = entry.target?.id === subjectId ? null : entry.target
   return (
@@ -112,7 +114,7 @@ function ActivityRow<T extends AuditEntry>({
         )}
         <Tooltip>
           <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">
-            <time dateTime={entry.occurredAt}>{relativeTime(entry.occurredAt)}</time>
+            <time dateTime={entry.occurredAt}>{relativeTime(entry.occurredAt, now)}</time>
             <span className="sr-only">, {absolute}</span>
           </TooltipTrigger>
           <TooltipContent>{absolute}</TooltipContent>

@@ -1,6 +1,6 @@
-import { screen, within } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import { http } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { STAFF_USER_ID, TENANT_ID, USER_ID_2, USER_ID_3 } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { at, eventId, timelineRow } from '@/tests/fixtures/timeline'
@@ -121,6 +121,25 @@ function tabLabels() {
 describe('/tenants/$tenantId/timeline', () => {
   beforeEach(() => {
     signIn({ ...testUser, platformRole: 'admin' })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  // A relative time read once at render froze at "just now" while the page stayed open.
+  it('moves its relative times on as the clock ticks', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(Date.parse(ROWS[0]!.timestamp))
+    serve()
+    renderAppAt(TIMELINE)
+
+    expect((await screen.findAllByText('just now')).length).toBeGreaterThan(0)
+    act(() => {
+      vi.advanceTimersByTime(2 * 60_000)
+    })
+    expect(screen.queryByText('just now')).not.toBeInTheDocument()
+    expect(screen.getAllByText('2 minutes ago').length).toBeGreaterThan(0)
   })
 
   it('is a tab after Activity for an admin', async () => {

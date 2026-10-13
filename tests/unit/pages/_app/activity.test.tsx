@@ -1,9 +1,9 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
 import { resetSessionForTests } from '@/http/session'
 import { queryClient } from '@/router'
@@ -126,6 +126,10 @@ describe('platform activity page', () => {
     queryClient.clear()
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('lists activity across tenants, each row naming its tenant', async () => {
     signInAs('admin')
     mockLog(() => ok({ entries: [STAFF_VISIT], nextCursor: null }, 'Audit log retrieved.'))
@@ -143,6 +147,21 @@ describe('platform activity page', () => {
       `/tenants/${TENANT_ID}`
     )
     expect(within(row).getByText('Staff')).toBeInTheDocument()
+  })
+
+  // A relative time read once at render froze at "just now" while the page stayed open.
+  it('moves its relative times on as the clock ticks', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(Date.parse(STAFF_VISIT.occurredAt))
+    signInAs('admin')
+    mockLog(() => ok({ entries: [STAFF_VISIT], nextCursor: null }, 'Audit log retrieved.'))
+    renderPlatformActivity()
+
+    expect(await screen.findByText('just now')).toBeInTheDocument()
+    act(() => {
+      vi.advanceTimersByTime(2 * 60_000)
+    })
+    expect(screen.getByText('2 minutes ago')).toBeInTheDocument()
   })
 
   it('sends someone who is not staff to /no-access and never asks the API', async () => {

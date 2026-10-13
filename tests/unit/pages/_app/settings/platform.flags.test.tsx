@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { toast } from 'sonner'
@@ -72,6 +72,21 @@ describe('/settings/platform/flags', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
+  // A relative time read once at render froze at "just now" while the page stayed open.
+  it('moves its relative times on as the clock ticks', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(Date.parse(flagsList().snapshot.fetchedAt!))
+    serve()
+    renderAppAt('/settings/platform/flags')
+
+    expect(await screen.findByText('just now')).toBeInTheDocument()
+    act(() => {
+      vi.advanceTimersByTime(2 * 60_000)
+    })
+    expect(screen.getByText('2 minutes ago')).toBeInTheDocument()
   })
 
   it('lists every registered flag with its declaration, live state and PostHog link', async () => {
