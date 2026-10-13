@@ -291,7 +291,11 @@ the component is added again.
   transition properties instead of `transition-all` (`toggle` keeps
   `background-color` in its list). The sidebar rail uses `after:w-0.5` and the
   dropdown `min-w-24`. The files shared with react-boilerplate stay byte for byte
-  equal to react's. `shadcn init` also overwrites `src/lib/utils.ts`,
+  equal to react's. Every Tabler icon in `src/components/ui/` carries
+  `aria-hidden="true"` (the guard test `tests/unit/ui-icons-aria-hidden.test.ts`
+  fails otherwise); the combobox clear and chip-remove buttons carry
+  `aria-label` for the same reason, and the apex-only `calendar.tsx` follows
+  the same rule. `shadcn init` also overwrites `src/lib/utils.ts`,
   `src/hooks/use-mobile.ts`, `sonner.tsx` and `command.tsx` (with a cmdk one),
   rewrites every colour token in `globals.css` (`tests/unit/styles/tokens.test.ts`
   fails), duplicates its `@import` lines and adds `cmdk` and `next-themes`, and
