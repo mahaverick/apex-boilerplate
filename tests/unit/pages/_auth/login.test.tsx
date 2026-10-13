@@ -10,6 +10,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { APP_NAME } from '@/constants/app'
 import { resetSessionForTests } from '@/http/session'
 import { safeRedirect } from '@/pages/_auth/login'
 import { queryClient } from '@/router'
@@ -79,6 +80,34 @@ describe('login page', () => {
     expect(screen.getByRole('link', { name: /google/i })).toHaveAttribute(
       'href',
       '/api/v1/auth/google?app=apex'
+    )
+  })
+
+  it('shows no sign-up link and no terms line: Apex is internal and invitation-only', async () => {
+    renderLoginAt('/login')
+    await screen.findByRole('heading', { name: 'Sign in', level: 1 })
+
+    expect(screen.queryByRole('link', { name: /sign up/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/have an account/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/terms of service/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/privacy policy/i)).not.toBeInTheDocument()
+  })
+
+  it('lays the page out as login-03: the app name over the card, Google above the divider', async () => {
+    renderLoginAt('/login')
+    const heading = await screen.findByRole('heading', { name: 'Sign in', level: 1 })
+
+    expect(screen.getByText(APP_NAME)).toBeInTheDocument()
+    const google = screen.getByRole('link', { name: 'Continue with Google' })
+    const divider = screen.getByText('Or continue with')
+    const email = screen.getByLabelText('Email')
+    // DOCUMENT_POSITION_FOLLOWING: the second node comes after the first.
+    expect(heading.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(google.compareDocumentPosition(divider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(divider.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Forgot password?' })).toHaveAttribute(
+      'href',
+      '/forgot-password'
     )
   })
 

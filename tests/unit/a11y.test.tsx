@@ -1592,12 +1592,13 @@ describe('keyboard', () => {
     const expected = [
       // The skip link is every layout's first Tab stop.
       screen.getByRole('link', { name: 'Skip to content' }),
+      // login-03 puts the social buttons above the form. A plain anchor to a same-origin API route, so it is in the tab order without a handler.
+      screen.getByRole('link', { name: 'Continue with Google' }),
       screen.getByLabelText('Email'),
+      // The reset link sits in the password label's row, so it reads, and tabs, before the field.
+      screen.getByRole('link', { name: 'Forgot password?' }),
       screen.getByLabelText('Password'),
       screen.getByRole('button', { name: 'Sign in' }),
-      // A plain anchor to a same-origin API route, so it is in the tab order without a handler.
-      screen.getByRole('link', { name: 'Continue with Google' }),
-      screen.getByRole('link', { name: 'Forgot password?' }),
     ]
     expect(screen.getByRole('link', { name: 'Continue with Google' })).toHaveAttribute(
       'href',

@@ -3,8 +3,10 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { SocialSignIn } from '@/components/features/auth/social-sign-in'
+import { AuthCard } from '@/components/layouts/auth-card'
+import { Button } from '@/components/ui/button'
+import { FieldGroup } from '@/components/ui/field'
 import {
   Form,
   FormControl,
@@ -16,10 +18,9 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { pageTitle } from '@/constants/app'
-import { GOOGLE_OAUTH_PATH, ROUTES } from '@/constants/routes'
+import { ROUTES } from '@/constants/routes'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
-import { cn } from '@/lib/utils'
 import { useLogin } from '@/queries/auth.queries'
 import { loginSchema } from '@/schemas/auth.schemas'
 
@@ -79,17 +80,15 @@ export function safeRedirect(value: string | undefined): string | null {
 }
 
 /**
- * The sign-in form, plus the Google sign-in link.
+ * The sign-in form on shadcn's login-03 layout: a button per configured
+ * social provider (`SocialSignIn`) over the email form, with the reset link in
+ * the password label's row. Apex has no public sign-up, so there is no
+ * sign-up link, and as an internal tool it shows no terms line.
  *
  * An OAuth failure arrives as `?error=<code>` and is toasted once per distinct
  * code: StrictMode runs effects twice in dev and sonner does not dedupe. The
  * value is parsed before posting, so the schema's trimming and lowercasing
  * reach the wire.
- *
- * "Continue with Google" is a plain anchor with `buttonVariants` classes, a
- * top-level navigation to a same-origin API route. It stays a link (the
- * keyboard test pins `role="link"`): Base UI's Button with `render={<a/>}`
- * warns, and its `nativeButton={false}` fix would add `role="button"`.
  */
 function LoginPage() {
   const { error, redirect } = Route.useSearch()
@@ -120,15 +119,11 @@ function LoginPage() {
   })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h1>Sign in</h1>
-        </CardTitle>
-        <CardDescription>Enter your email and password to continue.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form form={form} serverErrors={serverErrors}>
+    <AuthCard title="Sign in" description="Enter your email and password to continue.">
+      <Form form={form} serverErrors={serverErrors} className="space-y-0">
+        <FieldGroup className="gap-6">
+          <SocialSignIn />
+
           <FormField form={form} name="email">
             {(field) => (
               <FormItem>
@@ -137,6 +132,7 @@ function LoginPage() {
                   <Input
                     type="email"
                     autoComplete="email"
+                    placeholder="you@example.com"
                     value={fieldValue(field.state.value)}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
@@ -150,7 +146,15 @@ function LoginPage() {
           <FormField form={form} name="password">
             {(field) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <div className="flex items-center">
+                  <FormLabel>Password</FormLabel>
+                  <Link
+                    to={ROUTES.forgotPassword}
+                    className="ml-auto text-sm underline underline-offset-4"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <FormControl>
                   <Input
                     type="password"
@@ -170,21 +174,8 @@ function LoginPage() {
           <Button type="submit" className="w-full" disabled={login.isPending}>
             {login.isPending ? 'Signing in…' : 'Sign in'}
           </Button>
-        </Form>
-
-        <a
-          href={GOOGLE_OAUTH_PATH}
-          className={cn(buttonVariants({ variant: 'outline' }), 'mt-3 w-full')}
-        >
-          Continue with Google
-        </a>
-
-        <div className="mt-4 flex justify-between text-sm">
-          <Link to={ROUTES.forgotPassword} className="underline underline-offset-4">
-            Forgot password?
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
+        </FieldGroup>
+      </Form>
+    </AuthCard>
   )
 }

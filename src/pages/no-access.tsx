@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { AuthCard } from '@/components/layouts/auth-card'
 import { AuthLayout } from '@/components/layouts/auth-layout'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { pageTitle } from '@/constants/app'
 import { isStaff } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
@@ -30,29 +30,26 @@ function NoAccessPage() {
 
   return (
     <AuthLayout>
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <h1>This account has no platform access</h1>
-          </CardTitle>
-          <CardDescription>
+      <AuthCard
+        title="This account has no platform access"
+        description={
+          <>
             Signed in as <Pii>{email}</Pii>.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 text-sm">
-          <ul className="grid list-disc gap-2 pl-5 text-muted-foreground">
-            <li>If you were invited, open the invitation link again while signed in.</li>
-            <li>Otherwise, ask a platform admin to invite you.</li>
-            <li>
-              If your organisation uses an allow-listed email domain, verify that address, then sign
-              in again: access is granted at sign-in.
-            </li>
-          </ul>
-          <Button variant="outline" disabled={logout.isPending} onClick={() => logout.mutate()}>
-            Sign out
-          </Button>
-        </CardContent>
-      </Card>
+          </>
+        }
+      >
+        <ul className="grid list-disc gap-2 pl-5 text-sm text-muted-foreground">
+          <li>If you were invited, open the invitation link again while signed in.</li>
+          <li>Otherwise, ask a platform admin to invite you.</li>
+          <li>
+            If your organisation uses an allow-listed email domain, verify that address, then sign
+            in again: access is granted at sign-in.
+          </li>
+        </ul>
+        <Button variant="outline" disabled={logout.isPending} onClick={() => logout.mutate()}>
+          Sign out
+        </Button>
+      </AuthCard>
     </AuthLayout>
   )
 }
