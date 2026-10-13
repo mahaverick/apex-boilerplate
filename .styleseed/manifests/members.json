@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "artifactId": "members",
   "engineVersion": "4.2.0",
-  "engineRevision": "sha256:2ac39abb22417fa30964c3bd89667231ee18a5ae699aef9b588273f094606444",
+  "engineRevision": "sha256:eeb89d12b518c178162f72ffe39a7126dd611953d2f66be0f5507de1bfbe7073",
   "distributionIntegrity": "verified",
   "selection": {
     "agent": "claude",
@@ -30,14 +30,14 @@
     {
       "id": "project",
       "path": ".styleseed/project.json",
-      "sha256": "sha256:e94bd62a801de20c44d8f1844a0d1ad9823f766feab5e65dc1224563f2dcf6fd",
-      "bytes": 672
+      "sha256": "sha256:25397b22c7217828267e7844c7c25694ace57430b91551a81d0ff1a6156f9b0b",
+      "bytes": 671
     },
     {
       "id": "artifact",
       "path": ".styleseed/artifacts/members.json",
-      "sha256": "sha256:8ad47357fb43945475ba1a532068073352f1c742feb086ee02596f351cecd236",
-      "bytes": 1329
+      "sha256": "sha256:be4a3725c683b1392117541040cf7fefd99cfcbc9eeecda933a3d429c6408130",
+      "bytes": 1333
     }
   ],
   "sources": [
@@ -97,9 +97,9 @@
     }
   ],
   "methodHash": "sha256:c67748325ddd7209fc4dbe05b2ce6e69509d17cd0811b848bf4b352531832dcb",
-  "validationHash": "sha256:75195d314c685b72e7b22a858398000792b6961b673bdf4319c5043a4766c246",
+  "validationHash": "sha256:8120b0fd61a29b8cb4cc4ead8bf5f18a867e623ab800d7edf4c7ffe3f437f854",
   "validationSlices": {
-    "target": "sha256:a2b3aac7c2ad7563fa1ee56afb49e9a1b924ec5fbc2a71502c1ebc784920f419",
+    "target": "sha256:51cadb377897a40899c96e271f7b6f3af87f1eda176fecf908e3d89642a6c785",
     "implementation": "sha256:c472ef8a74106cfc8c328148ff0e89587b99efeadde5ac15295e5b810782d536",
     "scoreFloor": "sha256:48449a14a4ff7d79bb7a1b6f3d488eba397c36ef25634c111b49baf362511afc",
     "requiredRenders": "sha256:e2cbc22ce7be59d23cd2e88d6fdbc576aa98f69928e4ff1e61fda02e15ccca2f",
@@ -109,14 +109,14 @@
   "bundle": {
     "kind": "bundle",
     "path": ".styleseed/bundles/members.md",
-    "sha256": "sha256:05a8e3bea98f67f5407c70bdf16af51d4bb39b22c9e9c53bf9b87dcfa3756e80",
+    "sha256": "sha256:82aed9dd4ee0e0473c82ac16ac4b28c813188d95ebacaaa3b22a89bcb1378122",
     "bytes": 19722
   },
   "outputs": [
     {
       "kind": "bundle",
       "path": ".styleseed/bundles/members.md",
-      "sha256": "sha256:05a8e3bea98f67f5407c70bdf16af51d4bb39b22c9e9c53bf9b87dcfa3756e80",
+      "sha256": "sha256:82aed9dd4ee0e0473c82ac16ac4b28c813188d95ebacaaa3b22a89bcb1378122",
       "bytes": 19722
     },
     {

@@ -1,8 +1,9 @@
 # StyleSeed design lock
 
 StyleSeed is the design method this repo checks its UI against. The lock below records
-what the method may and may not change here. The pinned engine (`github.com/bitjaru/styleseed`) is **4.2.0**, revision
-`sha256:2ac39abb22417fa30964c3bd89667231ee18a5ae699aef9b588273f094606444`
+what the method may and may not change here. The pinned engine is **styleseed v4.2.0**
+(`github.com/bitjaru/styleseed`, tag `v4.2.0`), revision
+`sha256:eeb89d12b518c178162f72ffe39a7126dd611953d2f66be0f5507de1bfbe7073`
 (`.styleseed/manifests/members.json`). Rules move, so an unpinned adoption would change
 under the repo. Upgrades go through `/ss-update` and are reviewed as a diff.
 
@@ -31,10 +32,9 @@ The selection lives in `.styleseed/project.json` and `.styleseed/artifacts/membe
   `base-nova` is the approved visual system.
 - Score floor: 80
 - One artifact, `members`, registered in `.styleseed/artifacts/index.json`. Its route
-  locator is `/tenants/$slug/members`; apex's route for that page is
-  `/tenants/$tenantId/members` (`src/pages/_app/tenants/$tenantId.members.tsx`), so the
-  locator names no route in this app. No artifact covers the Overview, Tenants, Activity or
-  other staff pages.
+  locator is `/tenants/$tenantId/members`, the app's route
+  (`src/pages/_app/tenants/$tenantId.members.tsx`). No artifact covers the Overview,
+  Tenants, Activity or other staff pages.
 
 ## Approved tokens
 
@@ -180,10 +180,10 @@ node "<styleseed>/skills/ss-score/scripts/styleseed-check.mjs" \
 
 The committed manifest verifies without a resolver step. Its `sources` are StyleSeed catalog
 entries (`catalog:core`, `built-in:operations-console`, and so on), not project files, so
-editing `globals.css`, a component or this file does not invalidate it. The `members` locator ([Selection](#selection)) and the `keyColor`
-([Generated files](#generated-files-that-are-not-our-tokens)) do not match apex, so a scan
-reports on the registered source roots, not on a real apex route. Re-target or add artifacts
-before relying on a scan.
+editing `globals.css`, a component or this file does not invalidate it. The `keyColor`
+([Generated files](#generated-files-that-are-not-our-tokens)) does not match apex, and a scan
+reports on the registered source roots, not on a rendered route. Add artifacts before
+relying on a scan for pages other than members.
 
 Re-run `resolve-context.mjs` only when an artifact's `selection`, its `implementation`
 paths, `.styleseed/project.json` or the pinned engine version changes. It rewrites the
