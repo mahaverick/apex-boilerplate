@@ -1,14 +1,41 @@
 import { execFile as execFileCallback } from 'node:child_process'
+import { readFileSync, realpathSync } from 'node:fs'
 import { promisify } from 'node:util'
 import { expect, type Page } from '@playwright/test'
 import type { MembershipRole } from '@/constants/roles'
+import { apiDirPlan } from '../../scripts/api-dir-guard.mjs'
 
 const execFile = promisify(execFileCallback)
 
 /** Where the API under test listens: `E2E_API_ORIGIN`, which the dev server's `/api` proxy follows too. */
 export const API_ORIGIN = process.env.E2E_API_ORIGIN ?? 'http://localhost:4040'
 const MAILPIT_ORIGIN = process.env.E2E_MAILPIT_ORIGIN ?? 'http://localhost:8025'
-const API_DIR = process.env.E2E_API_DIR ?? '../express-boilerplate'
+
+/**
+ * The express checkout the helpers run commands in: `E2E_API_DIR`, which has no
+ * default. It may be the main checkout, since the helpers send no signals.
+ * @param use - What the helper runs there, for the error.
+ * @param script - The `package.json` script the helper runs, if any.
+ * @returns The resolved directory.
+ * @throws When `E2E_API_DIR` is unset, missing, or lacks the script.
+ */
+function apiDir(use: string, script?: string): string {
+  const plan = apiDirPlan({
+    apiDir: process.env.E2E_API_DIR,
+    use,
+    script,
+    realpath: realpathSync,
+    readJson: (file) => {
+      try {
+        return JSON.parse(readFileSync(file, 'utf8')) as { scripts?: unknown }
+      } catch {
+        return null
+      }
+    },
+  })
+  if ('refusal' in plan) throw new Error(plan.refusal)
+  return plan.dir
+}
 
 /** The database that API runs on, in its compose project's postgres; a worktree's API may run on its own. */
 const API_DB = process.env.E2E_API_DB ?? 'boilerplate'
@@ -189,7 +216,10 @@ export async function createTenant(
  * Must run BEFORE that account signs in: the role arrives with the session.
  */
 export async function grantPlatformRole(email: string, role: MembershipRole): Promise<void> {
-  await execFile('pnpm', ['platform:grant', email, role], { cwd: API_DIR, timeout: 60_000 })
+  await execFile('pnpm', ['platform:grant', email, role], {
+    cwd: apiDir('grantPlatformRole (pnpm platform:grant)', 'platform:grant'),
+    timeout: 60_000,
+  })
 }
 
 /** A lowercase, hyphenated slug no earlier run has taken. */
@@ -312,7 +342,7 @@ export async function backdateStepUp(email: string): Promise<void> {
       '-c',
       sql,
     ],
-    { cwd: API_DIR, timeout: 30_000 }
+    { cwd: apiDir('backdateStepUp (docker compose exec)'), timeout: 30_000 }
   )
 }
 
@@ -561,6 +591,6 @@ export async function fireEmailEvent(
       '--origin',
       API_ORIGIN,
     ],
-    { cwd: API_DIR, timeout: 60_000 }
+    { cwd: apiDir('fireEmailEvent (pnpm email:fire-event)', 'email:fire-event'), timeout: 60_000 }
   )
 }

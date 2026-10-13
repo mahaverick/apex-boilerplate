@@ -416,7 +416,11 @@ Its accounts are registered and verified through mailpit. Each run registers a
 fresh address (`freshEmail`), because express rate-limits sign-in per address.
 Nothing is cleaned up: every run leaves its accounts, tenants, invitations and
 audit entries in that API's database. What the express under test needs is in
-the [README](README.md#testing).
+the [README](README.md#testing). The helpers that run commands (`grantPlatformRole`,
+`fireEmailEvent`, `backdateStepUp`) run them in `E2E_API_DIR`, which has no
+default: `apiDir` throws when it is unset, is not an existing directory, or its
+`package.json` lacks the script the helper runs (`apiDirPlan`). The main express
+checkout is allowed, because apex sends no process signals.
 
 `assertApiServesApex` and `assertFakeEmailWebhook` fail before any test runs and
 name what is wrong. The variables, with their defaults, are in the

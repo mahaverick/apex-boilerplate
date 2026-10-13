@@ -3,7 +3,7 @@
   "id": "members",
   "target": {
     "kind": "route",
-    "locator": "/tenants/$slug/members"
+    "locator": "/tenants/$tenantId/members"
   },
   "selection": {
     "grammar": "operations-console",

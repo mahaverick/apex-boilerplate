@@ -271,9 +271,12 @@ The `live` and `nginx` projects read these variables (defaults in
 - `E2E_API_ORIGIN`: the express under test (default `http://localhost:4040`). The
   dev server's `/api` proxy follows it too.
 - `E2E_NGINX_ORIGIN`: the image under test (default `http://localhost:8088`).
-- `E2E_API_DIR` (default `../express-boilerplate`) and `E2E_API_DB` (default
-  `boilerplate`): where `pnpm platform:grant` and the step-up backdating run, and
-  the database the backdating writes to.
+- `E2E_API_DIR` (no default) and `E2E_API_DB` (default `boilerplate`): the express
+  checkout where `pnpm platform:grant`, `pnpm email:fire-event` and the step-up
+  backdating run, and the database the backdating writes to. Set `E2E_API_DIR` to
+  the checkout whose database the API under test uses; it may be the main
+  `../express-boilerplate`. A helper throws when it is unset, is not an existing
+  directory, or its `package.json` lacks the script the helper runs.
 - `E2E_MAILPIT_ORIGIN` (default `http://localhost:8025`) and `E2E_WEB_ORIGIN`
   (default `http://localhost:5173`): the mailpit the helpers read, and the
   customer app's origin in mailed links.
