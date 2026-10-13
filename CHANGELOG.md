@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2](https://github.com/mahaverick/apex-boilerplate/compare/v2.0.1...v2.0.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **styleseed:** re-pin the engine to v4.2.0 and fix the members locator ([#50](https://github.com/mahaverick/apex-boilerplate/issues/50)) ([e1e33a2](https://github.com/mahaverick/apex-boilerplate/commit/e1e33a2b4eab491d34e5d0c73aaca4de5d7e28c5))
+
 ## [2.0.1](https://github.com/mahaverick/apex-boilerplate/compare/v2.0.0...v2.0.1) (2026-10-13)
 
 
