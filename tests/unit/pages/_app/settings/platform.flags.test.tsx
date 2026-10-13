@@ -65,7 +65,7 @@ function rowsOf(name: string) {
   return within(screen.getByRole('table', { name })).getAllByRole('row').slice(1)
 }
 
-describe('/flags', () => {
+describe('/settings/platform/flags', () => {
   beforeEach(() => {
     signIn({ ...testUser, platformRole: 'viewer' })
   })
@@ -76,7 +76,7 @@ describe('/flags', () => {
 
   it('lists every registered flag with its declaration, live state and PostHog link', async () => {
     serve()
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     expect(await screen.findByRole('heading', { name: 'Feature flags', level: 1 })).toBeVisible()
     await screen.findByRole('table', { name: 'Registered flags' })
     const [beta, experiment, unsupported] = rowsOf('Registered flags')
@@ -114,7 +114,7 @@ describe('/flags', () => {
         'Flags retrieved.'
       )
     )
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     await screen.findByRole('table', { name: 'Registered flags' })
     const [row] = rowsOf('Registered flags')
     expect(within(row!).getByText('Unsupported')).toHaveAttribute('data-tone', 'warning')
@@ -130,7 +130,7 @@ describe('/flags', () => {
         'Flags retrieved.'
       )
     )
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     await screen.findByRole('table', { name: 'Registered flags' })
     const [missing] = rowsOf('Registered flags')
     expect(within(missing!).getByText('Missing in PostHog')).toHaveAttribute('data-tone', 'warning')
@@ -140,7 +140,7 @@ describe('/flags', () => {
 
   it('lists PostHog’s unregistered flags with their links', async () => {
     serve()
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     await screen.findByRole('table', { name: 'Unregistered flags' })
     const [legacy] = rowsOf('Unregistered flags')
     expect(within(legacy!).getByText('legacy_marketing_banner')).toBeInTheDocument()
@@ -153,7 +153,7 @@ describe('/flags', () => {
 
   it('says when every PostHog flag is registered', async () => {
     serve(() => ok(flagsList({ unregistered: [] }), 'Flags retrieved.'))
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     expect(await screen.findByText('None. Every PostHog flag is registered.')).toBeInTheDocument()
     expect(screen.queryByRole('table', { name: 'Unregistered flags' })).not.toBeInTheDocument()
   })
@@ -169,7 +169,7 @@ describe('/flags', () => {
         'Flags retrieved.'
       )
     )
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     expect(
       await screen.findByText(
         'Feature flags are not set up for this environment, so every flag serves its fallback.'
@@ -188,7 +188,7 @@ describe('/flags', () => {
         'Flags retrieved.'
       )
     )
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     expect(
       await screen.findByText(
         'PostHog has not been reached for over 10 minutes; flags use the last snapshot.'
@@ -207,7 +207,7 @@ describe('/flags', () => {
         'Flags retrieved.'
       )
     )
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     await screen.findByRole('table', { name: 'Registered flags' })
     const [row] = rowsOf('Registered flags')
     expect(within(row!).getByText('archived')).toHaveAttribute('data-tone', 'neutral')
@@ -217,7 +217,7 @@ describe('/flags', () => {
     serve()
     const success = vi.spyOn(toast, 'success')
     const user = userEvent.setup()
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     const traits = await screen.findByRole('region', { name: 'Traits reference' })
     for (const trait of TRAITS) expect(within(traits).getByText(trait.name)).toBeInTheDocument()
     expect(within(traits).getByText('Tenant group property')).toBeInTheDocument()
@@ -232,7 +232,7 @@ describe('/flags', () => {
     const error = vi.spyOn(toast, 'error')
     const user = userEvent.setup()
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     const traits = await screen.findByRole('region', { name: 'Traits reference' })
     await user.click(within(traits).getByRole('button', { name: 'Copy app_env' }))
     await waitFor(() => expect(error).toHaveBeenCalledWith('Could not copy app_env'))
@@ -240,10 +240,24 @@ describe('/flags', () => {
 
   it('offers a viewer no evaluation, and never asks for one', async () => {
     const { evaluated } = serve()
-    renderAppAt(`/flags?userId=${USER_ID_2}`)
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
     await screen.findByRole('table', { name: 'Registered flags' })
-    expect(screen.queryByRole('region', { name: 'Evaluate' })).not.toBeInTheDocument()
+    const evaluate = screen.getByRole('region', { name: 'Evaluate' })
+    expect(within(evaluate).getByText('Admins can evaluate flags for a user.')).toBeInTheDocument()
+    expect(within(evaluate).queryByRole('searchbox')).not.toBeInTheDocument()
+    expect(within(evaluate).queryByRole('button')).not.toBeInTheDocument()
     expect(evaluated).toEqual([])
+  })
+
+  it('offers an admin the evaluation, without the viewer note', async () => {
+    signIn({ ...testUser, platformRole: 'admin' })
+    serve()
+    renderAppAt('/settings/platform/flags')
+    const evaluate = await screen.findByRole('region', { name: 'Evaluate' })
+    expect(
+      within(evaluate).queryByText('Admins can evaluate flags for a user.')
+    ).not.toBeInTheDocument()
+    expect(within(evaluate).getByRole('searchbox', { name: 'Find a user' })).toBeInTheDocument()
   })
 
   it('shows one retryable error when the list fails', async () => {
@@ -253,7 +267,7 @@ describe('/flags', () => {
       return calls <= 2 ? fail('Boom', 500) : ok(flagsList(), 'Flags retrieved.')
     })
     const user = userEvent.setup()
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     expect(
       await screen.findByText('We could not load the flags. This is not a sign they are off.')
     ).toBeInTheDocument()
@@ -263,12 +277,12 @@ describe('/flags', () => {
 
   it('says the role cannot see this on a 404, without signing out', async () => {
     serve(() => fail('Not found', 404))
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     expect(await screen.findByText(/Your role can’t see this any more/)).toBeInTheDocument()
   })
 })
 
-describe('/flags evaluate', () => {
+describe('/settings/platform/flags evaluate', () => {
   beforeEach(() => {
     signIn({ ...testUser, platformRole: 'admin' })
   })
@@ -276,7 +290,7 @@ describe('/flags evaluate', () => {
   it('finds a user through the directory and evaluates every flag for the customer app', async () => {
     const { evaluated, searched } = serve()
     const user = userEvent.setup()
-    const router = renderAppAt('/flags')
+    const router = renderAppAt('/settings/platform/flags')
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
     await user.type(within(panel).getByRole('searchbox', { name: 'Find a user' }), 'cleo')
     await user.click(await within(panel).findByRole('button', { name: /Cleo Doe/ }))
@@ -308,7 +322,7 @@ describe('/flags evaluate', () => {
   it('sends a tenant chosen from the user’s own, and drops it for Apex', async () => {
     const { evaluated } = serve()
     const user = userEvent.setup()
-    const router = renderAppAt(`/flags?userId=${USER_ID_2}`)
+    const router = renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
     await within(panel).findByRole('table', { name: 'Evaluation' })
 
@@ -338,7 +352,7 @@ describe('/flags evaluate', () => {
 
   it('ignores a tenant in the URL that is not one of the user’s', async () => {
     const { evaluated } = serve()
-    renderAppAt(`/flags?userId=${USER_ID_2}&tenantId=${TENANT_ID_2}`)
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}&tenantId=${TENANT_ID_2}`)
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
     await within(panel).findByRole('table', { name: 'Evaluation' })
     expect(evaluated).toEqual([`?userId=${USER_ID_2}&app=react`])
@@ -356,7 +370,7 @@ describe('/flags evaluate', () => {
         )
       )
     )
-    renderAppAt(`/flags?userId=${USER_ID_2}`)
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
     const table = await within(panel).findByRole('table', { name: 'Evaluation' })
     expect(within(table).getByText('brand_new')).toHaveAttribute('data-tone', 'neutral')
@@ -365,7 +379,7 @@ describe('/flags evaluate', () => {
   it('goes back to the picker when Change user is pressed', async () => {
     serve()
     const user = userEvent.setup()
-    const router = renderAppAt(`/flags?userId=${USER_ID_2}&app=apex`)
+    const router = renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}&app=apex`)
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
     await user.click(await within(panel).findByRole('button', { name: 'Change user' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ app: 'apex' }))
@@ -380,7 +394,7 @@ describe('/flags evaluate', () => {
       )
     )
     const user = userEvent.setup()
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
     await user.type(within(panel).getByRole('searchbox', { name: 'Find a user' }), 'nobody')
     expect(await within(panel).findByText('No users match.')).toBeInTheDocument()
@@ -389,7 +403,7 @@ describe('/flags evaluate', () => {
   it('says when the user no longer exists, and evaluates nothing', async () => {
     const { evaluated } = serve()
     server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => fail('Not found', 404)))
-    renderAppAt(`/flags?userId=${USER_ID_2}`)
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
     expect(await screen.findByText('That user doesn’t exist any more.')).toBeInTheDocument()
     expect(evaluated).toEqual([])
   })
@@ -404,7 +418,7 @@ describe('/flags evaluate', () => {
       })
     )
     const user = userEvent.setup()
-    renderAppAt(`/flags?userId=${USER_ID_2}`)
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
     expect(
       await screen.findByText('We could not evaluate the flags. This is not a sign they are off.')
     ).toBeInTheDocument()
@@ -416,7 +430,7 @@ describe('/flags evaluate', () => {
   it('says the role cannot evaluate on a 404', async () => {
     serve()
     server.use(http.get('/api/v1/platform/flags/evaluate', () => fail('Not found', 404)))
-    renderAppAt(`/flags?userId=${USER_ID_2}`)
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
     expect(await screen.findByText(/Your role can’t see this any more/)).toBeInTheDocument()
   })
 
@@ -438,7 +452,7 @@ describe('/flags evaluate', () => {
         )
       )
     )
-    renderAppAt(`/flags?userId=${USER_ID_2}`)
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
     await within(panel).findByRole('table', { name: 'Evaluation' })
     expect(
@@ -457,7 +471,7 @@ describe('the user detail page’s Flags link', () => {
     renderAppAt(`/users/${USER_ID_2}`)
     expect(await screen.findByRole('link', { name: 'Flags' })).toHaveAttribute(
       'href',
-      `/flags?userId=${USER_ID_2}&app=react`
+      `/settings/platform/flags?userId=${USER_ID_2}&app=react`
     )
   })
 

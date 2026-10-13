@@ -689,7 +689,7 @@ describe('signed-in pages', () => {
 
   it('staff has no axe violations', async () => {
     serveStaff()
-    renderAppAt('/staff')
+    renderAppAt('/settings/platform/staff')
     await screen.findByText('Cleo D')
     await screen.findByText('No invitations are waiting to be accepted.')
     await expectNoViolations()
@@ -931,7 +931,7 @@ describe('signed-in pages', () => {
         )
       )
     )
-    renderAppAt('/flags')
+    renderAppAt('/settings/platform/flags')
     await screen.findByText(
       'Feature flags are not set up for this environment, so every flag serves its fallback.'
     )
@@ -1310,7 +1310,7 @@ describe('open overlays', () => {
   it('has no violations with the remove-staff dialog open', async () => {
     serveStaff()
     const user = userEvent.setup()
-    renderAppAt('/staff')
+    renderAppAt('/settings/platform/staff')
     await user.click(await screen.findByRole('button', { name: 'Remove' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Remove Cleo D?' })
     expect(within(dialog).getByRole('link', { name: 'Open Cleo D in Users' })).toBeInTheDocument()
@@ -1388,7 +1388,7 @@ describe('open overlays', () => {
       )
     )
     const user = userEvent.setup()
-    renderAppAt('/staff')
+    renderAppAt('/settings/platform/staff')
     await user.click(
       await screen.findByRole('button', { name: `Revoke invitation to ${testInvitation.email}` })
     )
@@ -1945,7 +1945,7 @@ describe('maintenance', () => {
 
   it('the page in full maintenance has no axe violations', async () => {
     serveMaintenance()
-    renderAppAt('/maintenance')
+    renderAppAt('/settings/platform/maintenance')
     await screen.findByRole('list', { name: 'Queues' })
     await screen.findByRole('button', { name: 'Turn off…' })
     await expectNoViolations()
@@ -1954,7 +1954,7 @@ describe('maintenance', () => {
   it('has no violations with the switch-on dialog open, its preview and confirm showing', async () => {
     serveMaintenance(maintenanceModeView())
     const user = userEvent.setup()
-    renderAppAt('/maintenance')
+    renderAppAt('/settings/platform/maintenance')
     await user.click(await screen.findByRole('button', { name: 'Turn on maintenance…' }))
     const dialog = await screen.findByRole('dialog', { name: 'Turn on maintenance' })
     await user.type(within(dialog).getByLabelText('Message for customers'), 'Back soon.')
@@ -1990,7 +1990,7 @@ describe('maintenance', () => {
   it('has no violations with the switch-off dialog open', async () => {
     serveMaintenance()
     const user = userEvent.setup()
-    renderAppAt('/maintenance')
+    renderAppAt('/settings/platform/maintenance')
     await user.click(await screen.findByRole('button', { name: 'Turn off…' }))
     await screen.findByRole('alertdialog', { name: 'Turn off maintenance?' })
     await expectNoViolations()

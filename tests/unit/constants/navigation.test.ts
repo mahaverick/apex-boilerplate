@@ -68,8 +68,8 @@ describe('navigation', () => {
   it('puts Maintenance then Feature flags last in Operations, for every staff role', () => {
     const operations = navItemsFor('viewer').filter((item) => item.group === 'Operations')
     expect(operations.map((item) => [item.label, item.to]).slice(-2)).toEqual([
-      ['Maintenance', '/maintenance'],
-      ['Feature flags', '/flags'],
+      ['Maintenance', '/settings/platform/maintenance'],
+      ['Feature flags', '/settings/platform/flags'],
     ])
   })
 

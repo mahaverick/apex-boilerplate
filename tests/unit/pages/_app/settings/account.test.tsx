@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { testUser } from '@/tests/mocks/handlers'
@@ -24,5 +24,30 @@ describe('settings: account', () => {
     expect(
       screen.getByText('Your password, sign-in methods and other sessions.')
     ).toBeInTheDocument()
+  })
+
+  it('lists every section on the landing page, as links', async () => {
+    signIn(testUser)
+    renderAppAt('/settings')
+    expect(await screen.findByRole('heading', { name: 'Settings', level: 1 })).toBeInTheDocument()
+    const account = screen.getByRole('region', { name: 'Account' })
+    const platform = screen.getByRole('region', { name: 'Platform' })
+    expect(within(account).getByRole('link', { name: /Profile/ })).toHaveAttribute(
+      'href',
+      '/settings/account/profile'
+    )
+    expect(within(account).getByRole('link', { name: /Security/ })).toHaveAttribute(
+      'href',
+      '/settings/account/security'
+    )
+    expect(
+      within(platform)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href'))
+    ).toEqual([
+      '/settings/platform/staff',
+      '/settings/platform/flags',
+      '/settings/platform/maintenance',
+    ])
   })
 })

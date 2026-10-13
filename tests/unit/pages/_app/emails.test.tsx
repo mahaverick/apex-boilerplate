@@ -96,7 +96,10 @@ describe('/emails', () => {
       )
     )
     renderAppAt('/emails')
-    expect(await screen.findByRole('link', { name: 'Platform' })).toHaveAttribute('href', '/staff')
+    expect(await screen.findByRole('link', { name: 'Platform' })).toHaveAttribute(
+      'href',
+      '/settings/platform/staff'
+    )
   })
 
   it('opens a message from its recipient', async () => {

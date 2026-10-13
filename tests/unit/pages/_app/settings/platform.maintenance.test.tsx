@@ -68,12 +68,12 @@ async function touchMessage(user: ReturnType<typeof userEvent.setup>, dialog: HT
  */
 async function openPage() {
   const user = userEvent.setup()
-  renderAppAt('/maintenance')
+  renderAppAt('/settings/platform/maintenance')
   await screen.findByRole('region', { name: 'Customer access' })
   return user
 }
 
-describe('/maintenance', () => {
+describe('/settings/platform/maintenance', () => {
   beforeEach(() => {
     signInAs('owner')
   })
@@ -123,7 +123,7 @@ describe('/maintenance', () => {
 
   it('shows RoleDenied when the API refuses the role', async () => {
     server.use(http.get('/api/v1/platform/maintenance-mode', () => fail('Not found', 404)))
-    renderAppAt('/maintenance')
+    renderAppAt('/settings/platform/maintenance')
     expect(await screen.findByText(/Your role can’t see this any more/)).toBeVisible()
   })
 

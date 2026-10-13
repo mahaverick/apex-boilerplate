@@ -57,7 +57,7 @@ function renderPalette() {
     '/tenants',
     '/activity',
     '/users',
-    '/staff',
+    '/settings/platform/staff',
     '/users/$userId',
     '/tenants/$tenantId',
   ].map((path) =>
