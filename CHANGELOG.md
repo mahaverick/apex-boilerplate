@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/mahaverick/apex-boilerplate/compare/v2.2.0...v2.2.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **settings:** stop settings cards repeating their page heading ([#60](https://github.com/mahaverick/apex-boilerplate/issues/60)) ([df9d0d0](https://github.com/mahaverick/apex-boilerplate/commit/df9d0d0914f61cec200e324abda787696dc03846))
+
 ## [2.2.0](https://github.com/mahaverick/apex-boilerplate/compare/v2.1.0...v2.2.0) (2026-10-13)
 
 
