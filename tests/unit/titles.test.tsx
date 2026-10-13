@@ -10,7 +10,7 @@ import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { pageTitle } from '@/constants/app'
 import { resetSessionForTests } from '@/http/session'
-import { queryClient } from '@/router'
+import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 import { TENANT_ID } from '@/tests/fixtures/ids'
@@ -22,6 +22,7 @@ function buildRouter(path: string) {
   return createRouter({
     routeTree,
     context: { queryClient },
+    ...ROUTER_DEFAULTS,
     history: createMemoryHistory({ initialEntries: [path] }),
   })
 }

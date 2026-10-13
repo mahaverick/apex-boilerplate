@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
-import { queryClient } from '@/router'
+import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 import { fail } from '@/tests/mocks/handlers'
@@ -27,6 +27,7 @@ function renderSignedOutLogin() {
   const router = createRouter({
     routeTree,
     context: { queryClient },
+    ...ROUTER_DEFAULTS,
     history: createMemoryHistory({ initialEntries: ['/login'] }),
   })
   render(

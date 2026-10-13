@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { FlagEvaluatePanel } from '@/components/features/flags/flag-evaluate-panel'
 import { FlagRegistryTable } from '@/components/features/flags/flag-registry-table'
@@ -7,6 +7,7 @@ import { TraitsPanel } from '@/components/features/flags/traits-panel'
 import { UnregisteredFlagsTable } from '@/components/features/flags/unregistered-flags-table'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
+import { SettingsRouteError } from '@/components/features/route-error'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import {
@@ -33,6 +34,13 @@ export const Route = createFileRoute('/_app/settings/platform/flags')({
   head: () => ({ meta: [{ title: pageTitle('Feature flags') }] }),
   staticData: { crumb: 'Feature flags' },
   component: FlagsPage,
+  /**
+   * Kept out of a lazy chunk, as the router's default error screen is: a failed
+   * fetch could not load it. Splitting it would also pull the error listener
+   * out of the entry chunk (pnpm check:bundle).
+   */
+  codeSplitGroupings: [['component']],
+  errorComponent: SettingsRouteError,
 })
 
 /** One titled block of the page. */
@@ -50,8 +58,9 @@ function FlagsSection({ id, title, children }: { id: string; title: string; chil
 /** The loaded page: notes on the snapshot, then each section. */
 function FlagsContent({ data, isAdmin }: { data: FlagsListResponse; isAdmin: boolean }) {
   const now = useNow()
-  const search = Route.useSearch()
-  const navigate = Route.useNavigate()
+  // Not `Route.useSearch()` or `Route.useNavigate()`: this route module imports the error screen (route-error, then observability/errors), and a page chunk importing `Route` back from it makes Rolldown split the error listener out of the entry chunk (pnpm check:bundle).
+  const search = useSearch({ from: '/_app/settings/platform/flags' })
+  const navigate = useNavigate({ from: '/settings/platform/flags' })
   return (
     <>
       {!data.snapshot.enabled && (

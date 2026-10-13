@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { SettingsRouteError } from '@/components/features/route-error'
 import { InvitationsSection } from '@/components/features/tenant/invitations-section'
 import { MembersCard } from '@/components/features/tenant/members-card'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +11,13 @@ export const Route = createFileRoute('/_app/settings/platform/staff')({
   head: () => ({ meta: [{ title: pageTitle('Staff') }] }),
   staticData: { crumb: 'Staff' },
   component: StaffPage,
+  /**
+   * Kept out of a lazy chunk, as the router's default error screen is: a failed
+   * fetch could not load it. Splitting it would also pull the error listener
+   * out of the entry chunk (pnpm check:bundle).
+   */
+  codeSplitGroupings: [['component']],
+  errorComponent: SettingsRouteError,
 })
 
 /**

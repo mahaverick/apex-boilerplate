@@ -5,6 +5,7 @@ import { LoadError } from '@/components/features/load-error'
 import { ChangeModeDialog, type OnMode } from '@/components/features/maintenance/change-mode-dialog'
 import { TurnOffDialog } from '@/components/features/maintenance/turn-off-dialog'
 import { RoleDenied } from '@/components/features/role-denied'
+import { SettingsRouteError } from '@/components/features/route-error'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
@@ -30,6 +31,13 @@ export const Route = createFileRoute('/_app/settings/platform/maintenance')({
   head: () => ({ meta: [{ title: pageTitle('Maintenance') }] }),
   staticData: { crumb: 'Maintenance' },
   component: MaintenancePage,
+  /**
+   * Kept out of a lazy chunk, as the router's default error screen is: a failed
+   * fetch could not load it. Splitting it would also pull the error listener
+   * out of the entry chunk (pnpm check:bundle).
+   */
+  codeSplitGroupings: [['component']],
+  errorComponent: SettingsRouteError,
 })
 
 const MODE_TONES: Record<MaintenanceMode, BadgeTone> = {

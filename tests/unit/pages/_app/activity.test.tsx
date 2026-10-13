@@ -6,7 +6,7 @@ import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
 import { resetSessionForTests } from '@/http/session'
-import { queryClient } from '@/router'
+import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 import {
@@ -98,6 +98,7 @@ function renderPlatformActivity() {
   const router = createRouter({
     routeTree,
     context: { queryClient },
+    ...ROUTER_DEFAULTS,
     history: createMemoryHistory({ initialEntries: ['/activity'] }),
   })
   render(

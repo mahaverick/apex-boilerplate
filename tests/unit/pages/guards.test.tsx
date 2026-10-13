@@ -9,7 +9,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { delay, http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
-import { bootstrapSession, queryClient } from '@/router'
+import { bootstrapSession, queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -135,6 +135,7 @@ describe('route guards', () => {
     const router = createRouter({
       routeTree,
       context: { queryClient },
+      ...ROUTER_DEFAULTS,
       history: createMemoryHistory({ initialEntries: [path] }),
     })
     render(
@@ -274,6 +275,7 @@ describe('token routes outside the auth guard', () => {
     const router = createRouter({
       routeTree,
       context: { queryClient },
+      ...ROUTER_DEFAULTS,
       history: createMemoryHistory({ initialEntries: [path] }),
     })
     render(

@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_NAME } from '@/constants/app'
 import { resetSessionForTests } from '@/http/session'
 import { safeRedirect } from '@/pages/_auth/login'
-import { queryClient } from '@/router'
+import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -34,6 +34,7 @@ function renderLoginAt(path: string): AnyRouter {
   const router = createRouter({
     routeTree,
     context: { queryClient },
+    ...ROUTER_DEFAULTS,
     history: createMemoryHistory({ initialEntries: [path] }),
   })
   render(

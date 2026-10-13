@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
 import { profileKeys } from '@/queries/profile.queries'
-import { queryClient } from '@/router'
+import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -22,6 +22,7 @@ function renderSettingsProfile() {
   const router = createRouter({
     routeTree,
     context: { queryClient },
+    ...ROUTER_DEFAULTS,
     history: createMemoryHistory({ initialEntries: ['/settings/account/profile'] }),
   })
   render(
