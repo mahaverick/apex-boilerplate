@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.2.0](https://github.com/mahaverick/apex-boilerplate/compare/v2.1.0...v2.2.0) (2026-10-13)
+
+
+### Features
+
+* **settings:** one settings area for account and platform ([#57](https://github.com/mahaverick/apex-boilerplate/issues/57)) ([51f70d2](https://github.com/mahaverick/apex-boilerplate/commit/51f70d24f029d461b34820b81baea77405bfadbe))
+
+
+### Bug Fixes
+
+* **a11y:** hide the vendored ui icons from assistive tech ([#59](https://github.com/mahaverick/apex-boilerplate/issues/59)) ([7b9a486](https://github.com/mahaverick/apex-boilerplate/commit/7b9a486b9e53ed5d4aa6c18178eb345641a7c03d))
+
 ## [2.1.0](https://github.com/mahaverick/apex-boilerplate/compare/v2.0.3...v2.1.0) (2026-10-13)
 
 
