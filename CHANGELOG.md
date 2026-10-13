@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.3](https://github.com/mahaverick/apex-boilerplate/compare/v2.0.2...v2.0.3) (2026-10-13)
+
+
+### Bug Fixes
+
+* **observability:** move analytics modules off blocker-matched paths ([#52](https://github.com/mahaverick/apex-boilerplate/issues/52)) ([56275e1](https://github.com/mahaverick/apex-boilerplate/commit/56275e1b397f7baffe07845946f984361d9bf873))
+
 ## [2.0.2](https://github.com/mahaverick/apex-boilerplate/compare/v2.0.1...v2.0.2) (2026-10-13)
 
 
