@@ -563,7 +563,12 @@ describe('signed-in pages', () => {
         await screen.findByText(testSystemStatus.release)
       },
     ],
-    ['profile', '/profile', () => screen.findByRole('button', { name: 'Change password' })],
+    ['profile', '/settings/account/profile', () => screen.findByLabelText('First name')],
+    [
+      'security',
+      '/settings/account/security',
+      () => screen.findByRole('button', { name: 'Change password' }),
+    ],
     [
       'invitation accept',
       `/invitations/accept?token=${TEST_INVITATION_TOKEN}`,

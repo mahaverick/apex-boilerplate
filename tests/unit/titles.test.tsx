@@ -152,7 +152,7 @@ describe('page titles', () => {
       (route) => !route.isRoot && !hasChildren(route) && route.options.component !== undefined
     )
     // Not vacuous: the filter found the pages.
-    expect(pages.map((route) => String(route.id))).toContain('/_app/profile')
+    expect(pages.map((route) => String(route.id))).toContain('/_app/settings/account/profile')
     const untitled = pages
       .filter((route) => typeof route.options.head !== 'function')
       .map((route) => String(route.id))

@@ -148,7 +148,7 @@ describe('AppLayout', () => {
   })
 
   it('shows a breadcrumb for the current route', async () => {
-    renderAppAt('/profile')
+    renderAppAt('/settings/account/profile')
     const breadcrumb = await screen.findByRole('navigation', { name: 'breadcrumb' })
 
     // The layout route itself contributes no crumb: `_app` is pathless.
@@ -156,7 +156,7 @@ describe('AppLayout', () => {
       .getAllByRole('listitem')
       .map((item) => item.textContent?.trim())
       .filter((text) => text !== '')
-    expect(trail).toEqual(['Profile'])
+    expect(trail).toEqual(['Settings', 'Profile'])
   })
 
   it('does not put a Tenants crumb in front of the tenants list itself', async () => {
@@ -264,7 +264,7 @@ describe('AppLayout', () => {
 
     // A real router navigation, not a click handler that only closes the menu.
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/profile')
+      expect(router.state.location.pathname).toBe('/settings/account/profile')
     })
   })
 
