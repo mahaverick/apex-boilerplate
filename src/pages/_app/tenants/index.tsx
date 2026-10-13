@@ -1,6 +1,6 @@
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { LoadError } from '@/components/features/load-error'
@@ -184,7 +184,7 @@ function TenantsPage() {
             />
             {cursor !== undefined && (
               <Button variant="ghost" size="sm" onClick={firstPage}>
-                <ChevronLeft aria-hidden />
+                <IconChevronLeft aria-hidden="true" />
                 First page
               </Button>
             )}
@@ -200,7 +200,7 @@ function TenantsPage() {
               <EmptyDescription>The list changed since this page was opened.</EmptyDescription>
             </EmptyHeader>
             <Button variant="outline" size="sm" onClick={firstPage}>
-              <ChevronLeft aria-hidden />
+              <IconChevronLeft aria-hidden="true" />
               First page
             </Button>
           </Empty>
@@ -238,7 +238,7 @@ function TenantsPage() {
                 if (target) pageTo(target, 'prev')
               }}
             >
-              <ChevronLeft aria-hidden />
+              <IconChevronLeft aria-hidden="true" />
             </Button>
             <Button
               variant="outline"
@@ -250,7 +250,7 @@ function TenantsPage() {
                 if (target) pageTo(target, 'next')
               }}
             >
-              <ChevronRight aria-hidden />
+              <IconChevronRight aria-hidden="true" />
             </Button>
           </nav>
         </>

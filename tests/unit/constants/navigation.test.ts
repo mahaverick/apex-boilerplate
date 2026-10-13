@@ -1,4 +1,4 @@
-import { Flag } from 'lucide-react'
+import { IconFlag } from '@tabler/icons-react'
 import { describe, expect, it } from 'vitest'
 import {
   NAV_GROUPS,
@@ -17,11 +17,11 @@ const BETA = 'example_apex_beta' as BooleanClientFlagKey
 
 /** A flagged item and an unflagged one, for the filter alone. */
 const ITEMS: readonly NavItem[] = [
-  { label: 'Plain', to: ROUTES.overview, Icon: Flag, minRole: 'viewer', group: 'General' },
+  { label: 'Plain', to: ROUTES.overview, Icon: IconFlag, minRole: 'viewer', group: 'General' },
   {
     label: 'Beta',
     to: ROUTES.activity,
-    Icon: Flag,
+    Icon: IconFlag,
     minRole: 'viewer',
     group: 'Operations',
     flag: BETA,

@@ -1,5 +1,5 @@
+import { IconSearch } from '@tabler/icons-react'
 import { Link, Outlet, useLocation, useMatches, type LinkProps } from '@tanstack/react-router'
-import { Search } from 'lucide-react'
 import { Fragment, useEffect, type ReactNode } from 'react'
 import { CommandPalette } from '@/components/features/command-palette'
 import { MaintenanceBanner } from '@/components/features/maintenance/maintenance-banner'
@@ -159,7 +159,7 @@ export function AppLayout() {
                           tooltip={label}
                           render={<Link to={to} />}
                         >
-                          <Icon />
+                          <Icon aria-hidden="true" />
                           <span>{label}</span>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -205,7 +205,7 @@ export function AppLayout() {
               onClick={() => openPalette(true)}
             >
               <span className="flex items-center gap-2">
-                <Search aria-hidden className="size-4" />
+                <IconSearch aria-hidden="true" className="size-4" />
                 <span className="max-sm:sr-only">Search…</span>
               </span>
               <Kbd className="max-sm:hidden">{paletteShortcutHint()}</Kbd>

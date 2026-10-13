@@ -1,4 +1,4 @@
-import { CircleCheck, CircleDashed } from 'lucide-react'
+import { IconCircleCheck, IconCircleDashed } from '@tabler/icons-react'
 import type { ReactNode, RefCallback } from 'react'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
@@ -86,9 +86,12 @@ export function OnboardingStepList({
             className="flex gap-3 rounded-md border p-3 outline-none"
           >
             {isDone ? (
-              <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-success" />
+              <IconCircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-success" />
             ) : (
-              <CircleDashed aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <IconCircleDashed
+                aria-hidden="true"
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+              />
             )}
             <div className="grid min-w-0 flex-1 gap-1">
               <div className="flex flex-wrap items-baseline gap-x-2">

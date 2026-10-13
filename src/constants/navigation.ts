@@ -4,19 +4,19 @@
  * off, is hidden, never shown disabled.
  */
 import {
-  Building2,
-  Flag,
-  Gauge,
-  History,
-  LayoutDashboard,
-  ListChecks,
-  Mail,
-  MailX,
-  ShieldCheck,
-  Users,
-  Wrench,
-  type LucideIcon,
-} from 'lucide-react'
+  IconBuilding,
+  IconFlag,
+  IconGauge,
+  IconHistory,
+  IconLayoutDashboard,
+  IconListCheck,
+  IconMail,
+  IconMailX,
+  IconShieldCheck,
+  IconTool,
+  IconUsers,
+  type TablerIcon,
+} from '@tabler/icons-react'
 import { platformRoleAtLeast, type MembershipRole } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import type { BooleanClientFlagKey } from '@/observability/flags/flag-keys'
@@ -47,7 +47,7 @@ export type NavPath =
 export interface NavItem {
   label: string
   to: NavPath
-  Icon: LucideIcon
+  Icon: TablerIcon
   /** The least platform role that sees this item. The API enforces the same bar. */
   minRole: MembershipRole
   group: NavGroup
@@ -60,53 +60,65 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     label: 'Overview',
     to: ROUTES.overview,
-    Icon: LayoutDashboard,
+    Icon: IconLayoutDashboard,
     minRole: 'viewer',
     group: 'General',
   },
-  { label: 'Tenants', to: ROUTES.tenants, Icon: Building2, minRole: 'viewer', group: 'Directory' },
-  { label: 'Users', to: ROUTES.users, Icon: Users, minRole: 'viewer', group: 'Directory' },
-  { label: 'Staff', to: ROUTES.staff, Icon: ShieldCheck, minRole: 'viewer', group: 'Directory' },
-  { label: 'Emails', to: ROUTES.emails, Icon: Mail, minRole: 'viewer', group: 'Operations' },
+  {
+    label: 'Tenants',
+    to: ROUTES.tenants,
+    Icon: IconBuilding,
+    minRole: 'viewer',
+    group: 'Directory',
+  },
+  { label: 'Users', to: ROUTES.users, Icon: IconUsers, minRole: 'viewer', group: 'Directory' },
+  {
+    label: 'Staff',
+    to: ROUTES.staff,
+    Icon: IconShieldCheck,
+    minRole: 'viewer',
+    group: 'Directory',
+  },
+  { label: 'Emails', to: ROUTES.emails, Icon: IconMail, minRole: 'viewer', group: 'Operations' },
   {
     label: 'Deliverability',
     to: ROUTES.deliverability,
-    Icon: Gauge,
+    Icon: IconGauge,
     minRole: 'viewer',
     group: 'Operations',
   },
   {
     label: 'Suppressions',
     to: ROUTES.suppressions,
-    Icon: MailX,
+    Icon: IconMailX,
     minRole: 'viewer',
     group: 'Operations',
   },
   {
     label: 'Maintenance',
     to: ROUTES.maintenance,
-    Icon: Wrench,
+    Icon: IconTool,
     minRole: 'viewer',
     group: 'Operations',
   },
   {
     label: 'Feature flags',
     to: ROUTES.flags,
-    Icon: Flag,
+    Icon: IconFlag,
     minRole: 'viewer',
     group: 'Operations',
   },
   {
     label: 'Onboarding',
     to: ROUTES.onboarding,
-    Icon: ListChecks,
+    Icon: IconListCheck,
     minRole: 'viewer',
     group: 'Growth',
   },
   {
     label: 'Activity log',
     to: ROUTES.activity,
-    Icon: History,
+    Icon: IconHistory,
     minRole: 'admin',
     group: 'Security',
   },

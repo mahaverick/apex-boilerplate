@@ -1,6 +1,6 @@
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DateRangeFilter } from '@/components/features/emails/date-range-filter'
 import { TenantFilterChip, UserFilterChip } from '@/components/features/emails/email-filter-chips'
@@ -246,7 +246,7 @@ function EmailsPage() {
             />
             {search.cursor !== undefined && (
               <Button variant="ghost" size="sm" onClick={firstPage}>
-                <ChevronLeft aria-hidden />
+                <IconChevronLeft aria-hidden="true" />
                 First page
               </Button>
             )}
@@ -261,7 +261,7 @@ function EmailsPage() {
             <EmptyDescription>The list changed since this page was opened.</EmptyDescription>
           </EmptyHeader>
           <Button variant="outline" size="sm" onClick={firstPage}>
-            <ChevronLeft aria-hidden />
+            <IconChevronLeft aria-hidden="true" />
             First page
           </Button>
         </Empty>
@@ -291,7 +291,7 @@ function EmailsPage() {
               disabled={page.data.prevCursor === null || page.isPlaceholderData}
               onClick={() => goTo(page.data?.prevCursor ?? null, 'prev')}
             >
-              <ChevronLeft aria-hidden />
+              <IconChevronLeft aria-hidden="true" />
             </Button>
             <Button
               variant="outline"
@@ -300,7 +300,7 @@ function EmailsPage() {
               disabled={page.data.nextCursor === null || page.isPlaceholderData}
               onClick={() => goTo(page.data?.nextCursor ?? null, 'next')}
             >
-              <ChevronRight aria-hidden />
+              <IconChevronRight aria-hidden="true" />
             </Button>
           </nav>
         </>

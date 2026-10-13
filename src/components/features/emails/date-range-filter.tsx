@@ -1,5 +1,5 @@
+import { IconCalendar } from '@tabler/icons-react'
 import { parseISO } from 'date-fns'
-import { CalendarDays } from 'lucide-react'
 import { useState } from 'react'
 import type { DateRange } from 'react-day-picker'
 import { Button } from '@/components/ui/button'
@@ -36,7 +36,7 @@ export function DateRangeFilter({
           />
         }
       >
-        <CalendarDays aria-hidden />
+        <IconCalendar aria-hidden="true" />
         <span className="truncate">{label}</span>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto" aria-label="Filter by date">
