@@ -29,7 +29,11 @@ The selection lives in `.styleseed/project.json` and `.styleseed/artifacts/membe
 - Page type: `detail`
 - Surface adapter `product-ui`, domain `saas`
 - Brand recipe `enterprise-workbench`, palette recipe `quiet-mineral`, profile `none`.
-  `base-nova` is the approved visual system.
+  These feed the resolver only. shadcn's `base-vega` style with Inter Variable and Tabler
+  icons (`components.json`), on this app's own indigo tokens, is the approved visual system.
+- `.styleseed/project.json` still records the earlier font (`Geist Variable`). The manifest
+  hashes that file, so it changes only through `/ss-update`, as a reviewed re-pin; until
+  then its font value describes the previous font.
 - Score floor: 80
 - One artifact, `members`, registered in `.styleseed/artifacts/index.json`. Its route
   locator is `/tenants/$tenantId/members`, the app's route
@@ -42,7 +46,7 @@ The selection lives in `.styleseed/project.json` and `.styleseed/artifacts/membe
 The Tailwind 4 spacing base is the default `--spacing: 0.25rem`, so `N` is `N × 4px`.
 The neutrals and the brand colours sit at hue 275 (indigo).
 
-| StyleSeed role              | base-nova variable                       |
+| StyleSeed role              | base-vega variable                       |
 | --------------------------- | ---------------------------------------- |
 | `semantic/background`       | `--background`                           |
 | `semantic/surface`          | `--card`, `--popover`                    |
@@ -162,7 +166,7 @@ changes their hashes and turns a clean scan into an SS000 contract error.
 **For new UI work:** `ss-component` `ss-pattern` `ss-page` `ss-review`
 
 **Excluded:** `ss-build` (scaffolds a screen first; the screens exist) · `ss-studio`
-(creative exploration) · `ss-reference` (the grammar is chosen) · `ss-restyle` (base-nova is
+(creative exploration) · `ss-reference` (the grammar is chosen) · `ss-restyle` (base-vega is
 approved) · `ss-dial` (the lock fixes brand values) · `ss-motion` (the reduced-motion check
 already passes) · `ss-copy` · `ss-flow` · `ss-feedback` (out of scope) · `styleseed` (the
 meta-router; invoke skills directly)

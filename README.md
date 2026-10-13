@@ -3,7 +3,7 @@
 A React 19 + TypeScript single-page app for the people who run a product, not
 the people who use it: the staff console. Its sibling, `react-boilerplate`, is
 the customer app, and both are built on the `express-boilerplate` API. Apex ships
-a sign-in, a grouped-sidebar shell, a ⌘K command palette and eleven staff pages:
+a sign-in, a sectioned, collapsible sidebar shell, a ⌘K command palette and eleven staff pages:
 Overview, Tenants, Users, Staff, Emails, Deliverability, Suppressions, Feature
 flags, Maintenance, Onboarding and the Activity log.
 
@@ -12,17 +12,17 @@ Only platform staff get in. A signed-in user with no platform role lands on
 role a route needs, which Apex renders as "your role can't see this" and never as
 a sign-out ([Staff-only access](SECURITY.md#staff-only-access)).
 
-| Concern | Choice                                                    |
-| ------- | --------------------------------------------------------- |
-| Build   | Vite 8, React Compiler via Babel                          |
-| Routing | TanStack Router, file-based from `src/pages/`             |
-| Data    | TanStack Query, axios with a single-flight refresh        |
-| Tables  | TanStack Table 9                                          |
-| Charts  | recharts 3, through shadcn's `chart` wrapper              |
-| Forms   | TanStack Form + Zod v4 schemas                            |
-| State   | Zustand (`src/states/`)                                   |
-| UI      | Tailwind v4, shadcn components on Base UI, lucide, sonner |
-| Tests   | Vitest, Testing Library, MSW, jest-axe, Playwright        |
+| Concern | Choice                                                                                   |
+| ------- | ---------------------------------------------------------------------------------------- |
+| Build   | Vite 8, React Compiler via Babel                                                         |
+| Routing | TanStack Router, file-based from `src/pages/`                                            |
+| Data    | TanStack Query, axios with a single-flight refresh                                       |
+| Tables  | TanStack Table 9                                                                         |
+| Charts  | recharts 3, through shadcn's `chart` wrapper                                             |
+| Forms   | TanStack Form + Zod v4 schemas                                                           |
+| State   | Zustand (`src/states/`)                                                                  |
+| UI      | Tailwind v4, shadcn components on Base UI (base-vega style, Inter), Tabler icons, sonner |
+| Tests   | Vitest, Testing Library, MSW, jest-axe, Playwright                                       |
 
 How the code is organised, and why, is in [ARCHITECTURE.md](ARCHITECTURE.md).
 The threat model and the defences are in [SECURITY.md](SECURITY.md). The rules

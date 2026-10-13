@@ -19,8 +19,8 @@ src/
   components/
     dev/        TanStack devtools, development builds only
     features/   composed, app-specific pieces: one folder per staff area, plus the shell's own
-    layouts/    the signed-out shell and the staff shell
-    shared/     app-wide pieces that are not shadcn output (<Pii>)
+    layouts/    the signed-out shell (AuthLayout, AuthCard) and the staff shell (AppLayout, NavMain)
+    shared/     app-wide pieces that are not shadcn output (<Pii>, <AppMark>)
     ui/         vendored shadcn output, plus the hand-written form.tsx, sonner.tsx and command.tsx
   configs/      the run-time configuration (getRuntimeConfig)
   constants/    routes and the API prefix, roles, the staff navigation, tenant tabs, per-area constants
@@ -38,6 +38,18 @@ src/
   styles/       globals.css and the design tokens
   types/        API envelope and shared response types
 ```
+
+The UI kit is shadcn's `base-vega` style on Base UI, with Inter Variable
+(`@fontsource-variable/inter`, imported by `globals.css`) and Tabler icons
+(`@tabler/icons-react`; each decorative icon carries `aria-hidden`, which Tabler
+does not add). `components.json` records the preset; the colour tokens in
+`globals.css` are this app's own indigo-tinted set, not the preset's neutral
+greys. The signed-out pages follow shadcn's login-03 block: `AuthCard` puts the
+app's mark and name over a centred card, and the sign-in page's social buttons
+come from `SOCIAL_PROVIDERS` in `src/constants/auth-providers.ts`, since the API
+publishes no list of configured providers. There is no sign-up link and no
+terms line: Apex has no public sign-up and is an internal tool. The staff shell
+follows sidebar-07 ([The staff shell](#the-staff-shell-this-app-only)).
 
 `src/routeTree.gen.ts` is generated from `src/pages/` by the TanStack Router
 plugin in `vite.config.ts`, which also splits each route's component into
@@ -115,7 +127,9 @@ What the staff guard does and does not protect is in
 
 The Google sign-in button on `/login` is a plain anchor to
 `GOOGLE_OAUTH_PATH`, which `src/constants/routes.ts` derives from
-`API_PREFIX`, so moving the prefix moves it too.
+`API_PREFIX`, so moving the prefix moves it too. It is the one entry in
+`SOCIAL_PROVIDERS`; a deployment without Google OAuth empties that list, and
+the page then draws neither the button nor the "Or continue with" divider.
 
 **Loaders start a fetch; components wait for it.** A page's loader calls
 `queryClient.prefetchQuery(...)` with the same options its component's
@@ -254,7 +268,11 @@ Why each of these holds, and what breaks if it does not, is in
 ## The staff shell (this app only)
 
 `AppLayout` (`src/components/layouts/app-layout.tsx`) is the signed-in
-layout every staff page renders in. It holds:
+layout every staff page renders in, after shadcn's sidebar-07 block: a sidebar
+that collapses to icons, with a rail to toggle it, holding the Apex brand (a
+link to Overview, not a switcher: staff have no tenant to switch), the
+navigation and the account menu; and a header with the sidebar trigger, the
+breadcrumbs, the ⌘K search and the theme toggle. It holds:
 
 - **The navigation**, from `src/constants/navigation.ts`: one typed list of
   pages, each with its sidebar group, the least platform role that sees it
@@ -263,6 +281,9 @@ layout every staff page renders in. It holds:
   there, a `ROUTES` entry (`src/constants/routes.ts`), a member of the
   `NavPath` union and a file under `src/pages/_app/`. An item above the
   user's role, or behind a flag that is off, is absent rather than disabled.
+  `NavMain` (`src/components/layouts/nav-main.tsx`) renders each section with
+  a label that folds it away. Every section starts open, the one holding the
+  current page cannot be folded, and collapsed to icons every item shows.
 - **The command palette** (`src/components/features/command-palette.tsx`),
   opened by ⌘K or Ctrl+K or the header's search button through
   `command-palette.store.ts`. It filters the visible pages itself and asks
@@ -280,9 +301,9 @@ layout every staff page renders in. It holds:
 - **The `$feature/*` sync**, mounted once here
   ([Feature flags](#feature-flags)).
 
-The palette and the flag sync live in the layout, not the sidebar, because
-below the `md` breakpoint the sidebar renders into a sheet whose content
-unmounts while it is closed.
+The palette, the flag sync and the theme toggle live in the layout, not the
+sidebar, because below the `md` breakpoint the sidebar renders into a sheet
+whose content unmounts while it is closed.
 
 Destructive and audited writes ask for a reason in `ReasonDialog`
 (`src/components/features/reason-dialog.tsx`); which ones do, and the

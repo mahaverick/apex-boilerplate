@@ -281,6 +281,18 @@ the component is added again.
   `!(form|sonner|command)` globs of the import restriction, comment-style and
   JSDoc blocks), and the `!` negations in `.prettierignore`. A fourth hand-written
   file there goes into all five in the same change.
+- **A re-add drops these local edits; put them back.** `avatar.tsx`: the fallback
+  and group count use `text-foreground` (contrast). `tabs.tsx`: the panel keeps
+  `rounded-md focus-visible:ring-3 focus-visible:ring-ring/50` (WCAG 2.4.7).
+  `badge`, `button`, `switch`, `tabs`, `toggle` and the sidebar rail name their
+  transition properties instead of `transition-all` (`toggle` keeps
+  `background-color` in its list). The sidebar rail uses `after:w-0.5` and the
+  dropdown `min-w-24`. The files shared with react-boilerplate stay byte for byte
+  equal to react's. `shadcn init` also overwrites `src/lib/utils.ts`,
+  `src/hooks/use-mobile.ts`, `sonner.tsx` and `command.tsx` (with a cmdk one),
+  rewrites every colour token in `globals.css` (`tests/unit/styles/tokens.test.ts`
+  fails), duplicates its `@import` lines and adds `cmdk` and `next-themes`, and
+  may bump unrelated dependencies: revert all of it.
 - **The vitest config's coverage `exclude` is the inverse list.** It names the
   vendored files, so a new vendored file goes there and a hand-written one stays
   out.
