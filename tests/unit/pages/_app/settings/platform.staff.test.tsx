@@ -38,7 +38,7 @@ describe('/settings/platform/staff', () => {
       expect(membersProps).toHaveBeenLastCalledWith({
         slug: 'platform',
         title: 'Staff members',
-        description: 'Everyone with platform access, and their platform role.',
+        description: 'Their platform role. Only an owner can change it.',
       })
       expect(invitationsProps).toHaveBeenLastCalledWith({
         slug: 'platform',

@@ -33,7 +33,7 @@ function StaffPage() {
       <MembersCard
         slug={PLATFORM_TENANT_SLUG}
         title="Staff members"
-        description="Everyone with platform access, and their platform role."
+        description="Their platform role. Only an owner can change it."
       />
       <InvitationsSection
         slug={PLATFORM_TENANT_SLUG}

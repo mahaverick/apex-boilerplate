@@ -85,6 +85,7 @@ describe('security section', () => {
 
     const security = await section()
     expect(await security.findByText('Email & password')).toBeInTheDocument()
+    expect(security.getByRole('heading', { level: 2, name: 'Security' })).toHaveClass('sr-only')
     expect(security.getByText('Google')).toBeInTheDocument()
     expect(security.queryByText('email')).not.toBeInTheDocument()
   })
