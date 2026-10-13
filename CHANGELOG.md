@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/mahaverick/apex-boilerplate/compare/v2.0.3...v2.1.0) (2026-10-13)
+
+
+### Features
+
+* **ui:** restyle on the shadcn base-vega preset with login-03 and sidebar-07 ([#54](https://github.com/mahaverick/apex-boilerplate/issues/54)) ([924e854](https://github.com/mahaverick/apex-boilerplate/commit/924e85489884012056cbaaeb7451e4f6d3c447c7))
+
 ## [2.0.3](https://github.com/mahaverick/apex-boilerplate/compare/v2.0.2...v2.0.3) (2026-10-13)
 
 
