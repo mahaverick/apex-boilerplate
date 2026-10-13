@@ -1540,7 +1540,7 @@ describe('open overlays', () => {
   })
 
   it('has no violations with the theme menu open inside the mobile sheet', async () => {
-    // The sidebar footer's theme menu, opened from inside the modal sheet.
+    // Below `md` the ThemeToggle leaves the header for the sidebar footer, so the menu is opened from inside the modal sheet.
     setViewportWidth(500)
     const user = userEvent.setup()
     renderAppAt('/overview')
@@ -1549,6 +1549,22 @@ describe('open overlays', () => {
     await user.click(screen.getByRole('button', { name: 'Toggle sidebar' }))
     await screen.findByRole('dialog')
     await user.click(await screen.findByRole('button', { name: /Change theme/ }))
+
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).getAllByRole('menuitem').length).toBeGreaterThan(0)
+    await expectNoViolationsIn(menu)
+  })
+
+  it('has no violations with the account menu open inside the mobile sheet', async () => {
+    // Below `md` the sidebar, and the account menu in its footer, renders inside the sheet, so the menu is opened from there.
+    setViewportWidth(500)
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    await screen.findByRole('heading', { name: 'Overview', level: 1 })
+
+    await user.click(screen.getByRole('button', { name: 'Toggle sidebar' }))
+    await screen.findByRole('dialog')
+    await user.click(await screen.findByRole('button', { name: /^Account menu for/ }))
 
     const menu = await screen.findByRole('menu')
     expect(within(menu).getAllByRole('menuitem').length).toBeGreaterThan(0)

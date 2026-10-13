@@ -35,7 +35,7 @@ test('collapses the sidebar to icons and keeps each item named', async ({ page }
   await page.goto('/e2e/harness/?path=/overview')
   await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Toggle sidebar' }).click()
+  await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click()
 
   // Not vacuous: the rail really collapsed, so each link is an icon-sized button whose name is all that is left of its label.
   await expect(page.locator('[data-slot="sidebar"][data-state="collapsed"]')).toHaveCount(1)
