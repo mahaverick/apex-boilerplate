@@ -12,7 +12,7 @@ import {
   type AuditAction,
 } from '@/constants/audit-actions'
 import { templateLabel } from '@/constants/email.constants'
-import type { BrowserEvent } from '@/observability/analytics'
+import type { BrowserEvent } from '@/observability/telemetry'
 import type { EmailEventType, TimelineRow } from '@/types/api.types'
 
 /** The product events a timeline words, from express's `PRODUCT_EVENTS` (analytics.constants.ts); `other_sessions_revoked` is the user ending their other sessions, and carries no props. */

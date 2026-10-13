@@ -1,6 +1,12 @@
 import type { CaptureResult } from 'posthog-js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  ANALYTICS_APP,
+  ANALYTICS_PERSISTENCE_NAME,
+  SUPPORTS_HANDOFF,
+} from '@/observability/telemetry/config'
+import { CONSUMED_HANDOFFS_KEY } from '@/observability/telemetry/handoff'
+import {
   capturePageview,
   clearTenantGroup,
   confirmSignedInUser,
@@ -23,13 +29,7 @@ import {
   subscribeIdentitySuperseded,
   SUPERSEDED_RECHECK_MS,
   track,
-} from '@/observability/analytics/analytics'
-import {
-  ANALYTICS_APP,
-  ANALYTICS_PERSISTENCE_NAME,
-  SUPPORTS_HANDOFF,
-} from '@/observability/analytics/config'
-import { CONSUMED_HANDOFFS_KEY } from '@/observability/analytics/handoff'
+} from '@/observability/telemetry/telemetry'
 import {
   analyticsConfigFor,
   instance,

@@ -5,7 +5,7 @@ import {
   ANALYTICS_APP,
   ANALYTICS_CROSS_SUBDOMAIN_COOKIE,
   ANALYTICS_PERSISTENCE_NAME,
-} from '@/observability/analytics/config'
+} from '@/observability/telemetry/config'
 import { settle } from '@/tests/fixtures/timing'
 import { analyticsConfigFor, stopPersisting } from '@/tests/mocks/posthog'
 import { server } from '@/tests/mocks/server'
@@ -27,7 +27,7 @@ describe.runIf(ANALYTICS_PERSISTENCE_NAME === undefined && ANALYTICS_CROSS_SUBDO
     let sent: CaptureResult[]
     let website: PostHog
     let posthog: PostHog
-    let facade: typeof import('@/observability/analytics/analytics')
+    let facade: typeof import('@/observability/telemetry/telemetry')
 
     beforeEach(async () => {
       server.use(http.all('http://localhost:3000/api/v1/collect/*', () => HttpResponse.json({})))
@@ -36,7 +36,7 @@ describe.runIf(ANALYTICS_PERSISTENCE_NAME === undefined && ANALYTICS_CROSS_SUBDO
       const sdk = await vi.importActual<typeof import('posthog-js')>('posthog-js')
       posthog = new sdk.PostHog()
       vi.doMock('posthog-js', () => ({ ...sdk, default: posthog }))
-      facade = await import('@/observability/analytics/analytics')
+      facade = await import('@/observability/telemetry/telemetry')
       await facade.initAnalytics(analyticsConfigFor({ POSTHOG_KEY: KEY, APP_ENVIRONMENT: 'test' }))
       await expect.poll((): unknown => posthog.get_property('app')).toBe(ANALYTICS_APP)
       posthog.on('eventCaptured', (event: CaptureResult) => sent.push(event))
@@ -242,7 +242,7 @@ describe.runIf(ANALYTICS_PERSISTENCE_NAME === undefined && ANALYTICS_CROSS_SUBDO
 )
 
 /** The analytics facade module, as `openTab` loads it fresh for each tab. */
-type Facade = typeof import('@/observability/analytics/analytics')
+type Facade = typeof import('@/observability/telemetry/telemetry')
 
 /**
  * Two tabs of this app share the identity cookie and storage too, and a person one tab identifies is that
@@ -265,7 +265,7 @@ describe('two tabs of this app', () => {
     const sdk = await vi.importActual<typeof import('posthog-js')>('posthog-js')
     const ph = new sdk.PostHog()
     vi.doMock('posthog-js', () => ({ ...sdk, default: ph }))
-    const facade = await import('@/observability/analytics/analytics')
+    const facade = await import('@/observability/telemetry/telemetry')
     await beforeLoad?.(facade)
     // Built directly because an app without consent modes maps `required` to `opt_out`, and the facade is shared.
     await facade.initAnalytics({

@@ -19,7 +19,7 @@ import {
   ONBOARDING_TAB_LABELS,
 } from '@/constants/onboarding.constants'
 import { statusFrom } from '@/lib/api-error'
-import { analyticsKey, track } from '@/observability/analytics'
+import { analyticsKey, track } from '@/observability/telemetry'
 import {
   onboardingFunnelQueryOptions,
   onboardingTenantsQueryOptions,

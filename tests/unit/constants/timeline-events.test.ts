@@ -8,7 +8,7 @@ import {
   type TimelineEmailEvent,
   type TimelineProductEvent,
 } from '@/constants/timeline-events'
-import type { BrowserEvent } from '@/observability/analytics'
+import type { BrowserEvent } from '@/observability/telemetry'
 import { timelineRow } from '@/tests/fixtures/timeline'
 import type { EmailEventType, TimelineRow } from '@/types/api.types'
 

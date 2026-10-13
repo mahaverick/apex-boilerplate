@@ -29,7 +29,7 @@ import { platformRoleAtLeast } from '@/constants/roles'
 import { PLATFORM_TENANT_SLUG, ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { cn } from '@/lib/utils'
-import { analyticsKey, track } from '@/observability/analytics'
+import { analyticsKey, track } from '@/observability/telemetry'
 import {
   flattenAuditPages,
   usePlatformAuditLog,

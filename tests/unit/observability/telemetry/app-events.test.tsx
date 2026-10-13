@@ -23,8 +23,8 @@ const CLEO = {
 
 const tracked = vi.hoisted(() => ({ events: [] as [string, unknown][] }))
 
-vi.mock('@/observability/analytics/analytics', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/observability/analytics/analytics')>()),
+vi.mock('@/observability/telemetry/telemetry', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/observability/telemetry/telemetry')>()),
   track: (event: string, props: unknown) => tracked.events.push([event, props]),
 }))
 
