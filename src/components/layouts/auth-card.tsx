@@ -6,21 +6,18 @@ import { APP_NAME } from '@/constants/app'
 /**
  * Every signed-out page's card, after shadcn's login-03 block: the app's mark
  * and name over a centred card whose header holds the page's one `h1`
- * (`title`) and its description, then the page's content. `footer` renders
- * under the card, outside it. The name is plain text, not a link: a
- * signed-out visitor has nowhere else to go, and a `#` link would be a dead
- * control.
+ * (`title`) and its description, then the page's content. The name is plain
+ * text, not a link: a signed-out visitor has nowhere else to go, and a `#`
+ * link would be a dead control.
  */
 export function AuthCard({
   title,
   description,
   children,
-  footer,
 }: {
   title: string
   description?: ReactNode
   children?: ReactNode
-  footer?: ReactNode
 }) {
   return (
     <>
@@ -37,7 +34,6 @@ export function AuthCard({
         </CardHeader>
         {children && <CardContent className="gap-6">{children}</CardContent>}
       </Card>
-      {footer}
     </>
   )
 }

@@ -41,8 +41,8 @@ src/
 
 The UI kit is shadcn's `base-vega` style on Base UI, with Inter Variable
 (`@fontsource-variable/inter`, imported by `globals.css`) and Tabler icons
-(`@tabler/icons-react`; each decorative icon carries `aria-hidden`, which Tabler
-does not add). `components.json` records the preset; the colour tokens in
+(`@tabler/icons-react`; Tabler adds no `aria-hidden`, so each decorative icon in
+app code carries it). `components.json` records the preset; the colour tokens in
 `globals.css` are this app's own indigo-tinted set, not the preset's neutral
 greys. The signed-out pages follow shadcn's login-03 block: `AuthCard` puts the
 app's mark and name over a centred card, and the sign-in page's social buttons
@@ -272,7 +272,7 @@ layout every staff page renders in, after shadcn's sidebar-07 block: a sidebar
 that collapses to icons, with a rail to toggle it, holding the Apex brand (a
 link to Overview, not a switcher: staff have no tenant to switch), the
 navigation and the account menu; and a header with the sidebar trigger, the
-breadcrumbs, the ⌘K search and the theme toggle. It holds:
+breadcrumbs, the ⌘K search and, from `md` up, the theme toggle. It holds:
 
 - **The navigation**, from `src/constants/navigation.ts`: one typed list of
   pages, each with its sidebar group, the least platform role that sees it
@@ -301,9 +301,11 @@ breadcrumbs, the ⌘K search and the theme toggle. It holds:
 - **The `$feature/*` sync**, mounted once here
   ([Feature flags](#feature-flags)).
 
-The palette, the flag sync and the theme toggle live in the layout, not the
+The palette, the flag sync and the theme listener live in the layout, not the
 sidebar, because below the `md` breakpoint the sidebar renders into a sheet
-whose content unmounts while it is closed.
+whose content unmounts while it is closed. Below `md` the theme toggle itself
+moves from the header into that sheet's footer, since the header has no room
+for it beside a full breadcrumb trail at 390px.
 
 Destructive and audited writes ask for a reason in `ReasonDialog`
 (`src/components/features/reason-dialog.tsx`); which ones do, and the

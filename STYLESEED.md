@@ -29,8 +29,8 @@ The selection lives in `.styleseed/project.json` and `.styleseed/artifacts/membe
 - Page type: `detail`
 - Surface adapter `product-ui`, domain `saas`
 - Brand recipe `enterprise-workbench`, palette recipe `quiet-mineral`, profile `none`.
-  These feed the resolver only. shadcn's `base-vega` style with Inter Variable and Tabler
-  icons (`components.json`), on this app's own indigo tokens, is the approved visual system.
+  These feed the resolver only. shadcn's `base-vega` style and Tabler icons (`components.json`),
+  with Inter Variable (`globals.css`), on this app's own indigo tokens, is the approved visual system.
 - `.styleseed/project.json` still records the earlier font (`Geist Variable`). The manifest
   hashes that file, so it changes only through `/ss-update`, as a reviewed re-pin; until
   then its font value describes the previous font.
