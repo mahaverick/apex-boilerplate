@@ -11,9 +11,9 @@
     // Byte-identical with react's copy. React imports the consent, tenant-group,
     // config and key exports this app does not (its consent banner, profile
     // analytics section, route analytics and getting-started card).
-    "src/observability/analytics/index.ts": ["exports", "types"],
+    "src/observability/telemetry/index.ts": ["exports", "types"],
     // That barrel re-exports `AnalyticsConsentMode` from here.
-    "src/observability/analytics/config.ts": ["types"],
+    "src/observability/telemetry/config.ts": ["types"],
   },
   "ignoreFiles": [
     // Type declarations for scripts/*.mjs. TypeScript resolves them in place

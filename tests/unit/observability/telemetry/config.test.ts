@@ -6,8 +6,8 @@ import {
   analyticsConfigFrom,
   getAnalyticsConfig,
   isAnalyticsAvailable,
-} from '@/observability/analytics/config'
-import { sanitizeUrl } from '@/observability/analytics/url-sanitizer'
+} from '@/observability/telemetry/config'
+import { sanitizeUrl } from '@/observability/telemetry/url-sanitizer'
 import { analyticsConfigFor } from '@/tests/mocks/posthog'
 
 const KEY = 'phc_test_key_not_real'

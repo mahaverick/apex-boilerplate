@@ -9,11 +9,6 @@ import {
 import { renderHook } from '@testing-library/react'
 import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  capturePageview,
-  initAnalytics,
-  resetAnalyticsForTests,
-} from '@/observability/analytics/analytics'
 import { forgetFeatureProperties } from '@/observability/flags/feature-property-names'
 import { ensureFlags } from '@/observability/flags/flag-query'
 import {
@@ -22,6 +17,11 @@ import {
   PLATFORM_FLAG_SCOPE,
   useFlagScope,
 } from '@/observability/flags/flag-scope'
+import {
+  capturePageview,
+  initAnalytics,
+  resetAnalyticsForTests,
+} from '@/observability/telemetry/telemetry'
 import { ok, testFlags } from '@/tests/mocks/handlers'
 import { analyticsConfigFor, instance, resetFakePosthog, sdk } from '@/tests/mocks/posthog'
 import { server } from '@/tests/mocks/server'

@@ -10,10 +10,10 @@ import {
   installAuthBroadcastListener,
   isAuthVerdict,
 } from '@/http/session'
-import { capturePageview, forgetStaleIdentity } from '@/observability/analytics'
 import { setErrorRouteSource } from '@/observability/errors'
 import { forgetFeatureProperties } from '@/observability/flags/feature-property-names'
 import { installRouteFeatureProperties } from '@/observability/flags/flag-scope'
+import { capturePageview, forgetStaleIdentity } from '@/observability/telemetry'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 

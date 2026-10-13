@@ -3,15 +3,15 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   ANALYTICS_CROSS_SUBDOMAIN_COOKIE,
   ANALYTICS_PERSISTENCE_NAME,
-} from '@/observability/analytics/config'
-import { maskReplayAttribute } from '@/observability/analytics/mask-attribute'
+} from '@/observability/telemetry/config'
+import { maskReplayAttribute } from '@/observability/telemetry/mask-attribute'
 import {
   buildPosthogOptions,
   CUSTOM_PERSONAL_DATA_PROPERTIES,
   MASK_TEXT_SELECTOR,
   PII_CLASS_NAME,
   type PosthogOptionsInput,
-} from '@/observability/analytics/posthog-options'
+} from '@/observability/telemetry/posthog-options'
 
 /** A valid options input with consent mode `opt_out` and no cross-subdomain cookie; `overrides` change what a test is about. */
 function input(overrides: Partial<PosthogOptionsInput> = {}): PosthogOptionsInput {

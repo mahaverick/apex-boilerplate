@@ -10,7 +10,7 @@ const EMAIL_SOURCE = String.raw`[\w.+-]+@[\w-]+(?:\.[\w-]+)+`
  * checked here; posthog-js's attribute masking covers those. A
  * `<textarea>` whose text equals its current `.value` is skipped: that is
  * React's mirror of what was typed, which replay masks (`maskAllInputs`,
- * pinned by tests/unit/observability/analytics/posthog-options.test.ts) and
+ * pinned by tests/unit/observability/telemetry/posthog-options.test.ts) and
  * autocapture does not read as element text. Any other textarea text is
  * still checked.
  */

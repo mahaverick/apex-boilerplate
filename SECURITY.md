@@ -39,7 +39,7 @@ browser storage is readable by whoever runs the page, so:
   else ends this tab's session at its next refresh
   (`SessionIdentityChangedError`, below). The analytics identity cookie,
   `ph_apex`, is scoped to this host and shared only between this app's tabs,
-  never with a website (`src/observability/analytics/config.ts`). The
+  never with a website (`src/observability/telemetry/config.ts`). The
   analytics opt-out state is keyed by the PostHog project key alone, so
   another app served from this host with the same key shares it. A tab must
   never act as, or attribute events to, someone other than its own signed-in
@@ -268,7 +268,7 @@ kept out of the first-visit chunks (`pnpm check:bundle`). Without it every
 call is a no-op.
 
 The analytics module is shared with react-boilerplate; the per-app constants at
-the top of `src/observability/analytics/config.ts` set this app's side of it. Consent
+the top of `src/observability/telemetry/config.ts` set this app's side of it. Consent
 modes are not honoured (`SUPPORTS_CONSENT_MODES` is `false`), so capture
 always runs in `opt_out` mode and there is no consent banner. No website's
 anonymous id is handed off (`SUPPORTS_HANDOFF` is `false`). The identity
@@ -277,7 +277,7 @@ subdomains (`ANALYTICS_CROSS_SUBDOMAIN_COOKIE` is `false`). The query-key
 allowlist is set there too.
 
 - **Typed events carry no free text.** Every event and its properties are
-  declared in `src/observability/analytics/events.ts`. A property typed as
+  declared in `src/observability/telemetry/event-registry.ts`. A property typed as
   any string fails `REGISTRY_HAS_NO_FREE_STRINGS` at compile time, and a key
   passed to `analyticsKey` must be a lowercase literal without a space, `@`,
   `.`, `/`, `:`, `?`, `=`, `&` or `#`. A free string is how a name, an
@@ -303,10 +303,10 @@ allowlist is set there too.
   attribute outside the list may not. Replay records no request headers,
   bodies or JSON-LD, and each recorded request URL is sanitised.
 - **Captured URLs keep only allowlisted query keys.**
-  `ANALYTICS_URL_QUERY_ALLOWLIST` (`src/observability/analytics/config.ts`)
+  `ANALYTICS_URL_QUERY_ALLOWLIST` (`src/observability/telemetry/config.ts`)
   is the whole list: `range`, `tab`, `state` and `status`, the enums the
   staff lists put in the URL. The sanitizer
-  (`src/observability/analytics/url-sanitizer.ts`) runs as `before_send` and
+  (`src/observability/telemetry/url-sanitizer.ts`) runs as `before_send` and
   rewrites every absolute http(s) string in an event's properties, `$set` and
   `$set_once`, to eight levels deep, plus the hrefs in `$elements` and
   `$elements_chain` and the keys of `$heatmap_data`. The fragment goes, and
@@ -319,7 +319,7 @@ allowlist is set there too.
   view sends it, both unmasked, so every route's title is a literal
   (`pageTitle` in `src/constants/app.ts`), never a record's name or address.
 - **Events never cross people** (`guardEvent` in
-  `src/observability/analytics/analytics.ts`). posthog-js adopts the
+  `src/observability/telemetry/telemetry.ts`). posthog-js adopts the
   identity cookie before every event, and this app's other tabs share that
   cookie, so while a user is signed in, any event under another distinct id
   is dropped. If another tab of this app identified that person (announced
