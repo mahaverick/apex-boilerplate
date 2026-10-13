@@ -106,7 +106,11 @@ export function CommandPalette() {
   const needle = current.toLowerCase()
   const pages: PaletteItem[] = [
     ...navItemsFor(role, flags).map((item) => ({ label: item.label, to: item.to })),
-    ...SETTINGS_SECTIONS.map((section) => ({ label: section.label, to: section.to })),
+    // Gated as the nav items are: a session whose platform role dropped to null gets no pages.
+    ...(staff ? SETTINGS_SECTIONS : []).map((section) => ({
+      label: section.label,
+      to: section.to,
+    })),
   ]
     .filter((item) => needle === '' || item.label.toLowerCase().includes(needle))
     .map((item) => ({ kind: 'page', value: item.to, label: item.label, to: item.to }))
