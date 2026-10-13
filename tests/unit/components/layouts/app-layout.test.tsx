@@ -59,18 +59,7 @@ describe('AppLayout', () => {
   it.each([
     [
       'viewer',
-      [
-        'Overview',
-        'Tenants',
-        'Users',
-        'Staff',
-        'Emails',
-        'Deliverability',
-        'Suppressions',
-        'Maintenance',
-        'Feature flags',
-        'Onboarding',
-      ],
+      ['Overview', 'Tenants', 'Users', 'Emails', 'Deliverability', 'Suppressions', 'Onboarding'],
       ['General', 'Directory', 'Operations', 'Growth'],
     ],
     [
@@ -79,12 +68,9 @@ describe('AppLayout', () => {
         'Overview',
         'Tenants',
         'Users',
-        'Staff',
         'Emails',
         'Deliverability',
         'Suppressions',
-        'Maintenance',
-        'Feature flags',
         'Onboarding',
         'Activity log',
       ],
@@ -266,6 +252,19 @@ describe('AppLayout', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/settings/account/profile')
     })
+  })
+
+  it('navigates to the settings landing page from the account menu', async () => {
+    const user = userEvent.setup()
+    const router = renderAppAt('/overview')
+    await screen.findByRole('heading', { name: 'Overview', level: 1 })
+
+    await user.click(screen.getByRole('button', { name: 'Account menu for A B' }))
+    const items = await screen.findAllByRole('menuitem')
+    expect(items.map((item) => item.textContent)).toEqual(['Profile', 'Settings', 'Sign out'])
+    await user.click(screen.getByRole('menuitem', { name: 'Settings' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
   })
 
   /**

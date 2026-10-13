@@ -1,5 +1,6 @@
 import { screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { navItemsFor } from '@/constants/navigation'
 import { SETTINGS_SECTIONS } from '@/constants/settings'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { testUser } from '@/tests/mocks/handlers'
@@ -61,5 +62,7 @@ describe('/settings/platform/staff', () => {
     )
   })
 
-  it.todo('is not in the sidebar nav for a viewer')
+  it('is not in the sidebar nav for a viewer', () => {
+    expect(navItemsFor('viewer').map((item) => item.label)).not.toContain('Staff')
+  })
 })

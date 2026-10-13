@@ -58,6 +58,9 @@ function renderPalette() {
     '/activity',
     '/users',
     '/settings/platform/staff',
+    '/settings/platform/flags',
+    '/settings/platform/maintenance',
+    '/settings/account/security',
     '/users/$userId',
     '/tenants/$tenantId',
   ].map((path) =>
@@ -124,6 +127,24 @@ describe('CommandPalette', () => {
     await user.keyboard('{Enter}')
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
+    expect(useCommandPaletteStore.getState().open).toBe(false)
+  })
+
+  it.each([
+    ['maint', 'Maintenance', '/settings/platform/maintenance'],
+    ['staff', 'Staff', '/settings/platform/staff'],
+    ['flags', 'Feature flags', '/settings/platform/flags'],
+    ['secur', 'Security', '/settings/account/security'],
+  ])('offers a viewer the settings page for "%s" and opens it', async (term, label, path) => {
+    const user = userEvent.setup()
+    const router = renderPalette()
+    await screen.findByRole('heading', { name: '/overview' })
+    await user.keyboard('{Control>}k{/Control}')
+
+    await user.keyboard(term)
+    await user.click(await screen.findByRole('option', { name: label }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe(path))
     expect(useCommandPaletteStore.getState().open).toBe(false)
   })
 

@@ -1,4 +1,4 @@
-import { IconLogout, IconSelector, IconUser } from '@tabler/icons-react'
+import { IconLogout, IconSelector, IconSettings, IconUser } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { Pii } from '@/components/shared/pii'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -109,6 +109,10 @@ export function UserMenu({ user }: { user: User | null }) {
               <DropdownMenuItem render={<Link to={ROUTES.profile} />}>
                 <IconUser aria-hidden="true" />
                 Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link to={ROUTES.settings} />}>
+                <IconSettings aria-hidden="true" />
+                Settings
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

@@ -4,11 +4,17 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { NavMain } from '@/components/layouts/nav-main'
-import { SidebarProvider, useSidebar } from '@/components/ui/sidebar'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from '@/components/ui/sidebar'
 import { navGroupsFor } from '@/constants/navigation'
 
 /** Every section an admin sees: all five, Activity log included. */
@@ -71,12 +77,9 @@ describe('NavMain', () => {
       'Overview',
       'Tenants',
       'Users',
-      'Staff',
       'Emails',
       'Deliverability',
       'Suppressions',
-      'Maintenance',
-      'Feature flags',
       'Onboarding',
       'Activity log',
     ])
@@ -92,7 +95,7 @@ describe('NavMain', () => {
     await user.click(operations)
     expect(operations).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByRole('link', { name: 'Emails' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Feature flags' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Suppressions' })).not.toBeInTheDocument()
     // The other sections are untouched.
     expect(screen.getByRole('link', { name: 'Tenants' })).toBeInTheDocument()
 
@@ -140,6 +143,49 @@ describe('NavMain', () => {
     renderNavAt('/overview', false)
 
     const nav = await screen.findByRole('navigation', { name: 'Main' })
-    expect(within(nav).getAllByRole('link')).toHaveLength(11)
+    expect(within(nav).getAllByRole('link')).toHaveLength(8)
+  })
+
+  describe('in the phone drawer', () => {
+    const realInnerWidth = window.innerWidth
+
+    afterEach(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: realInnerWidth })
+    })
+
+    /** Renders NavMain inside the real Sidebar, which is a drawer below `md`, with a trigger to open it. */
+    function renderDrawerAt(path: string) {
+      const rootRoute = createRootRoute({
+        component: () => (
+          <SidebarProvider>
+            <Sidebar collapsible="icon">
+              <SidebarContent>
+                <NavMain sections={SECTIONS} pathname={path} />
+              </SidebarContent>
+            </Sidebar>
+            <SidebarTrigger aria-label="Toggle sidebar" />
+          </SidebarProvider>
+        ),
+      })
+      const router = createRouter({
+        routeTree: rootRoute,
+        history: createMemoryHistory({ initialEntries: [path] }),
+      })
+      render(<RouterProvider router={router} />)
+      return router
+    }
+
+    it('closes the drawer when an item is chosen', async () => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 500 })
+      const user = userEvent.setup()
+      const router = renderDrawerAt('/overview')
+
+      await user.click(await screen.findByRole('button', { name: 'Toggle sidebar' }))
+      const drawer = await screen.findByRole('dialog')
+      await user.click(within(drawer).getByRole('link', { name: 'Tenants' }))
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(router.state.location.pathname).toBe('/tenants')
+    })
   })
 })

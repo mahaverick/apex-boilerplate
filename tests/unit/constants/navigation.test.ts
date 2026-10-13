@@ -34,12 +34,9 @@ describe('navigation', () => {
       'Overview',
       'Tenants',
       'Users',
-      'Staff',
       'Emails',
       'Deliverability',
       'Suppressions',
-      'Maintenance',
-      'Feature flags',
       'Onboarding',
     ])
   })
@@ -49,12 +46,9 @@ describe('navigation', () => {
       'Overview',
       'Tenants',
       'Users',
-      'Staff',
       'Emails',
       'Deliverability',
       'Suppressions',
-      'Maintenance',
-      'Feature flags',
       'Onboarding',
       'Activity log',
     ])
@@ -65,11 +59,22 @@ describe('navigation', () => {
     expect(navItemsFor(undefined)).toEqual([])
   })
 
-  it('puts Maintenance then Feature flags last in Operations, for every staff role', () => {
-    const operations = navItemsFor('viewer').filter((item) => item.group === 'Operations')
-    expect(operations.map((item) => [item.label, item.to]).slice(-2)).toEqual([
-      ['Maintenance', '/settings/platform/maintenance'],
-      ['Feature flags', '/settings/platform/flags'],
+  it('leaves Staff, Maintenance and Feature flags to the settings nav', () => {
+    const labels = NAV_ITEMS.map((item) => item.label)
+    for (const moved of ['Staff', 'Maintenance', 'Feature flags']) {
+      expect(labels).not.toContain(moved)
+    }
+  })
+
+  it('sections an owner’s sidebar with every page in its group', () => {
+    expect(
+      navGroupsFor('owner').map(({ group, items }) => [group, items.map((item) => item.label)])
+    ).toEqual([
+      ['General', ['Overview']],
+      ['Directory', ['Tenants', 'Users']],
+      ['Operations', ['Emails', 'Deliverability', 'Suppressions']],
+      ['Growth', ['Onboarding']],
+      ['Security', ['Activity log']],
     ])
   })
 

@@ -8,6 +8,8 @@ import { StepUpProvider } from '@/components/features/step-up/step-up-provider'
 import { ThemeToggle } from '@/components/features/theme-toggle'
 import { UserMenu } from '@/components/features/user-menu'
 import { NavMain } from '@/components/layouts/nav-main'
+import { NavSecondary } from '@/components/layouts/nav-secondary'
+import { NavSettings } from '@/components/layouts/nav-settings'
 import { AppMark } from '@/components/shared/app-mark'
 import {
   Breadcrumb,
@@ -36,6 +38,7 @@ import {
 import { APP_NAME } from '@/constants/app'
 import { navGroupsFor } from '@/constants/navigation'
 import { ROUTES } from '@/constants/routes'
+import { isSettingsPath } from '@/constants/settings'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { paletteShortcutHint } from '@/lib/shortcut'
 import { useFeaturePropertiesSync, useFlagValues } from '@/observability/flags/flag-hooks'
@@ -110,7 +113,9 @@ function SidebarBrand() {
  * navigation (`NavMain`) and the account menu; a header with breadcrumbs, the
  * ⌘K search and, from `md` up, the theme toggle; and the page. Navigation comes from `navGroupsFor(role, flags)`, so an
  * item above the user's role, or behind a flag that is off, is absent, not
- * disabled.
+ * disabled. On `/settings/*` the sidebar's content swaps to `NavSettings`;
+ * elsewhere it is `NavMain` plus the bottom group (`NavSecondary`). The brand
+ * header and the account menu never change.
  *
  * The palette, the theme listener and the one mount of the `$feature/*`
  * super-property sync (`useFeaturePropertiesSync`) live here, not in the
@@ -156,7 +161,14 @@ export function AppLayout() {
             <SidebarBrand />
           </SidebarHeader>
           <SidebarContent>
-            <NavMain sections={groups} pathname={pathname} />
+            {isSettingsPath(pathname) ? (
+              <NavSettings pathname={pathname} />
+            ) : (
+              <>
+                <NavMain sections={groups} pathname={pathname} />
+                <NavSecondary className="mt-auto" />
+              </>
+            )}
           </SidebarContent>
           <SidebarFooter>
             <UserMenu user={user} />

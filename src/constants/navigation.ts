@@ -1,19 +1,18 @@
 /**
  * @file The staff navigation: one typed list the sidebar and the command
  * palette both read. An item above the user's role, or behind a flag that is
- * off, is hidden, never shown disabled.
+ * off, is hidden, never shown disabled. Account and platform settings
+ * (Profile, Security, Staff, Feature flags, Maintenance) live in
+ * `@/constants/settings`, not here.
  */
 import {
   IconBuilding,
-  IconFlag,
   IconGauge,
   IconHistory,
   IconLayoutDashboard,
   IconListCheck,
   IconMail,
   IconMailX,
-  IconShieldCheck,
-  IconTool,
   IconUsers,
   type TablerIcon,
 } from '@tabler/icons-react'
@@ -34,12 +33,9 @@ export type NavPath =
   | typeof ROUTES.overview
   | typeof ROUTES.tenants
   | typeof ROUTES.users
-  | typeof ROUTES.staff
   | typeof ROUTES.emails
   | typeof ROUTES.deliverability
   | typeof ROUTES.suppressions
-  | typeof ROUTES.maintenance
-  | typeof ROUTES.flags
   | typeof ROUTES.onboarding
   | typeof ROUTES.activity
 
@@ -72,13 +68,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     group: 'Directory',
   },
   { label: 'Users', to: ROUTES.users, Icon: IconUsers, minRole: 'viewer', group: 'Directory' },
-  {
-    label: 'Staff',
-    to: ROUTES.staff,
-    Icon: IconShieldCheck,
-    minRole: 'viewer',
-    group: 'Directory',
-  },
   { label: 'Emails', to: ROUTES.emails, Icon: IconMail, minRole: 'viewer', group: 'Operations' },
   {
     label: 'Deliverability',
@@ -91,20 +80,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Suppressions',
     to: ROUTES.suppressions,
     Icon: IconMailX,
-    minRole: 'viewer',
-    group: 'Operations',
-  },
-  {
-    label: 'Maintenance',
-    to: ROUTES.maintenance,
-    Icon: IconTool,
-    minRole: 'viewer',
-    group: 'Operations',
-  },
-  {
-    label: 'Feature flags',
-    to: ROUTES.flags,
-    Icon: IconFlag,
     minRole: 'viewer',
     group: 'Operations',
   },

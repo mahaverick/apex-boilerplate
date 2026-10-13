@@ -17,6 +17,7 @@ import {
 import { navItemsFor, type NavPath } from '@/constants/navigation'
 import { isStaff } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
+import { SETTINGS_SECTIONS, type SettingsPath } from '@/constants/settings'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useFlagValues } from '@/observability/flags/flag-hooks'
 import { analyticsKey, track } from '@/observability/telemetry'
@@ -38,7 +39,7 @@ const PALETTE_ACTIONS = {
 
 /** One selectable row, tagged by what choosing it opens. */
 type PaletteItem =
-  | { kind: 'page'; value: string; label: string; to: NavPath }
+  | { kind: 'page'; value: string; label: string; to: NavPath | SettingsPath }
   | { kind: 'tenant'; value: string; label: string }
   | { kind: 'user'; value: string; label: string; detail: string | null }
 
@@ -103,7 +104,10 @@ export function CommandPalette() {
   }, [toggle])
 
   const needle = current.toLowerCase()
-  const pages: PaletteItem[] = navItemsFor(role, flags)
+  const pages: PaletteItem[] = [
+    ...navItemsFor(role, flags).map((item) => ({ label: item.label, to: item.to })),
+    ...SETTINGS_SECTIONS.map((section) => ({ label: section.label, to: section.to })),
+  ]
     .filter((item) => needle === '' || item.label.toLowerCase().includes(needle))
     .map((item) => ({ kind: 'page', value: item.to, label: item.label, to: item.to }))
   // Only the current term's results: a stale list must never take the Enter.
