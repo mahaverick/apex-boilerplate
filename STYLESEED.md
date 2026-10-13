@@ -73,6 +73,8 @@ These are intentional. A later pass must not "fix" them.
 
 | Rule     | Location                       | Value                                                                       | Why                                                                                         |
 | -------- | ------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| SS001    | `ui/chart.tsx`                 | `#ccc` ×3, `#fff` ×2 (line 65)                                              | Attribute selectors such as `[stroke='#ccc']` that match recharts' default strokes and replace them (`#ccc` with `stroke-border`, `#fff` with `stroke-transparent`); the app paints neither colour |
+| SS001    | `ui/command.tsx`               | `#9191` (line 3)                                                            | The issue number `shadcn-ui/ui#9191` in a comment, not a colour                             |
 | SS002    | `ui/tabs.tsx`                  | `p-[3px]`                                                                   | Optical inset; the scale offers 2px or 4px, neither matches                                 |
 | SS002    | `ui/tabs.tsx`                  | `bottom-[-5px]`                                                             | Optical underline offset; the scale offers -4px or -6px                                     |
 | SS002    | `ui/switch.tsx`                | `h-[18.4px]` `w-[32px]` `h-[14px]` `w-[24px]`                               | Base UI thumb and track geometry; `18.4px` is fractional on purpose                         |
