@@ -8,8 +8,9 @@ import {
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { pageTitle } from '@/constants/app'
 import { resetSessionForTests } from '@/http/session'
-import { queryClient } from '@/router'
+import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 import { TENANT_ID } from '@/tests/fixtures/ids'
@@ -21,6 +22,7 @@ function buildRouter(path: string) {
   return createRouter({
     routeTree,
     context: { queryClient },
+    ...ROUTER_DEFAULTS,
     history: createMemoryHistory({ initialEntries: [path] }),
   })
 }
@@ -49,18 +51,25 @@ describe('page titles', () => {
     queryClient.clear()
   })
 
-  it('names the profile page', async () => {
+  it.each([
+    ['/settings', 'Settings'],
+    ['/settings/account/profile', 'Profile'],
+    ['/settings/account/security', 'Security'],
+    ['/settings/platform/staff', 'Staff'],
+    ['/settings/platform/flags', 'Feature flags'],
+    ['/settings/platform/maintenance', 'Maintenance'],
+  ])('names the settings page %s', async (path, name) => {
     useAuthStore.setState({
       accessToken: 'access-token',
       user: testUser,
       isAuthenticated: true,
       isBootstrapped: true,
     })
-    renderAppAt('/profile')
+    renderAppAt(path)
 
-    await screen.findByRole('heading', { name: 'Profile', level: 1 })
+    await screen.findByRole('heading', { name, level: 1 })
     await waitFor(() => {
-      expect(document.title).toBe('Profile · Apex')
+      expect(document.title).toBe(pageTitle(name))
     })
   })
 
@@ -77,7 +86,7 @@ describe('page titles', () => {
       expect(document.title).toBe('Overview · Apex')
     })
 
-    await act(() => router.navigate({ to: '/profile' }))
+    await act(() => router.navigate({ to: '/settings/account/profile' }))
 
     await screen.findByRole('heading', { name: 'Profile', level: 1 })
     await waitFor(() => {
@@ -152,7 +161,7 @@ describe('page titles', () => {
       (route) => !route.isRoot && !hasChildren(route) && route.options.component !== undefined
     )
     // Not vacuous: the filter found the pages.
-    expect(pages.map((route) => String(route.id))).toContain('/_app/profile')
+    expect(pages.map((route) => String(route.id))).toContain('/_app/settings/account/profile')
     const untitled = pages
       .filter((route) => typeof route.options.head !== 'function')
       .map((route) => String(route.id))

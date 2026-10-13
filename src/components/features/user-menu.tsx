@@ -1,4 +1,4 @@
-import { IconLogout, IconSelector, IconUser } from '@tabler/icons-react'
+import { IconLogout, IconSelector, IconSettings, IconUser } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { Pii } from '@/components/shared/pii'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -66,11 +66,16 @@ function UserLines({ user, name }: { user: User | null; name: string }) {
  * to icons, so the aria-label names it (Base UI's Tooltip emits no
  * role="tooltip" or aria-describedby); the label is on the rendered element,
  * whose own props win under useRender. The popup opens beside the sidebar on
- * desktop and above the trigger in the mobile sheet.
+ * desktop and above the trigger in the mobile sheet, and each link closes the
+ * mobile sheet.
  */
 export function UserMenu({ user }: { user: User | null }) {
   const logout = useLogout()
-  const { isMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
+  /** Closes the drawer after a tap on a phone, as the sidebar's own links do. */
+  const close = () => {
+    if (isMobile) setOpenMobile(false)
+  }
   const name = displayName(user)
 
   return (
@@ -106,9 +111,13 @@ export function UserMenu({ user }: { user: User | null }) {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem render={<Link to={ROUTES.profile} />}>
+              <DropdownMenuItem render={<Link to={ROUTES.profile} onClick={close} />}>
                 <IconUser aria-hidden="true" />
                 Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link to={ROUTES.settings} onClick={close} />}>
+                <IconSettings aria-hidden="true" />
+                Settings
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

@@ -1,6 +1,7 @@
 import { screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { navItemsFor } from '@/constants/navigation'
+import { SETTINGS_SECTIONS } from '@/constants/settings'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { testUser } from '@/tests/mocks/handlers'
 
@@ -21,7 +22,7 @@ vi.mock('@/components/features/tenant/invitations-section', () => ({
   },
 }))
 
-describe('/staff', () => {
+describe('/settings/platform/staff', () => {
   beforeEach(() => {
     membersProps.mockClear()
     invitationsProps.mockClear()
@@ -31,7 +32,7 @@ describe('/staff', () => {
     'renders both sections on the platform tenant for a platform %s',
     async (platformRole) => {
       signIn({ ...testUser, platformRole })
-      renderAppAt('/staff')
+      renderAppAt('/settings/platform/staff')
       expect(await screen.findByRole('heading', { name: 'Staff', level: 1 })).toBeInTheDocument()
       expect(await screen.findByText('members section')).toBeInTheDocument()
       expect(membersProps).toHaveBeenLastCalledWith({
@@ -50,13 +51,18 @@ describe('/staff', () => {
 
   it('names the other two ways in', async () => {
     signIn({ ...testUser, platformRole: 'viewer' })
-    renderAppAt('/staff')
+    renderAppAt('/settings/platform/staff')
     expect(await screen.findByText(/join as viewers automatically/)).toBeInTheDocument()
     expect(screen.getByText('pnpm platform:grant')).toBeInTheDocument()
   })
 
-  it('is in the Directory nav for every staff role, after Users', () => {
-    const directory = navItemsFor('viewer').filter((item) => item.group === 'Directory')
-    expect(directory.map((item) => item.label)).toEqual(['Tenants', 'Users', 'Staff'])
+  it('is a Platform settings section, not a nav item', () => {
+    expect(SETTINGS_SECTIONS).toContainEqual(
+      expect.objectContaining({ group: 'platform', label: 'Staff' })
+    )
+  })
+
+  it('is not in the sidebar nav for a viewer', () => {
+    expect(navItemsFor('viewer').map((item) => item.label)).not.toContain('Staff')
   })
 })

@@ -76,11 +76,24 @@ const SURFACES = [
     heading: 'Overview',
     provenIncomplete: LEGEND_ITEM,
   },
-  { name: 'profile', url: '/e2e/harness/?path=/profile', heading: 'Sign-in methods' },
+  // The settings pages: each heading is one only that page renders, since the settings layout's h1 paints before the page's data.
+  { name: 'settings', url: '/e2e/harness/?path=/settings', heading: 'Platform' },
+  { name: 'profile', url: '/e2e/harness/?path=/settings/account/profile', heading: 'Details' },
+  {
+    name: 'security',
+    url: '/e2e/harness/?path=/settings/account/security',
+    heading: 'Sign-in methods',
+  },
   { name: 'tenants', url: '/e2e/harness/?path=/tenants', heading: 'Tenants' },
   { name: 'activity', url: '/e2e/harness/?path=/activity', heading: 'Activity' },
   // Exact: the page's own h2s ('Staff members', 'Invite staff') also contain the word.
-  { name: 'staff', url: '/e2e/harness/?path=/staff', heading: /^Staff$/ },
+  { name: 'staff', url: '/e2e/harness/?path=/settings/platform/staff', heading: /^Staff$/ },
+  // As an owner in full maintenance, so the banner, every fact and every control is graded.
+  {
+    name: 'maintenance',
+    url: '/e2e/harness/?path=/settings/platform/maintenance&maintenance=full&role=owner',
+    heading: 'Queues',
+  },
   { name: 'users', url: '/e2e/harness/?path=/users', heading: /^Users$/ },
   // A live account with its History card, and a deleted one with its read-only notice and Deleted badge.
   { name: 'user', url: `/e2e/harness/?path=${CLEO_PAGE}`, heading: 'Cleo D' },
@@ -135,7 +148,7 @@ const SURFACES = [
   // The flags inspector: state and reason badges, the traits' copy buttons and an evaluation.
   {
     name: 'flags',
-    url: `/e2e/harness/?path=/flags?userId=20000000-0000-4000-8000-000000000002&tenantId=10000000-0000-4000-8000-000000000001`,
+    url: `/e2e/harness/?path=/settings/platform/flags?userId=20000000-0000-4000-8000-000000000002&tenantId=10000000-0000-4000-8000-000000000001`,
     heading: 'Feature flags',
   },
   {

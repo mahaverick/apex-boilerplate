@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -317,6 +317,27 @@ describe('the Overview’s system status card', () => {
     expect(card.querySelector('time')).toHaveAttribute('dateTime', '2026-10-04T10:00:00.000Z')
     expect(within(card).queryByText('Needs attention')).not.toBeInTheDocument()
     expect(within(card).queryByText('Last failed send')).not.toBeInTheDocument()
+  })
+
+  // A relative time read once at render froze at "just now" while the page stayed open.
+  it('moves its relative times on as the clock ticks', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      vi.setSystemTime(Date.parse(testSystemStatus.errorTracking.lastSendOkAt!))
+      serveStatus()
+      renderAppAt('/overview')
+      const card = await screen.findByRole('region', { name: 'System status' })
+      const lastSent = await within(card).findByText('Last sent')
+      expect(within(lastSent.nextElementSibling as HTMLElement).getByText('just now')).toBeVisible()
+      act(() => {
+        vi.advanceTimersByTime(2 * 60_000)
+      })
+      expect(
+        within(lastSent.nextElementSibling as HTMLElement).getByText('2 minutes ago')
+      ).toBeVisible()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('warns, naming each reason, when events were dropped', async () => {

@@ -44,7 +44,7 @@ describe('the maintenance banner', () => {
     expect(text).toHaveClass('ph-sensitive')
     expect(within(status as HTMLElement).getByRole('link', { name: 'Manage' })).toHaveAttribute(
       'href',
-      '/maintenance'
+      '/settings/platform/maintenance'
     )
   })
 

@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ROUTES } from '@/constants/routes'
 import { timelineSentence } from '@/constants/timeline-events'
 import { TIMELINE_UNVERIFIED_NOTE } from '@/constants/timeline.constants'
+import { useNow } from '@/hooks/use-now'
 import { absoluteTime, relativeTime } from '@/lib/relative-time'
 import type { TimelineRow } from '@/types/api.types'
 
@@ -74,6 +75,7 @@ export function TimelineEvent({
   /** Shown after the time: a request's disclosure button. */
   children?: ReactNode
 }) {
+  const now = useNow()
   const absolute = absoluteTime(row.timestamp)
   return (
     <div className="grid gap-1">
@@ -89,7 +91,7 @@ export function TimelineEvent({
         )}
         <Tooltip>
           <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">
-            <time dateTime={row.timestamp}>{relativeTime(row.timestamp)}</time>
+            <time dateTime={row.timestamp}>{relativeTime(row.timestamp, now)}</time>
             <span className="sr-only">, {absolute}</span>
           </TooltipTrigger>
           <TooltipContent>{absolute}</TooltipContent>

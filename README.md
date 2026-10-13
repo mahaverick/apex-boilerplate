@@ -3,9 +3,10 @@
 A React 19 + TypeScript single-page app for the people who run a product, not
 the people who use it: the staff console. Its sibling, `react-boilerplate`, is
 the customer app, and both are built on the `express-boilerplate` API. Apex ships
-a sign-in, a sectioned, collapsible sidebar shell, a ⌘K command palette and eleven staff pages:
-Overview, Tenants, Users, Staff, Emails, Deliverability, Suppressions, Feature
-flags, Maintenance, Onboarding and the Activity log.
+a sign-in, a sectioned, collapsible sidebar shell, a ⌘K command palette, eight staff pages
+(Overview, Tenants, Users, Emails, Deliverability, Suppressions, Onboarding and the
+Activity log) and a Settings area: Profile and Security for your own account, and
+Staff, Feature flags and Maintenance for the platform.
 
 Only platform staff get in. A signed-in user with no platform role lands on
 `/no-access`, and the API answers `/platform/*` with **404** to anyone below the
@@ -123,8 +124,10 @@ too. What has to change together if it ever moves is in
 
 ### Adding a page
 
-The navigation is one list, `NAV_ITEMS` in `src/constants/navigation.ts`, which the
-sidebar and the ⌘K palette both read. What a new page needs is in
+The main navigation is one list, `NAV_ITEMS` in `src/constants/navigation.ts`, which
+the sidebar and the ⌘K palette both read. A settings page is instead an entry in
+`SETTINGS_SECTIONS` (`src/constants/settings.ts`) and a route under
+`src/pages/_app/settings/`. What each needs is in
 [The staff shell](ARCHITECTURE.md#the-staff-shell-this-app-only).
 
 ## Run-time configuration

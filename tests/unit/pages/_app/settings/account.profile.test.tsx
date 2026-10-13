@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
 import { profileKeys } from '@/queries/profile.queries'
-import { queryClient } from '@/router'
+import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -17,12 +17,13 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/** Mounts the real route tree at `/profile`; returns the router. */
-function renderProfile() {
+/** Mounts the real route tree at `/settings/account/profile`; returns the router. */
+function renderSettingsProfile() {
   const router = createRouter({
     routeTree,
     context: { queryClient },
-    history: createMemoryHistory({ initialEntries: ['/profile'] }),
+    ...ROUTER_DEFAULTS,
+    history: createMemoryHistory({ initialEntries: ['/settings/account/profile'] }),
   })
   render(
     <QueryClientProvider client={queryClient}>
@@ -44,7 +45,7 @@ describe('profile page', () => {
   })
 
   it('shows email and member-since as read-only facts', async () => {
-    renderProfile()
+    renderSettingsProfile()
 
     // Scoped to the page: the sidebar's account menu shows the email too.
     const main = await screen.findByRole('main')
@@ -56,11 +57,12 @@ describe('profile page', () => {
     expect(screen.getByText(expected)).toBeInTheDocument()
   })
 
-  it('renders the Security section below the profile form', async () => {
-    renderProfile()
+  it('does not render the Security section; it has its own page', async () => {
+    renderSettingsProfile()
 
-    expect(await screen.findByRole('region', { name: 'Security' })).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: 'Change password' })).toBeInTheDocument()
+    await screen.findByLabelText('First name')
+    expect(screen.queryByRole('region', { name: 'Security' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Change password' })).toBeNull()
   })
 
   it('sends only the trimmed first and last name', async () => {
@@ -72,7 +74,7 @@ describe('profile page', () => {
       })
     )
     const user = userEvent.setup()
-    renderProfile()
+    renderSettingsProfile()
 
     const first = await screen.findByLabelText('First name')
     await user.clear(first)
@@ -108,7 +110,7 @@ describe('profile page', () => {
       })
     )
     const user = userEvent.setup()
-    renderProfile()
+    renderSettingsProfile()
 
     const first = await screen.findByLabelText('First name')
     await waitFor(() => {
@@ -140,7 +142,7 @@ describe('profile page', () => {
       })
     )
     const user = userEvent.setup()
-    renderProfile()
+    renderSettingsProfile()
 
     const first = await screen.findByLabelText('First name')
     await waitFor(() => {
@@ -167,7 +169,7 @@ describe('profile page', () => {
       })
     )
     const user = userEvent.setup()
-    renderProfile()
+    renderSettingsProfile()
 
     const first = await screen.findByLabelText('First name')
     await waitFor(() => {
@@ -193,7 +195,7 @@ describe('profile page', () => {
       })
     )
     const user = userEvent.setup()
-    renderProfile()
+    renderSettingsProfile()
 
     const first = await screen.findByLabelText('First name')
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -221,7 +223,7 @@ describe('profile page', () => {
       })
     )
     const user = userEvent.setup()
-    renderProfile()
+    renderSettingsProfile()
 
     const first = await screen.findByLabelText('First name')
     await waitFor(() => {
@@ -254,7 +256,7 @@ describe('profile page', () => {
       })
     )
     const user = userEvent.setup()
-    renderProfile()
+    renderSettingsProfile()
 
     const first = await screen.findByLabelText('First name')
     await user.clear(first)
@@ -279,7 +281,7 @@ describe('profile page', () => {
       })
     )
     const user = userEvent.setup()
-    renderProfile()
+    renderSettingsProfile()
 
     const first = await screen.findByLabelText('First name')
     await user.clear(first)
@@ -301,7 +303,7 @@ describe('profile page', () => {
     let served = { ...testUser, firstName: 'Ada', lastName: 'Byron' }
     useAuthStore.setState({ user: served })
     server.use(http.get('/api/v1/profile', () => ok(served, 'Profile retrieved.')))
-    renderProfile()
+    renderSettingsProfile()
 
     const last = await screen.findByLabelText('Last name')
     await waitFor(() => {
@@ -324,7 +326,7 @@ describe('profile page', () => {
       })
     )
     const user = userEvent.setup()
-    renderProfile()
+    renderSettingsProfile()
 
     await user.clear(await screen.findByLabelText('First name'))
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -349,7 +351,7 @@ describe('profile page', () => {
       )
     )
     const user = userEvent.setup()
-    renderProfile()
+    renderSettingsProfile()
 
     await user.type(await screen.findByLabelText('Last name'), 'x')
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -365,7 +367,7 @@ describe('profile page', () => {
     const toastError = vi.spyOn(toast, 'error')
     server.use(http.patch('/api/v1/profile', () => fail('Something broke.', 500)))
     const user = userEvent.setup()
-    renderProfile()
+    renderSettingsProfile()
 
     await user.type(await screen.findByLabelText('Last name'), 'x')
     await user.click(screen.getByRole('button', { name: 'Save changes' }))

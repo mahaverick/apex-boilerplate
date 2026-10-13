@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { http } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ErrorsPanel } from '@/components/features/errors/errors-panel'
 import { resetSessionForTests } from '@/http/session'
 import { PII_CLASS_NAME } from '@/observability/telemetry'
@@ -15,6 +15,32 @@ describe('ErrorsPanel', () => {
   beforeEach(() => {
     resetSessionForTests()
     useAuthStore.setState({ accessToken: 'access-token', user: testUser, isAuthenticated: true })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  // A relative time read once at render froze at "just now" while the page stayed open.
+  it('moves its relative times on as the clock ticks', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const issue = errorIssue()
+    vi.setSystemTime(Date.parse(issue.lastSeen))
+    server.use(
+      http.get(`/api/v1/platform/users/${USER_ID_2}/errors`, () =>
+        ok(errorsPage([issue]), 'Errors retrieved.')
+      )
+    )
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ErrorsPanel kind="user" id={USER_ID_2} />
+      </QueryClientProvider>
+    )
+    expect(await screen.findByText('just now')).toBeInTheDocument()
+    act(() => {
+      vi.advanceTimersByTime(2 * 60_000)
+    })
+    expect(screen.getByText('2 minutes ago')).toBeInTheDocument()
   })
 
   it('renders a message holding markup as literal text, never as an element', async () => {

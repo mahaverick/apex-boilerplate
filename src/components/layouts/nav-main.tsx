@@ -30,7 +30,8 @@ interface NavSection {
  * landmark, since `Sidebar` renders plain divs. Each item renders as the
  * anchor itself, so it is keyboard-reachable and opens in a new tab, and
  * names itself in a tooltip shown only while the sidebar is collapsed to
- * icons. The highlight reads `pathname`, so a deep page keeps its item lit.
+ * icons. The highlight reads `pathname`, so a deep page keeps its item lit,
+ * and every link closes the phone drawer.
  *
  * Each section's label is a disclosure button that folds the section away.
  * Every section starts open. The one holding the current page stays open,
@@ -47,9 +48,14 @@ export function NavMain({
   sections: readonly NavSection[]
   pathname: string
 }) {
-  const { state, isMobile } = useSidebar()
+  const { state, isMobile, setOpenMobile } = useSidebar()
   const [folded, setFolded] = useState<ReadonlySet<NavGroup>>(() => new Set())
   const isIconMode = state === 'collapsed' && !isMobile
+
+  /** Closes the drawer after a tap on a phone. */
+  const close = () => {
+    if (isMobile) setOpenMobile(false)
+  }
 
   /** Folds or unfolds one section. */
   const setSectionOpen = (group: NavGroup, open: boolean) => {
@@ -93,7 +99,7 @@ export function NavMain({
                       <SidebarMenuButton
                         isActive={isActive(pathname, to)}
                         tooltip={label}
-                        render={<Link to={to} />}
+                        render={<Link to={to} onClick={close} />}
                       >
                         <Icon aria-hidden="true" />
                         <span>{label}</span>

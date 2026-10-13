@@ -25,7 +25,7 @@ for (const [name, path, ready] of [
   ['users', '/users', 'Users'],
   ['a user', CLEO, 'Cleo D'],
   ['a deleted user', DELETED, 'Evangeline Featherstonehaugh'],
-  ['staff', '/staff', 'Staff'],
+  ['staff', '/settings/platform/staff', 'Staff'],
   ['activity', '/activity', 'Activity'],
   ['tenants', '/tenants', 'Tenants'],
   ['a tenant', ACME, 'Acme Corp'],
@@ -42,8 +42,12 @@ for (const [name, path, ready] of [
   ['deliverability', '/deliverability', 'Deliverability'],
   ['suppressions, active and lifted', '/suppressions?state=all', 'Suppressions'],
   ['onboarding', '/onboarding', 'Onboarding'],
-  ['maintenance, with the banner', '/maintenance&maintenance=full', 'Maintenance'],
-  ['the profile', '/profile', 'Profile'],
+  [
+    'maintenance, with the banner',
+    '/settings/platform/maintenance&maintenance=full',
+    'Maintenance',
+  ],
+  ['the profile', '/settings/account/profile', 'Profile'],
 ] as const) {
   test(`${name} renders every name and address inside Pii`, async ({ page }) => {
     await page.goto(`/e2e/harness/?path=${path}`)
@@ -93,7 +97,7 @@ for (const [name, path] of [
  * and address, the user picker's matches and a tenant's member buttons.
  */
 for (const [name, path] of [
-  ['the flags evaluation', `/flags?userId=${CLEO_ID}`],
+  ['the flags evaluation', `/settings/platform/flags?userId=${CLEO_ID}`],
   ['a tenant’s flags', `${ACME}/flags?userId=${CLEO_ID}`],
 ] as const) {
   test(`${name} renders every name and address inside Pii`, async ({ page }) => {
@@ -104,7 +108,7 @@ for (const [name, path] of [
 }
 
 test('the flags user picker lists its matches inside Pii', async ({ page }) => {
-  await page.goto('/e2e/harness/?path=/flags')
+  await page.goto('/e2e/harness/?path=/settings/platform/flags')
   await page.getByRole('searchbox', { name: 'Find a user' }).fill('c')
   await expect(page.getByRole('list', { name: 'Matching users' })).toBeVisible()
   expect(await unmaskedPii(page, NAMES)).toEqual([])
@@ -149,7 +153,7 @@ test('the user menu’s initials and name, and the open palette’s people, sit 
 test('the owner’s switch-on dialog and its preview keep a typed name inside Pii', async ({
   page,
 }) => {
-  await page.goto('/e2e/harness/?path=/maintenance&role=owner')
+  await page.goto('/e2e/harness/?path=/settings/platform/maintenance&role=owner')
   await page.getByRole('button', { name: 'Turn on maintenance…' }).click()
   const dialog = page.getByRole('dialog', { name: 'Turn on maintenance' })
   await dialog.getByLabel('Message for customers').fill('Ask Sam Staff or Cleo D for access.')

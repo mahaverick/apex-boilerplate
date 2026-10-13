@@ -11,7 +11,7 @@ import { http } from 'msw'
 import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
-import { queryClient } from '@/router'
+import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { MIN_PASSWORD_LENGTH } from '@/schemas/auth.schemas'
 import { useAuthStore } from '@/states/auth.store'
@@ -27,6 +27,7 @@ function renderAt(path: string): AnyRouter {
   const router = createRouter({
     routeTree,
     context: { queryClient },
+    ...ROUTER_DEFAULTS,
     history: createMemoryHistory({ initialEntries: [path] }),
   })
   render(

@@ -23,6 +23,7 @@ import { Route as AppMaintenanceRouteImport } from './pages/_app/maintenance'
 import { Route as AppOnboardingRouteImport } from './pages/_app/onboarding'
 import { Route as AppOverviewRouteImport } from './pages/_app/overview'
 import { Route as AppProfileRouteImport } from './pages/_app/profile'
+import { Route as AppSettingsRouteImport } from './pages/_app/settings'
 import { Route as AppStaffRouteImport } from './pages/_app/staff'
 import { Route as AppSuppressionsRouteImport } from './pages/_app/suppressions'
 import { Route as AuthForgotPasswordRouteImport } from './pages/_auth/forgot-password'
@@ -32,10 +33,18 @@ import { Route as AuthCallbackRouteImport } from './pages/auth/callback'
 import { Route as InvitationsAcceptRouteImport } from './pages/invitations/accept'
 import { Route as AppEmailsIndexRouteImport } from './pages/_app/emails/index'
 import { Route as AppEmailsEmailIdRouteImport } from './pages/_app/emails/$emailId'
+import { Route as AppSettingsIndexRouteImport } from './pages/_app/settings/index'
 import { Route as AppTenantsIndexRouteImport } from './pages/_app/tenants/index'
 import { Route as AppTenantsTenantIdRouteImport } from './pages/_app/tenants/$tenantId'
 import { Route as AppUsersIndexRouteImport } from './pages/_app/users/index'
 import { Route as AppUsersUserIdRouteImport } from './pages/_app/users/$userId'
+import { Route as AppSettingsAccountIndexRouteImport } from './pages/_app/settings/account.index'
+import { Route as AppSettingsAccountProfileRouteImport } from './pages/_app/settings/account.profile'
+import { Route as AppSettingsAccountSecurityRouteImport } from './pages/_app/settings/account.security'
+import { Route as AppSettingsPlatformIndexRouteImport } from './pages/_app/settings/platform.index'
+import { Route as AppSettingsPlatformFlagsRouteImport } from './pages/_app/settings/platform.flags'
+import { Route as AppSettingsPlatformMaintenanceRouteImport } from './pages/_app/settings/platform.maintenance'
+import { Route as AppSettingsPlatformStaffRouteImport } from './pages/_app/settings/platform.staff'
 import { Route as AppTenantsTenantIdIndexRouteImport } from './pages/_app/tenants/$tenantId.index'
 import { Route as AppTenantsTenantIdActivityRouteImport } from './pages/_app/tenants/$tenantId.activity'
 import { Route as AppTenantsTenantIdEmailsRouteImport } from './pages/_app/tenants/$tenantId.emails'
@@ -117,6 +126,11 @@ const AppProfileRoute = AppProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppStaffRoute = AppStaffRouteImport.update({
   id: '/staff',
   path: '/staff',
@@ -162,6 +176,11 @@ const AppEmailsEmailIdRoute = AppEmailsEmailIdRouteImport.update({
   path: '/emails/$emailId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const AppTenantsIndexRoute = AppTenantsIndexRouteImport.update({
   id: '/tenants/',
   path: '/tenants/',
@@ -182,6 +201,47 @@ const AppUsersUserIdRoute = AppUsersUserIdRouteImport.update({
   path: '/users/$userId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsAccountIndexRoute = AppSettingsAccountIndexRouteImport.update({
+  id: '/account/',
+  path: '/account/',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsAccountProfileRoute =
+  AppSettingsAccountProfileRouteImport.update({
+    id: '/account/profile',
+    path: '/account/profile',
+    getParentRoute: () => AppSettingsRoute,
+  } as any)
+const AppSettingsAccountSecurityRoute =
+  AppSettingsAccountSecurityRouteImport.update({
+    id: '/account/security',
+    path: '/account/security',
+    getParentRoute: () => AppSettingsRoute,
+  } as any)
+const AppSettingsPlatformIndexRoute =
+  AppSettingsPlatformIndexRouteImport.update({
+    id: '/platform/',
+    path: '/platform/',
+    getParentRoute: () => AppSettingsRoute,
+  } as any)
+const AppSettingsPlatformFlagsRoute =
+  AppSettingsPlatformFlagsRouteImport.update({
+    id: '/platform/flags',
+    path: '/platform/flags',
+    getParentRoute: () => AppSettingsRoute,
+  } as any)
+const AppSettingsPlatformMaintenanceRoute =
+  AppSettingsPlatformMaintenanceRouteImport.update({
+    id: '/platform/maintenance',
+    path: '/platform/maintenance',
+    getParentRoute: () => AppSettingsRoute,
+  } as any)
+const AppSettingsPlatformStaffRoute =
+  AppSettingsPlatformStaffRouteImport.update({
+    id: '/platform/staff',
+    path: '/platform/staff',
+    getParentRoute: () => AppSettingsRoute,
+  } as any)
 const AppTenantsTenantIdIndexRoute = AppTenantsTenantIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -263,6 +323,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AppOnboardingRoute
   '/overview': typeof AppOverviewRoute
   '/profile': typeof AppProfileRoute
+  '/settings': typeof AppSettingsRouteWithChildren
   '/staff': typeof AppStaffRoute
   '/suppressions': typeof AppSuppressionsRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
@@ -274,8 +335,14 @@ export interface FileRoutesByFullPath {
   '/tenants/$tenantId': typeof AppTenantsTenantIdRouteWithChildren
   '/users/$userId': typeof AppUsersUserIdRouteWithChildren
   '/emails/': typeof AppEmailsIndexRoute
+  '/settings/': typeof AppSettingsIndexRoute
   '/tenants/': typeof AppTenantsIndexRoute
   '/users/': typeof AppUsersIndexRoute
+  '/settings/account/profile': typeof AppSettingsAccountProfileRoute
+  '/settings/account/security': typeof AppSettingsAccountSecurityRoute
+  '/settings/platform/flags': typeof AppSettingsPlatformFlagsRoute
+  '/settings/platform/maintenance': typeof AppSettingsPlatformMaintenanceRoute
+  '/settings/platform/staff': typeof AppSettingsPlatformStaffRoute
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
   '/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/tenants/$tenantId/errors': typeof AppTenantsTenantIdErrorsRoute
@@ -286,6 +353,8 @@ export interface FileRoutesByFullPath {
   '/tenants/$tenantId/timeline': typeof AppTenantsTenantIdTimelineRoute
   '/users/$userId/errors': typeof AppUsersUserIdErrorsRoute
   '/users/$userId/timeline': typeof AppUsersUserIdTimelineRoute
+  '/settings/account/': typeof AppSettingsAccountIndexRoute
+  '/settings/platform/': typeof AppSettingsPlatformIndexRoute
   '/tenants/$tenantId/': typeof AppTenantsTenantIdIndexRoute
   '/users/$userId/': typeof AppUsersUserIdIndexRoute
 }
@@ -311,8 +380,14 @@ export interface FileRoutesByTo {
   '/invitations/accept': typeof InvitationsAcceptRoute
   '/emails/$emailId': typeof AppEmailsEmailIdRoute
   '/emails': typeof AppEmailsIndexRoute
+  '/settings': typeof AppSettingsIndexRoute
   '/tenants': typeof AppTenantsIndexRoute
   '/users': typeof AppUsersIndexRoute
+  '/settings/account/profile': typeof AppSettingsAccountProfileRoute
+  '/settings/account/security': typeof AppSettingsAccountSecurityRoute
+  '/settings/platform/flags': typeof AppSettingsPlatformFlagsRoute
+  '/settings/platform/maintenance': typeof AppSettingsPlatformMaintenanceRoute
+  '/settings/platform/staff': typeof AppSettingsPlatformStaffRoute
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
   '/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/tenants/$tenantId/errors': typeof AppTenantsTenantIdErrorsRoute
@@ -323,6 +398,8 @@ export interface FileRoutesByTo {
   '/tenants/$tenantId/timeline': typeof AppTenantsTenantIdTimelineRoute
   '/users/$userId/errors': typeof AppUsersUserIdErrorsRoute
   '/users/$userId/timeline': typeof AppUsersUserIdTimelineRoute
+  '/settings/account': typeof AppSettingsAccountIndexRoute
+  '/settings/platform': typeof AppSettingsPlatformIndexRoute
   '/tenants/$tenantId': typeof AppTenantsTenantIdIndexRoute
   '/users/$userId': typeof AppUsersUserIdIndexRoute
 }
@@ -342,6 +419,7 @@ export interface FileRoutesById {
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/overview': typeof AppOverviewRoute
   '/_app/profile': typeof AppProfileRoute
+  '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/staff': typeof AppStaffRoute
   '/_app/suppressions': typeof AppSuppressionsRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -353,8 +431,14 @@ export interface FileRoutesById {
   '/_app/tenants/$tenantId': typeof AppTenantsTenantIdRouteWithChildren
   '/_app/users/$userId': typeof AppUsersUserIdRouteWithChildren
   '/_app/emails/': typeof AppEmailsIndexRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/tenants/': typeof AppTenantsIndexRoute
   '/_app/users/': typeof AppUsersIndexRoute
+  '/_app/settings/account/profile': typeof AppSettingsAccountProfileRoute
+  '/_app/settings/account/security': typeof AppSettingsAccountSecurityRoute
+  '/_app/settings/platform/flags': typeof AppSettingsPlatformFlagsRoute
+  '/_app/settings/platform/maintenance': typeof AppSettingsPlatformMaintenanceRoute
+  '/_app/settings/platform/staff': typeof AppSettingsPlatformStaffRoute
   '/_app/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
   '/_app/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/_app/tenants/$tenantId/errors': typeof AppTenantsTenantIdErrorsRoute
@@ -365,6 +449,8 @@ export interface FileRoutesById {
   '/_app/tenants/$tenantId/timeline': typeof AppTenantsTenantIdTimelineRoute
   '/_app/users/$userId/errors': typeof AppUsersUserIdErrorsRoute
   '/_app/users/$userId/timeline': typeof AppUsersUserIdTimelineRoute
+  '/_app/settings/account/': typeof AppSettingsAccountIndexRoute
+  '/_app/settings/platform/': typeof AppSettingsPlatformIndexRoute
   '/_app/tenants/$tenantId/': typeof AppTenantsTenantIdIndexRoute
   '/_app/users/$userId/': typeof AppUsersUserIdIndexRoute
 }
@@ -383,6 +469,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/overview'
     | '/profile'
+    | '/settings'
     | '/staff'
     | '/suppressions'
     | '/forgot-password'
@@ -394,8 +481,14 @@ export interface FileRouteTypes {
     | '/tenants/$tenantId'
     | '/users/$userId'
     | '/emails/'
+    | '/settings/'
     | '/tenants/'
     | '/users/'
+    | '/settings/account/profile'
+    | '/settings/account/security'
+    | '/settings/platform/flags'
+    | '/settings/platform/maintenance'
+    | '/settings/platform/staff'
     | '/tenants/$tenantId/activity'
     | '/tenants/$tenantId/emails'
     | '/tenants/$tenantId/errors'
@@ -406,6 +499,8 @@ export interface FileRouteTypes {
     | '/tenants/$tenantId/timeline'
     | '/users/$userId/errors'
     | '/users/$userId/timeline'
+    | '/settings/account/'
+    | '/settings/platform/'
     | '/tenants/$tenantId/'
     | '/users/$userId/'
   fileRoutesByTo: FileRoutesByTo
@@ -431,8 +526,14 @@ export interface FileRouteTypes {
     | '/invitations/accept'
     | '/emails/$emailId'
     | '/emails'
+    | '/settings'
     | '/tenants'
     | '/users'
+    | '/settings/account/profile'
+    | '/settings/account/security'
+    | '/settings/platform/flags'
+    | '/settings/platform/maintenance'
+    | '/settings/platform/staff'
     | '/tenants/$tenantId/activity'
     | '/tenants/$tenantId/emails'
     | '/tenants/$tenantId/errors'
@@ -443,6 +544,8 @@ export interface FileRouteTypes {
     | '/tenants/$tenantId/timeline'
     | '/users/$userId/errors'
     | '/users/$userId/timeline'
+    | '/settings/account'
+    | '/settings/platform'
     | '/tenants/$tenantId'
     | '/users/$userId'
   id:
@@ -461,6 +564,7 @@ export interface FileRouteTypes {
     | '/_app/onboarding'
     | '/_app/overview'
     | '/_app/profile'
+    | '/_app/settings'
     | '/_app/staff'
     | '/_app/suppressions'
     | '/_auth/forgot-password'
@@ -472,8 +576,14 @@ export interface FileRouteTypes {
     | '/_app/tenants/$tenantId'
     | '/_app/users/$userId'
     | '/_app/emails/'
+    | '/_app/settings/'
     | '/_app/tenants/'
     | '/_app/users/'
+    | '/_app/settings/account/profile'
+    | '/_app/settings/account/security'
+    | '/_app/settings/platform/flags'
+    | '/_app/settings/platform/maintenance'
+    | '/_app/settings/platform/staff'
     | '/_app/tenants/$tenantId/activity'
     | '/_app/tenants/$tenantId/emails'
     | '/_app/tenants/$tenantId/errors'
@@ -484,6 +594,8 @@ export interface FileRouteTypes {
     | '/_app/tenants/$tenantId/timeline'
     | '/_app/users/$userId/errors'
     | '/_app/users/$userId/timeline'
+    | '/_app/settings/account/'
+    | '/_app/settings/platform/'
     | '/_app/tenants/$tenantId/'
     | '/_app/users/$userId/'
   fileRoutesById: FileRoutesById
@@ -600,6 +712,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProfileRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/staff': {
       id: '/_app/staff'
       path: '/staff'
@@ -663,6 +782,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEmailsEmailIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/_app/tenants/': {
       id: '/_app/tenants/'
       path: '/tenants'
@@ -690,6 +816,55 @@ declare module '@tanstack/react-router' {
       fullPath: '/users/$userId'
       preLoaderRoute: typeof AppUsersUserIdRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/settings/account/': {
+      id: '/_app/settings/account/'
+      path: '/account'
+      fullPath: '/settings/account/'
+      preLoaderRoute: typeof AppSettingsAccountIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/account/profile': {
+      id: '/_app/settings/account/profile'
+      path: '/account/profile'
+      fullPath: '/settings/account/profile'
+      preLoaderRoute: typeof AppSettingsAccountProfileRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/account/security': {
+      id: '/_app/settings/account/security'
+      path: '/account/security'
+      fullPath: '/settings/account/security'
+      preLoaderRoute: typeof AppSettingsAccountSecurityRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/platform/': {
+      id: '/_app/settings/platform/'
+      path: '/platform'
+      fullPath: '/settings/platform/'
+      preLoaderRoute: typeof AppSettingsPlatformIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/platform/flags': {
+      id: '/_app/settings/platform/flags'
+      path: '/platform/flags'
+      fullPath: '/settings/platform/flags'
+      preLoaderRoute: typeof AppSettingsPlatformFlagsRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/platform/maintenance': {
+      id: '/_app/settings/platform/maintenance'
+      path: '/platform/maintenance'
+      fullPath: '/settings/platform/maintenance'
+      preLoaderRoute: typeof AppSettingsPlatformMaintenanceRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/platform/staff': {
+      id: '/_app/settings/platform/staff'
+      path: '/platform/staff'
+      fullPath: '/settings/platform/staff'
+      preLoaderRoute: typeof AppSettingsPlatformStaffRouteImport
+      parentRoute: typeof AppSettingsRoute
     }
     '/_app/tenants/$tenantId/': {
       id: '/_app/tenants/$tenantId/'
@@ -778,6 +953,32 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppSettingsRouteChildren {
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+  AppSettingsAccountProfileRoute: typeof AppSettingsAccountProfileRoute
+  AppSettingsAccountSecurityRoute: typeof AppSettingsAccountSecurityRoute
+  AppSettingsPlatformFlagsRoute: typeof AppSettingsPlatformFlagsRoute
+  AppSettingsPlatformMaintenanceRoute: typeof AppSettingsPlatformMaintenanceRoute
+  AppSettingsPlatformStaffRoute: typeof AppSettingsPlatformStaffRoute
+  AppSettingsAccountIndexRoute: typeof AppSettingsAccountIndexRoute
+  AppSettingsPlatformIndexRoute: typeof AppSettingsPlatformIndexRoute
+}
+
+const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+  AppSettingsAccountProfileRoute: AppSettingsAccountProfileRoute,
+  AppSettingsAccountSecurityRoute: AppSettingsAccountSecurityRoute,
+  AppSettingsPlatformFlagsRoute: AppSettingsPlatformFlagsRoute,
+  AppSettingsPlatformMaintenanceRoute: AppSettingsPlatformMaintenanceRoute,
+  AppSettingsPlatformStaffRoute: AppSettingsPlatformStaffRoute,
+  AppSettingsAccountIndexRoute: AppSettingsAccountIndexRoute,
+  AppSettingsPlatformIndexRoute: AppSettingsPlatformIndexRoute,
+}
+
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
+
 interface AppTenantsTenantIdRouteChildren {
   AppTenantsTenantIdActivityRoute: typeof AppTenantsTenantIdActivityRoute
   AppTenantsTenantIdEmailsRoute: typeof AppTenantsTenantIdEmailsRoute
@@ -829,6 +1030,7 @@ interface AppRouteChildren {
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppOverviewRoute: typeof AppOverviewRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppStaffRoute: typeof AppStaffRoute
   AppSuppressionsRoute: typeof AppSuppressionsRoute
   AppEmailsEmailIdRoute: typeof AppEmailsEmailIdRoute
@@ -847,6 +1049,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOnboardingRoute: AppOnboardingRoute,
   AppOverviewRoute: AppOverviewRoute,
   AppProfileRoute: AppProfileRoute,
+  AppSettingsRoute: AppSettingsRouteWithChildren,
   AppStaffRoute: AppStaffRoute,
   AppSuppressionsRoute: AppSuppressionsRoute,
   AppEmailsEmailIdRoute: AppEmailsEmailIdRoute,

@@ -12,7 +12,8 @@ const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
 /**
  * "3 minutes ago", "yesterday" or "in 2 hours", in the reader's own locale;
  * "just now" within 45 seconds and "at an unknown time" for a date that does
- * not parse. `now` is for tests.
+ * not parse. `now` is the caller's clock (`useNow`); it defaults to this
+ * instant.
  */
 export function relativeTime(iso: string, now: number = Date.now()): string {
   const then = new Date(iso).getTime()

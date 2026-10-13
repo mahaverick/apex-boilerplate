@@ -219,7 +219,10 @@ describe('/emails/$emailId', () => {
     serve({ tenant: { id: TENANT_ID, name: 'Platform', slug: 'platform' } })
     renderAppAt(PAGE)
     await heading()
-    expect(screen.getByRole('link', { name: 'Platform' })).toHaveAttribute('href', '/staff')
+    expect(screen.getByRole('link', { name: 'Platform' })).toHaveAttribute(
+      'href',
+      '/settings/platform/staff'
+    )
   })
 
   it('says when placeholders stand in for values that were not stored', async () => {

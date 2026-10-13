@@ -55,6 +55,15 @@ follows sidebar-07 ([The staff shell](#the-staff-shell-this-app-only)).
 plugin in `vite.config.ts`, which also splits each route's component into
 its own chunk (`autoCodeSplitting`).
 
+A lazy route with its own `errorComponent` keeps that screen in the route
+module, with `codeSplitGroupings: [['component']]`, as the settings leaves do.
+A split error screen would need a fetch exactly when chunk loading fails, and
+the plugin's default split pulls the error listener out of the entry chunk.
+For the same reason such a route's page component must not import `Route`
+back from its route module: it uses `useSearch({ from })`, `useNavigate({ from })`
+and `useParams({ from })` instead of `Route.useSearch()` and the like. Either
+mistake fails `pnpm check:bundle` ([Error tracking](#error-tracking)).
+
 ## Boot
 
 `index.html` loads two blocking scripts in its `<head>`, then the bundle:
@@ -118,6 +127,19 @@ naming, not the kebab-case rule the rest of `src/` follows.
 | `/no-access`                                                                | Not signed in: redirect to `/login`. Staff: redirect to Overview.                                                                                         |
 | `/auth/callback`, `/reset-password`, `/verify-email`, `/invitations/accept` | None. The OAuth callback sits outside `_auth`, whose guard would bounce the visitor it has just signed in.                                                |
 | `/$`                                                                        | None. The splat route renders `RouteNotFound` inside its own `<main>`.                                                                                    |
+
+The Settings area is `/settings` and its pages under `/_app`, so the staff
+guard covers them: `/settings` (a landing page listing every section),
+`/settings/account/profile`, `/settings/account/security`,
+`/settings/platform/staff`, `/settings/platform/flags` and
+`/settings/platform/maintenance`. The layout, `src/pages/_app/settings.tsx`,
+renders each page's one `h1` from the active section, so the pages render
+`h2`s only. Each platform page keeps its own role gate; none is hidden by role.
+The old paths redirect in `beforeLoad` with
+`redirect({ to, search: true, hash: true, replace: true })`, so a bookmark
+keeps its query and hash (a flags evaluation's `?userId=` included): `/profile`,
+`/staff`, `/flags` and `/maintenance` go to their settings page,
+`/settings/account` to Profile and `/settings/platform` to Staff.
 
 The guards read the auth store directly, and that is sound because the root
 route's `beforeLoad` has already awaited the session restore; a guard in a
@@ -277,16 +299,30 @@ breadcrumbs, the ⌘K search and, from `md` up, the theme toggle. It holds:
 - **The navigation**, from `src/constants/navigation.ts`: one typed list of
   pages, each with its sidebar group, the least platform role that sees it
   and an optional boolean flag. The sidebar groups it (`navGroupsFor`) and
-  the command palette lists it (`navItemsFor`), so a new page is an entry
-  there, a `ROUTES` entry (`src/constants/routes.ts`), a member of the
+  the command palette lists it (`navItemsFor`), so a new main-nav page is an
+  entry there, a `ROUTES` entry (`src/constants/routes.ts`), a member of the
   `NavPath` union and a file under `src/pages/_app/`. An item above the
   user's role, or behind a flag that is off, is absent rather than disabled.
   `NavMain` (`src/components/layouts/nav-main.tsx`) renders each section with
   a label that folds it away. Every section starts open, the one holding the
   current page cannot be folded, and collapsed to icons every item shows.
+  Below it, the bottom group (`NavSecondary`) holds one item, Settings.
+- **The settings nav.** `src/constants/settings.ts` is the source of truth
+  for the settings pages: `SETTINGS_GROUPS` (Account, Platform) and
+  `SETTINGS_SECTIONS` (each page's path, label, description and icon). It
+  drives the settings nav, the `/settings` landing page, the settings
+  layout's `h1` and the palette's settings pages, so a new settings page is
+  an entry there, a member of the `SettingsPath` union and a route under
+  `src/pages/_app/settings/`. On `/settings/*` the sidebar's content swaps
+  from `NavMain` and the bottom group to `NavSettings`
+  (`src/components/layouts/nav-settings.tsx`): Back to console, then each
+  group's sections, listed for every staff role. The brand header and the
+  account menu stay. Every sidebar link, in any of the three navs, closes
+  the phone drawer.
 - **The command palette** (`src/components/features/command-palette.tsx`),
   opened by ⌘K or Ctrl+K or the header's search button through
-  `command-palette.store.ts`. It filters the visible pages itself and asks
+  `command-palette.store.ts`. Its pages are the visible nav items and, for
+  staff, every settings section. It filters them itself and asks
   the API for customer tenants and users once typing stops for 250 ms,
   showing each result list only for the term it was fetched for, so Enter
   never acts on an older term's list. `ui/command.tsx` builds it on Base
@@ -315,8 +351,9 @@ widget that may throw while rendering, such as an Overview chart, sits in a
 
 ## The directory (this app only)
 
-The Directory pages are Tenants, Users and Staff; a tenant and a user each
-have a detail page with their own sub-pages.
+The Directory pages are Tenants and Users, with Staff under Settings ›
+Platform; a tenant and a user each have a detail page with their own
+sub-pages.
 
 - **Tenants and Users** are keyset-paged lists from `GET /platform/tenants`
   and `GET /platform/users`, searched with `?q=` and filtered by state or
@@ -331,7 +368,7 @@ have a detail page with their own sub-pages.
   while it is active.
 - **A user's page** (`src/pages/_app/users/$userId.tsx`) reads
   `GET /platform/users/:id`, with Timeline and Errors pages beside it.
-- **Staff** (`src/pages/_app/staff.tsx`) is the platform tenant's own
+- **Staff** (`src/pages/_app/settings/platform.staff.tsx`) is the platform tenant's own
   members and invitations, managed through the same `/tenants/platform/*`
   routes and the same components a tenant's Members and Invitations tabs
   use. `useMyRole` there reads the viewer's platform role.
@@ -676,6 +713,7 @@ request, and the description says what happened there.
 | `e2e/nginx/cors.test.ts`                                                                                                                                                                                                                                           | The CORS seam through nginx; react adds a preflight for its stream                                                     |
 | `src/components/features/profile/security-section.tsx` and its test                                                                                                                                                                                                | One sign-out-other-sessions section                                                                                    |
 | `src/schemas/changed-fields.schemas.ts`, `src/hooks/use-changed-fields.ts`, `tests/unit/hooks/use-changed-fields.test.tsx`                                                                                                                                         | Changed-field edit forms; each app keeps its own schema test                                                           |
+| `src/hooks/use-now.ts`, `tests/unit/hooks/use-now.test.ts`                                                                                                                                                                                                         | One shared ticking clock, so every relative time moves on while a page stays open; byte for byte                       |
 | `scripts/check-bundle.mjs`, except `ENTRY_BUDGET_BYTES` (each app's measured budget)                                                                                                                                                                               | One first-visit budget check; the budgets differ                                                                       |
 | `eslint.config.js`'s shared conventions                                                                                                                                                                                                                            | Same conventions; each app adds its own import restrictions and file lists                                             |
 

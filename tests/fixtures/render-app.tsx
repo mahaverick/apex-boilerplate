@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-router'
 import { render } from '@testing-library/react'
 import { resetSessionForTests } from '@/http/session'
-import { queryClient } from '@/router'
+import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 import { testUser } from '@/tests/mocks/handlers'
@@ -50,6 +50,7 @@ export function renderAppAt(path: string): AnyRouter & { unmount: () => void } {
   const router = createRouter({
     routeTree,
     context: { queryClient },
+    ...ROUTER_DEFAULTS,
     history: createMemoryHistory({ initialEntries: [path] }),
   })
   const { unmount } = render(

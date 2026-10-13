@@ -7,7 +7,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -57,7 +57,10 @@ function renderPalette() {
     '/tenants',
     '/activity',
     '/users',
-    '/staff',
+    '/settings/platform/staff',
+    '/settings/platform/flags',
+    '/settings/platform/maintenance',
+    '/settings/account/security',
     '/users/$userId',
     '/tenants/$tenantId',
   ].map((path) =>
@@ -125,6 +128,38 @@ describe('CommandPalette', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
     expect(useCommandPaletteStore.getState().open).toBe(false)
+  })
+
+  it.each([
+    ['maint', 'Maintenance', '/settings/platform/maintenance'],
+    ['staff', 'Staff', '/settings/platform/staff'],
+    ['flags', 'Feature flags', '/settings/platform/flags'],
+    ['secur', 'Security', '/settings/account/security'],
+  ])('offers a viewer the settings page for "%s" and opens it', async (term, label, path) => {
+    const user = userEvent.setup()
+    const router = renderPalette()
+    await screen.findByRole('heading', { name: '/overview' })
+    await user.keyboard('{Control>}k{/Control}')
+
+    await user.keyboard(term)
+    await user.click(await screen.findByRole('option', { name: label }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe(path))
+    expect(useCommandPaletteStore.getState().open).toBe(false)
+  })
+
+  // A session whose platform role dropped to null sees no pages at all, settings included, as the nav does.
+  it('lists no pages, settings included, when the user is not staff', async () => {
+    useAuthStore.setState({ user: { ...testUser, platformRole: null } })
+    const user = userEvent.setup()
+    renderPalette()
+    await screen.findByRole('heading', { name: '/overview' })
+    await user.keyboard('{Control>}k{/Control}')
+
+    const palette = await screen.findByRole('dialog', { name: 'Command palette' })
+    expect(within(palette).queryAllByRole('option')).toEqual([])
+    await user.keyboard('staff')
+    expect(within(palette).queryByRole('option', { name: 'Staff' })).not.toBeInTheDocument()
   })
 
   it('finds a tenant through the API and opens its page', async () => {

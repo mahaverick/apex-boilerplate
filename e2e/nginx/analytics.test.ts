@@ -522,8 +522,8 @@ test.describe('analytics end to end, through express', () => {
       [`/tenants/${tenantId}/onboarding`, tenantName],
       [`/tenants/${tenantId}/activity`, tenantName],
       ['/activity', 'Activity'],
-      ['/staff', 'Staff'],
-      ['/profile', 'Profile'],
+      ['/settings/platform/staff', 'Staff'],
+      ['/settings/account/profile', 'Profile'],
     ] as const) {
       await visit(page, url, heading, needles)
     }
@@ -647,9 +647,9 @@ test.describe('analytics end to end, through express', () => {
     await expect
       .poll(identified, { intervals: [500], timeout: 30_000 })
       .toEqual([userA.id, userB.id])
-    await page.goto('/profile')
+    await page.goto('/settings/account/profile')
     await expect(page.getByRole('heading', { level: 1, name: 'Profile' })).toBeVisible()
-    await expect.poll(() => sawPageview(fake, '/profile')).toBe(true)
+    await expect.poll(() => sawPageview(fake, '/settings/account/profile')).toBe(true)
     const browser = fake.events().filter((event) => event.path !== '/batch/')
     const identifyB = browser.findIndex(
       (event) => event.event === '$identify' && event.distinctId === userB.id

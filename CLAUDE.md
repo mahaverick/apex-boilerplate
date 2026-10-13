@@ -37,9 +37,12 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   Staff page included, sends none.
 - **`src/constants/roles.ts` mirrors express's role rules.** Change both repos
   together, or the app offers actions the API refuses, or hides ones it allows.
-- **A new page is an entry in `src/constants/navigation.ts`** plus the pieces
-  [The staff shell](ARCHITECTURE.md#the-staff-shell-this-app-only) lists. The
-  sidebar and the command palette both read that list.
+- **A new main-nav page is an entry in `src/constants/navigation.ts`** plus the
+  pieces [The staff shell](ARCHITECTURE.md#the-staff-shell-this-app-only) lists.
+  The sidebar's main nav and the command palette both read that list.
+- Settings pages are declared in `src/constants/settings.ts`; add a page there and
+  as a route under `src/pages/_app/settings/`. Main-nav pages stay in
+  `src/constants/navigation.ts`.
 - **An audited read never fetches on its own.** The timelines, the Errors pages
   and a flag evaluation set no retry, no refetch on focus or reconnect, and
   `gcTime: 0`. The API audits each read and may spend PostHog query budget on it

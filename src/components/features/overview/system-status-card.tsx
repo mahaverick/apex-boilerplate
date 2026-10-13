@@ -9,6 +9,7 @@ import {
   MAINTENANCE_MODE_LABELS,
   MAINTENANCE_PAUSE_SETTLE_MS,
 } from '@/constants/maintenance-mode.constants'
+import { useNow } from '@/hooks/use-now'
 import { queueLine } from '@/lib/maintenance-mode'
 import { relativeTime } from '@/lib/relative-time'
 import { isRoleDenied, systemStatusQueryOptions } from '@/queries/platform.queries'
@@ -73,6 +74,7 @@ function flagCounts(counts: FlagsStatus['counts']): string {
 
 /** The feature flags section: state, when definitions were checked and last changed, counts and the last failed fetch. */
 function FlagsFacts({ flags }: { flags: FlagsStatus }) {
+  const now = useNow()
   return (
     <div className="grid gap-2">
       <h3 className="text-sm font-medium">Feature flags</h3>
@@ -93,7 +95,7 @@ function FlagsFacts({ flags }: { flags: FlagsStatus }) {
               {flags.checkedAt === null ? (
                 'Not yet'
               ) : (
-                <time dateTime={flags.checkedAt}>{relativeTime(flags.checkedAt)}</time>
+                <time dateTime={flags.checkedAt}>{relativeTime(flags.checkedAt, now)}</time>
               )}
               {flags.stale && <span className="text-muted-foreground"> (stale)</span>}
             </dd>
@@ -102,7 +104,7 @@ function FlagsFacts({ flags }: { flags: FlagsStatus }) {
               {flags.snapshotAt === null ? (
                 'None yet'
               ) : (
-                <time dateTime={flags.snapshotAt}>{relativeTime(flags.snapshotAt)}</time>
+                <time dateTime={flags.snapshotAt}>{relativeTime(flags.snapshotAt, now)}</time>
               )}
             </dd>
             <dt className="text-muted-foreground">Flags</dt>
@@ -205,6 +207,7 @@ function MaintenanceFacts({
   maintenance: MaintenanceModeStatus
   fetchedAt: number
 }) {
+  const now = useNow()
   return (
     <div className="grid gap-2">
       <h3 className="text-sm font-medium">Maintenance mode</h3>
@@ -234,7 +237,7 @@ function MaintenanceFacts({
           <>
             <dt className="text-muted-foreground">Since</dt>
             <dd>
-              <time dateTime={maintenance.since}>{relativeTime(maintenance.since)}</time>
+              <time dateTime={maintenance.since}>{relativeTime(maintenance.since, now)}</time>
             </dd>
           </>
         )}
@@ -275,6 +278,7 @@ function MaintenanceFacts({
 
 /** The status as description lists; the flags and maintenance sections appear only when the API sent them. */
 function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: number }) {
+  const now = useNow()
   const tracking = status.errorTracking
   const dropped = DROP_REASONS.filter((reason) => tracking.dropped[reason] > 0)
   const droppedTotal = dropped.reduce((sum, reason) => sum + tracking.dropped[reason], 0)
@@ -318,7 +322,7 @@ function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: n
           {tracking.lastSendOkAt === null ? (
             'None in the last 24 hours'
           ) : (
-            <time dateTime={tracking.lastSendOkAt}>{relativeTime(tracking.lastSendOkAt)}</time>
+            <time dateTime={tracking.lastSendOkAt}>{relativeTime(tracking.lastSendOkAt, now)}</time>
           )}
         </dd>
         {tracking.lastSendError !== null && (
@@ -350,6 +354,7 @@ function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: n
  * saying when it was loaded.
  */
 export function SystemStatusCard() {
+  const now = useNow()
   const status = useQuery(systemStatusQueryOptions())
   if (status.isError && isRoleDenied(status.error)) return null
   return (
@@ -367,7 +372,7 @@ export function SystemStatusCard() {
               <StatusFacts status={status.data} fetchedAt={status.dataUpdatedAt} />
               <p className="mt-3 text-xs text-muted-foreground">
                 Could not refresh; showing the status loaded{' '}
-                {relativeTime(new Date(status.dataUpdatedAt).toISOString())}.
+                {relativeTime(new Date(status.dataUpdatedAt).toISOString(), now)}.
               </p>
             </>
           ) : status.isError ? (

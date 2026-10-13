@@ -114,18 +114,22 @@ async function userIdOf(token: string, email: string): Promise<string> {
   return users.find((user) => user.email === email)!.id
 }
 
-test('a viewer sees the flag registry with no Evaluate form', async ({ page }) => {
+test('a viewer sees the flag registry with a note in place of the Evaluate form', async ({
+  page,
+}) => {
   const email = freshEmail()
   await createVerifiedUser(email)
   await grantPlatformRole(email, 'viewer')
   await logIn(page, email)
 
-  await page.goto('/flags')
+  await page.goto('/settings/platform/flags')
   await expect(page.getByRole('heading', { name: 'Feature flags', level: 1 })).toBeVisible()
   const registry = page.getByRole('table', { name: 'Registered flags', exact: true })
   await expect(registry.getByRole('row').nth(1)).toBeVisible()
   await expect(page.getByRole('region', { name: 'Traits reference' })).toBeVisible()
-  await expect(page.getByRole('region', { name: 'Evaluate' })).toHaveCount(0)
+  const evaluate = page.getByRole('region', { name: 'Evaluate' })
+  await expect(evaluate.getByText('Admins can evaluate flags for a user.')).toBeVisible()
+  await expect(evaluate.getByRole('searchbox')).toHaveCount(0)
 })
 
 test('an admin evaluates one user twice and the Activity log records it once', async ({ page }) => {
@@ -140,7 +144,7 @@ test('an admin evaluates one user twice and the Activity log records it once', a
   const subjectId = await userIdOf(token, subject)
   await logIn(page, admin)
 
-  await page.goto(`/flags?userId=${subjectId}&app=react`)
+  await page.goto(`/settings/platform/flags?userId=${subjectId}&app=react`)
   const panel = page.getByRole('region', { name: 'Evaluate' })
   await expect(panel.getByRole('table', { name: 'Evaluation' })).toBeVisible()
 
