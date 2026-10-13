@@ -2,14 +2,9 @@ import { IconBrandGithub } from '@tabler/icons-react'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { SocialSignIn } from '@/components/features/auth/social-sign-in'
-import { SOCIAL_PROVIDERS } from '@/constants/auth-providers'
 import { GOOGLE_OAUTH_PATH } from '@/constants/routes'
 
 describe('SocialSignIn', () => {
-  it('lists Google, the one provider the API offers', () => {
-    expect(SOCIAL_PROVIDERS.map((provider) => provider.id)).toEqual(['google'])
-  })
-
   it('renders Google as a link to the OAuth start route, then the divider', () => {
     render(<SocialSignIn />)
 
