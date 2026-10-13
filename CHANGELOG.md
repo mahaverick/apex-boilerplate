@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/mahaverick/apex-boilerplate/compare/v2.0.0...v2.0.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* close the open follow-ups (callback error log, canvas pin, pii masks, scrubber port) ([#48](https://github.com/mahaverick/apex-boilerplate/issues/48)) ([caffa74](https://github.com/mahaverick/apex-boilerplate/commit/caffa7441ee0f923f58d7fd68e17c423cd7bbffb))
+
 ## [2.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.10.3...v2.0.0) (2026-10-12)
 
 
