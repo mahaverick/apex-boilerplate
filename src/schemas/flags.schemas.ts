@@ -12,7 +12,7 @@ export const FLAG_EVALUATE_APPS = ['react', 'apex'] as const satisfies readonly 
 /** A record id; express validates these as UUIDs, so anything else is no choice. */
 const id = z.uuid().optional().catch(undefined)
 
-/** `/flags` search: the user, their tenant and the app to evaluate; the app defaults to the customer app. */
+/** The Feature flags page's search: the user, their tenant and the app to evaluate; the app defaults to the customer app. */
 export const flagsSearchSchema = z.object({
   userId: id,
   tenantId: id,

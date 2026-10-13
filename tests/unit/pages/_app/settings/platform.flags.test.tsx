@@ -286,6 +286,7 @@ describe('/settings/platform/flags', () => {
     expect(
       await screen.findByText('We could not load the flags. This is not a sign they are off.')
     ).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByRole('table', { name: 'Registered flags' })).toBeInTheDocument()
   })
@@ -294,6 +295,7 @@ describe('/settings/platform/flags', () => {
     serve(() => fail('Not found', 404))
     renderAppAt('/settings/platform/flags')
     expect(await screen.findByText(/Your role can’t see this any more/)).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 })
 

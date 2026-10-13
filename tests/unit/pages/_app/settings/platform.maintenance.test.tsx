@@ -125,6 +125,7 @@ describe('/settings/platform/maintenance', () => {
     server.use(http.get('/api/v1/platform/maintenance-mode', () => fail('Not found', 404)))
     renderAppAt('/settings/platform/maintenance')
     expect(await screen.findByText(/Your role can’t see this any more/)).toBeVisible()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 
   it('switches on through the guard: mode, message with preview, reason, typed environment, step-up', async () => {
