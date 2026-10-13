@@ -563,11 +563,30 @@ describe('signed-in pages', () => {
         await screen.findByText(testSystemStatus.release)
       },
     ],
-    ['profile', '/settings/account/profile', () => screen.findByLabelText('First name')],
+    // The settings layout renders each page's one h1 from the active section; name it, so a 404's h1 cannot pass.
+    [
+      'settings',
+      '/settings',
+      async () => {
+        await screen.findByRole('heading', { name: 'Settings', level: 1 })
+        await screen.findByRole('region', { name: 'Platform' })
+      },
+    ],
+    [
+      'profile',
+      '/settings/account/profile',
+      async () => {
+        await screen.findByRole('heading', { name: 'Profile', level: 1 })
+        await screen.findByLabelText('First name')
+      },
+    ],
     [
       'security',
       '/settings/account/security',
-      () => screen.findByRole('button', { name: 'Change password' }),
+      async () => {
+        await screen.findByRole('heading', { name: 'Security', level: 1 })
+        await screen.findByRole('button', { name: 'Change password' })
+      },
     ],
     [
       'invitation accept',
@@ -690,6 +709,7 @@ describe('signed-in pages', () => {
   it('staff has no axe violations', async () => {
     serveStaff()
     renderAppAt('/settings/platform/staff')
+    await screen.findByRole('heading', { name: 'Staff', level: 1 })
     await screen.findByText('Cleo D')
     await screen.findByText('No invitations are waiting to be accepted.')
     await expectNoViolations()
@@ -913,7 +933,8 @@ describe('signed-in pages', () => {
       http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')),
       http.get('/api/v1/platform/flags/evaluate', () => ok(flagsEvaluation(), 'Flags evaluated.'))
     )
-    renderAppAt(`/flags?userId=${USER_ID_2}`)
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
+    await screen.findByRole('heading', { name: 'Feature flags', level: 1 })
     await screen.findByRole('table', { name: 'Evaluation' })
     await screen.findByRole('table', { name: 'Unregistered flags' })
     await expectNoViolations()
@@ -932,6 +953,7 @@ describe('signed-in pages', () => {
       )
     )
     renderAppAt('/settings/platform/flags')
+    await screen.findByRole('heading', { name: 'Feature flags', level: 1 })
     await screen.findByText(
       'Feature flags are not set up for this environment, so every flag serves its fallback.'
     )
@@ -1946,6 +1968,7 @@ describe('maintenance', () => {
   it('the page in full maintenance has no axe violations', async () => {
     serveMaintenance()
     renderAppAt('/settings/platform/maintenance')
+    await screen.findByRole('heading', { name: 'Maintenance', level: 1 })
     await screen.findByRole('list', { name: 'Queues' })
     await screen.findByRole('button', { name: 'Turn off…' })
     await expectNoViolations()

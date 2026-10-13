@@ -110,7 +110,7 @@ test('full maintenance puts a red banner on every staff page, linking to the pag
 
 test('the maintenance page and its dialog do not scroll sideways at 390px', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/e2e/harness/?path=/maintenance&maintenance=full&role=owner')
+  await page.goto('/e2e/harness/?path=/settings/platform/maintenance&maintenance=full&role=owner')
   await expect(page.getByRole('list', { name: 'Queues' })).toBeVisible()
   expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0)
   await page.getByRole('button', { name: 'Switch to read-only…' }).click()
@@ -123,7 +123,7 @@ test('an owner switches customers to full through the typed confirmation and the
   page,
 }) => {
   const bodies = await routeMaintenance(page)
-  await page.goto('/e2e/harness/?path=/maintenance&maintenance=route&role=owner')
+  await page.goto('/e2e/harness/?path=/settings/platform/maintenance&maintenance=route&role=owner')
   await page.getByRole('button', { name: 'Turn on maintenance…' }).click()
   const dialog = page.getByRole('dialog', { name: 'Turn on maintenance' })
   await dialog.getByRole('radio', { name: /^Full/ }).check()
@@ -154,7 +154,7 @@ test('an owner switches customers to full through the typed confirmation and the
 })
 
 test('a viewer reads the state but gets no controls', async ({ page }) => {
-  await page.goto('/e2e/harness/?path=/maintenance&maintenance=full&role=viewer')
+  await page.goto('/e2e/harness/?path=/settings/platform/maintenance&maintenance=full&role=viewer')
   await expect(page.getByText('Only a platform owner can change maintenance mode.')).toBeVisible()
   await expect(page.getByRole('button', { name: /Turn off|Switch to|Edit message/ })).toHaveCount(0)
 })

@@ -134,7 +134,7 @@ test('a staff invitation from the Staff page mails a link that opens Apex', asyn
   const invitee = freshEmail()
   await createVerifiedUser(invitee)
 
-  await page.goto('/staff')
+  await page.goto('/settings/platform/staff')
   const form = page
     .locator('form')
     .filter({ has: page.getByRole('button', { name: 'Invite member' }) })

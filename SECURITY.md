@@ -541,7 +541,7 @@ Maintenance page; every staff role can read it.
 
 - **The controls are the owner's; the API is the gate.** The page shows the
   change and switch-off buttons only to a platform owner
-  (`src/pages/_app/maintenance.tsx`). The change is
+  (`src/pages/_app/settings/platform.maintenance.tsx`). The change is
   `PUT /platform/maintenance-mode`, run through step-up
   (`useChangeMaintenanceMode` in `src/queries/maintenance-mode.queries.ts`).
 - **Switching on or escalating asks the most.** Going from off to any mode,
@@ -571,7 +571,7 @@ Maintenance page; every staff role can read it.
   `reason: null`, which clears the stored one
   (`src/schemas/maintenance-mode.schemas.ts`).
 - **Where they render.** Both render as text inside `<Pii>` on the
-  Maintenance page (`src/pages/_app/maintenance.tsx`), and the message also
+  Maintenance page (`src/pages/_app/settings/platform.maintenance.tsx`), and the message also
   in the change dialog's customer preview
   (`src/components/features/maintenance/maintenance-preview.tsx`). The
   banner on every staff page and the conflict sentence show neither: they

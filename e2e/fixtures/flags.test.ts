@@ -6,8 +6,8 @@ import { sidewaysOverflow } from '../layout'
  * flags section in a real browser, through the harness: the registry,
  * unregistered flags and traits render with their badges and PostHog links,
  * an admin's evaluation explains each value (a holdout user included), an
- * unconfigured environment says so, a viewer gets no evaluation, and nothing
- * scrolls sideways at 390px.
+ * unconfigured environment says so, a viewer gets a note in place of the
+ * evaluation, and nothing scrolls sideways at 390px.
  */
 
 const CLEO = '20000000-0000-4000-8000-000000000002'
@@ -17,7 +17,7 @@ const ACME_FLAGS = `/tenants/${ACME}/flags`
 test('the flags page lists the registry, PostHog’s unregistered flags and the traits', async ({
   page,
 }) => {
-  await page.goto('/e2e/harness/?path=/flags')
+  await page.goto('/e2e/harness/?path=/settings/platform/flags')
   await expect(page.getByRole('heading', { name: 'Feature flags', level: 1 })).toBeVisible()
   const registry = page.getByRole('table', { name: 'Registered flags', exact: true })
   await expect(registry.getByRole('row')).toHaveCount(4)
@@ -38,7 +38,7 @@ test('the flags page lists the registry, PostHog’s unregistered flags and the 
 })
 
 test('an admin’s evaluation explains each value, the holdout included', async ({ page }) => {
-  await page.goto(`/e2e/harness/?path=/flags?userId=${CLEO}&tenantId=${ACME}`)
+  await page.goto(`/e2e/harness/?path=/settings/platform/flags?userId=${CLEO}&tenantId=${ACME}`)
   const panel = page.getByRole('region', { name: 'Evaluate' })
   const table = panel.getByRole('table', { name: 'Evaluation' })
   await expect(table.getByRole('row')).toHaveCount(4)
@@ -50,7 +50,7 @@ test('an admin’s evaluation explains each value, the holdout included', async 
 })
 
 test('the flags page says when flags are not set up, with no PostHog links', async ({ page }) => {
-  await page.goto('/e2e/harness/?path=/flags&flags=unconfigured')
+  await page.goto('/e2e/harness/?path=/settings/platform/flags&flags=unconfigured')
   await expect(
     page.getByText(
       'Feature flags are not set up for this environment, so every flag serves its fallback.'
@@ -60,20 +60,24 @@ test('the flags page says when flags are not set up, with no PostHog links', asy
   await expect(page.getByText('None. Every PostHog flag is registered.')).toBeVisible()
 })
 
-test('a viewer gets the inspector but no evaluation, and never asks for one', async ({ page }) => {
+test('a viewer gets the inspector and a note in place of the evaluation, and never asks for one', async ({
+  page,
+}) => {
   let asked = 0
   page.on('request', (request) => {
     if (new URL(request.url()).pathname.endsWith('/flags/evaluate')) asked += 1
   })
-  await page.goto(`/e2e/harness/?path=/flags?userId=${CLEO}&role=viewer`)
+  await page.goto(`/e2e/harness/?path=/settings/platform/flags?userId=${CLEO}&role=viewer`)
   await expect(page.getByRole('table', { name: 'Registered flags', exact: true })).toBeVisible()
-  await expect(page.getByRole('region', { name: 'Evaluate' })).toHaveCount(0)
+  const evaluate = page.getByRole('region', { name: 'Evaluate' })
+  await expect(evaluate.getByText('Admins can evaluate flags for a user.')).toBeVisible()
+  await expect(evaluate.getByRole('searchbox')).toHaveCount(0)
   // The section is gated on the role before its query mounts; the loaded registry is the barrier.
   expect(asked).toBe(0)
 })
 
 for (const [name, path] of [
-  ['the flags page', `/flags?userId=${CLEO}&tenantId=${ACME}`],
+  ['the flags page', `/settings/platform/flags?userId=${CLEO}&tenantId=${ACME}`],
   ['a tenant’s Flags tab', `${ACME_FLAGS}?userId=${CLEO}`],
 ] as const) {
   test(`${name} does not scroll sideways at 390px`, async ({ page }) => {

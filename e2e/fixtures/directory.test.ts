@@ -19,7 +19,7 @@ for (const [name, path, ready] of [
   ['users', '/users', 'Users'],
   ['a user', CLEO_PAGE, 'Cleo D'],
   ['a deleted user', DELETED_PAGE, 'Evangeline Featherstonehaugh'],
-  ['staff', '/staff', 'Staff'],
+  ['staff', '/settings/platform/staff', 'Staff'],
   ['activity', '/activity', 'Activity'],
   ['tenants', '/tenants', 'Tenants'],
   ['tenants filtered to suspended', '/tenants?state=suspended', 'Tenants'],
