@@ -919,6 +919,108 @@ test.describe('onboarding funnel', () => {
 })
 
 /**
+ * The toasts, graded at the toast: the popover surface with a status border and
+ * icon, which no page entry renders. axe grades the text; the icon and the
+ * border are non-text marks it never grades, so they are measured here, and
+ * held to the 4.5:1 their tokens were chosen for on `--popover`. The error
+ * toast comes from an OAuth `?error=` on sign-in, the success toast from
+ * signing out other sessions on the harness's Security page. No warning toast
+ * is reachable through the harness: its raises need an answer it does not
+ * mock (an email that was not sent, a maintenance change that stored nothing).
+ */
+test.describe('toasts', () => {
+  const TOASTS = [
+    {
+      name: 'error toast',
+      url: '/login?error=google_auth_failed',
+      title: 'Google sign-in failed. Please try again.',
+      raise: async () => {},
+    },
+    {
+      name: 'success toast',
+      url: '/e2e/harness/?path=/settings/account/security',
+      title: 'Signed out 2 other sessions.',
+      raise: async (page: Page) => {
+        await page
+          .getByRole('button', { name: 'Sign out other sessions' })
+          .click({ timeout: COLD_TRANSFORM_BUDGET_MS })
+      },
+    },
+  ] as const
+
+  for (const theme of THEMES) {
+    for (const entry of TOASTS) {
+      test(`the ${entry.name} meets WCAG AA contrast in ${theme}`, async ({ page }) => {
+        await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+        await page.goto(entry.url)
+        await entry.raise(page)
+        const item = page.getByRole('dialog', { name: entry.title })
+        await expect(item).toBeVisible({ timeout: COLD_TRANSFORM_BUDGET_MS })
+
+        await afterAnimations(item)
+        await afterFontsAndFrames(page)
+        await page.addScriptTag({ path: AXE_PATH })
+
+        const result = await runAxe(page, '[data-slot="toast"]')
+        expect(report(entry.name, theme, result), report(entry.name, theme, result)).toBe('')
+
+        const marks = await item.evaluate((toast) => {
+          const canvas = document.createElement('canvas')
+          canvas.width = 1
+          canvas.height = 1
+          const context = canvas.getContext('2d', { willReadFrequently: true })!
+          /** The sRGB bytes of `colours` painted in order over the page background. */
+          const paint = (...colours: string[]) => {
+            context.clearRect(0, 0, 1, 1)
+            for (const colour of [getComputedStyle(document.body).backgroundColor, ...colours]) {
+              context.fillStyle = colour
+              context.fillRect(0, 0, 1, 1)
+            }
+            return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)]
+          }
+          /** The relative luminance of an sRGB colour, as WCAG defines it. */
+          const luminance = (rgb: number[]) => {
+            const [r, g, b] = rgb.map((byte) => {
+              const c = byte / 255
+              return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+            })
+            return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+          }
+          /** The WCAG contrast ratio between two luminances. */
+          const ratio = (a: number, b: number) => {
+            const [lighter, darker] = [a, b].sort((x, y) => y - x)
+            return (lighter! + 0.05) / (darker! + 0.05)
+          }
+          const surface = getComputedStyle(toast).backgroundColor
+          const surfaceLuminance = luminance(paint(surface))
+          const icon = toast.querySelector('[data-slot="toast-icon"] svg')!
+          return [
+            {
+              mark: 'icon',
+              ratio: ratio(
+                luminance(paint(surface, getComputedStyle(icon).color)),
+                surfaceLuminance
+              ),
+            },
+            {
+              mark: 'border',
+              ratio: ratio(
+                luminance(paint(surface, getComputedStyle(toast).borderTopColor)),
+                surfaceLuminance
+              ),
+            },
+          ]
+        })
+        const faint = marks
+          .filter(({ ratio }) => ratio < TEXT_MINIMUM)
+          .map(({ mark, ratio }) => `${mark} is ${ratio.toFixed(2)}:1 on the toast`)
+        expect(faint, `${entry.name} marks under ${TEXT_MINIMUM}:1 in ${theme}`).toEqual([])
+      })
+    }
+  }
+})
+
+/**
  * The suite's own isolation. Without the fallback in `../hermetic` this
  * refresh goes through the Vite proxy: `answered` stays empty, and the
  * fixture's teardown reports the unstamped response.
