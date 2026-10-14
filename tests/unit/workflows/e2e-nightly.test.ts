@@ -1,0 +1,54 @@
+// @vitest-environment node
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+/**
+ * .github/workflows/e2e-nightly.yml, read as text. A run is the real check;
+ * these pin the lines a quiet edit could break with every run still green.
+ */
+const ROOT = path.resolve(import.meta.dirname, '../../..')
+const WORKFLOW = readFileSync(path.join(ROOT, '.github/workflows/e2e-nightly.yml'), 'utf8')
+
+describe('e2e-nightly.yml', () => {
+  it('reads exercise_issue once, as none when absent, since a schedule run has no inputs', () => {
+    expect(WORKFLOW).toContain("EXERCISE: ${{ inputs.exercise_issue || 'none' }}")
+    expect(WORKFLOW.match(/inputs\.exercise_issue/g)).toHaveLength(1)
+  })
+
+  it('touches issues only from main, unless exercise_issue asks', () => {
+    expect(WORKFLOW).toContain(
+      "if: always() && (env.EXERCISE != 'none' || github.ref == 'refs/heads/main')"
+    )
+  })
+
+  it('runs both suites whatever the other did, once the API is up', () => {
+    expect(
+      WORKFLOW.match(
+        /if: always\(\) && env\.EXERCISE == 'none' && steps\.api\.outcome == 'success'/g
+      )
+    ).toHaveLength(2)
+  })
+
+  it('names the compose project backdateStepUp reaches from E2E_API_DIR', () => {
+    expect(WORKFLOW).toContain('COMPOSE_PROJECT_NAME=e2e')
+    expect(WORKFLOW).toContain('E2E_API_DIR: ${{ github.workspace }}/express')
+  })
+
+  it('runs express on local with scaled rate limits, the default CORS list and analytics off', () => {
+    expect(WORKFLOW).toContain('APP_ENV=local')
+    expect(WORKFLOW).toContain('RATE_LIMIT_SCALE=10')
+    expect(WORKFLOW).not.toContain('CORS_ALLOWED_ORIGINS=')
+    expect(WORKFLOW).not.toContain('POSTHOG_')
+  })
+
+  it('gives every step an id, so a failure there is named in the issue', () => {
+    const steps = WORKFLOW.split('\n    steps:\n')[1]!
+      .split(/^ {6}- /m)
+      .slice(1)
+    expect(steps.length).toBeGreaterThan(10)
+    for (const step of steps) {
+      expect(step, step.split('\n')[0]).toMatch(/^id: [a-z][a-z0-9-]*$|^\s+id: [a-z][a-z0-9-]*$/m)
+    }
+  })
+})

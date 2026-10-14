@@ -261,12 +261,12 @@ rules are in [CLAUDE.md](CLAUDE.md#accessibility).
 
 Playwright has four projects in `e2e/`:
 
-| Project    | Command               | Runs against                                        | In CI                    |
-| ---------- | --------------------- | --------------------------------------------------- | ------------------------ |
-| `fixtures` | `pnpm test:e2e`       | The real router and CSS, with MSW answering; no API | Yes                      |
-| `live`     | `pnpm test:e2e:live`  | A real express and its services, with `E2E_LIVE=1`  | No                       |
-| `nginx`    | `pnpm test:e2e:nginx` | The production image on :8088                       | Only the `@no-api` tests |
-| `contrast` | `pnpm test:contrast`  | The harness, in both themes; no API                 | No                       |
+| Project    | Command               | Runs against                                        | In CI                         |
+| ---------- | --------------------- | --------------------------------------------------- | ----------------------------- |
+| `fixtures` | `pnpm test:e2e`       | The real router and CSS, with MSW answering; no API | Yes                           |
+| `live`     | `pnpm test:e2e:live`  | A real express and its services, with `E2E_LIVE=1`  | Nightly                       |
+| `nginx`    | `pnpm test:e2e:nginx` | The production image on :8088                       | `@no-api` on PRs; all nightly |
+| `contrast` | `pnpm test:contrast`  | The harness, in both themes; no API                 | No                            |
 
 The `live` and `nginx` projects read these variables (defaults in
 `playwright.config.ts` and the helpers):
@@ -289,6 +289,33 @@ The `live` project needs the express under test to run with
 `APEX_URL=http://localhost:5174` and `WEB_URL=http://localhost:5173`, an email
 worker that delivers to mailpit, and `APP_ENV=local` for the emails suite. The
 harness's traps are in [CLAUDE.md](CLAUDE.md#end-to-end-tests).
+
+### Nightly live and nginx run
+
+`.github/workflows/e2e-nightly.yml` runs the `live` and `nginx` projects every
+night at 02:47 UTC, and on demand from the Actions tab. It checks out this repo
+into `app/` and express-boilerplate's `main` into `express/`, starts Postgres,
+Redis and Mailpit from express's compose file (project `e2e`, which the step-up
+backdating's `docker compose exec` reaches from `E2E_API_DIR`), and express on
+:4040 with `APP_ENV=local` and `RATE_LIMIT_SCALE=10` (one runner IP sends every
+request), then runs `pnpm test:e2e:live` and `pnpm test:e2e:nginx`. Both run
+even when the first fails. It needs no secrets, and the opt-in analytics tests
+stay skipped.
+
+A red run on `main` opens an issue labelled `e2e-nightly`, or comments on the
+open one, with the run link, the failed steps and the express commit under
+test; the next green run closes it. A run on `main` that is cancelled by hand or
+times out counts as a failure too, and opens or comments on the issue. Each run
+uploads an `e2e-nightly` artifact, kept 7 days, with both Playwright reports,
+the test results and express's `api.log`.
+
+A manual run on another branch never touches issues, unless its
+`exercise_issue` input is `fail` or `pass`: then the stack and suites are
+skipped, the outcome is forced to that value, and the issue step runs:
+
+```bash
+gh workflow run e2e-nightly.yml --ref <branch> -f exercise_issue=fail
+```
 
 ## Analytics (PostHog)
 
