@@ -19,7 +19,7 @@ line: `tests/unit/dependency-lock.test.ts` fails on any `@radix-ui/*` package or
 **`src/components/ui/command.tsx` is hand-written on Base UI Autocomplete.** shadcn's
 `command` is built on `cmdk`, which pulls in Radix. A re-pull of the registry file would
 break the dependency lock, so keep the hand-written one. `.prettierignore` names it,
-with `form.tsx` and `sonner.tsx`, as a file prettier formats.
+with `form.tsx`, as a file prettier formats.
 
 ## Selection
 
@@ -57,7 +57,7 @@ The neutrals and the brand colours sit at hue 275 (indigo).
 | `semantic/switch-background`| `--input` (no dedicated variable exists) |
 | `semantic/destructive`      | `--destructive`                          |
 | `semantic/success`          | `--success`                              |
-| `semantic/warning`          | `--warning`                              |
+| `semantic/warning`          | `--warning`, `--warning-strong`          |
 | `semantic/info`             | `--info`                                 |
 | `chart/1` to `chart/5`      | `--chart-1` to `--chart-5`               |
 
@@ -66,6 +66,14 @@ The three status tokens have hues 150 (success), 75 (warning) and 245 (info), an
 (`tone-badge.tsx`, `tenant-state-badge.tsx`, `user-status-badges.tsx`). **Never reach for a
 palette class such as `green-500`; use the token.** `--info` and `--info-foreground` are
 declared, and no component renders them, so they are ungraded until one does.
+
+`--warning` is a fill under dark text, so it is too light to draw with on a light surface
+(2:1 on `--popover`). `--warning-strong` is its ink: the toast's warning border and icon
+(`ui/toast.tsx`) use it, and it is computed at 4.5:1 or better on `--popover` in both
+themes. `--success` and `--destructive` clear that as they are, so the toast uses them
+directly. The contrast suite grades the error and success toasts' text, icon and border in
+both themes; no warning toast is reachable there, so `--warning-strong` is covered only by
+its computed ratio.
 
 `--muted-foreground` is `oklch(0.5 0.03 275)` in light and `oklch(0.74 0.03 275)` in dark. A
 lighter light value fails contrast against `--muted`; `pnpm test:contrast`

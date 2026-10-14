@@ -274,7 +274,7 @@ export default tseslint.config(
   {
     /** One import path for the class merger in our own code; vendored shadcn files keep theirs. */
     files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', 'e2e/**/*.{ts,tsx}'],
-    ignores: ['src/lib/utils.ts', 'src/components/ui/!(form|sonner|command).tsx'],
+    ignores: ['src/lib/utils.ts', 'src/components/ui/!(form|command).tsx'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -290,7 +290,7 @@ export default tseslint.config(
   },
   {
     /** Vendored shadcn files import `cn` from the package, so they are exempt from the `cn` ban only. */
-    files: ['src/components/ui/!(form|sonner|command).tsx'],
+    files: ['src/components/ui/!(form|command).tsx'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -402,21 +402,16 @@ export default tseslint.config(
   },
   {
     /**
-     * The three hand-written files under src/components/ui/: sonner.tsx (the
-     * registry one imports next-themes), form.tsx (the registry one is built on
-     * react-hook-form) and command.tsx (the registry one is built on cmdk,
-     * which pulls in Radix). The rules the vendored
+     * The two hand-written files under src/components/ui/: form.tsx (the
+     * registry one is built on react-hook-form) and command.tsx (the registry
+     * one is built on cmdk, which pulls in Radix). The rules the vendored
      * block turns off come back on at the plugin's recommended severities;
      * `classnames-order` stays off because prettier-plugin-tailwindcss owns
      * ordering. `settings` is repeated because the block that sets
      * `cssConfigPath` ignores this directory, and without it the plugin throws
      * ENOENT on 'src/style.css'.
      */
-    files: [
-      'src/components/ui/sonner.tsx',
-      'src/components/ui/form.tsx',
-      'src/components/ui/command.tsx',
-    ],
+    files: ['src/components/ui/form.tsx', 'src/components/ui/command.tsx'],
     settings: { tailwindcss: { cssConfigPath: './src/styles/globals.css' } },
     rules: {
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
@@ -426,8 +421,7 @@ export default tseslint.config(
       'tailwindcss/important-modifier-suffix': 'warn',
       'tailwindcss/no-arbitrary-value': 'off',
       'tailwindcss/no-contradicting-classname': 'error',
-      /** `toaster` is a marker class that sonner.tsx sets beside `group`; no Tailwind class defines it. */
-      'tailwindcss/no-custom-classname': ['warn', { whitelist: ['toaster'] }],
+      'tailwindcss/no-custom-classname': 'warn',
       'tailwindcss/no-unnecessary-arbitrary-value': 'warn',
     },
   },
@@ -438,7 +432,7 @@ export default tseslint.config(
      * them, and their JSDoc must be checked too.
      */
     files: ['**/*.{ts,tsx,js,mjs}', 'scripts/**/*.d.mts'],
-    ignores: ['src/components/ui/!(form|sonner|command).tsx'],
+    ignores: ['src/components/ui/!(form|command).tsx'],
     plugins: { local: { rules: { 'comment-style': commentStyleRule } } },
     rules: { 'local/comment-style': 'error' },
   },
@@ -472,7 +466,7 @@ export default tseslint.config(
   },
   {
     // Vendored shadcn/Base UI output stays as upstream ships it.
-    files: ['src/components/ui/!(form|sonner|command).tsx'],
+    files: ['src/components/ui/!(form|command).tsx'],
     rules: { 'jsdoc/require-jsdoc': 'off', 'jsdoc/require-description': 'off' },
   },
   prettier

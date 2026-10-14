@@ -1,9 +1,9 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { toast } from 'sonner'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
+import { toast } from '@/lib/toast'
 import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
 import { byContent } from '@/tests/fixtures/content'
@@ -187,7 +187,7 @@ const realInnerWidth = window.innerWidth
 /** Finds the toast whose text reads `text`, whether or not part of it sits in its own element. */
 function findToast(text: string) {
   return waitFor(() => {
-    const toasts = [...document.querySelectorAll('[data-sonner-toast] [data-title]')]
+    const toasts = [...document.querySelectorAll('[data-slot="toast"] [data-slot="toast-title"]')]
     expect(toasts.map((t) => t.textContent)).toContain(text)
   })
 }
@@ -1014,7 +1014,10 @@ describe('inviting, and the pending invitations', () => {
     // The 202 is the same for every address, so the toast names the address sent.
     await findToast('Invitation sent to new-member@example.com.')
     expect(body).toEqual({ email: 'new-member@example.com', role: 'viewer' })
-    expect(await screen.findByText('new-member@example.com')).toBeInTheDocument()
+    // Asked by the row's own control: the toast names the same address, so a text query would match both.
+    expect(
+      await screen.findByRole('button', { name: 'Revoke invitation to new-member@example.com' })
+    ).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toHaveValue('')
   })
 
@@ -1539,13 +1542,60 @@ describe('staff acting through platform access', () => {
     expect(vic.getByRole('combobox', { name: 'Role for Vic X' })).toHaveTextContent('Viewer')
   })
 
+  /**
+   * A removal whose first refetch still lists the member (a lagging read) leaves the row, so the
+   * dialog hands focus back to its Remove button and the card's request waits on it; when a later
+   * refetch drops the row, focus goes to the heading, not to <body>.
+   */
+  it('keeps focus on Remove while the row lingers, and moves it to the heading once it goes', async () => {
+    let listed = true
+    server.use(
+      http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => ok(null, 'Member removed.')),
+      http.get('/api/v1/tenants/acme/members', () =>
+        ok(
+          listed
+            ? [member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')]
+            : [member(USER_ID_4, 'owner', 'Otto')],
+          'Members retrieved.'
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+    const vic = await rowFor('Vic')
+    const remove = vic.getByRole('button', { name: 'Remove' })
+    await user.click(remove)
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove this member?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Offboarding request')
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    await findToast('Vic X removed.')
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    await waitFor(() => expect(remove).toHaveFocus())
+
+    listed = false
+    await act(() => queryClient.invalidateQueries())
+    await waitFor(() => expect(remove).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Members' })).toHaveFocus())
+  })
+
   it('asks for a reason before a removal, and sends it in the body', async () => {
     let body: unknown
     server.use(
       http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, async ({ request }) => {
         body = await request.json()
         return ok(null, 'Member removed.')
-      })
+      }),
+      // The refetch after the removal no longer lists Vic, as express answers, so the row and its trigger go.
+      http.get('/api/v1/tenants/acme/members', () =>
+        ok(
+          body === undefined
+            ? [member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')]
+            : [member(USER_ID_4, 'owner', 'Otto')],
+          'Members retrieved.'
+        )
+      )
     )
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/members`)

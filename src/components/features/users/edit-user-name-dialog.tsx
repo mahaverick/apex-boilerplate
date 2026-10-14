@@ -1,5 +1,4 @@
 import { useForm } from '@tanstack/react-form'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -21,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { useChangedFields } from '@/hooks/use-changed-fields'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
+import { toast } from '@/lib/toast'
 import { useUpdateUser } from '@/queries/user-admin.queries'
 import { updateUserNameSchema } from '@/schemas/user-admin.schemas'
 import type { PlatformUserDetail } from '@/types/api.types'

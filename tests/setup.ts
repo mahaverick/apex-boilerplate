@@ -2,8 +2,9 @@ import '@/lib/zod-jitless'
 import '@testing-library/jest-dom/vitest'
 import { cleanup, configure } from '@testing-library/react'
 import { toHaveNoViolations } from 'jest-axe'
-import { toast } from 'sonner'
-import { afterAll, afterEach, beforeAll, expect } from 'vitest'
+import { createElement } from 'react'
+import { afterAll, afterEach, beforeAll, expect, vi } from 'vitest'
+import { toast } from '@/lib/toast'
 import { server } from '@/tests/mocks/server'
 
 expect.extend(toHaveNoViolations)
@@ -16,6 +17,23 @@ expect.extend(toHaveNoViolations)
  * assertion rather than being cut off mid-wait.
  */
 configure({ asyncUtilTimeout: 5_000 })
+
+/**
+ * Every `<Toaster>` in the unit tests keeps its toasts for 60 s instead of
+ * Base UI's 5 s, longer than any test runs (`testTimeout` is 20 s), so no
+ * assertion can pass or fail on the auto-dismiss racing it. A toast still
+ * closes through its close button, an action or `toast.dismiss`. A test that
+ * needs the timer passes its own `timeout`. This also reaches the Toaster that
+ * `ToastHost` imports lazily.
+ */
+vi.mock('@/components/ui/toast', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/ui/toast')>()
+  return {
+    ...actual,
+    Toaster: (props: Parameters<typeof actual.Toaster>[0]) =>
+      createElement(actual.Toaster, { timeout: 60_000, ...props }),
+  }
+})
 
 declare module 'vitest' {
   /**
@@ -35,10 +53,9 @@ declare module 'vitest' {
 }
 
 /**
- * jsdom ships no `window.matchMedia`, and sonner calls it unguarded in an
- * effect (`window.matchMedia('(prefers-color-scheme: dark)')`), so any test
- * that mounts the real route tree, whose `__root` renders sonner's `<Toaster>`,
- * would show sonner's error boundary instead of the page. This stub answers
+ * jsdom ships no `window.matchMedia`. `useIsMobile` and `AppLayout`'s
+ * system-theme effect call it unguarded, so any test that mounts the real
+ * route tree would throw instead of rendering the page. This stub answers
  * false for every query except `max-width`, which compares against
  * `window.innerWidth`, so a test picks the viewport `useIsMobile` reports by
  * setting the width. A test about another query overrides it locally, as
@@ -75,11 +92,11 @@ if (typeof window !== 'undefined') {
 /** `onUnhandledRequest: 'error'` makes a request to an unmocked URL fail the test instead of reaching a real network. */
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 /**
- * Sonner's toast store is module-global and outlives each test's `<Toaster>`:
- * a toast still active when its Toaster unmounts is replayed into the next
- * test's Toaster for a fresh 4s. Unmounting first leaves no Toaster subscribed
- * when the active toasts are dismissed. Testing Library's own cleanup runs
- * after this hook and finds nothing left to unmount.
+ * `@/lib/toast` queues a toast raised while no `<Toaster>` is mounted, and the
+ * queue is module-global: a test that toasts without a Toaster would hand its
+ * toast to the next test's Toaster. Unmounting first leaves no Toaster
+ * subscribed, then the dismiss empties the queue. Testing Library's own
+ * cleanup runs after this hook and finds nothing left to unmount.
  */
 afterEach(() => {
   cleanup()

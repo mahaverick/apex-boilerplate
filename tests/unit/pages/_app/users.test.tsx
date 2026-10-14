@@ -1,9 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { navItemsFor } from '@/constants/navigation'
+import { toast } from '@/lib/toast'
 import { expectMaskedToast } from '@/tests/fixtures/content'
 import { USER_ID_2, USER_ID_3 } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
@@ -266,10 +266,12 @@ describe('/users', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
 
       await waitFor(() => expect(warning).toHaveBeenCalled())
-      const [message, options] = warning.mock.calls[0]!
-      expect(message).toBe('The user was created, but the set-password email could not be sent.')
-      ;(options as unknown as { action: { onClick: () => void } }).action.onClick()
+      const notSent = await screen.findByRole('dialog', {
+        name: 'The user was created, but the set-password email could not be sent.',
+      })
+      await user.click(within(notSent).getByRole('button', { name: 'Resend' }))
       await waitFor(() => expect(resent).toBe(true))
+      await waitFor(() => expect(notSent).not.toBeInTheDocument())
       await waitFor(() => expect(success).toHaveBeenCalledWith('Set-password email sent.'))
     })
 

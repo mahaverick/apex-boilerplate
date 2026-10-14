@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { createRootRouteWithContext, HeadContent, Outlet } from '@tanstack/react-router'
-import { Toaster } from '@/components/ui/sonner'
+import { ToastHost } from '@/components/shared/toast-host'
 import { APP_NAME } from '@/constants/app'
 import { bootstrapSession } from '@/router'
 
@@ -25,13 +25,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
 })
 
-/** The app frame: the head tags, the active page and the toast area. */
+/** The app frame: the head tags, the active page and the lazily loaded toast host. */
 function RootComponent() {
   return (
     <>
       <HeadContent />
       <Outlet />
-      <Toaster position="top-right" richColors closeButton />
+      <ToastHost />
     </>
   )
 }

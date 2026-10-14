@@ -35,8 +35,8 @@ export default defineConfig({
       reporter: ['text', 'lcov'],
       /**
        * Excludes the generated route tree, the mount-only entry, the dev-only
-       * devtools and the vendored shadcn files, by name: form.tsx, sonner.tsx
-       * and command.tsx in ui/ are ours and measured.
+       * devtools and the vendored shadcn files, by name: form.tsx and
+       * command.tsx in ui/ are ours and measured.
        */
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
@@ -45,7 +45,7 @@ export default defineConfig({
         'src/components/dev/devtools.tsx',
         'src/components/ui/{alert-dialog,avatar,badge,breadcrumb,button,card,collapsible,combobox,dialog,dropdown-menu}.tsx',
         'src/components/ui/{field,input,input-group,label,select,separator,sheet,sidebar,skeleton,switch}.tsx',
-        'src/components/ui/{table,tabs,textarea,tooltip}.tsx',
+        'src/components/ui/{table,tabs,textarea,toast,tooltip}.tsx',
         'src/components/ui/{calendar,chart,empty,kbd,popover,toggle,toggle-group}.tsx',
       ],
       /** A drop below any of these fails CI (`pnpm test:coverage`). */

@@ -151,6 +151,8 @@ describe('/settings/platform/maintenance', () => {
     expect(await within(dialog).findByText('Enter a reason.')).toBeVisible()
     expect(within(dialog).getByText('Type staging exactly to confirm.')).toBeVisible()
     expect(state.bodies).toEqual([])
+    // The refused submit focuses its first invalid field, Reason, on the next frame; typing before that moves would lose keys to the jump.
+    await waitFor(() => expect(within(dialog).getByLabelText('Reason')).toHaveFocus())
 
     await user.type(within(dialog).getByLabelText('Reason'), 'DB upgrade')
     await user.type(within(dialog).getByLabelText('Type staging to confirm'), 'staging')
@@ -543,7 +545,9 @@ describe('E1-24 / E1-40: a reason-only edit, and a 409 whose re-read fails', () 
     await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
     await waitFor(() => expect(state.bodies).toHaveLength(1))
     expect(state.bodies[0]).toMatchObject({ reason: 'New reason, same message' })
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Edit the customer message' })).toBeNull()
+    )
     expect(screen.queryByText('Customer message saved.')).toBeNull()
     expect(await screen.findByText('Nothing changed.')).toBeInTheDocument()
   })
@@ -659,7 +663,9 @@ describe('E1-41: stale pre-filled reason, and clearing the reason on a same-mode
     await user.click(within(dialog).getByRole('button', { name: 'Save message' }))
     await waitFor(() => expect(state.bodies).toHaveLength(1))
     expect(state.bodies[0]).toMatchObject({ reason: null })
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Edit the customer message' })).toBeNull()
+    )
     const facts = screen.getByRole('region', { name: 'Customer access' })
     expect(within(facts).queryByText('Postgres 18 upgrade')).toBeNull()
   })

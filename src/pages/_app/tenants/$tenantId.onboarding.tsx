@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
-import { toast } from 'sonner'
 import { LoadError } from '@/components/features/load-error'
 import { OnboardingStateBadge } from '@/components/features/onboarding/onboarding-state-badge'
 import { OnboardingStepList } from '@/components/features/onboarding/onboarding-step-list'
@@ -18,6 +17,7 @@ import { platformRoleAtLeast } from '@/constants/roles'
 import { useFocusAfter } from '@/hooks/use-focus-after'
 import { statusFrom } from '@/lib/api-error'
 import { formatDate, formatDateTime } from '@/lib/format'
+import { toast } from '@/lib/toast'
 import {
   retryAfterFrom,
   tenantOnboardingQueryOptions,

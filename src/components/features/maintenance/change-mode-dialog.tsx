@@ -1,6 +1,5 @@
 import { useForm } from '@tanstack/react-form'
 import { useMemo, useState } from 'react'
-import { toast } from 'sonner'
 import { MaintenancePreview } from '@/components/features/maintenance/maintenance-preview'
 import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
 import { Pii } from '@/components/shared/pii'
@@ -38,6 +37,7 @@ import { useStepUp } from '@/hooks/use-step-up'
 import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
 import { conflictSentence, isSwitchOn } from '@/lib/maintenance-mode'
 import { isReauthRequired } from '@/lib/step-up'
+import { toast } from '@/lib/toast'
 import {
   isMaintenanceModeConflict,
   useChangeMaintenanceMode,

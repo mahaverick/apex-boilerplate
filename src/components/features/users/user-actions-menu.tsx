@@ -1,7 +1,6 @@
 import { IconDots } from '@tabler/icons-react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useState, type RefObject } from 'react'
-import { toast } from 'sonner'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { EditUserNameDialog } from '@/components/features/users/edit-user-name-dialog'
 import { Pii } from '@/components/shared/pii'
@@ -17,6 +16,7 @@ import { ROUTES } from '@/constants/routes'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom } from '@/lib/api-error'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
+import { toast } from '@/lib/toast'
 import { availableUserActions } from '@/lib/user-actions'
 import {
   useDeactivateUser,

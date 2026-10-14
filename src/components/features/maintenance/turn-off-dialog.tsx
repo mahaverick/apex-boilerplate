@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { toast } from 'sonner'
 import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
 import { Pii } from '@/components/shared/pii'
 import {
@@ -17,6 +16,7 @@ import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom, statusFrom } from '@/lib/api-error'
 import { conflictSentence } from '@/lib/maintenance-mode'
 import { isReauthRequired } from '@/lib/step-up'
+import { toast } from '@/lib/toast'
 import {
   isMaintenanceModeConflict,
   useChangeMaintenanceMode,

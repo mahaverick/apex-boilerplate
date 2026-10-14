@@ -38,6 +38,12 @@ describe('theme tokens', () => {
     }
   })
 
+  it('declares the toast warning ink in both themes and exposes it to Tailwind', () => {
+    expect(light.has('--warning-strong')).toBe(true)
+    expect(dark.has('--warning-strong')).toBe(true)
+    expect(css).toContain('--color-warning-strong: var(--warning-strong);')
+  })
+
   it('tints the neutrals: background, sidebar and border carry chroma', () => {
     for (const name of ['--background', '--sidebar', '--border', '--muted']) {
       const chroma = Number((light.get(name) ?? '').match(/oklch\(\s*[\d.]+\s+([\d.]+)/)?.[1])

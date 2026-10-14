@@ -49,6 +49,11 @@
   --success-foreground: oklch(0.985 0.01 150);
   --warning: oklch(0.78 0.15 75);
   --warning-foreground: oklch(0.25 0.05 75);
+  /* --warning is a badge fill under dark text and measures 2:1 on --popover,
+     too light for the toast's warning border and icon (`ui/toast.tsx`). This
+     ink clears 4.5:1 on --popover (4.95:1 here, 9.33:1 in dark). --success
+     needs no ink of its own: it clears 4.5:1 there as it is (5.17:1, 7.57:1). */
+  --warning-strong: oklch(0.55 0.13 75);
   --info: oklch(0.52 0.15 245);
   --info-foreground: oklch(0.985 0.01 245);
 }
@@ -90,6 +95,7 @@
   --success-foreground: oklch(0.18 0.03 150);
   --warning: oklch(0.8 0.14 75);
   --warning-foreground: oklch(0.22 0.05 75);
+  --warning-strong: oklch(0.8 0.14 75);
   --info: oklch(0.72 0.13 245);
   --info-foreground: oklch(0.18 0.03 245);
 }
@@ -140,6 +146,7 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-warning-strong: var(--warning-strong);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
 }

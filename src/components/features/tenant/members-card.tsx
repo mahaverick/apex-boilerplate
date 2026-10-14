@@ -4,10 +4,13 @@
  */
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
-import { toast } from 'sonner'
+import { useRef, useState } from 'react'
 import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
-import { ReasonDialog, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
+import {
+  ReasonDialog,
+  STEP_UP_DISMISSED,
+  type ReasonDialogProps,
+} from '@/components/features/reason-dialog'
 import { Pii } from '@/components/shared/pii'
 import {
   AlertDialog,
@@ -54,6 +57,7 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom, statusFrom } from '@/lib/api-error'
 import { isReauthRequired } from '@/lib/step-up'
+import { toast } from '@/lib/toast'
 import { noteError } from '@/observability/errors'
 import {
   dropTenantCache,
@@ -290,19 +294,30 @@ function StaffRemoveMemberButton({
   slug,
   member,
   onRemoved,
+  finalFocus,
 }: {
   slug: string
   member: TenantMember
-  /** Called after the removal, or when the member was already gone: the row, and this button, are gone, so the card moves focus. */
-  onRemoved: () => void
+  /**
+   * Called after the removal, or when the member was already gone, with this
+   * button: the refetch takes the row away, so the card moves focus once the
+   * button has gone.
+   */
+  onRemoved: (trigger?: HTMLElement | null) => void
+  /** The dialog's `finalFocus`, so closing it does not hand focus back to a button the card is about to move it from. */
+  finalFocus: ReasonDialogProps['finalFocus']
 }) {
   const removeMember = useRemoveMember(slug)
   const stepUp = useStepUp()
+  const trigger = useRef<HTMLButtonElement>(null)
   const [isOpen, setIsOpen] = useState(false)
   const name = memberName(member)
+  /** Hands this button to the card, which moves focus once the refetch has removed it. */
+  const removed = () => onRemoved(trigger.current)
   return (
     <>
       <Button
+        ref={trigger}
         variant="outline"
         size="sm"
         disabled={removeMember.isPending}
@@ -322,11 +337,12 @@ function StaffRemoveMemberButton({
         }
         confirmLabel="Remove"
         destructive
+        finalFocus={finalFocus}
         onConfirm={async (reason) => {
           try {
             await stepUp.run(() => removeMember.mutateAsync({ userId: member.user.id, reason }))
           } catch (error) {
-            unlessMemberGone(error, onRemoved)
+            unlessMemberGone(error, removed)
             return
           }
           toast.success(
@@ -334,7 +350,7 @@ function StaffRemoveMemberButton({
               <Pii>{name}</Pii> removed.
             </>
           )
-          onRemoved()
+          removed()
         }}
       />
     </>
@@ -556,6 +572,7 @@ function MemberRow({
   myUserId,
   otherOwners,
   onRemoved,
+  removalFinalFocus,
   asCard = false,
 }: {
   slug: string
@@ -566,7 +583,10 @@ function MemberRow({
   myUserId: string | undefined
   /** The owners besides the signed-in user that the API counts (`otherOwnerCount`). */
   otherOwners: number
-  onRemoved: () => void
+  /** Called once a removal has taken the row away; the staff Remove passes its own button, the card moving focus once it has gone. */
+  onRemoved: (trigger?: HTMLElement | null) => void
+  /** The staff Remove dialog's `finalFocus`, from the card's focus request. */
+  removalFinalFocus: ReasonDialogProps['finalFocus']
   /**
    * Render a stacked card instead of a table row, for phones, where the
    * scrolling table puts the Actions column off-screen.
@@ -594,7 +614,12 @@ function MemberRow({
     />
   )
   const remove = !canRemove ? null : asStaff ? (
-    <StaffRemoveMemberButton slug={slug} member={member} onRemoved={onRemoved} />
+    <StaffRemoveMemberButton
+      slug={slug}
+      member={member}
+      onRemoved={onRemoved}
+      finalFocus={removalFinalFocus}
+    />
   ) : (
     <RemoveMemberButton
       slug={slug}
@@ -681,8 +706,10 @@ export function MembersCard({
   const otherOwners = otherOwnerCount(members.data, myUserId, slug === PLATFORM_TENANT_SLUG)
   const isMobile = useIsMobile()
   const focus = useFocusAfter<'heading'>()
-  /** Moves focus to the card heading once a removal has taken the acted-on row away. */
-  const focusHeading = () => focus.focusAfter('heading')
+  /** Moves focus to the card heading once a removal has taken the acted-on row away, and `trigger`, when given, with it. */
+  const focusHeading = (trigger?: HTMLElement | null) => focus.focusAfter('heading', trigger)
+  /** For the staff Remove dialog: whether closing it returns focus to its button, or leaves the move to `focusHeading`. */
+  const removalFinalFocus = () => focus.finalFocus()
 
   return (
     <Card>
@@ -726,6 +753,7 @@ export function MembersCard({
                 myUserId={myUserId}
                 otherOwners={otherOwners}
                 onRemoved={focusHeading}
+                removalFinalFocus={removalFinalFocus}
               />
             ))}
           </ul>
@@ -750,6 +778,7 @@ export function MembersCard({
                   myUserId={myUserId}
                   otherOwners={otherOwners}
                   onRemoved={focusHeading}
+                  removalFinalFocus={removalFinalFocus}
                 />
               ))}
             </TableBody>
