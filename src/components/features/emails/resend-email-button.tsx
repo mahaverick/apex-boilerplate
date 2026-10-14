@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react'
-import { toast } from 'sonner'
 import { ReasonDialog, type ReasonDialogProps } from '@/components/features/reason-dialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -9,6 +8,7 @@ import {
   RESEND_REQUESTED,
 } from '@/constants/email.constants'
 import { useStepUp } from '@/hooks/use-step-up'
+import { toast } from '@/lib/toast'
 import { useResendEmail } from '@/queries/email.queries'
 import type { EmailMessageSummary } from '@/types/api.types'
 

@@ -161,10 +161,15 @@ The policy is enforced, not report-only:
   `src/lib/zod-jitless.ts` turns off Zod's JIT, whose `new Function` probe
   this policy reports as a violation; it is the first import of
   `src/main.tsx`.
-- **`style-src 'unsafe-inline'`** is there because sonner injects a `<style>`
-  element at runtime and `ChartStyle` (`src/components/ui/chart.tsx`) writes a
-  `<style>` element; `e2e/nginx/charts.test.ts` checks the Overview's charts
-  draw under this policy with no violation.
+- **`style-src 'unsafe-inline'`** is there because `ChartStyle`
+  (`src/components/ui/chart.tsx`) writes a `<style>` element, and so do Base
+  UI's `Select` popup and `ScrollArea` (the command palette), to hide their
+  scrollbars; `e2e/nginx/charts.test.ts` checks the Overview's charts draw
+  under this policy with no violation. React applies `style` props through the
+  CSSOM, which the policy does not govern, so the toast's and the sidebar's
+  inline CSS variables do not need it. Base UI's `CSPProvider` with
+  `disableStyleElements` would drop Base UI's `<style>` elements, once their
+  rules live in `globals.css`, but `ChartStyle` would still need it.
 - **`connect-src 'self'`** holds because the API, analytics and error
   tracking are all same-origin: posthog-js sends to `/api/v1/collect` and
   loads its recorder from there, so the browser never talks to PostHog.
@@ -622,8 +627,8 @@ Some of what staff see comes from someone the API does not vouch for.
   address: the users and tenants directories (the command palette's searches
   among them), the emails list and the suppressions list.
 - **HSTS is the edge's job.** See [CSP and headers](#csp-and-headers).
-- **Inline styles are allowed** (`style-src 'unsafe-inline'`), for sonner
-  and `ChartStyle`.
+- **Inline styles are allowed** (`style-src 'unsafe-inline'`), for
+  `ChartStyle` and Base UI's `Select` popup and `ScrollArea`.
   An injected `<style>` cannot run script, but it can restyle the page.
 - **The in-memory token is reachable by an injected script.** Memory-only
   storage stops persistence, not same-origin code; the CSP and React's

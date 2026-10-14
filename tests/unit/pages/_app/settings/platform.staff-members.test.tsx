@@ -1,9 +1,9 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
+import { toast } from '@/lib/toast'
 import { queryClient } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
 import {

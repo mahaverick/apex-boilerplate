@@ -1,7 +1,6 @@
 import { IconChevronDown } from '@tabler/icons-react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useState, type RefObject } from 'react'
-import { toast } from 'sonner'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { EditTenantDialog } from '@/components/features/tenants/edit-tenant-dialog'
 import { OwnerInvitationDialog } from '@/components/features/tenants/owner-invitation-dialog'
@@ -16,6 +15,7 @@ import { platformRoleAtLeast } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { useStepUp } from '@/hooks/use-step-up'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
+import { toast } from '@/lib/toast'
 import {
   activeOwnerCount,
   useArchiveTenant,

@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react'
-import { toast } from 'sonner'
 import { expect } from 'vitest'
+import { toast } from '@/lib/toast'
 
 /**
  * A `getByText` matcher for a sentence whose value sits in its own `<Pii>` element, which splits the

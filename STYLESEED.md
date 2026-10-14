@@ -19,7 +19,7 @@ line: `tests/unit/dependency-lock.test.ts` fails on any `@radix-ui/*` package or
 **`src/components/ui/command.tsx` is hand-written on Base UI Autocomplete.** shadcn's
 `command` is built on `cmdk`, which pulls in Radix. A re-pull of the registry file would
 break the dependency lock, so keep the hand-written one. `.prettierignore` names it,
-with `form.tsx` and `sonner.tsx`, as a file prettier formats.
+with `form.tsx`, as a file prettier formats.
 
 ## Selection
 

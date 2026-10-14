@@ -5,7 +5,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
 import { ReasonDialog, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
 import { Pii } from '@/components/shared/pii'
@@ -54,6 +53,7 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom, statusFrom } from '@/lib/api-error'
 import { isReauthRequired } from '@/lib/step-up'
+import { toast } from '@/lib/toast'
 import { noteError } from '@/observability/errors'
 import {
   dropTenantCache,

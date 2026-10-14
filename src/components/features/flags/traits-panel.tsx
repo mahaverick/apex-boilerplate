@@ -1,7 +1,7 @@
 import { IconCopy } from '@tabler/icons-react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { TRAIT_WHERE_LABELS } from '@/constants/flags.constants'
+import { toast } from '@/lib/toast'
 import type { TraitRow } from '@/types/api.types'
 
 /**

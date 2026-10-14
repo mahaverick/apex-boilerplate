@@ -1,7 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef } from 'react'
-import { toast } from 'sonner'
 import { z } from 'zod'
 import { SocialSignIn } from '@/components/features/auth/social-sign-in'
 import { AuthCard } from '@/components/layouts/auth-card'
@@ -21,6 +20,7 @@ import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
+import { toast } from '@/lib/toast'
 import { useLogin } from '@/queries/auth.queries'
 import { loginSchema } from '@/schemas/auth.schemas'
 
@@ -86,9 +86,9 @@ export function safeRedirect(value: string | undefined): string | null {
  * sign-up link, and as an internal tool it shows no terms line.
  *
  * An OAuth failure arrives as `?error=<code>` and is toasted once per distinct
- * code: StrictMode runs effects twice in dev and sonner does not dedupe. The
- * value is parsed before posting, so the schema's trimming and lowercasing
- * reach the wire.
+ * code: StrictMode runs effects twice in dev, and a toast raised without an
+ * `id` is not deduped. The value is parsed before posting, so the schema's
+ * trimming and lowercasing reach the wire.
  */
 function LoginPage() {
   const { error, redirect } = Route.useSearch()

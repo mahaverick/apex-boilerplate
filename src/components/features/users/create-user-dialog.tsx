@@ -1,7 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,6 +25,7 @@ import { ROUTES } from '@/constants/routes'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { messageFrom } from '@/lib/api-error'
+import { toast } from '@/lib/toast'
 import { useCreateUser, useSendPasswordSetup } from '@/queries/user-admin.queries'
 import { createUserSchema } from '@/schemas/user-admin.schemas'
 

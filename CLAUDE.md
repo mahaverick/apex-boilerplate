@@ -245,7 +245,7 @@ is in [Error-tracking privacy](SECURITY.md#error-tracking-privacy).
 
 ## Never install
 
-`react-hook-form`, `@hookform/resolvers`, `next-themes`,
+`react-hook-form`, `@hookform/resolvers`, `next-themes`, `sonner`,
 `@tanstack/zod-form-adapter`, `clsx`, `tailwind-merge`, any `@radix-ui/*`, `cmdk`.
 
 Each has an in-repo replacement:
@@ -253,7 +253,7 @@ Each has an in-repo replacement:
 - TanStack Form with a Zod validator, which needs no adapter package;
 - `theme.store` with `public/theme-init.js`;
 - the `cn` package;
-- Base UI through shadcn;
+- Base UI through shadcn, its toast included (`src/lib/toast.ts`);
 - `src/components/ui/command.tsx` on Base UI's Autocomplete, for `cmdk`, which
   pulls in Radix.
 
@@ -262,8 +262,11 @@ import of `cmdk` or `@radix-ui/*` anywhere under `src/`, `tests/` and `e2e/`, th
 vendored files included; only `src/lib/utils.ts` and the vendored files may import
 the `cn` package.
 
-**Never run `shadcn add form` or `shadcn add toast`.** The registry's `form.tsx` is
-built on react-hook-form and its toast on next-themes. Ours are hand-written.
+**Never run `shadcn add form` or `shadcn add sonner`.** The registry's `form.tsx` is
+built on react-hook-form, and ours is hand-written. The toast is Base UI's, from
+base-vega's `toast` item (`src/components/ui/toast.tsx`); raise toasts with `toast`
+from `@/lib/toast`, never from the UI file. Re-adding `toast` drops its local edits,
+listed below.
 
 ## `src/components/ui/`
 
@@ -278,25 +281,38 @@ the component is added again.
   exception is `chart.tsx`, which turns off five type-aware rules its Recharts
   typing trips. Settle a doubt with `pnpm exec eslint --print-config <file>`, not
   by reading the config.
-- **`form.tsx`, `sonner.tsx` and `command.tsx` are ours**, fully linted and
-  formatted. They are named in five places: four `eslint.config.js` blocks (the
-  block that re-enables the Tailwind and `react-refresh` rules, plus the
-  `!(form|sonner|command)` globs of the import restriction, comment-style and
-  JSDoc blocks), and the `!` negations in `.prettierignore`. A fourth hand-written
-  file there goes into all five in the same change.
+- **`form.tsx` and `command.tsx` are ours**, fully linted and formatted. They are
+  named in five places: four `eslint.config.js` blocks (the block that re-enables
+  the Tailwind and `react-refresh` rules, plus the `!(form|command)` globs of the
+  import restriction, comment-style and JSDoc blocks), and the `!` negations in
+  `.prettierignore`. A third hand-written file there goes into all five in the
+  same change.
 - **A re-add drops these local edits; put them back.** `avatar.tsx`: the fallback
   and group count use `text-foreground` (contrast). `tabs.tsx`: the panel keeps
   `rounded-md focus-visible:ring-3 focus-visible:ring-ring/50` (WCAG 2.4.7).
   `badge`, `button`, `switch`, `tabs`, `toggle` and the sidebar rail name their
   transition properties instead of `transition-all` (`toggle` keeps
   `background-color` in its list). The sidebar rail uses `after:w-0.5` and the
-  dropdown `min-w-24`. The files shared with react-boilerplate stay byte for byte
-  equal to react's. Every Tabler icon in `src/components/ui/` carries
+  dropdown `min-w-24`. `toast.tsx`: Tabler icons for the registry's
+  `IconPlaceholder`; `PII_CLASS_NAME` last in the root's `cn(...)`, after
+  `className`, so a caller cannot unmask a toast; top-right anchoring (`top-4`,
+  `top-0 origin-top`, every Y offset sign-flipped, `swipeDirection` up and
+  right); the `data-[type=…]` border and icon colours on `--success`,
+  `--warning-strong` and `--destructive`; the viewport's
+  `aria-label="Status messages"` (Base UI's default, "Notifications", reads as a
+  feature name); and `<Toaster>` defaulting to `toastManager` from
+  `@/lib/toast` instead of a manager of its own.
+  `tests/unit/components/ui/toast.test.tsx` fails without the mask, the icon
+  colours, the label or the shared manager. Base UI keeps the close button
+  `aria-hidden` but tabbable while the stack is collapsed; that is accepted
+  upstream behaviour, since Tab reaches the toast first and expands it. The
+  files shared with react-boilerplate stay byte for byte equal to react's,
+  except where ARCHITECTURE.md's sibling-sync table says otherwise. Every Tabler icon in `src/components/ui/` carries
   `aria-hidden="true"` (the guard test `tests/unit/ui-icons-aria-hidden.test.ts`
   fails otherwise); the combobox clear and chip-remove buttons carry
   `aria-label` for the same reason, and the apex-only `calendar.tsx` follows
   the same rule. `shadcn init` also overwrites `src/lib/utils.ts`,
-  `src/hooks/use-mobile.ts`, `sonner.tsx` and `command.tsx` (with a cmdk one),
+  `src/hooks/use-mobile.ts` and `command.tsx` (with a cmdk one),
   rewrites every colour token in `globals.css` (`tests/unit/styles/tokens.test.ts`
   fails), duplicates its `@import` lines and adds `cmdk` and `next-themes`, and
   may bump unrelated dependencies: revert all of it.

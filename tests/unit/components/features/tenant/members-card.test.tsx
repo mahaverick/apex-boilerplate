@@ -1,9 +1,9 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { toast } from 'sonner'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
+import { toast } from '@/lib/toast'
 import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
 import { byContent } from '@/tests/fixtures/content'
@@ -187,7 +187,7 @@ const realInnerWidth = window.innerWidth
 /** Finds the toast whose text reads `text`, whether or not part of it sits in its own element. */
 function findToast(text: string) {
   return waitFor(() => {
-    const toasts = [...document.querySelectorAll('[data-sonner-toast] [data-title]')]
+    const toasts = [...document.querySelectorAll('[data-slot="toast"] [data-slot="toast-title"]')]
     expect(toasts.map((t) => t.textContent)).toContain(text)
   })
 }
@@ -1545,7 +1545,16 @@ describe('staff acting through platform access', () => {
       http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, async ({ request }) => {
         body = await request.json()
         return ok(null, 'Member removed.')
-      })
+      }),
+      // The refetch after the removal no longer lists Vic, as express answers, so the row and its trigger go.
+      http.get('/api/v1/tenants/acme/members', () =>
+        ok(
+          body === undefined
+            ? [member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')]
+            : [member(USER_ID_4, 'owner', 'Otto')],
+          'Members retrieved.'
+        )
+      )
     )
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/members`)
