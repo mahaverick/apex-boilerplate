@@ -266,10 +266,12 @@ describe('/users', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
 
       await waitFor(() => expect(warning).toHaveBeenCalled())
-      const [message, options] = warning.mock.calls[0]!
-      expect(message).toBe('The user was created, but the set-password email could not be sent.')
-      ;(options as unknown as { action: { onClick: () => void } }).action.onClick()
+      const notSent = await screen.findByRole('dialog', {
+        name: 'The user was created, but the set-password email could not be sent.',
+      })
+      await user.click(within(notSent).getByRole('button', { name: 'Resend' }))
       await waitFor(() => expect(resent).toBe(true))
+      await waitFor(() => expect(notSent).not.toBeInTheDocument())
       await waitFor(() => expect(success).toHaveBeenCalledWith('Set-password email sent.'))
     })
 

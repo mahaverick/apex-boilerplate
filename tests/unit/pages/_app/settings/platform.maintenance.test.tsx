@@ -151,8 +151,8 @@ describe('/settings/platform/maintenance', () => {
     expect(await within(dialog).findByText('Enter a reason.')).toBeVisible()
     expect(within(dialog).getByText('Type staging exactly to confirm.')).toBeVisible()
     expect(state.bodies).toEqual([])
-    // The refused submit focuses its first invalid field on the next frame; typing before that frame loses keys to the jump.
-    await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+    // The refused submit focuses its first invalid field, Reason, on the next frame; typing before that moves would lose keys to the jump.
+    await waitFor(() => expect(within(dialog).getByLabelText('Reason')).toHaveFocus())
 
     await user.type(within(dialog).getByLabelText('Reason'), 'DB upgrade')
     await user.type(within(dialog).getByLabelText('Type staging to confirm'), 'staging')
