@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v2.2.1...v3.0.0) (2026-10-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **toast:** `sonner` is gone. Import `toast` from '@/lib/toast' instead of 'sonner'; `__root.tsx` mounts `<ToastHost />`. Only success, error and warning toasts with `description`, `id` and `action` options exist. The default timeout is Base UI's 5 s (sonner's was 4 s).
+
+### Features
+
+* **toast:** replace sonner with the Base UI toast ([265fa37](https://github.com/mahaverick/apex-boilerplate/commit/265fa37fd81c73808eb07dea4d32249d6c131f0e))
+
 ## [2.2.1](https://github.com/mahaverick/apex-boilerplate/compare/v2.2.0...v2.2.1) (2026-10-13)
 
 
