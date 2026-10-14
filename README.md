@@ -305,8 +305,8 @@ stay skipped.
 A red run on `main` opens an issue labelled `e2e-nightly`, or comments on the
 open one, with the run link, the failed steps and the express commit under
 test; the next green run closes it. A run on `main` that is cancelled by hand or
-times out counts as a failure too, and opens or comments on the issue. Each run
-uploads an `e2e-nightly` artifact, kept 7 days, with both Playwright reports,
+times out counts as a failure too, and opens or comments on the issue. Each run of
+the suites uploads an `e2e-nightly` artifact, kept 7 days, with both Playwright reports,
 the test results and express's `api.log`.
 
 A manual run on another branch never touches issues, unless its
