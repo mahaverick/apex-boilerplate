@@ -306,10 +306,9 @@ the component is added again.
   colours, the label or the shared manager. Base UI keeps the close button
   `aria-hidden` but tabbable while the stack is collapsed; that is accepted
   upstream behaviour, since Tab reaches the toast first and expands it. The
-  files shared with react-boilerplate stay byte for byte equal to react's,
-  except where ARCHITECTURE.md's sibling-sync table says otherwise. Every Tabler icon in `src/components/ui/` carries
-  `aria-hidden="true"` (the guard test `tests/unit/ui-icons-aria-hidden.test.ts`
-  fails otherwise); the combobox clear and chip-remove buttons carry
+  files shared with react-boilerplate stay byte for byte equal to react's.
+  Every Tabler icon in `src/components/ui/` carries `aria-hidden="true"` (the
+  guard test `tests/unit/ui-icons-aria-hidden.test.ts` fails otherwise); the combobox clear and chip-remove buttons carry
   `aria-label` for the same reason, and the apex-only `calendar.tsx` follows
   the same rule. `shadcn init` also overwrites `src/lib/utils.ts`,
   `src/hooks/use-mobile.ts` and `command.tsx` (with a cmdk one),

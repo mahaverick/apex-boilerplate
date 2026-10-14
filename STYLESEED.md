@@ -71,7 +71,9 @@ declared, and no component renders them, so they are ungraded until one does.
 (2:1 on `--popover`). `--warning-strong` is its ink: the toast's warning border and icon
 (`ui/toast.tsx`) use it, and it is computed at 4.5:1 or better on `--popover` in both
 themes. `--success` and `--destructive` clear that as they are, so the toast uses them
-directly. The contrast suite grades text, not borders or icons.
+directly. The contrast suite grades the error and success toasts' text, icon and border in
+both themes; no warning toast is reachable there, so `--warning-strong` is covered only by
+its computed ratio.
 
 `--muted-foreground` is `oklch(0.5 0.03 275)` in light and `oklch(0.74 0.03 275)` in dark. A
 lighter light value fails contrast against `--muted`; `pnpm test:contrast`
