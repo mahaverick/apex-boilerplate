@@ -1014,7 +1014,10 @@ describe('inviting, and the pending invitations', () => {
     // The 202 is the same for every address, so the toast names the address sent.
     await findToast('Invitation sent to new-member@example.com.')
     expect(body).toEqual({ email: 'new-member@example.com', role: 'viewer' })
-    expect(await screen.findByText('new-member@example.com')).toBeInTheDocument()
+    // Asked by the row's own control: the toast names the same address, so a text query would match both.
+    expect(
+      await screen.findByRole('button', { name: 'Revoke invitation to new-member@example.com' })
+    ).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toHaveValue('')
   })
 
@@ -1537,6 +1540,44 @@ describe('staff acting through platform access', () => {
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(patches).toBe(0)
     expect(vic.getByRole('combobox', { name: 'Role for Vic X' })).toHaveTextContent('Viewer')
+  })
+
+  /**
+   * A removal whose first refetch still lists the member (a lagging read) leaves the row, so the
+   * dialog hands focus back to its Remove button and the card's request waits on it; when a later
+   * refetch drops the row, focus goes to the heading, not to <body>.
+   */
+  it('keeps focus on Remove while the row lingers, and moves it to the heading once it goes', async () => {
+    let listed = true
+    server.use(
+      http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => ok(null, 'Member removed.')),
+      http.get('/api/v1/tenants/acme/members', () =>
+        ok(
+          listed
+            ? [member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')]
+            : [member(USER_ID_4, 'owner', 'Otto')],
+          'Members retrieved.'
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+    const vic = await rowFor('Vic')
+    const remove = vic.getByRole('button', { name: 'Remove' })
+    await user.click(remove)
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove this member?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Offboarding request')
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    await findToast('Vic X removed.')
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    await waitFor(() => expect(remove).toHaveFocus())
+
+    listed = false
+    await act(() => queryClient.invalidateQueries())
+    await waitFor(() => expect(remove).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Members' })).toHaveFocus())
   })
 
   it('asks for a reason before a removal, and sends it in the body', async () => {
