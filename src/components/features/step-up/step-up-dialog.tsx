@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useRef } from 'react'
 import { z } from 'zod'
 import { LoadError } from '@/components/features/load-error'
+import { BusyButton } from '@/components/shared/busy-button'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Dialog,
@@ -181,9 +182,9 @@ function PasswordStepUp({
         <Button type="button" variant="outline" onClick={onDismissed}>
           Cancel
         </Button>
-        <Button type="submit" disabled={reauthenticate.isPending}>
-          {reauthenticate.isPending ? 'Confirming…' : 'Confirm'}
-        </Button>
+        <BusyButton busy={reauthenticate.isPending} busyLabel="Confirming…" type="submit">
+          Confirm
+        </BusyButton>
       </DialogFooter>
     </Form>
   )

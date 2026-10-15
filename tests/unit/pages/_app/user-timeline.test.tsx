@@ -480,12 +480,18 @@ describe('/users/$userId/timeline', () => {
   })
 
   it.each([
-    ['all', 'No events in the last 7 days.'],
-    ['key', 'No key events in the last 7 days. Switch to Everything to see pageviews and clicks.'],
-  ])('says an empty %s view is empty for this window', async (view, text) => {
+    ['all', 'No events in the last 7 days.', undefined],
+    [
+      'key',
+      'No key events in the last 7 days.',
+      'Switch to Everything to see pageviews and clicks.',
+    ],
+  ])('says an empty %s view is empty for this window', async (view, text, description) => {
     serve(() => ok(page([]), 'Timeline retrieved.'))
     renderAppAt(`${TIMELINE}?view=${view}`)
     expect(await screen.findByText(text)).toBeInTheDocument()
+    if (description) expect(screen.getByText(description)).toBeInTheDocument()
+    else expect(screen.queryByText(/Switch to Everything/)).not.toBeInTheDocument()
   })
 
   it('says PostHog could not be reached, never that nothing happened, and retries', async () => {

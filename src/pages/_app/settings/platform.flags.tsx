@@ -8,6 +8,7 @@ import { UnregisteredFlagsTable } from '@/components/features/flags/unregistered
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { SettingsRouteError } from '@/components/features/route-error'
+import { Note } from '@/components/shared/note'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import {
@@ -63,15 +64,9 @@ function FlagsContent({ data, isAdmin }: { data: FlagsListResponse; isAdmin: boo
   const navigate = useNavigate({ from: '/settings/platform/flags' })
   return (
     <>
-      {!data.snapshot.enabled && (
-        <p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
-          {FLAGS_NOT_CONFIGURED}
-        </p>
-      )}
+      {!data.snapshot.enabled && <Note tone="passive">{FLAGS_NOT_CONFIGURED}</Note>}
       {data.snapshot.enabled && data.snapshot.stale && (
-        <p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
-          {FLAGS_STALE_NOTE}
-        </p>
+        <Note tone="warning">{FLAGS_STALE_NOTE}</Note>
       )}
       <FlagsSection id="flags-registered" title="Registered flags">
         <FlagRegistryTable items={data.items} />

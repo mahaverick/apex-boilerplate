@@ -1,8 +1,11 @@
+import { IconBug } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { TimelineSkeleton } from '@/components/features/timeline/timeline-states'
 import { ToneBadge } from '@/components/features/tone-badge'
+import { EmptyState } from '@/components/shared/empty-state'
+import { Note } from '@/components/shared/note'
 import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -65,6 +68,7 @@ function ErrorIssueRow({ issue }: { issue: ErrorIssue }) {
   const absolute = absoluteTime(issue.lastSeen)
   return (
     <TableRow>
+      {/* Capped: the cell wraps the error message instead of widening the table. */}
       <TableCell className="max-w-md align-top whitespace-normal">
         <Pii>
           <code className="text-sm font-medium break-all">{issue.type}</code>
@@ -124,14 +128,10 @@ export function ErrorsPanel({ kind, id }: { kind: TimelineKind; id: string }) {
   }
   if (errors.data === undefined) return <TimelineSkeleton />
   if (!errors.data.configured) {
-    return (
-      <p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
-        {ERRORS_NOT_CONFIGURED}
-      </p>
-    )
+    return <Note tone="passive">{ERRORS_NOT_CONFIGURED}</Note>
   }
   if (errors.data.items.length === 0) {
-    return <p className="text-sm text-muted-foreground">{ERRORS_EMPTY}</p>
+    return <EmptyState icon={<IconBug aria-hidden="true" />} title={ERRORS_EMPTY} />
   }
   return (
     <div className="grid gap-2">

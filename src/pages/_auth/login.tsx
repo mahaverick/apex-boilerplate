@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { z } from 'zod'
 import { SocialSignIn } from '@/components/features/auth/social-sign-in'
 import { AuthCard } from '@/components/layouts/auth-card'
-import { Button } from '@/components/ui/button'
+import { BusyButton } from '@/components/shared/busy-button'
 import { FieldGroup } from '@/components/ui/field'
 import {
   Form,
@@ -171,9 +171,14 @@ function LoginPage() {
 
           <FormError />
 
-          <Button type="submit" className="w-full" disabled={login.isPending}>
-            {login.isPending ? 'Signing in…' : 'Sign in'}
-          </Button>
+          <BusyButton
+            busy={login.isPending}
+            busyLabel="Signing in…"
+            type="submit"
+            className="w-full"
+          >
+            Sign in
+          </BusyButton>
         </FieldGroup>
       </Form>
     </AuthCard>

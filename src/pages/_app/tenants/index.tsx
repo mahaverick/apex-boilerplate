@@ -1,4 +1,4 @@
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import { IconBuilding, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -7,8 +7,8 @@ import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { CreateTenantDialog } from '@/components/features/tenants/create-tenant-dialog'
 import { TenantsTable } from '@/components/features/tenants/tenants-table'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -194,33 +194,33 @@ function TenantsPage() {
         <Skeleton className="h-96 w-full" />
       ) : page.data.tenants.length === 0 ? (
         cursor !== undefined ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>Nothing on this page.</EmptyTitle>
-              <EmptyDescription>The list changed since this page was opened.</EmptyDescription>
-            </EmptyHeader>
-            <Button variant="outline" size="sm" onClick={firstPage}>
-              <IconChevronLeft aria-hidden="true" />
-              First page
-            </Button>
-          </Empty>
+          <EmptyState
+            icon={<IconBuilding aria-hidden="true" />}
+            title="Nothing on this page."
+            description="The list changed since this page was opened."
+            action={
+              <Button variant="outline" size="sm" onClick={firstPage}>
+                <IconChevronLeft aria-hidden="true" />
+                First page
+              </Button>
+            }
+          />
         ) : (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>
-                {q
-                  ? `No tenants match “${q}”.`
-                  : filtered
-                    ? 'No tenants in this state.'
-                    : 'No tenants yet.'}
-              </EmptyTitle>
-              <EmptyDescription>
-                {filtered
-                  ? 'Try part of the name or the slug, or another status.'
-                  : 'Tenants appear here once customers or staff create them.'}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <EmptyState
+            icon={<IconBuilding aria-hidden="true" />}
+            title={
+              q
+                ? `No tenants match “${q}”.`
+                : filtered
+                  ? 'No tenants in this state.'
+                  : 'No tenants yet.'
+            }
+            description={
+              filtered
+                ? 'Try part of the name or the slug, or another status.'
+                : 'Tenants appear here once customers or staff create them.'
+            }
+          />
         )
       ) : (
         <>

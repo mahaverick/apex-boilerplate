@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
+import { Note } from '@/components/shared/note'
 import { Pii } from '@/components/shared/pii'
 import { Skeleton } from '@/components/ui/skeleton'
 import { codeFrom, statusFrom } from '@/lib/api-error'
@@ -36,9 +37,9 @@ export function EmailPreviewPanel({
   if (preview.isError) {
     if (statusFrom(preview.error) === 409 && codeFrom(preview.error) === TEMPLATE_UNAVAILABLE) {
       return (
-        <p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
+        <Note tone="info">
           This email’s template is no longer part of the app, so it can’t be previewed.
-        </p>
+        </Note>
       )
     }
     if (statusFrom(preview.error) === 404) return <RoleDenied />
@@ -57,9 +58,9 @@ export function EmailPreviewPanel({
         </p>
       )}
       {partial && (
-        <p role="status" className="rounded-md border p-3 text-sm">
+        <Note tone="warning">
           Some of this email’s details were not stored, so placeholders stand in for them.
-        </p>
+        </Note>
       )}
       <section aria-labelledby="preview-subject" className="grid gap-1">
         <h2 id="preview-subject" className="text-sm font-medium">

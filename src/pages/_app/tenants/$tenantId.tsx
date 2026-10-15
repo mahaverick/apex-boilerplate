@@ -1,11 +1,12 @@
+import { IconSearchOff } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
 import { useRef } from 'react'
 import { LoadError } from '@/components/features/load-error'
 import { TenantActionsMenu } from '@/components/features/tenants/tenant-actions-menu'
 import { TenantStateBadge } from '@/components/features/tenants/tenant-state-badge'
+import { EmptyState } from '@/components/shared/empty-state'
 import { buttonVariants } from '@/components/ui/button'
-import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
@@ -52,17 +53,16 @@ function TenantLayout() {
 
   if (tenant.isError) {
     return statusFrom(tenant.error) === 404 ? (
-      <Empty>
-        <EmptyHeader>
-          <h1 className="text-lg font-semibold">Tenant not found</h1>
-          <EmptyDescription>
-            It doesn’t exist, or your access changed. Reload if your role was just updated.
-          </EmptyDescription>
-        </EmptyHeader>
-        <Link to={ROUTES.tenants} className={buttonVariants({ variant: 'outline' })}>
-          Back to tenants
-        </Link>
-      </Empty>
+      <EmptyState
+        icon={<IconSearchOff aria-hidden="true" />}
+        title={<h1>Tenant not found</h1>}
+        description="It doesn’t exist, or your access changed. Reload if your role was just updated."
+        action={
+          <Link to={ROUTES.tenants} className={buttonVariants({ variant: 'outline' })}>
+            Back to tenants
+          </Link>
+        }
+      />
     ) : (
       <LoadError message="We could not load this tenant." onRetry={() => void tenant.refetch()} />
     )

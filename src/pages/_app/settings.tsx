@@ -18,7 +18,7 @@ function SettingsLayout() {
   const section = settingsActiveSection(pathname)
   return (
     <div className="grid gap-6">
-      <header className="grid max-w-3xl gap-1">
+      <header className="grid gap-1">
         <h1 className="text-2xl font-semibold lg:text-3xl">{section?.label ?? 'Settings'}</h1>
         <p className="text-sm text-muted-foreground">
           {section?.description ?? SETTINGS_DESCRIPTION}

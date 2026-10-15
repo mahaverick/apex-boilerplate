@@ -1,4 +1,4 @@
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import { IconChevronLeft, IconChevronRight, IconMailOff } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -7,9 +7,9 @@ import { LoadError } from '@/components/features/load-error'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { RoleDenied } from '@/components/features/role-denied'
 import { SuppressionsTable } from '@/components/features/suppressions/suppressions-table'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -222,27 +222,23 @@ function SuppressionsPage() {
       ) : !settled || page.data === undefined ? (
         <Skeleton className="h-96 w-full" />
       ) : page.data.suppressions.length === 0 && search.cursor !== undefined ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>Nothing on this page.</EmptyTitle>
-            <EmptyDescription>The list changed since this page was opened.</EmptyDescription>
-          </EmptyHeader>
-          <Button variant="outline" size="sm" onClick={firstPage}>
-            <IconChevronLeft aria-hidden="true" />
-            First page
-          </Button>
-        </Empty>
+        <EmptyState
+          icon={<IconMailOff aria-hidden="true" />}
+          title="Nothing on this page."
+          description="The list changed since this page was opened."
+          action={
+            <Button variant="outline" size="sm" onClick={firstPage}>
+              <IconChevronLeft aria-hidden="true" />
+              First page
+            </Button>
+          }
+        />
       ) : page.data.suppressions.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>
-              {q === '' ? EMPTY_BY_STATE[state].title : 'No suppressions match this search.'}
-            </EmptyTitle>
-            <EmptyDescription>
-              {q === '' ? EMPTY_BY_STATE[state].description : 'Try part of the address.'}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <EmptyState
+          icon={<IconMailOff aria-hidden="true" />}
+          title={q === '' ? EMPTY_BY_STATE[state].title : 'No suppressions match this search.'}
+          description={q === '' ? EMPTY_BY_STATE[state].description : 'Try part of the address.'}
+        />
       ) : (
         <>
           <div aria-busy={page.isPlaceholderData}>

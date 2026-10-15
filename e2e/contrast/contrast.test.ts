@@ -47,6 +47,7 @@ const LEGEND_ITEM = '.recharts-legend-wrapper'
  */
 const ACME_PAGE = '/tenants/10000000-0000-4000-8000-000000000001'
 const CLEO_PAGE = '/users/20000000-0000-4000-8000-000000000002'
+const FLAGS_PAGE = `/e2e/harness/?path=/settings/platform/flags?userId=20000000-0000-4000-8000-000000000002&tenantId=10000000-0000-4000-8000-000000000001`
 
 const SURFACES = [
   // Public: straight URLs, no harness.
@@ -148,7 +149,7 @@ const SURFACES = [
   // The flags inspector: state and reason badges, the traits' copy buttons and an evaluation.
   {
     name: 'flags',
-    url: `/e2e/harness/?path=/settings/platform/flags?userId=20000000-0000-4000-8000-000000000002&tenantId=10000000-0000-4000-8000-000000000001`,
+    url: FLAGS_PAGE,
     heading: 'Feature flags',
   },
   {
@@ -737,6 +738,61 @@ test.describe('message tracking at 390px', () => {
         report('resend dialog', theme, resendResult)
       ).toBe('')
     })
+  }
+})
+
+// Each note and compact empty state is asserted present: a page without it grades clean and proves nothing.
+const NOTE_SURFACES = [
+  {
+    name: 'warning note (partial email preview)',
+    url: `/e2e/harness/?path=${DELIVERED_EMAIL}?tab=preview&preview=partial`,
+    heading: 'cleo.d@example.com',
+    role: 'status',
+    text: 'Some of this email’s details were not stored',
+  },
+  {
+    name: 'warning note (stale flags snapshot)',
+    url: `${FLAGS_PAGE}&flags=stale`,
+    heading: 'Feature flags',
+    role: 'status',
+    text: /snapshot/i,
+  },
+  {
+    name: 'info note (template unavailable)',
+    url: `/e2e/harness/?path=${DELIVERED_EMAIL}?tab=preview&preview=unavailable`,
+    heading: 'cleo.d@example.com',
+    role: 'status',
+    text: 'no longer part of the app',
+  },
+  {
+    name: 'passive note (no provider events)',
+    url: '/e2e/harness/?path=/deliverability?range=30d',
+    heading: 'Deliverability',
+    role: null,
+    text: 'No provider events yet',
+  },
+  {
+    name: 'compact empty state (user emails card)',
+    url: `/e2e/harness/?path=${CLEO_PAGE}&emails=none`,
+    heading: /^Emails$/,
+    role: null,
+    text: 'No emails sent to this account yet.',
+  },
+] as const
+
+test.describe('notes and compact empty states', () => {
+  for (const theme of THEMES) {
+    for (const surface of NOTE_SURFACES) {
+      test(`the ${surface.name} meets WCAG AA contrast in ${theme}`, async ({ page }) => {
+        const result = await contrastOf(page, surface.url, theme, surface.heading)
+        const shown = page.getByText(surface.text).first()
+        await expect(shown).toBeVisible()
+        if (surface.role) {
+          await expect(page.getByRole(surface.role).filter({ hasText: surface.text })).toBeVisible()
+        }
+        expect(report(surface.name, theme, result), report(surface.name, theme, result)).toBe('')
+      })
+    }
   }
 })
 

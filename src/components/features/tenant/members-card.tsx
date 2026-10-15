@@ -2,6 +2,7 @@
  * @file A tenant's member list with role and removal controls, parameterised
  * by slug so the Staff page reuses it for the platform tenant.
  */
+import { IconAlertCircle } from '@tabler/icons-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
@@ -11,7 +12,9 @@ import {
   STEP_UP_DISMISSED,
   type ReasonDialogProps,
 } from '@/components/features/reason-dialog'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Pii } from '@/components/shared/pii'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +28,14 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemFooter,
+  ItemGroup,
+  ItemTitle,
+} from '@/components/ui/item'
 import {
   Select,
   SelectContent,
@@ -496,9 +507,10 @@ function RemoveMemberButton({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {stepUpDismissed && (
-          <p role="alert" className="text-sm text-destructive">
-            {STEP_UP_DISMISSED}
-          </p>
+          <Alert variant="destructive">
+            <IconAlertCircle aria-hidden="true" />
+            <AlertTitle>{STEP_UP_DISMISSED}</AlertTitle>
+          </Alert>
         )}
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -634,17 +646,23 @@ function MemberRow({
 
   if (asCard) {
     return (
-      <li className="grid gap-3 rounded-lg border p-4">
-        <div className="grid gap-0.5">
-          <span className="font-medium">
-            <Pii>{memberName(member)}</Pii>
-            {isSelf && <span className="ml-2 text-xs text-muted-foreground">(you)</span>}
-          </span>
-          <Pii className="text-sm break-all text-muted-foreground">{member.user.email}</Pii>
-        </div>
-        {role}
-        {remove && <div>{remove}</div>}
-      </li>
+      <Item variant="outline" role="listitem">
+        <ItemContent className="min-w-0">
+          <ItemTitle className="line-clamp-none">
+            <span className="flex flex-wrap items-center gap-2">
+              <Pii>{memberName(member)}</Pii>
+              {isSelf && <span className="text-xs font-normal text-muted-foreground">(you)</span>}
+            </span>
+          </ItemTitle>
+          <ItemDescription className="line-clamp-none break-all">
+            <Pii>{member.user.email}</Pii>
+          </ItemDescription>
+        </ItemContent>
+        <ItemFooter className="flex-wrap justify-start">
+          {role}
+          {remove}
+        </ItemFooter>
+      </Item>
     )
   }
 
@@ -737,11 +755,13 @@ export function MembersCard({
             <Skeleton className="h-10 w-full" />
           </div>
         ) : (members.data ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No one has access to this tenant yet. An accepted invitation gives someone access.
-          </p>
+          <EmptyState
+            size="compact"
+            title="No one has access to this tenant yet."
+            description="An accepted invitation gives someone access."
+          />
         ) : isMobile ? (
-          <ul className="grid gap-3">
+          <ItemGroup className="gap-3">
             {(members.data ?? []).map((member) => (
               <MemberRow
                 key={member.membership.id}
@@ -756,7 +776,7 @@ export function MembersCard({
                 removalFinalFocus={removalFinalFocus}
               />
             ))}
-          </ul>
+          </ItemGroup>
         ) : (
           <Table className="min-w-2xl">
             <TableHeader>

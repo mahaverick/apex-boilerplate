@@ -7,9 +7,11 @@ import { TurnOffDialog } from '@/components/features/maintenance/turn-off-dialog
 import { RoleDenied } from '@/components/features/role-denied'
 import { SettingsRouteError } from '@/components/features/route-error'
 import { ToneBadge } from '@/components/features/tone-badge'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Item, ItemContent, ItemGroup, ItemTitle } from '@/components/ui/item'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import type { BadgeTone } from '@/constants/badge-tones'
@@ -109,14 +111,18 @@ function StateFacts({ view }: { view: PlatformMaintenanceModeView }) {
 /** Each queue's pause state and running jobs, for checking "0 running" before database work. */
 function QueueList({ queues }: { queues: QueuePauseState[] }) {
   if (queues.length === 0) {
-    return <p className="text-sm text-muted-foreground">The API reported no queues.</p>
+    return <EmptyState size="compact" title="The API reported no queues." />
   }
   return (
-    <ul aria-label="Queues" className="grid gap-1 text-sm tabular-nums">
+    <ItemGroup aria-label="Queues" className="gap-1 tabular-nums has-data-[size=xs]:gap-1">
       {queues.map((queue) => (
-        <li key={queue.name}>{queueLine(queue)}</li>
+        <Item key={queue.name} size="xs" role="listitem" className="p-0">
+          <ItemContent>
+            <ItemTitle className="line-clamp-none font-normal">{queueLine(queue)}</ItemTitle>
+          </ItemContent>
+        </Item>
       ))}
-    </ul>
+    </ItemGroup>
   )
 }
 

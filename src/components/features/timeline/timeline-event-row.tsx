@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
+import { Item, ItemContent } from '@/components/ui/item'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ROUTES } from '@/constants/routes'
 import { timelineSentence } from '@/constants/timeline-events'
@@ -105,8 +106,10 @@ export function TimelineEvent({
 /** One event as a list item. */
 export function TimelineEventRow({ row, showActor }: { row: TimelineRow; showActor: boolean }) {
   return (
-    <li className="py-2">
-      <TimelineEvent row={row} showActor={showActor} />
-    </li>
+    <Item size="xs" role="listitem" className="rounded-none border-0 px-0 py-2">
+      <ItemContent>
+        <TimelineEvent row={row} showActor={showActor} />
+      </ItemContent>
+    </Item>
   )
 }

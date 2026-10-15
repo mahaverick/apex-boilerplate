@@ -422,6 +422,16 @@ function emailDetail(emailId: string) {
   }
 }
 
+/** `?emails=none` answers every email list as empty; anything else is the fixture rows. */
+const emailsParam = new URLSearchParams(location.search).get('emails')
+
+/**
+ * `?preview=partial` answers a preview whose stored details were incomplete,
+ * and `?preview=unavailable` one whose template no longer exists; anything
+ * else is a whole preview.
+ */
+const previewParam = new URLSearchParams(location.search).get('preview')
+
 /** A preview as express renders it: inline styles only, the link masked, one long unbroken line to test the frame's own scroll. */
 const EMAIL_PREVIEW = {
   subject: 'Reset your password',
@@ -894,7 +904,8 @@ function errorsOf() {
 
 /**
  * `?flags=unconfigured` answers the flags routes as an environment without
- * the feature flags key does; anything else is configured.
+ * the feature flags key does, and `?flags=stale` answers an evaluation whose
+ * snapshot is stale; anything else is configured and fresh.
  */
 const flagsParam = new URLSearchParams(location.search).get('flags')
 
@@ -1051,7 +1062,10 @@ function flagsEvaluation(params: URLSearchParams) {
             reason: 'fallback:unconfigured',
           },
         ],
-    snapshot: { fetchedAt: enabled ? '2026-10-05T09:59:30.000Z' : null, stale: false },
+    snapshot: {
+      fetchedAt: enabled ? '2026-10-05T09:59:30.000Z' : null,
+      stale: flagsParam === 'stale',
+    },
   }
 }
 
@@ -1363,9 +1377,21 @@ const worker = setupWorker(
       'Email health retrieved.'
     )
   ),
-  http.get('/api/v1/platform/emails/:emailId/preview', () =>
-    ok(EMAIL_PREVIEW, 'Email preview rendered.')
-  ),
+  http.get('/api/v1/platform/emails/:emailId/preview', () => {
+    if (previewParam === 'unavailable') {
+      return Response.json(
+        {
+          success: false,
+          message: 'The template is no longer part of the app.',
+          code: 'template_unavailable',
+          statusCode: 409,
+          requestId: 'harness',
+        },
+        { status: 409 }
+      )
+    }
+    return ok({ ...EMAIL_PREVIEW, partial: previewParam === 'partial' }, 'Email preview rendered.')
+  }),
   http.get('/api/v1/platform/emails/:emailId', ({ params }) =>
     ok(emailDetail(String(params.emailId)), 'Email retrieved.')
   ),
@@ -1381,11 +1407,14 @@ const worker = setupWorker(
     const params = new URL(request.url).searchParams
     const userId = params.get('userId')
     const tenantId = params.get('tenantId')
-    const emails = EMAIL_ROWS.filter(
-      (row) =>
-        (userId === null || row.user?.id === userId) &&
-        (tenantId === null || row.tenant?.id === tenantId)
-    )
+    const emails =
+      emailsParam === 'none'
+        ? []
+        : EMAIL_ROWS.filter(
+            (row) =>
+              (userId === null || row.user?.id === userId) &&
+              (tenantId === null || row.tenant?.id === tenantId)
+          )
     return ok({ messages: emails, nextCursor: null, prevCursor: null }, 'Emails retrieved.')
   }),
   // Suspending a tenant, inviting an owner and deactivating a user answer with the step-up refusal, so the fixtures can open the stacked step-up dialog.

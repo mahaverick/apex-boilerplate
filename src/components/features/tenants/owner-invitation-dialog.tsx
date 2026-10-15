@@ -1,8 +1,8 @@
 import { useForm } from '@tanstack/react-form'
 import { useState } from 'react'
 import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
+import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
-import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -173,9 +173,9 @@ function OwnerInvitationForm({
       </FormField>
       <FormError />
       <DialogFooter>
-        <Button type="submit" disabled={reissue.isPending}>
-          {reissue.isPending ? 'Sending…' : 'Send invitation'}
-        </Button>
+        <BusyButton busy={reissue.isPending} busyLabel="Sending…" type="submit">
+          Send invitation
+        </BusyButton>
       </DialogFooter>
     </Form>
   )

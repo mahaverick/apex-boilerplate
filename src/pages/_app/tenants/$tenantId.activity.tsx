@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { ActivityList } from '@/components/features/activity/activity-list'
 import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
 import { FrozenTenant } from '@/components/features/tenants/frozen-tenant'
+import { Note } from '@/components/shared/note'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { canViewActivity } from '@/constants/roles'
@@ -35,9 +36,9 @@ function TenantActivity({ slug, tenantId }: { slug: string; tenantId: string }) 
   if (isError || !role) return <LoadError message={ROLE_ERROR} onRetry={retry} />
   if (!allowed) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <Note tone="passive">
         A tenant’s activity is for owners and admins. Your role here can’t see it.
-      </p>
+      </Note>
     )
   }
   return (

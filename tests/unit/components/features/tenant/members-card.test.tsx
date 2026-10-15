@@ -359,6 +359,7 @@ describe('members tab permissions', () => {
 
     expect(await screen.findByText('Cleo X')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.getByText('Cleo X').closest('[role="listitem"]')).not.toBeNull()
     // The controls that were off-screen are present and reachable.
     expect(screen.getByRole('combobox', { name: 'Role for Cleo X' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
@@ -372,11 +373,8 @@ describe('members tab permissions', () => {
     mockTenant('owner', [])
     renderAppAt(`/tenants/${TENANT_ID}/members`)
 
-    expect(
-      await screen.findByText(
-        'No one has access to this tenant yet. An accepted invitation gives someone access.'
-      )
-    ).toBeInTheDocument()
+    expect(await screen.findByText('No one has access to this tenant yet.')).toBeInTheDocument()
+    expect(screen.getByText('An accepted invitation gives someone access.')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
@@ -1120,12 +1118,14 @@ describe('inviting, and the pending invitations', () => {
 
     expect(await screen.findByRole('heading', { name: 'Pending invitations' })).toBeInTheDocument()
     const first = within(
-      (await screen.findByText('invited@example.com')).closest('li') as HTMLElement
+      (await screen.findByText('invited@example.com')).closest('[role="listitem"]') as HTMLElement
     )
     expect(first.getByText(byContent('Editor · Invited by A B'))).toBeInTheDocument()
     expect(first.getByText(/^Expires /)).toBeInTheDocument()
     // An inviter whose account is gone is `null` and renders as a teammate.
-    const second = within(screen.getByText('old-invite@example.com').closest('li') as HTMLElement)
+    const second = within(
+      screen.getByText('old-invite@example.com').closest('[role="listitem"]') as HTMLElement
+    )
     expect(second.getByText(byContent('Viewer · Invited by A teammate'))).toBeInTheDocument()
   })
 

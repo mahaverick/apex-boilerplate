@@ -1,6 +1,8 @@
 import { useId, useState } from 'react'
 import { TimelineEvent, TimelineEventRow } from '@/components/features/timeline/timeline-event-row'
 import { Button } from '@/components/ui/button'
+import { Item, ItemContent, ItemGroup } from '@/components/ui/item'
+import { cn } from '@/lib/utils'
 import type { TimelineRow } from '@/types/api.types'
 
 /**
@@ -14,23 +16,30 @@ export function TimelineRequest({ rows, showActor }: { rows: TimelineRow[]; show
   const [first, ...related] = rows
   if (first === undefined) return null
   return (
-    <li className="py-2">
-      <TimelineEvent row={first} showActor={showActor}>
-        <Button
-          variant="ghost"
-          size="xs"
-          aria-expanded={isOpen}
-          aria-controls={listId}
-          onClick={() => setOpen((open) => !open)}
+    <Item size="xs" role="listitem" className="rounded-none border-0 px-0 py-2">
+      <ItemContent>
+        <TimelineEvent row={first} showActor={showActor}>
+          <Button
+            variant="ghost"
+            size="xs"
+            aria-expanded={isOpen}
+            aria-controls={listId}
+            onClick={() => setOpen((open) => !open)}
+          >
+            +{related.length} related
+          </Button>
+        </TimelineEvent>
+        <ItemGroup
+          id={listId}
+          hidden={!isOpen}
+          aria-label="Related events"
+          className={cn('ml-4 gap-0 border-l pl-3 has-data-[size=xs]:gap-0', !isOpen && 'hidden')}
         >
-          +{related.length} related
-        </Button>
-      </TimelineEvent>
-      <ul id={listId} hidden={!isOpen} aria-label="Related events" className="ml-4 border-l pl-3">
-        {related.map((row) => (
-          <TimelineEventRow key={row.uuid} row={row} showActor={showActor} />
-        ))}
-      </ul>
-    </li>
+          {related.map((row) => (
+            <TimelineEventRow key={row.uuid} row={row} showActor={showActor} />
+          ))}
+        </ItemGroup>
+      </ItemContent>
+    </Item>
   )
 }

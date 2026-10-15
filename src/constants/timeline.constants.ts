@@ -62,11 +62,17 @@ export const TIMELINE_LAG_NOTE = 'Events can take a few minutes to appear.'
  * clicks, so that view says where they went.
  * @param range - The window shown.
  * @param view - The view shown.
- * @returns The sentence.
+ * @returns The title, and a description where the view has one.
  */
-export function timelineEmptyMessage(range: TimelineRange, view: TimelineView): string {
+export function timelineEmptyCopy(
+  range: TimelineRange,
+  view: TimelineView
+): { title: string; description?: string } {
   const label = TIMELINE_RANGE_LABELS[range]
   return view === 'key'
-    ? `No key events in the last ${label}. Switch to Everything to see pageviews and clicks.`
-    : `No events in the last ${label}.`
+    ? {
+        title: `No key events in the last ${label}.`,
+        description: 'Switch to Everything to see pageviews and clicks.',
+      }
+    : { title: `No events in the last ${label}.` }
 }

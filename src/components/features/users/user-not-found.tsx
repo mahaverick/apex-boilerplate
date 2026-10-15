@@ -4,6 +4,7 @@ import { ROUTES } from '@/constants/routes'
 
 /** What a user's pages show when `GET /platform/users/:id` answers 404: unknown, or purged. */
 export function UserNotFound() {
+  // Capped: a standalone not-found card stays a readable column.
   return (
     <Card className="max-w-2xl">
       <CardHeader>

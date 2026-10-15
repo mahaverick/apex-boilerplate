@@ -1,6 +1,7 @@
 import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
 import { InviteMemberForm } from '@/components/features/tenant/invite-member-form'
 import { PendingInvitations } from '@/components/features/tenant/pending-invitations'
+import { Note } from '@/components/shared/note'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { canManageTenant } from '@/constants/roles'
@@ -33,9 +34,9 @@ export function InvitationsSection({
   if (isError || !role) return <LoadError message={ROLE_ERROR} onRetry={retry} />
   if (!canManageTenant(role)) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <Note tone="passive">
         Invitations are managed by owners and admins. Your role here can’t see them.
-      </p>
+      </Note>
     )
   }
   return (

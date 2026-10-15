@@ -109,11 +109,12 @@ describe('/deliverability', () => {
       expect(tile.slice(1)).toEqual(['—', 'No provider data'])
     }
 
-    const banner = screen.getByRole('note')
-    expect(banner).toHaveTextContent(
+    expect(
+      screen.getByText(/No provider events yet — delivery, bounce and complaint data appear/)
+    ).toHaveTextContent(
       'No provider events yet — delivery, bounce and complaint data appear once a provider webhook is configured.'
     )
-    const docs = within(banner).getByRole('link', { name: /How to configure one/ })
+    const docs = screen.getByRole('link', { name: /How to configure one/ })
     expect(docs).toHaveAttribute('href', expect.stringMatching(/#email-tracking$/))
     expect(docs).toHaveAttribute('rel', 'noreferrer')
     // A banner, not an empty state: the chart still draws the window's sent emails.

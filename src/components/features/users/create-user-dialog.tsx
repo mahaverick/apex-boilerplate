@@ -1,6 +1,7 @@
 import { useForm } from '@tanstack/react-form'
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
+import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import {
@@ -152,9 +153,9 @@ export function CreateUserDialog() {
             </FormField>
             <FormError />
             <DialogFooter>
-              <Button type="submit" disabled={create.isPending}>
-                {create.isPending ? 'Creating…' : 'Create user'}
-              </Button>
+              <BusyButton busy={create.isPending} busyLabel="Creating…" type="submit">
+                Create user
+              </BusyButton>
             </DialogFooter>
           </Form>
         </DialogContent>

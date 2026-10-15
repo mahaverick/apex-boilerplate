@@ -1,8 +1,10 @@
+import { IconAlertCircle } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { FlagEvaluation } from '@/components/features/flags/flag-evaluation'
 import { FlagUserPicker } from '@/components/features/flags/flag-user-picker'
 import { LoadError } from '@/components/features/load-error'
 import { Pii } from '@/components/shared/pii'
+import { Alert, AlertAction, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -143,12 +145,15 @@ export function FlagEvaluatePanel({ search, onSearchChange, registry }: FlagEval
   }
   if (user.isError) {
     return statusFrom(user.error) === 404 ? (
-      <div role="alert" className="grid justify-items-start gap-3 rounded-md border p-4">
-        <p className="text-sm text-muted-foreground">That user doesn’t exist any more.</p>
-        <Button variant="outline" size="sm" onClick={() => onSearchChange({ app: search.app })}>
-          Change user
-        </Button>
-      </div>
+      <Alert variant="destructive" className="has-data-[slot=alert-action]:pr-32">
+        <IconAlertCircle aria-hidden="true" />
+        <AlertTitle>That user doesn’t exist any more.</AlertTitle>
+        <AlertAction>
+          <Button variant="outline" size="sm" onClick={() => onSearchChange({ app: search.app })}>
+            Change user
+          </Button>
+        </AlertAction>
+      </Alert>
     ) : (
       <LoadError message="We could not load this user." onRetry={() => void user.refetch()} />
     )

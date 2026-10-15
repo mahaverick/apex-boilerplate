@@ -1,4 +1,4 @@
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import { IconChevronLeft, IconChevronRight, IconMail } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -7,8 +7,8 @@ import { TenantFilterChip, UserFilterChip } from '@/components/features/emails/e
 import { EmailsTable } from '@/components/features/emails/emails-table'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -255,29 +255,27 @@ function EmailsPage() {
       ) : !settled || page.data === undefined ? (
         <Skeleton className="h-96 w-full" />
       ) : rows.length === 0 && search.cursor !== undefined ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>Nothing on this page.</EmptyTitle>
-            <EmptyDescription>The list changed since this page was opened.</EmptyDescription>
-          </EmptyHeader>
-          <Button variant="outline" size="sm" onClick={firstPage}>
-            <IconChevronLeft aria-hidden="true" />
-            First page
-          </Button>
-        </Empty>
+        <EmptyState
+          icon={<IconMail aria-hidden="true" />}
+          title="Nothing on this page."
+          description="The list changed since this page was opened."
+          action={
+            <Button variant="outline" size="sm" onClick={firstPage}>
+              <IconChevronLeft aria-hidden="true" />
+              First page
+            </Button>
+          }
+        />
       ) : rows.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>
-              {filtered ? 'No emails match these filters.' : 'No emails yet.'}
-            </EmptyTitle>
-            <EmptyDescription>
-              {filtered
-                ? 'Try fewer filters, or part of the address.'
-                : 'Every email the app sends is listed here, with its delivery status.'}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <EmptyState
+          icon={<IconMail aria-hidden="true" />}
+          title={filtered ? 'No emails match these filters.' : 'No emails yet.'}
+          description={
+            filtered
+              ? 'Try fewer filters, or part of the address.'
+              : 'Every email the app sends is listed here, with its delivery status.'
+          }
+        />
       ) : (
         <>
           <div aria-busy={page.isPlaceholderData}>

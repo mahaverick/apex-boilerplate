@@ -155,13 +155,19 @@ The registration form shows the invited address in the description ("Create an a
 
 `LoadError` (`src/components/features/load-error.tsx`), `RoleDenied` (`role-denied.tsx`) and `WidgetBoundary`'s failure message are each a `div` or `p` with `rounded-md border p-4`, a muted sentence and, for the first two, an outline button. They take the width of whatever wraps them: full width on the Overview ([shot](img/overview/overview--error.jpg)), but shrink-wrapped at the left under a list's filters, because the lists wrap them in `grid justify-items-start` to put First page beside them ([shot](img/tenants/tenants--error.jpg)); the onboarding error shot shows both widths on one page ([shot](img/onboarding/onboarding--error.jpg)). Fix: one shadcn `Alert` (destructive for a failure, default for a role refusal) with its action, at full width everywhere.
 
+Status: fixed in 9840410 for `LoadError` and `RoleDenied`: each is an `Alert` with its action at full width, the two load errors on one page ([load errors](img/onboarding/onboarding--error.jpg)) and the role refusal with Reload ([role refusal](img/tenants/tenant-errors--role-denied.jpg)). The refusal shot shows it in the destructive colours, not the default variant the fix proposed. `WidgetBoundary`'s failure has no after-shot; `tests/unit/components/features/widget-boundary.test.tsx` asserts it renders an alert, and nothing asserts its width.
+
 ### F-overview-3
 
 Notes the page wants read are hand-rolled: `TimelineNotConfigured` and the errors panel's not-configured note, the email's suppression banner and its preview's template-unavailable note, the deleted-account note on a user page, the flags page's not-configured and stale notes ([shot](img/settings/platform-flags--default.jpg)), and `NoProviderEvents` on Deliverability ([shot](img/deliverability/deliverability--default.jpg)). Each is a `p` or `div` with `rounded-md border p-3 text-sm`, the same look for "informational" and "this address receives no mail". Fix: shadcn `Alert` with an icon, a title and a variant that matches the weight of the note.
 
+Status: fixed in 763c2b5 and 9c73603. The notes are one `Note` component with a warning, info or passive tone; only a passive note has no live region. The after-shot shows the passive not-configured note on the flags page ([after](img/settings/platform-flags--default.jpg)); that note has no icon or title, so the fix's "icon and title" is not what shipped. No shot shows a warning or info note: `e2e/contrast/contrast.test.ts` ("notes and compact empty states") renders the stale-flags and partial-preview warnings, the template-unavailable info note and the no-provider-events passive note in both themes and asserts each is present.
+
 ### F-overview-4
 
 The paged lists use shadcn `Empty` (a centred title and description), but most empty states inside cards and tabs are a plain `text-sm text-muted-foreground` paragraph: "No errors in the last 30 days." ([shot](img/tenants/tenant-errors--empty.jpg)), "Nothing has happened in this tenant yet.", "No invitations are waiting to be accepted.", "No one has access to this tenant yet…", "Not a member of any tenant.", "None.", "No emails sent to this account yet.", the timeline's empty message, the chart cards' "No sign-ups in the last …", "No flags are registered." and "The API reported no queues.". Fix: shadcn `Empty`, in its compact form inside a card.
+
+Status: fixed in 99fb5f0. Empty states in cards and tabs are an `EmptyState` ([after](img/tenants/tenant-errors--empty.jpg)); the compact variant in a card is graded by `e2e/contrast/contrast.test.ts` (the user emails card with no emails, both themes).
 
 ### F-overview-5
 
@@ -174,6 +180,8 @@ The KPI grids are `sm:grid-cols-2` and up, so below 640 px every card takes a fu
 ### F-overview-7
 
 `ActivityList`'s Load more activity and `TimelinePanel`'s Load more events replace their label with the word "Loading…" while the next page loads, and nothing else marks the wait ([code](activity.md#activity--activity)). Fix: shadcn `Spinner` in the button beside its label.
+
+Status: fixed in bb8a384. Both buttons are a `BusyButton`, which shows a spinner and the busy label while the next page is fetched; `tests/unit/components/shared/busy-button.test.tsx` covers the component. `tests/unit/pages/_app/user-timeline.test.tsx` drives Load more events and asserts it is disabled while a refresh runs, but no test asserts the spinner or the busy label, and nothing drives Load more activity. There is no after-shot of the busy state, because a shot cannot catch the pending state.
 
 ### F-tenants-1
 

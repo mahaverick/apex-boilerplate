@@ -29,7 +29,7 @@ export const Route = createFileRoute('/_app/settings/platform/staff')({
  */
 function StaffPage() {
   return (
-    <div className="grid max-w-4xl gap-4">
+    <div className="grid gap-4">
       <MembersCard
         slug={PLATFORM_TENANT_SLUG}
         title="Staff members"

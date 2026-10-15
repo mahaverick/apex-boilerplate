@@ -287,7 +287,9 @@ the component is added again.
   import restriction, comment-style and JSDoc blocks), and the `!` negations in
   `.prettierignore`. A third hand-written file there goes into all five in the
   same change.
-- **A re-add drops these local edits; put them back.** `avatar.tsx`: the fallback
+- **A re-add drops these local edits; put them back.** `docs/ui-local-edits.md`
+  is the full record, and `pnpm ui:drift` checks the files against the registry.
+  `avatar.tsx`: the fallback
   and group count use `text-foreground` (contrast). `tabs.tsx`: the panel keeps
   `rounded-md focus-visible:ring-3 focus-visible:ring-ring/50` (WCAG 2.4.7).
   `badge`, `button`, `switch`, `tabs`, `toggle` and the sidebar rail name their
@@ -307,7 +309,8 @@ the component is added again.
   `aria-hidden` but tabbable while the stack is collapsed; that is accepted
   upstream behaviour, since Tab reaches the toast first and expands it. The
   files shared with react-boilerplate stay byte for byte equal to react's.
-  Every Tabler icon in `src/components/ui/` carries `aria-hidden="true"` (the
+  Every Tabler icon in `src/components/ui/` except the one in `spinner.tsx`
+  carries `aria-hidden="true"` (the
   guard test `tests/unit/ui-icons-aria-hidden.test.ts` fails otherwise); the combobox clear and chip-remove buttons carry
   `aria-label` for the same reason, and the apex-only `calendar.tsx` follows
   the same rule. `shadcn init` also overwrites `src/lib/utils.ts`,
@@ -439,7 +442,7 @@ Playwright has five projects: `fixtures`, `live`, `contrast`, `nginx` and
 the fixtures. It needs no backend. It exists for what jsdom cannot see, because
 jsdom has no layout. `?path=` picks the route, and the harness's other query
 parameters shape the fixtures: `?role=none|viewer|owner` (the default is a
-platform admin), `?member=`, `?errors=`, `?flags=`, `?maintenance=full|route` and
+platform admin), `?member=`, `?errors=`, `?flags=`, `?preview=`, `?emails=none`, `?maintenance=full|route` and
 `?onboarding=`. The harness's comments give each one's meaning.
 
 **An endpoint the harness leaves unmocked falls through**
@@ -489,7 +492,8 @@ Run it only through `pnpm capture:pages`: that script sets `E2E_CAPTURE=1`,
 which turns `webServer` off, and a bare `--project=capture` starts the dev
 server and then skips every test. It needs `E2E_API_DIR` to name the express
 checkout (a staff account is granted its role there) and takes
-`CAPTURE_ONLY=auth,tenants` to limit the run to those areas. It is opt-in and
+`CAPTURE_ONLY=auth,tenants` to limit the run to those areas, or a route key such as
+`'/tenants/$tenantId/timeline'` (quote it, or the shell expands `$tenantId`). It is opt-in and
 not in CI. How to run it is in `docs/pages/README.md`.
 
 ## Accessibility

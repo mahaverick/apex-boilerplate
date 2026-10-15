@@ -2,6 +2,7 @@ import { IconPlus } from '@tabler/icons-react'
 import { useForm } from '@tanstack/react-form'
 import { useState } from 'react'
 import type { z } from 'zod'
+import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import {
@@ -166,9 +167,9 @@ function CreateTenantForm({ onDone }: { onDone: (tenant: PlatformTenantDetail) =
       </FormField>
       <FormError />
       <DialogFooter>
-        <Button type="submit" disabled={create.isPending}>
-          {create.isPending ? 'Creating…' : 'Create tenant'}
-        </Button>
+        <BusyButton busy={create.isPending} busyLabel="Creating…" type="submit">
+          Create tenant
+        </BusyButton>
       </DialogFooter>
     </Form>
   )

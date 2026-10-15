@@ -10,7 +10,7 @@ import {
   TIMELINE_UNVERIFIED_NOTE,
   TIMELINE_VIEW_LABELS,
   TIMELINE_VIEWS,
-  timelineEmptyMessage,
+  timelineEmptyCopy,
 } from '@/constants/timeline.constants'
 
 describe('timeline windows and views', () => {
@@ -47,14 +47,17 @@ describe('timeline copy', () => {
   })
 
   it.each([
-    ['24h', 'all', 'No events in the last 24 hours.'],
-    ['7d', 'all', 'No events in the last 7 days.'],
+    ['24h', 'all', { title: 'No events in the last 24 hours.' }],
+    ['7d', 'all', { title: 'No events in the last 7 days.' }],
     [
       '90d',
       'key',
-      'No key events in the last 90 days. Switch to Everything to see pageviews and clicks.',
+      {
+        title: 'No key events in the last 90 days.',
+        description: 'Switch to Everything to see pageviews and clicks.',
+      },
     ],
-  ] as const)('says an empty %s %s window is empty, and nothing more', (range, view, text) => {
-    expect(timelineEmptyMessage(range, view)).toBe(text)
+  ] as const)('says an empty %s %s window is empty, and nothing more', (range, view, copy) => {
+    expect(timelineEmptyCopy(range, view)).toEqual(copy)
   })
 })

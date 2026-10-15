@@ -1,4 +1,6 @@
+import { IconAlertCircle } from '@tabler/icons-react'
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 
 /** The widget's name and its content. */
 interface WidgetBoundaryProps {
@@ -29,9 +31,10 @@ export class WidgetBoundary extends Component<WidgetBoundaryProps, { failed: boo
   override render(): ReactNode {
     if (this.state.failed) {
       return (
-        <p role="alert" className="rounded-md border p-4 text-sm text-muted-foreground">
-          {this.props.name} could not be shown.
-        </p>
+        <Alert variant="destructive">
+          <IconAlertCircle aria-hidden="true" />
+          <AlertTitle>{this.props.name} could not be shown.</AlertTitle>
+        </Alert>
       )
     }
     return this.props.children

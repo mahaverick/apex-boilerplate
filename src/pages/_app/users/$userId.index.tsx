@@ -7,10 +7,13 @@ import { LoadError } from '@/components/features/load-error'
 import { UserActionsMenu } from '@/components/features/users/user-actions-menu'
 import { UserNotFound } from '@/components/features/users/user-not-found'
 import { UserStatusBadges } from '@/components/features/users/user-status-badges'
+import { EmptyState } from '@/components/shared/empty-state'
+import { Note } from '@/components/shared/note'
 import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from '@/components/ui/item'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast, ROLE_LABELS } from '@/constants/roles'
@@ -67,7 +70,7 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
     'admin'
   )
   return (
-    <div className="grid max-w-4xl gap-4">
+    <div className="grid gap-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="grid gap-1">
           <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
@@ -125,10 +128,10 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
       </div>
 
       {user.deletedAt !== null && (
-        <p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
+        <Note tone="warning">
           This account was deleted on {formatDate(user.deletedAt, 'medium') ?? 'an unknown date'}.
           It is read-only; a platform owner can delete it permanently.
-        </p>
+        </Note>
       )}
 
       <section aria-labelledby="user-tenants">
@@ -140,29 +143,33 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
           </CardHeader>
           <CardContent>
             {user.memberships.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Not a member of any tenant.</p>
+              <EmptyState size="compact" title="Not a member of any tenant." />
             ) : (
-              <ul className="grid gap-2">
+              <ItemGroup className="gap-2 has-data-[size=xs]:gap-2">
                 {user.memberships.map((membership) => (
-                  <li key={membership.tenantId} className="flex items-center justify-between gap-4">
-                    <Link
-                      to={ROUTES.tenant}
-                      params={{ tenantId: membership.tenantId }}
-                      className="font-medium underline-offset-4 hover:underline"
-                    >
-                      {membership.tenantName}
-                    </Link>
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Item key={membership.tenantId} size="xs" role="listitem" className="p-0">
+                    <ItemContent>
+                      <ItemTitle className="line-clamp-none">
+                        <Link
+                          to={ROUTES.tenant}
+                          params={{ tenantId: membership.tenantId }}
+                          className="underline-offset-4 hover:underline"
+                        >
+                          {membership.tenantName}
+                        </Link>
+                      </ItemTitle>
+                    </ItemContent>
+                    <ItemActions className="text-muted-foreground">
                       {membership.lifecycleState !== 'active' && (
                         <Badge variant="outline">
                           {membership.lifecycleState === 'suspended' ? 'Suspended' : 'Archived'}
                         </Badge>
                       )}
                       {ROLE_LABELS[membership.role]}
-                    </span>
-                  </li>
+                    </ItemActions>
+                  </Item>
                 ))}
-              </ul>
+              </ItemGroup>
             )}
           </CardContent>
         </Card>
@@ -195,20 +202,22 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
           </CardHeader>
           <CardContent>
             {user.pendingInvitations.length === 0 ? (
-              <p className="text-sm text-muted-foreground">None.</p>
+              <EmptyState size="compact" title="None." />
             ) : (
-              <ul className="grid gap-2 text-sm">
+              <ItemGroup className="gap-2 has-data-[size=xs]:gap-2">
                 {user.pendingInvitations.map((invitation) => (
-                  <li key={invitation.id} className="flex justify-between gap-4">
-                    <span>
-                      {invitation.tenantName} · {ROLE_LABELS[invitation.role]}
-                    </span>
-                    <span className="text-muted-foreground">
+                  <Item key={invitation.id} size="xs" role="listitem" className="p-0">
+                    <ItemContent>
+                      <ItemTitle className="line-clamp-none font-normal">
+                        {invitation.tenantName} · {ROLE_LABELS[invitation.role]}
+                      </ItemTitle>
+                    </ItemContent>
+                    <ItemActions className="text-sm text-muted-foreground">
                       Expires {formatDate(invitation.expiresAt, 'medium') ?? 'soon'}
-                    </span>
-                  </li>
+                    </ItemActions>
+                  </Item>
                 ))}
-              </ul>
+              </ItemGroup>
             )}
           </CardContent>
         </Card>

@@ -41,14 +41,14 @@ test('deliverability paints its five-group chart and every figure', async ({ pag
   // The harness's week: seven sent segments and one undelivered; zero-height segments draw no path.
   const chart = page.getByRole('figure', { name: 'Emails per day' })
   await expect(chart.locator('.recharts-bar-rectangle path')).toHaveCount(8)
-  await expect(page.getByRole('note')).toHaveCount(0)
+  await expect(page.getByText(/No provider events yet/)).toHaveCount(0)
 })
 
 test('deliverability without provider events keeps the chart under the banner', async ({
   page,
 }) => {
   await page.goto('/e2e/harness/?path=/deliverability?range=30d')
-  await expect(page.getByRole('note')).toContainText('No provider events yet')
+  await expect(page.getByText(/No provider events yet/)).toBeVisible()
   await expect(page.getByText('No provider data', { exact: true })).toHaveCount(5)
   const chart = page.getByRole('figure', { name: 'Emails per day' })
   await expect(chart.locator('.recharts-bar-rectangle path')).toHaveCount(8)

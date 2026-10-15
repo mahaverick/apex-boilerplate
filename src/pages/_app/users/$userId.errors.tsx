@@ -31,7 +31,7 @@ function UserErrorsPage() {
   const platformRole = useAuthStore((state) => state.user?.platformRole)
   if (!platformRoleAtLeast(platformRole, 'admin')) {
     return (
-      <div className="grid max-w-4xl gap-4">
+      <div className="grid gap-4">
         <h1 className="text-2xl font-semibold">Errors</h1>
         <RoleDenied />
       </div>
@@ -48,7 +48,7 @@ function UserErrors() {
   if (user.isError && statusFrom(user.error) === 404) return <UserNotFound />
 
   return (
-    <div className="grid max-w-5xl gap-4">
+    <div className="grid gap-4">
       <div className="grid gap-1">
         <h1 className="text-2xl font-semibold">Errors</h1>
         {user.data !== undefined && (

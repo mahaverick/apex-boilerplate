@@ -1,4 +1,4 @@
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import { IconChecklist, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { LoadError } from '@/components/features/load-error'
@@ -7,8 +7,8 @@ import { OnboardingKpis } from '@/components/features/onboarding/onboarding-kpis
 import { OnboardingTenantsTable } from '@/components/features/onboarding/onboarding-tenants-table'
 import { RoleDenied } from '@/components/features/role-denied'
 import { WidgetBoundary } from '@/components/features/widget-boundary'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -143,12 +143,11 @@ function OnboardingPage() {
       ) : funnel.data === undefined ? (
         <FunnelSkeleton />
       ) : funnel.data.trackedTenants === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>No tenant is tracked yet.</EmptyTitle>
-            <EmptyDescription>{ONBOARDING_NOT_STARTED}</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <EmptyState
+          icon={<IconChecklist aria-hidden="true" />}
+          title="No tenant is tracked yet."
+          description={ONBOARDING_NOT_STARTED}
+        />
       ) : (
         <>
           <div className="grid gap-6" aria-busy={funnel.isPlaceholderData}>
@@ -246,23 +245,23 @@ function TenantsPanel({ state }: { state: OnboardingListState }) {
   if (!settled || page.data === undefined) return <Skeleton className="h-64 w-full" />
   if (page.data.tenants.length === 0) {
     return cursor !== undefined ? (
-      <Empty>
-        <EmptyHeader>
-          <EmptyTitle>Nothing on this page.</EmptyTitle>
-          <EmptyDescription>The list changed since this page was opened.</EmptyDescription>
-        </EmptyHeader>
-        <Button variant="outline" size="sm" onClick={firstPage}>
-          <IconChevronLeft aria-hidden="true" />
-          First page
-        </Button>
-      </Empty>
+      <EmptyState
+        icon={<IconChecklist aria-hidden="true" />}
+        title="Nothing on this page."
+        description="The list changed since this page was opened."
+        action={
+          <Button variant="outline" size="sm" onClick={firstPage}>
+            <IconChevronLeft aria-hidden="true" />
+            First page
+          </Button>
+        }
+      />
     ) : (
-      <Empty>
-        <EmptyHeader>
-          <EmptyTitle>{EMPTY_TAB[state].title}</EmptyTitle>
-          <EmptyDescription>{EMPTY_TAB[state].description}</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <EmptyState
+        icon={<IconChecklist aria-hidden="true" />}
+        title={EMPTY_TAB[state].title}
+        description={EMPTY_TAB[state].description}
+      />
     )
   }
   return (
