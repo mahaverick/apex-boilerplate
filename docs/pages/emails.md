@@ -55,4 +55,9 @@ The preview has its own states: an `h-160` skeleton, a `LoadError` "We could not
 | ![](img/emails/email-detail--loading.jpg) | ![](img/emails/email-detail--error.jpg)             |
 | skeleton · `h-16` and `h-64`, full width  | alert · `LoadError` "We could not load this email." |
 
+| Role-denied                                                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![](img/emails/email-detail--role-denied.jpg)                                                                                                                     |
+| A viewer: no Resend, which needs a platform admin or owner. This run's email is a verification mail to a verified user, so the default shot has no Resend either. |
+
 Findings: [F-emails-3](findings.md#f-emails-3), [F-overview-3](findings.md#f-overview-3), [F-palette-4](findings.md#f-palette-4)

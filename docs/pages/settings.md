@@ -102,6 +102,11 @@ The dev database has 60 staff members, all in one table: the page is about 4,100
 | ![](img/settings/platform-staff--loading.jpg)                                  | ![](img/settings/platform-staff--error.jpg)                   |
 | skeleton · 2× `h-10` in the members card, one `h-40` block for the invitations | alert · three `LoadError`s, two of them the same role message |
 
+| Role-denied                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ![](img/settings/platform-staff--role-denied.jpg)                                                                                                                                                                              |
+| A viewer: the staff list with each role as plain text and Leave on their own row only; the invite and pending-invitations cards are replaced by "Invitations are managed by owners and admins. Your role here can’t see them." |
+
 Findings: [F-settings-3](findings.md#f-settings-3), [F-settings-4](findings.md#f-settings-4), [F-settings-7](findings.md#f-settings-7), [F-tenants-6](findings.md#f-tenants-6)
 
 ### `/settings/platform/flags` — Feature flags

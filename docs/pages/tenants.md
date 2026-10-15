@@ -111,6 +111,11 @@ The members read and the role read can fail alone, and each shows its own `LoadE
 | ![](img/tenants/tenant-members--loading.jpg)                                         | ![](img/tenants/tenant-members--error.jpg) | ![](img/tenants/tenant-members--empty.jpg)                                                                 |
 | skeleton · the layout's blocks; the card's own 2× `h-10` shows only after the detail | alert · the layout's `LoadError`           | members stubbed `[]`: "No one has access to this tenant yet. An accepted invitation gives someone access." |
 
+| Role-denied                                                            |
+| ---------------------------------------------------------------------- |
+| ![](img/tenants/tenant-members--role-denied.jpg)                       |
+| A viewer: the same list, each role as plain text and no Remove button. |
+
 Findings: [F-tenants-3](findings.md#f-tenants-3), [F-tenants-6](findings.md#f-tenants-6), [F-settings-4](findings.md#f-settings-4)
 
 ### `/tenants/$tenantId/invitations` — Invitations
@@ -135,6 +140,11 @@ The capture's tenant has no pending invitation, so the default and empty shots a
 | ![](img/tenants/tenant-invitations--loading.jpg)                               | ![](img/tenants/tenant-invitations--error.jpg) | ![](img/tenants/tenant-invitations--empty.jpg) |
 | skeleton · the layout's blocks; then the tab's own `h-40` while the role loads | alert · the layout's `LoadError`               | "No invitations are waiting to be accepted."   |
 
+| Role-denied                                                                                                                                                           |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![](img/tenants/tenant-invitations--role-denied.jpg)                                                                                                                  |
+| A viewer: "Invitations are managed by owners and admins. Your role here can’t see them." in place of the invite form and the list; the invitations are not requested. |
+
 Findings: [F-tenants-3](findings.md#f-tenants-3), [F-overview-4](findings.md#f-overview-4)
 
 ### `/tenants/$tenantId/activity` — Activity
@@ -156,6 +166,11 @@ Findings: [F-tenants-3](findings.md#f-tenants-3), [F-overview-4](findings.md#f-o
 | ---------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------- |
 | ![](img/tenants/tenant-activity--loading.jpg)                                      | ![](img/tenants/tenant-activity--error.jpg) | ![](img/tenants/tenant-activity--empty.jpg)                   |
 | skeleton · the layout's blocks; then `h-40` for the role and 2× `h-14` for the log | alert · the layout's `LoadError`            | log stubbed empty: "Nothing has happened in this tenant yet." |
+
+| Role-denied                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![](img/tenants/tenant-activity--role-denied.jpg)                                                                                           |
+| A viewer: "A tenant’s activity is for owners and admins. Your role here can’t see it." in place of the log; the audit log is not requested. |
 
 Findings: [F-tenants-3](findings.md#f-tenants-3), [F-activity-1](findings.md#f-activity-1), [F-overview-4](findings.md#f-overview-4)
 
