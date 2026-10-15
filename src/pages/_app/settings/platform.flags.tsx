@@ -64,11 +64,7 @@ function FlagsContent({ data, isAdmin }: { data: FlagsListResponse; isAdmin: boo
   const navigate = useNavigate({ from: '/settings/platform/flags' })
   return (
     <>
-      {!data.snapshot.enabled && (
-        <div role="status">
-          <Note tone="passive">{FLAGS_NOT_CONFIGURED}</Note>
-        </div>
-      )}
+      {!data.snapshot.enabled && <Note tone="passive">{FLAGS_NOT_CONFIGURED}</Note>}
       {data.snapshot.enabled && data.snapshot.stale && (
         <Note tone="warning">{FLAGS_STALE_NOTE}</Note>
       )}

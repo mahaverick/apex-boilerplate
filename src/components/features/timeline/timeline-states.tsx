@@ -5,11 +5,7 @@ import type { TimelineRange, TimelineView } from '@/types/api.types'
 
 /** Express has no PostHog personal key here: nothing was asked of PostHog, nothing was audited. */
 export function TimelineNotConfigured() {
-  return (
-    <div role="status">
-      <Note tone="passive">{TIMELINE_NOT_CONFIGURED}</Note>
-    </div>
-  )
+  return <Note tone="passive">{TIMELINE_NOT_CONFIGURED}</Note>
 }
 
 /** The first page in flight: rows shaped like the loaded list, so nothing jumps when it lands. */

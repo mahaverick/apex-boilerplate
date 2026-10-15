@@ -126,11 +126,7 @@ export function ErrorsPanel({ kind, id }: { kind: TimelineKind; id: string }) {
   }
   if (errors.data === undefined) return <TimelineSkeleton />
   if (!errors.data.configured) {
-    return (
-      <div role="status">
-        <Note tone="passive">{ERRORS_NOT_CONFIGURED}</Note>
-      </div>
-    )
+    return <Note tone="passive">{ERRORS_NOT_CONFIGURED}</Note>
   }
   if (errors.data.items.length === 0) {
     return <p className="text-sm text-muted-foreground">{ERRORS_EMPTY}</p>
