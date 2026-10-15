@@ -966,11 +966,11 @@ describe('/tenants/$tenantId', () => {
       signIn({ ...testUser, platformRole: 'viewer' })
       const internal = serve(detail(), 'viewer')
       renderAppAt(`/tenants/${TENANT_ID}/activity`)
-      expect(
-        await screen.findByText(
-          'A tenant’s activity is for owners and admins. Your role here can’t see it.'
-        )
-      ).toBeInTheDocument()
+      const note = await screen.findByText(
+        'A tenant’s activity is for owners and admins. Your role here can’t see it.'
+      )
+      expect(note).toBeInTheDocument()
+      expect(note.closest('[role="status"]')).toBeNull()
       expect(internal).toEqual(['/api/v1/tenants/acme'])
     })
 
@@ -978,9 +978,9 @@ describe('/tenants/$tenantId', () => {
       signIn({ ...testUser, platformRole: 'viewer' })
       const internal = serve(detail(), 'viewer')
       renderAppAt(`/tenants/${TENANT_ID}/invitations`)
-      expect(
-        await screen.findByText(/Invitations are managed by owners and admins/)
-      ).toBeInTheDocument()
+      const note = await screen.findByText(/Invitations are managed by owners and admins/)
+      expect(note).toBeInTheDocument()
+      expect(note.closest('[role="status"]')).toBeNull()
       expect(internal).toEqual(['/api/v1/tenants/acme'])
     })
   })

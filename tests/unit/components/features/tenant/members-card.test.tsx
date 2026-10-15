@@ -359,6 +359,7 @@ describe('members tab permissions', () => {
 
     expect(await screen.findByText('Cleo X')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.getByText('Cleo X').closest('[role="listitem"]')).not.toBeNull()
     // The controls that were off-screen are present and reachable.
     expect(screen.getByRole('combobox', { name: 'Role for Cleo X' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
