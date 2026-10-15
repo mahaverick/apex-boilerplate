@@ -106,7 +106,7 @@ flowchart LR
 
   overview --> users["/users"]
   users --> user["/users/$userId"]
-  user --> userTabs["Tabs: overview, timeline, errors"]
+  user --> userTabs["Pages: overview, timeline, errors"]
   user --> userActions["User actions menu"]
 
   overview --> emails["/emails"]
