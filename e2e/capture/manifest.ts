@@ -162,6 +162,10 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     kind: 'page',
     area: 'emails',
     shot: 'email-detail',
+    roleDenied: {
+      as: 'viewer',
+      note: "A viewer: no Resend, which needs admin or owner. This run's email is a verification mail to a verified user, so the owner's default shows no Resend either.",
+    },
     url: '/emails/{emailId}',
     as: 'staff',
     sections: [{ name: 'Email', endpoints: ['GET /platform/emails/:id'] }],
@@ -272,6 +276,10 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     kind: 'page',
     area: 'settings',
     shot: 'platform-staff',
+    roleDenied: {
+      as: 'viewer',
+      note: 'A viewer: the staff list with each role as plain text and Leave on their own row only; the invitations sections are replaced by "Invitations are managed by owners and admins. Your role here can’t see them."',
+    },
     url: '/settings/platform/staff',
     as: 'staff',
     sections: [
@@ -284,6 +292,10 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     kind: 'page',
     area: 'tenants',
     shot: 'tenant-activity',
+    roleDenied: {
+      as: 'viewer',
+      note: 'A viewer: "A tenant’s activity is for owners and admins. Your role here can’t see it." in place of the log; the audit log is not requested.',
+    },
     url: '/tenants/{tenantId}/activity',
     as: 'staff',
     sections: [TENANT, { name: 'Activity', endpoints: ['GET /tenants/:slug/audit-log'] }],
@@ -349,6 +361,10 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     kind: 'page',
     area: 'tenants',
     shot: 'tenant-invitations',
+    roleDenied: {
+      as: 'viewer',
+      note: 'A viewer: "Invitations are managed by owners and admins. Your role here can’t see them." in place of the invite form and the list; the invitations are not requested.',
+    },
     url: '/tenants/{tenantId}/invitations',
     as: 'staff',
     sections: [
@@ -361,6 +377,10 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     kind: 'page',
     area: 'tenants',
     shot: 'tenant-members',
+    roleDenied: {
+      as: 'viewer',
+      note: 'A viewer: the same member list, with each role as plain text and no Remove buttons.',
+    },
     url: '/tenants/{tenantId}/members',
     as: 'staff',
     sections: [TENANT, { name: 'Members', endpoints: ['GET /tenants/:slug/members'] }],
