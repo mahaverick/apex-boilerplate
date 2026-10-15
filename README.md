@@ -223,26 +223,27 @@ environment variable.
 
 ## Scripts
 
-| Script                | What it does                                                                                                                                                                           |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`            | Dev server on :5174 with the `/api` proxy                                                                                                                                              |
-| `pnpm build`          | `tsc -b` then `vite build` into `dist/`                                                                                                                                                |
-| `pnpm preview`        | Serve the built bundle locally                                                                                                                                                         |
-| `pnpm lint`           | eslint **and** `prettier --check`; both must pass                                                                                                                                      |
-| `pnpm lint:docs`      | History phrasing and broken links in markdown and config comments. CI runs it                                                                                                          |
-| `pnpm knip`           | Unused files, exports, types and dependencies (`knip.jsonc` lists the ignores and why). CI runs it                                                                                     |
-| `pnpm typecheck`      | `tsc --noEmit` on `tsconfig.app.json`, then `typecheck:e2e`                                                                                                                            |
-| `pnpm typecheck:e2e`  | `tsc --noEmit` on `e2e/tsconfig.json`                                                                                                                                                  |
-| `pnpm format`         | `prettier --write`                                                                                                                                                                     |
-| `pnpm test`           | Vitest, single pass                                                                                                                                                                    |
-| `pnpm test:coverage`  | Vitest with coverage; fails under 88/82/86/89 % (statements/branches/functions/lines). CI runs it                                                                                      |
-| `pnpm test:watch`     | Vitest in watch mode                                                                                                                                                                   |
-| `pnpm test:e2e`       | Playwright `fixtures` project against the MSW harness; no backend needed. CI runs it                                                                                                   |
-| `pnpm test:e2e:live`  | Playwright `live` project; needs express at `E2E_API_ORIGIN` (default :4040), mailpit and `APEX_URL` set                                                                               |
-| `pnpm test:e2e:nginx` | Builds the production image and runs the Playwright `nginx` project against it on :8088, started with the run-time settings CI uses; all but the `@no-api` tests need a live API       |
-| `pnpm test:contrast`  | axe colour contrast in a real browser, both themes; no backend needed                                                                                                                  |
-| `pnpm check:bundle`   | Builds in memory; fails on one JS chunk, first-visit JS over budget or holding posthog-js or `@posthog/core`, the error listener over 1 KB gzipped, or devtools in a chunk. CI runs it |
-| `pnpm prepare`        | Installs the husky git hooks; `pnpm install` runs it                                                                                                                                   |
+| Script                | What it does                                                                                                                                                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm dev`            | Dev server on :5174 with the `/api` proxy                                                                                                                                                                                                        |
+| `pnpm build`          | `tsc -b` then `vite build` into `dist/`                                                                                                                                                                                                          |
+| `pnpm preview`        | Serve the built bundle locally                                                                                                                                                                                                                   |
+| `pnpm lint`           | eslint **and** `prettier --check`; both must pass                                                                                                                                                                                                |
+| `pnpm lint:docs`      | History phrasing and broken links in markdown and config comments. CI runs it                                                                                                                                                                    |
+| `pnpm knip`           | Unused files, exports, types and dependencies (`knip.jsonc` lists the ignores and why). CI runs it                                                                                                                                               |
+| `pnpm typecheck`      | `tsc --noEmit` on `tsconfig.app.json`, then `typecheck:e2e`                                                                                                                                                                                      |
+| `pnpm typecheck:e2e`  | `tsc --noEmit` on `e2e/tsconfig.json`                                                                                                                                                                                                            |
+| `pnpm format`         | `prettier --write`                                                                                                                                                                                                                               |
+| `pnpm test`           | Vitest, single pass                                                                                                                                                                                                                              |
+| `pnpm test:coverage`  | Vitest with coverage; fails under 88/82/86/89 % (statements/branches/functions/lines). CI runs it                                                                                                                                                |
+| `pnpm test:watch`     | Vitest in watch mode                                                                                                                                                                                                                             |
+| `pnpm test:e2e`       | Playwright `fixtures` project against the MSW harness; no backend needed. CI runs it                                                                                                                                                             |
+| `pnpm test:e2e:live`  | Playwright `live` project; needs express at `E2E_API_ORIGIN` (default :4040), mailpit and `APEX_URL` set                                                                                                                                         |
+| `pnpm test:e2e:nginx` | Builds the production image and runs the Playwright `nginx` project against it on :8088, started with the run-time settings CI uses; all but the `@no-api` tests need a live API                                                                 |
+| `pnpm test:contrast`  | axe colour contrast in a real browser, both themes; no backend needed                                                                                                                                                                            |
+| `pnpm capture:pages`  | Playwright `capture` project: the page inventory's screenshots into `docs/pages/img/`. Needs the dev stack up (apex :5174, API :4040, Mailpit :8025) and `E2E_API_DIR` set; starts nothing; `CAPTURE_ONLY=auth,tenants` limits it to those areas |
+| `pnpm check:bundle`   | Builds in memory; fails on one JS chunk, first-visit JS over budget or holding posthog-js or `@posthog/core`, the error listener over 1 KB gzipped, or devtools in a chunk. CI runs it                                                           |
+| `pnpm prepare`        | Installs the husky git hooks; `pnpm install` runs it                                                                                                                                                                                             |
 
 CI holds eslint to **zero warnings** as well as zero errors
 (`pnpm exec eslint . --max-warnings 0`).
@@ -259,7 +260,7 @@ Unit tests live under `tests/unit/`, mirroring `src/`
 `tests/unit/a11y.test.tsx` is an **accessibility gate** over every routed page; its
 rules are in [CLAUDE.md](CLAUDE.md#accessibility).
 
-Playwright has four projects in `e2e/`:
+Playwright has five projects in `e2e/`:
 
 | Project    | Command               | Runs against                                        | In CI                         |
 | ---------- | --------------------- | --------------------------------------------------- | ----------------------------- |
@@ -267,6 +268,7 @@ Playwright has four projects in `e2e/`:
 | `live`     | `pnpm test:e2e:live`  | A real express and its services, with `E2E_LIVE=1`  | Nightly                       |
 | `nginx`    | `pnpm test:e2e:nginx` | The production image on :8088                       | `@no-api` on PRs; all nightly |
 | `contrast` | `pnpm test:contrast`  | The harness, in both themes; no API                 | No                            |
+| `capture`  | `pnpm capture:pages`  | An already-running dev stack; starts nothing        | No                            |
 
 The `live` and `nginx` projects read these variables (defaults in
 `playwright.config.ts` and the helpers):

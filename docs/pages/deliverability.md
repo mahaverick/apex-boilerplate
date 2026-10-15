@@ -1,0 +1,34 @@
+# Deliverability
+
+Email health over a time window (`/deliverability`). Back to the [route map](README.md#route-map).
+
+## Pages
+
+### `/deliverability` — Deliverability
+
+![Deliverability](img/deliverability/deliverability--default.jpg)
+
+|                     |                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Purpose             | How the app's email fared over 7 or 30 days: sent, undelivered, delivered, bounce, complaint, open and click rates, per day, per template and per recipient domain.                                                                                                                                                                                              |
+| File                | `src/pages/_app/deliverability.tsx`                                                                                                                                                                                                                                                                                                                              |
+| Guard and redirects | `_app`; `?range=7d\|30d`, default `7d`                                                                                                                                                                                                                                                                                                                           |
+| Layout              | `AppLayout`                                                                                                                                                                                                                                                                                                                                                      |
+| Data                | `GET /platform/emails/health?range` (`['platform', 'emails', 'health', range]`), started by the loader; `keepPreviousData`, so switching the window keeps the old figures up (`aria-busy`)                                                                                                                                                                       |
+| Sections            | The `h1` and the range `ToggleGroup`. `NoProviderEvents` when no provider webhook has reported ("No provider events yet — … How to configure one"). Seven KPI cards (`DeliverabilityKpis`), the **Emails per day** chart (`EmailsChart`), and two `BreakdownCard` tables: **By template** and **Top recipient domains**. Each widget sits in a `WidgetBoundary`. |
+| Components          | `ToggleGroup`, `Card`, `ChartContainer` (Recharts), `Table`, `Skeleton`, `LoadError`, `RoleDenied`, `WidgetBoundary`; hand-rolled: the `NoProviderEvents` note                                                                                                                                                                                                   |
+| Transitions         | How to configure one → the docs link                                                                                                                                                                                                                                                                                                                             |
+
+One request feeds every widget, so the page has one skeleton and one error state. `DeliverabilitySkeleton` has seven `h-30` cards, an `h-74` block and two `h-48` blocks; it has no slot for the provider note.
+
+| Loading                                             | Error                                                               |
+| --------------------------------------------------- | ------------------------------------------------------------------- |
+| ![](img/deliverability/deliverability--loading.jpg) | ![](img/deliverability/deliverability--error.jpg)                   |
+| skeleton · 7× `h-30`, `h-74`, 2× `h-48`             | alert · `LoadError` "We could not load the deliverability figures." |
+
+| Dark                                             | Mobile                                                                               |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| ![](img/deliverability/deliverability--dark.jpg) | ![](img/deliverability/deliverability--mobile.jpg)                                   |
+| Cards and chart on the dark surfaces.            | One KPI card per row: the seven cards fill about a thousand pixels before the chart. |
+
+Findings: [F-deliverability-1](findings.md#f-deliverability-1), [F-overview-3](findings.md#f-overview-3), [F-overview-6](findings.md#f-overview-6)
