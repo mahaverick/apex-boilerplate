@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/mahaverick/apex-boilerplate/compare/v3.0.0...v3.1.0) (2026-10-15)
+
+
+### Features
+
+* **ui:** shadcn sweep — shared empty/note/busy/error components, full width ([#67](https://github.com/mahaverick/apex-boilerplate/issues/67)) ([f55937f](https://github.com/mahaverick/apex-boilerplate/commit/f55937f2db3a8ba8c21995d646c487e4eb20b429))
+
 ## [3.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v2.2.1...v3.0.0) (2026-10-14)
 
 
