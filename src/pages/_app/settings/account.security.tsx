@@ -21,7 +21,7 @@ export const Route = createFileRoute('/_app/settings/account/security')({
 /** The security section in a card. */
 function SecurityPage() {
   return (
-    <Card className="max-w-2xl">
+    <Card>
       <CardContent>
         <SecuritySection />
       </CardContent>

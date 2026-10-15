@@ -113,6 +113,7 @@ export function ChangeModeDialog(props: ChangeModeDialogProps) {
         props.onOpenChange(next)
       }}
     >
+      {/* Capped: a dialog keeps a readable form width. */}
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         {props.open && <ChangeModeForm {...props} busy={busy} onBusyChange={setBusy} />}
       </DialogContent>

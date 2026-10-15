@@ -60,7 +60,7 @@ const ANY = 'any'
  */
 function PlatformNotFound() {
   return (
-    <Card className="max-w-2xl">
+    <Card>
       <CardHeader>
         <CardTitle>
           <h1>Page not available</h1>
@@ -205,7 +205,7 @@ function PlatformActivity() {
 
   if (log.isError && isRoleDenied(log.error)) {
     return (
-      <div className="grid max-w-4xl gap-4">
+      <div className="grid gap-4">
         <h1 className="text-2xl font-semibold">Activity</h1>
         <RoleDenied />
       </div>
@@ -213,7 +213,7 @@ function PlatformActivity() {
   }
 
   return (
-    <div className="grid max-w-4xl gap-4 xl:max-w-6xl">
+    <div className="grid gap-4">
       <Card>
         <CardHeader>
           <CardTitle>

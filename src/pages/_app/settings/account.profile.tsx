@@ -49,7 +49,7 @@ function ProfilePage() {
   const profile = useProfile()
 
   return (
-    <Card className="max-w-2xl">
+    <Card>
       <CardHeader>
         <CardTitle>
           <h2>Details</h2>

@@ -67,7 +67,7 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
     'admin'
   )
   return (
-    <div className="grid max-w-4xl gap-4">
+    <div className="grid gap-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="grid gap-1">
           <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">

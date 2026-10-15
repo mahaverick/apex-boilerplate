@@ -11,7 +11,7 @@ export function SettingsLinkList({ group }: { group: SettingsGroup }) {
   const sections = SETTINGS_SECTIONS.filter((section) => section.group === group.id)
   const headingId = `settings-group-${group.id}`
   return (
-    <Card role="region" aria-labelledby={headingId} className="max-w-3xl">
+    <Card role="region" aria-labelledby={headingId}>
       <CardHeader>
         <CardTitle>
           <h2 id={headingId}>{group.label}</h2>

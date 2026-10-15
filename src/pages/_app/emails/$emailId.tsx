@@ -103,7 +103,7 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
   const navigate = Route.useNavigate()
   const focus = useFocusAfter<'heading'>()
   return (
-    <div className="grid max-w-4xl gap-6">
+    <div className="grid gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="grid gap-1">
           <h1
