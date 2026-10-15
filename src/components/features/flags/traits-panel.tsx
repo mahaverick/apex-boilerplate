@@ -37,9 +37,11 @@ export function TraitsPanel({ traits }: { traits: TraitRow[] }) {
         <Item key={trait.name} variant="outline" size="sm" role="listitem">
           <ItemContent className="min-w-0">
             <ItemTitle className="line-clamp-none">
-              <code className="text-sm font-medium">{trait.name}</code>
-              <span className="text-xs font-normal text-muted-foreground">
-                {TRAIT_WHERE_LABELS[trait.where]}
+              <span className="flex flex-wrap items-center gap-2">
+                <code className="text-sm font-medium">{trait.name}</code>
+                <span className="text-xs font-normal text-muted-foreground">
+                  {TRAIT_WHERE_LABELS[trait.where]}
+                </span>
               </span>
             </ItemTitle>
             <ItemDescription className="line-clamp-none">{trait.description}</ItemDescription>
