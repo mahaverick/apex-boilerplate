@@ -2,8 +2,8 @@
  * @file The apex capture's data: a staff owner (granted through express's
  * `platform:grant`, so `E2E_API_DIR` must name the express checkout), a
  * customer with one tenant (rows for the tenants, users and emails lists), a
- * signed-in non-staff account for /no-access, and a pending staff invitation
- * for /register.
+ * signed-in non-staff account for /no-access, a staff viewer for the
+ * role-denied shots, and a pending staff invitation for /register.
  */
 import {
   apiLogin,
@@ -25,6 +25,10 @@ export async function seedCapture(): Promise<Seed> {
   await createVerifiedUser(staff)
   await grantPlatformRole(staff, 'owner')
   const staffToken = await apiLogin(staff)
+
+  const viewer = freshEmail()
+  await createVerifiedUser(viewer)
+  await grantPlatformRole(viewer, 'viewer')
 
   const customer = freshEmail()
   await createVerifiedUser(customer)
@@ -54,7 +58,7 @@ export async function seedCapture(): Promise<Seed> {
   }
 
   return {
-    sessions: { staff, customer },
+    sessions: { staff, customer, viewer },
     params: { slug, tenantId, userId, emailId, invitationToken },
   }
 }
