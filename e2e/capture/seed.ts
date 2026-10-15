@@ -46,16 +46,16 @@ export async function seedCapture(): Promise<Seed> {
   if (!userId) throw new Error(`no user row for ${customer}: ${JSON.stringify(users.body)}`)
   const emailId = await emailIdFor(staffToken, customer, 'email_verification')
 
-  let invitationToken = 'not-a-real-invitation'
   const invitee = freshEmail()
   const invited = await apiRequest(staffToken, 'POST', '/tenants/platform/invitations', {
     email: invitee,
     role: 'viewer',
   })
-  if (invited.status === 202 || invited.status === 201) {
-    // The mail links to /invitations/accept?token=…; /register takes the same value as `invitation`.
-    invitationToken = await mailedToken(invitee, '/invitations/accept')
+  if (invited.status !== 202 && invited.status !== 201) {
+    throw new Error(`staff invitation failed (${invited.status}): ${JSON.stringify(invited.body)}`)
   }
+  // The mail links to /invitations/accept?token=…; /register takes the same value as `invitation`.
+  const invitationToken = await mailedToken(invitee, '/invitations/accept')
 
   return {
     sessions: { staff, customer, viewer },
