@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { LoadError } from '@/components/features/load-error'
 import { ReasonDialog } from '@/components/features/reason-dialog'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Pii } from '@/components/shared/pii'
 import {
   AlertDialog,
@@ -429,9 +430,7 @@ export function PendingInvitations({
             <Skeleton className="h-10 w-full" />
           </div>
         ) : invitations.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No invitations are waiting to be accepted.
-          </p>
+          <EmptyState size="compact" title="No invitations are waiting to be accepted." />
         ) : (
           <ul className="grid gap-3">
             {invitations.data.map((invitation) => (

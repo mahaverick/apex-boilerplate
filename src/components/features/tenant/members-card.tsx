@@ -12,6 +12,7 @@ import {
   STEP_UP_DISMISSED,
   type ReasonDialogProps,
 } from '@/components/features/reason-dialog'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Pii } from '@/components/shared/pii'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import {
@@ -740,9 +741,11 @@ export function MembersCard({
             <Skeleton className="h-10 w-full" />
           </div>
         ) : (members.data ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No one has access to this tenant yet. An accepted invitation gives someone access.
-          </p>
+          <EmptyState
+            size="compact"
+            title="No one has access to this tenant yet."
+            description="An accepted invitation gives someone access."
+          />
         ) : isMobile ? (
           <ul className="grid gap-3">
             {(members.data ?? []).map((member) => (

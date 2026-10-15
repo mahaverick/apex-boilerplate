@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Pii } from '@/components/shared/pii'
 import { ROUTES } from '@/constants/routes'
 import { formatDateTime } from '@/lib/format'
@@ -24,7 +25,7 @@ function recipients(reminder: OnboardingReminderView): ReactNode {
  */
 export function ReminderHistory({ reminders }: { reminders: OnboardingReminderView[] }) {
   if (reminders.length === 0) {
-    return <p className="text-sm text-muted-foreground">No reminder sent yet.</p>
+    return <EmptyState size="compact" title="No reminder sent yet." />
   }
   return (
     <ul aria-label="Reminders sent" className="grid gap-3">

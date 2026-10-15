@@ -1,4 +1,5 @@
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
+import { IconSnowflake } from '@tabler/icons-react'
+import { EmptyState } from '@/components/shared/empty-state'
 
 /**
  * What a suspended or archived tenant's Members, Invitations and Activity
@@ -8,15 +9,14 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/u
  */
 export function FrozenTenant({ state }: { state: 'suspended' | 'archived' }) {
   return (
-    <Empty>
-      <EmptyHeader>
-        <EmptyTitle>This tenant is {state}. Its members and invitations are frozen.</EmptyTitle>
-        <EmptyDescription>
-          {state === 'suspended'
-            ? 'Reactivate it from the Actions menu to manage them again.'
-            : 'Archiving is permanent; the Overview tab still shows what it held.'}
-        </EmptyDescription>
-      </EmptyHeader>
-    </Empty>
+    <EmptyState
+      icon={<IconSnowflake aria-hidden="true" />}
+      title={`This tenant is ${state}. Its members and invitations are frozen.`}
+      description={
+        state === 'suspended'
+          ? 'Reactivate it from the Actions menu to manage them again.'
+          : 'Archiving is permanent; the Overview tab still shows what it held.'
+      }
+    />
   )
 }

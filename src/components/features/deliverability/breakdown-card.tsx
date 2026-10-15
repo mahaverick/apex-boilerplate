@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -38,7 +39,7 @@ export function BreakdownCard({ title, keyHeader, rows, labelOf }: BreakdownCard
         </CardHeader>
         <CardContent>
           {rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No emails in this window.</p>
+            <EmptyState size="compact" title="No emails in this window." />
           ) : (
             <Table aria-labelledby={headingId}>
               <TableCaption className="sr-only">Emails, undelivered and complained</TableCaption>

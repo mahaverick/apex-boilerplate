@@ -1,8 +1,10 @@
+import { IconBug } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { TimelineSkeleton } from '@/components/features/timeline/timeline-states'
 import { ToneBadge } from '@/components/features/tone-badge'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
 import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
@@ -129,7 +131,7 @@ export function ErrorsPanel({ kind, id }: { kind: TimelineKind; id: string }) {
     return <Note tone="passive">{ERRORS_NOT_CONFIGURED}</Note>
   }
   if (errors.data.items.length === 0) {
-    return <p className="text-sm text-muted-foreground">{ERRORS_EMPTY}</p>
+    return <EmptyState icon={<IconBug aria-hidden="true" />} title={ERRORS_EMPTY} />
   }
   return (
     <div className="grid gap-2">

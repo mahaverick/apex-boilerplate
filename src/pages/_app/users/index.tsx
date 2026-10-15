@@ -1,4 +1,4 @@
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import { IconChevronLeft, IconChevronRight, IconUsers } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -7,8 +7,8 @@ import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { CreateUserDialog } from '@/components/features/users/create-user-dialog'
 import { UsersTable } from '@/components/features/users/users-table'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -256,27 +256,27 @@ function UsersPage() {
       ) : !settled || page.data === undefined ? (
         <Skeleton className="h-96 w-full" />
       ) : page.data.users.length === 0 && search.cursor !== undefined ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>Nothing on this page.</EmptyTitle>
-            <EmptyDescription>The list changed since this page was opened.</EmptyDescription>
-          </EmptyHeader>
-          <Button variant="outline" size="sm" onClick={firstPage}>
-            <IconChevronLeft aria-hidden="true" />
-            First page
-          </Button>
-        </Empty>
+        <EmptyState
+          icon={<IconUsers aria-hidden="true" />}
+          title="Nothing on this page."
+          description="The list changed since this page was opened."
+          action={
+            <Button variant="outline" size="sm" onClick={firstPage}>
+              <IconChevronLeft aria-hidden="true" />
+              First page
+            </Button>
+          }
+        />
       ) : page.data.users.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>{filtered ? 'No users match these filters.' : 'No users yet.'}</EmptyTitle>
-            <EmptyDescription>
-              {filtered
-                ? 'Try fewer filters, or part of the email.'
-                : 'Users appear here once they sign up or staff create them.'}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <EmptyState
+          icon={<IconUsers aria-hidden="true" />}
+          title={filtered ? 'No users match these filters.' : 'No users yet.'}
+          description={
+            filtered
+              ? 'Try fewer filters, or part of the email.'
+              : 'Users appear here once they sign up or staff create them.'
+          }
+        />
       ) : (
         <>
           <div aria-busy={page.isPlaceholderData}>

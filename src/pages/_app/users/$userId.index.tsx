@@ -7,6 +7,7 @@ import { LoadError } from '@/components/features/load-error'
 import { UserActionsMenu } from '@/components/features/users/user-actions-menu'
 import { UserNotFound } from '@/components/features/users/user-not-found'
 import { UserStatusBadges } from '@/components/features/users/user-status-badges'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
 import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
@@ -141,7 +142,7 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
           </CardHeader>
           <CardContent>
             {user.memberships.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Not a member of any tenant.</p>
+              <EmptyState size="compact" title="Not a member of any tenant." />
             ) : (
               <ul className="grid gap-2">
                 {user.memberships.map((membership) => (
@@ -196,7 +197,7 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
           </CardHeader>
           <CardContent>
             {user.pendingInvitations.length === 0 ? (
-              <p className="text-sm text-muted-foreground">None.</p>
+              <EmptyState size="compact" title="None." />
             ) : (
               <ul className="grid gap-2 text-sm">
                 {user.pendingInvitations.map((invitation) => (

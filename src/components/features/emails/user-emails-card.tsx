@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { EmailStatusBadge } from '@/components/features/emails/email-status-badge'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { templateLabel } from '@/constants/email.constants'
@@ -52,7 +53,7 @@ export function UserEmailsCard({ userId }: { userId: string }) {
           ) : emails.data === undefined ? (
             <Skeleton className="h-24 w-full" />
           ) : emails.data.messages.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No emails sent to this account yet.</p>
+            <EmptyState size="compact" title="No emails sent to this account yet." />
           ) : (
             <ul className="grid gap-2 text-sm">
               {emails.data.messages.map((email) => (

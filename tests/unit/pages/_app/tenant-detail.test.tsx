@@ -822,10 +822,9 @@ describe('/tenants/$tenantId', () => {
         })
       )
       renderAppAt(`/tenants/${TENANT_ID}`)
+      expect(await screen.findByText('No owner yet.')).toBeInTheDocument()
       expect(
-        await screen.findByText(
-          byContent(/No owner yet\. An invitation to olive@acme\.test expires/)
-        )
+        await screen.findByText(byContent(/^An invitation to olive@acme\.test expires/))
       ).toBeInTheDocument()
     })
 
@@ -844,8 +843,9 @@ describe('/tenants/$tenantId', () => {
         })
       )
       renderAppAt(`/tenants/${TENANT_ID}`)
+      expect(await screen.findByText('No active owner.')).toBeInTheDocument()
       expect(
-        await screen.findByText('No active owner. Send an owner invitation from the Actions menu.')
+        screen.getByText('Send an owner invitation from the Actions menu.')
       ).toBeInTheDocument()
     })
 

@@ -1,4 +1,5 @@
 import { useId, type ReactNode } from 'react'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 /** A chart card's heading, its empty-window message, and the chart with its hidden table. */
@@ -30,7 +31,7 @@ export function ChartCard({ title, empty, children }: ChartCardProps) {
           {empty === null ? (
             children
           ) : (
-            <p className="grid h-56 place-items-center text-sm text-muted-foreground">{empty}</p>
+            <EmptyState size="compact" className="h-56 justify-center" title={empty} />
           )}
         </CardContent>
       </figure>

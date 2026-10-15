@@ -1,3 +1,4 @@
+import { IconSearchOff } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { EmailPreviewPanel } from '@/components/features/emails/email-preview'
@@ -6,10 +7,10 @@ import { EmailTenantLink } from '@/components/features/emails/email-tenant-link'
 import { EmailTimeline } from '@/components/features/emails/email-timeline'
 import { ResendEmailButton } from '@/components/features/emails/resend-email-button'
 import { LoadError } from '@/components/features/load-error'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
 import { Pii } from '@/components/shared/pii'
 import { buttonVariants } from '@/components/ui/button'
-import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { pageTitle } from '@/constants/app'
@@ -67,18 +68,16 @@ function EmailDetailPage() {
 
   if (detail.isError) {
     return statusFrom(detail.error) === 404 ? (
-      <Empty>
-        <EmptyHeader>
-          <h1 className="text-lg font-semibold">Email not found</h1>
-          <EmptyDescription>
-            It doesn’t exist, has passed its retention period, or your access changed. Reload if
-            your role was just updated.
-          </EmptyDescription>
-        </EmptyHeader>
-        <Link to={ROUTES.emails} className={buttonVariants({ variant: 'outline' })}>
-          Back to emails
-        </Link>
-      </Empty>
+      <EmptyState
+        icon={<IconSearchOff aria-hidden="true" />}
+        title={<h1>Email not found</h1>}
+        description="It doesn’t exist, has passed its retention period, or your access changed. Reload if your role was just updated."
+        action={
+          <Link to={ROUTES.emails} className={buttonVariants({ variant: 'outline' })}>
+            Back to emails
+          </Link>
+        }
+      />
     ) : (
       <LoadError message="We could not load this email." onRetry={() => void detail.refetch()} />
     )

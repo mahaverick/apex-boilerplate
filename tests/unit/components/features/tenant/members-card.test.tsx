@@ -372,11 +372,8 @@ describe('members tab permissions', () => {
     mockTenant('owner', [])
     renderAppAt(`/tenants/${TENANT_ID}/members`)
 
-    expect(
-      await screen.findByText(
-        'No one has access to this tenant yet. An accepted invitation gives someone access.'
-      )
-    ).toBeInTheDocument()
+    expect(await screen.findByText('No one has access to this tenant yet.')).toBeInTheDocument()
+    expect(screen.getByText('An accepted invitation gives someone access.')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 

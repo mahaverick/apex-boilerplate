@@ -1,5 +1,6 @@
 import { PosthogLink } from '@/components/features/flags/posthog-link'
 import { ToneBadge } from '@/components/features/tone-badge'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -81,7 +82,7 @@ function FlagRegistryRow({ row }: { row: FlagRow }) {
  */
 export function FlagRegistryTable({ items }: { items: FlagRow[] }) {
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">No flags are registered.</p>
+    return <EmptyState size="compact" title="No flags are registered." />
   }
   return (
     <Table aria-label="Registered flags">

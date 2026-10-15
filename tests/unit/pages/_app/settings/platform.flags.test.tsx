@@ -169,7 +169,8 @@ describe('/settings/platform/flags', () => {
   it('says when every PostHog flag is registered', async () => {
     serve(() => ok(flagsList({ unregistered: [] }), 'Flags retrieved.'))
     renderAppAt('/settings/platform/flags')
-    expect(await screen.findByText('None. Every PostHog flag is registered.')).toBeInTheDocument()
+    expect(await screen.findByText('None.')).toBeInTheDocument()
+    expect(screen.getByText('Every PostHog flag is registered.')).toBeInTheDocument()
     expect(screen.queryByRole('table', { name: 'Unregistered flags' })).not.toBeInTheDocument()
   })
 

@@ -1,3 +1,4 @@
+import { EmptyState } from '@/components/shared/empty-state'
 import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, fullName } from '@/lib/format'
@@ -28,18 +29,20 @@ export function TenantOwners({ tenant }: { tenant: PlatformTenantDetail }) {
         </ul>
       )}
       {ownerless && (
-        <p className="text-sm text-muted-foreground">
-          {tenant.owners.length === 0 ? 'No owner yet.' : 'No active owner.'}
-          {invitation ? (
-            <>
-              {' '}
-              An invitation to <Pii>{invitation.email}</Pii> expires{' '}
-              {formatDate(invitation.expiresAt, 'medium') ?? 'soon'}.
-            </>
-          ) : (
-            ' Send an owner invitation from the Actions menu.'
-          )}
-        </p>
+        <EmptyState
+          size="compact"
+          title={tenant.owners.length === 0 ? 'No owner yet.' : 'No active owner.'}
+          description={
+            invitation ? (
+              <>
+                An invitation to <Pii>{invitation.email}</Pii> expires{' '}
+                {formatDate(invitation.expiresAt, 'medium') ?? 'soon'}.
+              </>
+            ) : (
+              'Send an owner invitation from the Actions menu.'
+            )
+          }
+        />
       )}
     </div>
   )

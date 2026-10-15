@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { LoadError } from '@/components/features/load-error'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -155,7 +156,7 @@ export function ActivityList<T extends AuditEntry>({
     return isError ? (
       <LoadError message={ACTIVITY_ERROR} onRetry={onRetry} />
     ) : (
-      <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+      <EmptyState size="compact" title={emptyMessage} />
     )
   }
 

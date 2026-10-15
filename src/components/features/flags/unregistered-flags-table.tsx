@@ -1,5 +1,6 @@
 import { PosthogLink } from '@/components/features/flags/posthog-link'
 import { ToneBadge } from '@/components/features/tone-badge'
+import { EmptyState } from '@/components/shared/empty-state'
 import {
   Table,
   TableBody,
@@ -16,7 +17,9 @@ import type { UnregisteredRow } from '@/types/api.types'
  */
 export function UnregisteredFlagsTable({ rows }: { rows: UnregisteredRow[] }) {
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">None. Every PostHog flag is registered.</p>
+    return (
+      <EmptyState size="compact" title="None." description="Every PostHog flag is registered." />
+    )
   }
   return (
     <Table aria-label="Unregistered flags">

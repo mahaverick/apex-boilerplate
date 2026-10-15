@@ -1,12 +1,12 @@
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import { IconChevronLeft, IconChevronRight, IconMail } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { z } from 'zod'
 import { EmailsTable } from '@/components/features/emails/emails-table'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
@@ -89,23 +89,23 @@ function TenantEmailsTab() {
       ) : !settled || page.data === undefined ? (
         <Skeleton className="h-64 w-full" />
       ) : page.data.messages.length === 0 && search.cursor !== undefined ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>Nothing on this page.</EmptyTitle>
-            <EmptyDescription>The list changed since this page was opened.</EmptyDescription>
-          </EmptyHeader>
-          <Button variant="outline" size="sm" onClick={firstPage}>
-            <IconChevronLeft aria-hidden="true" />
-            First page
-          </Button>
-        </Empty>
+        <EmptyState
+          icon={<IconMail aria-hidden="true" />}
+          title="Nothing on this page."
+          description="The list changed since this page was opened."
+          action={
+            <Button variant="outline" size="sm" onClick={firstPage}>
+              <IconChevronLeft aria-hidden="true" />
+              First page
+            </Button>
+          }
+        />
       ) : page.data.messages.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>No emails for this tenant yet.</EmptyTitle>
-            <EmptyDescription>Its invitations appear here once they are sent.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <EmptyState
+          icon={<IconMail aria-hidden="true" />}
+          title="No emails for this tenant yet."
+          description="Its invitations appear here once they are sent."
+        />
       ) : (
         <>
           <div aria-busy={page.isPlaceholderData}>
