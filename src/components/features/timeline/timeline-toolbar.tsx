@@ -1,4 +1,5 @@
-import { Button, buttonVariants } from '@/components/ui/button'
+import { BusyButton } from '@/components/shared/busy-button'
+import { buttonVariants } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -84,9 +85,15 @@ export function TimelineToolbar({
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-        <Button variant="outline" size="sm" disabled={isRefreshing} onClick={onRefresh}>
-          {isRefreshing ? 'Refreshing…' : 'Refresh'}
-        </Button>
+        <BusyButton
+          busy={isRefreshing}
+          busyLabel="Refreshing…"
+          variant="outline"
+          size="sm"
+          onClick={onRefresh}
+        >
+          Refresh
+        </BusyButton>
         {posthogHref !== null && (
           <a
             href={posthogHref}

@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form'
-import { Button } from '@/components/ui/button'
+import { BusyButton } from '@/components/shared/busy-button'
 import {
   Dialog,
   DialogContent,
@@ -108,9 +108,9 @@ export function EditUserNameDialog({
           </FormField>
           <FormError />
           <DialogFooter>
-            <Button type="submit" disabled={update.isPending}>
-              {update.isPending ? 'Saving…' : 'Save'}
-            </Button>
+            <BusyButton busy={update.isPending} busyLabel="Saving…" type="submit">
+              Save
+            </BusyButton>
           </DialogFooter>
         </Form>
       </DialogContent>

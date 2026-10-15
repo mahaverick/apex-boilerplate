@@ -8,7 +8,7 @@ import {
   TimelineSkeleton,
 } from '@/components/features/timeline/timeline-states'
 import { TimelineToolbar } from '@/components/features/timeline/timeline-toolbar'
-import { Button } from '@/components/ui/button'
+import { BusyButton } from '@/components/shared/busy-button'
 import {
   TIMELINE_ERROR,
   TIMELINE_MORE_ERROR,
@@ -118,14 +118,16 @@ export function TimelinePanel({ kind, id, range, view, onSearchChange }: Timelin
             )
           )}
           {timeline.hasNextPage && (
-            <Button
+            <BusyButton
+              busy={timeline.isFetchingNextPage}
+              busyLabel="Loading…"
               variant="outline"
               className="justify-self-start"
               disabled={timeline.isFetching}
               onClick={() => void timeline.fetchNextPage()}
             >
-              {timeline.isFetchingNextPage ? 'Loading…' : 'Load more events'}
-            </Button>
+              Load more events
+            </BusyButton>
           )}
         </div>
       )}

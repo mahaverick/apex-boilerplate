@@ -1,7 +1,7 @@
 import { useForm } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
 import type { z } from 'zod'
-import { Button } from '@/components/ui/button'
+import { BusyButton } from '@/components/shared/busy-button'
 import {
   Dialog,
   DialogContent,
@@ -144,9 +144,9 @@ function EditTenantForm({ tenant, onDone }: { tenant: PlatformTenantDetail; onDo
       </FormField>
       <FormError />
       <DialogFooter>
-        <Button type="submit" disabled={update.isPending}>
-          {update.isPending ? 'Saving…' : 'Save'}
-        </Button>
+        <BusyButton busy={update.isPending} busyLabel="Saving…" type="submit">
+          Save
+        </BusyButton>
       </DialogFooter>
     </Form>
   )

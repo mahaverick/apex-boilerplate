@@ -159,7 +159,7 @@ Findings: [F-tenants-3](findings.md#f-tenants-3), [F-overview-4](findings.md#f-o
 | Layout              | `AppLayout` › tenant layout                                                                                                                                                                        |
 | Data                | after the layout's detail: `GET /tenants/:slug` (the role), then `GET /tenants/:slug/audit-log?limit=50` (`['tenants', slug, 'audit-log', {}, { tenantId }]`, `staleTime` 0, infinite)             |
 | Sections            | `ActivityList`: one row per entry with the actor (a link to the user), a Staff badge for platform access, the sentence and a relative time with the absolute time in a tooltip; Load more activity |
-| Components          | `ActivityList`, `EmptyState` (compact), `Badge`, `Tooltip`, `Skeleton`, `LoadError`, `Button`; hand-rolled: the `ul` of rows                                                                       |
+| Components          | `ActivityList`, `EmptyState` (compact), `Badge`, `Tooltip`, `Skeleton`, `LoadError`, `BusyButton`; hand-rolled: the `ul` of rows                                                                   |
 | Transitions         | an actor → `/users/$userId`; "View user" on a user target                                                                                                                                          |
 
 | Loading                                                                            | Error                                       | Empty                                                         |
@@ -186,7 +186,7 @@ Findings: [F-tenants-3](findings.md#f-tenants-3), [F-activity-1](findings.md#f-a
 | Layout              | `AppLayout` › tenant layout                                                                                                                                                                                                       |
 | Data                | after the layout's detail: `GET /platform/tenants/:id/timeline?range&view` (`['timeline', 'tenant', id, range, view]`, infinite, `staleTime` 30 s, no retry, no refetch on focus or reconnect, `gcTime` 0: every read is audited) |
 | Sections            | An `h2` "Timeline", `TimelineToolbar` (range `Select`, Everything / Key events toggle, Refresh, Open in PostHog when configured), "Events can take a few minutes to appear.", then the events and sessions with Load more events  |
-| Components          | `TimelinePanel`, `EmptyState`, `TimelineToolbar`, `ToggleGroup`, `Select`, `Button`, `Skeleton` (`TimelineSkeleton`, 3× `h-16`), `LoadError`, `RoleDenied`, `Note` (passive, `TimelineNotConfigured`)                             |
+| Components          | `TimelinePanel`, `EmptyState`, `TimelineToolbar`, `ToggleGroup`, `Select`, `BusyButton`, `Skeleton` (`TimelineSkeleton`, 3× `h-16`), `LoadError`, `RoleDenied`, `Note` (passive, `TimelineNotConfigured`)                         |
 | Transitions         | Open in PostHog and Watch replay open PostHog in a new tab                                                                                                                                                                        |
 
 The default shot shows the timeline's own failure: the dev API answered 502 ("We could not reach PostHog, so nothing is listed. This is not a sign of no activity."). With no PostHog personal key the API answers `configured: false` and the tab shows the not-configured note instead.

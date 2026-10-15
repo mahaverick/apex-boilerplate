@@ -2,8 +2,8 @@ import { useForm } from '@tanstack/react-form'
 import { useRef, useState } from 'react'
 import type { z } from 'zod'
 import { ReasonDialog } from '@/components/features/reason-dialog'
+import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
-import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
@@ -190,9 +190,9 @@ export function InviteMemberForm({
 
         <div className="grid gap-2 sm:pt-6">
           <FormError />
-          <Button type="submit" disabled={inviteMember.isPending}>
-            {inviteMember.isPending ? 'Sending…' : 'Invite member'}
-          </Button>
+          <BusyButton busy={inviteMember.isPending} busyLabel="Sending…" type="submit">
+            Invite member
+          </BusyButton>
         </div>
       </Form>
       {asStaff && (

@@ -1,6 +1,7 @@
 import { IconAlertCircle } from '@tabler/icons-react'
 import { useState } from 'react'
 import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
+import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import {
@@ -12,7 +13,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Button } from '@/components/ui/button'
 import { MAINTENANCE_CONFLICT_UNREAD_TURN_OFF } from '@/constants/maintenance-mode.constants'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom, statusFrom } from '@/lib/api-error'
@@ -103,9 +103,9 @@ export function TurnOffDialog({
         )}
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <Button type="button" disabled={busy} onClick={() => void turnOff()}>
-            {busy ? 'Working…' : 'Turn off'}
-          </Button>
+          <BusyButton busy={busy} busyLabel="Working…" type="button" onClick={() => void turnOff()}>
+            Turn off
+          </BusyButton>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

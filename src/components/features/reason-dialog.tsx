@@ -1,5 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { useMemo, useState, type ComponentProps, type ReactNode } from 'react'
+import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import {
   AlertDialog,
@@ -10,7 +11,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
@@ -204,13 +204,14 @@ function ReasonForm({
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
-              <Button
+              <BusyButton
+                busy={isSubmitting}
+                busyLabel="Working…"
                 type="submit"
                 variant={destructive ? 'destructive' : 'default'}
-                disabled={isSubmitting}
               >
-                {isSubmitting ? 'Working…' : confirmLabel}
-              </Button>
+                {confirmLabel}
+              </BusyButton>
             )}
           </form.Subscribe>
         </AlertDialogFooter>

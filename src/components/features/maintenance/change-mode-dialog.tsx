@@ -3,6 +3,7 @@ import { useForm } from '@tanstack/react-form'
 import { useMemo, useState } from 'react'
 import { MaintenancePreview } from '@/components/features/maintenance/maintenance-preview'
 import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
+import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -367,13 +368,14 @@ function ChangeModeForm({
           </Button>
           <form.Subscribe selector={(state) => [state.isSubmitting, state.values.mode] as const}>
             {([isSubmitting, mode]) => (
-              <Button
+              <BusyButton
+                busy={isSubmitting}
+                busyLabel="Working…"
                 type="submit"
                 variant={isSwitchOn(base.mode, mode) ? 'destructive' : 'default'}
-                disabled={isSubmitting}
               >
-                {isSubmitting ? 'Working…' : submitLabel(base.mode, mode)}
-              </Button>
+                {submitLabel(base.mode, mode)}
+              </BusyButton>
             )}
           </form.Subscribe>
         </DialogFooter>
