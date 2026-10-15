@@ -287,7 +287,9 @@ the component is added again.
   import restriction, comment-style and JSDoc blocks), and the `!` negations in
   `.prettierignore`. A third hand-written file there goes into all five in the
   same change.
-- **A re-add drops these local edits; put them back.** `avatar.tsx`: the fallback
+- **A re-add drops these local edits; put them back.** `docs/ui-local-edits.md`
+  is the full record, and `pnpm ui:drift` checks the files against the registry.
+  `avatar.tsx`: the fallback
   and group count use `text-foreground` (contrast). `tabs.tsx`: the panel keeps
   `rounded-md focus-visible:ring-3 focus-visible:ring-ring/50` (WCAG 2.4.7).
   `badge`, `button`, `switch`, `tabs`, `toggle` and the sidebar rail name their
@@ -307,7 +309,8 @@ the component is added again.
   `aria-hidden` but tabbable while the stack is collapsed; that is accepted
   upstream behaviour, since Tab reaches the toast first and expands it. The
   files shared with react-boilerplate stay byte for byte equal to react's.
-  Every Tabler icon in `src/components/ui/` carries `aria-hidden="true"` (the
+  Every Tabler icon in `src/components/ui/` except the one in `spinner.tsx`
+  carries `aria-hidden="true"` (the
   guard test `tests/unit/ui-icons-aria-hidden.test.ts` fails otherwise); the combobox clear and chip-remove buttons carry
   `aria-label` for the same reason, and the apex-only `calendar.tsx` follows
   the same rule. `shadcn init` also overwrites `src/lib/utils.ts`,
