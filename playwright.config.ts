@@ -16,6 +16,9 @@ import { defineConfig, devices } from '@playwright/test'
  * Tests are `*.test.ts`, not Playwright's default `*.spec.ts`, which
  * `check-file/filename-blocklist` rejects.
  */
+/** The origin the dev server answers on; `E2E_BASE_URL` points the run at another one. */
+const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:5174'
+
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.test.ts',
@@ -26,7 +29,7 @@ export default defineConfig({
   /** Under CI, ci.yml uploads the html report from playwright-report/ when e2e fails. */
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: 'http://localhost:5174',
+    baseURL,
     trace: 'on-first-retry',
   },
   /**
@@ -48,7 +51,7 @@ export default defineConfig({
       ? undefined
       : {
           command: 'pnpm exec vite --force',
-          url: 'http://localhost:5174',
+          url: baseURL,
           reuseExistingServer: !process.env.CI,
           timeout: 60_000,
         },
