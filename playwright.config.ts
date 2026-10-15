@@ -40,15 +40,18 @@ export default defineConfig({
    * is found mid-run instead: Vite re-optimises and reloads the page, which
    * drops the memory-only access token and lands the test on /login. A server
    * that is reused is not restarted, so it keeps whatever cache it has.
+   * `E2E_CAPTURE` turns it off as well: the capture runs against a dev stack
+   * that is already up.
    */
-  webServer: process.env.E2E_NGINX
-    ? undefined
-    : {
-        command: 'pnpm exec vite --force',
-        url: 'http://localhost:5174',
-        reuseExistingServer: !process.env.CI,
-        timeout: 60_000,
-      },
+  webServer:
+    process.env.E2E_NGINX || process.env.E2E_CAPTURE
+      ? undefined
+      : {
+          command: 'pnpm exec vite --force',
+          url: 'http://localhost:5174',
+          reuseExistingServer: !process.env.CI,
+          timeout: 60_000,
+        },
   projects: [
     {
       name: 'fixtures',
@@ -70,6 +73,17 @@ export default defineConfig({
       name: 'contrast',
       testMatch: 'contrast/**/*.test.ts',
       use: { ...devices['Desktop Chrome'] },
+    },
+    /**
+     * The page inventory's screenshots (docs/pages/). Opt-in, never in CI: it
+     * runs against an already-running dev stack and starts nothing, so
+     * `E2E_CAPTURE` also turns `webServer` off. Run `pnpm capture:pages`.
+     */
+    {
+      name: 'capture',
+      testMatch: 'capture/**/*.test.ts',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+      timeout: 30 * 60_000,
     },
     /**
      * Against the production image. The headers and the CSP are only real
