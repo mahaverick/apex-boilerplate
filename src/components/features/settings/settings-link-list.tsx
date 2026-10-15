@@ -1,6 +1,14 @@
 import { IconChevronRight } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from '@/components/ui/item'
 import { SETTINGS_SECTIONS, type SettingsGroup } from '@/constants/settings'
 
 /**
@@ -19,26 +27,24 @@ export function SettingsLinkList({ group }: { group: SettingsGroup }) {
         <CardDescription>{group.description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="grid divide-y">
+        <ItemGroup className="gap-0 divide-y has-data-[size=sm]:gap-0">
           {sections.map((section) => (
-            <li key={section.to}>
-              <Link
-                to={section.to}
-                className="flex items-center gap-3 rounded-md px-2 py-3 hover:bg-muted/50"
-              >
-                <section.Icon
-                  aria-hidden="true"
-                  className="size-5 shrink-0 text-muted-foreground"
-                />
-                <span className="grid flex-1 gap-0.5">
-                  <span className="font-medium">{section.label}</span>
-                  <span className="text-sm text-muted-foreground">{section.description}</span>
-                </span>
+            <div key={section.to} role="listitem">
+              <Item size="sm" render={<Link to={section.to} />}>
+                <ItemMedia>
+                  <section.Icon aria-hidden="true" className="size-5 text-muted-foreground" />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>{section.label}</ItemTitle>
+                  <ItemDescription className="line-clamp-none">
+                    {section.description}
+                  </ItemDescription>
+                </ItemContent>
                 <IconChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
-              </Link>
-            </li>
+              </Item>
+            </div>
           ))}
-        </ul>
+        </ItemGroup>
       </CardContent>
     </Card>
   )

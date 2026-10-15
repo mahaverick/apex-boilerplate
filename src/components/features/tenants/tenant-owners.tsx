@@ -1,6 +1,7 @@
 import { EmptyState } from '@/components/shared/empty-state'
 import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
 import { formatDate, fullName } from '@/lib/format'
 import { activeOwnerCount } from '@/queries/tenant-admin.queries'
 import type { PlatformTenantDetail } from '@/types/api.types'
@@ -16,17 +17,23 @@ export function TenantOwners({ tenant }: { tenant: PlatformTenantDetail }) {
   return (
     <div className="grid gap-3">
       {tenant.owners.length > 0 && (
-        <ul className="grid gap-2">
+        <ItemGroup className="gap-2 has-data-[size=xs]:gap-2">
           {tenant.owners.map((owner) => (
-            <li key={owner.userId} className="grid gap-0.5">
-              <span className="flex items-center gap-2 text-sm font-medium">
-                <Pii>{fullName(owner) ?? owner.email}</Pii>
-                {!owner.active && <Badge variant="outline">Inactive</Badge>}
-              </span>
-              <Pii className="text-sm break-all text-muted-foreground">{owner.email}</Pii>
-            </li>
+            <Item key={owner.userId} size="xs" role="listitem" className="p-0">
+              <ItemContent>
+                <ItemTitle className="line-clamp-none">
+                  <span className="flex items-center gap-2">
+                    <Pii>{fullName(owner) ?? owner.email}</Pii>
+                    {!owner.active && <Badge variant="outline">Inactive</Badge>}
+                  </span>
+                </ItemTitle>
+                <ItemDescription className="line-clamp-none break-all">
+                  <Pii>{owner.email}</Pii>
+                </ItemDescription>
+              </ItemContent>
+            </Item>
           ))}
-        </ul>
+        </ItemGroup>
       )}
       {ownerless && (
         <EmptyState

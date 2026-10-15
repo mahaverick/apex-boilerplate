@@ -1,5 +1,6 @@
 import { TimelineEventRow } from '@/components/features/timeline/timeline-event-row'
 import { TimelineRequest } from '@/components/features/timeline/timeline-request'
+import { Item, ItemGroup, ItemHeader } from '@/components/ui/item'
 import { absoluteTime } from '@/lib/relative-time'
 import {
   countEvents,
@@ -50,8 +51,8 @@ export function TimelineSession({
     `${count} ${count === 1 ? 'event' : 'events'}`,
   ]
   return (
-    <li className="rounded-md border">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2 text-sm">
+    <Item variant="outline" role="listitem" className="gap-0 overflow-hidden p-0">
+      <ItemHeader className="flex-wrap gap-2 border-b bg-muted/40 px-3 py-2">
         <p>
           <span className="font-medium">Session</span>{' '}
           <span className="text-muted-foreground">{facts.join(' · ')}</span>
@@ -65,8 +66,11 @@ export function TimelineSession({
           Watch replay <span aria-hidden="true">↗</span>
           <span className="sr-only"> (opens PostHog in a new tab)</span>
         </a>
-      </div>
-      <ul aria-label="Session events" className="divide-y px-3">
+      </ItemHeader>
+      <ItemGroup
+        aria-label="Session events"
+        className="gap-0 px-3 has-data-[size=xs]:gap-0 [&>[data-slot=item]:not(:last-child)]:border-b [&>[data-slot=item]:not(:last-child)]:border-border"
+      >
         {session.items.map((entry) => (
           <TimelineEntryItem
             key={entry.kind === 'request' ? entry.rows[0]!.uuid : entry.row.uuid}
@@ -74,7 +78,7 @@ export function TimelineSession({
             showActor={showActor}
           />
         ))}
-      </ul>
-    </li>
+      </ItemGroup>
+    </Item>
   )
 }

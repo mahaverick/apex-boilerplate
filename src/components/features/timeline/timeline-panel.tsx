@@ -9,6 +9,7 @@ import {
 } from '@/components/features/timeline/timeline-states'
 import { TimelineToolbar } from '@/components/features/timeline/timeline-toolbar'
 import { BusyButton } from '@/components/shared/busy-button'
+import { ItemGroup } from '@/components/ui/item'
 import {
   TIMELINE_ERROR,
   TIMELINE_MORE_ERROR,
@@ -89,7 +90,7 @@ export function TimelinePanel({ kind, id, range, view, onSearchChange }: Timelin
       ) : (
         <div className="grid gap-3">
           {rows.length > 0 && (
-            <ul aria-label="Timeline" className="grid gap-3">
+            <ItemGroup aria-label="Timeline" className="gap-3 has-data-[size=xs]:gap-3">
               {groupTimeline(rows).map((item) =>
                 item.kind === 'session' ? (
                   <TimelineSession
@@ -102,7 +103,7 @@ export function TimelinePanel({ kind, id, range, view, onSearchChange }: Timelin
                   <TimelineEntryItem key={itemKey(item)} entry={item} showActor={showActor} />
                 )
               )}
-            </ul>
+            </ItemGroup>
           )}
           {timeline.isFetchNextPageError ? (
             <LoadError

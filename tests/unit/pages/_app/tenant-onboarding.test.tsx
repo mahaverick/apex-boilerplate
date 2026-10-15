@@ -101,7 +101,9 @@ describe('/tenants/$tenantId/onboarding', () => {
       expect(screen.getByText('In progress')).toHaveAttribute('data-tone', 'neutral')
       expect(screen.getByText('1 of 2 required steps done')).toBeInTheDocument()
       const items = [...list.children] as HTMLElement[]
-      expect(items.map((item) => item.querySelector('.font-medium')?.textContent)).toEqual([
+      expect(
+        items.map((item) => item.querySelector('[data-slot="item-title"] span span')?.textContent)
+      ).toEqual([
         'Configure your workspace',
         'Invite a teammate',
         'A teammate joins',

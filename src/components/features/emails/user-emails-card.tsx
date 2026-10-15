@@ -5,6 +5,7 @@ import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from '@/components/ui/item'
 import { Skeleton } from '@/components/ui/skeleton'
 import { templateLabel } from '@/constants/email.constants'
 import { ROUTES } from '@/constants/routes'
@@ -55,20 +56,26 @@ export function UserEmailsCard({ userId }: { userId: string }) {
           ) : emails.data.messages.length === 0 ? (
             <EmptyState size="compact" title="No emails sent to this account yet." />
           ) : (
-            <ul className="grid gap-2 text-sm">
+            <ItemGroup className="gap-2 has-data-[size=xs]:gap-2">
               {emails.data.messages.map((email) => (
-                <li key={email.id} className="flex flex-wrap items-center justify-between gap-2">
-                  <Link
-                    to={ROUTES.email}
-                    params={{ emailId: email.id }}
-                    className="underline-offset-4 hover:underline"
-                  >
-                    {`${templateLabel(email.templateKey)} · ${formatDateTime(email.createdAt) ?? 'unknown date'}`}
-                  </Link>
-                  <EmailStatusBadge status={email.status} />
-                </li>
+                <Item key={email.id} size="xs" role="listitem" className="p-0">
+                  <ItemContent>
+                    <ItemTitle className="line-clamp-none font-normal">
+                      <Link
+                        to={ROUTES.email}
+                        params={{ emailId: email.id }}
+                        className="underline-offset-4 hover:underline"
+                      >
+                        {`${templateLabel(email.templateKey)} · ${formatDateTime(email.createdAt) ?? 'unknown date'}`}
+                      </Link>
+                    </ItemTitle>
+                  </ItemContent>
+                  <ItemActions>
+                    <EmailStatusBadge status={email.status} />
+                  </ItemActions>
+                </Item>
               ))}
-            </ul>
+            </ItemGroup>
           )}
         </CardContent>
       </Card>

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { LoadError } from '@/components/features/load-error'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Item, ItemContent, ItemGroup, ItemTitle } from '@/components/ui/item'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { BadgeTone } from '@/constants/badge-tones'
 import { ERROR_DROP_LABELS } from '@/constants/errors.constants'
@@ -246,11 +247,20 @@ function MaintenanceFacts({
           {maintenance.queues.length === 0 ? (
             'None reported'
           ) : (
-            <ul aria-label="Queue pause state" className="grid gap-0.5 tabular-nums">
+            <ItemGroup
+              aria-label="Queue pause state"
+              className="gap-0.5 tabular-nums has-data-[size=xs]:gap-0.5"
+            >
               {maintenance.queues.map((queue) => (
-                <li key={queue.name}>{queueLine(queue)}</li>
+                <Item key={queue.name} size="xs" role="listitem" className="p-0">
+                  <ItemContent>
+                    <ItemTitle className="line-clamp-none font-normal">
+                      {queueLine(queue)}
+                    </ItemTitle>
+                  </ItemContent>
+                </Item>
               ))}
-            </ul>
+            </ItemGroup>
           )}
         </dd>
         {maintenance.noticesPending && (

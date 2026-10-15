@@ -1117,12 +1117,14 @@ describe('inviting, and the pending invitations', () => {
 
     expect(await screen.findByRole('heading', { name: 'Pending invitations' })).toBeInTheDocument()
     const first = within(
-      (await screen.findByText('invited@example.com')).closest('li') as HTMLElement
+      (await screen.findByText('invited@example.com')).closest('[role="listitem"]') as HTMLElement
     )
     expect(first.getByText(byContent('Editor · Invited by A B'))).toBeInTheDocument()
     expect(first.getByText(/^Expires /)).toBeInTheDocument()
     // An inviter whose account is gone is `null` and renders as a teammate.
-    const second = within(screen.getByText('old-invite@example.com').closest('li') as HTMLElement)
+    const second = within(
+      screen.getByText('old-invite@example.com').closest('[role="listitem"]') as HTMLElement
+    )
     expect(second.getByText(byContent('Viewer · Invited by A teammate'))).toBeInTheDocument()
   })
 

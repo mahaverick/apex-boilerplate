@@ -2,6 +2,15 @@ import { IconCircleCheck, IconCircleDashed } from '@tabler/icons-react'
 import type { ReactNode, RefCallback } from 'react'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from '@/components/ui/item'
 import { ONBOARDING_SOURCE_LABELS } from '@/constants/onboarding.constants'
 import { ROLE_LABELS } from '@/constants/roles'
 import { formatDateTime } from '@/lib/format'
@@ -35,19 +44,25 @@ function MemberStatuses({ members }: { members: NonNullable<OnboardingStepDetail
       <summary className="cursor-pointer text-muted-foreground underline-offset-4 hover:underline">
         {members.completed} of {members.total} members
       </summary>
-      <ul className="mt-2 grid gap-1">
+      <ItemGroup className="mt-2 gap-1 has-data-[size=xs]:gap-1">
         {members.entries.map((member) => (
-          <li key={member.user.id} className="flex flex-wrap gap-x-2">
-            <Pii className="font-medium">{member.user.name}</Pii>
-            <span className="text-muted-foreground">({ROLE_LABELS[member.role]})</span>
-            <span>
-              {member.completedAt === null
-                ? 'Not yet'
-                : `Done ${formatDateTime(member.completedAt) ?? 'at an unknown time'}`}
-            </span>
-          </li>
+          <Item key={member.user.id} size="xs" role="listitem" className="p-0">
+            <ItemContent>
+              <ItemTitle className="line-clamp-none font-normal">
+                <span className="flex flex-wrap gap-x-2">
+                  <Pii className="font-medium">{member.user.name}</Pii>
+                  <span className="text-muted-foreground">({ROLE_LABELS[member.role]})</span>
+                  <span>
+                    {member.completedAt === null
+                      ? 'Not yet'
+                      : `Done ${formatDateTime(member.completedAt) ?? 'at an unknown time'}`}
+                  </span>
+                </span>
+              </ItemTitle>
+            </ItemContent>
+          </Item>
         ))}
-      </ul>
+      </ItemGroup>
     </details>
   )
 }
@@ -79,45 +94,48 @@ export function OnboardingStepList({
         const isDone = step.completedAt !== null
         const line = completionLine(step)
         return (
-          <li
+          <Item
             key={step.key}
-            ref={target(step.key)}
-            tabIndex={-1}
-            className="flex gap-3 rounded-md border p-3 outline-none"
+            variant="outline"
+            size="sm"
+            render={<li ref={target(step.key)} tabIndex={-1} />}
+            className="flex-nowrap items-start"
           >
-            {isDone ? (
-              <IconCircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-success" />
-            ) : (
-              <IconCircleDashed
-                aria-hidden="true"
-                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-              />
-            )}
-            <div className="grid min-w-0 flex-1 gap-1">
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-medium">{step.title}</span>
-                <span className="sr-only">{isDone ? ', done' : ', not done'}</span>
-                <span className="text-xs text-muted-foreground">
-                  {step.required ? 'Required' : 'Optional'}
-                  {step.scope === 'member' && ' · each person'}
+            <ItemMedia>
+              {isDone ? (
+                <IconCircleCheck aria-hidden="true" className="size-4 text-success" />
+              ) : (
+                <IconCircleDashed aria-hidden="true" className="size-4 text-muted-foreground" />
+              )}
+            </ItemMedia>
+            <ItemContent className="min-w-0">
+              <ItemTitle className="line-clamp-none">
+                <span className="flex flex-wrap items-baseline gap-x-2">
+                  <span>{step.title}</span>
+                  <span className="sr-only">{isDone ? ', done' : ', not done'}</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {step.required ? 'Required' : 'Optional'}
+                    {step.scope === 'member' && ' · each person'}
+                  </span>
                 </span>
-              </div>
-              <p className="text-sm text-muted-foreground">{step.description}</p>
+              </ItemTitle>
+              <ItemDescription className="line-clamp-none">{step.description}</ItemDescription>
               {line !== null && <p className="text-sm wrap-break-word">{line}</p>}
               {step.members !== null && <MemberStatuses members={step.members} />}
-            </div>
+            </ItemContent>
             {canAct && step.canMarkComplete && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0 self-start"
-                aria-label={`Mark complete: ${step.title}`}
-                onClick={(event) => onMarkComplete(step, event.currentTarget)}
-              >
-                Mark complete
-              </Button>
+              <ItemActions className="self-start">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={`Mark complete: ${step.title}`}
+                  onClick={(event) => onMarkComplete(step, event.currentTarget)}
+                >
+                  Mark complete
+                </Button>
+              </ItemActions>
             )}
-          </li>
+          </Item>
         )
       })}
     </ol>

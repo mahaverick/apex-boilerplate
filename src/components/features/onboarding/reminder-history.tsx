@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Pii } from '@/components/shared/pii'
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
 import { ROUTES } from '@/constants/routes'
 import { formatDateTime } from '@/lib/format'
 import type { OnboardingReminderView } from '@/types/api.types'
@@ -28,37 +29,39 @@ export function ReminderHistory({ reminders }: { reminders: OnboardingReminderVi
     return <EmptyState size="compact" title="No reminder sent yet." />
   }
   return (
-    <ul aria-label="Reminders sent" className="grid gap-3">
+    <ItemGroup aria-label="Reminders sent" className="gap-3 has-data-[size=sm]:gap-3">
       {reminders.map((reminder) => (
-        <li key={reminder.id} className="grid gap-1 text-sm">
-          <p>
-            <span className="font-medium">
-              {formatDateTime(reminder.sentAt) ?? 'At an unknown time'}
-            </span>{' '}
-            · {reminder.sentBy === null ? 'A removed user' : <Pii>{reminder.sentBy.name}</Pii>} · to{' '}
-            {recipients(reminder)}
-          </p>
-          <p className="wrap-break-word text-muted-foreground">
-            “<Pii>{reminder.reason}</Pii>”
-          </p>
-          {reminder.messageIds.length > 0 && (
-            <p className="flex flex-wrap gap-x-3">
-              {reminder.messageIds.map((messageId, index) => (
-                <Link
-                  key={messageId}
-                  to={ROUTES.email}
-                  params={{ emailId: messageId }}
-                  className="underline underline-offset-4"
-                >
-                  {reminder.messageIds.length === 1
-                    ? 'View the email'
-                    : `View email ${index + 1} of ${reminder.messageIds.length}`}
-                </Link>
-              ))}
-            </p>
-          )}
-        </li>
+        <Item key={reminder.id} size="sm" role="listitem" className="p-0">
+          <ItemContent className="min-w-0">
+            <ItemTitle className="line-clamp-none font-normal">
+              <span className="font-medium">
+                {formatDateTime(reminder.sentAt) ?? 'At an unknown time'}
+              </span>{' '}
+              · {reminder.sentBy === null ? 'A removed user' : <Pii>{reminder.sentBy.name}</Pii>} ·
+              to {recipients(reminder)}
+            </ItemTitle>
+            <ItemDescription className="line-clamp-none wrap-break-word">
+              “<Pii>{reminder.reason}</Pii>”
+            </ItemDescription>
+            {reminder.messageIds.length > 0 && (
+              <div className="flex flex-wrap gap-x-3">
+                {reminder.messageIds.map((messageId, index) => (
+                  <Link
+                    key={messageId}
+                    to={ROUTES.email}
+                    params={{ emailId: messageId }}
+                    className="underline underline-offset-4"
+                  >
+                    {reminder.messageIds.length === 1
+                      ? 'View the email'
+                      : `View email ${index + 1} of ${reminder.messageIds.length}`}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </ItemContent>
+        </Item>
       ))}
-    </ul>
+    </ItemGroup>
   )
 }
