@@ -110,7 +110,10 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     kind: 'page',
     area: 'suppressions',
     shot: 'suppressions',
-    roleDenied: { as: 'viewer', note: 'A viewer: rows show without a lift action.' },
+    roleDenied: {
+      as: 'viewer',
+      note: 'A viewer: the same list. Lifting is admin only, but this run had no suppressed addresses, so the shot shows the empty list and no row action.',
+    },
     url: '/suppressions',
     as: 'staff',
     sections: [{ name: 'Suppressions', endpoints: ['GET /platform/email-suppressions'] }],
