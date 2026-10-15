@@ -1750,7 +1750,7 @@ describe('deliverability, suppressions and the embedded email lists', () => {
       )
     )
     renderAppAt('/deliverability')
-    await screen.findByRole('note')
+    await screen.findByText(/No provider events yet/)
     expect(screen.getAllByText('No provider data')).toHaveLength(5)
     await expectNoViolations()
   })

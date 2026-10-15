@@ -1,3 +1,4 @@
+import { Note } from '@/components/shared/note'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TIMELINE_NOT_CONFIGURED, timelineEmptyMessage } from '@/constants/timeline.constants'
 import type { TimelineRange, TimelineView } from '@/types/api.types'
@@ -5,9 +6,9 @@ import type { TimelineRange, TimelineView } from '@/types/api.types'
 /** Express has no PostHog personal key here: nothing was asked of PostHog, nothing was audited. */
 export function TimelineNotConfigured() {
   return (
-    <p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
-      {TIMELINE_NOT_CONFIGURED}
-    </p>
+    <div role="status">
+      <Note tone="passive">{TIMELINE_NOT_CONFIGURED}</Note>
+    </div>
   )
 }
 

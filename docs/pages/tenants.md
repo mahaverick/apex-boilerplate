@@ -186,7 +186,7 @@ Findings: [F-tenants-3](findings.md#f-tenants-3), [F-activity-1](findings.md#f-a
 | Layout              | `AppLayout` › tenant layout                                                                                                                                                                                                       |
 | Data                | after the layout's detail: `GET /platform/tenants/:id/timeline?range&view` (`['timeline', 'tenant', id, range, view]`, infinite, `staleTime` 30 s, no retry, no refetch on focus or reconnect, `gcTime` 0: every read is audited) |
 | Sections            | An `h2` "Timeline", `TimelineToolbar` (range `Select`, Everything / Key events toggle, Refresh, Open in PostHog when configured), "Events can take a few minutes to appear.", then the events and sessions with Load more events  |
-| Components          | `TimelinePanel`, `TimelineToolbar`, `ToggleGroup`, `Select`, `Button`, `Skeleton` (`TimelineSkeleton`, 3× `h-16`), `LoadError`, `RoleDenied`; hand-rolled: the `TimelineNotConfigured` note                                       |
+| Components          | `TimelinePanel`, `TimelineToolbar`, `ToggleGroup`, `Select`, `Button`, `Skeleton` (`TimelineSkeleton`, 3× `h-16`), `LoadError`, `RoleDenied`, `Note` (passive, `TimelineNotConfigured`)                                           |
 | Transitions         | Open in PostHog and Watch replay open PostHog in a new tab                                                                                                                                                                        |
 
 The default shot shows the timeline's own failure: the dev API answered 502 ("We could not reach PostHog, so nothing is listed. This is not a sign of no activity."). With no PostHog personal key the API answers `configured: false` and the tab shows the not-configured note instead.
@@ -231,16 +231,16 @@ Findings: [F-tenants-1](findings.md#f-tenants-1), [F-tenants-2](findings.md#f-te
 
 ![Errors](img/tenants/tenant-errors--default.jpg)
 
-|                     |                                                                                                                                                     |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Purpose             | The PostHog error issues the tenant's people hit in the last 30 days.                                                                               |
-| File                | `src/pages/_app/tenants/$tenantId.errors.tsx`                                                                                                       |
-| Guard and redirects | `_app`, then the [layout](#layout); `RoleDenied` below admin, without a request                                                                     |
-| Layout              | `AppLayout` › tenant layout                                                                                                                         |
-| Data                | after the layout's detail: `GET /platform/tenants/:id/errors` (`['errors', 'tenant', id]`, `staleTime` 30 s, no retry, `gcTime` 0)                  |
-| Sections            | An `h2` "Errors", then a `Table` of Error, Source, Events, Last seen and a PostHog link, with a lag note under it                                   |
-| Components          | `ErrorsPanel`, `Table`, `Badge`, `Skeleton` (`TimelineSkeleton`), `LoadError`, `RoleDenied`; hand-rolled: the not-configured note and the empty `p` |
-| Transitions         | an issue's link opens PostHog                                                                                                                       |
+|                     |                                                                                                                                                           |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Purpose             | The PostHog error issues the tenant's people hit in the last 30 days.                                                                                     |
+| File                | `src/pages/_app/tenants/$tenantId.errors.tsx`                                                                                                             |
+| Guard and redirects | `_app`, then the [layout](#layout); `RoleDenied` below admin, without a request                                                                           |
+| Layout              | `AppLayout` › tenant layout                                                                                                                               |
+| Data                | after the layout's detail: `GET /platform/tenants/:id/errors` (`['errors', 'tenant', id]`, `staleTime` 30 s, no retry, `gcTime` 0)                        |
+| Sections            | An `h2` "Errors", then a `Table` of Error, Source, Events, Last seen and a PostHog link, with a lag note under it                                         |
+| Components          | `ErrorsPanel`, `Table`, `Badge`, `Skeleton` (`TimelineSkeleton`), `LoadError`, `RoleDenied`, `Note` (passive, not configured); hand-rolled: the empty `p` |
+| Transitions         | an issue's link opens PostHog                                                                                                                             |
 
 The capture's tenant has no errors, so the default shot is the empty state.
 

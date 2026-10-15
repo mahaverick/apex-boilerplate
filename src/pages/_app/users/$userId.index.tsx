@@ -7,6 +7,7 @@ import { LoadError } from '@/components/features/load-error'
 import { UserActionsMenu } from '@/components/features/users/user-actions-menu'
 import { UserNotFound } from '@/components/features/users/user-not-found'
 import { UserStatusBadges } from '@/components/features/users/user-status-badges'
+import { Note } from '@/components/shared/note'
 import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
@@ -125,10 +126,10 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
       </div>
 
       {user.deletedAt !== null && (
-        <p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
+        <Note tone="warning">
           This account was deleted on {formatDate(user.deletedAt, 'medium') ?? 'an unknown date'}.
           It is read-only; a platform owner can delete it permanently.
-        </p>
+        </Note>
       )}
 
       <section aria-labelledby="user-tenants">

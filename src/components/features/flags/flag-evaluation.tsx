@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { ToneBadge } from '@/components/features/tone-badge'
+import { Note } from '@/components/shared/note'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -102,11 +103,7 @@ export function FlagEvaluation({
   const appLabel = FLAG_APP_LABELS[params.app]
   return (
     <div className="grid gap-4">
-      {evaluation.data.snapshot.stale && (
-        <p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
-          {FLAGS_STALE_NOTE}
-        </p>
-      )}
+      {evaluation.data.snapshot.stale && <Note tone="warning">{FLAGS_STALE_NOTE}</Note>}
       <TraitValues traits={evaluation.data.traits} />
       <Table aria-label="Evaluation">
         <TableHeader>

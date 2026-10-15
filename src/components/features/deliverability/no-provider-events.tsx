@@ -1,3 +1,4 @@
+import { Note } from '@/components/shared/note'
 import { EMAIL_TRACKING_DOCS_URL } from '@/constants/email.constants'
 
 /**
@@ -7,7 +8,7 @@ import { EMAIL_TRACKING_DOCS_URL } from '@/constants/email.constants'
  */
 export function NoProviderEvents() {
   return (
-    <div role="note" className="rounded-md border p-3 text-sm text-muted-foreground">
+    <Note tone="passive">
       No provider events yet — delivery, bounce and complaint data appear once a provider webhook is
       configured.{' '}
       <a
@@ -18,6 +19,6 @@ export function NoProviderEvents() {
       >
         How to configure one<span className="sr-only"> (opens in a new tab)</span>
       </a>
-    </div>
+    </Note>
   )
 }

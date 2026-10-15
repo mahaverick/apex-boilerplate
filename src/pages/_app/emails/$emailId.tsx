@@ -6,6 +6,7 @@ import { EmailTenantLink } from '@/components/features/emails/email-tenant-link'
 import { EmailTimeline } from '@/components/features/emails/email-timeline'
 import { ResendEmailButton } from '@/components/features/emails/resend-email-button'
 import { LoadError } from '@/components/features/load-error'
+import { Note } from '@/components/shared/note'
 import { Pii } from '@/components/shared/pii'
 import { buttonVariants } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
@@ -151,7 +152,7 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
       </div>
 
       {message.suppression !== null && (
-        <p role="status" className="rounded-md border p-3 text-sm">
+        <Note tone="warning">
           This address is suppressed ({SUPPRESSION_REASON_LABELS[message.suppression.reason]}, since{' '}
           {formatDate(message.suppression.createdAt, 'medium') ?? 'an unknown date'}): no email is
           sent to it until the suppression is lifted.{' '}
@@ -162,7 +163,7 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
           >
             View suppression
           </Link>
-        </p>
+        </Note>
       )}
 
       <Tabs

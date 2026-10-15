@@ -109,7 +109,9 @@ describe('/deliverability', () => {
       expect(tile.slice(1)).toEqual(['—', 'No provider data'])
     }
 
-    const banner = screen.getByRole('note')
+    const banner = screen
+      .getByText(/No provider events yet/)
+      .closest('[data-slot="item"]') as HTMLElement
     expect(banner).toHaveTextContent(
       'No provider events yet — delivery, bounce and complaint data appear once a provider webhook is configured.'
     )
