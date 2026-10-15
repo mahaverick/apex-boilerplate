@@ -65,6 +65,7 @@ function ErrorIssueRow({ issue }: { issue: ErrorIssue }) {
   const absolute = absoluteTime(issue.lastSeen)
   return (
     <TableRow>
+      {/* Capped: the cell wraps the error message instead of widening the table. */}
       <TableCell className="max-w-md align-top whitespace-normal">
         <Pii>
           <code className="text-sm font-medium break-all">{issue.type}</code>

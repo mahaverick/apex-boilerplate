@@ -24,6 +24,7 @@ function FlagRegistryRow({ row }: { row: FlagRow }) {
   const state = flagStateBadge(row.state)
   return (
     <TableRow>
+      {/* Capped: the cell wraps its description instead of widening the table. */}
       <TableCell className="max-w-sm align-top whitespace-normal">
         <div className="flex flex-wrap items-center gap-1">
           <code className="text-sm font-medium break-all">{row.key}</code>
