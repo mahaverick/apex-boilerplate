@@ -155,7 +155,7 @@ The registration form shows the invited address in the description ("Create an a
 
 `LoadError` (`src/components/features/load-error.tsx`), `RoleDenied` (`role-denied.tsx`) and `WidgetBoundary`'s failure message are each a `div` or `p` with `rounded-md border p-4`, a muted sentence and, for the first two, an outline button. They take the width of whatever wraps them: full width on the Overview ([shot](img/overview/overview--error.jpg)), but shrink-wrapped at the left under a list's filters, because the lists wrap them in `grid justify-items-start` to put First page beside them ([shot](img/tenants/tenants--error.jpg)); the onboarding error shot shows both widths on one page ([shot](img/onboarding/onboarding--error.jpg)). Fix: one shadcn `Alert` (destructive for a failure, default for a role refusal) with its action, at full width everywhere.
 
-Status: fixed in aa46004 for `LoadError` and `RoleDenied`: each is an `Alert` with its action at full width, the two load errors on one page ([load errors](img/onboarding/onboarding--error.jpg)) and the role refusal with Reload ([role refusal](img/tenants/tenant-errors--role-denied.jpg)). The refusal shot shows it in the destructive colours, not the default variant the fix proposed. `WidgetBoundary`'s failure has no after-shot; `tests/unit/components/features/widget-boundary.test.tsx` asserts it renders an alert, and nothing asserts its width.
+Status: fixed in 9840410 for `LoadError` and `RoleDenied`: each is an `Alert` with its action at full width, the two load errors on one page ([load errors](img/onboarding/onboarding--error.jpg)) and the role refusal with Reload ([role refusal](img/tenants/tenant-errors--role-denied.jpg)). The refusal shot shows it in the destructive colours, not the default variant the fix proposed. `WidgetBoundary`'s failure has no after-shot; `tests/unit/components/features/widget-boundary.test.tsx` asserts it renders an alert, and nothing asserts its width.
 
 ### F-overview-3
 
@@ -181,7 +181,7 @@ The KPI grids are `sm:grid-cols-2` and up, so below 640 px every card takes a fu
 
 `ActivityList`'s Load more activity and `TimelinePanel`'s Load more events replace their label with the word "Loading…" while the next page loads, and nothing else marks the wait ([code](activity.md#activity--activity)). Fix: shadcn `Spinner` in the button beside its label.
 
-Status: fixed in bb8a384. Both buttons are a `BusyButton`, which shows a spinner and the busy label while the next page is fetched; `tests/unit/components/shared/busy-button.test.tsx` covers the component, and no test drives either Load more fetch. There is no after-shot of the busy state, because a shot cannot catch the pending state.
+Status: fixed in bb8a384. Both buttons are a `BusyButton`, which shows a spinner and the busy label while the next page is fetched; `tests/unit/components/shared/busy-button.test.tsx` covers the component. `tests/unit/pages/_app/user-timeline.test.tsx` drives Load more events and asserts it is disabled while a refresh runs, but no test asserts the spinner or the busy label, and nothing drives Load more activity. There is no after-shot of the busy state, because a shot cannot catch the pending state.
 
 ### F-tenants-1
 

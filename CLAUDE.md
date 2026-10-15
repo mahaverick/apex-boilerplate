@@ -492,7 +492,8 @@ Run it only through `pnpm capture:pages`: that script sets `E2E_CAPTURE=1`,
 which turns `webServer` off, and a bare `--project=capture` starts the dev
 server and then skips every test. It needs `E2E_API_DIR` to name the express
 checkout (a staff account is granted its role there) and takes
-`CAPTURE_ONLY=auth,tenants` to limit the run to those areas. It is opt-in and
+`CAPTURE_ONLY=auth,tenants` to limit the run to those areas, or a route key such as
+`'/tenants/$tenantId/timeline'` (quote it, or the shell expands `$tenantId`). It is opt-in and
 not in CI. How to run it is in `docs/pages/README.md`.
 
 ## Accessibility
