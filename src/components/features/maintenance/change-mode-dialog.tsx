@@ -1,8 +1,10 @@
+import { IconAlertCircle } from '@tabler/icons-react'
 import { useForm } from '@tanstack/react-form'
 import { useMemo, useState } from 'react'
 import { MaintenancePreview } from '@/components/features/maintenance/maintenance-preview'
 import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
 import { Pii } from '@/components/shared/pii'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -346,9 +348,12 @@ function ChangeModeForm({
           )}
         </form.Subscribe>
         {conflict !== null && (
-          <p role="alert" className="text-sm text-destructive">
-            <Pii>{conflict}</Pii>
-          </p>
+          <Alert variant="destructive">
+            <IconAlertCircle aria-hidden="true" />
+            <AlertTitle>
+              <Pii>{conflict}</Pii>
+            </AlertTitle>
+          </Alert>
         )}
         <FormError />
         <DialogFooter>

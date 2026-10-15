@@ -149,7 +149,7 @@ The walk confirmed the signed-out exit: `/auth/callback` landed on `/login?error
 | Layout              | `AuthLayout` + `AuthCard` (`InvitationCard`), rendered by the page                                                                                                                                                    |
 | Data                | started: `POST /invitations/preview` (`['invitations', 'preview', token]`; no auth; a failure other than 404 is retried once); `POST /invitations/accept` on accept; `POST /auth/logout` from the wrong-account state |
 | Sections            | Chosen by `?token` and who is signed in, below.                                                                                                                                                                       |
-| Components          | `AuthCard`, `Skeleton`, `LoadError`, `Button`, `buttonVariants`, `Pii`                                                                                                                                                |
+| Components          | `AuthCard`, `Skeleton`, `LoadError`, `Alert` (destructive, the refusal), `Button`, `buttonVariants`, `Pii`                                                                                                            |
 | Transitions         | Log in → `/login` and back here; Create account → `/register`; Sign out → here, signed out; Accept invitation → `/overview`; Go to the home page → `/`                                                                |
 
 The page has these states (`AcceptInvitationPage` and `InvitationForToken`):

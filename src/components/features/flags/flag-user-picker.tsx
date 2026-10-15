@@ -1,6 +1,8 @@
+import { IconAlertCircle } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Pii } from '@/components/shared/pii'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -34,9 +36,10 @@ export function FlagUserPicker({ onPick }: { onPick: (userId: string) => void })
         onChange={(event) => setDraft(event.target.value)}
       />
       {users.isError && term !== '' && (
-        <p role="alert" className="text-sm text-muted-foreground">
-          We could not search the directory.
-        </p>
+        <Alert variant="destructive">
+          <IconAlertCircle aria-hidden="true" />
+          <AlertTitle>We could not search the directory.</AlertTitle>
+        </Alert>
       )}
       {term !== '' && users.isSuccess && matches.length === 0 && (
         <p className="text-sm text-muted-foreground">No users match.</p>

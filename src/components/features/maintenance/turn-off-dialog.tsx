@@ -1,6 +1,8 @@
+import { IconAlertCircle } from '@tabler/icons-react'
 import { useState } from 'react'
 import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
 import { Pii } from '@/components/shared/pii'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -92,9 +94,12 @@ export function TurnOffDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {refusal !== null && (
-          <p role="alert" className="text-sm text-destructive">
-            <Pii>{refusal}</Pii>
-          </p>
+          <Alert variant="destructive">
+            <IconAlertCircle aria-hidden="true" />
+            <AlertTitle>
+              <Pii>{refusal}</Pii>
+            </AlertTitle>
+          </Alert>
         )}
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>

@@ -2,6 +2,7 @@
  * @file A tenant's member list with role and removal controls, parameterised
  * by slug so the Staff page reuses it for the platform tenant.
  */
+import { IconAlertCircle } from '@tabler/icons-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
@@ -12,6 +13,7 @@ import {
   type ReasonDialogProps,
 } from '@/components/features/reason-dialog'
 import { Pii } from '@/components/shared/pii'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -496,9 +498,10 @@ function RemoveMemberButton({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {stepUpDismissed && (
-          <p role="alert" className="text-sm text-destructive">
-            {STEP_UP_DISMISSED}
-          </p>
+          <Alert variant="destructive">
+            <IconAlertCircle aria-hidden="true" />
+            <AlertTitle>{STEP_UP_DISMISSED}</AlertTitle>
+          </Alert>
         )}
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
