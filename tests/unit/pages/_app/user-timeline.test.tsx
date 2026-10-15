@@ -491,6 +491,7 @@ describe('/users/$userId/timeline', () => {
     renderAppAt(`${TIMELINE}?view=${view}`)
     expect(await screen.findByText(text)).toBeInTheDocument()
     if (description) expect(screen.getByText(description)).toBeInTheDocument()
+    else expect(screen.queryByText(/Switch to Everything/)).not.toBeInTheDocument()
   })
 
   it('says PostHog could not be reached, never that nothing happened, and retries', async () => {

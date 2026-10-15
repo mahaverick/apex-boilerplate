@@ -57,7 +57,8 @@ test('the flags page says when flags are not set up, with no PostHog links', asy
     )
   ).toBeVisible()
   await expect(page.getByRole('link', { name: /Open in PostHog/ })).toHaveCount(0)
-  await expect(page.getByText('None. Every PostHog flag is registered.')).toBeVisible()
+  await expect(page.getByText('None.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Every PostHog flag is registered.')).toBeVisible()
 })
 
 test('a viewer gets the inspector and a note in place of the evaluation, and never asks for one', async ({
