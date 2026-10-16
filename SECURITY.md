@@ -172,7 +172,7 @@ The policy is enforced, not report-only:
   CSSOM, which the policy does not govern, so the toast's and the sidebar's
   inline CSS variables do not need it. Base UI's `CSPProvider` with
   `disableStyleElements` would drop Base UI's `<style>` elements, once their
-  rules live in `globals.css`, but `ChartStyle` would still need it.
+  rules live in `globals.css`, but `ChartStyle` and the boot shell's inline style would still need it.
 - **`connect-src 'self'`** holds because the API, analytics and error
   tracking are all same-origin: posthog-js sends to `/api/v1/collect` and
   loads its recorder from there, so the browser never talks to PostHog.

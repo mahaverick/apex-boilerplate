@@ -643,9 +643,9 @@ location is covered in [CSP and headers](SECURITY.md#csp-and-headers).
 Cache-Control is chosen by a `map` on the URI, not per location: hashed
 assets are immutable for a year, and `index.html`, `theme-init.js`,
 `boot-variant.js`, the favicon and `runtime-config.js` are `no-store`, so a
-deploy never leaves a browser asking for asset names it removed. The security headers, the reason
-no location declares an `add_header`, and the logging choices are in
-[CSP and headers](SECURITY.md#csp-and-headers).
+deploy never leaves a browser asking for asset names it removed. The security
+headers, the reason no location declares an `add_header`, and the logging
+choices are in [CSP and headers](SECURITY.md#csp-and-headers).
 
 **Nothing is configured at build time.** One image digest is promoted
 through every environment, so a setting that differs between environments
