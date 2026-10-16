@@ -104,11 +104,15 @@ The tag names the work that fixes it: `[P2 loading]` boot and loading states, `[
 
 ### F-boot-1
 
-On every cold load under `vite dev`, the splash in `index.html` shows as unstyled black serif "Loading…" in the top-left corner, with no spinner, before it jumps to the centred, styled splash (frames 01 and 02 of each scenario in [boot.md](boot.md#frame-by-frame): 207 → 1308 ms, 26 → 524 ms, 26 → 533 ms). The splash's only styles are in `src/styles/globals.css`, which `vite dev` delivers through JavaScript after the module graph runs ([why](boot.md#the-first-frame)). A production build links that CSS in `<head>`, so production is not affected. Fix: give the splash styles that do not depend on the bundle, for example a small stylesheet linked from `index.html`.
+Status: fixed. The shell's CSS is inline in `index.html`, so after the browser's own blank frame the first frame is the styled shell, in both builds ([frames](boot.md#the-first-frame)). `tests/unit/boot-shell.test.ts` ("paints only colours it copied", "sizes its boxes as border-box…") and `e2e/nginx/boot-shell.test.ts` (the styled shell with the bundle blocked, in a light and a dark colour scheme) cover it.
+
+On every cold load under `vite dev`, the splash in `index.html` showed as unstyled black serif "Loading…" in the top-left corner, with no spinner, before it jumped to the centred, styled splash. Its only styles were in `src/styles/globals.css`, which `vite dev` delivers through JavaScript after the module graph runs. A production build links that CSS in `<head>`, so production was not affected. Fix: give the splash styles that do not depend on the bundle.
 
 ### F-boot-2
 
-React mounts only after `router.load()` settles (`src/main.tsx`), and `router.load()` awaits the session restore (`POST /auth/refresh`, then `GET /profile`) and, on every `_app` page, `_app`'s loader, which awaits `GET /platform/me/flags`. Each is bounded only by the HTTP client's 30 s timeout (`src/http/client.ts`); the flags read has no retry and falls back on failure, but still waits for the answer. While any of them is slow the user sees only the boot splash: no shell, no skeleton, no sign of which page is coming. The page reads are not part of this wait, so once those settle every page draws its own skeletons ([frames](boot.md#signed-in-overview)). The capture held no boot request, so this is from the code. Fix: mount the shell before the flags read finishes, or cap that wait, and show the shell's skeleton in place of the splash.
+Status: partly fixed. The flags wait is at most 10 s (`FLAGS_BOOT_WAIT_MS`), and the mount waits for the pending templates for at most 3 s; the session restore is still awaited before React mounts, so a slow `POST /auth/refresh` still shows only the boot shell ([frames](boot.md#what-happens)). `tests/unit/observability/flags/flag-query.test.ts` ("resolves to the fallbacks once FLAGS_BOOT_WAIT_MS passes with no answer…") covers the cap.
+
+React mounts only after `router.load()` settles (`src/main.tsx`), and `router.load()` awaits the session restore (`POST /auth/refresh`, then `GET /profile`) and, on every `_app` page, `_app`'s loader, which awaits `GET /platform/me/flags`. The flags read has no retry and falls back on failure, but it still waited for the answer, bounded only by the HTTP client's 30 s timeout (`src/http/client.ts`). While any of these is slow, the user sees only the boot shell: no staff shell, no skeleton, no sign of which page is coming. The page reads are not part of this wait. The capture held no boot request, so this is from the code. Fix: cap the flags wait, and show the shell's skeleton in place of the splash.
 
 ### F-auth-1
 
@@ -120,6 +124,8 @@ React mounts only after `router.load()` settles (`src/main.tsx`), and `router.lo
 
 ### F-auth-3
 
+Status: partly fixed. The loading card is shaped like the loaded one, a sentence and three bars in place of the buttons and hint, so it comes close to the loaded card's height ([loading](img/auth/invitation-accept--loading.jpg), [loaded](img/auth/invitation-accept--default.jpg)); its title stays "Checking your invitation", since only the preview knows the tenant's name. `tests/unit/pages/invitations/accept.test.tsx` ("holds the loaded card’s height while the preview loads…") covers the shape, not the height, which jsdom cannot measure.
+
 While the preview loads, the card is titled "Checking your invitation" and holds two skeleton bars; when it lands, the card becomes "Join {tenant}" with a sentence, two buttons and a hint paragraph ([loading](img/auth/invitation-accept--loading.jpg), [loaded](img/auth/invitation-accept--default.jpg)). The card grows from about 165 px to about 280 px tall and its title changes, so everything in it moves. Fix: a skeleton shaped like the loaded state (title line, sentence, two button-height bars, hint lines).
 
 ### F-auth-4
@@ -127,6 +133,8 @@ While the preview loads, the card is titled "Checking your invitation" and holds
 The preview-failure state has the title "We could not load this invitation" and, inside the card, a bordered `LoadError` box whose message starts with the same sentence ([shot](img/auth/invitation-accept--error.jpg)). Fix: shorten the box's message to the part the title does not say, or drop the box's border inside a card.
 
 ### F-auth-5
+
+Status: partly fixed. The loading card holds the form's four fields and its button ([after](img/auth/register--loading.jpg)); the description under the title and the sign-in line are not held, so the loaded card is still taller. `tests/unit/pages/_auth/register.test.tsx` ("holds the form’s four fields and its button while the invitation loads") covers it.
 
 `RegisterSkeleton` is the "Create an account" card over two `h-10` bars, about 190 px tall; the form that replaces it has a description, four labelled fields, the button and a sign-in line, about 555 px tall ([loading](img/auth/register--loading.jpg), [loaded](img/auth/register--default.jpg)). Because `AuthLayout` centres the column, the card's top edge also moves up by about 180 px when the preview lands. Fix: a skeleton with the form's rows (description lines, four label-and-field pairs, the button).
 
@@ -147,6 +155,8 @@ The registration form shows the invited address in the description ("Create an a
 `src/pages/$.tsx` is a top-level route, so the not-found page renders outside both layouts: a bare card on a plain background, with no sidebar, header or search for a signed-in staff member, and without the muted auth frame for a signed-out one ([shot](img/system/not-found--default.jpg), taken signed in as staff). Fix: render the not-found card inside the shell when signed in, and inside `AuthLayout` when signed out.
 
 ### F-overview-1
+
+Status: fixed. The five KPI skeletons are the loaded cards' height and the two chart blocks are `h-80`; the status card holds 13 rows, 476 px against 479 px loaded in a browser ([after](img/overview/overview--loading.jpg)). `tests/unit/pages/_app/overview.test.tsx` ("holds five KPI cards at the loaded cards’ height…") covers it, and `e2e/fixtures/sections.test.ts` ("a held system status leaves the Overview’s figures and charts") covers the status card on its own.
 
 `OverviewSkeleton` says it is shaped like the loaded layout, and it has the right count: five `h-30` cards and two `h-74` blocks. The heights are not the loaded ones. In the shots the skeleton cards run from y 148 to 268 (120 px) and the loaded KPI cards from 148 to 336 (about 188 px); the chart blocks are 296 px against about 320 px loaded. The System status card holds one `h-32` bar under its header, about 250 px in all, where the loaded card is about 475 px. So the status card starts at y 612 while loading and at y 704 once loaded, and grows by about 220 px ([loading](img/overview/overview--loading.jpg), [loaded](img/overview/overview--default.jpg)). Fix: skeletons with the cards' real rows (label, figure, note), and a status skeleton with its label-and-value rows.
 
@@ -188,13 +198,19 @@ Status: fixed in bb8a384. The button is a `BusyButton`, which shows a spinner an
 
 ### F-tenants-2
 
+Status: open: the tenants list and the tenant Emails tab move to the data table.
+
 While the page loads, the tenant list is one `Skeleton h-96`: 384 px from y 140, where the loaded table with twenty rows and the pagination reaches about y 990 ([loading](img/tenants/tenants--loading.jpg), [loaded](img/tenants/tenants--default.jpg)). The tenant Emails tab does the same with one `h-64`. Fix: a table skeleton with the header row and a row per expected line, which the shared `DataTable` can own.
 
 ### F-tenants-3
 
+Status: partly fixed. The header skeleton and the tab row render while the tenant loads, and Overview, Flags, Onboarding and Emails draw their own skeletons; Members, Invitations and Activity stay blank until the tenant lands, and each of those tabs still reads the tenant it is about before its own requests ([overview](img/tenants/tenant-overview--loading.jpg), [flags](img/tenants/tenant-flags--loading.jpg), [members](img/tenants/tenant-members--loading.jpg)). `tests/unit/pages/_app/tenant-detail.test.tsx` ("shows the header skeleton, the tabs and the Overview tab’s skeleton while the tenant loads") and `tests/unit/pages/_app/tenant-flags.test.tsx` ("shows the Flags heading and the member picker’s skeleton…") cover it.
+
 Every tab under `/tenants/$tenantId` reads `GET /platform/tenants/:id` and returns `null` until it has data, and the layout does not render its `Outlet` until then either. The Members, Invitations, Activity and Flags tabs need the slug from that detail for their own reads, so each of those reads starts only when the detail answers: a waterfall. The Emails and Onboarding tabs start their reads in their loaders, but still cannot draw. Every loading shot of a tab is therefore the layout's skeleton ([shot](img/tenants/tenant-members--loading.jpg)), and in the walk, with the detail held 2.5 s, the Members tab showed only that skeleton for 2.5 s and requested the members afterwards. Fix: render the header and tabs from the cached list row or a header skeleton, start the slug-free reads from their loaders with the id, and let each tab draw its own skeleton at once.
 
 ### F-tenants-4
+
+Status: fixed. The layout shows the header skeleton over the real tab row, and the tab's own skeleton below it ([after](img/tenants/tenant-overview--loading.jpg), [in-app](img/tenants/tenant-overview--nav-route.jpg)). `tests/unit/pages/_app/tenant-detail.test.tsx` ("shows the header skeleton, the tabs…") covers it.
 
 The layout's loading state is a hidden `h1`, an `h-10 w-64` bar and an `h-64` block ([shot](img/tenants/tenant-overview--loading.jpg)). The loaded layout has a title row with a badge and the Actions button, a subtitle, a tab bar, and then the tab, which may draw its own skeleton next. So a tab arrives in two steps, and the header, the tabs and the content all move once. Fix: a header skeleton with the title, subtitle, Actions and tab bar in place, and the tab's skeleton below it from the start.
 
@@ -216,9 +232,13 @@ At 390 px the tab bar shows Overview, Members, Invitations and Activity; the oth
 
 ### F-users-2
 
+Status: open: the users list moves to the data table.
+
 While the page loads, the users list is one `Skeleton h-96`, 384 px, where the loaded table and pagination take about 880 px ([loading](img/users/users--loading.jpg), [loaded](img/users/users--default.jpg)). Fix: a table-shaped skeleton.
 
 ### F-users-3
+
+Status: fixed. The skeleton is the header's bars over the five cards an admin sees ([after](img/users/user-overview--loading.jpg)). `tests/unit/pages/_app/user-detail.test.tsx` ("holds the user page’s header and five cards while the user loads") covers it.
 
 While the user loads, the page is a hidden `h1` over an `h-16` and an `h-64` block, full width ([shot](img/users/user-overview--loading.jpg)). The loaded page is capped at `max-w-4xl` (896 px against 1136 px) and has a header with buttons and five cards, about 900 px tall ([shot](img/users/user-overview--default.jpg)). The content narrows and more than doubles in height when it lands. Fix: a skeleton inside the same `max-w-4xl` column with the header and a block per card.
 
@@ -232,9 +252,13 @@ The Emails list assembles its toolbar by hand: the recipient search, status and 
 
 ### F-emails-2
 
+Status: open: the emails list moves to the data table.
+
 While the page loads, the emails list is one `Skeleton h-96`, against about 850 px of table and pagination ([loading](img/emails/emails--loading.jpg), [loaded](img/emails/emails--default.jpg)). Fix: a table-shaped skeleton.
 
 ### F-emails-3
+
+Status: fixed. The skeleton is the header's bars, the tab-list bar and four rows ([after](img/emails/email-detail--loading.jpg)). `tests/unit/pages/_app/email-detail.test.tsx` ("holds the email page’s header, tabs and timeline while the email loads") covers it.
 
 While the email loads, the page is an `h-16` and an `h-64` block across the full width ([shot](img/emails/email-detail--loading.jpg)); the loaded page is a `max-w-4xl` column with a three-line header, the tab list and a short timeline, about 250 px tall ([shot](img/emails/email-detail--default.jpg)). Fix: a skeleton in the same column with the header lines and the tab list.
 
@@ -244,13 +268,19 @@ The suppressions list has its own search, state `Select`, `SuppressionsTable` (A
 
 ### F-suppressions-2
 
+Status: open: the suppressions list moves to the data table.
+
 While the page loads, the list is one `Skeleton h-96` ([shot](img/suppressions/suppressions--loading.jpg)). Fix: a table-shaped skeleton.
 
 ### F-deliverability-1
 
+Status: partly fixed. The seven KPI skeletons are the loaded cards' 9rem, the chart skeleton is the chart card's 20rem and each breakdown skeleton is a card of three rows, as measured in a browser; the provider note depends on the figures, so its place is not held ([after](img/deliverability/deliverability--loading.jpg)). `tests/unit/pages/_app/deliverability.test.tsx` ("holds seven KPI cards at the loaded cards’ height…") covers the figures.
+
 `DeliverabilitySkeleton` has the right parts but not the right sizes: its seven KPI blocks are 120 px tall where the loaded cards are about 145 px, and it has no slot for the `NoProviderEvents` note, which appears above the cards with the data and pushes the page down by about 70 px ([loading](img/deliverability/deliverability--loading.jpg), [loaded](img/deliverability/deliverability--default.jpg)). Fix: card skeletons at the loaded height, and the note's place held, or the note moved below the figures.
 
 ### F-onboarding-1
+
+Status: fixed. The Tenants section renders beside the funnel from the start, and a held funnel leaves it usable ([after](img/onboarding/onboarding--loading.jpg)). `tests/unit/pages/_app/onboarding.test.tsx` ("shows the tenants by state while the funnel is still loading") and `e2e/fixtures/sections.test.ts` ("a held funnel leaves the tenants by state usable") cover it.
 
 `OnboardingPage` renders `TenantsByState` only in the funnel's loaded branch (or its failure branch). The loader starts the tenants read alongside the funnel's, but while the funnel is pending the page shows `FunnelSkeleton` alone: no Tenants heading, no state tabs, no list skeleton ([shot](img/onboarding/onboarding--loading.jpg)). A slow funnel holds back a list that may already be loaded. Fix: render the Tenants section beside the funnel from the start, with its own skeleton.
 
@@ -260,9 +290,13 @@ The Tenants section is a hand-assembled list: state `Tabs` for the filter (Stuck
 
 ### F-onboarding-3
 
+Status: partly fixed. The KPI skeletons are the loaded cards' 11rem and the funnel block is `h-78`; the tenants list is still one `h-64` block until it moves to the data table ([after](img/onboarding/onboarding--loading.jpg)). `tests/unit/pages/_app/onboarding.test.tsx` ("holds the funnel’s KPI cards at the loaded cards’ height…") covers the cards.
+
 `FunnelSkeleton`'s five KPI blocks are 120 px tall for cards about 176 px, and its `h-74` funnel block is shorter than the loaded funnel card (about 310 px); the tenants tab then loads as one `Skeleton h-64` for a table ([loading](img/onboarding/onboarding--loading.jpg), [loaded](img/onboarding/onboarding--default.jpg)). Fix: skeletons at the loaded sizes, and a table-shaped one for the list.
 
 ### F-activity-1
+
+Status: open: every activity list moves to the data table.
 
 `ActivityList` shows two `h-14` bars while the first page loads ([shot](img/activity/activity--loading.jpg)); the first page is up to 50 entries, about 4,500 px on `/activity` ([shot](img/activity/activity--default.jpg)). The same two bars stand in for the tenant Activity tab and the History cards on a tenant and a user. Fix: as many entry-shaped rows as fill the view (name line, sentence, time).
 
@@ -276,13 +310,19 @@ The who-acted `Select` is filled from `GET /tenants/platform/members`. When that
 
 ### F-settings-1
 
+Status: fixed. A failed `GET /profile` with the stored profile on screen keeps the stored form with a `LoadError` and Try again above it; a profile with no stored copy cannot occur in a signed-in page, so no skeleton or loading shot is claimed. `tests/unit/pages/_app/settings/account.profile.test.tsx` ("keeps the stored profile on screen with a retry above it when the refetch fails") covers it, and `e2e/contrast/contrast.test.ts` grades the failed read in both themes.
+
 `/settings/account/profile` reads the profile with `useProfile`, which paints from the session's user (`initialData`) and has no error branch: the page renders the form when there is data and two `h-9` bars when there is none, and a failed `GET /profile` is never shown. The route's `errorComponent` catches render errors only. The capture has no section for this page, so there is no loading or error shot (the report has no `errorUi` for it); in the walk, failing `GET /profile` on a full load failed the session restore and landed on `/login?redirect=%2Fsettings%2Faccount%2Fprofile`, so the page's own failure is from the code. Fix: a `LoadError` in the card when the read fails with no data, and a note when a refresh fails over shown data.
 
 ### F-settings-2
 
+Status: partly fixed. Maintenance and Security are shaped ([maintenance](img/settings/platform-maintenance--loading.jpg), [security](img/settings/account-security--loading.jpg)); the Feature flags page is still one `h-64` block until its tables move to the data table. `tests/unit/pages/_app/settings/platform.maintenance.test.tsx` ("holds both maintenance cards while the state loads") and `tests/unit/components/features/profile/security-section.test.tsx` ("holds the sign-in methods and the password form’s place…") cover them.
+
 The Feature flags page loads as one `Skeleton h-64` for four sections that run to about 1,250 px ([loading](img/settings/platform-flags--loading.jpg), [loaded](img/settings/platform-flags--default.jpg)); Maintenance loads as one `h-64` for two cards ([shot](img/settings/platform-maintenance--loading.jpg)); Security shows an `h-5 w-40` bar and an `h-9` bar where the sign-in methods and the three-field change-password form will be ([shot](img/settings/account-security--loading.jpg)). Fix: a skeleton per section with its heading, so each page keeps its outline while it loads.
 
 ### F-settings-3
+
+Status: open: the Staff page still shows three alerts when the role and members reads fail ([shot](img/settings/platform-staff--error.jpg)).
 
 On the Staff page both `MembersCard` and `InvitationsSection` call `useMyRole` for the platform tenant and each shows `ROLE_ERROR` when it fails. With the role read and the members read failing, the page shows three alerts, two of them "We could not load your role in this tenant, so its controls are hidden until we can." with their own Try again ([shot](img/settings/platform-staff--error.jpg)). Fix: one page-level role alert, with the sections below waiting on it.
 

@@ -50,10 +50,10 @@ Findings: [F-emails-1](findings.md#f-emails-1), [F-emails-2](findings.md#f-email
 
 While the message loads, the page is a visually hidden `h1` "Email", a three-line header (`h-8 w-80`, `h-5 w-64`, `h-5 w-48`), one `h-9 w-44` pill for the two-tab list and a timeline of four `2rem` rows; the timeline's length varies when loaded, so that part is a guess. A failed refetch of the message keeps the page with a `LoadError` above it; a 404 still replaces it. The preview reads through `QueryState`: the `h-160` skeleton stays (the frame's real height), a failure is a `LoadError` "We could not load the preview." with Try again, a 404 is `RoleDenied`, and the 409 `template_unavailable` answer keeps its own note above `QueryState`, because it is not a role refusal.
 
-| Loading                                   | Error                                               |
-| ----------------------------------------- | --------------------------------------------------- |
-| ![](img/emails/email-detail--loading.jpg) | ![](img/emails/email-detail--error.jpg)             |
-| skeleton · `h-16` and `h-64`, full width  | alert · `LoadError` "We could not load this email." |
+| Loading                                                                                | Error                                               |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| ![](img/emails/email-detail--loading.jpg)                                              | ![](img/emails/email-detail--error.jpg)             |
+| skeleton · header bars (`h-8`, 2× `h-5`), a tab-list bar (`h-9`) and four rows of 2rem | alert · `LoadError` "We could not load this email." |
 
 | Role-denied                                                                                                                                                       |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |

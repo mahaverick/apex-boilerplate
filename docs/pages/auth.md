@@ -53,10 +53,10 @@ The page has these states (`RegisterPage`):
 
 In the capture the invitation is to the platform tenant, so the sentence reads "to join Platform."
 
-| Loading                             | Error                             |
-| ----------------------------------- | --------------------------------- |
-| ![](img/auth/register--loading.jpg) | ![](img/auth/register--error.jpg) |
-| skeleton · 2× `h-10`                | alert · `LoadError`               |
+| Loading                                                                                  | Error                             |
+| ---------------------------------------------------------------------------------------- | --------------------------------- |
+| ![](img/auth/register--loading.jpg)                                                      | ![](img/auth/register--error.jpg) |
+| skeleton · the title over four label-and-input pairs and a button (`FormFieldsSkeleton`) | alert · `LoadError`               |
 
 Findings: [F-auth-5](findings.md#f-auth-5), [F-auth-6](findings.md#f-auth-6), [F-auth-7](findings.md#f-auth-7), [F-auth-8](findings.md#f-auth-8)
 
@@ -163,10 +163,10 @@ The page has these states (`AcceptInvitationPage` and `InvitationForToken`):
 7. **Signed in as another address** (`WrongAccount`): the same title and sentence, "This invitation was sent to {invited}. You’re signed in as {current}.", a Sign out button that returns here signed out, and "Go to the home page". Not shot.
 8. **Signed in as the invited address** (`AcceptPanel`): the same title and sentence, Accept invitation ("Accepting…" while pending) and "Go to the home page". A 403 shows the refusal inline (`role="alert"`), with a hint to verify the email when the code is `INVITATION_EMAIL_UNVERIFIED`; a 404 replaces the panel with state 4; other failures toast. Success toasts "You joined {tenant}." and opens `/overview`. Not shot.
 
-| Loading                                      | Error                                      | Empty                                      |
-| -------------------------------------------- | ------------------------------------------ | ------------------------------------------ |
-| ![](img/auth/invitation-accept--loading.jpg) | ![](img/auth/invitation-accept--error.jpg) | ![](img/auth/invitation-accept--empty.jpg) |
-| skeleton · `h-4 w-3/4` + `h-10`              | alert · `LoadError`                        | No `?token`: "This link is incomplete"     |
+| Loading                                                                                                     | Error                                      | Empty                                      |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------ |
+| ![](img/auth/invitation-accept--loading.jpg)                                                                | ![](img/auth/invitation-accept--error.jpg) | ![](img/auth/invitation-accept--empty.jpg) |
+| skeleton · under "Checking your invitation": a sentence bar (`h-4 w-3/4`), two `h-9` bars and an `h-10` bar | alert · `LoadError`                        | No `?token`: "This link is incomplete"     |
 
 Findings: [F-auth-3](findings.md#f-auth-3), [F-auth-4](findings.md#f-auth-4), [F-auth-7](findings.md#f-auth-7)
 

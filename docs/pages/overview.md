@@ -38,10 +38,10 @@ Findings: [F-overview-2](findings.md#f-overview-2), [F-overview-3](findings.md#f
 
 One request feeds every figure and chart, through `QueryState`: one skeleton (`OverviewSkeleton`: five `KpiCardSkeleton` cards at the loaded cards' 11.75rem and two `h-80` blocks), one `LoadError` or `RoleDenied`, and a failed refetch keeps the figures up under its `LoadError`. The status card has its own: a `CardRowsSkeleton` of 13 rows of 1.25rem inside the card, a `LoadError`, and nothing at all on a 404. In the error shot both reads answered 500: the stats show their `LoadError`, while the status card still shows its skeleton, because its first failure is retried once and the shot was taken before the retry settled. The single-section failure of the status card is from the code.
 
-| Loading                                                       | Error                                                                                                |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| ![](img/overview/overview--loading.jpg)                       | ![](img/overview/overview--error.jpg)                                                                |
-| skeleton · 5× `h-30`, 2× `h-74`, and the status card's `h-32` | alert · `LoadError` "We could not load the platform figures."; the status card still on its skeleton |
+| Loading                                                                                    | Error                                                                                                |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| ![](img/overview/overview--loading.jpg)                                                    | ![](img/overview/overview--error.jpg)                                                                |
+| skeleton · five KPI cards at 11.75rem, 2× `h-80`, and the status card's 13 rows of 1.25rem | alert · `LoadError` "We could not load the platform figures."; the status card still on its skeleton |
 
 | Dark                                   | Mobile                                                       |
 | -------------------------------------- | ------------------------------------------------------------ |

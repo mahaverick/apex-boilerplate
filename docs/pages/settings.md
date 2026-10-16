@@ -52,7 +52,7 @@ Findings: [F-palette-8](findings.md#f-palette-8)
 | Components          | `Card`, `Form`, `FormField`, `FormError`, `Input`, `BusyButton`, `QueryState`, `FormFieldsSkeleton`, `LoadError`, `RoleDenied`                                                                                    |
 | Transitions         | none                                                                                                                                                                                                              |
 
-The Details card reads through `QueryState`: while there is no data, `FormFieldsSkeleton` (four label-and-input pairs and the button bar, sized to the form's own spacing and not measured against it); a failed `GET /profile` shows "Profile could not be loaded." with Try again, above the form when the stored user is on screen. The stored user paints the form at once, so the skeleton shows only when that copy is missing, and the error is reached through a refetch that fails; a 404 from `GET /profile` is read as a role refusal (`RoleDenied`), which is this app's rule for every `QueryState`. The capture has no section for it, so there is no loading or error shot. In the walk, failing `GET /profile` on a full load failed the session restore instead and landed on `/login?redirect=%2Fsettings%2Faccount%2Fprofile`, so the page's own failure is from the code.
+The Details card reads through `QueryState`: while there is no data, `FormFieldsSkeleton` (four label-and-input pairs and the button bar, sized to the form's own spacing and not measured against it); a failed `GET /profile` shows "Profile could not be loaded." with Try again, above the form when the stored user is on screen. The stored user paints the form at once, and a signed-in page always has it, so the skeleton is not reachable here; the error is reached through a refetch that fails, and the stored form stays beside it; a 404 from `GET /profile` is read as a role refusal (`RoleDenied`), which is this app's rule for every `QueryState`. The capture has no section for it, so there is no loading or error shot. In the walk, failing `GET /profile` on a full load failed the session restore instead and landed on `/login?redirect=%2Fsettings%2Faccount%2Fprofile`, so the page's own failure is from the code.
 
 Findings: [F-settings-1](findings.md#f-settings-1)
 
@@ -73,10 +73,10 @@ Findings: [F-settings-1](findings.md#f-settings-1)
 
 The change-password form waits for the providers read, because it needs `hasPassword`; a failed read hides the form behind its `LoadError`, while Other sessions stays. The providers read goes through `QueryState`: its skeleton is two headings, two method rows of `1.25rem`, three label-and-input pairs and the button bar, over the real Other sessions section (sized to those headings and rows, not measured), and a 404 from `GET /auth/providers` is read as a role refusal (`RoleDenied`) by this app's rule.
 
-| Loading                                              | Error                                                            |
-| ---------------------------------------------------- | ---------------------------------------------------------------- |
-| ![](img/settings/account-security--loading.jpg)      | ![](img/settings/account-security--error.jpg)                    |
-| skeleton · `h-5 w-40` and `h-9`, over Other sessions | alert · `LoadError` for the sign-in methods, over Other sessions |
+| Loading                                                                                                                                       | Error                                                            |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| ![](img/settings/account-security--loading.jpg)                                                                                               | ![](img/settings/account-security--error.jpg)                    |
+| skeleton · the Sign-in methods card (title bar, two rows) and the Change password form (title bar, three fields, button), over Other sessions | alert · `LoadError` for the sign-in methods, over Other sessions |
 
 Findings: [F-settings-2](findings.md#f-settings-2)
 
@@ -153,10 +153,10 @@ Findings: [F-settings-2](findings.md#f-settings-2), [F-settings-5](findings.md#f
 
 The page reads through `QueryState`: while the state loads, two cards, each a title bar over three `1.25rem` rows (an outline of the content, not measured); a failed read with no data is a `LoadError`, a 404 is `RoleDenied`, and a failed refresh keeps the last answer up with the `LoadError` above it.
 
-| Loading                                             | Error                                             |
-| --------------------------------------------------- | ------------------------------------------------- |
-| ![](img/settings/platform-maintenance--loading.jpg) | ![](img/settings/platform-maintenance--error.jpg) |
-| skeleton · one `h-64` block for two cards           | alert · `LoadError`                               |
+| Loading                                                | Error                                             |
+| ------------------------------------------------------ | ------------------------------------------------- |
+| ![](img/settings/platform-maintenance--loading.jpg)    | ![](img/settings/platform-maintenance--error.jpg) |
+| skeleton · two cards, each a title bar over three rows | alert · `LoadError`                               |
 
 | Role-denied                                                                                                                                       |
 | ------------------------------------------------------------------------------------------------------------------------------------------------- |

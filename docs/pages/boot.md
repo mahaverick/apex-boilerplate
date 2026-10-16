@@ -135,7 +135,7 @@ A cold load only shows the boot shell, so the route and section templates are sh
 - **Deliverability, route template:** the staff shell stays, the breadcrumb already reads Deliverability, and the page slot shows the dashboard template: a heading bar, four figure cards and two chart blocks. Both Deliverability shots show the TanStack Router devtools button, which is dev-only.
 - **Deliverability, sections:** the real heading and the 7 days / 30 days switch, with seven figure cards and the chart blocks on skeleton bars.
 - **Tenant and user, route template:** the staff shell stays, the breadcrumb already reads Tenants / Tenant or Users / User, and the page slot shows the detail template: heading and subtitle bars, tab bars and two cards of rows.
-- **Tenant and user, sections:** the same shell with the tenant page's own skeleton (heading and subtitle bars, the real tab row, two cards of rows) or the user page's own (heading bars and four cards of rows). These pages draw their skeleton from their own `useQuery` branch rather than from a `QueryState`, so `capture-records/navigation.json` records `sectionSkeleton: false` for them although the shot shows the skeleton.
+- **Tenant and user, sections:** the same shell with the tenant page's own skeleton (heading and subtitle bars, the real tab row, two cards of rows) or the user page's own (heading bars and five cards of rows, four of them in the viewport). These pages draw their skeleton from their own `useQuery` branch rather than from a `QueryState`, and the navigation capture looks for a busy `QueryState` section, so `capture-records/navigation.json` records `sectionSkeleton: false` for them although the shot shows the skeleton. Both skeleton wrappers are `aria-busy`.
 
 ## Dev and production
 

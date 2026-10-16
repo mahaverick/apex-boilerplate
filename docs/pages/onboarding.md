@@ -23,9 +23,9 @@ The funnel loads through `QueryState` (`FunnelSkeleton`: five `KpiCardSkeleton` 
 
 `OnboardingTenantsTable` columns: Tenant (link), Owners, Started, Last progress, Days stuck (on the stuck tab only, which sorts by it), Next required step, Progress ("{n} of {m}").
 
-| Loading                                                               | Error                                                                                          | Empty                                                        |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| ![](img/onboarding/onboarding--loading.jpg)                           | ![](img/onboarding/onboarding--error.jpg)                                                      | ![](img/onboarding/onboarding--empty.jpg)                    |
-| skeleton · `FunnelSkeleton`: 5× `h-30` and `h-74`; no Tenants section | alert · two `LoadError`s: the funnel's at full width, the list's shrink-wrapped under the tabs | `?state=dismissed`: "No tenant has dismissed its checklist." |
+| Loading                                                                                                                                                               | Error                                                                                          | Empty                                                        |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| ![](img/onboarding/onboarding--loading.jpg)                                                                                                                           | ![](img/onboarding/onboarding--error.jpg)                                                      | ![](img/onboarding/onboarding--empty.jpg)                    |
+| skeleton · `FunnelSkeleton`: five KPI cards at 11rem and an `h-78` block, with the Tenants heading, tabs and an `h-64` block below (both reads are held in this shot) | alert · two `LoadError`s: the funnel's at full width, the list's shrink-wrapped under the tabs | `?state=dismissed`: "No tenant has dismissed its checklist." |
 
 Findings: [F-onboarding-1](findings.md#f-onboarding-1), [F-onboarding-2](findings.md#f-onboarding-2), [F-onboarding-3](findings.md#f-onboarding-3), [F-overview-2](findings.md#f-overview-2)
