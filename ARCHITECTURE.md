@@ -66,14 +66,16 @@ mistake fails `pnpm check:bundle` ([Error tracking](#error-tracking)).
 
 ## Boot
 
-`index.html` loads two blocking scripts in its `<head>`, then the bundle:
+`index.html` loads three blocking scripts in its `<head>`, then the bundle:
 
 1. `public/theme-init.js` sets the `dark` class from `localStorage` before
    the first paint.
-2. `/runtime-config.js` sets `window.__APP_CONFIG__`
+2. `public/boot-variant.js` sets `data-boot="auth"` on `<html>` for an auth
+   path, so the shell below draws the centred card instead of the app frame.
+3. `/runtime-config.js` sets `window.__APP_CONFIG__`
    ([run-time config](#the-container-and-run-time-config)).
-3. `src/main.tsx`, the module entry. `#root` holds a static splash until
-   React's first commit replaces it.
+4. `src/main.tsx`, the module entry. `#root` holds a static boot shell, styled
+   by inline CSS in `index.html`, until React's first commit replaces it.
 
 `src/main.tsx` runs in this order:
 
@@ -92,7 +94,7 @@ mistake fails `pnpm check:bundle` ([Error tracking](#error-tracking)).
 - **`router.load()` runs before React mounts.** The root route's
   `beforeLoad` awaits `bootstrapSession()`, so the first match is resolved
   against a settled session. React mounts in the load's `finally`, whether
-  it resolved or rejected: mounting earlier would blank the splash, because
+  it resolved or rejected: mounting earlier would blank the boot shell, because
   `createRoot().render()` clears `#root` and the router renders nothing until
   it has a match.
 - **`initAnalytics()` runs after that first load**, so the identity the
@@ -624,7 +626,7 @@ location's comment in `nginx.conf` gives its reason; the source map
 location is covered in [CSP and headers](SECURITY.md#csp-and-headers).
 
 Cache-Control is chosen by a `map` on the URI, not per location: hashed
-assets are immutable for a year, and `index.html`, `theme-init.js`, the
+assets are immutable for a year, and `index.html`, `theme-init.js`, `boot-variant.js`, the
 favicon and `runtime-config.js` are `no-store`, so a deploy never leaves a
 browser asking for asset names it removed. The security headers, the reason
 no location declares an `add_header`, and the logging choices are in
@@ -695,6 +697,7 @@ request, and the description says what happened there.
 | `e2e/capture/*`, except `seed.ts`, `manifest.ts` and `boot.test.ts` (each app's own); `tests/unit/capture-endpoint.test.ts`, `tests/unit/docs-pages.test.ts`                                                                                                       | One page-inventory capture harness and docs check                                                                      |
 | `src/components/ui/{alert,spinner,item}.tsx`, the `*` section of `docs/ui-local-edits.md`, `scripts/ui-drift.mjs`, `scripts/ui-drift.d.mts`, `tests/unit/ui-drift.test.ts`                                                                                         | Byte-identical vendored components and the one drift check over them                                                   |
 | `src/components/shared/{empty-state,note,busy-button}.tsx`, `src/components/features/load-error.tsx`, `tests/unit/components/shared/*.test.tsx`, `tests/unit/components/features/load-error.test.tsx`                                                              | Byte-identical shared empty, note, busy and load-error components                                                      |
+| `public/boot-variant.js`, `index.html`'s `<style id="boot-shell">` block and `#root` markup (not its `<style id="boot-tokens">` colours, each app's own), `tests/unit/boot-shell.test.ts`, `tests/unit/boot-variant.test.ts`                                       | One first-paint shell; the colours are pinned to each app's `globals.css`                                              |
 
 The error scrubber is also held in step with express-boilerplate; see
 [The scrubber](SECURITY.md#the-scrubber).
