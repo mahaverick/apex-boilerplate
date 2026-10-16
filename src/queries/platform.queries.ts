@@ -31,8 +31,7 @@ export const PLATFORM_PAGE_SIZE = 20
  * lacks 404s too (`/platform/stats` before 1.1.0, `/platform/users` and
  * `/platform/tenants/:id` before 1.2.0, `/platform/emails*` and
  * `/platform/email-suppressions` before 1.3.0, `/platform/onboarding/*` and
- * `/platform/tenants/:id/onboarding` before 1.4.0, the user and tenant
- * `timeline` routes before 1.6.0, the `errors` routes and
+ * `/platform/tenants/:id/onboarding` before 1.4.0,
  * `/platform/system/status` before 1.7.0, `/platform/flags*` before 1.8.0,
  * `/platform/maintenance-mode` before 1.9.0), so it reads as role-denied.
  * @param error - A query or mutation error.

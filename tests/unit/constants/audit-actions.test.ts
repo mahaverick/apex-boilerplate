@@ -9,7 +9,7 @@ import {
 import { EMAIL_ID, EMAIL_ID_2, INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
 describe('AUDIT_ACTIONS', () => {
-  it('lists exactly the forty actions the API writes', () => {
+  it('lists exactly the thirty-six actions the API writes', () => {
     expect([...AUDIT_ACTIONS].sort()).toEqual(
       [
         'invitation.accepted',
@@ -46,10 +46,6 @@ describe('AUDIT_ACTIONS', () => {
         'user.signed_out',
         'user.updated',
         'user.verification_resent',
-        'user.timeline_viewed',
-        'tenant.timeline_viewed',
-        'user.errors_viewed',
-        'tenant.errors_viewed',
         'user.flags_evaluated',
         'platform.maintenance_mode_changed',
       ].sort()
@@ -187,18 +183,6 @@ describe('auditSentence', () => {
       'sent an onboarding reminder to 1 owner at acme.test: “Nudge”',
     ],
     [
-      'user.timeline_viewed',
-      { range: '7d', view: 'all' },
-      'viewed a user’s timeline (last 7 days, Everything)',
-    ],
-    [
-      'tenant.timeline_viewed',
-      { range: '90d', view: 'key' },
-      'viewed a tenant’s timeline (last 90 days, Key events)',
-    ],
-    ['user.errors_viewed', {}, 'viewed a user’s errors'],
-    ['tenant.errors_viewed', {}, 'viewed a tenant’s errors'],
-    [
       'user.flags_evaluated',
       { tenantId: null, clientApp: 'react' },
       'evaluated a user’s feature flags for the customer app',
@@ -248,6 +232,11 @@ describe('auditSentence', () => {
     expect(auditSentence({ action, metadata })).toBe(sentence)
   })
 
+  it('renders a removed staff-read action through the fallback sentence', () => {
+    expect(isAuditAction('user.timeline_viewed')).toBe(false)
+    expect(auditSentence({ action: 'user.timeline_viewed', metadata: {} })).not.toBe('')
+  })
+
   it('degrades rather than throwing on missing or mistyped metadata', () => {
     expect(auditSentence({ action: 'member.role_changed', metadata: {} })).toBe(
       'changed a member’s role from an unknown role to an unknown role'
@@ -276,12 +265,6 @@ describe('auditSentence', () => {
         metadata: { role: 'viewer', emailDomain: null },
       })
     ).toBe('invited someone at an unknown domain as Viewer')
-    expect(auditSentence({ action: 'user.timeline_viewed', metadata: { range: '1y' } })).toBe(
-      'viewed a user’s timeline'
-    )
-    expect(
-      auditSentence({ action: 'tenant.timeline_viewed', metadata: { range: '24h', view: 'raw' } })
-    ).toBe('viewed a tenant’s timeline (last 24 hours)')
     for (const metadata of [
       {},
       { from: 'off', to: 'paused' },

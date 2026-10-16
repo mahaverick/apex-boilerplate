@@ -321,26 +321,6 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
       ],
     },
   },
-  '/tenants/$tenantId/errors': {
-    kind: 'page',
-    area: 'tenants',
-    shot: 'tenant-errors',
-    roleDenied: {
-      as: 'viewer',
-      note: 'A viewer: the tab is hidden from the nav; by URL the role-denied card replaces the errors list.',
-    },
-    url: '/tenants/{tenantId}/errors',
-    as: 'staff',
-    sections: [TENANT, { name: 'Errors', endpoints: ['GET /platform/tenants/:id/errors'] }],
-    empty: {
-      stubs: [
-        {
-          endpoint: 'GET /platform/tenants/:id/errors',
-          data: { configured: true, items: [], nextCursor: null },
-        },
-      ],
-    },
-  },
   '/tenants/$tenantId/flags': {
     kind: 'page',
     area: 'tenants',
@@ -397,45 +377,6 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     url: '/tenants/{tenantId}/onboarding',
     as: 'staff',
     sections: [TENANT, { name: 'Onboarding', endpoints: ['GET /platform/tenants/:id/onboarding'] }],
-  },
-  '/tenants/$tenantId/timeline': {
-    kind: 'page',
-    area: 'tenants',
-    shot: 'tenant-timeline',
-    roleDenied: {
-      as: 'viewer',
-      note: 'A viewer: the tab is hidden from the nav; by URL the role-denied card replaces the timeline.',
-    },
-    url: '/tenants/{tenantId}/timeline',
-    as: 'staff',
-    sections: [TENANT, { name: 'Timeline', endpoints: ['GET /platform/tenants/:id/timeline'] }],
-    note: 'configured:false (no PostHog personal key on dev) shows the not-configured note.',
-  },
-  '/users/$userId/errors': {
-    kind: 'page',
-    area: 'users',
-    shot: 'user-errors',
-    roleDenied: { as: 'viewer', note: 'A viewer: the role-denied card replaces the errors list.' },
-    url: '/users/{userId}/errors',
-    as: 'staff',
-    sections: [USER, { name: 'Errors', endpoints: ['GET /platform/users/:id/errors'] }],
-    empty: {
-      stubs: [
-        {
-          endpoint: 'GET /platform/users/:id/errors',
-          data: { configured: true, items: [], nextCursor: null },
-        },
-      ],
-    },
-  },
-  '/users/$userId/timeline': {
-    kind: 'page',
-    area: 'users',
-    shot: 'user-timeline',
-    roleDenied: { as: 'viewer', note: 'A viewer: the role-denied card replaces the timeline.' },
-    url: '/users/{userId}/timeline',
-    as: 'staff',
-    sections: [USER, { name: 'Timeline', endpoints: ['GET /platform/users/:id/timeline'] }],
   },
   '/settings/account/': { kind: 'redirect', to: '/settings/account/profile' },
   '/settings/platform/': { kind: 'redirect', to: '/settings/platform/staff' },

@@ -20,7 +20,7 @@ export const PLATFORM_TENANT_ID = '10000000-0000-4000-8000-000000000100'
 
 /** `testUser.id`: the user every signed-in test signs in as. */
 export const USER_ID = '20000000-0000-4000-8000-000000000001'
-/** Cleo, the second user: Acme's owner and the account whose detail, errors and timeline pages tests open. */
+/** Cleo, the second user: Acme's owner and the account whose detail page tests open. */
 export const USER_ID_2 = '20000000-0000-4000-8000-000000000002'
 /** A non-owner member: 'Vic' in the members tests, 'Evan Editor' in the onboarding fixtures. */
 export const USER_ID_3 = '20000000-0000-4000-8000-000000000003'

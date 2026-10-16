@@ -28,7 +28,7 @@ browser storage is readable by whoever runs the page, so:
   data. No `innerHTML` is used anywhere.
 - **What other people wrote renders as text.** Names, reasons and
   maintenance messages render as text, never markup. Browser-reported
-  exceptions and timeline events are attacker text, and a rendered email
+  exceptions are attacker text, and a rendered email
   renders only in a sandboxed frame ([Untrusted content](#untrusted-content)).
 - **Credentials leave the browser only towards the API.** The access token
   travels in an `Authorization` header, never a URL; the refresh token is an
@@ -297,7 +297,7 @@ allowlist is set there too.
   (`src/components/shared/pii.tsx`), whose `ph-sensitive ph-mask` class keeps
   the text out of autocapture's `$el_text` and masks it in replay. Wrap the
   value, not the sentence. A sentence a builder returns as a string
-  (`auditSentence`, `timelineSentence`, `bannerSentence`, `conflictSentence`,
+  (`auditSentence`, `bannerSentence`, `conflictSentence`,
   the maintenance preview) is masked whole, the safe default, as is a string
   `ReasonDialog` description. Inputs are masked in replay, and autocapture masks
   every element attribute.
@@ -446,7 +446,7 @@ people out of pages that would fail.
   `/no-access`. Do not turn the 404 into a sign-out or a retry loop.
 - **Role tiers are mirrored, not enforced.** `platformRoleAtLeast` hides what
   a role cannot use rather than showing it disabled: navigation items
-  (`src/constants/navigation.ts`), a tenant's Timeline, Errors and Flags tabs
+  (`src/constants/navigation.ts`), a tenant's Flags tab
   (admins, `src/constants/tenant-tabs.ts`), the activity log (admins) and the
   maintenance controls (owners). `canPlatformActorModifyTarget` mirrors the
   API's rule for acting on other staff: an owner may act on any other staff
@@ -596,14 +596,6 @@ Some of what staff see comes from someone the API does not vouch for.
   `ph-no-capture`. Never add `allow-same-origin`. The preview is re-rendered
   from the message's template, and its token links are masked, since the
   one-time token is never stored.
-- **Browser-reported rows are attacker text.** Anyone holding the public
-  project key can send an `$exception` or an event. On the Errors pages an
-  exception's type and value render as text inside `<Pii>`, and a row that
-  claims to come from the server without express's signature carries an
-  **Unverified** badge (`src/components/features/errors/errors-panel.tsx`).
-  On the timelines only a row express signed is badged Server or Email;
-  every other row is badged Browser, "not confirmed by the server"
-  (`src/components/features/timeline/timeline-event-row.tsx`).
 - **Links out leak no referrer.** Every link that opens a new tab (to
   PostHog, or to the email-tracking docs) carries `rel="noreferrer"`, which
   also withholds `window.opener`.

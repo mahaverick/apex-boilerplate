@@ -6,14 +6,14 @@ The tenant list (`/tenants/`), a tenant's tabs under `/tenants/$tenantId`, and t
 
 `/tenants/$tenantId` (`src/pages/_app/tenants/$tenantId.tsx`) is the layout every tenant tab renders in, under `AppLayout` ([overview.md](overview.md#the-staff-shell)).
 
-|                 |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fetches         | Its loader starts `GET /platform/tenants/:id` (`['platform', 'tenant', id]`; a 404 is not retried) without awaiting it, so the router never holds the page: there is no `RoutePending` and no boot wait beyond `_app`'s flags read. Every tab reads the same cached detail.                                                                                                                                                                                                                                                                                 |
-| While it loads  | A visually hidden `h1` "Tenant" over two skeleton blocks: `h-10 w-64` and `h-64` full width. No header, no actions, no tab bar. The `Outlet` is not rendered, so no tab draws anything, its own skeleton included, until the detail is in. The breadcrumb reads Tenants › Tenant › {tab} until then.                                                                                                                                                                                                                                                        |
-| Gate panels     | A 404 renders an `EmptyState` with the `h1` **Tenant not found**, "It doesn’t exist, or your access changed. Reload if your role was just updated." and Back to tenants. Any other failure renders one `LoadError`, "We could not load this tenant.", whose Try again refetches the detail; it replaces the header, the tabs and the tab, and offers no way back but the breadcrumb.                                                                                                                                                                        |
-| Header and tabs | The tenant's name as the `h1` with its state badge (`TenantStateBadge`), then "`{slug}` · Created {date}", and the **Actions** menu on the right. Below, a `nav` "Tenant sections" of link tabs (bottom-bordered `Link`s, hand-rolled): Overview, Members, Invitations, Activity, Timeline, Errors, Emails, Onboarding, Flags. Timeline, Errors and Flags have `minRole: 'admin'` in `TENANT_DETAIL_TABS` (`src/constants/tenant-tabs.ts`) and are left out of the nav below admin. On a phone the bar scrolls sideways with no sign that more tabs follow. |
-| Actions menu    | `TenantActionsMenu` (`src/components/features/tenants/tenant-actions-menu.tsx`), shown only when one action applies: Edit details, Resend owner invitation (no active owner), Suspend, Reactivate, Archive (admins and up, by lifecycle state) and Delete permanently (owners, archived tenants). Each opens a dialog; the destructive ones go through `ReasonDialog` and the shared step-up dialog. A viewer gets no menu at all.                                                                                                                          |
-| Breadcrumbs     | Tenants › {name} › {tab}. The name comes from the same detail query (`TenantCrumb`), so it reads "Tenant" while the detail loads.                                                                                                                                                                                                                                                                                                                                                                                                                           |
+|                 |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Fetches         | Its loader starts `GET /platform/tenants/:id` (`['platform', 'tenant', id]`; a 404 is not retried) without awaiting it, so the router never holds the page: there is no `RoutePending` and no boot wait beyond `_app`'s flags read. Every tab reads the same cached detail.                                                                                                                                                                                                                                        |
+| While it loads  | A visually hidden `h1` "Tenant" over two skeleton blocks: `h-10 w-64` and `h-64` full width. No header, no actions, no tab bar. The `Outlet` is not rendered, so no tab draws anything, its own skeleton included, until the detail is in. The breadcrumb reads Tenants › Tenant › {tab} until then.                                                                                                                                                                                                               |
+| Gate panels     | A 404 renders an `EmptyState` with the `h1` **Tenant not found**, "It doesn’t exist, or your access changed. Reload if your role was just updated." and Back to tenants. Any other failure renders one `LoadError`, "We could not load this tenant.", whose Try again refetches the detail; it replaces the header, the tabs and the tab, and offers no way back but the breadcrumb.                                                                                                                               |
+| Header and tabs | The tenant's name as the `h1` with its state badge (`TenantStateBadge`), then "`{slug}` · Created {date}", and the **Actions** menu on the right. Below, a `nav` "Tenant sections" of link tabs (bottom-bordered `Link`s, hand-rolled): Overview, Members, Invitations, Activity, Emails, Onboarding, Flags. Flags has `minRole: 'admin'` in `TENANT_DETAIL_TABS` (`src/constants/tenant-tabs.ts`) and is left out of the nav below admin. On a phone the bar scrolls sideways with no sign that more tabs follow. |
+| Actions menu    | `TenantActionsMenu` (`src/components/features/tenants/tenant-actions-menu.tsx`), shown only when one action applies: Edit details, Resend owner invitation (no active owner), Suspend, Reactivate, Archive (admins and up, by lifecycle state) and Delete permanently (owners, archived tenants). Each opens a dialog; the destructive ones go through `ReasonDialog` and the shared step-up dialog. A viewer gets no menu at all.                                                                                 |
+| Breadcrumbs     | Tenants › {name} › {tab}. The name comes from the same detail query (`TenantCrumb`), so it reads "Tenant" while the detail loads.                                                                                                                                                                                                                                                                                                                                                                                  |
 
 In the walk, a load of `/tenants/{id}/members` with the detail held for 2.5 s showed the shell, the breadcrumb Tenants › Tenant › Members and the two skeleton blocks for the whole 2.5 s; the members request started only after the detail answered. With only `GET /tenants/:slug/members` failing, the header and tabs stayed and the Members card showed its own `LoadError`. The capture's error shots fail the detail, so every tab's error shot is the layout's `LoadError` alone.
 
@@ -82,10 +82,10 @@ The History card has its own states: two `h-14` bars while it loads, a `LoadErro
 | ![](img/tenants/tenant-overview--dark.jpg) | ![](img/tenants/tenant-overview--mobile.jpg)                                                                     |
 | Cards on the dark surfaces.                | Actions wraps under the title; the tab bar shows four tabs and scrolls; the details rows stack label over value. |
 
-| Role-denied                                                                       |
-| --------------------------------------------------------------------------------- |
-| ![](img/tenants/tenant-overview--role-denied.jpg)                                 |
-| A viewer: no Actions menu, no Timeline, Errors or Flags tab, and no History card. |
+| Role-denied                                                   |
+| ------------------------------------------------------------- |
+| ![](img/tenants/tenant-overview--role-denied.jpg)             |
+| A viewer: no Actions menu, no Flags tab, and no History card. |
 
 Findings: [F-tenants-3](findings.md#f-tenants-3), [F-tenants-4](findings.md#f-tenants-4), [F-tenants-6](findings.md#f-tenants-6), [F-overview-4](findings.md#f-overview-4)
 
@@ -174,35 +174,6 @@ Findings: [F-tenants-3](findings.md#f-tenants-3), [F-overview-4](findings.md#f-o
 
 Findings: [F-tenants-3](findings.md#f-tenants-3), [F-activity-1](findings.md#f-activity-1), [F-overview-4](findings.md#f-overview-4)
 
-### `/tenants/$tenantId/timeline` — Timeline
-
-![Timeline](img/tenants/tenant-timeline--default.jpg)
-
-|                     |                                                                                                                                                                                                                                   |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Purpose             | What the tenant's people did across browser and server, from PostHog, with staff actions on it.                                                                                                                                   |
-| File                | `src/pages/_app/tenants/$tenantId.timeline.tsx`                                                                                                                                                                                   |
-| Guard and redirects | `_app`, then the [layout](#layout). Below admin the tab renders `RoleDenied` without asking the API. `?range` and `?view` are validated by `timelineSearchSchema`.                                                                |
-| Layout              | `AppLayout` › tenant layout                                                                                                                                                                                                       |
-| Data                | after the layout's detail: `GET /platform/tenants/:id/timeline?range&view` (`['timeline', 'tenant', id, range, view]`, infinite, `staleTime` 30 s, no retry, no refetch on focus or reconnect, `gcTime` 0: every read is audited) |
-| Sections            | An `h2` "Timeline", `TimelineToolbar` (range `Select`, Everything / Key events toggle, Refresh, Open in PostHog when configured), "Events can take a few minutes to appear.", then the events and sessions with Load more events  |
-| Components          | `TimelinePanel` (`ItemGroup`, `Item`), `EmptyState`, `TimelineToolbar`, `ToggleGroup`, `Select`, `BusyButton`, `Skeleton` (`TimelineSkeleton`, 3× `h-16`), `LoadError`, `RoleDenied`, `Note` (passive, `TimelineNotConfigured`)   |
-| Transitions         | Open in PostHog and Watch replay open PostHog in a new tab                                                                                                                                                                        |
-
-The default shot shows the timeline's own failure: the dev API answered 502 ("We could not reach PostHog, so nothing is listed. This is not a sign of no activity."). With no PostHog personal key the API answers `configured: false` and the tab shows the not-configured note instead.
-
-| Loading                                                              | Error                                       |
-| -------------------------------------------------------------------- | ------------------------------------------- |
-| ![](img/tenants/tenant-timeline--loading.jpg)                        | ![](img/tenants/tenant-timeline--error.jpg) |
-| skeleton · the layout's blocks; the timeline request has not started | alert · the layout's `LoadError`            |
-
-| Role-denied                                                                                                                                |
-| ------------------------------------------------------------------------------------------------------------------------------------------ |
-| ![](img/tenants/tenant-timeline--role-denied.jpg)                                                                                          |
-| A viewer by URL: the tab is missing from the nav, and `RoleDenied` ("Your role can’t see this any more…" with Reload) sits under the `h2`. |
-
-Findings: [F-tenants-3](findings.md#f-tenants-3), [F-overview-5](findings.md#f-overview-5), [F-overview-3](findings.md#f-overview-3)
-
 ### `/tenants/$tenantId/emails` — Emails
 
 ![Emails](img/tenants/tenant-emails--default.jpg)
@@ -226,35 +197,6 @@ The request starts early, but the tab cannot draw its `h-64` skeleton or its row
 | skeleton · the layout's blocks; the tab's own is one `h-64` block | alert · the layout's `LoadError`          | "No emails for this tenant yet." and "Its invitations appear here once they are sent." |
 
 Findings: [F-tenants-1](findings.md#f-tenants-1), [F-tenants-2](findings.md#f-tenants-2), [F-tenants-3](findings.md#f-tenants-3)
-
-### `/tenants/$tenantId/errors` — Errors
-
-![Errors](img/tenants/tenant-errors--default.jpg)
-
-|                     |                                                                                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Purpose             | The PostHog error issues the tenant's people hit in the last 30 days.                                                                       |
-| File                | `src/pages/_app/tenants/$tenantId.errors.tsx`                                                                                               |
-| Guard and redirects | `_app`, then the [layout](#layout); `RoleDenied` below admin, without a request                                                             |
-| Layout              | `AppLayout` › tenant layout                                                                                                                 |
-| Data                | after the layout's detail: `GET /platform/tenants/:id/errors` (`['errors', 'tenant', id]`, `staleTime` 30 s, no retry, `gcTime` 0)          |
-| Sections            | An `h2` "Errors", then a `Table` of Error, Source, Events, Last seen and a PostHog link, with a lag note under it                           |
-| Components          | `ErrorsPanel`, `EmptyState`, `Table`, `Badge`, `Skeleton` (`TimelineSkeleton`), `LoadError`, `RoleDenied`, `Note` (passive, not configured) |
-| Transitions         | an issue's link opens PostHog                                                                                                               |
-
-The capture's tenant has no errors, so the default shot is the empty state.
-
-| Loading                                                            | Error                                     | Empty                                     |
-| ------------------------------------------------------------------ | ----------------------------------------- | ----------------------------------------- |
-| ![](img/tenants/tenant-errors--loading.jpg)                        | ![](img/tenants/tenant-errors--error.jpg) | ![](img/tenants/tenant-errors--empty.jpg) |
-| skeleton · the layout's blocks; the errors request has not started | alert · the layout's `LoadError`          | "No errors in the last 30 days."          |
-
-| Role-denied                                                                                |
-| ------------------------------------------------------------------------------------------ |
-| ![](img/tenants/tenant-errors--role-denied.jpg)                                            |
-| A viewer by URL: no Timeline, Errors or Flags in the nav, and `RoleDenied` under the `h2`. |
-
-Findings: [F-tenants-3](findings.md#f-tenants-3), [F-overview-4](findings.md#f-overview-4), [F-overview-5](findings.md#f-overview-5)
 
 ### `/tenants/$tenantId/onboarding` — Onboarding
 

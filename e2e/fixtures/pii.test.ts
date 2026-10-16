@@ -58,41 +58,6 @@ for (const [name, path, ready] of [
 }
 
 /**
- * The timelines, once their rows have landed and a request is expanded: the
- * actors' names and addresses (tenant), the clicked text naming a person or
- * an address, and the paths. Each waits on a probe row first, so the guard
- * never passes over a page still loading.
- */
-for (const [name, path, probe] of [
-  ['a user’s timeline', `${CLEO}/timeline`, "Clicked 'Resend to cleo.d@example.com'"],
-  ['a tenant’s timeline', `${ACME}/timeline`, "Clicked 'Remove Evangeline Featherstonehaugh'"],
-] as const) {
-  test(`${name} renders every name, address and clicked text inside Pii`, async ({ page }) => {
-    await page.goto(`/e2e/harness/?path=${path}`)
-    await expect(page.getByText(probe)).toBeVisible()
-    await page.getByRole('button', { name: '+1 related' }).click()
-    await expect(page.getByText('Identity check (step-up)')).toBeVisible()
-    expect(await unmaskedPii(page, NAMES)).toEqual([])
-  })
-}
-
-/**
- * The Errors tabs, once their issues have landed: an exception message is
- * untrusted text that can name a person (the error scrubber redacts
- * addresses, not names), so it renders inside Pii.
- */
-for (const [name, path] of [
-  ['a user’s errors', `${CLEO}/errors`],
-  ['a tenant’s errors', `${ACME}/errors`],
-] as const) {
-  test(`${name} renders every name and message inside Pii`, async ({ page }) => {
-    await page.goto(`/e2e/harness/?path=${path}`)
-    await expect(page.getByText('Member Evangeline Featherstonehaugh has no role')).toBeVisible()
-    expect(await unmaskedPii(page, NAMES)).toEqual([])
-  })
-}
-
-/**
  * The flags pages, once an evaluation has landed: the evaluated user's name
  * and address, the user picker's matches and a tenant's member buttons.
  */
@@ -111,19 +76,6 @@ test('the flags user picker lists its matches inside Pii', async ({ page }) => {
   await page.goto('/e2e/harness/?path=/settings/platform/flags')
   await page.getByRole('searchbox', { name: 'Find a user' }).fill('c')
   await expect(page.getByRole('list', { name: 'Matching users' })).toBeVisible()
-  expect(await unmaskedPii(page, NAMES)).toEqual([])
-})
-
-test('a tenant’s timeline names its actors, each inside Pii', async ({ page }) => {
-  await page.goto(`/e2e/harness/?path=${ACME}/timeline`)
-  const list = page.getByRole('list', { name: 'Timeline' })
-  await expect(list.getByRole('link', { name: 'Cleo D' }).first()).toBeVisible()
-  await expect(
-    list.getByRole('link', {
-      name: 'a-very-long-address-for-the-overflow-check@example-corp.co.uk',
-    })
-  ).toBeVisible()
-  await expect(list.getByText('Deleted user')).toBeVisible()
   expect(await unmaskedPii(page, NAMES)).toEqual([])
 })
 
