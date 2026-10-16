@@ -234,7 +234,9 @@ describe('auditSentence', () => {
 
   it('renders a removed staff-read action through the fallback sentence', () => {
     expect(isAuditAction('user.timeline_viewed')).toBe(false)
-    expect(auditSentence({ action: 'user.timeline_viewed', metadata: {} })).not.toBe('')
+    expect(auditSentence({ action: 'user.timeline_viewed', metadata: {} })).toBe(
+      'performed user.timeline_viewed'
+    )
   })
 
   it('degrades rather than throwing on missing or mistyped metadata', () => {

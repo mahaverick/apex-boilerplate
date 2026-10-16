@@ -43,8 +43,8 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
 - Settings pages are declared in `src/constants/settings.ts`; add a page there and
   as a route under `src/pages/_app/settings/`. Main-nav pages stay in
   `src/constants/navigation.ts`.
-- **Text another party wrote renders as text.** An exception's type and value
-  are attacker text. A rendered email stays in its `<iframe sandbox="">`: never add
+- **Text another party wrote renders as text.** A name, a reason, an audit entry's
+  metadata or a maintenance message is text, never markup. A rendered email stays in its `<iframe sandbox="">`: never add
   `allow-same-origin` ([Untrusted content](SECURITY.md#untrusted-content)).
 
 ## The gate

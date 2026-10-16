@@ -26,10 +26,9 @@ browser storage is readable by whoever runs the page, so:
   writes a `<style>` element through `dangerouslySetInnerHTML`, built only
   from a chart's static colour config and a `useId` value, never from API
   data. No `innerHTML` is used anywhere.
-- **What other people wrote renders as text.** Names, reasons and
-  maintenance messages render as text, never markup. Browser-reported
-  exceptions are attacker text, and a rendered email
-  renders only in a sandboxed frame ([Untrusted content](#untrusted-content)).
+- **What other people wrote renders as text.** Names, reasons, audit-entry
+  metadata and maintenance messages render as text, never markup, and a
+  rendered email renders only in a sandboxed frame ([Untrusted content](#untrusted-content)).
 - **Credentials leave the browser only towards the API.** The access token
   travels in an `Authorization` header, never a URL; the refresh token is an
   httpOnly cookie the client never reads.
