@@ -437,7 +437,7 @@ Playwright has five projects: `fixtures`, `live`, `contrast`, `nginx` and
 the fixtures. It needs no backend. It exists for what jsdom cannot see, because
 jsdom has no layout. `?path=` picks the route, and the harness's other query
 parameters shape the fixtures: `?role=none|viewer|owner` (the default is a
-platform admin), `?member=`, `?flags=`, `?preview=`, `?emails=none`, `?maintenance=full|route` and
+platform admin), `?member=`, `?flags=`, `?preview=`, `?emails=none`, `?maintenance=full|route`, `?hold=` and `?fail=` (comma-separated `/api/v1/` paths that never answer or answer 500), `?profile=stale` and
 `?onboarding=`. The harness's comments give each one's meaning.
 
 **An endpoint the harness leaves unmocked falls through**

@@ -440,8 +440,9 @@ people out of pages that would fail.
 - **The API refuses with a 404.** `/platform/*` answers 404, not 403, to a
   user who is not staff and to staff below a route's role, so a refused
   route looks the same as a missing one. `isRoleDenied`
-  (`src/queries/platform.queries.ts`) reads any 404 there as "not available
-  to you": the page renders `RoleDenied`, queries do not retry it, and the
+  (`src/lib/role-denied.ts`) reads any 404 there as "not available
+  to you": the page renders `RoleDenied` (`QueryState` treats every 404 it
+  renders as a role refusal, `GET /auth/providers` and `GET /profile` included), queries do not retry it, and the
   maintenance poll stops on it.
 - **A 404 is never a sign-out.** It is not an auth verdict
   ([Sign-out rules](#sign-out-rules)). `RoleDenied` offers a reload, which

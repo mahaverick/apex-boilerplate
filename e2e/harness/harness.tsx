@@ -14,6 +14,7 @@ import { setupWorker } from 'msw/browser'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@/styles/globals.css'
+import { profileKeys } from '@/queries/profile.queries'
 import { queryClient, router } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
 import {
@@ -1316,7 +1317,7 @@ useAuthStore.setState({
 
 // `?profile=stale` seeds the profile cache as long out of date, so the page's `GET /profile` fires on mount and `?fail=/api/v1/profile` can fail it with the stored user on screen.
 if (new URLSearchParams(location.search).get('profile') === 'stale') {
-  queryClient.setQueryData(['profile'], testUser, { updatedAt: 0 })
+  queryClient.setQueryData(profileKeys.detail, testUser, { updatedAt: 0 })
 }
 
 /**

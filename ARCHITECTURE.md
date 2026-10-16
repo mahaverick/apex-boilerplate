@@ -213,7 +213,7 @@ with the helpers in `src/lib/api-error.ts`, and a form maps the API's field
 errors onto its inputs through `useServerErrors`.
 
 - **A 404 under `/platform/*` is a refusal, not a miss.** Staff queries test
-  it with `isRoleDenied` (`src/queries/platform.queries.ts`); what follows is
+  it with `isRoleDenied` (`src/lib/role-denied.ts`); what follows is
   in [Staff-only access](SECURITY.md#staff-only-access).
 - **Lists and details are keyed apart.** A list key sits under its plural
   prefix (`['platform', 'tenants']`, `['platform', 'users']`) and a record

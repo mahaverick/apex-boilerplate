@@ -175,7 +175,8 @@ const THEMES = ['light', 'dark'] as const
  * A surface graded while it loads: `template` waits for the route template's
  * `status` region named "Loading", `section` for a busy section's skeleton,
  * each under `heading` when the state renders one. Neither waits for the
- * skeletons to go: they are what is graded.
+ * skeletons to go: they are what is graded. No apex surface uses `template`:
+ * apex's loaders await nothing, so no held request can show a page template.
  */
 type LoadingWait = { loading: 'template' | 'section'; heading?: string | RegExp }
 
