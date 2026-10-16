@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { TenantHistoryCard } from '@/components/features/history-card'
 import { TenantOwners } from '@/components/features/tenants/tenant-owners'
+import { DetailTabPending } from '@/components/shared/pending-templates'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { pageTitle } from '@/constants/app'
 import { formatDate } from '@/lib/format'
@@ -11,6 +12,7 @@ import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 export const Route = createFileRoute('/_app/tenants/$tenantId/')({
   head: () => ({ meta: [{ title: pageTitle('Tenant overview') }] }),
   component: TenantOverviewTab,
+  pendingComponent: DetailTabPending,
 })
 
 /** One label/value row of a definition list. */

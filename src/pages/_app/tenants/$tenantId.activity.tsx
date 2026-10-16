@@ -4,6 +4,7 @@ import { ActivityList } from '@/components/features/activity/activity-list'
 import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
 import { FrozenTenant } from '@/components/features/tenants/frozen-tenant'
 import { Note } from '@/components/shared/note'
+import { DetailTabPending } from '@/components/shared/pending-templates'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { canViewActivity } from '@/constants/roles'
@@ -16,6 +17,7 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/activity')({
   head: () => ({ meta: [{ title: pageTitle('Tenant activity') }] }),
   staticData: { crumb: 'Activity' },
   component: TenantActivityTab,
+  pendingComponent: DetailTabPending,
 })
 
 /** Shows the tenant's audit log, or the frozen state when the tenant is not active. */

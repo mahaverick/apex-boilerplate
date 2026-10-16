@@ -361,11 +361,10 @@ describe('/onboarding', () => {
     })
 
     it('keeps the funnel up and offers a retry when only the list fails', async () => {
-      let calls = 0
+      let failing = true
       server.use(
         http.get('/api/v1/platform/onboarding/tenants', () => {
-          calls += 1
-          return calls <= 2
+          return failing
             ? fail('Boom', 500)
             : ok(
                 { tenants: [onboardingTenantRow()], nextCursor: null, prevCursor: null },
@@ -377,6 +376,7 @@ describe('/onboarding', () => {
       renderAppAt('/onboarding')
       expect(await screen.findByText('We could not load these tenants.')).toBeInTheDocument()
       expect(screen.getByRole('region', { name: 'Onboarding figures' })).toBeInTheDocument()
+      failing = false
       await user.click(screen.getByRole('button', { name: 'Try again' }))
       expect(await screen.findByRole('table', { name: 'Onboarding tenants' })).toBeInTheDocument()
     })

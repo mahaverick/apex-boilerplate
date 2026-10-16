@@ -10,8 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { templateLabel } from '@/constants/email.constants'
 import { ROUTES } from '@/constants/routes'
 import { formatDateTime } from '@/lib/format'
+import { isRoleDenied } from '@/lib/role-denied'
 import { emailsQueryOptions } from '@/queries/email.queries'
-import { isRoleDenied } from '@/queries/platform.queries'
 
 /** How many of a user's emails the card lists; the rest are one link away. */
 export const USER_EMAILS_SHOWN = 10

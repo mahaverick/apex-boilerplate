@@ -3,7 +3,7 @@ import { createRouter, type AnyRouter, type LinkProps } from '@tanstack/react-ro
 import type { ComponentType } from 'react'
 import { RouteError } from '@/components/features/route-error'
 import { RouteNotFound } from '@/components/features/route-not-found'
-import { RoutePending } from '@/components/features/route-pending'
+import { ListPending } from '@/components/shared/pending-templates'
 import {
   ensureSession,
   installAnalyticsIdentity,
@@ -60,7 +60,8 @@ export const ROUTER_DEFAULTS = Object.freeze({
   /** Imported statically: when a chunk cannot be fetched, a lazy error screen could not load either. */
   defaultErrorComponent: RouteError,
   defaultNotFoundComponent: RouteNotFound,
-  defaultPendingComponent: RoutePending,
+  /** A list-shaped skeleton, at the boot shell's sizes; routes shaped otherwise name their own. */
+  defaultPendingComponent: ListPending,
   /** Shown only after 300ms of waiting, then for at least 300ms: it neither flashes on a fast navigation nor blinks on a slow one. */
   defaultPendingMs: 300,
   defaultPendingMinMs: 300,

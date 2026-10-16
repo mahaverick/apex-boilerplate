@@ -8,12 +8,14 @@ import { RANGE_LABELS } from '@/components/features/overview/range'
 import { SignupsChart } from '@/components/features/overview/signups-chart'
 import { SystemStatusCard } from '@/components/features/overview/system-status-card'
 import { RoleDenied } from '@/components/features/role-denied'
-import { WidgetBoundary } from '@/components/features/widget-boundary'
+import { DashboardPending } from '@/components/shared/pending-templates'
+import { SectionBoundary } from '@/components/shared/section-boundary'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
-import { isRoleDenied, platformStatsQueryOptions, STATS_RANGES } from '@/queries/platform.queries'
+import { isRoleDenied } from '@/lib/role-denied'
+import { platformStatsQueryOptions, STATS_RANGES } from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
 
 /** The Overview page: platform figures for a time window kept in `?range`. */
@@ -27,6 +29,7 @@ export const Route = createFileRoute('/_app/overview')({
   head: () => ({ meta: [{ title: pageTitle('Overview') }] }),
   staticData: { crumb: 'Overview' },
   component: OverviewPage,
+  pendingComponent: DashboardPending,
 })
 
 /** The loaded layout's shape: five KPI cards, then two chart cards, so nothing jumps when the data lands. */
@@ -50,7 +53,7 @@ function OverviewSkeleton() {
  * The staff Overview. The window lives in the URL, so a view can be shared.
  * One request feeds every figure and chart, so there is one skeleton shaped
  * like the loaded layout and one page-level error or role-denied state;
- * `WidgetBoundary` isolates only a render error, per widget. Admins also get
+ * `SectionBoundary` isolates only a render error, per widget. Admins also get
  * the system status card, which has its own request and its own states.
  */
 function OverviewPage() {
@@ -94,23 +97,23 @@ function OverviewPage() {
         <OverviewSkeleton />
       ) : (
         <div className="grid gap-6" aria-busy={stats.isPlaceholderData}>
-          <WidgetBoundary name="Key figures">
+          <SectionBoundary name="Key figures">
             <KpiCards stats={stats.data} />
-          </WidgetBoundary>
+          </SectionBoundary>
           <div className="grid gap-4 xl:grid-cols-2">
-            <WidgetBoundary name="Sign-ups">
+            <SectionBoundary name="Sign-ups">
               <SignupsChart signups={stats.data.signups} range={stats.data.range} />
-            </WidgetBoundary>
-            <WidgetBoundary name="Emails">
+            </SectionBoundary>
+            <SectionBoundary name="Emails">
               <EmailsChart days={stats.data.emailMessages} range={stats.data.range} />
-            </WidgetBoundary>
+            </SectionBoundary>
           </div>
         </div>
       )}
       {isAdmin && (
-        <WidgetBoundary name="System status">
+        <SectionBoundary name="System status">
           <SystemStatusCard />
-        </WidgetBoundary>
+        </SectionBoundary>
       )}
     </div>
   )

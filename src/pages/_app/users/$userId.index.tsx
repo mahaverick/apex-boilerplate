@@ -9,6 +9,7 @@ import { UserNotFound } from '@/components/features/users/user-not-found'
 import { UserStatusBadges } from '@/components/features/users/user-status-badges'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
+import { DetailPending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
@@ -28,6 +29,7 @@ import type { PlatformUserDetail } from '@/types/api.types'
 export const Route = createFileRoute('/_app/users/$userId/')({
   head: () => ({ meta: [{ title: pageTitle('User') }] }),
   component: UserDetailPage,
+  pendingComponent: DetailPending,
 })
 
 /** A sign-in provider's label; an unknown one renders as the API names it. */

@@ -161,7 +161,7 @@ describe('/overview', () => {
     renderAppAt('/overview')
     const signups = await screen.findByRole('figure', { name: 'Sign-ups per day' })
     const emails = screen.getByRole('figure', { name: 'Emails per day' })
-    // Under jsdom, which has no ResizeObserver, recharts still mounts its SVG and no WidgetBoundary caught a throw.
+    // Under jsdom, which has no ResizeObserver, recharts still mounts its SVG and no SectionBoundary caught a throw.
     expect(screen.queryByText(/could not be shown/)).not.toBeInTheDocument()
     expect(signups.querySelector('svg.recharts-surface')).not.toBeNull()
     expect(emails.querySelector('svg.recharts-surface')).not.toBeNull()

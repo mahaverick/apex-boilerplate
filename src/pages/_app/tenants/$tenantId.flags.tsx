@@ -4,14 +4,15 @@ import { FlagEvaluation } from '@/components/features/flags/flag-evaluation'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { FrozenTenant } from '@/components/features/tenants/frozen-tenant'
+import { DetailTabPending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { FLAGS_LIST_ERROR } from '@/constants/flags.constants'
 import { platformRoleAtLeast, ROLE_LABELS } from '@/constants/roles'
+import { isRoleDenied } from '@/lib/role-denied'
 import { flagsListQueryOptions } from '@/queries/flag-inspector.queries'
-import { isRoleDenied } from '@/queries/platform.queries'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { memberName, useMembers } from '@/queries/tenant.queries'
 import { tenantFlagsSearchSchema } from '@/schemas/flags.schemas'
@@ -24,6 +25,7 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/flags')({
   head: () => ({ meta: [{ title: pageTitle('Tenant flags') }] }),
   staticData: { crumb: 'Flags' },
   component: TenantFlagsTab,
+  pendingComponent: DetailTabPending,
 })
 
 /**

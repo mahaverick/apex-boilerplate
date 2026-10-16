@@ -9,6 +9,7 @@ import { ResendEmailButton } from '@/components/features/emails/resend-email-but
 import { LoadError } from '@/components/features/load-error'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
+import { DetailPending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
 import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -37,6 +38,7 @@ export const Route = createFileRoute('/_app/emails/$emailId')({
   head: () => ({ meta: [{ title: pageTitle('Email') }] }),
   staticData: { crumb: EmailCrumb, crumbParent: { label: 'Emails', to: ROUTES.emails } },
   component: EmailDetailPage,
+  pendingComponent: DetailPending,
 })
 
 /** The recipient in the trail, once the message has loaded. */

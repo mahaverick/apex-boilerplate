@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { SettingsRouteError } from '@/components/features/route-error'
 import { InvitationsSection } from '@/components/features/tenant/invitations-section'
 import { MembersCard } from '@/components/features/tenant/members-card'
+import { SettingsPagePending } from '@/components/shared/pending-templates'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { pageTitle } from '@/constants/app'
 import { PLATFORM_TENANT_SLUG } from '@/constants/routes'
@@ -11,6 +12,7 @@ export const Route = createFileRoute('/_app/settings/platform/staff')({
   head: () => ({ meta: [{ title: pageTitle('Staff') }] }),
   staticData: { crumb: 'Staff' },
   component: StaffPage,
+  pendingComponent: SettingsPagePending,
   /**
    * Kept out of a lazy chunk, as the router's default error screen is: a failed
    * fetch could not load it. Splitting it would also pull the error listener

@@ -13,7 +13,8 @@ import {
 import { useNow } from '@/hooks/use-now'
 import { queueLine } from '@/lib/maintenance-mode'
 import { relativeTime } from '@/lib/relative-time'
-import { isRoleDenied, systemStatusQueryOptions } from '@/queries/platform.queries'
+import { isRoleDenied } from '@/lib/role-denied'
+import { systemStatusQueryOptions } from '@/queries/platform.queries'
 import type {
   ErrorDropReason,
   ErrorTrackingStatus,

@@ -519,7 +519,7 @@ is disabled to make it pass.
   `expectNoViolationsIn` runs the same rule set against the popup. It asserts that
   `aria-required-children` passed, which happens only when axe evaluated a
   `role="menu"`.
-- **`RouteError`, `RoutePending` and `RouteNotFound` render no `<main>`.** They
+- **`RouteError`, `PageSkeleton` and `RouteNotFound` render no `<main>`.** They
   render inside the matched route's `Outlet`, which a layout's `<main>` already
   wraps. The top-level splat route `src/pages/$.tsx` has no layout, so it wraps
   `RouteNotFound` in its own `<main>`.

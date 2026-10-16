@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { describe, expect, it, vi } from 'vitest'
-import { WidgetBoundary } from '@/components/features/widget-boundary'
+import { SectionBoundary } from '@/components/shared/section-boundary'
 import { rootErrorOptions } from '@/observability/errors'
 import { report } from '@/observability/errors/report'
 
@@ -13,14 +13,14 @@ function Explodes(): never {
   throw new Error('chart exploded')
 }
 
-describe('WidgetBoundary', () => {
-  it('contains a render error to its own widget', () => {
+describe('SectionBoundary', () => {
+  it('contains a render error to its own section', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     render(
       <>
-        <WidgetBoundary name="Sign-ups">
+        <SectionBoundary name="Sign-ups">
           <Explodes />
-        </WidgetBoundary>
+        </SectionBoundary>
         <p>Sibling still here</p>
       </>
     )
@@ -35,9 +35,9 @@ describe('WidgetBoundary', () => {
     const root = createRoot(container, rootErrorOptions)
     act(() => {
       root.render(
-        <WidgetBoundary name="Sign-ups">
+        <SectionBoundary name="Sign-ups">
           <Explodes />
-        </WidgetBoundary>
+        </SectionBoundary>
       )
     })
     await vi.waitFor(() => expect(report).toHaveBeenCalledTimes(1))

@@ -12,8 +12,9 @@ import {
 } from '@/constants/maintenance-mode.constants'
 import { apiClient, unwrap } from '@/http/client'
 import { codeFrom, statusFrom } from '@/lib/api-error'
+import { isRoleDenied } from '@/lib/role-denied'
 import { auditKeys } from '@/queries/audit.queries'
-import { isRoleDenied, platformKeys } from '@/queries/platform.queries'
+import { platformKeys } from '@/queries/platform.queries'
 import type {
   ApiSuccess,
   ChangeMaintenanceModeBody,

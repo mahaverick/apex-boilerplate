@@ -19,11 +19,11 @@ import {
   FLAGS_STALE_NOTE,
   TRAIT_NAMES,
 } from '@/constants/flags.constants'
+import { isRoleDenied } from '@/lib/role-denied'
 import {
   flagsEvaluateQueryOptions,
   type FlagEvaluateParams,
 } from '@/queries/flag-inspector.queries'
-import { isRoleDenied } from '@/queries/platform.queries'
 import type { FlagEvaluationRow, FlagRow, FlagsEvaluateResponse } from '@/types/api.types'
 
 /** The traits express derived, in declaration order; an absent one is said to be unset. */

@@ -7,6 +7,7 @@ import { OnboardingStepList } from '@/components/features/onboarding/onboarding-
 import { ReminderHistory } from '@/components/features/onboarding/reminder-history'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { RoleDenied } from '@/components/features/role-denied'
+import { DetailTabPending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -40,6 +41,7 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/onboarding')({
   head: () => ({ meta: [{ title: pageTitle('Tenant onboarding') }] }),
   staticData: { crumb: 'Onboarding' },
   component: TenantOnboardingTab,
+  pendingComponent: DetailTabPending,
 })
 
 /** A time in the reader's locale, or a fallback when there is none. */

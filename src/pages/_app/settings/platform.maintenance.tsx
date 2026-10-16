@@ -8,6 +8,7 @@ import { RoleDenied } from '@/components/features/role-denied'
 import { SettingsRouteError } from '@/components/features/route-error'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { EmptyState } from '@/components/shared/empty-state'
+import { SettingsPagePending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,8 +20,8 @@ import { MAINTENANCE_MODE_LABELS, STAFF_WRITES_NOTE } from '@/constants/maintena
 import { platformRoleAtLeast } from '@/constants/roles'
 import { queueLine } from '@/lib/maintenance-mode'
 import { absoluteTime } from '@/lib/relative-time'
+import { isRoleDenied } from '@/lib/role-denied'
 import { maintenanceModeQueryOptions } from '@/queries/maintenance-mode.queries'
-import { isRoleDenied } from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
 import type {
   MaintenanceMode,
@@ -33,6 +34,7 @@ export const Route = createFileRoute('/_app/settings/platform/maintenance')({
   head: () => ({ meta: [{ title: pageTitle('Maintenance') }] }),
   staticData: { crumb: 'Maintenance' },
   component: MaintenancePage,
+  pendingComponent: SettingsPagePending,
   /**
    * Kept out of a lazy chunk, as the router's default error screen is: a failed
    * fetch could not load it. Splitting it would also pull the error listener

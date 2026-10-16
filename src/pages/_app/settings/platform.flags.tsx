@@ -9,6 +9,7 @@ import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { SettingsRouteError } from '@/components/features/route-error'
 import { Note } from '@/components/shared/note'
+import { SettingsPagePending } from '@/components/shared/pending-templates'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import {
@@ -19,8 +20,8 @@ import {
 import { platformRoleAtLeast } from '@/constants/roles'
 import { useNow } from '@/hooks/use-now'
 import { relativeTime } from '@/lib/relative-time'
+import { isRoleDenied } from '@/lib/role-denied'
 import { flagsListQueryOptions } from '@/queries/flag-inspector.queries'
-import { isRoleDenied } from '@/queries/platform.queries'
 import { flagsSearchSchema } from '@/schemas/flags.schemas'
 import { useAuthStore } from '@/states/auth.store'
 import type { FlagsListResponse } from '@/types/api.types'
@@ -35,6 +36,7 @@ export const Route = createFileRoute('/_app/settings/platform/flags')({
   head: () => ({ meta: [{ title: pageTitle('Feature flags') }] }),
   staticData: { crumb: 'Feature flags' },
   component: FlagsPage,
+  pendingComponent: SettingsPagePending,
   /**
    * Kept out of a lazy chunk, as the router's default error screen is: a failed
    * fetch could not load it. Splitting it would also pull the error listener

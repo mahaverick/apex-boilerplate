@@ -6,6 +6,7 @@ import { LoadError } from '@/components/features/load-error'
 import { TenantActionsMenu } from '@/components/features/tenants/tenant-actions-menu'
 import { TenantStateBadge } from '@/components/features/tenants/tenant-state-badge'
 import { EmptyState } from '@/components/shared/empty-state'
+import { DetailPending } from '@/components/shared/pending-templates'
 import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
@@ -26,6 +27,7 @@ export const Route = createFileRoute('/_app/tenants/$tenantId')({
   head: () => ({ meta: [{ title: pageTitle('Tenant') }] }),
   staticData: { crumb: TenantCrumb, crumbParent: { label: 'Tenants', to: ROUTES.tenants } },
   component: TenantLayout,
+  pendingComponent: DetailPending,
 })
 
 /** The tenant's name in the trail, once its detail has loaded. */

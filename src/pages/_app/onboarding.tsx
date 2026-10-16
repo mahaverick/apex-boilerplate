@@ -6,8 +6,9 @@ import { FunnelCard } from '@/components/features/onboarding/funnel-card'
 import { OnboardingKpis } from '@/components/features/onboarding/onboarding-kpis'
 import { OnboardingTenantsTable } from '@/components/features/onboarding/onboarding-tenants-table'
 import { RoleDenied } from '@/components/features/role-denied'
-import { WidgetBoundary } from '@/components/features/widget-boundary'
 import { EmptyState } from '@/components/shared/empty-state'
+import { DashboardPending } from '@/components/shared/pending-templates'
+import { SectionBoundary } from '@/components/shared/section-boundary'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -53,6 +54,7 @@ export const Route = createFileRoute('/_app/onboarding')({
   head: () => ({ meta: [{ title: pageTitle('Onboarding') }] }),
   staticData: { crumb: 'Onboarding' },
   component: OnboardingPage,
+  pendingComponent: DashboardPending,
 })
 
 /** What each tab says when no tenant is in its state. */
@@ -151,12 +153,12 @@ function OnboardingPage() {
       ) : (
         <>
           <div className="grid gap-6" aria-busy={funnel.isPlaceholderData}>
-            <WidgetBoundary name="Onboarding figures">
+            <SectionBoundary name="Onboarding figures">
               <OnboardingKpis funnel={funnel.data} />
-            </WidgetBoundary>
-            <WidgetBoundary name="Onboarding funnel">
+            </SectionBoundary>
+            <SectionBoundary name="Onboarding funnel">
               <FunnelCard funnel={funnel.data} />
-            </WidgetBoundary>
+            </SectionBoundary>
           </div>
           <TenantsByState />
         </>
