@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { LoadError } from '@/components/features/load-error'
 import { AuthCard } from '@/components/layouts/auth-card'
 import { BusyButton } from '@/components/shared/busy-button'
+import { AuthPending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
 import { FormFieldsSkeleton } from '@/components/shared/section-skeleton'
 import { FieldDescription, FieldGroup } from '@/components/ui/field'
@@ -42,6 +43,7 @@ export const Route = createFileRoute('/_auth/register')({
   },
   head: () => ({ meta: [{ title: pageTitle('Create an account') }] }),
   component: RegisterPage,
+  pendingComponent: AuthPending,
 })
 
 /**

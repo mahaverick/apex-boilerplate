@@ -2,8 +2,6 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useCommandPaletteStore } from '@/states/command-palette.store'
-import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
@@ -20,6 +18,11 @@ const CLEO = {
   platformRole: null,
   membershipCount: 1,
 }
+
+/** The setup file loads telemetry before this file's mock exists, so the app loads again after a reset to pick it up. */
+vi.resetModules()
+const { useCommandPaletteStore } = await import('@/states/command-palette.store')
+const { renderAppAt, signIn } = await import('@/tests/fixtures/render-app')
 
 const tracked = vi.hoisted(() => ({ events: [] as [string, unknown][] }))
 
