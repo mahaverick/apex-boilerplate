@@ -28,6 +28,8 @@ test('a held funnel leaves the tenants by state usable', async ({ page }) => {
   await page.goto('/e2e/harness/?path=/onboarding&hold=/api/v1/platform/onboarding/funnel')
   await expect(page.getByRole('tablist', { name: 'Onboarding states' })).toBeVisible()
   await expect(page.locator('[data-slot="query-state"][aria-busy="true"]')).toHaveCount(1)
+  // The list rendered beside the pending funnel.
+  await expect(page.getByRole('link', { name: 'Acme Corp' })).toBeVisible()
 })
 
 test('a failed tenants list leaves the funnel’s figures', async ({ page }) => {

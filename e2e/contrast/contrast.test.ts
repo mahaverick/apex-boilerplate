@@ -155,12 +155,12 @@ const SURFACES = [
   {
     name: 'overview (figures failed)',
     url: '/e2e/harness/?path=/overview&fail=/api/v1/platform/stats',
-    heading: /^Overview$/,
+    heading: { failed: /^Overview$/ },
   },
   {
     name: 'profile (read failed)',
-    url: '/e2e/harness/?path=/settings/account/profile&fail=/api/v1/profile',
-    heading: /^Profile$/,
+    url: '/e2e/harness/?path=/settings/account/profile&profile=stale&fail=/api/v1/profile',
+    heading: { failed: /^Profile$/ },
   },
   {
     name: 'onboarding (funnel loading)',
@@ -179,12 +179,25 @@ const THEMES = ['light', 'dark'] as const
  */
 type LoadingWait = { loading: 'template' | 'section'; heading?: string | RegExp }
 
-/** What `contrastOf` waits for: a loaded surface's heading, or a loading state. */
-type Wait = string | RegExp | LoadingWait
+/**
+ * A surface graded after a read failed: `failed` is the heading it renders,
+ * and the surface must show a visible `alert` before it is graded, so a state
+ * that never reaches the failure cannot pass as one. Skeletons beside the
+ * alert (a section still retrying) stay.
+ */
+type FailedWait = { failed: string | RegExp }
+
+/** What `contrastOf` waits for: a loaded surface's heading, a loading state or a failed one. */
+type Wait = string | RegExp | LoadingWait | FailedWait
 
 /** Whether `wait` names a loading state rather than a loaded heading. */
 function isLoadingWait(wait: Wait): wait is LoadingWait {
-  return typeof wait === 'object' && !(wait instanceof RegExp)
+  return typeof wait === 'object' && !(wait instanceof RegExp) && 'loading' in wait
+}
+
+/** Whether `wait` names a failed state. */
+function isFailedWait(wait: Wait): wait is FailedWait {
+  return typeof wait === 'object' && !(wait instanceof RegExp) && 'failed' in wait
 }
 
 /** What the tests read from an axe run: each rule's nodes, with their selectors and failure summaries. */
@@ -243,6 +256,13 @@ async function contrastOf(
         ? page.getByRole('status', { name: 'Loading' })
         : page.locator('[data-slot="query-state"][aria-busy="true"] [data-slot="skeleton"]')
     await expect(loading.first()).toBeVisible({ timeout: COLD_TRANSFORM_BUDGET_MS })
+  } else if (isFailedWait(wait)) {
+    await expect(page.getByRole('heading', { name: wait.failed })).toBeVisible({
+      timeout: COLD_TRANSFORM_BUDGET_MS,
+    })
+    await expect(page.getByRole('alert').first()).toBeVisible({
+      timeout: COLD_TRANSFORM_BUDGET_MS,
+    })
   } else {
     await expect(page.getByRole('heading', { name: wait })).toBeVisible({
       timeout: COLD_TRANSFORM_BUDGET_MS,

@@ -1314,6 +1314,11 @@ useAuthStore.setState({
   isBootstrapped: true,
 })
 
+// `?profile=stale` seeds the profile cache as long out of date, so the page's `GET /profile` fires on mount and `?fail=/api/v1/profile` can fail it with the stored user on screen.
+if (new URLSearchParams(location.search).get('profile') === 'stale') {
+  queryClient.setQueryData(['profile'], testUser, { updatedAt: 0 })
+}
+
 /**
  * Which in-app route to mount, from `?path=`; the default is the Overview.
  * The handlers above answer every page the fixtures and the contrast suite

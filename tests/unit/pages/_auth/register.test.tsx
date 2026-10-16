@@ -32,8 +32,8 @@ describe('/register (invitation only)', () => {
     renderAppAt(PATH)
     const heading = await screen.findByRole('heading', { name: 'Create an account', level: 1 })
     const card = heading.closest('[data-slot="card"]')
-    // Four label-and-input pairs and the button bar.
-    expect(card?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(9)
+    // The description's line, four label-and-input pairs, the button bar and the sign-in line.
+    expect(card?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(11)
   })
 
   it('sends a visitor without an invitation to /login', async () => {

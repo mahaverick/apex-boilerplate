@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
 import { fieldValue } from '@/hooks/use-form-field'
@@ -73,11 +74,12 @@ function RegisterPage() {
   return <RegisterForm invitedEmail={preview.data.email} tenantName={preview.data.tenant.name} />
 }
 
-/** The register card while the invitation loads: the form's four fields (email, password, first and last name) and its button, at the form's own spacing. */
+/** The register card while the invitation loads: the description's line, the form's four fields (email, password, first and last name) and its button, and the sign-in line under them. */
 function RegisterSkeleton() {
   return (
-    <AuthCard title="Create an account">
+    <AuthCard title="Create an account" description={<Skeleton className="mx-auto h-4 w-3/4" />}>
       <FormFieldsSkeleton fields={4} />
+      <Skeleton className="mx-auto h-4 w-48" />
     </AuthCard>
   )
 }

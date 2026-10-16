@@ -40,12 +40,12 @@ Pending state: the button reads "Signing in…" and is disabled. Errors: `FormEr
 | Layout              | `AuthLayout` + `AuthCard`                                                                                                                                                                                                                                                           |
 | Data                | started: `POST /invitations/preview` (`['invitations', 'preview', token]`; no auth; a failure other than 404 is retried once); `POST /auth/register` on submit; `POST /auth/resend-verification` from the "Check your email" card                                                   |
 | Sections            | "Create an account with {invited address} to join {tenant}." over first and last name (optional), the invited address in a read-only field, and the password. After a successful submit the card becomes "Check your email" with "Resend verification email" and "Back to sign in". |
-| Components          | `AuthCard`, `FormFieldsSkeleton`, `LoadError`, `Form`, `FormField`, `FormError`, `Input`, `BusyButton` (also the resend), `FieldDescription`, `Pii`                                                                                                                                 |
+| Components          | `AuthCard`, `Skeleton`, `FormFieldsSkeleton`, `LoadError`, `Form`, `FormField`, `FormError`, `Input`, `BusyButton` (also the resend), `FieldDescription`, `Pii`                                                                                                                     |
 | Transitions         | Sign in → `/login`; Create account → the "Check your email" card (same URL); the emailed link → `/verify-email?token=`                                                                                                                                                              |
 
 The page has these states (`RegisterPage`):
 
-1. **Preview pending:** `RegisterSkeleton`, the "Create an account" card over `FormFieldsSkeleton`: four label-and-input pairs (email, password, first and last name) and the button bar, at the form's spacing (the sizes are not measured against the loaded form; the loading shot shows two bars).
+1. **Preview pending:** `RegisterSkeleton`, the "Create an account" card with a description bar, `FormFieldsSkeleton` (four label-and-input pairs for email, password, first and last name, and the button bar) and a sign-in line bar. The skeleton's fields are spaced closer than the form's, so the card stays about 40 px shorter than the loaded one in the shots (about 24 px of that is the spacing; the loaded description wraps to two lines).
 2. **Preview failed with 404:** "This invitation can’t be used", "It may have expired or been revoked. Ask the person who invited you for a new one.", and no link or button. The token is sent as it is: in the walk, `?invitation=not-a-real-token` posted the preview and got the 404, where `/invitations/accept` refuses the same token locally without a request.
 3. **Preview failed otherwise:** the "Create an account" card around a `LoadError`, "We could not check your invitation." with Try again (shot: error).
 4. **Preview loaded:** the form (shot: default). Pending: "Creating account…".
@@ -53,10 +53,10 @@ The page has these states (`RegisterPage`):
 
 In the capture the invitation is to the platform tenant, so the sentence reads "to join Platform."
 
-| Loading                                                                                  | Error                             |
-| ---------------------------------------------------------------------------------------- | --------------------------------- |
-| ![](img/auth/register--loading.jpg)                                                      | ![](img/auth/register--error.jpg) |
-| skeleton · the title over four label-and-input pairs and a button (`FormFieldsSkeleton`) | alert · `LoadError`               |
+| Loading                                                                                                                                                        | Error                             |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| ![](img/auth/register--loading.jpg)                                                                                                                            | ![](img/auth/register--error.jpg) |
+| skeleton · the title over a description bar (`h-4 w-3/4`), four label-and-input pairs and a button (`FormFieldsSkeleton`), and a sign-in line bar (`h-4 w-48`) | alert · `LoadError`               |
 
 Findings: [F-auth-5](findings.md#f-auth-5), [F-auth-6](findings.md#f-auth-6), [F-auth-7](findings.md#f-auth-7), [F-auth-8](findings.md#f-auth-8)
 
