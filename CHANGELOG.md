@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v3.1.0...v4.0.0) (2026-10-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* drop the Timeline and Errors pages; PostHog holds both ([#69](https://github.com/mahaverick/apex-boilerplate/issues/69))
+
+### Features
+
+* drop the Timeline and Errors pages; PostHog holds both ([#69](https://github.com/mahaverick/apex-boilerplate/issues/69)) ([1bc31eb](https://github.com/mahaverick/apex-boilerplate/commit/1bc31eb84ad6c3fbe605291af115d60731256556))
+
 ## [3.1.0](https://github.com/mahaverick/apex-boilerplate/compare/v3.0.0...v3.1.0) (2026-10-15)
 
 
