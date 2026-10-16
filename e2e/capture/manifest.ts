@@ -4,7 +4,7 @@
  * listed here. Endpoints are relative to /api/v1 (see endpoint.ts).
  */
 import type { FileRoutesByFullPath } from '@/routeTree.gen'
-import type { RouteCapture, Section } from './types'
+import type { NavigationCapture, RouteCapture, Section } from './types'
 
 const TENANT: Section = { name: 'Tenant', endpoints: ['GET /platform/tenants/:id'] }
 const USER: Section = { name: 'User', endpoints: ['GET /platform/users/:id'] }
@@ -408,3 +408,34 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     ],
   },
 }
+
+/** The in-app navigations the capture shoots mid-flight: the route template, then the section skeletons. */
+export const NAVIGATIONS: readonly NavigationCapture[] = [
+  {
+    area: 'deliverability',
+    shot: 'deliverability',
+    as: 'staff',
+    from: '/overview',
+    link: 'Deliverability',
+    template: { variant: 'dashboard', nested: false },
+    endpoints: ['GET /platform/emails/health'],
+  },
+  {
+    area: 'tenants',
+    shot: 'tenant-overview',
+    as: 'staff',
+    from: '/tenants',
+    link: '{tenantName}',
+    template: { variant: 'detail', nested: false },
+    endpoints: ['GET /platform/tenants/:id'],
+  },
+  {
+    area: 'users',
+    shot: 'user',
+    as: 'staff',
+    from: '/users?q={userEmail}',
+    link: '{userEmail}',
+    template: { variant: 'detail', nested: false },
+    endpoints: ['GET /platform/users/:id'],
+  },
+]

@@ -104,7 +104,7 @@ The tag names the work that fixes it: `[P2 loading]` boot and loading states, `[
 
 ### F-boot-1
 
-On every cold load under `vite dev`, the splash in `index.html` shows as unstyled black serif "Loading…" in the top-left corner, with no spinner, before it jumps to the centred, styled splash (frames 01 and 02 of each scenario in [boot.md](boot.md#frame-by-frame): 207 → 1308 ms, 26 → 524 ms, 26 → 533 ms). The splash's only styles are in `src/styles/globals.css`, which `vite dev` delivers through JavaScript after the module graph runs ([why](boot.md#why-the-first-frame-is-unstyled)). A production build links that CSS in `<head>`, so production is not affected. Fix: give the splash styles that do not depend on the bundle, for example a small stylesheet linked from `index.html`.
+On every cold load under `vite dev`, the splash in `index.html` shows as unstyled black serif "Loading…" in the top-left corner, with no spinner, before it jumps to the centred, styled splash (frames 01 and 02 of each scenario in [boot.md](boot.md#frame-by-frame): 207 → 1308 ms, 26 → 524 ms, 26 → 533 ms). The splash's only styles are in `src/styles/globals.css`, which `vite dev` delivers through JavaScript after the module graph runs ([why](boot.md#the-first-frame)). A production build links that CSS in `<head>`, so production is not affected. Fix: give the splash styles that do not depend on the bundle, for example a small stylesheet linked from `index.html`.
 
 ### F-boot-2
 
