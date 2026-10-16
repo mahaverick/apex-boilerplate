@@ -20,7 +20,6 @@ import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
 import { byContent } from '@/tests/fixtures/content'
-import { errorIssue, errorsPage, issueId } from '@/tests/fixtures/errors'
 import { flagsEvaluation, flagsList } from '@/tests/fixtures/flags'
 import {
   AUDIT_ID_1,
@@ -51,14 +50,6 @@ import {
   PAUSED_QUEUES,
 } from '@/tests/fixtures/maintenance-mode'
 import { renderAppAt } from '@/tests/fixtures/render-app'
-import {
-  at,
-  eventId,
-  SESSION_ID_2,
-  timelinePage,
-  timelineRow,
-  TRACE_ID,
-} from '@/tests/fixtures/timeline'
 import {
   emailDetail,
   emailSummary,
@@ -799,152 +790,6 @@ describe('signed-in pages', () => {
     server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => fail('Not found', 404)))
     renderAppAt(`/users/${USER_ID_2}`)
     await screen.findByRole('heading', { name: 'User not found', level: 1 })
-    await expectNoViolations()
-  })
-
-  /** A session holding a two-event request, a staff action outside it, and a second session. */
-  const TIMELINE_ROWS = [
-    timelineRow({
-      uuid: eventId(1),
-      event: '$autocapture',
-      timestamp: at(50),
-      elementText: 'Save',
-      actor: { id: USER_ID_2, displayName: 'Cleo Doe' },
-    }),
-    timelineRow({
-      uuid: eventId(2),
-      event: 'user_signed_in',
-      timestamp: at(40),
-      verified: true,
-      source: 'product',
-      app: 'api',
-      traceId: TRACE_ID,
-      path: null,
-      props: { method: 'google' },
-      actor: { id: USER_ID_2, displayName: 'Cleo Doe' },
-    }),
-    timelineRow({
-      uuid: eventId(3),
-      event: 'auth_reauthenticated',
-      timestamp: at(39),
-      verified: true,
-      source: 'audit',
-      app: 'api',
-      traceId: TRACE_ID,
-      path: null,
-      actor: { id: USER_ID_2, displayName: 'Cleo Doe' },
-    }),
-    timelineRow({
-      uuid: eventId(4),
-      event: 'user_deactivated',
-      timestamp: at(30),
-      distinctId: STAFF_USER_ID,
-      verified: true,
-      source: 'audit',
-      access: 'platform',
-      app: 'api',
-      sessionId: null,
-      path: null,
-      actor: { id: STAFF_USER_ID, displayName: null },
-    }),
-    timelineRow({ uuid: eventId(5), timestamp: at(20), sessionId: SESSION_ID_2, app: 'apex' }),
-  ]
-
-  it.each([
-    [
-      'a user’s timeline',
-      `/users/${USER_ID_2}/timeline`,
-      `/api/v1/platform/users/${USER_ID_2}/timeline`,
-    ],
-    [
-      'a tenant’s timeline',
-      `/tenants/${TENANT_ID}/timeline`,
-      `/api/v1/platform/tenants/${TENANT_ID}/timeline`,
-    ],
-  ])(
-    '%s with sessions, a request and a staff action has no axe violations',
-    async (_name, path, api) => {
-      serveUser()
-      serveTenant('active')
-      server.use(
-        http.get(api, () => ok(timelinePage(TIMELINE_ROWS, 'next'), 'Timeline retrieved.'))
-      )
-      const user = userEvent.setup()
-      renderAppAt(path)
-      await user.click(await screen.findByRole('button', { name: '+1 related' }))
-      expect(screen.getByRole('button', { name: 'Load more events' })).toBeInTheDocument()
-      await expectNoViolations()
-    }
-  )
-
-  it.each([
-    [
-      'not set up',
-      () => ok({ configured: false }, 'Timeline retrieved.'),
-      () => screen.findByText('PostHog timelines are not set up for this environment.'),
-    ],
-    [
-      'empty',
-      () => ok(timelinePage([]), 'Timeline retrieved.'),
-      () => screen.findByText('No events in the last 7 days.'),
-    ],
-    [
-      'unreachable',
-      () => fail('PostHog unavailable', 502, 'TIMELINE_UNAVAILABLE'),
-      () => screen.findByRole('button', { name: 'Try again' }),
-    ],
-  ])('a user’s timeline that is %s has no axe violations', async (_name, answer, ready) => {
-    serveUser()
-    server.use(http.get(`/api/v1/platform/users/${USER_ID_2}/timeline`, answer))
-    renderAppAt(`/users/${USER_ID_2}/timeline`)
-    await ready()
-    await expectNoViolations()
-  })
-
-  /** A browser crash, a signed server error, and a server row express did not sign. */
-  const ERROR_ISSUES = [
-    errorIssue(),
-    errorIssue({ issueId: issueId(2), source: 'server', app: 'api', verified: true }),
-    errorIssue({ issueId: issueId(3), source: 'server', app: 'api', verified: false }),
-  ]
-
-  it.each([
-    ['a user’s errors', `/users/${USER_ID_2}/errors`, `/api/v1/platform/users/${USER_ID_2}/errors`],
-    [
-      'a tenant’s errors',
-      `/tenants/${TENANT_ID}/errors`,
-      `/api/v1/platform/tenants/${TENANT_ID}/errors`,
-    ],
-  ])('%s with every badge has no axe violations', async (_name, path, api) => {
-    serveUser()
-    serveTenant('active')
-    server.use(http.get(api, () => ok(errorsPage(ERROR_ISSUES), 'Errors retrieved.')))
-    renderAppAt(path)
-    await screen.findByRole('table', { name: 'Errors' })
-    await expectNoViolations()
-  })
-
-  it.each([
-    [
-      'not set up',
-      () => ok({ configured: false }, 'Errors retrieved.'),
-      () => screen.findByText('PostHog error tracking is not set up for this environment.'),
-    ],
-    [
-      'empty',
-      () => ok(errorsPage([]), 'Errors retrieved.'),
-      () => screen.findByText('No errors in the last 30 days.'),
-    ],
-    [
-      'unreachable',
-      () => fail('PostHog unavailable', 502, 'TIMELINE_UNAVAILABLE'),
-      () => screen.findByRole('button', { name: 'Try again' }),
-    ],
-  ])('a user’s errors that are %s have no axe violations', async (_name, answer, ready) => {
-    serveUser()
-    server.use(http.get(`/api/v1/platform/users/${USER_ID_2}/errors`, answer))
-    renderAppAt(`/users/${USER_ID_2}/errors`)
-    await ready()
     await expectNoViolations()
   })
 

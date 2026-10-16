@@ -26,7 +26,7 @@ src/
   constants/    routes and the API prefix, roles, the staff navigation, tenant tabs, per-area constants
   hooks/        use-* hooks, the step-up runner among them
   http/         the axios client, its interceptors, the session, trace ids
-  lib/          small helpers: step-up checks, timeline grouping, maintenance-mode sentences
+  lib/          small helpers: step-up checks, maintenance-mode sentences
   observability/
     errors/     error tracking: the entry-chunk listener and the lazy reporter
     flags/      flag reads, gating, exposure and $feature/* registration
@@ -374,7 +374,7 @@ sub-pages.
   Activity and Flags tabs read the tenant's own routes, which answer only
   while it is active.
 - **A user's page** (`src/pages/_app/users/$userId.tsx`) reads
-  `GET /platform/users/:id`, with Timeline and Errors pages beside it.
+  `GET /platform/users/:id`, with a Flags link beside it.
 - **Staff** (`src/pages/_app/settings/platform.staff.tsx`) is the platform tenant's own
   members and invitations, managed through the same `/tenants/platform/*`
   routes and the same components a tenant's Members and Invitations tabs
@@ -383,37 +383,6 @@ sub-pages.
 Who may act on whom is mirrored from the API in `src/constants/roles.ts`;
 the rules and their limits are in
 [Staff-only access](SECURITY.md#staff-only-access).
-
-## Timelines and errors (this app only)
-
-A user's and a tenant's Timeline pages show their PostHog events, and the
-Errors pages their error issues, through `GET /platform/users/:id/timeline`,
-`GET /platform/tenants/:id/timeline` and the matching `errors` routes. The
-API audits every one of those reads and may spend PostHog query budget on
-it, so the queries (`src/queries/timeline.queries.ts`,
-`src/queries/errors.queries.ts`) never fetch on their own:
-
-- no retry, and no refetch on focus or reconnect; the error state offers a
-  retry instead;
-- the cache is dropped when the page unmounts (`gcTime: 0`), so a revisit
-  loads one first page rather than every page that was loaded;
-- **Refresh** keeps the first page alone and refetches it, so the newest
-  events arrive without re-reading older pages.
-
-A timeline is an infinite query paged by the API's opaque `before` cursor.
-Its window and view are search params (`src/schemas/timeline.schemas.ts`),
-and a value the API would refuse falls back to its default, so a stale link
-still opens. `groupTimeline` (`src/lib/timeline-grouping.ts`) regroups every
-loaded page at once, so a run cut by a page boundary joins up: consecutive
-rows sharing a session id form a session block, and consecutive verified
-server rows sharing a trace form one request. Only a row express signed is
-grouped by trace; why, and how each row is badged, is in
-[Untrusted content](SECURITY.md#untrusted-content).
-
-These pages are for admins and up. A page checks the role before it asks
-the API, and mounts its panel only once the user or tenant has loaded: an
-unknown user never sends a read whose 404 would look like a role refusal,
-and the tenant layout handles an unknown tenant.
 
 ## Onboarding (this app only)
 
@@ -443,8 +412,8 @@ apart from the app's own flag values ([Feature flags](#feature-flags)).
 - **An evaluation** (`GET /platform/flags/evaluate`, admins and up) answers
   one user's value for every registered flag, optionally in one of their
   tenants, as one app's client, with the traits the API used. It is an
-  audited read, so it follows the timelines' rules: no retry, no refetch on
-  focus or reconnect, and its cache is dropped when the page is left.
+  audited read, so it has no retry, no refetch on focus or reconnect, and
+  its cache is dropped when the page is left.
 - **Who is evaluated** is in the URL (`?userId=`, `?tenantId=`, `?app=`;
   `src/schemas/flags.schemas.ts`), so an evaluation can be shared. A
   tenant's Flags tab evaluates one of its members in that tenant, as the

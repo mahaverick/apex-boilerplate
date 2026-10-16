@@ -43,14 +43,9 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
 - Settings pages are declared in `src/constants/settings.ts`; add a page there and
   as a route under `src/pages/_app/settings/`. Main-nav pages stay in
   `src/constants/navigation.ts`.
-- **An audited read never fetches on its own.** The timelines, the Errors pages
-  and a flag evaluation set no retry, no refetch on focus or reconnect, and
-  `gcTime: 0`. The API audits each read and may spend PostHog query budget on it
-  ([Timelines and errors](ARCHITECTURE.md#timelines-and-errors-this-app-only)).
-- **Text another party wrote renders as text.** An exception's type and value,
-  and a timeline event's properties, are attacker text. A rendered email stays in
-  its `<iframe sandbox="">`: never add `allow-same-origin`
-  ([Untrusted content](SECURITY.md#untrusted-content)).
+- **Text another party wrote renders as text.** A name, a reason, an audit entry's
+  metadata or a maintenance message is text, never markup. A rendered email stays in its `<iframe sandbox="">`: never add
+  `allow-same-origin` ([Untrusted content](SECURITY.md#untrusted-content)).
 
 ## The gate
 
@@ -130,7 +125,7 @@ Each rule's reason is in [Analytics privacy](SECURITY.md#analytics-privacy).
 - **Wrap every rendered person name, email address, avatar initial and invitation
   address, and any free text staff typed, in `<Pii>`.** Wrap the value, not the
   sentence. A sentence a builder returns as a string (`auditSentence`,
-  `timelineSentence`, `bannerSentence`, `conflictSentence`, the maintenance
+  `bannerSentence`, `conflictSentence`, the maintenance
   preview) is masked whole, the safe default, as is a string `ReasonDialog`
   description. Use `<Pii>`, not `ph-no-capture`, which blanks the element in
   replay. A staff page that renders person data goes into the page list in
@@ -442,7 +437,7 @@ Playwright has five projects: `fixtures`, `live`, `contrast`, `nginx` and
 the fixtures. It needs no backend. It exists for what jsdom cannot see, because
 jsdom has no layout. `?path=` picks the route, and the harness's other query
 parameters shape the fixtures: `?role=none|viewer|owner` (the default is a
-platform admin), `?member=`, `?errors=`, `?flags=`, `?preview=`, `?emails=none`, `?maintenance=full|route` and
+platform admin), `?member=`, `?flags=`, `?preview=`, `?emails=none`, `?maintenance=full|route` and
 `?onboarding=`. The harness's comments give each one's meaning.
 
 **An endpoint the harness leaves unmocked falls through**
@@ -493,7 +488,7 @@ which turns `webServer` off, and a bare `--project=capture` starts the dev
 server and then skips every test. It needs `E2E_API_DIR` to name the express
 checkout (a staff account is granted its role there) and takes
 `CAPTURE_ONLY=auth,tenants` to limit the run to those areas, or a route key such as
-`'/tenants/$tenantId/timeline'` (quote it, or the shell expands `$tenantId`). It is opt-in and
+`'/tenants/$tenantId/members'` (quote it, or the shell expands `$tenantId`). It is opt-in and
 not in CI. How to run it is in `docs/pages/README.md`.
 
 ## Accessibility

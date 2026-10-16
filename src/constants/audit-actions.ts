@@ -1,6 +1,5 @@
 import { templateLabel } from '@/constants/email.constants'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
-import { TIMELINE_RANGE_LABELS, TIMELINE_VIEW_LABELS } from '@/constants/timeline.constants'
 
 /** The audit actions this build has a sentence for. One the server writes that is not listed still renders, through the fallback sentence. */
 export const AUDIT_ACTIONS = [
@@ -38,10 +37,6 @@ export const AUDIT_ACTIONS = [
   'onboarding.undismissed',
   'onboarding.step_completed',
   'onboarding.reminder_sent',
-  'user.timeline_viewed',
-  'tenant.timeline_viewed',
-  'user.errors_viewed',
-  'tenant.errors_viewed',
   'user.flags_evaluated',
   'platform.maintenance_mode_changed',
 ] as const
@@ -89,10 +84,6 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'onboarding.undismissed': 'Getting started restored',
   'onboarding.step_completed': 'Onboarding step completed',
   'onboarding.reminder_sent': 'Onboarding reminder sent',
-  'user.timeline_viewed': 'User timeline viewed',
-  'tenant.timeline_viewed': 'Tenant timeline viewed',
-  'user.errors_viewed': 'User errors viewed',
-  'tenant.errors_viewed': 'Tenant errors viewed',
   'user.flags_evaluated': 'User flags evaluated',
   'platform.maintenance_mode_changed': 'Maintenance mode changed',
 }
@@ -147,19 +138,6 @@ function reminderRecipients(metadata: Metadata): string {
   const who =
     typeof count === 'number' ? `${count} ${count === 1 ? 'owner' : 'owners'}` : 'the owners'
   return domains.length > 0 ? `${who} at ${domains.join(', ')}` : who
-}
-
-/** " (last 7 days, Key events)", or nothing when the window is missing or unknown. */
-function timelineWindow(metadata: Metadata): string {
-  const range = text(metadata, 'range')
-  const view = text(metadata, 'view')
-  if (range === undefined || !Object.hasOwn(TIMELINE_RANGE_LABELS, range)) return ''
-  const label = TIMELINE_RANGE_LABELS[range as keyof typeof TIMELINE_RANGE_LABELS]
-  const which =
-    view !== undefined && Object.hasOwn(TIMELINE_VIEW_LABELS, view)
-      ? `, ${TIMELINE_VIEW_LABELS[view as keyof typeof TIMELINE_VIEW_LABELS]}`
-      : ''
-  return ` (last ${label}${which})`
 }
 
 /** " for the customer app, in a tenant", or nothing when the entry names neither. */
@@ -264,10 +242,6 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
   },
   'onboarding.reminder_sent': (m) =>
     `sent an onboarding reminder to ${reminderRecipients(m)}${because(m)}`,
-  'user.timeline_viewed': (m) => `viewed a user’s timeline${timelineWindow(m)}`,
-  'tenant.timeline_viewed': (m) => `viewed a tenant’s timeline${timelineWindow(m)}`,
-  'user.errors_viewed': () => 'viewed a user’s errors',
-  'tenant.errors_viewed': () => 'viewed a tenant’s errors',
   'user.flags_evaluated': (m) => `evaluated a user’s feature flags${flagsEvaluatedFor(m)}`,
   'platform.maintenance_mode_changed': (m) => `${maintenanceChange(m)}${because(m)}`,
 }

@@ -209,7 +209,7 @@ bundle, the manifest and the palette, so commit those together.
 source cannot show. Re-run it for a current visual score.
 
 `pnpm test:e2e` runs the `fixtures` project in `e2e/fixtures/`. Its suites (`overview`,
-`directory`, `emails`, `flags`, `errors`, `timeline` and others) assert at a 390×844
+`directory`, `emails`, `flags` and others) assert at a 390×844
 viewport that no page scrolls sideways. A regression fails a test instead of waiting for
 the next screenshot.
 [CLAUDE.md](CLAUDE.md#end-to-end-tests) holds the conventions.
