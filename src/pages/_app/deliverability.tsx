@@ -81,7 +81,7 @@ function DeliverabilityPage() {
       </div>
       <QueryState
         query={health}
-        name="Deliverability figures"
+        name="Deliverability"
         errorMessage="We could not load the deliverability figures."
         skeleton={<DeliverabilitySkeleton />}
         className="gap-6"

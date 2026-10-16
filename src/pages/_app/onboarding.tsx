@@ -89,7 +89,7 @@ function isListState(value: unknown): value is OnboardingListState {
   return (ONBOARDING_LIST_STATES as readonly unknown[]).includes(value)
 }
 
-/** The funnel's loaded shape: five figures at their loaded height, then the funnel card. */
+/** The funnel's loaded shape: five figures at their loaded height, then a block at about the funnel card's height. */
 function FunnelSkeleton() {
   return (
     <>
@@ -98,7 +98,7 @@ function FunnelSkeleton() {
           <KpiCardSkeleton key={card} height="11rem" />
         ))}
       </div>
-      <Skeleton className="h-74 rounded-xl" />
+      <Skeleton className="h-78 rounded-xl" />
     </>
   )
 }
@@ -137,7 +137,7 @@ function OnboardingPage() {
       </div>
       <QueryState
         query={funnel}
-        name="Onboarding figures"
+        name="Onboarding"
         errorMessage="We could not load the onboarding figures."
         skeleton={<FunnelSkeleton />}
         isEmpty={(data) => data.trackedTenants === 0}

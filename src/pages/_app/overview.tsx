@@ -31,7 +31,7 @@ export const Route = createFileRoute('/_app/overview')({
   pendingComponent: DashboardPending,
 })
 
-/** The loaded layout's shape: five KPI cards at their loaded height, then two chart cards, so nothing moves when the figures land. */
+/** The loaded layout's shape: five KPI cards at their loaded height, then two chart blocks at about the loaded charts' height. */
 function OverviewSkeleton() {
   return (
     <>
@@ -41,8 +41,8 @@ function OverviewSkeleton() {
         ))}
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
-        <Skeleton className="h-74 rounded-xl" />
-        <Skeleton className="h-74 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
       </div>
     </>
   )
@@ -52,8 +52,9 @@ function OverviewSkeleton() {
  * The staff Overview. The window lives in the URL, so a view can be shared.
  * One request feeds every figure and chart, through `QueryState`: one
  * skeleton shaped like the loaded layout and one page-level error or
- * role-denied state; `SectionBoundary` isolates each widget's render error. Admins also get
- * the system status card, which has its own request and its own states.
+ * role-denied state; `SectionBoundary` isolates each widget's render error.
+ * Admins also get the system status card, which has its own request and its
+ * own states.
  */
 function OverviewPage() {
   const { range } = Route.useSearch()

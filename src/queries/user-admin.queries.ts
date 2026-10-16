@@ -58,7 +58,7 @@ function normalise(params: UserSearchParams): UserSearchParams {
 }
 
 /** A 404 answers who is asking, so a retry changes nothing. */
-function retryUnlessDenied(failureCount: number, error: unknown): boolean {
+function retryUnlessDenied(failureCount: number, error: Error): boolean {
   return !isRoleDenied(error) && failureCount < 1
 }
 

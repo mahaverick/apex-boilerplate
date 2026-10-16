@@ -24,8 +24,8 @@ import type {
   SystemStatus,
 } from '@/types/api.types'
 
-/** The rows `StatusFacts` draws for a current API: five error-tracking facts, the flags heading and four facts, the maintenance heading and three. Sized so the card holds its loaded height. */
-const STATUS_SKELETON_ROWS = 14
+/** Pending rows: 13 rows of 1.25rem with the list's 0.5rem gaps come to about 355 px, the measured height of a loaded status, which varies with the sections the API sends. */
+const STATUS_SKELETON_ROWS = 13
 
 /** The drop reasons in display order. */
 const DROP_REASONS = Object.keys(ERROR_DROP_LABELS) as ErrorDropReason[]
@@ -395,7 +395,7 @@ export function SystemStatusCard() {
               onRetry={() => void status.refetch()}
             />
           ) : status.data === undefined ? (
-            <CardRowsSkeleton rows={STATUS_SKELETON_ROWS} rowHeight="1.5rem" />
+            <CardRowsSkeleton rows={STATUS_SKELETON_ROWS} rowHeight="1.25rem" />
           ) : (
             <StatusFacts status={status.data} fetchedAt={status.dataUpdatedAt} />
           )}
