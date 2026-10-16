@@ -9,7 +9,9 @@ import { UserNotFound } from '@/components/features/users/user-not-found'
 import { UserStatusBadges } from '@/components/features/users/user-status-badges'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
+import { DetailPending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
+import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,17 +30,27 @@ import type { PlatformUserDetail } from '@/types/api.types'
 export const Route = createFileRoute('/_app/users/$userId/')({
   head: () => ({ meta: [{ title: pageTitle('User') }] }),
   component: UserDetailPage,
+  pendingComponent: DetailPending,
 })
 
 /** A sign-in provider's label; an unknown one renders as the API names it. */
 const PROVIDER_LABELS: Record<string, string> = { email: 'Email', google: 'Google' }
 
-/** Loads one user and shows them, a not-found state for a 404, or a load error. */
+/**
+ * Loads one user and shows them, a not-found state for a 404, or a load error.
+ * A failed read with no user to show, or a 404, replaces the page; a failed
+ * refetch with the user on screen keeps the page and shows a `LoadError` above
+ * it. While the user loads, the page is its header in a `grid gap-1` (the
+ * name at the heading's 2rem, the email and the badges line at `text-sm`'s
+ * 1.25rem) and the five cards an admin sees (Tenants, Sign-in methods, Pending
+ * invitations, Emails, History), each a title bar over two rows; the rows are
+ * not measured against the loaded cards.
+ */
 function UserDetailPage() {
   const { userId } = Route.useParams()
   const detail = useQuery(platformUserQueryOptions(userId))
 
-  if (detail.isError) {
+  if (detail.isError && (detail.data === undefined || statusFrom(detail.error) === 404)) {
     return statusFrom(detail.error) === 404 ? (
       <UserNotFound />
     ) : (
@@ -47,14 +59,34 @@ function UserDetailPage() {
   }
   if (detail.data === undefined) {
     return (
-      <div className="grid gap-4">
+      <div aria-busy="true" className="grid gap-4">
         <h1 className="sr-only">User</h1>
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-64 w-full" />
+        <div className="grid gap-1">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-5 w-80 max-w-full" />
+        </div>
+        {[0, 1, 2, 3, 4].map((card) => (
+          <Card key={card}>
+            <CardHeader>
+              <Skeleton className="h-5 w-32" />
+            </CardHeader>
+            <CardContent>
+              <CardRowsSkeleton rows={2} />
+            </CardContent>
+          </Card>
+        ))}
       </div>
     )
   }
-  return <UserDetail user={detail.data} />
+  return (
+    <div className="grid gap-4">
+      {detail.isError && (
+        <LoadError message="We could not load this user." onRetry={() => void detail.refetch()} />
+      )}
+      <UserDetail user={detail.data} />
+    </div>
+  )
 }
 
 /**

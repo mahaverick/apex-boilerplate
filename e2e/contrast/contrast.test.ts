@@ -147,9 +147,59 @@ const SURFACES = [
     url: '/e2e/harness/?path=/no-access&role=none',
     heading: 'This account has no platform access',
   },
+  {
+    name: 'overview (figures loading)',
+    url: '/e2e/harness/?path=/overview&hold=/api/v1/platform/stats',
+    heading: { loading: 'section', heading: /^Overview$/ },
+  },
+  {
+    name: 'overview (figures failed)',
+    url: '/e2e/harness/?path=/overview&fail=/api/v1/platform/stats',
+    heading: { failed: /^Overview$/ },
+  },
+  {
+    name: 'profile (read failed)',
+    url: '/e2e/harness/?path=/settings/account/profile&profile=stale&fail=/api/v1/profile',
+    heading: { failed: /^Profile$/ },
+  },
+  {
+    name: 'onboarding (funnel loading)',
+    url: '/e2e/harness/?path=/onboarding&hold=/api/v1/platform/onboarding/funnel',
+    heading: { loading: 'section', heading: /^Onboarding$/ },
+  },
 ] as const
 
 const THEMES = ['light', 'dark'] as const
+
+/**
+ * A surface graded while it loads: `template` waits for the route template's
+ * `status` region named "Loading", `section` for a busy section's skeleton,
+ * each under `heading` when the state renders one. Neither waits for the
+ * skeletons to go: they are what is graded. No apex surface uses `template`:
+ * apex's loaders await nothing, so no held request can show a page template.
+ */
+type LoadingWait = { loading: 'template' | 'section'; heading?: string | RegExp }
+
+/**
+ * A surface graded after a read failed: `failed` is the heading it renders,
+ * and the surface must show a visible `alert` before it is graded, so a state
+ * that never reaches the failure cannot pass as one. Skeletons beside the
+ * alert (a section still retrying) stay.
+ */
+type FailedWait = { failed: string | RegExp }
+
+/** What `contrastOf` waits for: a loaded surface's heading, a loading state or a failed one. */
+type Wait = string | RegExp | LoadingWait | FailedWait
+
+/** Whether `wait` names a loading state rather than a loaded heading. */
+function isLoadingWait(wait: Wait): wait is LoadingWait {
+  return typeof wait === 'object' && !(wait instanceof RegExp) && 'loading' in wait
+}
+
+/** Whether `wait` names a failed state. */
+function isFailedWait(wait: Wait): wait is FailedWait {
+  return typeof wait === 'object' && !(wait instanceof RegExp) && 'failed' in wait
+}
 
 /** What the tests read from an axe run: each rule's nodes, with their selectors and failure summaries. */
 type ContrastResult = {
@@ -179,8 +229,9 @@ async function answerInvitationPreview(page: Page): Promise<void> {
 }
 
 /**
- * Loads `url` in `theme` and runs axe over it, or over `scope`. The theme is
- * set before the document runs: index.html's pre-paint script reads
+ * Loads `url` in `theme`, waits until the surface `wait` names has rendered:
+ * with its data, or in the loading state it names. Runs axe over it, or over
+ * `scope`. The theme is set before the document runs: index.html's pre-paint script reads
  * localStorage and toggles `.dark` before the bundle loads, so setting it
  * afterwards would measure a repaint. The heading is asserted before measuring,
  * because a route that redirected still paints a legible page and would come
@@ -190,16 +241,36 @@ async function contrastOf(
   page: Page,
   url: string,
   theme: string,
-  heading: string | RegExp,
+  wait: Wait,
   scope?: string
 ): Promise<ContrastResult> {
   await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
   await page.goto(url)
-  await expect(page.getByRole('heading', { name: heading })).toBeVisible({
-    timeout: COLD_TRANSFORM_BUDGET_MS,
-  })
-  // The heading can render outside each page's data conditional, so it can show while the data behind it is still a skeleton. Grade the loaded page.
-  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0)
+  if (isLoadingWait(wait)) {
+    if (wait.heading) {
+      await expect(page.getByRole('heading', { name: wait.heading })).toBeVisible({
+        timeout: COLD_TRANSFORM_BUDGET_MS,
+      })
+    }
+    const loading =
+      wait.loading === 'template'
+        ? page.getByRole('status', { name: 'Loading' })
+        : page.locator('[data-slot="query-state"][aria-busy="true"] [data-slot="skeleton"]')
+    await expect(loading.first()).toBeVisible({ timeout: COLD_TRANSFORM_BUDGET_MS })
+  } else if (isFailedWait(wait)) {
+    await expect(page.getByRole('heading', { name: wait.failed })).toBeVisible({
+      timeout: COLD_TRANSFORM_BUDGET_MS,
+    })
+    await expect(page.getByRole('alert').first()).toBeVisible({
+      timeout: COLD_TRANSFORM_BUDGET_MS,
+    })
+  } else {
+    await expect(page.getByRole('heading', { name: wait })).toBeVisible({
+      timeout: COLD_TRANSFORM_BUDGET_MS,
+    })
+    // The heading can render outside each page's data conditional, so it can show while the data behind it is still a skeleton. Grade the loaded page.
+    await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0)
+  }
 
   // A late font swap can move text over a different background, so sample only once it has reflowed.
   await afterFontsAndFrames(page)

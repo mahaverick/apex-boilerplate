@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { LoadError } from '@/components/features/load-error'
 import { ToneBadge } from '@/components/features/tone-badge'
+import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Item, ItemContent, ItemGroup, ItemTitle } from '@/components/ui/item'
-import { Skeleton } from '@/components/ui/skeleton'
 import type { BadgeTone } from '@/constants/badge-tones'
 import { ERROR_DROP_LABELS } from '@/constants/errors.constants'
 import {
@@ -13,7 +13,8 @@ import {
 import { useNow } from '@/hooks/use-now'
 import { queueLine } from '@/lib/maintenance-mode'
 import { relativeTime } from '@/lib/relative-time'
-import { isRoleDenied, systemStatusQueryOptions } from '@/queries/platform.queries'
+import { isRoleDenied } from '@/lib/role-denied'
+import { systemStatusQueryOptions } from '@/queries/platform.queries'
 import type {
   ErrorDropReason,
   ErrorTrackingStatus,
@@ -22,6 +23,9 @@ import type {
   MaintenanceModeStatus,
   SystemStatus,
 } from '@/types/api.types'
+
+/** Pending rows: 13 rows of 1.25rem with the list's 0.5rem gaps put the pending card at 476 px at 1440 px wide, against 479 px for the status a development API sends; a status with feature flags enabled and the maintenance queues is taller (563 px in the harness). */
+const STATUS_SKELETON_ROWS = 13
 
 /** The drop reasons in display order. */
 const DROP_REASONS = Object.keys(ERROR_DROP_LABELS) as ErrorDropReason[]
@@ -391,7 +395,7 @@ export function SystemStatusCard() {
               onRetry={() => void status.refetch()}
             />
           ) : status.data === undefined ? (
-            <Skeleton className="h-32 w-full" />
+            <CardRowsSkeleton rows={STATUS_SKELETON_ROWS} rowHeight="1.25rem" />
           ) : (
             <StatusFacts status={status.data} fetchedAt={status.dataUpdatedAt} />
           )}

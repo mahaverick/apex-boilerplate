@@ -19,6 +19,9 @@ import {
 import { mailedToken } from './mailpit'
 import type { Seed } from './types'
 
+/** The name the customer's tenant gets. */
+const TENANT_NAME = 'Capture Co'
+
 /** Creates the run's accounts and records through the API. */
 export async function seedCapture(): Promise<Seed> {
   const staff = freshEmail()
@@ -33,7 +36,7 @@ export async function seedCapture(): Promise<Seed> {
   const customer = freshEmail()
   await createVerifiedUser(customer)
   const slug = freshSlug()
-  await createTenant(await apiLogin(customer), { name: 'Capture Co', slug })
+  await createTenant(await apiLogin(customer), { name: TENANT_NAME, slug })
   const tenantId = await tenantIdOf(staffToken, slug)
 
   const users = await apiRequest(
@@ -59,6 +62,14 @@ export async function seedCapture(): Promise<Seed> {
 
   return {
     sessions: { staff, customer, viewer },
-    params: { slug, tenantId, userId, emailId, invitationToken },
+    params: {
+      slug,
+      tenantId,
+      tenantName: TENANT_NAME,
+      userId,
+      userEmail: customer,
+      emailId,
+      invitationToken,
+    },
   }
 }

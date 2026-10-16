@@ -6,7 +6,8 @@
  */
 import { keepPreviousData, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
-import { invalidateDirectory, isRoleDenied } from '@/queries/platform.queries'
+import { isRoleDenied } from '@/lib/role-denied'
+import { invalidateDirectory } from '@/queries/platform.queries'
 import type { CreateUserInput, UpdateUserNameInput } from '@/schemas/user-admin.schemas'
 import type {
   ApiSuccess,
@@ -57,7 +58,7 @@ function normalise(params: UserSearchParams): UserSearchParams {
 }
 
 /** A 404 answers who is asking, so a retry changes nothing. */
-function retryUnlessDenied(failureCount: number, error: unknown): boolean {
+function retryUnlessDenied(failureCount: number, error: Error): boolean {
   return !isRoleDenied(error) && failureCount < 1
 }
 

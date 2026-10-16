@@ -2,7 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { TenantHistoryCard } from '@/components/features/history-card'
 import { TenantOwners } from '@/components/features/tenants/tenant-owners'
+import { DetailTabPending } from '@/components/shared/pending-templates'
+import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { formatDate } from '@/lib/format'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
@@ -11,6 +14,7 @@ import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 export const Route = createFileRoute('/_app/tenants/$tenantId/')({
   head: () => ({ meta: [{ title: pageTitle('Tenant overview') }] }),
   component: TenantOverviewTab,
+  pendingComponent: DetailTabPending,
 })
 
 /** One label/value row of a definition list. */
@@ -24,6 +28,30 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 /**
+ * The tab's Details and Owners cards while the tenant loads; the history card
+ * below them reads on its own once the tenant is in. Both cards carry seven
+ * rows, the Details list's fixed rows (its Archived row, which only an
+ * archived tenant has, is not counted); the grid keeps the Owners card as tall
+ * as its sibling. Rows are 1.5rem at the skeleton's `gap-2`, the same 2rem pitch as the list's 1.25rem lines at `gap-3`; the phone layout, where a label stacks over its value, is taller. Not measured.
+ */
+function TenantOverviewSkeleton() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      {[0, 1].map((card) => (
+        <Card key={card}>
+          <CardHeader>
+            <Skeleton className="h-5 w-32" />
+          </CardHeader>
+          <CardContent>
+            <CardRowsSkeleton rows={7} rowHeight="1.5rem" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+/**
  * The tenant's details from the platform read alone, so it works in every
  * lifecycle state and records no staff visit; below them, for admins, what
  * staff have done to it. The layout owns the loading
@@ -32,7 +60,7 @@ function Row({ label, value }: { label: string; value: string }) {
 function TenantOverviewTab() {
   const { tenantId } = Route.useParams()
   const { data } = useQuery(platformTenantQueryOptions(tenantId))
-  if (!data) return null
+  if (!data) return <TenantOverviewSkeleton />
   return (
     <div className="grid gap-6">
       <div className="grid gap-6 lg:grid-cols-2">

@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { z } from 'zod'
 import { LoadError } from '@/components/features/load-error'
 import { BusyButton } from '@/components/shared/busy-button'
+import { FormFieldsSkeleton } from '@/components/shared/section-skeleton'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,7 +24,6 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
 import { ROUTES } from '@/constants/routes'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
@@ -106,7 +106,7 @@ function StepUpBody({
   onDismissed: () => void
 }) {
   const providers = useAuthProviders()
-  if (providers.isPending) return <Skeleton className="h-24 w-full" />
+  if (providers.isPending) return <FormFieldsSkeleton fields={1} />
   if (providers.isError) {
     return (
       <LoadError

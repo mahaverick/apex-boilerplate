@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
-import { LoadError } from '@/components/features/load-error'
 import { ChangeModeDialog, type OnMode } from '@/components/features/maintenance/change-mode-dialog'
 import { TurnOffDialog } from '@/components/features/maintenance/turn-off-dialog'
-import { RoleDenied } from '@/components/features/role-denied'
 import { SettingsRouteError } from '@/components/features/route-error'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { EmptyState } from '@/components/shared/empty-state'
+import { SettingsPagePending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
+import { QueryState } from '@/components/shared/query-state'
+import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Item, ItemContent, ItemGroup, ItemTitle } from '@/components/ui/item'
@@ -20,7 +21,6 @@ import { platformRoleAtLeast } from '@/constants/roles'
 import { queueLine } from '@/lib/maintenance-mode'
 import { absoluteTime } from '@/lib/relative-time'
 import { maintenanceModeQueryOptions } from '@/queries/maintenance-mode.queries'
-import { isRoleDenied } from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
 import type {
   MaintenanceMode,
@@ -33,6 +33,7 @@ export const Route = createFileRoute('/_app/settings/platform/maintenance')({
   head: () => ({ meta: [{ title: pageTitle('Maintenance') }] }),
   staticData: { crumb: 'Maintenance' },
   component: MaintenancePage,
+  pendingComponent: SettingsPagePending,
   /**
    * Kept out of a lazy chunk, as the router's default error screen is: a failed
    * fetch could not load it. Splitting it would also pull the error listener
@@ -225,6 +226,28 @@ function MaintenanceContent({
 }
 
 /**
+ * The page's two cards while the state loads: a title bar over three rows
+ * each, at the cards' own spacing. The rows are the card's content in
+ * outline, not measured heights.
+ */
+function MaintenanceSkeleton() {
+  return (
+    <>
+      {[0, 1].map((card) => (
+        <Card key={card}>
+          <CardHeader>
+            <Skeleton className="h-5 w-32" />
+          </CardHeader>
+          <CardContent>
+            <CardRowsSkeleton rows={3} rowHeight="1.25rem" />
+          </CardContent>
+        </Card>
+      ))}
+    </>
+  )
+}
+
+/**
  * Maintenance mode, for every staff role: who switched customers to which
  * mode and why, the message they see, and each queue's pause state. Owners
  * change it here; everyone else reads it.
@@ -236,21 +259,14 @@ function MaintenancePage() {
     'owner'
   )
   return (
-    <div className="grid gap-6">
-      {state.isError && state.data === undefined ? (
-        isRoleDenied(state.error) ? (
-          <RoleDenied />
-        ) : (
-          <LoadError
-            message="We could not load the maintenance state."
-            onRetry={() => void state.refetch()}
-          />
-        )
-      ) : state.data === undefined ? (
-        <Skeleton className="h-64 w-full" />
-      ) : (
-        <MaintenanceContent view={state.data} isOwner={isOwner} />
-      )}
-    </div>
+    <QueryState
+      query={state}
+      name="Maintenance state"
+      errorMessage="We could not load the maintenance state."
+      className="gap-6"
+      skeleton={<MaintenanceSkeleton />}
+    >
+      {(view) => <MaintenanceContent view={view} isOwner={isOwner} />}
+    </QueryState>
   )
 }

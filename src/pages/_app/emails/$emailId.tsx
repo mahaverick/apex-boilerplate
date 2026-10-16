@@ -9,7 +9,9 @@ import { ResendEmailButton } from '@/components/features/emails/resend-email-but
 import { LoadError } from '@/components/features/load-error'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
+import { DetailPending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
+import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -37,6 +39,7 @@ export const Route = createFileRoute('/_app/emails/$emailId')({
   head: () => ({ meta: [{ title: pageTitle('Email') }] }),
   staticData: { crumb: EmailCrumb, crumbParent: { label: 'Emails', to: ROUTES.emails } },
   component: EmailDetailPage,
+  pendingComponent: DetailPending,
 })
 
 /** The recipient in the trail, once the message has loaded. */
@@ -61,12 +64,20 @@ function isDetailTab(value: unknown): value is EmailDetailTab {
   return (EMAIL_DETAIL_TABS as readonly unknown[]).includes(value)
 }
 
-/** Loads one email and shows it, a not-found state for a 404, or a load error. */
+/**
+ * Loads one email and shows it, a not-found state for a 404, or a load error.
+ * A failed read with no message to show, or a 404, replaces the page; a failed
+ * refetch with the message on screen keeps the page and shows a `LoadError`
+ * above it. While the message loads, the page is the loaded page's `gap-6`
+ * column: a header of three lines (the heading's 2rem, then two `text-sm`
+ * lines of 1.25rem), one `h-9` pill for the two-tab list and a short timeline
+ * of four rows; the timeline's length varies, so it is not measured.
+ */
 function EmailDetailPage() {
   const { emailId } = Route.useParams()
   const detail = useQuery(emailQueryOptions(emailId))
 
-  if (detail.isError) {
+  if (detail.isError && (detail.data === undefined || statusFrom(detail.error) === 404)) {
     return statusFrom(detail.error) === 404 ? (
       <EmptyState
         icon={<IconSearchOff aria-hidden="true" />}
@@ -84,14 +95,26 @@ function EmailDetailPage() {
   }
   if (detail.data === undefined) {
     return (
-      <div className="grid gap-4">
+      <div className="grid gap-6">
         <h1 className="sr-only">Email</h1>
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-64 w-full" />
+        <div className="grid gap-1">
+          <Skeleton className="h-8 w-80" />
+          <Skeleton className="h-5 w-64" />
+          <Skeleton className="h-5 w-48" />
+        </div>
+        <Skeleton className="h-9 w-44 rounded-lg" />
+        <CardRowsSkeleton rows={4} rowHeight="2rem" />
       </div>
     )
   }
-  return <EmailDetail message={detail.data} />
+  return (
+    <div className="grid gap-6">
+      {detail.isError && (
+        <LoadError message="We could not load this email." onRetry={() => void detail.refetch()} />
+      )}
+      <EmailDetail message={detail.data} />
+    </div>
+  )
 }
 
 /**

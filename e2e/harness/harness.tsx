@@ -14,6 +14,7 @@ import { setupWorker } from 'msw/browser'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@/styles/globals.css'
+import { profileKeys } from '@/queries/profile.queries'
 import { queryClient, router } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
 import {
@@ -994,7 +995,34 @@ function reauthRequired() {
   )
 }
 
+/**
+ * `?hold=` and `?fail=` each take comma-separated API paths
+ * (`/api/v1/platform/stats`), matched exactly as MSW path patterns (a `:param`
+ * segment matches any value; there is no prefix match). A held path never
+ * answers and a failed one answers 500, so a fixture can show that one
+ * section's request changes only that section. Only `/api/v1/` paths are
+ * taken. These handlers come first, so they win over the defaults below.
+ */
+const sectionParams = new URLSearchParams(location.search)
+/** The `/api/v1/` paths listed under `key`. */
+const pathsOf = (key: string) =>
+  (sectionParams.get(key) ?? '').split(',').filter((path) => path.startsWith('/api/v1/'))
+const sectionHandlers = [
+  ...pathsOf('hold').map((path) => http.get(path, () => new Promise<Response>(() => {}))),
+  ...pathsOf('fail').map((path) =>
+    http.get(
+      path,
+      () =>
+        new Response(
+          JSON.stringify({ success: false, message: 'Harness failure', statusCode: 500 }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        )
+    )
+  ),
+]
+
 const worker = setupWorker(
+  ...sectionHandlers,
   // The Overview, the default route: its KPI cards and both charts.
   http.get('/api/v1/platform/stats', ({ request }) =>
     ok(
@@ -1286,6 +1314,11 @@ useAuthStore.setState({
   isAuthenticated: true,
   isBootstrapped: true,
 })
+
+// `?profile=stale` seeds the profile cache as long out of date, so the page's `GET /profile` fires on mount and `?fail=/api/v1/profile` can fail it with the stored user on screen.
+if (new URLSearchParams(location.search).get('profile') === 'stale') {
+  queryClient.setQueryData(profileKeys.detail, testUser, { updatedAt: 0 })
+}
 
 /**
  * Which in-app route to mount, from `?path=`; the default is the Overview.

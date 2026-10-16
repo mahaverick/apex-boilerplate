@@ -15,10 +15,11 @@ import {
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
+import { isRoleDenied } from '@/lib/role-denied'
 import { auditKeys } from '@/queries/audit.queries'
 import { invalidateEmails } from '@/queries/email.queries'
 import { invalidateOnboarding } from '@/queries/onboarding.queries'
-import { invalidateDirectory, isRoleDenied, PLATFORM_PAGE_SIZE } from '@/queries/platform.queries'
+import { invalidateDirectory, PLATFORM_PAGE_SIZE } from '@/queries/platform.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
 import type { CreatePlatformTenantInput } from '@/schemas/tenant.schemas'
 import type {
@@ -61,7 +62,7 @@ export const tenantAdminKeys = {
 }
 
 /** A 404 answers who is asking, so a retry changes nothing. */
-function retryUnlessDenied(failureCount: number, error: unknown): boolean {
+function retryUnlessDenied(failureCount: number, error: Error): boolean {
   return !isRoleDenied(error) && failureCount < 1
 }
 

@@ -3,7 +3,7 @@ import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { Note } from '@/components/shared/note'
-import { Skeleton } from '@/components/ui/skeleton'
+import { TableRowsSkeleton } from '@/components/shared/section-skeleton'
 import {
   Table,
   TableBody,
@@ -19,11 +19,11 @@ import {
   FLAGS_STALE_NOTE,
   TRAIT_NAMES,
 } from '@/constants/flags.constants'
+import { isRoleDenied } from '@/lib/role-denied'
 import {
   flagsEvaluateQueryOptions,
   type FlagEvaluateParams,
 } from '@/queries/flag-inspector.queries'
-import { isRoleDenied } from '@/queries/platform.queries'
 import type { FlagEvaluationRow, FlagRow, FlagsEvaluateResponse } from '@/types/api.types'
 
 /** The traits express derived, in declaration order; an absent one is said to be unset. */
@@ -96,7 +96,7 @@ export function FlagEvaluation({
       <LoadError message={FLAGS_EVALUATE_ERROR} onRetry={() => void evaluation.refetch()} />
     )
   }
-  if (evaluation.data === undefined) return <Skeleton className="h-48 w-full" />
+  if (evaluation.data === undefined) return <TableRowsSkeleton rows={6} columns={3} />
   const sentTo = new Set(
     registry.filter((row) => row.client && row.apps.includes(params.app)).map((row) => row.key)
   )

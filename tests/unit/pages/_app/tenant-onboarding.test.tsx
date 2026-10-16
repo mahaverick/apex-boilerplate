@@ -229,6 +229,24 @@ describe('/tenants/$tenantId/onboarding', () => {
       }
     )
 
+    it('holds the onboarding card’s rows while the detail loads', async () => {
+      serve()
+      server.use(
+        http.get(
+          `/api/v1/platform/tenants/${TENANT_ID}/onboarding`,
+          () => new Promise<never>(() => {})
+        )
+      )
+      renderAppAt(ONBOARDING)
+      await screen.findByRole('navigation', { name: 'Tenant sections' })
+      await waitFor(() =>
+        expect(document.querySelector('[data-slot="query-state"][aria-busy="true"]')).not.toBeNull()
+      )
+      const busy = document.querySelector('[data-slot="query-state"][aria-busy="true"]')
+      // A title bar and five rows.
+      expect(busy?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(6)
+    })
+
     it('says the role cannot see this on a 404, and offers a retry on any other failure', async () => {
       server.use(
         http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>

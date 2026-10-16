@@ -6,12 +6,13 @@ import { EmailsTable } from '@/components/features/emails/emails-table'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { EmptyState } from '@/components/shared/empty-state'
+import { DetailTabPending } from '@/components/shared/pending-templates'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
+import { isRoleDenied } from '@/lib/role-denied'
 import { emailsQueryOptions } from '@/queries/email.queries'
-import { isRoleDenied } from '@/queries/platform.queries'
 import { PAGE_DIRECTIONS, type PageDirection } from '@/types/api.types'
 
 /** A tenant's Emails tab: the emails filed under it. */
@@ -30,6 +31,7 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/emails')({
   head: () => ({ meta: [{ title: pageTitle('Tenant emails') }] }),
   staticData: { crumb: 'Emails' },
   component: TenantEmailsTab,
+  pendingComponent: DetailTabPending,
 })
 
 /**

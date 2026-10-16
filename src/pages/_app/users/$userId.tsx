@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Outlet } from '@tanstack/react-router'
+import { DetailPending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
 import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
@@ -15,6 +16,7 @@ export const Route = createFileRoute('/_app/users/$userId')({
   head: () => ({ meta: [{ title: pageTitle('User') }] }),
   staticData: { crumb: UserCrumb, crumbParent: { label: 'Users', to: ROUTES.users } },
   component: Outlet,
+  pendingComponent: DetailPending,
 })
 
 /** The user's name, else their email, in the trail once their detail has loaded. */

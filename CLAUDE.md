@@ -246,7 +246,7 @@ is in [Error-tracking privacy](SECURITY.md#error-tracking-privacy).
 Each has an in-repo replacement:
 
 - TanStack Form with a Zod validator, which needs no adapter package;
-- `theme.store` with `public/theme-init.js`;
+- `theme.store` with the pre-paint files `public/theme-init.js` and `public/boot-variant.js`;
 - the `cn` package;
 - Base UI through shadcn, its toast included (`src/lib/toast.ts`);
 - `src/components/ui/command.tsx` on Base UI's Autocomplete, for `cmdk`, which
@@ -437,7 +437,7 @@ Playwright has five projects: `fixtures`, `live`, `contrast`, `nginx` and
 the fixtures. It needs no backend. It exists for what jsdom cannot see, because
 jsdom has no layout. `?path=` picks the route, and the harness's other query
 parameters shape the fixtures: `?role=none|viewer|owner` (the default is a
-platform admin), `?member=`, `?flags=`, `?preview=`, `?emails=none`, `?maintenance=full|route` and
+platform admin), `?member=`, `?flags=`, `?preview=`, `?emails=none`, `?maintenance=full|route`, `?hold=` and `?fail=` (comma-separated `/api/v1/` paths that never answer or answer 500), `?profile=stale` and
 `?onboarding=`. The harness's comments give each one's meaning.
 
 **An endpoint the harness leaves unmocked falls through**
@@ -519,7 +519,7 @@ is disabled to make it pass.
   `expectNoViolationsIn` runs the same rule set against the popup. It asserts that
   `aria-required-children` passed, which happens only when axe evaluated a
   `role="menu"`.
-- **`RouteError`, `RoutePending` and `RouteNotFound` render no `<main>`.** They
+- **`RouteError`, `PageSkeleton` and `RouteNotFound` render no `<main>`.** They
   render inside the matched route's `Outlet`, which a layout's `<main>` already
   wraps. The top-level splat route `src/pages/$.tsx` has no layout, so it wraps
   `RouteNotFound` in its own `<main>`.

@@ -129,6 +129,16 @@ describe('useStepUp', () => {
     await waitFor(() => expect(trigger).toHaveFocus())
   })
 
+  it('holds the password field and its button while the providers load', async () => {
+    dangerRoute(1)
+    server.use(http.get('/api/v1/auth/providers', () => new Promise<Response>(() => {})))
+    const user = userEvent.setup()
+    renderHarness()
+    await user.click(screen.getByRole('button', { name: 'Do it' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(3)
+  })
+
   it('runs the action straight through when no step-up is needed', async () => {
     const calls = dangerRoute(0)
     const user = userEvent.setup()

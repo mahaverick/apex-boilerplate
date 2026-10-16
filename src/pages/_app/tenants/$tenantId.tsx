@@ -6,6 +6,7 @@ import { LoadError } from '@/components/features/load-error'
 import { TenantActionsMenu } from '@/components/features/tenants/tenant-actions-menu'
 import { TenantStateBadge } from '@/components/features/tenants/tenant-state-badge'
 import { EmptyState } from '@/components/shared/empty-state'
+import { DetailPending } from '@/components/shared/pending-templates'
 import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
@@ -26,6 +27,7 @@ export const Route = createFileRoute('/_app/tenants/$tenantId')({
   head: () => ({ meta: [{ title: pageTitle('Tenant') }] }),
   staticData: { crumb: TenantCrumb, crumbParent: { label: 'Tenants', to: ROUTES.tenants } },
   component: TenantLayout,
+  pendingComponent: DetailPending,
 })
 
 /** The tenant's name in the trail, once its detail has loaded. */
@@ -39,8 +41,15 @@ function TenantCrumb({ params }: { params: Record<string, string> }) {
  * section nav over the tabs. Everything here reads `GET /platform/tenants/:id`;
  * only the Members, Invitations, Activity and Flags tabs and the Edit details
  * action reach the tenant's own routes, and only while it is active. A 404 is an
- * unknown tenant; it never signs out. A tab above the reader's platform role
- * (Flags, for admins) is left out of the nav.
+ * unknown tenant; it never signs out. A failed read with no tenant to show
+ * replaces the page with a `LoadError`; a failed refetch with the tenant on
+ * screen keeps the page and shows the same `LoadError` above it. While the
+ * tenant loads, the header is a skeleton of its two text lines (2rem and
+ * 1.25rem, the loaded heading's and `text-sm` line's heights) and the actions
+ * button (`h-9`, its width a guess), under the real tabs. Overview, Flags,
+ * Onboarding and Emails draw their own skeletons; Members, Invitations and
+ * Activity stay blank until the tenant lands. A tab above the reader's platform
+ * role (Flags, for admins) is left out of the nav.
  */
 function TenantLayout() {
   const { tenantId } = Route.useParams()
@@ -51,7 +60,7 @@ function TenantLayout() {
     (tab) => tab.minRole === undefined || platformRoleAtLeast(platformRole, tab.minRole)
   )
 
-  if (tenant.isError) {
+  if (tenant.isError && (tenant.data === undefined || statusFrom(tenant.error) === 404)) {
     return statusFrom(tenant.error) === 404 ? (
       <EmptyState
         icon={<IconSearchOff aria-hidden="true" />}
@@ -67,36 +76,43 @@ function TenantLayout() {
       <LoadError message="We could not load this tenant." onRetry={() => void tenant.refetch()} />
     )
   }
-  if (tenant.data === undefined) {
-    return (
-      <div className="grid gap-4">
-        <h1 className="sr-only">Tenant</h1>
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    )
-  }
-
-  const { name, slug, lifecycleState, createdAt } = tenant.data
+  const loaded = tenant.data
   return (
-    <div className="grid gap-6">
+    <div aria-busy={loaded === undefined ? true : undefined} className="grid gap-6">
+      {tenant.isError && (
+        <LoadError message="We could not load this tenant." onRetry={() => void tenant.refetch()} />
+      )}
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="grid gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1
-              ref={heading}
-              tabIndex={-1}
-              className="text-2xl font-semibold break-all outline-none"
-            >
-              {name}
-            </h1>
-            <TenantStateBadge state={lifecycleState} />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            <code>{slug}</code> · Created {formatDate(createdAt, 'medium') ?? 'on an unknown date'}
-          </p>
-        </div>
-        <TenantActionsMenu tenant={tenant.data} fallbackFocus={heading} />
+        {loaded === undefined ? (
+          <>
+            <h1 className="sr-only">Tenant</h1>
+            <div className="grid gap-1">
+              <Skeleton className="h-8 w-64" />
+              <Skeleton className="h-5 w-48" />
+            </div>
+            <Skeleton className="h-9 w-28" />
+          </>
+        ) : (
+          <>
+            <div className="grid gap-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1
+                  ref={heading}
+                  tabIndex={-1}
+                  className="text-2xl font-semibold break-all outline-none"
+                >
+                  {loaded.name}
+                </h1>
+                <TenantStateBadge state={loaded.lifecycleState} />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                <code>{loaded.slug}</code> · Created{' '}
+                {formatDate(loaded.createdAt, 'medium') ?? 'on an unknown date'}
+              </p>
+            </div>
+            <TenantActionsMenu tenant={loaded} fallbackFocus={heading} />
+          </>
+        )}
       </div>
       <nav aria-label="Tenant sections" className="flex gap-1 overflow-x-auto border-b">
         {tabs.map((tab) => (

@@ -6,6 +6,7 @@ import { LoadError } from '@/components/features/load-error'
 import { AuthCard } from '@/components/layouts/auth-card'
 import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
+import { FormFieldsSkeleton } from '@/components/shared/section-skeleton'
 import { FieldDescription, FieldGroup } from '@/components/ui/field'
 import {
   Form,
@@ -73,14 +74,12 @@ function RegisterPage() {
   return <RegisterForm invitedEmail={preview.data.email} tenantName={preview.data.tenant.name} />
 }
 
-/** The register card's shape while the invitation loads. */
+/** The register card while the invitation loads: the description's line, the form's four fields (email, password, first and last name) and its button, and the sign-in line under them. */
 function RegisterSkeleton() {
   return (
-    <AuthCard title="Create an account">
-      <div className="grid gap-2">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-      </div>
+    <AuthCard title="Create an account" description={<Skeleton className="mx-auto h-4 w-3/4" />}>
+      <FormFieldsSkeleton fields={4} />
+      <Skeleton className="mx-auto h-4 w-48" />
     </AuthCard>
   )
 }

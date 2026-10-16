@@ -28,6 +28,7 @@ import { AUDIT_ACTION_LABELS, AUDIT_ACTIONS, isAuditAction } from '@/constants/a
 import { platformRoleAtLeast } from '@/constants/roles'
 import { PLATFORM_TENANT_SLUG, ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { isRoleDenied } from '@/lib/role-denied'
 import { cn } from '@/lib/utils'
 import { analyticsKey, track } from '@/observability/telemetry'
 import {
@@ -35,7 +36,7 @@ import {
   usePlatformAuditLog,
   type PlatformAuditFilters,
 } from '@/queries/audit.queries'
-import { isRoleDenied, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
+import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { flattenTenantPages, usePlatformTenantSearch } from '@/queries/tenant-admin.queries'
 import { memberName, useMembers } from '@/queries/tenant.queries'
 import { useAuthStore } from '@/states/auth.store'

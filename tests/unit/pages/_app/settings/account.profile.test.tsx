@@ -44,6 +44,17 @@ describe('profile page', () => {
     })
   })
 
+  it('keeps the stored profile on screen with a retry above it when the refetch fails', async () => {
+    // The stored user seeds the query and an empty store lands on no-access, so the failure always has data to keep.
+    queryClient.setQueryData(['profile'], { ...testUser }, { updatedAt: 0 })
+    server.use(http.get('/api/v1/profile', () => fail('Something went wrong', 500)))
+    renderSettingsProfile()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Profile could not be loaded.')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible()
+    expect(screen.getByLabelText('First name')).toBeVisible()
+    expect(document.querySelector('[data-slot="query-state"]')).toHaveClass('gap-3')
+  })
+
   it('shows email and member-since as read-only facts', async () => {
     renderSettingsProfile()
 

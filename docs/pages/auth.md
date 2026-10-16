@@ -40,12 +40,12 @@ Pending state: the button reads "Signing in…" and is disabled. Errors: `FormEr
 | Layout              | `AuthLayout` + `AuthCard`                                                                                                                                                                                                                                                           |
 | Data                | started: `POST /invitations/preview` (`['invitations', 'preview', token]`; no auth; a failure other than 404 is retried once); `POST /auth/register` on submit; `POST /auth/resend-verification` from the "Check your email" card                                                   |
 | Sections            | "Create an account with {invited address} to join {tenant}." over first and last name (optional), the invited address in a read-only field, and the password. After a successful submit the card becomes "Check your email" with "Resend verification email" and "Back to sign in". |
-| Components          | `AuthCard`, `Skeleton`, `LoadError`, `Form`, `FormField`, `FormError`, `Input`, `BusyButton` (also the resend), `FieldDescription`, `Pii`                                                                                                                                           |
+| Components          | `AuthCard`, `Skeleton`, `FormFieldsSkeleton`, `LoadError`, `Form`, `FormField`, `FormError`, `Input`, `BusyButton` (also the resend), `FieldDescription`, `Pii`                                                                                                                     |
 | Transitions         | Sign in → `/login`; Create account → the "Check your email" card (same URL); the emailed link → `/verify-email?token=`                                                                                                                                                              |
 
 The page has these states (`RegisterPage`):
 
-1. **Preview pending:** `RegisterSkeleton`, the "Create an account" card over two `h-10` bars (shot: loading).
+1. **Preview pending:** `RegisterSkeleton`, the "Create an account" card with a description bar, `FormFieldsSkeleton` (four label-and-input pairs for email, password, first and last name, and the button bar) and a sign-in line bar. The skeleton's fields are spaced closer than the form's, so the card stays about 40 px shorter than the loaded one in the shots (about 24 px of that is the spacing; the loaded description wraps to two lines).
 2. **Preview failed with 404:** "This invitation can’t be used", "It may have expired or been revoked. Ask the person who invited you for a new one.", and no link or button. The token is sent as it is: in the walk, `?invitation=not-a-real-token` posted the preview and got the 404, where `/invitations/accept` refuses the same token locally without a request.
 3. **Preview failed otherwise:** the "Create an account" card around a `LoadError`, "We could not check your invitation." with Try again (shot: error).
 4. **Preview loaded:** the form (shot: default). Pending: "Creating account…".
@@ -53,10 +53,10 @@ The page has these states (`RegisterPage`):
 
 In the capture the invitation is to the platform tenant, so the sentence reads "to join Platform."
 
-| Loading                             | Error                             |
-| ----------------------------------- | --------------------------------- |
-| ![](img/auth/register--loading.jpg) | ![](img/auth/register--error.jpg) |
-| skeleton · 2× `h-10`                | alert · `LoadError`               |
+| Loading                                                                                                                                                        | Error                             |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| ![](img/auth/register--loading.jpg)                                                                                                                            | ![](img/auth/register--error.jpg) |
+| skeleton · the title over a description bar (`h-4 w-3/4`), four label-and-input pairs and a button (`FormFieldsSkeleton`), and a sign-in line bar (`h-4 w-48`) | alert · `LoadError`               |
 
 Findings: [F-auth-5](findings.md#f-auth-5), [F-auth-6](findings.md#f-auth-6), [F-auth-7](findings.md#f-auth-7), [F-auth-8](findings.md#f-auth-8)
 
@@ -156,17 +156,17 @@ The page has these states (`AcceptInvitationPage` and `InvitationForToken`):
 
 1. **No `?token`:** "This link is incomplete" and "Go to the home page" (shot: empty).
 2. **Malformed token** (fails `invitationTokenSchema`): "This invitation can’t be used" with the server's 404 copy and "Go to the home page", no request made. Seen in the walk with `?token=not-a-real-token`.
-3. **Preview pending:** "Checking your invitation" over two skeleton bars (shot: loading).
+3. **Preview pending:** "Checking your invitation" over four skeleton bars: a centred sentence, two button bars and a hint-height bar, the loaded card's parts (the heights are not measured against the loaded card; the loading shot shows two bars).
 4. **Preview failed with 404** (revoked, expired or used): "This invitation can’t be used" with the server's message.
 5. **Preview failed otherwise:** "We could not load this invitation", a `LoadError` with Try again, and "Go to the home page" (shot: error).
 6. **Signed out** (`SignedOut`): "Join {tenant}", "{inviter} invited you to join {tenant} as {role}.", Log in, Create account, and a hint to create the account with the invited address (shot: default; the inviter shows as "A teammate" and the tenant is the platform tenant, "Platform").
 7. **Signed in as another address** (`WrongAccount`): the same title and sentence, "This invitation was sent to {invited}. You’re signed in as {current}.", a Sign out button that returns here signed out, and "Go to the home page". Not shot.
 8. **Signed in as the invited address** (`AcceptPanel`): the same title and sentence, Accept invitation ("Accepting…" while pending) and "Go to the home page". A 403 shows the refusal inline (`role="alert"`), with a hint to verify the email when the code is `INVITATION_EMAIL_UNVERIFIED`; a 404 replaces the panel with state 4; other failures toast. Success toasts "You joined {tenant}." and opens `/overview`. Not shot.
 
-| Loading                                      | Error                                      | Empty                                      |
-| -------------------------------------------- | ------------------------------------------ | ------------------------------------------ |
-| ![](img/auth/invitation-accept--loading.jpg) | ![](img/auth/invitation-accept--error.jpg) | ![](img/auth/invitation-accept--empty.jpg) |
-| skeleton · `h-4 w-3/4` + `h-10`              | alert · `LoadError`                        | No `?token`: "This link is incomplete"     |
+| Loading                                                                                                     | Error                                      | Empty                                      |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------ |
+| ![](img/auth/invitation-accept--loading.jpg)                                                                | ![](img/auth/invitation-accept--error.jpg) | ![](img/auth/invitation-accept--empty.jpg) |
+| skeleton · under "Checking your invitation": a sentence bar (`h-4 w-3/4`), two `h-9` bars and an `h-10` bar | alert · `LoadError`                        | No `?token`: "This link is incomplete"     |
 
 Findings: [F-auth-3](findings.md#f-auth-3), [F-auth-4](findings.md#f-auth-4), [F-auth-7](findings.md#f-auth-7)
 

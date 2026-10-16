@@ -23,6 +23,7 @@ import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useFocusAfter } from '@/hooks/use-focus-after'
+import { isRoleDenied } from '@/lib/role-denied'
 import { toast } from '@/lib/toast'
 import { analyticsKey, track } from '@/observability/telemetry'
 import {
@@ -30,7 +31,7 @@ import {
   useLiftSuppression,
   type SuppressionSearchParams,
 } from '@/queries/email.queries'
-import { isRoleDenied, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
+import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { searchText } from '@/schemas/search.schemas'
 import { useAuthStore } from '@/states/auth.store'
 import {

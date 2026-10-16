@@ -11,6 +11,7 @@ import axeCore from 'axe-core'
 import { http } from 'msw'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { ThemeToggle } from '@/components/features/theme-toggle'
+import { PageSkeleton, type PageVariant } from '@/components/shared/page-skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GOOGLE_OAUTH_PATH } from '@/constants/routes'
 import { resetSessionForTests } from '@/http/session'
@@ -336,6 +337,18 @@ async function expectNoViolations({ frames = 'grade' }: { frames?: 'grade' | 'sk
 }
 
 /**
+ * `expectNoViolations` for a page whose content is still loading: the same
+ * rules, without the one-`h1` check, since a page-shaped skeleton has no
+ * heading yet and the shell's `main` is already there.
+ */
+async function expectNoViolationsWhileLoading() {
+  const results = await axeCore.run(document, AXE_OPTIONS)
+  expect(results).toHaveNoViolations()
+  expect(unexpectedIncomplete(results)).toEqual([])
+  expect(document.querySelectorAll('main')).toHaveLength(1)
+}
+
+/**
  * The same rule set as `expectNoViolations`, run against one open overlay instead of the document.
  *
  * Base UI portals a menu popup to `document.body`, so at document scope axe's `region` rule reports
@@ -608,6 +621,54 @@ describe('signed-in pages', () => {
   ])('%s has no axe violations', async (_name, path, ready) => {
     renderAppAt(path)
     await ready()
+    await expectNoViolations()
+  })
+
+  it('overview while the figures load has no axe violations', async () => {
+    server.use(http.get('/api/v1/platform/stats', () => new Promise<Response>(() => {})))
+    renderAppAt('/overview')
+    await screen.findByRole('heading', { name: 'Overview', level: 1 })
+    // Not vacuous: the figures are still held, so it is the skeletons that are graded.
+    expect(document.querySelector('[data-slot="query-state"][aria-busy="true"]')).not.toBeNull()
+    await expectNoViolations()
+  })
+
+  it('onboarding while the funnel loads has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/onboarding/funnel', () => new Promise<Response>(() => {}))
+    )
+    renderAppAt('/onboarding')
+    await screen.findByRole('heading', { name: 'Onboarding', level: 1 })
+    expect(document.querySelector('[data-slot="query-state"][aria-busy="true"]')).not.toBeNull()
+    await expectNoViolations()
+  })
+
+  it('a tenant while it loads has no axe violations', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => new Promise<Response>(() => {}))
+    )
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await screen.findByRole('heading', { name: 'Tenant', level: 1 })
+    // Not vacuous: the tenant is still held, so it is the header and the tab's skeletons that are graded.
+    expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0)
+    await expectNoViolations()
+  })
+
+  it('a user while it loads has no axe violations', async () => {
+    server.use(
+      http.get(`/api/v1/platform/users/${USER_ID_2}`, () => new Promise<Response>(() => {}))
+    )
+    renderAppAt(`/users/${USER_ID_2}`)
+    await screen.findByRole('heading', { name: 'User', level: 1 })
+    expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0)
+    await expectNoViolations()
+  })
+
+  it('security while the sign-in methods load has no axe violations', async () => {
+    server.use(http.get('/api/v1/auth/providers', () => new Promise<Response>(() => {})))
+    renderAppAt('/settings/account/security')
+    await screen.findByRole('region', { name: 'Security' })
+    expect(document.querySelector('[data-slot="query-state"][aria-busy="true"]')).not.toBeNull()
     await expectNoViolations()
   })
 
@@ -1884,4 +1945,19 @@ describe('maintenance', () => {
     await screen.findByRole('alertdialog', { name: 'Turn off maintenance?' })
     await expectNoViolations()
   })
+})
+
+describe('page skeletons', () => {
+  it.each<PageVariant>(['list', 'detail', 'dashboard', 'settings'])(
+    'the %s template has no axe violations inside a page',
+    async (variant) => {
+      render(
+        <main>
+          <h1>Page</h1>
+          <PageSkeleton variant={variant} />
+        </main>
+      )
+      await expectNoViolationsWhileLoading()
+    }
+  )
 })

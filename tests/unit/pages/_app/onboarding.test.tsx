@@ -361,11 +361,10 @@ describe('/onboarding', () => {
     })
 
     it('keeps the funnel up and offers a retry when only the list fails', async () => {
-      let calls = 0
+      let failing = true
       server.use(
         http.get('/api/v1/platform/onboarding/tenants', () => {
-          calls += 1
-          return calls <= 2
+          return failing
             ? fail('Boom', 500)
             : ok(
                 { tenants: [onboardingTenantRow()], nextCursor: null, prevCursor: null },
@@ -377,6 +376,7 @@ describe('/onboarding', () => {
       renderAppAt('/onboarding')
       expect(await screen.findByText('We could not load these tenants.')).toBeInTheDocument()
       expect(screen.getByRole('region', { name: 'Onboarding figures' })).toBeInTheDocument()
+      failing = false
       await user.click(screen.getByRole('button', { name: 'Try again' }))
       expect(await screen.findByRole('table', { name: 'Onboarding tenants' })).toBeInTheDocument()
     })
@@ -391,5 +391,37 @@ describe('/onboarding', () => {
     renderAppAt('/onboarding')
     await screen.findByRole('heading', { name: 'Onboarding', level: 1 })
     await waitFor(() => expect(document.title).toBe('Onboarding · Apex'))
+  })
+
+  it('shows the tenants by state while the funnel is still loading', async () => {
+    server.use(
+      http.get('/api/v1/platform/onboarding/funnel', () => new Promise<Response>(() => {}))
+    )
+    signIn()
+    renderAppAt('/onboarding')
+    expect(await screen.findByRole('tablist', { name: 'Onboarding states' })).toBeVisible()
+  })
+
+  it('holds the funnel’s KPI cards at the loaded cards’ height while it loads', async () => {
+    server.use(
+      http.get('/api/v1/platform/onboarding/funnel', () => new Promise<Response>(() => {}))
+    )
+    signIn()
+    renderAppAt('/onboarding')
+    await screen.findByRole('heading', { level: 1, name: 'Onboarding' })
+    const cards = document.querySelectorAll(
+      '[data-slot="query-state"][aria-busy="true"] [data-slot="card"]'
+    )
+    expect(cards).toHaveLength(5)
+    expect(cards[0]).toHaveProperty('style.minHeight', '11rem')
+  })
+
+  it('shows one refusal, and no tenants by state, when the funnel is refused for the role', async () => {
+    server.use(http.get('/api/v1/platform/onboarding/funnel', () => fail('Not found', 404)))
+    signIn()
+    renderAppAt('/onboarding')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your role can’t see this any more.')
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    expect(screen.queryByRole('tablist', { name: 'Onboarding states' })).not.toBeInTheDocument()
   })
 })

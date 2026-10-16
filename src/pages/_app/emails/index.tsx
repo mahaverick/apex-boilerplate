@@ -21,9 +21,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { EMAIL_STATUS_BADGE, EMAIL_TEMPLATES } from '@/constants/email.constants'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { isRoleDenied } from '@/lib/role-denied'
 import { analyticsKey, track } from '@/observability/telemetry'
 import { emailsQueryOptions, type EmailSearchParams } from '@/queries/email.queries'
-import { isRoleDenied, SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
+import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { emailsSearchSchema, type EmailsSearch } from '@/schemas/email.schemas'
 import {
   EMAIL_MESSAGE_STATUSES,

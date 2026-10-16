@@ -130,6 +130,62 @@ describe('/tenants/$tenantId', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 
+  it('shows the header skeleton, the tabs and the Overview tab’s skeleton while the tenant loads', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => new Promise<never>(() => {}))
+    )
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    expect(await screen.findByRole('heading', { name: 'Tenant', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Tenant sections' })).toBeVisible()
+    const main = screen.getByRole('main')
+    // The name bar, the line bar and the actions bar sit beside the hidden heading.
+    const header = screen.getByRole('heading', { name: 'Tenant', level: 1 }).parentElement
+    expect(header?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(3)
+    expect(main.querySelectorAll('[data-slot="card"]')).toHaveLength(2)
+    expect(screen.queryByRole('heading', { name: 'Details', level: 2 })).not.toBeInTheDocument()
+  })
+
+  it('marks the tenant layout busy while the tenant loads', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => new Promise<never>(() => {}))
+    )
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    const tabs = await screen.findByRole('navigation', { name: 'Tenant sections' })
+    expect(tabs.parentElement).toHaveAttribute('aria-busy', 'true')
+  })
+
+  it('does not mark the loaded tenant layout busy', async () => {
+    serve(detail())
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    expect(await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })).toBeInTheDocument()
+    expect(
+      screen.getByRole('navigation', { name: 'Tenant sections' }).parentElement
+    ).not.toHaveAttribute('aria-busy')
+  })
+
+  it('keeps the loaded page with one alert above it when a refetch fails', async () => {
+    serve(detail())
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    expect(await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })).toBeInTheDocument()
+    server.use(http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => fail('Boom', 500)))
+    await act(() => queryClient.refetchQueries({ queryKey: tenantAdminKeys.detail(TENANT_ID) }))
+    expect(await screen.findAllByRole('alert')).toHaveLength(1)
+    expect(screen.getByRole('alert')).toHaveTextContent('We could not load this tenant.')
+    expect(screen.getByRole('heading', { name: 'Acme Corp', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Tenant sections' })).toBeVisible()
+  })
+
+  it('shows the not-found panel when a loaded tenant answers 404 on refetch', async () => {
+    serve(detail())
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    expect(await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })).toBeInTheDocument()
+    server.use(http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => fail('Not found', 404)))
+    await act(() => queryClient.refetchQueries({ queryKey: tenantAdminKeys.detail(TENANT_ID) }))
+    expect(
+      await screen.findByRole('heading', { name: 'Tenant not found', level: 1 })
+    ).toBeInTheDocument()
+  })
+
   it('shows a not-found panel for an unknown tenant', async () => {
     server.use(http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => fail('Not found', 404)))
     renderAppAt(`/tenants/${TENANT_ID}`)

@@ -4,14 +4,15 @@ import { FlagEvaluation } from '@/components/features/flags/flag-evaluation'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { FrozenTenant } from '@/components/features/tenants/frozen-tenant'
+import { DetailTabPending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { FLAGS_LIST_ERROR } from '@/constants/flags.constants'
 import { platformRoleAtLeast, ROLE_LABELS } from '@/constants/roles'
+import { isRoleDenied } from '@/lib/role-denied'
 import { flagsListQueryOptions } from '@/queries/flag-inspector.queries'
-import { isRoleDenied } from '@/queries/platform.queries'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { memberName, useMembers } from '@/queries/tenant.queries'
 import { tenantFlagsSearchSchema } from '@/schemas/flags.schemas'
@@ -24,7 +25,26 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/flags')({
   head: () => ({ meta: [{ title: pageTitle('Tenant flags') }] }),
   staticData: { crumb: 'Flags' },
   component: TenantFlagsTab,
+  pendingComponent: DetailTabPending,
 })
+
+/**
+ * The member picker's buttons and its hint line while the members and the
+ * registry load: three member buttons (a small button is 2rem tall) and the
+ * hint's one line. The count of members is a guess, not measured.
+ */
+function MemberPickerSkeleton() {
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap gap-2">
+        {[0, 1, 2].map((member) => (
+          <Skeleton key={member} className="h-8 w-36" />
+        ))}
+      </div>
+      <Skeleton className="h-4 w-96 max-w-full" />
+    </div>
+  )
+}
 
 /**
  * The member picker and the picked member's evaluation in this tenant, as
@@ -47,7 +67,7 @@ function TenantFlagsPanel({ tenant }: { tenant: PlatformTenantDetail }) {
     )
   }
   if (members.data === undefined || flags.data === undefined) {
-    return <Skeleton className="h-48 w-full" />
+    return <MemberPickerSkeleton />
   }
   const picked = members.data.find((member) => member.user.id === userId)
   return (
@@ -90,7 +110,6 @@ function TenantFlagsTab() {
   const { tenantId } = Route.useParams()
   const platformRole = useAuthStore((state) => state.user?.platformRole)
   const { data } = useQuery(platformTenantQueryOptions(tenantId))
-  if (!data) return null
   return (
     <section aria-labelledby="tenant-flags" className="grid gap-4">
       <h2 id="tenant-flags" className="text-lg font-semibold">
@@ -98,6 +117,8 @@ function TenantFlagsTab() {
       </h2>
       {!platformRoleAtLeast(platformRole, 'admin') ? (
         <RoleDenied />
+      ) : !data ? (
+        <MemberPickerSkeleton />
       ) : data.lifecycleState !== 'active' ? (
         <FrozenTenant state={data.lifecycleState} />
       ) : (

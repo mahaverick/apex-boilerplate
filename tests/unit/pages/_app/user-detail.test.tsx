@@ -95,6 +95,49 @@ describe('/users/$userId', () => {
     )
   })
 
+  it('holds the user page’s header and five cards while the user loads', async () => {
+    server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => new Promise<never>(() => {})))
+    renderAppAt(`/users/${USER_ID_2}`)
+    expect(await screen.findByRole('heading', { name: 'User', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('main').querySelectorAll('[data-slot="card"]')).toHaveLength(5)
+  })
+
+  it('marks the user page busy while the user loads', async () => {
+    server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => new Promise<never>(() => {})))
+    renderAppAt(`/users/${USER_ID_2}`)
+    const heading = await screen.findByRole('heading', { name: 'User', level: 1 })
+    expect(heading.parentElement).toHaveAttribute('aria-busy', 'true')
+  })
+
+  it('does not mark the loaded user page busy', async () => {
+    answer()
+    renderAppAt(`/users/${USER_ID_2}`)
+    expect(await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('main').querySelector('[aria-busy="true"]')).toBeNull()
+  })
+
+  it('keeps the loaded page with one alert above it when a refetch fails', async () => {
+    answer()
+    renderAppAt(`/users/${USER_ID_2}`)
+    expect(await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })).toBeInTheDocument()
+    server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => fail('Boom', 500)))
+    await act(() => queryClient.refetchQueries({ queryKey: userAdminKeys.detail(USER_ID_2) }))
+    expect(await screen.findAllByRole('alert')).toHaveLength(1)
+    expect(screen.getByRole('alert')).toHaveTextContent('We could not load this user.')
+    expect(screen.getByRole('heading', { name: 'Cleo Doe', level: 1 })).toBeInTheDocument()
+  })
+
+  it('says the user does not exist when a loaded user answers 404 on refetch', async () => {
+    answer()
+    renderAppAt(`/users/${USER_ID_2}`)
+    expect(await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })).toBeInTheDocument()
+    server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => fail('Not found', 404)))
+    await act(() => queryClient.refetchQueries({ queryKey: userAdminKeys.detail(USER_ID_2) }))
+    expect(
+      await screen.findByRole('heading', { name: 'User not found', level: 1 })
+    ).toBeInTheDocument()
+  })
+
   it('says the user does not exist on a 404', async () => {
     server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => fail('Not found', 404)))
     renderAppAt(`/users/${USER_ID_2}`)

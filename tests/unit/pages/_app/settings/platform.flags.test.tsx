@@ -426,6 +426,16 @@ describe('/settings/platform/flags evaluate', () => {
     expect(evaluated).toEqual([])
   })
 
+  it('holds the looked-up user’s two rows while the lookup runs', async () => {
+    serve()
+    server.use(
+      http.get(`/api/v1/platform/users/${USER_ID_2}`, () => new Promise<Response>(() => {}))
+    )
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
+    const panel = await screen.findByRole('region', { name: 'Evaluate' })
+    await waitFor(() => expect(panel.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(2))
+  })
+
   it('shows one retryable error when the evaluation fails, without retrying it', async () => {
     serve()
     let calls = 0

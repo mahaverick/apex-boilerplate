@@ -154,21 +154,25 @@ The policy is enforced, not report-only:
     base-uri 'none'; frame-ancestors 'none'; form-action 'self'
 
 - **`script-src 'self'` holds because no script is inline.** The pre-paint
-  theme script is the file `public/theme-init.js`, loaded by a blocking
-  `<script src>`, and `/runtime-config.js` is same-origin. Never add an
+  scripts are the files `public/theme-init.js` and `public/boot-variant.js`,
+  each loaded by a blocking `<script src>`, and `/runtime-config.js` is same-origin. Never add an
   inline script, `'unsafe-inline'` or `'unsafe-eval'` for scripts.
   `src/lib/zod-jitless.ts` turns off Zod's JIT, whose `new Function` probe
   this policy reports as a violation; it is the first import of
   `src/main.tsx`.
-- **`style-src 'unsafe-inline'`** is there because `ChartStyle`
+- **`style-src 'unsafe-inline'`** is there for three reasons. `ChartStyle`
   (`src/components/ui/chart.tsx`) writes a `<style>` element, and so do Base
   UI's `Select` popup and `ScrollArea` (the command palette), to hide their
   scrollbars; `e2e/nginx/charts.test.ts` checks the Overview's charts draw
-  under this policy with no violation. React applies `style` props through the
+  under this policy with no violation. And `index.html` carries the boot
+  shell's inline `<style id="boot-tokens">` and `<style id="boot-shell">`
+  blocks, so the first paint needs no stylesheet request; a static
+  `index.html` cannot carry a nonce, and only a hash source per block could
+  stand in for the keyword. React applies `style` props through the
   CSSOM, which the policy does not govern, so the toast's and the sidebar's
   inline CSS variables do not need it. Base UI's `CSPProvider` with
   `disableStyleElements` would drop Base UI's `<style>` elements, once their
-  rules live in `globals.css`, but `ChartStyle` would still need it.
+  rules live in `globals.css`, but `ChartStyle` and the boot shell's inline style would still need it.
 - **`connect-src 'self'`** holds because the API, analytics and error
   tracking are all same-origin: posthog-js sends to `/api/v1/collect` and
   loads its recorder from there, so the browser never talks to PostHog.
@@ -436,8 +440,9 @@ people out of pages that would fail.
 - **The API refuses with a 404.** `/platform/*` answers 404, not 403, to a
   user who is not staff and to staff below a route's role, so a refused
   route looks the same as a missing one. `isRoleDenied`
-  (`src/queries/platform.queries.ts`) reads any 404 there as "not available
-  to you": the page renders `RoleDenied`, queries do not retry it, and the
+  (`src/lib/role-denied.ts`) reads any 404 there as "not available
+  to you": the page renders `RoleDenied` (`QueryState` treats every 404 it
+  renders as a role refusal, `GET /auth/providers` and `GET /profile` included), queries do not retry it, and the
   maintenance poll stops on it.
 - **A 404 is never a sign-out.** It is not an auth verdict
   ([Sign-out rules](#sign-out-rules)). `RoleDenied` offers a reload, which
@@ -619,8 +624,9 @@ Some of what staff see comes from someone the API does not vouch for.
   among them), the emails list and the suppressions list.
 - **HSTS is the edge's job.** See [CSP and headers](#csp-and-headers).
 - **Inline styles are allowed** (`style-src 'unsafe-inline'`), for
-  `ChartStyle` and Base UI's `Select` popup and `ScrollArea`.
-  An injected `<style>` cannot run script, but it can restyle the page.
+  `ChartStyle`, Base UI's `Select` popup and `ScrollArea`, and the boot
+  shell's inline `<style>` blocks. An injected `<style>` cannot run script,
+  but it can restyle the page.
 - **The in-memory token is reachable by an injected script.** Memory-only
   storage stops persistence, not same-origin code; the CSP and React's
   escaping are what keep such code out.

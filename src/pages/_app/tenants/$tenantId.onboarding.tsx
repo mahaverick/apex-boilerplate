@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
-import { LoadError } from '@/components/features/load-error'
 import { OnboardingStateBadge } from '@/components/features/onboarding/onboarding-state-badge'
 import { OnboardingStepList } from '@/components/features/onboarding/onboarding-step-list'
 import { ReminderHistory } from '@/components/features/onboarding/reminder-history'
 import { ReasonDialog } from '@/components/features/reason-dialog'
-import { RoleDenied } from '@/components/features/role-denied'
+import { DetailTabPending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
+import { QueryState } from '@/components/shared/query-state'
+import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -15,7 +16,6 @@ import { pageTitle } from '@/constants/app'
 import { AWAITING_OWNER_NOTE, NOT_TRACKED_NOTE } from '@/constants/onboarding.constants'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { useFocusAfter } from '@/hooks/use-focus-after'
-import { statusFrom } from '@/lib/api-error'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import {
@@ -40,6 +40,7 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/onboarding')({
   head: () => ({ meta: [{ title: pageTitle('Tenant onboarding') }] }),
   staticData: { crumb: 'Onboarding' },
   component: TenantOnboardingTab,
+  pendingComponent: DetailTabPending,
 })
 
 /** A time in the reader's locale, or a fallback when there is none. */
@@ -74,24 +75,39 @@ function reminderBlockedText(
 /**
  * One tenant's onboarding, from the platform read, so it shows in every
  * lifecycle state: its state, each step and how it was done, and the
- * reminders staff sent. A 404 is a role refusal; the layout handles an
- * unknown tenant.
+ * reminders staff sent. A 404 is a role refusal (`QueryState` reads it so); the
+ * layout handles an unknown tenant.
  */
 function TenantOnboardingTab() {
   const { tenantId } = Route.useParams()
   const detail = useQuery(tenantOnboardingQueryOptions(tenantId))
-  if (detail.isError) {
-    return statusFrom(detail.error) === 404 ? (
-      <RoleDenied />
-    ) : (
-      <LoadError
-        message="We could not load this tenant’s onboarding."
-        onRetry={() => void detail.refetch()}
-      />
-    )
-  }
-  if (detail.data === undefined) return <Skeleton className="h-64 w-full" />
-  return <TenantOnboarding detail={detail.data} />
+  return (
+    <QueryState
+      query={detail}
+      name="Onboarding"
+      errorMessage="We could not load this tenant’s onboarding."
+      skeleton={<OnboardingSkeleton />}
+    >
+      {(data) => <TenantOnboarding detail={data} />}
+    </QueryState>
+  )
+}
+
+/**
+ * The onboarding card while the detail loads: a title bar over five rows of
+ * 3rem, the height of a step row. The step count is a guess, not measured.
+ */
+function OnboardingSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-5 w-32" />
+      </CardHeader>
+      <CardContent>
+        <CardRowsSkeleton rows={5} rowHeight="3rem" />
+      </CardContent>
+    </Card>
+  )
 }
 
 /**
