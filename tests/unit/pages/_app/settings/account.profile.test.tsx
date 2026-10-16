@@ -44,6 +44,24 @@ describe('profile page', () => {
     })
   })
 
+  it('says the profile failed to load, with a retry, instead of an endless skeleton', async () => {
+    // The stored copy is stale and an empty store lands on the no-access page, so the failed read shows beside the form.
+    queryClient.setQueryData(['profile'], { ...testUser }, { updatedAt: 0 })
+    server.use(http.get('/api/v1/profile', () => fail('Something went wrong', 500)))
+    renderSettingsProfile()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Profile could not be loaded.')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible()
+  })
+
+  it('keeps the stored profile on screen with a retry above it when the refetch fails', async () => {
+    queryClient.setQueryData(['profile'], { ...testUser }, { updatedAt: 0 })
+    server.use(http.get('/api/v1/profile', () => fail('Something went wrong', 500)))
+    renderSettingsProfile()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Profile could not be loaded.')
+    expect(screen.getByLabelText('First name')).toBeVisible()
+    expect(document.querySelector('[data-slot="query-state"]')).toHaveClass('gap-3')
+  })
+
   it('shows email and member-since as read-only facts', async () => {
     renderSettingsProfile()
 

@@ -27,6 +27,15 @@ describe('/register (invitation only)', () => {
     vi.restoreAllMocks()
   })
 
+  it('holds the form’s four fields and its button while the invitation loads', async () => {
+    server.use(http.post('/api/v1/invitations/preview', () => new Promise<Response>(() => {})))
+    renderAppAt(PATH)
+    const heading = await screen.findByRole('heading', { name: 'Create an account', level: 1 })
+    const card = heading.closest('[data-slot="card"]')
+    // Four label-and-input pairs and the button bar.
+    expect(card?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(9)
+  })
+
   it('sends a visitor without an invitation to /login', async () => {
     const router = renderAppAt('/register')
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'))

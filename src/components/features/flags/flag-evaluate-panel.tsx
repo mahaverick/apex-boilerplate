@@ -4,6 +4,7 @@ import { FlagEvaluation } from '@/components/features/flags/flag-evaluation'
 import { FlagUserPicker } from '@/components/features/flags/flag-user-picker'
 import { LoadError } from '@/components/features/load-error'
 import { Pii } from '@/components/shared/pii'
+import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { Alert, AlertAction, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { FLAG_APP_LABELS } from '@/constants/flags.constants'
 import { statusFrom } from '@/lib/api-error'
@@ -158,7 +158,7 @@ export function FlagEvaluatePanel({ search, onSearchChange, registry }: FlagEval
       <LoadError message="We could not load this user." onRetry={() => void user.refetch()} />
     )
   }
-  if (user.data === undefined) return <Skeleton className="h-24 w-full" />
+  if (user.data === undefined) return <CardRowsSkeleton rows={2} />
   return (
     <EvaluateUser
       user={user.data}

@@ -95,6 +95,13 @@ describe('/users/$userId', () => {
     )
   })
 
+  it('holds the user page’s header and five cards while the user loads', async () => {
+    server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => new Promise<never>(() => {})))
+    renderAppAt(`/users/${USER_ID_2}`)
+    expect(await screen.findByRole('heading', { name: 'User', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('main').querySelectorAll('[data-slot="card"]')).toHaveLength(5)
+  })
+
   it('says the user does not exist on a 404', async () => {
     server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => fail('Not found', 404)))
     renderAppAt(`/users/${USER_ID_2}`)

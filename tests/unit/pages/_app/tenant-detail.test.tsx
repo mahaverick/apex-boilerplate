@@ -130,6 +130,18 @@ describe('/tenants/$tenantId', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 
+  it('shows the header skeleton, the tabs and the Overview tab’s skeleton while the tenant loads', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => new Promise<never>(() => {}))
+    )
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    expect(await screen.findByRole('heading', { name: 'Tenant', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Tenant sections' })).toBeVisible()
+    const main = screen.getByRole('main')
+    expect(main.querySelectorAll('[data-slot="card"]')).toHaveLength(2)
+    expect(screen.queryByRole('heading', { name: 'Details', level: 2 })).not.toBeInTheDocument()
+  })
+
   it('shows a not-found panel for an unknown tenant', async () => {
     server.use(http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => fail('Not found', 404)))
     renderAppAt(`/tenants/${TENANT_ID}`)

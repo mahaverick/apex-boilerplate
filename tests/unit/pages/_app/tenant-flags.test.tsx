@@ -112,6 +112,26 @@ describe('/tenants/$tenantId/flags', () => {
     expect(seen).toEqual(['members', `?userId=${USER_ID_2}&tenantId=${TENANT_ID}&app=react`])
   })
 
+  it('shows the Flags heading and the member picker’s skeleton while the tenant loads', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => new Promise<never>(() => {}))
+    )
+    renderAppAt(FLAGS)
+    const region = await screen.findByRole('region', { name: 'Flags' })
+    // Three member bars and the hint line.
+    expect(region.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(4)
+  })
+
+  it('holds the evaluation’s table rows while it loads', async () => {
+    serve()
+    server.use(http.get('/api/v1/platform/flags/evaluate', () => new Promise<never>(() => {})))
+    renderAppAt(`${FLAGS}?userId=${USER_ID_2}`)
+    await screen.findByRole('list', { name: 'Members' })
+    await waitFor(() =>
+      expect(document.querySelectorAll('[data-slot="table-rows-skeleton"]')).toHaveLength(1)
+    )
+  })
+
   it('refuses a viewer without asking for members or an evaluation', async () => {
     signIn({ ...testUser, platformRole: 'viewer' })
     const seen = serve()

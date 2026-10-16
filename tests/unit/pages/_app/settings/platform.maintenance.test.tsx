@@ -113,6 +113,18 @@ describe('/settings/platform/maintenance', () => {
     ).toBeNull()
   })
 
+  it('holds both maintenance cards while the state loads', async () => {
+    signInAs('owner')
+    server.use(http.get('/api/v1/platform/maintenance-mode', () => new Promise<Response>(() => {})))
+    renderAppAt('/settings/platform/maintenance')
+    await waitFor(() =>
+      expect(document.querySelector('[data-slot="query-state"][aria-busy="true"]')).not.toBeNull()
+    )
+    const busy = document.querySelector('[data-slot="query-state"][aria-busy="true"]')
+    expect(busy?.querySelectorAll('[data-slot="card"]')).toHaveLength(2)
+    expect(busy?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(8)
+  })
+
   it('gives an owner the moves each mode allows', async () => {
     serve(maintenanceModeView())
     await openPage()

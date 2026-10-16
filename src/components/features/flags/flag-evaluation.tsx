@@ -3,7 +3,7 @@ import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { Note } from '@/components/shared/note'
-import { Skeleton } from '@/components/ui/skeleton'
+import { TableRowsSkeleton } from '@/components/shared/section-skeleton'
 import {
   Table,
   TableBody,
@@ -96,7 +96,7 @@ export function FlagEvaluation({
       <LoadError message={FLAGS_EVALUATE_ERROR} onRetry={() => void evaluation.refetch()} />
     )
   }
-  if (evaluation.data === undefined) return <Skeleton className="h-48 w-full" />
+  if (evaluation.data === undefined) return <TableRowsSkeleton rows={6} columns={3} />
   const sentTo = new Set(
     registry.filter((row) => row.client && row.apps.includes(params.app)).map((row) => row.key)
   )

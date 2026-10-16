@@ -643,6 +643,35 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
+  it('a tenant while it loads has no axe violations', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => new Promise<Response>(() => {}))
+    )
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await screen.findByRole('heading', { name: 'Tenant', level: 1 })
+    // Not vacuous: the tenant is still held, so it is the header and the tab's skeletons that are graded.
+    expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0)
+    await expectNoViolations()
+  })
+
+  it('a user while it loads has no axe violations', async () => {
+    server.use(
+      http.get(`/api/v1/platform/users/${USER_ID_2}`, () => new Promise<Response>(() => {}))
+    )
+    renderAppAt(`/users/${USER_ID_2}`)
+    await screen.findByRole('heading', { name: 'User', level: 1 })
+    expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0)
+    await expectNoViolations()
+  })
+
+  it('security while the sign-in methods load has no axe violations', async () => {
+    server.use(http.get('/api/v1/auth/providers', () => new Promise<Response>(() => {})))
+    renderAppAt('/settings/account/security')
+    await screen.findByRole('region', { name: 'Security' })
+    expect(document.querySelector('[data-slot="query-state"][aria-busy="true"]')).not.toBeNull()
+    await expectNoViolations()
+  })
+
   it('no-access has no axe violations', async () => {
     useAuthStore.setState({ user: { ...testUser, platformRole: null } })
     renderAppAt('/no-access')

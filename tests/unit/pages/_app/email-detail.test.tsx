@@ -541,6 +541,35 @@ describe('/emails/$emailId', () => {
     ])
   })
 
+  it('holds the email page’s header, tabs and timeline while the email loads', async () => {
+    server.use(http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => new Promise<never>(() => {})))
+    renderAppAt(PAGE)
+    expect(await screen.findByRole('heading', { name: 'Email', level: 1 })).toBeInTheDocument()
+    // Two header bars, three tab bars and four timeline rows.
+    expect(screen.getByRole('main').querySelectorAll('[data-slot="skeleton"]')).toHaveLength(9)
+  })
+
+  it('says the preview failed, with a retry', async () => {
+    serve()
+    server.use(http.get(`/api/v1/platform/emails/${EMAIL_ID}/preview`, () => fail('Boom', 500)))
+    renderAppAt(`${PAGE}?tab=preview`)
+    const alerts = await screen.findAllByRole('alert')
+    expect(alerts).toHaveLength(1)
+    expect(alerts[0]).toHaveTextContent('We could not load the preview.')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible()
+  })
+
+  it('shows the role refusal when the preview answers 404', async () => {
+    serve()
+    server.use(
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}/preview`, () => fail('Not found', 404))
+    )
+    renderAppAt(`${PAGE}?tab=preview`)
+    const alerts = await screen.findAllByRole('alert')
+    expect(alerts).toHaveLength(1)
+    expect(alerts[0]).toHaveTextContent('Your role can’t see this any more.')
+  })
+
   it('shows a not-found panel on a 404, without signing out', async () => {
     server.use(http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => fail('Not found', 404)))
     renderAppAt(PAGE)

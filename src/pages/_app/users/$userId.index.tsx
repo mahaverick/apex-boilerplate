@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
 import { DetailPending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
+import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,7 +36,13 @@ export const Route = createFileRoute('/_app/users/$userId/')({
 /** A sign-in provider's label; an unknown one renders as the API names it. */
 const PROVIDER_LABELS: Record<string, string> = { email: 'Email', google: 'Google' }
 
-/** Loads one user and shows them, a not-found state for a 404, or a load error. */
+/**
+ * Loads one user and shows them, a not-found state for a 404, or a load error.
+ * While the user loads, the page is its header (a name and an email line) and
+ * the five cards an admin sees (Tenants, Sign-in methods, Pending invitations,
+ * Emails, History), each a title bar over two rows; the rows are not measured
+ * against the loaded cards.
+ */
 function UserDetailPage() {
   const { userId } = Route.useParams()
   const detail = useQuery(platformUserQueryOptions(userId))
@@ -51,8 +58,18 @@ function UserDetailPage() {
     return (
       <div className="grid gap-4">
         <h1 className="sr-only">User</h1>
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-48" />
+        {[0, 1, 2, 3, 4].map((card) => (
+          <Card key={card}>
+            <CardHeader>
+              <Skeleton className="h-5 w-32" />
+            </CardHeader>
+            <CardContent>
+              <CardRowsSkeleton rows={2} />
+            </CardContent>
+          </Card>
+        ))}
       </div>
     )
   }

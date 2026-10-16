@@ -41,7 +41,11 @@ function TenantCrumb({ params }: { params: Record<string, string> }) {
  * section nav over the tabs. Everything here reads `GET /platform/tenants/:id`;
  * only the Members, Invitations, Activity and Flags tabs and the Edit details
  * action reach the tenant's own routes, and only while it is active. A 404 is an
- * unknown tenant; it never signs out. A tab above the reader's platform role
+ * unknown tenant; it never signs out. While the tenant loads, the header is a
+ * skeleton of its two text lines and the actions button (the heading is
+ * 2rem tall and the line under it 1rem, the line's text being 1.25rem; none of
+ * it measured), under the real tabs; Overview and Flags draw their own
+ * skeletons, the other tabs stay blank until the tenant lands. A tab above the reader's platform role
  * (Flags, for admins) is left out of the nav.
  */
 function TenantLayout() {
@@ -69,36 +73,40 @@ function TenantLayout() {
       <LoadError message="We could not load this tenant." onRetry={() => void tenant.refetch()} />
     )
   }
-  if (tenant.data === undefined) {
-    return (
-      <div className="grid gap-4">
-        <h1 className="sr-only">Tenant</h1>
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    )
-  }
-
-  const { name, slug, lifecycleState, createdAt } = tenant.data
+  const loaded = tenant.data
   return (
     <div className="grid gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="grid gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1
-              ref={heading}
-              tabIndex={-1}
-              className="text-2xl font-semibold break-all outline-none"
-            >
-              {name}
-            </h1>
-            <TenantStateBadge state={lifecycleState} />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            <code>{slug}</code> · Created {formatDate(createdAt, 'medium') ?? 'on an unknown date'}
-          </p>
-        </div>
-        <TenantActionsMenu tenant={tenant.data} fallbackFocus={heading} />
+        {loaded === undefined ? (
+          <>
+            <h1 className="sr-only">Tenant</h1>
+            <div className="grid gap-1">
+              <Skeleton className="h-8 w-64" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <Skeleton className="h-9 w-28" />
+          </>
+        ) : (
+          <>
+            <div className="grid gap-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1
+                  ref={heading}
+                  tabIndex={-1}
+                  className="text-2xl font-semibold break-all outline-none"
+                >
+                  {loaded.name}
+                </h1>
+                <TenantStateBadge state={loaded.lifecycleState} />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                <code>{loaded.slug}</code> · Created{' '}
+                {formatDate(loaded.createdAt, 'medium') ?? 'on an unknown date'}
+              </p>
+            </div>
+            <TenantActionsMenu tenant={loaded} fallbackFocus={heading} />
+          </>
+        )}
       </div>
       <nav aria-label="Tenant sections" className="flex gap-1 overflow-x-auto border-b">
         {tabs.map((tab) => (

@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
 import { DetailPending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
+import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -63,7 +64,12 @@ function isDetailTab(value: unknown): value is EmailDetailTab {
   return (EMAIL_DETAIL_TABS as readonly unknown[]).includes(value)
 }
 
-/** Loads one email and shows it, a not-found state for a 404, or a load error. */
+/**
+ * Loads one email and shows it, a not-found state for a 404, or a load error.
+ * While the message loads, the page is its header (two bars), a row of three
+ * tab bars and a short timeline of four rows; none of it is measured against
+ * the loaded page, whose timeline length varies.
+ */
 function EmailDetailPage() {
   const { emailId } = Route.useParams()
   const detail = useQuery(emailQueryOptions(emailId))
@@ -88,8 +94,16 @@ function EmailDetailPage() {
     return (
       <div className="grid gap-4">
         <h1 className="sr-only">Email</h1>
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-64 w-full" />
+        <div className="grid gap-1">
+          <Skeleton className="h-8 w-80" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <div className="flex gap-2">
+          {[0, 1, 2].map((tab) => (
+            <Skeleton key={tab} className="h-8 w-24" />
+          ))}
+        </div>
+        <CardRowsSkeleton rows={4} rowHeight="2rem" />
       </div>
     )
   }

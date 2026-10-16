@@ -29,6 +29,24 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/flags')({
 })
 
 /**
+ * The member picker's buttons and its hint line while the members and the
+ * registry load: three member buttons (a small button is 2rem tall) and the
+ * hint's one line. The count of members is a guess, not measured.
+ */
+function MemberPickerSkeleton() {
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap gap-2">
+        {[0, 1, 2].map((member) => (
+          <Skeleton key={member} className="h-8 w-36" />
+        ))}
+      </div>
+      <Skeleton className="h-4 w-96 max-w-full" />
+    </div>
+  )
+}
+
+/**
  * The member picker and the picked member's evaluation in this tenant, as
  * the customer app sees it. Members are read through the tenant's own
  * routes, so only an active tenant lists them.
@@ -49,7 +67,7 @@ function TenantFlagsPanel({ tenant }: { tenant: PlatformTenantDetail }) {
     )
   }
   if (members.data === undefined || flags.data === undefined) {
-    return <Skeleton className="h-48 w-full" />
+    return <MemberPickerSkeleton />
   }
   const picked = members.data.find((member) => member.user.id === userId)
   return (
@@ -92,13 +110,14 @@ function TenantFlagsTab() {
   const { tenantId } = Route.useParams()
   const platformRole = useAuthStore((state) => state.user?.platformRole)
   const { data } = useQuery(platformTenantQueryOptions(tenantId))
-  if (!data) return null
   return (
     <section aria-labelledby="tenant-flags" className="grid gap-4">
       <h2 id="tenant-flags" className="text-lg font-semibold">
         Flags
       </h2>
-      {!platformRoleAtLeast(platformRole, 'admin') ? (
+      {!data ? (
+        <MemberPickerSkeleton />
+      ) : !platformRoleAtLeast(platformRole, 'admin') ? (
         <RoleDenied />
       ) : data.lifecycleState !== 'active' ? (
         <FrozenTenant state={data.lifecycleState} />
