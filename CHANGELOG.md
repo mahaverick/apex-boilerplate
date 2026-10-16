@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.0](https://github.com/mahaverick/apex-boilerplate/compare/v4.0.0...v4.1.0) (2026-10-16)
+
+
+### Features
+
+* **loading:** styled boot shell, skeleton templates and per-section loading ([#71](https://github.com/mahaverick/apex-boilerplate/issues/71)) ([76c720c](https://github.com/mahaverick/apex-boilerplate/commit/76c720c0f8261c637bceef31ac4f1eb4e2039633))
+
 ## [4.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v3.1.0...v4.0.0) (2026-10-16)
 
 
