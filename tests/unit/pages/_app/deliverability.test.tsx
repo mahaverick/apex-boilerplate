@@ -245,4 +245,15 @@ describe('/deliverability', () => {
     const operations = navItemsFor('viewer').filter((item) => item.group === 'Operations')
     expect(operations.map((item) => item.label).slice(0, 2)).toEqual(['Emails', 'Deliverability'])
   })
+
+  it('holds seven KPI cards at the loaded cards’ height while the figures load', async () => {
+    server.use(http.get('/api/v1/platform/emails/health', () => new Promise<Response>(() => {})))
+    renderAppAt('/deliverability')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Deliverability' })).toBeVisible()
+    const cards = document.querySelectorAll(
+      '[data-slot="query-state"][aria-busy="true"] [data-slot="card"]'
+    )
+    expect(cards).toHaveLength(7)
+    expect(cards[0]).toHaveProperty('style.minHeight', '9rem')
+  })
 })

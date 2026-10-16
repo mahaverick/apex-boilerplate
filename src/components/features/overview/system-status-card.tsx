@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { LoadError } from '@/components/features/load-error'
 import { ToneBadge } from '@/components/features/tone-badge'
+import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Item, ItemContent, ItemGroup, ItemTitle } from '@/components/ui/item'
-import { Skeleton } from '@/components/ui/skeleton'
 import type { BadgeTone } from '@/constants/badge-tones'
 import { ERROR_DROP_LABELS } from '@/constants/errors.constants'
 import {
@@ -23,6 +23,9 @@ import type {
   MaintenanceModeStatus,
   SystemStatus,
 } from '@/types/api.types'
+
+/** The rows `StatusFacts` draws for a current API: five error-tracking facts, the flags heading and four facts, the maintenance heading and three. Sized so the card holds its loaded height. */
+const STATUS_SKELETON_ROWS = 14
 
 /** The drop reasons in display order. */
 const DROP_REASONS = Object.keys(ERROR_DROP_LABELS) as ErrorDropReason[]
@@ -392,7 +395,7 @@ export function SystemStatusCard() {
               onRetry={() => void status.refetch()}
             />
           ) : status.data === undefined ? (
-            <Skeleton className="h-32 w-full" />
+            <CardRowsSkeleton rows={STATUS_SKELETON_ROWS} rowHeight="1.5rem" />
           ) : (
             <StatusFacts status={status.data} fetchedAt={status.dataUpdatedAt} />
           )}

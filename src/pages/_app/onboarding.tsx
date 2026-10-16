@@ -8,7 +8,9 @@ import { OnboardingTenantsTable } from '@/components/features/onboarding/onboard
 import { RoleDenied } from '@/components/features/role-denied'
 import { EmptyState } from '@/components/shared/empty-state'
 import { DashboardPending } from '@/components/shared/pending-templates'
+import { QueryState } from '@/components/shared/query-state'
 import { SectionBoundary } from '@/components/shared/section-boundary'
+import { KpiCardSkeleton } from '@/components/shared/section-skeleton'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -20,6 +22,7 @@ import {
   ONBOARDING_TAB_LABELS,
 } from '@/constants/onboarding.constants'
 import { statusFrom } from '@/lib/api-error'
+import { isRoleDenied } from '@/lib/role-denied'
 import { analyticsKey, track } from '@/observability/telemetry'
 import {
   onboardingFunnelQueryOptions,
@@ -86,13 +89,13 @@ function isListState(value: unknown): value is OnboardingListState {
   return (ONBOARDING_LIST_STATES as readonly unknown[]).includes(value)
 }
 
-/** The funnel's loaded shape: five figures, then the funnel card. */
+/** The funnel's loaded shape: five figures at their loaded height, then the funnel card. */
 function FunnelSkeleton() {
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {[0, 1, 2, 3, 4].map((card) => (
-          <Skeleton key={card} className="h-30 rounded-xl" />
+          <KpiCardSkeleton key={card} height="11rem" />
         ))}
       </div>
       <Skeleton className="h-74 rounded-xl" />
@@ -104,7 +107,9 @@ function FunnelSkeleton() {
  * Onboarding across every active tenant: the funnel for a window kept in the
  * URL, and the tracked tenants by state, as tabs in `?state` (stuck first),
  * paged by `?cursor` and `?dir`. The tenants list is not windowed, so the
- * range never resets it. Until any tenant is tracked the page says only that.
+ * range never resets it. The funnel loads through `QueryState` and the
+ * tenants start their own read with the page; a role refusal of the funnel
+ * shows once, and until any tenant is tracked the page says only that.
  */
 function OnboardingPage() {
   const { range } = Route.useSearch()
@@ -130,38 +135,34 @@ function OnboardingPage() {
           ))}
         </ToggleGroup>
       </div>
-      {funnel.isError ? (
-        statusFrom(funnel.error) === 404 ? (
-          <RoleDenied />
-        ) : (
+      <QueryState
+        query={funnel}
+        name="Onboarding figures"
+        errorMessage="We could not load the onboarding figures."
+        skeleton={<FunnelSkeleton />}
+        isEmpty={(data) => data.trackedTenants === 0}
+        empty={
+          <EmptyState
+            icon={<IconChecklist aria-hidden="true" />}
+            title="No tenant is tracked yet."
+            description={ONBOARDING_NOT_STARTED}
+          />
+        }
+        className="gap-6"
+      >
+        {(data) => (
           <>
-            <LoadError
-              message="We could not load the onboarding figures."
-              onRetry={() => void funnel.refetch()}
-            />
-            <TenantsByState />
-          </>
-        )
-      ) : funnel.data === undefined ? (
-        <FunnelSkeleton />
-      ) : funnel.data.trackedTenants === 0 ? (
-        <EmptyState
-          icon={<IconChecklist aria-hidden="true" />}
-          title="No tenant is tracked yet."
-          description={ONBOARDING_NOT_STARTED}
-        />
-      ) : (
-        <>
-          <div className="grid gap-6" aria-busy={funnel.isPlaceholderData}>
             <SectionBoundary name="Onboarding figures">
-              <OnboardingKpis funnel={funnel.data} />
+              <OnboardingKpis funnel={data} />
             </SectionBoundary>
             <SectionBoundary name="Onboarding funnel">
-              <FunnelCard funnel={funnel.data} />
+              <FunnelCard funnel={data} />
             </SectionBoundary>
-          </div>
-          <TenantsByState />
-        </>
+          </>
+        )}
+      </QueryState>
+      {!(funnel.isError && isRoleDenied(funnel.error)) && funnel.data?.trackedTenants !== 0 && (
+        <TenantsByState />
       )}
     </div>
   )

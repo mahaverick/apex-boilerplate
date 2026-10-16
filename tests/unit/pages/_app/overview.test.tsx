@@ -226,12 +226,12 @@ describe('/overview', () => {
     const kpis = screen.getByRole('region', { name: 'Key figures' })
     expect(kpis).toBeInTheDocument()
     expect(screen.getByText('Undelivered rate (7 days)')).toBeInTheDocument()
-    expect(kpis.closest('[aria-busy]')).toHaveAttribute('aria-busy', 'true')
+    expect(kpis.closest('[data-slot="query-state"]')).toHaveAttribute('aria-busy', 'true')
     release()
     expect(await screen.findByText('Undelivered rate (30 days)')).toBeInTheDocument()
     expect(
-      screen.getByRole('region', { name: 'Key figures' }).closest('[aria-busy]')
-    ).toHaveAttribute('aria-busy', 'false')
+      screen.getByRole('region', { name: 'Key figures' }).closest('[data-slot="query-state"]')
+    ).not.toHaveAttribute('aria-busy')
   })
 
   it('keeps the current range when the pressed toggle is pressed again', async () => {
@@ -277,6 +277,29 @@ describe('/overview', () => {
     vi.stubGlobal('location', { ...window.location, reload })
     await userEvent.setup().click(screen.getByRole('button', { name: 'Reload' }))
     expect(reload).toHaveBeenCalledOnce()
+  })
+
+  it('holds five KPI cards at the loaded cards’ height while the figures load', async () => {
+    server.use(http.get('/api/v1/platform/stats', () => new Promise<Response>(() => {})))
+    signIn()
+    renderAppAt('/overview')
+    const figures = await screen.findByRole('heading', { level: 1, name: 'Overview' })
+    expect(figures).toBeVisible()
+    const cards = document.querySelectorAll(
+      '[data-slot="query-state"][aria-busy="true"] [data-slot="card"]'
+    )
+    expect(cards).toHaveLength(5)
+    expect(cards[0]).toHaveProperty('style.minHeight', '11.75rem')
+  })
+
+  it('keeps the system status card when the figures fail', async () => {
+    server.use(http.get('/api/v1/platform/stats', () => fail('Something went wrong', 500)))
+    signIn()
+    renderAppAt('/overview')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'We could not load the platform figures.'
+    )
+    expect(screen.getByRole('heading', { level: 2, name: 'System status' })).toBeVisible()
   })
 })
 

@@ -624,6 +624,25 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
+  it('overview while the figures load has no axe violations', async () => {
+    server.use(http.get('/api/v1/platform/stats', () => new Promise<Response>(() => {})))
+    renderAppAt('/overview')
+    await screen.findByRole('heading', { name: 'Overview', level: 1 })
+    // Not vacuous: the figures are still held, so it is the skeletons that are graded.
+    expect(document.querySelector('[data-slot="query-state"][aria-busy="true"]')).not.toBeNull()
+    await expectNoViolations()
+  })
+
+  it('onboarding while the funnel loads has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/onboarding/funnel', () => new Promise<Response>(() => {}))
+    )
+    renderAppAt('/onboarding')
+    await screen.findByRole('heading', { name: 'Onboarding', level: 1 })
+    expect(document.querySelector('[data-slot="query-state"][aria-busy="true"]')).not.toBeNull()
+    await expectNoViolations()
+  })
+
   it('no-access has no axe violations', async () => {
     useAuthStore.setState({ user: { ...testUser, platformRole: null } })
     renderAppAt('/no-access')

@@ -111,7 +111,7 @@ function normaliseSuppressions(params: SuppressionSearchParams): SuppressionSear
 }
 
 /** A 404 answers who is asking (or an unknown id), so a retry changes nothing. */
-function retryUnlessDenied(failureCount: number, error: unknown): boolean {
+function retryUnlessDenied(failureCount: number, error: Error): boolean {
   return statusFrom(error) !== 404 && failureCount < 1
 }
 
