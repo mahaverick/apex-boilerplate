@@ -2,6 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { emailKeys } from '@/queries/email.queries'
 import { queryClient } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
 import {
@@ -575,10 +576,19 @@ describe('/emails/$emailId', () => {
     renderAppAt(PAGE)
     await heading()
     server.use(http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => fail('Boom', 500)))
-    await act(() => queryClient.refetchQueries())
+    await act(() => queryClient.refetchQueries({ queryKey: emailKeys.detail(EMAIL_ID) }))
     expect(await screen.findAllByRole('alert')).toHaveLength(1)
     expect(screen.getByRole('alert')).toHaveTextContent('We could not load this email.')
     expect(await heading()).toBeVisible()
+  })
+
+  it('shows the not-found panel when a loaded email answers 404 on refetch', async () => {
+    serve()
+    renderAppAt(PAGE)
+    await heading()
+    server.use(http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => fail('Not found', 404)))
+    await act(() => queryClient.refetchQueries({ queryKey: emailKeys.detail(EMAIL_ID) }))
+    expect(await screen.findByRole('heading', { name: 'Email not found', level: 1 })).toBeVisible()
   })
 
   it('shows a not-found panel on a 404, without signing out', async () => {

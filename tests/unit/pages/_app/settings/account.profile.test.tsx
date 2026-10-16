@@ -50,6 +50,7 @@ describe('profile page', () => {
     server.use(http.get('/api/v1/profile', () => fail('Something went wrong', 500)))
     renderSettingsProfile()
     expect(await screen.findByRole('alert')).toHaveTextContent('Profile could not be loaded.')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible()
     expect(screen.getByLabelText('First name')).toBeVisible()
     expect(document.querySelector('[data-slot="query-state"]')).toHaveClass('gap-3')
   })

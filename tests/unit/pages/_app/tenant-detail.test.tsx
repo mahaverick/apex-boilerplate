@@ -150,11 +150,22 @@ describe('/tenants/$tenantId', () => {
     renderAppAt(`/tenants/${TENANT_ID}`)
     expect(await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })).toBeInTheDocument()
     server.use(http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => fail('Boom', 500)))
-    await act(() => queryClient.refetchQueries())
+    await act(() => queryClient.refetchQueries({ queryKey: tenantAdminKeys.detail(TENANT_ID) }))
     expect(await screen.findAllByRole('alert')).toHaveLength(1)
     expect(screen.getByRole('alert')).toHaveTextContent('We could not load this tenant.')
     expect(screen.getByRole('heading', { name: 'Acme Corp', level: 1 })).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Tenant sections' })).toBeVisible()
+  })
+
+  it('shows the not-found panel when a loaded tenant answers 404 on refetch', async () => {
+    serve(detail())
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    expect(await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })).toBeInTheDocument()
+    server.use(http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => fail('Not found', 404)))
+    await act(() => queryClient.refetchQueries({ queryKey: tenantAdminKeys.detail(TENANT_ID) }))
+    expect(
+      await screen.findByRole('heading', { name: 'Tenant not found', level: 1 })
+    ).toBeInTheDocument()
   })
 
   it('shows a not-found panel for an unknown tenant', async () => {
