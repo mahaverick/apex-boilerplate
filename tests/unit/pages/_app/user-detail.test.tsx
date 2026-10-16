@@ -102,6 +102,20 @@ describe('/users/$userId', () => {
     expect(screen.getByRole('main').querySelectorAll('[data-slot="card"]')).toHaveLength(5)
   })
 
+  it('marks the user page busy while the user loads', async () => {
+    server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => new Promise<never>(() => {})))
+    renderAppAt(`/users/${USER_ID_2}`)
+    const heading = await screen.findByRole('heading', { name: 'User', level: 1 })
+    expect(heading.parentElement).toHaveAttribute('aria-busy', 'true')
+  })
+
+  it('does not mark the loaded user page busy', async () => {
+    answer()
+    renderAppAt(`/users/${USER_ID_2}`)
+    expect(await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('main').querySelector('[aria-busy="true"]')).toBeNull()
+  })
+
   it('keeps the loaded page with one alert above it when a refetch fails', async () => {
     answer()
     renderAppAt(`/users/${USER_ID_2}`)

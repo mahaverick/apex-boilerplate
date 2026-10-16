@@ -24,7 +24,7 @@ import type {
   SystemStatus,
 } from '@/types/api.types'
 
-/** Pending rows: 13 rows of 1.25rem with the list's 0.5rem gaps come to about 355 px, the measured height of a loaded status, which varies with the sections the API sends. */
+/** Pending rows: 13 rows of 1.25rem with the list's 0.5rem gaps put the pending card at 476 px at 1440 px wide, against 479 px for the status a development API sends; a status with feature flags enabled and the maintenance queues is taller (563 px in the harness). */
 const STATUS_SKELETON_ROWS = 13
 
 /** The drop reasons in display order. */

@@ -145,6 +145,24 @@ describe('/tenants/$tenantId', () => {
     expect(screen.queryByRole('heading', { name: 'Details', level: 2 })).not.toBeInTheDocument()
   })
 
+  it('marks the tenant layout busy while the tenant loads', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => new Promise<never>(() => {}))
+    )
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    const tabs = await screen.findByRole('navigation', { name: 'Tenant sections' })
+    expect(tabs.parentElement).toHaveAttribute('aria-busy', 'true')
+  })
+
+  it('does not mark the loaded tenant layout busy', async () => {
+    serve(detail())
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    expect(await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })).toBeInTheDocument()
+    expect(
+      screen.getByRole('navigation', { name: 'Tenant sections' }).parentElement
+    ).not.toHaveAttribute('aria-busy')
+  })
+
   it('keeps the loaded page with one alert above it when a refetch fails', async () => {
     serve(detail())
     renderAppAt(`/tenants/${TENANT_ID}`)

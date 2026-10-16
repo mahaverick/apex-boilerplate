@@ -59,7 +59,7 @@ function UserDetailPage() {
   }
   if (detail.data === undefined) {
     return (
-      <div className="grid gap-4">
+      <div aria-busy="true" className="grid gap-4">
         <h1 className="sr-only">User</h1>
         <div className="grid gap-1">
           <Skeleton className="h-8 w-64" />

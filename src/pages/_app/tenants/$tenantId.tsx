@@ -78,7 +78,7 @@ function TenantLayout() {
   }
   const loaded = tenant.data
   return (
-    <div className="grid gap-6">
+    <div aria-busy={loaded === undefined ? true : undefined} className="grid gap-6">
       {tenant.isError && (
         <LoadError message="We could not load this tenant." onRetry={() => void tenant.refetch()} />
       )}

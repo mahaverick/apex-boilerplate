@@ -31,7 +31,12 @@ export const Route = createFileRoute('/_app/deliverability')({
   pendingComponent: DashboardPending,
 })
 
-/** The loaded layout's shape: seven figures at their loaded height, the chart, then the two tables. */
+/**
+ * The loaded layout's shape, measured in a browser at 1440 px: seven figures at
+ * their loaded height (9rem, two rows of four), the chart card at 20rem, then
+ * the two breakdown cards at 15.5rem, a card with three rows (a card is about
+ * 8.5rem plus 2.3rem a row, so one row more or fewer moves it by about 37 px).
+ */
 function DeliverabilitySkeleton() {
   return (
     <>
@@ -40,10 +45,10 @@ function DeliverabilitySkeleton() {
           <KpiCardSkeleton key={card} height="9rem" />
         ))}
       </div>
-      <Skeleton className="h-74 rounded-xl" />
+      <Skeleton className="h-80 rounded-xl" />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Skeleton className="h-48 rounded-xl" />
-        <Skeleton className="h-48 rounded-xl" />
+        <Skeleton className="h-62 rounded-xl" />
+        <Skeleton className="h-62 rounded-xl" />
       </div>
     </>
   )
