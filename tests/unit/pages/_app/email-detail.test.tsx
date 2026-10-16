@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -545,8 +545,8 @@ describe('/emails/$emailId', () => {
     server.use(http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => new Promise<never>(() => {})))
     renderAppAt(PAGE)
     expect(await screen.findByRole('heading', { name: 'Email', level: 1 })).toBeInTheDocument()
-    // Two header bars, three tab bars and four timeline rows.
-    expect(screen.getByRole('main').querySelectorAll('[data-slot="skeleton"]')).toHaveLength(9)
+    // Three header lines, one tab-list pill and four timeline rows.
+    expect(screen.getByRole('main').querySelectorAll('[data-slot="skeleton"]')).toHaveLength(8)
   })
 
   it('says the preview failed, with a retry', async () => {
@@ -568,6 +568,17 @@ describe('/emails/$emailId', () => {
     const alerts = await screen.findAllByRole('alert')
     expect(alerts).toHaveLength(1)
     expect(alerts[0]).toHaveTextContent('Your role can’t see this any more.')
+  })
+
+  it('keeps the loaded page with one alert above it when a refetch fails', async () => {
+    serve()
+    renderAppAt(PAGE)
+    await heading()
+    server.use(http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => fail('Boom', 500)))
+    await act(() => queryClient.refetchQueries())
+    expect(await screen.findAllByRole('alert')).toHaveLength(1)
+    expect(screen.getByRole('alert')).toHaveTextContent('We could not load this email.')
+    expect(await heading()).toBeVisible()
   })
 
   it('shows a not-found panel on a 404, without signing out', async () => {

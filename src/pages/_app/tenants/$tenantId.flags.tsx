@@ -115,10 +115,10 @@ function TenantFlagsTab() {
       <h2 id="tenant-flags" className="text-lg font-semibold">
         Flags
       </h2>
-      {!data ? (
-        <MemberPickerSkeleton />
-      ) : !platformRoleAtLeast(platformRole, 'admin') ? (
+      {!platformRoleAtLeast(platformRole, 'admin') ? (
         <RoleDenied />
+      ) : !data ? (
+        <MemberPickerSkeleton />
       ) : data.lifecycleState !== 'active' ? (
         <FrozenTenant state={data.lifecycleState} />
       ) : (

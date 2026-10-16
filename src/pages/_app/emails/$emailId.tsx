@@ -66,15 +66,18 @@ function isDetailTab(value: unknown): value is EmailDetailTab {
 
 /**
  * Loads one email and shows it, a not-found state for a 404, or a load error.
- * While the message loads, the page is its header (two bars), a row of three
- * tab bars and a short timeline of four rows; none of it is measured against
- * the loaded page, whose timeline length varies.
+ * A failed read with no message to show, or a 404, replaces the page; a failed
+ * refetch with the message on screen keeps the page and shows a `LoadError`
+ * above it. While the message loads, the page is the loaded page's `gap-6`
+ * column: a header of three lines (the heading's 2rem, then two `text-sm`
+ * lines of 1.25rem), one `h-9` pill for the two-tab list and a short timeline
+ * of four rows; the timeline's length varies, so it is not measured.
  */
 function EmailDetailPage() {
   const { emailId } = Route.useParams()
   const detail = useQuery(emailQueryOptions(emailId))
 
-  if (detail.isError) {
+  if (detail.isError && (detail.data === undefined || statusFrom(detail.error) === 404)) {
     return statusFrom(detail.error) === 404 ? (
       <EmptyState
         icon={<IconSearchOff aria-hidden="true" />}
@@ -92,22 +95,26 @@ function EmailDetailPage() {
   }
   if (detail.data === undefined) {
     return (
-      <div className="grid gap-4">
+      <div className="grid gap-6">
         <h1 className="sr-only">Email</h1>
         <div className="grid gap-1">
           <Skeleton className="h-8 w-80" />
-          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-5 w-64" />
+          <Skeleton className="h-5 w-48" />
         </div>
-        <div className="flex gap-2">
-          {[0, 1, 2].map((tab) => (
-            <Skeleton key={tab} className="h-8 w-24" />
-          ))}
-        </div>
+        <Skeleton className="h-9 w-44 rounded-lg" />
         <CardRowsSkeleton rows={4} rowHeight="2rem" />
       </div>
     )
   }
-  return <EmailDetail message={detail.data} />
+  return (
+    <div className="grid gap-6">
+      {detail.isError && (
+        <LoadError message="We could not load this email." onRetry={() => void detail.refetch()} />
+      )}
+      <EmailDetail message={detail.data} />
+    </div>
+  )
 }
 
 /**

@@ -132,6 +132,17 @@ describe('/tenants/$tenantId/flags', () => {
     )
   })
 
+  it('refuses a viewer at once, with no skeleton while the tenant loads', async () => {
+    signIn({ ...testUser, platformRole: 'viewer' })
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => new Promise<never>(() => {}))
+    )
+    renderAppAt(FLAGS)
+    const region = await screen.findByRole('region', { name: 'Flags' })
+    expect(region.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(0)
+    expect(within(region).getByText('Your role can’t see this any more.')).toBeVisible()
+  })
+
   it('refuses a viewer without asking for members or an evaluation', async () => {
     signIn({ ...testUser, platformRole: 'viewer' })
     const seen = serve()

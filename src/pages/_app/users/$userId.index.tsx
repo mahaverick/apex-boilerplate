@@ -38,16 +38,19 @@ const PROVIDER_LABELS: Record<string, string> = { email: 'Email', google: 'Googl
 
 /**
  * Loads one user and shows them, a not-found state for a 404, or a load error.
- * While the user loads, the page is its header (a name and an email line) and
- * the five cards an admin sees (Tenants, Sign-in methods, Pending invitations,
- * Emails, History), each a title bar over two rows; the rows are not measured
- * against the loaded cards.
+ * A failed read with no user to show, or a 404, replaces the page; a failed
+ * refetch with the user on screen keeps the page and shows a `LoadError` above
+ * it. While the user loads, the page is its header in a `grid gap-1` (the
+ * name at the heading's 2rem, the email and the badges line at `text-sm`'s
+ * 1.25rem) and the five cards an admin sees (Tenants, Sign-in methods, Pending
+ * invitations, Emails, History), each a title bar over two rows; the rows are
+ * not measured against the loaded cards.
  */
 function UserDetailPage() {
   const { userId } = Route.useParams()
   const detail = useQuery(platformUserQueryOptions(userId))
 
-  if (detail.isError) {
+  if (detail.isError && (detail.data === undefined || statusFrom(detail.error) === 404)) {
     return statusFrom(detail.error) === 404 ? (
       <UserNotFound />
     ) : (
@@ -58,8 +61,11 @@ function UserDetailPage() {
     return (
       <div className="grid gap-4">
         <h1 className="sr-only">User</h1>
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-4 w-48" />
+        <div className="grid gap-1">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-5 w-80 max-w-full" />
+        </div>
         {[0, 1, 2, 3, 4].map((card) => (
           <Card key={card}>
             <CardHeader>
@@ -73,7 +79,14 @@ function UserDetailPage() {
       </div>
     )
   }
-  return <UserDetail user={detail.data} />
+  return (
+    <div className="grid gap-4">
+      {detail.isError && (
+        <LoadError message="We could not load this user." onRetry={() => void detail.refetch()} />
+      )}
+      <UserDetail user={detail.data} />
+    </div>
+  )
 }
 
 /**

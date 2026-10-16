@@ -41,12 +41,15 @@ function TenantCrumb({ params }: { params: Record<string, string> }) {
  * section nav over the tabs. Everything here reads `GET /platform/tenants/:id`;
  * only the Members, Invitations, Activity and Flags tabs and the Edit details
  * action reach the tenant's own routes, and only while it is active. A 404 is an
- * unknown tenant; it never signs out. While the tenant loads, the header is a
- * skeleton of its two text lines and the actions button (the heading is
- * 2rem tall and the line under it 1rem, the line's text being 1.25rem; none of
- * it measured), under the real tabs; Overview and Flags draw their own
- * skeletons, the other tabs stay blank until the tenant lands. A tab above the reader's platform role
- * (Flags, for admins) is left out of the nav.
+ * unknown tenant; it never signs out. A failed read with no tenant to show
+ * replaces the page with a `LoadError`; a failed refetch with the tenant on
+ * screen keeps the page and shows the same `LoadError` above it. While the
+ * tenant loads, the header is a skeleton of its two text lines (2rem and
+ * 1.25rem, the loaded heading's and `text-sm` line's heights) and the actions
+ * button (`h-9`, its width a guess), under the real tabs. Overview, Flags,
+ * Onboarding and Emails draw their own skeletons; Members, Invitations and
+ * Activity stay blank until the tenant lands. A tab above the reader's platform
+ * role (Flags, for admins) is left out of the nav.
  */
 function TenantLayout() {
   const { tenantId } = Route.useParams()
@@ -57,7 +60,7 @@ function TenantLayout() {
     (tab) => tab.minRole === undefined || platformRoleAtLeast(platformRole, tab.minRole)
   )
 
-  if (tenant.isError) {
+  if (tenant.isError && (tenant.data === undefined || statusFrom(tenant.error) === 404)) {
     return statusFrom(tenant.error) === 404 ? (
       <EmptyState
         icon={<IconSearchOff aria-hidden="true" />}
@@ -76,13 +79,16 @@ function TenantLayout() {
   const loaded = tenant.data
   return (
     <div className="grid gap-6">
+      {tenant.isError && (
+        <LoadError message="We could not load this tenant." onRetry={() => void tenant.refetch()} />
+      )}
       <div className="flex flex-wrap items-start justify-between gap-4">
         {loaded === undefined ? (
           <>
             <h1 className="sr-only">Tenant</h1>
             <div className="grid gap-1">
               <Skeleton className="h-8 w-64" />
-              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-5 w-48" />
             </div>
             <Skeleton className="h-9 w-28" />
           </>

@@ -32,7 +32,7 @@ function Row({ label, value }: { label: string; value: string }) {
  * below them reads on its own once the tenant is in. Both cards carry seven
  * rows, the Details list's fixed rows (its Archived row, which only an
  * archived tenant has, is not counted); the grid keeps the Owners card as tall
- * as its sibling. Row heights are the list's line height, not measured.
+ * as its sibling. Rows are 1.5rem at the skeleton's `gap-2`, the same 2rem pitch as the list's 1.25rem lines at `gap-3`; the phone layout, where a label stacks over its value, is taller. Not measured.
  */
 function TenantOverviewSkeleton() {
   return (
@@ -43,7 +43,7 @@ function TenantOverviewSkeleton() {
             <Skeleton className="h-5 w-32" />
           </CardHeader>
           <CardContent>
-            <CardRowsSkeleton rows={7} rowHeight="1.25rem" />
+            <CardRowsSkeleton rows={7} rowHeight="1.5rem" />
           </CardContent>
         </Card>
       ))}

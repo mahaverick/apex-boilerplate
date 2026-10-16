@@ -138,8 +138,23 @@ describe('/tenants/$tenantId', () => {
     expect(await screen.findByRole('heading', { name: 'Tenant', level: 1 })).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Tenant sections' })).toBeVisible()
     const main = screen.getByRole('main')
+    // The name bar, the line bar and the actions bar sit beside the hidden heading.
+    const header = screen.getByRole('heading', { name: 'Tenant', level: 1 }).parentElement
+    expect(header?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(3)
     expect(main.querySelectorAll('[data-slot="card"]')).toHaveLength(2)
     expect(screen.queryByRole('heading', { name: 'Details', level: 2 })).not.toBeInTheDocument()
+  })
+
+  it('keeps the loaded page with one alert above it when a refetch fails', async () => {
+    serve(detail())
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    expect(await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })).toBeInTheDocument()
+    server.use(http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => fail('Boom', 500)))
+    await act(() => queryClient.refetchQueries())
+    expect(await screen.findAllByRole('alert')).toHaveLength(1)
+    expect(screen.getByRole('alert')).toHaveTextContent('We could not load this tenant.')
+    expect(screen.getByRole('heading', { name: 'Acme Corp', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Tenant sections' })).toBeVisible()
   })
 
   it('shows a not-found panel for an unknown tenant', async () => {

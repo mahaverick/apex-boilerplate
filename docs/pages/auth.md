@@ -45,7 +45,7 @@ Pending state: the button reads "Signing in…" and is disabled. Errors: `FormEr
 
 The page has these states (`RegisterPage`):
 
-1. **Preview pending:** `RegisterSkeleton`, the "Create an account" card over `FormFieldsSkeleton`: four label-and-input pairs (email, password, first and last name) and the button bar, at the form's spacing (shot: loading, taken before this shape; the sizes are not measured against the loaded form).
+1. **Preview pending:** `RegisterSkeleton`, the "Create an account" card over `FormFieldsSkeleton`: four label-and-input pairs (email, password, first and last name) and the button bar, at the form's spacing (the sizes are not measured against the loaded form; the loading shot shows two bars).
 2. **Preview failed with 404:** "This invitation can’t be used", "It may have expired or been revoked. Ask the person who invited you for a new one.", and no link or button. The token is sent as it is: in the walk, `?invitation=not-a-real-token` posted the preview and got the 404, where `/invitations/accept` refuses the same token locally without a request.
 3. **Preview failed otherwise:** the "Create an account" card around a `LoadError`, "We could not check your invitation." with Try again (shot: error).
 4. **Preview loaded:** the form (shot: default). Pending: "Creating account…".
@@ -156,7 +156,7 @@ The page has these states (`AcceptInvitationPage` and `InvitationForToken`):
 
 1. **No `?token`:** "This link is incomplete" and "Go to the home page" (shot: empty).
 2. **Malformed token** (fails `invitationTokenSchema`): "This invitation can’t be used" with the server's 404 copy and "Go to the home page", no request made. Seen in the walk with `?token=not-a-real-token`.
-3. **Preview pending:** "Checking your invitation" over four skeleton bars: a centred sentence, two button bars and a hint-height bar, the loaded card's parts (shot: loading, taken before this shape; the heights are not measured against the loaded card).
+3. **Preview pending:** "Checking your invitation" over four skeleton bars: a centred sentence, two button bars and a hint-height bar, the loaded card's parts (the heights are not measured against the loaded card; the loading shot shows two bars).
 4. **Preview failed with 404** (revoked, expired or used): "This invitation can’t be used" with the server's message.
 5. **Preview failed otherwise:** "We could not load this invitation", a `LoadError` with Try again, and "Go to the home page" (shot: error).
 6. **Signed out** (`SignedOut`): "Join {tenant}", "{inviter} invited you to join {tenant} as {role}.", Log in, Create account, and a hint to create the account with the invited address (shot: default; the inviter shows as "A teammate" and the tenant is the platform tenant, "Platform").
