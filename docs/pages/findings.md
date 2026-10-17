@@ -162,19 +162,19 @@ Status: fixed. The five KPI skeletons are the loaded cards' height and the two c
 
 ### F-overview-2
 
-Status: fixed in 9840410 for `LoadError` and `RoleDenied`: each is an `Alert` with its action at full width, the two load errors on one page ([load errors](img/onboarding/onboarding--error.jpg)) and the role refusal with Reload ([role refusal](img/tenants/tenant-flags--role-denied.jpg)). The refusal shot shows it in the destructive colours, not the default variant the fix proposed. `SectionBoundary`'s failure has no after-shot; `tests/unit/components/shared/section-boundary.test.tsx` asserts it renders an alert, and nothing asserts its width.
+Status: fixed in #67 for `LoadError` and `RoleDenied`: each is an `Alert` with its action at full width, the two load errors on one page ([load errors](img/onboarding/onboarding--error.jpg)) and the role refusal with Reload ([role refusal](img/tenants/tenant-flags--role-denied.jpg)). The refusal shot shows it in the destructive colours, not the default variant the fix proposed. `SectionBoundary`'s failure has no after-shot; `tests/unit/components/shared/section-boundary.test.tsx` asserts it renders an alert, and nothing asserts its width.
 
 `LoadError` (`src/components/features/load-error.tsx`), `RoleDenied` (`role-denied.tsx`) and `SectionBoundary`'s failure message are each a `div` or `p` with `rounded-md border p-4`, a muted sentence and, for the first two, an outline button. They take the width of whatever wraps them: full width on the Overview ([shot](img/overview/overview--error.jpg)), but shrink-wrapped at the left under a list's filters, because the lists wrap them in `grid justify-items-start` to put First page beside them ([shot](img/tenants/tenants--error.jpg)); the onboarding error shot shows both widths on one page ([shot](img/onboarding/onboarding--error.jpg)). Fix: one shadcn `Alert` (destructive for a failure, default for a role refusal) with its action, at full width everywhere.
 
 ### F-overview-3
 
-Status: fixed in 763c2b5 and 9c73603. The notes are one `Note` component with a warning, info or passive tone; only a passive note has no live region. The after-shot shows the passive not-configured note on the flags page ([after](img/settings/platform-flags--default.jpg)); that note has no icon or title, so the fix's "icon and title" is not what shipped. No shot shows a warning or info note: `e2e/contrast/contrast.test.ts` ("notes and compact empty states") renders the stale-flags and partial-preview warnings, the template-unavailable info note and the no-provider-events passive note in both themes and asserts each is present.
+Status: fixed in #67. The notes are one `Note` component with a warning, info or passive tone; only a passive note has no live region. The after-shot shows the passive not-configured note on the flags page ([after](img/settings/platform-flags--default.jpg)); that note has no icon or title, so the fix's "icon and title" is not what shipped. No shot shows a warning or info note: `e2e/contrast/contrast.test.ts` ("notes and compact empty states") renders the stale-flags and partial-preview warnings, the template-unavailable info note and the no-provider-events passive note in both themes and asserts each is present.
 
 Notes the page wants read are hand-rolled: the email's suppression banner and its preview's template-unavailable note, the deleted-account note on a user page, the flags page's not-configured and stale notes ([shot](img/settings/platform-flags--default.jpg)), and `NoProviderEvents` on Deliverability ([shot](img/deliverability/deliverability--default.jpg)). Each is a `p` or `div` with `rounded-md border p-3 text-sm`, the same look for "informational" and "this address receives no mail". Fix: shadcn `Alert` with an icon, a title and a variant that matches the weight of the note.
 
 ### F-overview-4
 
-Status: fixed in 99fb5f0. Empty states in cards and tabs are an `EmptyState` ([after](img/tenants/tenant-activity--empty.jpg)); the compact variant in a card is graded by `e2e/contrast/contrast.test.ts` (the user emails card with no emails, both themes).
+Status: fixed in #67. Empty states in cards and tabs are an `EmptyState` ([after](img/tenants/tenant-activity--empty.jpg)); the compact variant in a card is graded by `e2e/contrast/contrast.test.ts` (the user emails card with no emails, both themes).
 
 The paged lists use shadcn `Empty` (a centred title and description), but most empty states inside cards and tabs are a plain `text-sm text-muted-foreground` paragraph: "Nothing has happened in this tenant yet.", "No invitations are waiting to be accepted.", "No one has access to this tenant yet…", "Not a member of any tenant.", "None.", "No emails sent to this account yet.", the chart cards' "No sign-ups in the last …", "No flags are registered." and "The API reported no queues.". Fix: shadcn `Empty`, in its compact form inside a card.
 
@@ -188,17 +188,19 @@ The KPI grids are `sm:grid-cols-2` and up, so below 640 px every card takes a fu
 
 ### F-overview-7
 
-Status: fixed in bb8a384. The button is a `BusyButton`, which shows a spinner and the busy label while the next page is fetched; `tests/unit/components/shared/busy-button.test.tsx` covers the component. Nothing drives Load more activity in a test, and there is no after-shot of the busy state, because a shot cannot catch the pending state.
+Status: fixed in #67. The button is a `BusyButton`, which shows a spinner and the busy label while the next page is fetched; `tests/unit/components/shared/busy-button.test.tsx` covers the component. Nothing drives Load more activity in a test, and there is no after-shot of the busy state, because a shot cannot catch the pending state.
 
-`ActivityList`'s Load more activity replaces its label with the word "Loading…" while the next page loads, and nothing else marks the wait ([code](activity.md#activity--activity)). Fix: shadcn `Spinner` in the button beside its label.
+The activity list’s Load more activity (before the activity table) replaces its label with the word "Loading…" while the next page loads, and nothing else marks the wait ([code](activity.md#activity--activity)). Fix: shadcn `Spinner` in the button beside its label.
 
 ### F-tenants-1
+
+Status: fixed. `/tenants/` and the tenant Emails tab render through `DataTable`: one toolbar (search, the State facet with its chips, New tenant), sortable headers, cursor paging with a page size and “Showing”, a Columns menu, and cards on a phone. `tests/unit/pages/_app/tenants.test.tsx` (“sorts by name by default and by creation date from the header”, “filters by state through a comma list”, “pages forward and back through the API’s cursors, kept in the URL”), `tests/unit/pages/_app/tenant-emails.test.tsx` (“pages in the URL with the API cursor”) and `e2e/fixtures/lists.test.ts` (“sorting the tenants then paging keeps the sort and moves the cursor”) assert it.
 
 `/tenants/` and the tenant Emails tab each assemble their own list: the search input, the state `Select` and New tenant in the header row; `TenantsTable` or `EmailsTable` built on TanStack Table's `useTable` with no features; a `nav` of two icon buttons, Previous page and Next page, that move `?cursor`; and their own copies of the empty, stale-page ("Nothing on this page." with First page) and failed-page states. Columns: Name, Slug, Status, Members, Created; and on the tab Recipient, Template, Status, Created, User. There is no page count, no page size, no way to hide a column, and on a phone the table scrolls sideways with the Status column cut at the edge ([shot](img/tenants/tenants--mobile.jpg)). A shared `DataTable` with a toolbar (search, filters, the primary action), server-side cursor pagination with its states, and column visibility would replace all of it.
 
 ### F-tenants-2
 
-Status: open: the tenants list and the tenant Emails tab move to the data table.
+Status: fixed. The first page shows `DataTable`’s table-shaped skeleton (`TableRowsSkeleton`) on `/tenants/` and on the tenant Emails tab. `tests/unit/components/shared/data-table/data-table.test.tsx` ("shows a table-shaped skeleton while the first page loads") and `tests/unit/pages/_app/tenants.test.tsx` (“does not say the next term matches nothing while its page is still loading”) assert it.
 
 While the page loads, the tenant list is one `Skeleton h-96`: 384 px from y 140, where the loaded table with twenty rows and the pagination reaches about y 990 ([loading](img/tenants/tenants--loading.jpg), [loaded](img/tenants/tenants--default.jpg)). The tenant Emails tab does the same with one `h-64`. Fix: a table skeleton with the header row and a row per expected line, which the shared `DataTable` can own.
 
@@ -228,11 +230,13 @@ At 390 px the tab bar shows Overview, Members, Invitations and Activity; the oth
 
 ### F-users-1
 
+Status: fixed. `/users/` renders through `DataTable`: the toolbar holds the search, the Status, Verified and Staff facets and New user; headers sort; paging is by cursor; the phone shows cards. `tests/unit/pages/_app/users.test.tsx` (“sorts by email by default and by last sign-in from the header”, “filters by verification through a yes/no facet”, “pages with the API cursors, carrying them in the URL”) and `e2e/fixtures/lists.test.ts` (“a search on Users writes ?search= and leaves the matching rows”, “Users stacks as cards with no sideways scroll”) assert it.
+
 `/users/` is the same hand-assembled list as the tenants ([F-tenants-1](#f-tenants-1)): a search input, three filter `Select`s (status, verified, staff), New user, `UsersTable` (Email, Name, Status, Staff role, Tenants, Last sign-in) and the two cursor buttons. Its filters sit on their own row under the title, and its New user button has no icon, where the tenant list puts both in the title row with a plus icon ([shot](img/users/users--default.jpg)). On a phone the table is cut after Email ([shot](img/users/users--mobile.jpg)). Fix: the shared `DataTable`, whose toolbar puts every list's search, filters and primary action in one place.
 
 ### F-users-2
 
-Status: open: the users list moves to the data table.
+Status: fixed. The first page shows `DataTable`’s table-shaped skeleton. `tests/unit/components/shared/data-table/data-table.test.tsx` ("shows a table-shaped skeleton while the first page loads") asserts it.
 
 While the page loads, the users list is one `Skeleton h-96`, 384 px, where the loaded table and pagination take about 880 px ([loading](img/users/users--loading.jpg), [loaded](img/users/users--default.jpg)). Fix: a table-shaped skeleton.
 
@@ -248,11 +252,13 @@ A tenant has a tab bar under its header; a user has none. The user page links to
 
 ### F-emails-1
 
+Status: fixed. `/emails` renders through `DataTable`: the recipient search, the Status and Template facets, the date range and the User and Tenant chips in one toolbar, sortable headers, cursor paging, and the Columns menu, which can hide the User column. `tests/unit/pages/_app/emails.test.tsx` (“sorts newest first by default, and by oldest first from the Created header”, “filters by two templates through one comma list”, “shows ?user and ?tenant as chips named from the listed rows, and removes them”) and `e2e/fixtures/lists.test.ts` (“a facet on Emails writes a comma list and its chip removes one value”) assert it.
+
 The Emails list assembles its toolbar by hand: the recipient search, status and template `Select`s, the `DateRangeFilter` popover, and removable chips for the user and tenant filters, then `EmailsTable` (Recipient, Template, Status, Created, User, Tenant) and the cursor buttons ([shot](img/emails/emails--default.jpg)). For most rows the User column repeats the recipient's address, and nothing lets a reader hide it; on a phone the table is cut at Template ([shot](img/emails/emails--mobile.jpg)). Fix: the shared `DataTable` with its toolbar, filter chips and column visibility.
 
 ### F-emails-2
 
-Status: open: the emails list moves to the data table.
+Status: fixed. The first page shows `DataTable`’s table-shaped skeleton. `tests/unit/components/shared/data-table/data-table.test.tsx` ("shows a table-shaped skeleton while the first page loads") asserts it.
 
 While the page loads, the emails list is one `Skeleton h-96`, against about 850 px of table and pagination ([loading](img/emails/emails--loading.jpg), [loaded](img/emails/emails--default.jpg)). Fix: a table-shaped skeleton.
 
@@ -264,11 +270,13 @@ While the email loads, the page is an `h-16` and an `h-64` block across the full
 
 ### F-suppressions-1
 
+Status: fixed. `/suppressions` renders through `DataTable`: the address search, the State facet, sortable headers, cursor paging, cards on a phone, and Lift as the row’s action. `tests/unit/pages/_app/suppressions.test.tsx` (“sorts newest first by default, by address and by oldest first from the headers”, “keeps the state filter in the URL, and leaves the default out of it”, “pages with the API cursor, both ways”) asserts it.
+
 The suppressions list has its own search, state `Select`, `SuppressionsTable` (Address, Reason, Source, Suppressed, State, and Lift for admins) and cursor buttons, assembled by hand like the other lists ([shot](img/suppressions/suppressions--default.jpg)). Fix: the shared `DataTable`, with Lift as a row action.
 
 ### F-suppressions-2
 
-Status: open: the suppressions list moves to the data table.
+Status: fixed. The first page shows `DataTable`’s table-shaped skeleton. `tests/unit/components/shared/data-table/data-table.test.tsx` ("shows a table-shaped skeleton while the first page loads") asserts it.
 
 While the page loads, the list is one `Skeleton h-96` ([shot](img/suppressions/suppressions--loading.jpg)). Fix: a table-shaped skeleton.
 
@@ -286,25 +294,31 @@ Status: fixed. The Tenants section renders beside the funnel from the start, and
 
 ### F-onboarding-2
 
+Status: fixed. The Tenants section is a `DataTable` whose state tabs write `?state=`: search, sort by tenant name, cursor paging that restarts on a new tab, and Back and Forward between tabs. `tests/unit/pages/_app/onboarding.test.tsx` (“sorts any tab by tenant name through ?sort=name”, “pages with the API’s cursors, and a new tab starts from the first page”, “returns to the previous tab and its rows on Back, and to the next on Forward”) asserts it.
+
 The Tenants section is a hand-assembled list: state `Tabs` for the filter (Stuck, In progress, Awaiting owner, Complete, Dismissed), `OnboardingTenantsTable` (Tenant, Owners, Started, Last progress, Days stuck on the stuck tab, Next required step, Progress) and the cursor buttons ([shot](img/onboarding/onboarding--default.jpg)). Fix: the shared `DataTable`, with the state tabs as its filter.
 
 ### F-onboarding-3
 
-Status: partly fixed. The KPI skeletons are the loaded cards' 11rem and the funnel block is `h-78`; the tenants list is still one `h-64` block until it moves to the data table ([after](img/onboarding/onboarding--loading.jpg)). `tests/unit/pages/_app/onboarding.test.tsx` ("holds the funnel’s KPI cards at the loaded cards’ height…") covers the cards.
+Status: fixed. The KPI skeletons are the loaded cards’ 11rem, the funnel block is `h-78`, and the tenants list shows `DataTable`’s table-shaped skeleton ([after](img/onboarding/onboarding--loading.jpg)). `tests/unit/pages/_app/onboarding.test.tsx` (“holds the funnel’s KPI cards at the loaded cards’ height…”, “shows the tenants by state while the funnel is still loading”) and `tests/unit/components/shared/data-table/data-table.test.tsx` ("shows a table-shaped skeleton while the first page loads") assert it.
 
 `FunnelSkeleton`'s five KPI blocks are 120 px tall for cards about 176 px, and its `h-74` funnel block is shorter than the loaded funnel card (about 310 px); the tenants tab then loads as one `Skeleton h-64` for a table ([loading](img/onboarding/onboarding--loading.jpg), [loaded](img/onboarding/onboarding--default.jpg)). Fix: skeletons at the loaded sizes, and a table-shaped one for the list.
 
 ### F-activity-1
 
-Status: open: every activity list moves to the data table.
+Status: fixed. `/activity`, a tenant’s Activity tab and the History cards render through `DataTable`, so the first page shows its table-shaped skeleton in place of the two bars. `tests/unit/components/shared/data-table/data-table.test.tsx` ("shows a table-shaped skeleton while the first page loads") asserts it.
 
-`ActivityList` shows two `h-14` bars while the first page loads ([shot](img/activity/activity--loading.jpg)); the first page is up to 50 entries, about 4,500 px on `/activity` ([shot](img/activity/activity--default.jpg)). The same two bars stand in for the tenant Activity tab and the History cards on a tenant and a user. Fix: as many entry-shaped rows as fill the view (name line, sentence, time).
+The activity list (`ActivityList`, now `ActivityTable`) showed two `h-14` bars while the first page loaded ([shot](img/activity/activity--loading.jpg)); the first page is up to 50 entries, about 4,500 px on `/activity` ([shot](img/activity/activity--default.jpg)). The same two bars stand in for the tenant Activity tab and the History cards on a tenant and a user. Fix: as many entry-shaped rows as fill the view (name line, sentence, time).
 
 ### F-activity-2
+
+Status: fixed. Tenant, Actor, Action and Access are facets of the table toolbar, and their values are in the URL, so a filtered view can be linked and Back undoes one filter. `tests/unit/pages/_app/activity.test.tsx` (“keeps every filter in the URL, so Back undoes one”, “narrows to what staff did with the Access facet, through ?access=platform”) asserts it.
 
 `/activity` keeps its tenant, action, actor and staff-only filters in `useState`. A filtered view cannot be linked or bookmarked, a reload resets it, and Back leaves the page instead of undoing a filter. Every other filtered page (tenants, users, emails, suppressions, onboarding) keeps its filters in the URL. Fix: validated search params, as the other lists use.
 
 ### F-activity-3
+
+Status: fixed. The Actor facet says the staff list could not be loaded and offers Try again. `tests/unit/pages/_app/activity.test.tsx` (“says the staff list could not be loaded, in the actor facet, and retries it”) asserts it.
 
 The who-acted `Select` is filled from `GET /tenants/platform/members`. When that read fails, the select lists only "Anyone", and nothing on the page says the staff list could not be loaded; the capture's error shot fails it with the log, so this single failure is from the code. Fix: an inline error in the select's list, with a retry.
 
@@ -328,9 +342,13 @@ On the Staff page both `MembersCard` and `InvitationsSection` call `useMyRole` f
 
 ### F-settings-4
 
+Status: fixed. The members of a tenant and of the platform tenant are a `DataTable` on express 5.0.0’s paged, searchable members read: search, sort by name, email, role or joined, cursor paging, and cards on a phone, with Actions never hideable. The pending invitations are a second table with its own prefixed params. `tests/unit/pages/_app/tenant-detail.test.tsx` (“lists members in a table sorted by name, and sorts by email through ?sort=email”, “sorts invitations by email and filters them by role, in prefixed keys”) and `tests/unit/pages/_app/settings/platform.staff-members.test.tsx` (“keeps the staff search and the invitations search apart”, “keeps the invitations cursor when the staff list is paged”) assert it.
+
 `MembersCard` renders every member of a tenant in one `Table` (Name, Email, Role, Actions) with no search, filter or paging. On the Staff page the dev database's 60 staff members make a page about 4,100 px tall, and the table is wider than its `max-w-4xl` card (`min-w-2xl` plus a role `Select` per row), so the Actions column is cut at the card's edge and its buttons read "Remo" ([shot](img/settings/platform-staff--default.jpg)). The tenant Members tab uses the same card. `GET /tenants/:slug/members` returns every member in one response, with no cursor and no search term. Part 4 names tenants, users, emails and suppressions as the lists that move onto the shared `DataTable`, and keeps ordering, filtering and paging the API's; so moving this card onto it needs either an API change (server-side search and paging on the members read) or an exception ruled in the part 4 spec. Either way, the row actions belong in a menu that fits the card.
 
 ### F-settings-5
+
+Status: fixed. The registered and unregistered flags are two `DataTable`s on express 5.0.0’s paged, searchable flag reads, with a Columns menu, Kind and State facets on the registry, and a search each. `tests/unit/pages/_app/settings/platform.flags.test.tsx` (“searches the registry and the unregistered list apart”, “filters the registry by kind”, “filters the registry by state through the State facet”) and `e2e/fixtures/flags.test.ts` assert it.
 
 `FlagRegistryTable` has eight columns (Flag with its description, Kind, Scope, Sent to, Fallback, State, Rollout, a PostHog link) and `UnregisteredFlagsTable` three; both are static `Table`s with no search, sort or column visibility ([shot](img/settings/platform-flags--default.jpg)). Two reference flags fit; a real registry will not. `GET /platform/flags` returns the whole registry in one response, with no cursor and no search term. Part 4 keeps ordering, filtering and paging the API's and does not name these tables, so moving them onto the shared `DataTable` needs either an API change (server-side search and paging on the flags read) or an exception ruled in the part 4 spec; column visibility alone needs neither.
 

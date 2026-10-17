@@ -125,7 +125,7 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     url: '/suppressions',
     as: 'staff',
     sections: [{ name: 'Suppressions', endpoints: ['GET /platform/email-suppressions'] }],
-    empty: { url: '/suppressions?q=zzzz-no-match' },
+    empty: { url: '/suppressions?search=zzzz-no-match' },
   },
   '/forgot-password': {
     kind: 'page',
@@ -194,7 +194,7 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     as: 'staff',
     responsive: true,
     sections: [{ name: 'Emails', endpoints: ['GET /platform/emails'] }],
-    empty: { url: '/emails?q=zzzz-no-match' },
+    empty: { url: '/emails?search=zzzz-no-match' },
   },
   '/settings/': {
     kind: 'page',
@@ -213,7 +213,7 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     as: 'staff',
     responsive: true,
     sections: [{ name: 'Tenants', endpoints: ['GET /platform/tenants'] }],
-    empty: { url: '/tenants?q=zzzz-no-match' },
+    empty: { url: '/tenants?search=zzzz-no-match' },
   },
   '/users/': {
     kind: 'page',
@@ -224,7 +224,7 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     as: 'staff',
     responsive: true,
     sections: [{ name: 'Users', endpoints: ['GET /platform/users'] }],
-    empty: { url: '/users?q=zzzz-no-match' },
+    empty: { url: '/users?search=zzzz-no-match' },
   },
   '/settings/account/profile': {
     kind: 'page',
@@ -491,7 +491,7 @@ export const NAVIGATIONS: readonly NavigationCapture[] = [
     area: 'users',
     shot: 'user',
     as: 'staff',
-    from: '/users?q={userEmail}',
+    from: '/users?search={userEmail}',
     link: '{userEmail}',
     template: { variant: 'detail', nested: false },
     endpoints: ['GET /platform/users/:id'],

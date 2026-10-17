@@ -188,11 +188,22 @@ if that failed (`templatesReady`), since the router preloads none of them.
 and offers a reload, the only way to pick up a new deploy's file names; any
 other error offers a retry that re-runs the loaders.
 
-`QueryState` (`components/shared/query-state.tsx`) renders every query-backed
-section: skeleton, role refusal, retryable error, empty, content in a
-`SectionBoundary`. It reads a refusal through `isRoleDenied`
-(`src/lib/role-denied.ts`), which in this app is a 404: `/platform/*` answers
-404 to a caller below the route's role.
+`QueryState` (`components/shared/query-state.tsx`) renders the query-backed
+sections: skeleton, role refusal, retryable error, empty, content in a
+`SectionBoundary`; every list reaches it through `DataTable`. It reads a
+refusal through `isRoleDenied` (`src/lib/role-denied.ts`), which in this app
+is a 404: `/platform/*` answers 404 to a caller below the route's role. These
+read a query without it, each with its own states:
+
+- the Overview's `SystemStatusCard`, which keeps its last answer up when a
+  refresh fails;
+- the detail pages' headers (a tenant's, an email's) and a tenant's Flags tab,
+  which replace the page with a `LoadError`, or sit above the content;
+- the Feature flags page's meta read, which gates the page, and its evaluate
+  panel, evaluation and user picker;
+- the owners read behind the members list, which shows a `LoadError` beside
+  it, and the command palette's two searches;
+- `MaintenanceBanner`, which renders nothing until it has an answer.
 
 **Breadcrumbs** come from each route's `staticData.crumb`, a string or a
 component given the match's params, so a record page names itself once its
@@ -229,10 +240,212 @@ errors onto its inputs through `useServerErrors`.
   new tenant with that slug must never be shown the archived one's cached
   members. `useMyRole` reads the caller's role and access path off that
   detail, and every role-gated control on a tenant reads it.
-- **Lists page by cursor.** The tenant, user, email, suppression and
-  onboarding lists keep their filters and keyset cursor in the URL,
-  validated by each page's search schema, so a filtered page can be shared
-  and reloaded.
+- **Lists page by cursor.** Every list keeps its search, filters, sort,
+  cursor and column choice in the URL, validated by its route's search
+  schema, so a view can be shared and reloaded. [Lists](#lists) has the
+  contract.
+
+## Lists
+
+Every list page renders through one table, `DataTable`
+(`components/shared/data-table/`), over one URL contract and one query shape.
+Lists use the API's list contract: `?search`, `sort` (a leading `-` is
+descending), `cursor`, `direction`, `limit` and each list's filters in, and
+`{ items, page, total? }` out, where `page` is `{ nextCursor, prevCursor,
+hasNext, hasPrev, limit }`. The code is shared with react-boilerplate
+([Sibling sync](#sibling-sync-with-react-boilerplate)).
+
+**The URL contract.** A list is declared once, at module scope, with
+`defineList` (`schemas/list.schemas.ts`): its sort whitelist (the first key is
+the default), its filters (`listFilter` for a comma list of known values,
+`booleanFilter`, `idFilter`, `dayFilter`), the `table` name its analytics
+events carry, and optionally `extra` (the route's own params). The result's
+`schema` is the route's `validateSearch`. The shared fields are `search`,
+`sort`, `cursor`, `direction` (`prev` only), `limit` (20, 50 or 100) and
+`hidden` (column ids, a comma list). Every field is `.optional().catch(undefined)`:
+a malformed value is dropped, never an error page. Defaults are omitted from
+the URL and the request, so a default view's URL has no list params; a route
+whose `extra` params have defaults strips them with `stripSearchParams`. A
+second list on one route sets a `prefix` (`invitationsSearch`,
+`invitationsSort`), and the first list names it in `also` so the route's one
+schema keeps both lists' params.
+
+**The request.** `listValues` reads a validated search into a list's values
+and `listRequest` turns them into the API request (both in
+`schemas/list-request.schemas.ts`, which only the table loads, so a route's
+schema stays small). `listQueryOptions` (`queries/list.queries.ts`) is the
+one query shape: the key is `[...key, 'list', request]`, the first page (no
+cursor) also asks for `total=1`, and `placeholderData: keepPreviousData` keeps
+the old rows up, marked busy, while the next view loads. The total is capped
+at 1,000 by the API (`capped: true` reads "1,000+ results"). `total: false`
+leaves `total=1` off for a read that never uses the total, such as the bell's
+preview, and is part of the cache key (`'no-total'`) so that page never stands
+in for one with a total. `retryList` is the default retry: once, except that
+a 4xx other than 408 and 429 is final (a refused param, cursor or role, or a
+missing route). A list passes no `retry` of its own.
+
+**`useListSearch(definition)`** is one list's URL state and its writes. Any
+write but paging and column choice drops the cursor and direction, since a
+cursor belongs to the view it was cut from; hiding a column keeps the page.
+Typing a search replaces the history entry; every other write (a filter, a
+sort, a page size, a page) pushes one. A default is written as no key. It
+fires `table_filtered`, `table_sorted` and `table_paged`, naming the list
+and never a value. "Showing 21-40" counts from a page index this tab recorded
+as the reader paged (`resetListPositions` forgets them; `tests/setup.ts` calls
+it after each test). A page the API answers with no previous page is index 0
+whatever was recorded, and a `prev` page with no next page (the API's
+last-page answer to a cursor whose page came back empty) has no known
+position, so "Showing" is left out rather than wrong.
+
+**`useListQuery(list, options, { enabled })`** is the page: `items`, `page`,
+the query, and the view's `total`. A later page keeps the first page's total
+through a disabled observer on the first page's cache entry; while a new
+view's first page loads the total is absent, never the old view's. A 400 with
+`code: 'CURSOR_INVALID'` on a page with a cursor means the API refused the
+cursor (tampered, rotated key, or cut from another view): the list drops
+`cursor` and `direction`, replacing the refused history entry, and reloads its
+first page. The query reads as pending meanwhile, so the refusal never shows
+as an error. Any other 400 is an error the table shows.
+
+**`DataTable`** takes the columns, the query state, a `label`, a `getRowId`,
+and the `empty` state; the rest is optional (`search`, `filters`, `toolbar`,
+`card`, `layout`, `landmark`, `rowTarget`, `errorMessage`).
+
+- _States_ come from `QueryState`: a table-shaped skeleton inside
+  `role="status"`, a role refusal, a load error with Try again (the list's
+  own `errorMessage`, or `{label} could not be loaded.`), the empty state, or
+  the rows. An empty list under a search or filter says "Nothing matches these
+  filters." with Reset; an empty page behind a cursor says "Nothing on this
+  page." with First page. While the page on screen is the old view's
+  placeholder, an empty one shows the skeleton, never "nothing matches", and
+  "Showing" is hidden.
+- _Columns_ are built with `createColumnHelper<DataTableFeatures, Row>()` and
+  passed as a stable array (module-level or memoized). A column's `meta`
+  carries `sorts` (the API keys its header steps through) and `sortName`
+  (its name in `table_sorted`); `sortWords` picks "A to Z", "oldest first" or
+  "lowest first"; `label` names a column whose header is not a string;
+  `actions: true` marks the actions column, which is never hideable, and the
+  first column never is either (`canHideColumn`); a stale `?hidden=` id for a
+  column that cannot hide is ignored. Sorting and paging are server-side
+  (`manualSorting`, `manualPagination`).
+- _The toolbar_ holds the search box, the faceted filters with their chips,
+  the Columns menu, the list's own controls (`toolbar`) and the total. The
+  search box follows outside changes to `?search` (the command palette, a
+  history pop) and keeps newer keystrokes when the change is its own echo, so
+  a page never adds its own sync.
+- _Phone cards._ Below 768 px, or with `layout="cards"`, the rows render as
+  cards built from the visible columns (the first column is the title, actions
+  sit at the bottom). A custom `card(row, { target })` replaces the card; it
+  renders one `role="listitem"` and puts `target` on it as the row's focus
+  landmark. Card layout gets a "Sort by" menu in the toolbar row when any
+  column is sortable, with "Default order" when no column owns the list's
+  default sort (reported as `table_sorted` with `sort: 'default'`). With a
+  custom card the Columns menu is hidden in card layout.
+- _Names._ The table sits in `<section aria-label={label}>`, its paging
+  landmark is `{label} pagination`, so a page with two lists passes axe's
+  `landmark-unique`. Each toolbar control is named with what it shows, then the
+  list (`controlName`): "Filter by role, Members", "Columns, Members", "Reset,
+  Members", "Rows per page, Members" and "Sort by, Members". The name starts
+  with the visible words (WCAG 2.5.3), and a buttons list never shows two of
+  one name. "Previous page" and "Next page" keep their names, since the
+  `{label} pagination` landmark names the list. A parent that is already the
+  list's named region passes `landmark={false}`.
+
+**Adding a list.**
+
+1. Define the URL contract with `defineList` next to the list's query
+   options. A filter's values come from a constants module
+   (`audit-action-names.ts`), not from the module that holds the labels
+   (`audit-actions.ts`), so a route's `validateSearch` does not pull the
+   wording into the entry chunk.
+2. Write the page's options: `(request) => listQueryOptions<Row>({ key, path,
+request })` under the resource's key prefix, so a write's invalidation
+   reaches every page.
+3. Write the columns with `createColumnHelper`, at module scope.
+4. Set `validateSearch: list.schema` on the route (with `search: {
+middlewares: [stripSearchParams(...)] }` when `extra` has defaults).
+5. In the page: `const list = useListSearch(def)`, `const query =
+useListQuery(list, options)`, then `<DataTable columns query label
+getRowId empty ... />`. Pass `errorMessage` when the list has load-error
+   copy of its own.
+6. Test it through `tests/unit/components/shared/data-table/list-harness.tsx`
+   (`renderTestList`, `serveTestItems`, `testColumns`, `atPhoneWidth`) and
+   answer in `listPage(items, page?, total?)` from `tests/fixtures/list-page.ts`.
+
+A route schema keeps zod classes out of the entry chunk. Use `z.custom` rather
+than `z.number`, `z.literal` or `z.boolean` in a route's search schema, as
+`list.schemas.ts` does for `limit` and the yes/no filter, and keep
+`components/shared/data-table/**` (and TanStack Table) out of anything the
+entry imports: the switcher, the bell, `nav-secondary` and the guard never
+import from it. `pnpm check:bundle` enforces the budget, and this app did not
+raise it: `ENTRY_BUDGET_BYTES` is still 598,500. The entry started the lists
+at 594,895 B and ends at 589,247 B. The shared schemas use `z.custom`, which
+took it down; the 13 definitions' schemas, which every list route's
+`validateSearch` reaches, put 4,370 B back; deleting each page's old
+schema, options and hooks in the commit that adopted the table took the rest
+off.
+
+### Apex's lists
+
+| List                | Definition (`src/queries/`)                | Route                                   | Page                                                    |
+| ------------------- | ------------------------------------------ | --------------------------------------- | ------------------------------------------------------- |
+| Tenants             | `tenantsList`, `tenant-admin.queries.ts`   | `/tenants`                              | `tenants/tenants-table.tsx`                             |
+| Users               | `usersList`, `user-admin.queries.ts`       | `/users`                                | `users/users-table.tsx`                                 |
+| Emails              | `emailsList`, `email.queries.ts`           | `/emails`                               | `emails/emails-table.tsx`                               |
+| A tenant's Emails   | `tenantEmailsList`, `email.queries.ts`     | `/tenants/$tenantId/emails`             | `emails/emails-table.tsx`, the tenant fixed by the page |
+| Suppressions        | `suppressionsList`, `email.queries.ts`     | `/suppressions`                         | `suppressions/suppressions-table.tsx`                   |
+| Onboarding tenants  | `onboardingTenantsList`                    | `/onboarding`                           | `onboarding/onboarding-tenants-table.tsx`               |
+| Activity            | `platformActivityList`, `audit.queries.ts` | `/activity`                             | `activity/activity-table.tsx`                           |
+| A tenant's Activity | `tenantActivityList`, `audit.queries.ts`   | `/tenants/$tenantId/activity`           | `activity/activity-table.tsx`                           |
+| History cards       | `historyList` (prefix `history`)           | `/tenants/$tenantId`, `/users/$userId`  | `history-card.tsx`, over `activity-table.tsx`           |
+| Members             | `membersList`, `tenant.queries.ts`         | `/tenants/$tenantId/members`, Staff     | `tenant/members-card.tsx`                               |
+| Pending invitations | `invitationsList` (prefix `invitations`)   | `/tenants/$tenantId/invitations`, Staff | `tenant/pending-invitations.tsx`                        |
+| Registered flags    | `flagsList`, `flag-inspector.queries.ts`   | `/settings/platform/flags`              | `flags/flag-registry-table.tsx`                         |
+| Unregistered flags  | `unregisteredFlagsList` (prefix)           | `/settings/platform/flags`              | `flags/unregistered-flags-table.tsx`                    |
+
+Staff (`/settings/platform/staff`) is the platform tenant's Members and
+Pending invitations lists, under the keys they have on a tenant's own tabs.
+
+What is particular to this app:
+
+- **Two lists on one route.** Staff, and the flags page, hold two lists; the
+  second takes a `prefix` (`invitations…`, `unregistered…`) and the first
+  names it in `also`. The flags route's `extra` is who is evaluated (`userId`,
+  `tenantId`, `app`), and `app` is stripped at its default. A History card
+  prefixes with `history` because a tenant's or a user's page holds other
+  lists; the card's own filter (`target`, or `tenant` and `access`) is fixed by
+  the page and never in the URL.
+- **Onboarding's tab and window are route params, not filters.** `range` and
+  `state` are the list's `extra`, stripped at their defaults (`30d`, `stuck`).
+  A tab sits in the request, so each has its own cache entry, and choosing one
+  drops the cursor.
+- **Activity's `action` accepts the stored names.** The URL schema keeps the
+  names the API still accepts (`STORED_AUDIT_ACTIONS`, the retired ones
+  included), so an old link still filters; the facet offers only the actions
+  the app writes today.
+- **Emails' day range.** `emailsSearchSchema` drops an inverted `from`/`to`
+  pair, which the API refuses with a 400.
+- **Suppressions list active rows by default**, which is the API's default; the
+  State facet shows nothing picked until the reader picks `active`, `lifted` or
+  both. Any picked state is a filter, so an empty page then reads "Nothing
+  matches these filters."
+- **Reads that show no total** pass `total: false`: the command palette and the
+  user and tenant pickers (`tenantsListOptions`, `usersListOptions`; the palette
+  also sets `placeholderData: undefined`, since a stale page is not its
+  results), a user's Emails card, the flag registry read behind the user
+  evaluation, and the owners read.
+- **The last-owner rule under paging.** A members page holds one page, so the
+  owners come from their own read (`ownersQueryOptions`: `role=owner`,
+  `limit=100`, no total). `ownersBesides` counts the owners other than the
+  caller (on the platform tenant only active ones) and adds one when that page
+  has a next page. While the read is pending the last owner's controls stay
+  locked, and a failed read shows its own `LoadError` with Try again. The API
+  enforces the rule regardless.
+- **The flags page refuses once.** The meta read gates the page; a list refused
+  after it loaded (the role changed) replaces the page with one `RoleDenied`,
+  not one per list.
+- **Search words.** Each table's placeholder promises only what express 5.0.0's
+  `search` matches (Tenants: name or slug; Flags: key or description).
 
 ## State
 
@@ -379,9 +592,9 @@ The Directory pages are Tenants and Users, with Staff under Settings ›
 Platform; a tenant and a user each have a detail page with their own
 sub-pages.
 
-- **Tenants and Users** are keyset-paged lists from `GET /platform/tenants`
-  and `GET /platform/users`, searched with `?q=` and filtered by state or
-  status. Their reads and staff writes are in
+- **Tenants and Users** are lists from `GET /platform/tenants` and
+  `GET /platform/users`, searched with `?search=` and filtered by state or
+  status ([Lists](#lists)). Their reads and staff writes are in
   `src/queries/tenant-admin.queries.ts` and
   `src/queries/user-admin.queries.ts`.
 - **A tenant's page** (`src/pages/_app/tenants/$tenantId.tsx`) reads
