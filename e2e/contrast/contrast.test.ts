@@ -524,8 +524,9 @@ test.describe('chart legends', () => {
 })
 
 /**
- * The ⌘K palette: its own dialog surface and its highlighted-option pair
- * (`--accent` on `--popover`), neither of which any page above renders.
+ * The ⌘K palette: its own dialog surface, its highlighted-option pair
+ * (`--accent` on `--popover`), the muted detail text and a failed search's
+ * Try again row, none of which any page above renders.
  */
 test.describe('command palette', () => {
   for (const theme of THEMES) {
@@ -549,6 +550,34 @@ test.describe('command palette', () => {
 
       const result = await runAxe(page, '[role="dialog"]')
       expect(report('palette', theme, result), report('palette', theme, result)).toBe('')
+    })
+
+    test(`the palette's failed search and detail text meet WCAG AA contrast in ${theme}`, async ({
+      page,
+    }) => {
+      await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+      await page.goto('/e2e/harness/?path=/overview&fail=/api/v1/platform/tenants')
+      await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible({
+        timeout: COLD_TRANSFORM_BUDGET_MS,
+      })
+
+      await page.keyboard.press('ControlOrMeta+k')
+      const palette = page.getByRole('dialog', { name: 'Command palette', exact: true })
+      await expect(palette).toBeVisible({ timeout: COLD_TRANSFORM_BUDGET_MS })
+      await page.keyboard.type('cleo')
+      // The failed tenant search's row, and a user row with its muted detail: neither shows on an open with no term.
+      await expect(palette.getByRole('option', { name: 'Search failed. Try again' })).toBeVisible()
+      await expect(palette.getByRole('option', { name: /cleo\.d@example\.com/ })).toBeVisible()
+
+      await afterAnimations(palette)
+      await afterFontsAndFrames(page)
+      await page.addScriptTag({ path: AXE_PATH })
+
+      const result = await runAxe(page, '[role="dialog"]')
+      expect(
+        report('palette failure', theme, result),
+        report('palette failure', theme, result)
+      ).toBe('')
     })
   }
 })

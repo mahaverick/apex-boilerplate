@@ -111,6 +111,28 @@ test('the user menu’s initials and name, and the open palette’s people, sit 
   expect(await unmaskedPii(page, NAMES)).toEqual([])
 })
 
+test('the palette’s recent and searched people sit inside Pii', async ({ page }) => {
+  // Opening Cleo's page records her, so the empty palette lists her under Recent.
+  await page.goto(`/e2e/harness/?path=${CLEO}`)
+  await expect(page.getByRole('heading', { name: 'Cleo D', level: 1 })).toBeVisible()
+  await page.getByRole('button', { name: /Search…/ }).click()
+  const palette = page.getByRole('dialog', { name: 'Command palette', exact: true })
+  await expect(
+    palette
+      .getByRole('group', { name: 'Recent' })
+      .getByRole('option', { name: /cleo\.d@example\.com/ })
+  ).toBeVisible()
+  expect(await unmaskedPii(page, NAMES)).toEqual([])
+
+  await page.getByRole('combobox', { name: 'Search pages, tenants and users' }).fill('c')
+  await expect(
+    palette
+      .getByRole('group', { name: 'Users' })
+      .getByRole('option', { name: /cleo\.d@example\.com/ })
+  ).toBeVisible()
+  expect(await unmaskedPii(page, NAMES)).toEqual([])
+})
+
 /**
  * The owner's switch-on dialog, open over the harness's off state: what an
  * owner types as the customer message can name a person, and the preview

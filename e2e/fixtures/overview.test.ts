@@ -55,7 +55,12 @@ test('⌘K finds a page and Enter opens it', async ({ page }) => {
   const palette = page.getByRole('dialog', { name: 'Command palette' })
   await expect(palette.getByRole('option', { name: 'Overview' })).toBeVisible()
   await page.keyboard.type('tenants')
-  await expect(palette.getByRole('option', { name: 'Tenants' })).toBeVisible()
+  // Scoped and exact: a tenant row from the API search could match the term too.
+  await expect(
+    palette
+      .getByRole('group', { name: 'Go to' })
+      .getByRole('option', { name: 'Tenants', exact: true })
+  ).toBeVisible()
   await page.keyboard.press('Enter')
 
   await expect(page.getByRole('heading', { name: 'Tenants', level: 1 })).toBeVisible()
