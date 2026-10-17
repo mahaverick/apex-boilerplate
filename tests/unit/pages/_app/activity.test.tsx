@@ -18,6 +18,7 @@ import {
   TENANT_ID_2,
   USER_ID_2,
 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type { PlatformAuditEntry, PlatformTenantRow } from '@/types/api.types'
@@ -55,7 +56,7 @@ function mockLog(respond: (url: URL) => Response) {
       seen.push(url)
       return respond(url)
     }),
-    http.get('/api/v1/tenants/platform/members', () => ok([], 'Members retrieved.'))
+    http.get('/api/v1/tenants/platform/members', () => ok(listPage([]), 'Members retrieved.'))
   )
   return seen
 }

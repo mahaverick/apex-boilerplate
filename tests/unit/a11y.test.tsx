@@ -124,8 +124,12 @@ const STAFF_MEMBERS = MEMBERS.map((member, index) => ({
 /** The Staff page's two requests beyond the platform tenant the top-level `beforeEach` answers. */
 function serveStaff() {
   server.use(
-    http.get('/api/v1/tenants/platform/members', () => ok(STAFF_MEMBERS, 'Members retrieved.')),
-    http.get('/api/v1/tenants/platform/invitations', () => ok([], 'Invitations retrieved.'))
+    http.get('/api/v1/tenants/platform/members', () =>
+      ok(listPage(STAFF_MEMBERS), 'Members retrieved.')
+    ),
+    http.get('/api/v1/tenants/platform/invitations', () =>
+      ok(listPage([]), 'Invitations retrieved.')
+    )
   )
 }
 
@@ -203,8 +207,8 @@ function serveTenant(state: TenantLifecycleState) {
         'Tenant retrieved.'
       )
     ),
-    http.get('/api/v1/tenants/acme/members', () => ok(MEMBERS, 'Members retrieved.')),
-    http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.')),
+    http.get('/api/v1/tenants/acme/members', () => ok(listPage(MEMBERS), 'Members retrieved.')),
+    http.get('/api/v1/tenants/acme/invitations', () => ok(listPage([]), 'Invitations retrieved.')),
     http.get('/api/v1/tenants/acme/audit-log', () =>
       ok({ entries: AUDIT_ENTRIES, nextCursor: null }, 'Audit log retrieved.')
     )
@@ -772,7 +776,9 @@ describe('signed-in pages', () => {
       http.get('/api/v1/platform/audit-log', () =>
         ok({ entries, nextCursor: null }, 'Audit log retrieved.')
       ),
-      http.get('/api/v1/tenants/platform/members', () => ok(MEMBERS, 'Members retrieved.'))
+      http.get('/api/v1/tenants/platform/members', () =>
+        ok(listPage(MEMBERS), 'Members retrieved.')
+      )
     )
     renderAppAt('/activity')
     await screen.findByText('changed the settings (timezone)')
@@ -792,6 +798,24 @@ describe('signed-in pages', () => {
     serveTenant('active')
     renderAppAt(`/tenants/${TENANT_ID}${suffix}`)
     await ready()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the member list stacked as cards on a phone', async () => {
+    setViewportWidth(390)
+    serveTenant('active')
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    await screen.findByRole('list', { name: 'Members' })
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with a facet popover open on the members list', async () => {
+    serveTenant('active')
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    await screen.findByRole('table', { name: 'Members' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Filter by role, Members' }))
+    await screen.findByRole('dialog', { name: 'Filter by role, Members' })
     await expectNoViolations()
   })
 
@@ -1191,7 +1215,9 @@ describe('open overlays', () => {
           'Tenants retrieved.'
         )
       ),
-      http.get('/api/v1/tenants/platform/members', () => ok(MEMBERS, 'Members retrieved.'))
+      http.get('/api/v1/tenants/platform/members', () =>
+        ok(listPage(MEMBERS), 'Members retrieved.')
+      )
     )
     const user = userEvent.setup()
     renderAppAt('/activity')
@@ -1313,17 +1339,20 @@ describe('open overlays', () => {
       ),
       http.get('/api/v1/tenants/acme/members', () =>
         ok(
-          MEMBERS.map((member) => ({
-            ...member,
-            membership: { ...member.membership, role: 'owner' },
-          })),
+          listPage(
+            MEMBERS.map((member) => ({
+              ...member,
+              membership: { ...member.membership, role: 'owner' },
+            }))
+          ),
           'Members retrieved.'
         )
       )
     )
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/members`)
-    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Leave' })).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: 'Leave' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     expect(within(dialog).getByRole('button', { name: 'Leave' })).toBeInTheDocument()
     await expectNoViolations()
@@ -1333,7 +1362,7 @@ describe('open overlays', () => {
     serveTenant('active')
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
-        ok([testInvitation], 'Invitations retrieved.')
+        ok(listPage([testInvitation]), 'Invitations retrieved.')
       )
     )
     const user = userEvent.setup()
@@ -1368,7 +1397,7 @@ describe('open overlays', () => {
     serveStaff()
     server.use(
       http.get('/api/v1/tenants/platform/invitations', () =>
-        ok([testInvitation], 'Invitations retrieved.')
+        ok(listPage([testInvitation]), 'Invitations retrieved.')
       )
     )
     const user = userEvent.setup()

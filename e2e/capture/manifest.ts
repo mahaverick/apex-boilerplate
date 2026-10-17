@@ -354,7 +354,17 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
       TENANT,
       { name: 'Pending invitations', endpoints: ['GET /tenants/:slug/invitations'] },
     ],
-    empty: { stubs: [{ endpoint: 'GET /tenants/:slug/invitations', data: [] }] },
+    empty: {
+      stubs: [
+        {
+          endpoint: 'GET /tenants/:slug/invitations',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+      ],
+    },
   },
   '/tenants/$tenantId/members': {
     kind: 'page',
@@ -367,7 +377,17 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     url: '/tenants/{tenantId}/members',
     as: 'staff',
     sections: [TENANT, { name: 'Members', endpoints: ['GET /tenants/:slug/members'] }],
-    empty: { stubs: [{ endpoint: 'GET /tenants/:slug/members', data: [] }] },
+    empty: {
+      stubs: [
+        {
+          endpoint: 'GET /tenants/:slug/members',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+      ],
+    },
   },
   '/tenants/$tenantId/onboarding': {
     kind: 'page',

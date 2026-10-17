@@ -13,6 +13,7 @@ import {
   USER_ID,
   USER_ID_2,
 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -65,6 +66,18 @@ const LEAVE_PLATFORM =
 /** What the Leave dialog adds about invitations for a platform owner or admin. */
 const PLATFORM_INVITATIONS_REVOKED =
   'Pending invitations you sent here are revoked, and so are any you sent in other tenants for a role you can no longer grant there.'
+
+/** The reason the last owner's own controls are off. */
+const LAST_OWNER = 'A tenant must always have an owner. Add another owner first.'
+
+/** Leave, once enabled: an owner's own waits for the owners read, and is a different element after it. */
+function enabledLeave() {
+  return waitFor(() => {
+    const leave = screen.getByRole('button', { name: 'Leave' })
+    expect(leave).toBeEnabled()
+    return leave
+  })
+}
 
 /** The profile as express answers it once the platform membership is gone: no platform role. */
 function serveFormerStaff() {
@@ -132,14 +145,16 @@ function serveStaff(
     ),
     http.get('/api/v1/tenants/platform/members', () =>
       ok(
-        [
+        listPage([
           staff(USER_ID, MEMBERSHIP_ID, myRole, 'Me', active.me),
           staff(USER_ID_2, MEMBERSHIP_ID_2, ottoRole, 'Otto', active.otto),
-        ],
+        ]),
         'Members retrieved.'
       )
     ),
-    http.get('/api/v1/tenants/platform/invitations', () => ok([], 'Invitations retrieved.'))
+    http.get('/api/v1/tenants/platform/invitations', () =>
+      ok(listPage([]), 'Invitations retrieved.')
+    )
   )
 }
 
@@ -157,11 +172,15 @@ describe('/staff with the real sections', () => {
     expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
   })
 
-  /** Me's own role select and Leave, once the list has rendered. */
+  /**
+   * Me's own role select and Leave, once the list has rendered. Leave is a different element once the
+   * owners read lands, so each is read fresh.
+   */
   async function myControls() {
+    await screen.findByRole('combobox', { name: 'Role for Me Staff' })
     return {
-      role: await screen.findByRole('combobox', { name: 'Role for Me Staff' }),
-      leave: screen.getByRole('button', { name: 'Leave' }),
+      role: () => screen.getByRole('combobox', { name: 'Role for Me Staff' }),
+      leave: () => screen.getByRole('button', { name: 'Leave' }),
     }
   }
 
@@ -169,11 +188,10 @@ describe('/staff with the real sections', () => {
     serveStaff('owner', 'owner', { me: true, otto: false })
     renderAppAt('/settings/platform/staff')
     const { role, leave } = await myControls()
-    expect(role).toBeDisabled()
-    expect(leave).toBeDisabled()
-    expect(
-      screen.getByText('A tenant must always have an owner. Add another owner first.')
-    ).toBeInTheDocument()
+    // The reason shows once the owners read has landed and found no other active owner.
+    expect(await screen.findByText(LAST_OWNER)).toBeInTheDocument()
+    expect(role()).toBeDisabled()
+    expect(leave()).toBeDisabled()
   })
 
   it.each([
@@ -183,16 +201,63 @@ describe('/staff with the real sections', () => {
     serveStaff('owner', 'owner', { me: true, otto })
     renderAppAt('/settings/platform/staff')
     const { role, leave } = await myControls()
-    expect(role).toBeEnabled()
-    expect(leave).toBeEnabled()
+    await waitFor(() => expect(leave()).toBeEnabled())
+    expect(role()).toBeEnabled()
   })
 
   it('counts only the other owners, whatever the caller’s own flag says', async () => {
     serveStaff('owner', 'owner', { me: false, otto: true })
     renderAppAt('/settings/platform/staff')
     const { role, leave } = await myControls()
-    expect(role).toBeEnabled()
-    expect(leave).toBeEnabled()
+    await waitFor(() => expect(leave()).toBeEnabled())
+    expect(role()).toBeEnabled()
+  })
+
+  it.each([
+    { label: 'an active owner', active: true, enabled: true },
+    {
+      label: 'an owner with no active flag (an API before 2.1.0)',
+      active: undefined,
+      enabled: true,
+    },
+    { label: 'only a deactivated owner', active: false, enabled: false },
+  ])(
+    'counts $label who is not on this page toward the last-owner rule',
+    async ({ active, enabled }) => {
+      serveStaff('owner', 'owner', { me: true, otto: active })
+      const mine = staff(USER_ID, MEMBERSHIP_ID, 'owner', 'Me', true)
+      const other = staff(USER_ID_2, MEMBERSHIP_ID_2, 'owner', 'Otto', active)
+      server.use(
+        http.get('/api/v1/tenants/platform/members', ({ request }) => {
+          // The page holds only the caller; the owners read answers both owners.
+          return new URL(request.url).searchParams.get('role') === 'owner'
+            ? ok(listPage([mine, other]), 'Members retrieved.')
+            : ok(listPage([mine], { hasNext: true, nextCursor: 'c2' }), 'Members retrieved.')
+        })
+      )
+      renderAppAt('/settings/platform/staff')
+      const { role, leave } = await myControls()
+      if (enabled) {
+        await waitFor(() => expect(leave()).toBeEnabled())
+        expect(role()).toBeEnabled()
+        expect(screen.queryByText(LAST_OWNER)).not.toBeInTheDocument()
+      } else {
+        expect(await screen.findByText(LAST_OWNER)).toBeInTheDocument()
+        expect(leave()).toBeDisabled()
+      }
+    }
+  )
+
+  it('keeps the staff search and the invitations search apart', async () => {
+    serveStaff('owner', 'viewer')
+    const user = userEvent.setup()
+    const router = renderAppAt('/settings/platform/staff')
+    await screen.findByRole('table', { name: 'Staff members' })
+    await user.type(screen.getByRole('searchbox', { name: 'Search staff members' }), 'otto')
+    await user.type(screen.getByRole('searchbox', { name: 'Search invitations' }), 'inv')
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ search: 'otto', invitationsSearch: 'inv' })
+    )
   })
 
   it('gives an admin no control over another admin', async () => {
@@ -307,7 +372,7 @@ describe('/staff with the real sections', () => {
     )
     const user = userEvent.setup()
     const router = renderAppAt('/settings/platform/staff')
-    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    await user.click(await enabledLeave())
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     expect(dialog).toHaveAccessibleDescription(LEAVE_PLATFORM)
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
@@ -319,7 +384,7 @@ describe('/staff with the real sections', () => {
     serveStaff('owner', 'owner')
     const user = userEvent.setup()
     renderAppAt('/settings/platform/staff')
-    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    await user.click(await enabledLeave())
     expect(
       await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     ).toHaveAccessibleDescription(`${LEAVE_PLATFORM} ${PLATFORM_INVITATIONS_REVOKED}`)
@@ -336,7 +401,7 @@ describe('/staff with the real sections', () => {
     )
     const user = userEvent.setup()
     const router = renderAppAt('/settings/platform/staff')
-    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    await user.click(await enabledLeave())
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
     await screen.findByRole('dialog', { name: 'Confirm it’s you' })
@@ -382,7 +447,7 @@ describe('/staff with the real sections', () => {
     server.events.on('request:start', record)
     try {
       const user = userEvent.setup()
-      await user.click(await screen.findByRole('button', { name: 'Leave' }))
+      await user.click(await enabledLeave())
       await user.click(
         within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' })
       )
@@ -424,7 +489,7 @@ describe('/staff with the real sections', () => {
     })
     try {
       const user = userEvent.setup()
-      await user.click(await screen.findByRole('button', { name: 'Leave' }))
+      await user.click(await enabledLeave())
       await user.click(
         within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' })
       )
@@ -457,7 +522,7 @@ describe('/staff with the real sections', () => {
     )
     const user = userEvent.setup()
     const router = renderAppAt('/settings/platform/staff')
-    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    await user.click(await enabledLeave())
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
 
@@ -477,7 +542,7 @@ describe('/staff with the real sections', () => {
     )
     const user = userEvent.setup()
     const router = renderAppAt('/settings/platform/staff')
-    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    await user.click(await enabledLeave())
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
 

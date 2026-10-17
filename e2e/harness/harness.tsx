@@ -1120,8 +1120,10 @@ const worker = setupWorker(
       'Tenant retrieved.'
     )
   ),
-  http.get('/api/v1/tenants/platform/members', () => ok(MEMBERS, 'Members retrieved.')),
-  http.get('/api/v1/tenants/platform/invitations', () => ok([], 'Invitations retrieved.')),
+  http.get('/api/v1/tenants/platform/members', () => ok(listPage(MEMBERS), 'Members retrieved.')),
+  http.get('/api/v1/tenants/platform/invitations', () =>
+    ok(listPage([]), 'Invitations retrieved.')
+  ),
   // The Tenants table, the palette and the activity tenant filter: one tenant in each status, so every badge renders.
   http.get('/api/v1/platform/tenants', () =>
     ok(
@@ -1183,14 +1185,16 @@ const worker = setupWorker(
   ),
   http.get('/api/v1/tenants/acme/members', () =>
     ok(
-      MEMBERS.map((member, index) => ({
-        ...member,
-        membership: {
-          ...member.membership,
-          tenantId: TENANT_ID,
-          ...(acmeRole ? { role: index === 0 ? acmeRole : 'owner' } : {}),
-        },
-      })).filter((_, index) => !(acmeRole && hasLeftAcme && index === 0)),
+      listPage(
+        MEMBERS.map((member, index) => ({
+          ...member,
+          membership: {
+            ...member.membership,
+            tenantId: TENANT_ID,
+            ...(acmeRole ? { role: index === 0 ? acmeRole : 'owner' } : {}),
+          },
+        })).filter((_, index) => !(acmeRole && hasLeftAcme && index === 0))
+      ),
       'Members retrieved.'
     )
   ),
@@ -1198,7 +1202,7 @@ const worker = setupWorker(
     if (params.slug === 'acme') hasLeftAcme = true
     return ok(null, 'You left the tenant.')
   }),
-  http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.')),
+  http.get('/api/v1/tenants/acme/invitations', () => ok(listPage([]), 'Invitations retrieved.')),
   http.get('/api/v1/tenants/acme/audit-log', () =>
     ok(
       {

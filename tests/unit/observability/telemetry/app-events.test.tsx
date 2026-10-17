@@ -49,7 +49,7 @@ beforeEach(() => {
     http.get('/api/v1/platform/audit-log', () =>
       ok({ entries: [], nextCursor: null }, 'Audit log retrieved.')
     ),
-    http.get('/api/v1/tenants/platform/members', () => ok([], 'Members retrieved.'))
+    http.get('/api/v1/tenants/platform/members', () => ok(listPage([]), 'Members retrieved.'))
   )
 })
 

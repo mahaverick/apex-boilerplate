@@ -237,21 +237,11 @@ export function invitationsListOptions(
   })
 }
 
-/** A tenant's members through its own route, for the Members page and pickers. */
+/** A tenant's first hundred members by name, for pickers such as the activity actor filter. */
 export function useMembers(slug: string, tenantId?: string) {
   return useQuery({
-    queryKey: tenantKeys.members(slug, tenantId),
-    queryFn: async () =>
-      unwrap(await apiClient.get<ApiSuccess<TenantMember[]>>(`/tenants/${slug}/members`)),
-  })
-}
-
-/** Pending invitations. Owner and admin only: anyone else gets a 403. */
-export function useInvitations(slug: string, tenantId?: string) {
-  return useQuery({
-    queryKey: tenantKeys.invitations(slug, tenantId),
-    queryFn: async () =>
-      unwrap(await apiClient.get<ApiSuccess<TenantInvitation[]>>(`/tenants/${slug}/invitations`)),
+    ...membersListOptions(slug, tenantId, { limit: 100 }, { total: false }),
+    select: (page: ListPage<TenantMember>) => page.items,
   })
 }
 
@@ -277,6 +267,27 @@ export function otherOwnerCount(
       member.user.id !== userId &&
       (!isPlatform || member.user.active !== false)
   ).length
+}
+
+/**
+ * How many owners besides `userId` the API counts toward the last-owner rule,
+ * from the owners read: `otherOwnerCount` over its rows, plus one when the
+ * read says more owners follow (`page.hasNext`), since another owner then
+ * certainly remains. (On the platform tenant that page's owners may all be
+ * inactive, which the count cannot see; the API still refuses the last active
+ * owner's leave with 409, and the refusal refetches.) 0 while the read has not
+ * landed, which keeps the last owner's own controls locked until it does.
+ * @param owners - The owners read's page, if it has landed.
+ * @param userId - The owner acting on their own membership.
+ * @param isPlatform - Whether this is the platform tenant (only active owners count there).
+ */
+export function ownersBesides(
+  owners: ListPage<TenantMember> | undefined,
+  userId: string | undefined,
+  isPlatform: boolean
+): number {
+  if (owners === undefined) return 0
+  return otherOwnerCount(owners.items, userId, isPlatform) + (owners.page.hasNext ? 1 : 0)
 }
 
 /** "Ada Lovelace", or the email when the member has no name on file. */

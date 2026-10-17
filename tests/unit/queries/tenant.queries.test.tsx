@@ -15,7 +15,14 @@ import {
   useRevokeInvitation,
   useUpdateMemberRole,
 } from '@/queries/tenant-writes.queries'
-import { memberName, tenantKeys, useMembers, type TenantMember } from '@/queries/tenant.queries'
+import {
+  memberName,
+  membersListOptions,
+  ownersBesides,
+  tenantKeys,
+  useMembers,
+  type TenantMember,
+} from '@/queries/tenant.queries'
 import { userAdminKeys, usersListOptions } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import {
@@ -26,6 +33,7 @@ import {
   USER_ID,
   USER_ID_2,
 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
@@ -55,21 +63,69 @@ describe('useMembers', () => {
     useAuthStore.setState({ accessToken: 'access-token', user: testUser, isAuthenticated: true })
   })
 
-  it('lists a tenant’s members under its members key', async () => {
-    let path: string | null = null
+  it('reads the first hundred members without a total, and hands back their rows', async () => {
+    const seen: URL[] = []
     server.use(
       http.get('/api/v1/tenants/:slug/members', ({ request }) => {
-        path = new URL(request.url).pathname
-        return ok([member], 'Members retrieved.')
+        seen.push(new URL(request.url))
+        return ok(listPage([member]), 'Members retrieved.')
       })
     )
 
-    const { result } = renderHook(() => useMembers('platform'), { wrapper })
+    const { result } = renderHook(() => useMembers('platform', TENANT_ID), { wrapper })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(path).toBe('/api/v1/tenants/platform/members')
+    expect(seen[0]?.pathname).toBe('/api/v1/tenants/platform/members')
+    expect(seen[0]?.searchParams.get('limit')).toBe('100')
+    expect(seen[0]?.searchParams.has('total')).toBe(false)
     expect(result.current.data).toEqual([member])
-    expect(client.getQueryData(tenantKeys.members('platform'))).toEqual([member])
+    expect(
+      client.getQueryData(
+        membersListOptions('platform', TENANT_ID, { limit: 100 }, { total: false }).queryKey
+      )
+    ).toEqual(listPage([member]))
+  })
+
+  it('keeps one tenant’s members apart from another that reuses the slug', () => {
+    expect(tenantKeys.members('acme', TENANT_ID)).not.toEqual(tenantKeys.members('acme', USER_ID))
+    expect(membersListOptions('acme', TENANT_ID, { limit: 100 }).queryKey.slice(0, 4)).toEqual([
+      'tenants',
+      'acme',
+      'members',
+      { tenantId: TENANT_ID },
+    ])
+  })
+})
+
+describe('ownersBesides', () => {
+  /** An owner row for `userId`. */
+  function owner(userId: string, active?: boolean): TenantMember {
+    return {
+      membership: { ...member.membership, userId, role: 'owner' },
+      user: { ...member.user, id: userId, ...(active === undefined ? {} : { active }) },
+    }
+  }
+
+  it('is 0 while the owners read has not landed', () => {
+    expect(ownersBesides(undefined, USER_ID, false)).toBe(0)
+  })
+
+  it('counts the owners other than the caller', () => {
+    const page = listPage([owner(USER_ID), owner(USER_ID_2)])
+    expect(ownersBesides(page, USER_ID, false)).toBe(1)
+    expect(ownersBesides(listPage([owner(USER_ID)]), USER_ID, false)).toBe(0)
+  })
+
+  it('counts one more when the read says more owners follow', () => {
+    const page = listPage([owner(USER_ID)], { hasNext: true, nextCursor: 'c2' })
+    expect(ownersBesides(page, USER_ID, false)).toBe(1)
+  })
+
+  it('counts only active owners on the platform tenant', () => {
+    const page = listPage([owner(USER_ID), owner(USER_ID_2, false)])
+    expect(ownersBesides(page, USER_ID, true)).toBe(0)
+    expect(ownersBesides(listPage([owner(USER_ID), owner(USER_ID_2, true)]), USER_ID, true)).toBe(1)
+    expect(ownersBesides(page, USER_ID, false)).toBe(1)
   })
 })
 
@@ -121,6 +177,48 @@ describe('member writes', () => {
     for (const key of DIRECTORY_KEYS) {
       expect(client.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(true)
     }
+  })
+})
+
+describe('member writes and pending invitations', () => {
+  let client: QueryClient
+
+  /** A provider around the suite's `client`. */
+  function wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  }
+
+  beforeEach(() => {
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    resetSessionForTests()
+    useAuthStore.setState({ accessToken: 'access-token', user: testUser, isAuthenticated: true })
+    client.setQueryData(tenantKeys.invitations('acme', TENANT_ID), listPage([]))
+  })
+
+  it('a role change refreshes the tenant’s pending invitations, which the API revokes for the target', async () => {
+    server.use(
+      http.patch(`/api/v1/tenants/acme/members/${USER_ID_2}`, () =>
+        ok({ ...member.membership, userId: USER_ID_2, role: 'viewer' }, 'Role updated.')
+      )
+    )
+    const { result } = renderHook(() => useUpdateMemberRole('acme'), { wrapper })
+    result.current.mutate({ userId: USER_ID_2, role: 'viewer' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(client.getQueryState(tenantKeys.invitations('acme', TENANT_ID))?.isInvalidated).toBe(
+      true
+    )
+  })
+
+  it('a removal refreshes the tenant’s pending invitations, which the API revokes for the target', async () => {
+    server.use(
+      http.delete(`/api/v1/tenants/acme/members/${USER_ID_2}`, () => ok(null, 'Member removed.'))
+    )
+    const { result } = renderHook(() => useRemoveMember('acme'), { wrapper })
+    result.current.mutate({ userId: USER_ID_2 })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(client.getQueryState(tenantKeys.invitations('acme', TENANT_ID))?.isInvalidated).toBe(
+      true
+    )
   })
 })
 

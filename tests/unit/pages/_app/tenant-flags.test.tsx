@@ -4,6 +4,7 @@ import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { flagsEvaluation, flagsList } from '@/tests/fixtures/flags'
 import { MEMBERSHIP_ID_2, TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, tenantDetail, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -58,7 +59,7 @@ function serve(lifecycleState: TenantLifecycleState = 'active') {
     ),
     http.get('/api/v1/tenants/acme/members', () => {
       seen.push('members')
-      return ok(MEMBERS, 'Members retrieved.')
+      return ok(listPage(MEMBERS), 'Members retrieved.')
     }),
     http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')),
     http.get('/api/v1/platform/flags/evaluate', ({ request }) => {

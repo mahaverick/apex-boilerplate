@@ -9,6 +9,8 @@ import { useAuthStore } from '@/states/auth.store'
 import { byContent } from '@/tests/fixtures/content'
 import {
   AUDIT_ID_1,
+  INVITATION_ID,
+  INVITATION_ID_2,
   MEMBERSHIP_ID_2,
   STAFF_USER_ID,
   TENANT_ID,
@@ -81,8 +83,8 @@ function serve(tenant: PlatformTenantDetail, effectiveRole: MembershipRole = 'ad
     http.get('/api/v1/tenants/acme/*', ({ request }) => {
       const path = new URL(request.url).pathname
       internal.push(path)
-      if (path.endsWith('/members')) return ok(MEMBERS, 'ok')
-      if (path.endsWith('/invitations')) return ok([], 'ok')
+      if (path.endsWith('/members')) return ok(listPage(MEMBERS), 'ok')
+      if (path.endsWith('/invitations')) return ok(listPage([]), 'ok')
       return ok({ entries: [], nextCursor: null }, 'ok')
     })
   )
@@ -548,7 +550,7 @@ describe('/tenants/$tenantId', () => {
         ),
         http.get('/api/v1/tenants/acme/members', () => {
           seen.push('members')
-          return ok(seen.length === 1 ? MEMBERS : [], 'ok')
+          return ok(listPage(seen.length === 1 ? MEMBERS : []), 'ok')
         })
       )
       const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
@@ -769,8 +771,8 @@ describe('/tenants/$tenantId', () => {
             ok({ ...detail(), isPlatform: false, role: 'admin', access: 'platform' }, 'ok')
           )
         ),
-        http.get('/api/v1/tenants/acme/members', () => ownRoute(() => ok(MEMBERS, 'ok'))),
-        http.get('/api/v1/tenants/acme/invitations', () => ownRoute(() => ok([], 'ok'))),
+        http.get('/api/v1/tenants/acme/members', () => ownRoute(() => ok(listPage(MEMBERS), 'ok'))),
+        http.get('/api/v1/tenants/acme/invitations', () => ownRoute(() => ok(listPage([]), 'ok'))),
         http.post(`/api/v1/platform/tenants/${TENANT_ID}/suspend`, () => {
           state = 'suspended'
           return ok(detail({ lifecycleState: 'suspended' }), 'Tenant suspended.')
@@ -1038,5 +1040,85 @@ describe('/tenants/$tenantId', () => {
       expect(note.closest('[role="status"]')).toBeNull()
       expect(internal).toEqual(['/api/v1/tenants/acme'])
     })
+  })
+})
+
+describe('/tenants/$tenantId lists', () => {
+  beforeEach(() => signIn({ ...testUser, platformRole: 'admin' }))
+
+  /** Two pending invitations, one per role. */
+  const INVITATIONS = [
+    {
+      id: INVITATION_ID,
+      email: 'amy@acme.test',
+      role: 'viewer',
+      invitedBy: { id: USER_ID_2, firstName: 'Olive', lastName: 'Owner' },
+      expiresAt: '2026-10-01T00:00:00.000Z',
+      createdAt: '2026-09-24T00:00:00.000Z',
+    },
+    {
+      id: INVITATION_ID_2,
+      email: 'bob@acme.test',
+      role: 'admin',
+      invitedBy: null,
+      expiresAt: '2026-10-02T00:00:00.000Z',
+      createdAt: '2026-09-25T00:00:00.000Z',
+    },
+  ]
+
+  it('lists members in a table sorted by name, and sorts by email through ?sort=email', async () => {
+    serve(detail())
+    const seen: URLSearchParams[] = []
+    server.use(
+      http.get('/api/v1/tenants/acme/members', ({ request }) => {
+        seen.push(new URL(request.url).searchParams)
+        return ok(listPage(MEMBERS), 'Members retrieved.')
+      })
+    )
+    const user = userEvent.setup()
+    const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
+    const table = await screen.findByRole('table', { name: 'Members' })
+    expect(within(table).getByRole('columnheader', { name: 'Name' })).toHaveAttribute(
+      'aria-sort',
+      'ascending'
+    )
+    await user.click(within(table).getByRole('button', { name: 'Email' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ sort: 'email' }))
+    await waitFor(() => expect(seen.some((params) => params.get('sort') === 'email')).toBe(true))
+  })
+
+  it('sorts invitations by email and filters them by role, in prefixed keys', async () => {
+    serve(detail(), 'owner')
+    const seen: URLSearchParams[] = []
+    server.use(
+      http.get('/api/v1/tenants/acme/invitations', ({ request }) => {
+        seen.push(new URL(request.url).searchParams)
+        return ok(listPage(INVITATIONS), 'Invitations retrieved.')
+      })
+    )
+    const router = renderAppAt(
+      `/tenants/${TENANT_ID}/invitations?invitationsSort=email&invitationsRole=admin`
+    )
+    const table = await screen.findByRole('table', { name: 'Pending invitations' })
+    expect(within(table).getByRole('columnheader', { name: 'Email' })).toHaveAttribute(
+      'aria-sort',
+      'ascending'
+    )
+    await waitFor(() =>
+      expect(
+        seen.some((params) => params.get('sort') === 'email' && params.get('role') === 'admin')
+      ).toBe(true)
+    )
+    expect(router.state.location.search).toEqual({
+      invitationsSort: 'email',
+      invitationsRole: 'admin',
+    })
+    expect(within(table).getByText('Invited')).toBeInTheDocument()
+    expect(within(table).getByText('amy@acme.test')).toBeInTheDocument()
+    expect(
+      within(table)
+        .getAllByText(/^by/)
+        .map((by) => by.textContent)
+    ).toEqual(['by Olive Owner', 'by A teammate'])
   })
 })

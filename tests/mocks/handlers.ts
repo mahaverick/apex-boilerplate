@@ -589,6 +589,9 @@ export const handlers = [
   http.get('/api/v1/platform/audit-log', () =>
     ok({ entries: [], nextCursor: null }, 'Audit log retrieved.')
   ),
+  // A tenant's members and pending invitations default to empty pages; a page test serves its own rows.
+  http.get('/api/v1/tenants/:slug/members', () => ok(listPage([]), 'Members retrieved.')),
+  http.get('/api/v1/tenants/:slug/invitations', () => ok(listPage([]), 'Invitations retrieved.')),
   // The email list defaults to empty, so a page that only embeds one renders unchanged; `/emails/health` is registered before `:emailId`, which would otherwise match it.
   http.get('/api/v1/platform/emails', () => ok(listPage([]), 'Emails retrieved.')),
   http.get('/api/v1/platform/emails/health', () => ok(testEmailHealth, 'Email health retrieved.')),
