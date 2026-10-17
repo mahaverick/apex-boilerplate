@@ -76,10 +76,9 @@ const columns = column.columns([
   }),
 ])
 
-/** The columns without the one a page's own record would only repeat. */
+/** The columns, and without Tenant for a page that is one tenant's. */
 const COLUMNS = {
   all: columns,
-  user: columns.filter((def) => !('accessorKey' in def && def.accessorKey === 'user')),
   tenant: columns.filter((def) => !('accessorKey' in def && def.accessorKey === 'tenant')),
 }
 
@@ -105,7 +104,7 @@ export function EmailsTable({
   /** The page's own load-error copy. */
   errorMessage: string
   label?: string
-  omit?: 'user' | 'tenant'
+  omit?: 'tenant'
   /** The list's own controls beside the search box, such as the date range. */
   toolbar?: ReactNode
   filters: readonly DataTableFilter[]

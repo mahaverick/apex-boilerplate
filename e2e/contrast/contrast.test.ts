@@ -721,7 +721,7 @@ const TRACKING_SURFACES = [
   },
   {
     name: 'suppressions',
-    path: '/suppressions?state=all',
+    path: '/suppressions?state=active,lifted',
     heading: 'Suppressions',
     shows: ['Active'],
   },

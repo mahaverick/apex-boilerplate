@@ -40,7 +40,7 @@ for (const [name, path, ready] of [
   ['an email’s preview', `${DELIVERED}?tab=preview`, 'cleo.d@example.com'],
   ['a bounced email', BOUNCED, 'a-very-long-address-for-the-overflow-check@example-corp.co.uk'],
   ['deliverability', '/deliverability', 'Deliverability'],
-  ['suppressions, active and lifted', '/suppressions?state=all', 'Suppressions'],
+  ['suppressions, active and lifted', '/suppressions?state=active,lifted', 'Suppressions'],
   ['onboarding', '/onboarding', 'Onboarding'],
   [
     'maintenance, with the banner',

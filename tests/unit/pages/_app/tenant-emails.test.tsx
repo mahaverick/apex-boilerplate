@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { EMAIL_ID, TENANT_ID } from '@/tests/fixtures/ids'
+import { EMAIL_ID, TENANT_ID, TENANT_ID_2, USER_ID_2 } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { emailSummary, fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -134,10 +134,16 @@ describe('/tenants/$tenantId/emails', () => {
     await waitFor(() => expect(seen.at(-1)?.get('status')).toBe('bounced'))
     expect(seen.at(-1)?.get('tenant')).toBe(TENANT_ID)
     expect(seen.at(-1)?.get('cursor')).toBeNull()
-    // The tenant is the page's, so there is no tenant or user facet to pick.
-    expect(
-      screen.queryByRole('button', { name: /^Filter by (tenant|user)/ })
-    ).not.toBeInTheDocument()
+  })
+
+  it('ignores ?user and ?tenant in its URL: the tenant is the page’s and there is no user or tenant chip', async () => {
+    const seen: URLSearchParams[] = []
+    serve(seen)
+    renderAppAt(`/tenants/${TENANT_ID}/emails?user=${USER_ID_2}&tenant=${TENANT_ID_2}`)
+    await screen.findByRole('table', { name: 'Emails' })
+    expect(seen.at(-1)?.get('tenant')).toBe(TENANT_ID)
+    expect(seen.at(-1)?.get('user')).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Remove filter: (User|Tenant):/ })).toBeNull()
   })
 
   it('searches by recipient and sorts newest first', async () => {

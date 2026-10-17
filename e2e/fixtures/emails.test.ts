@@ -20,7 +20,7 @@ for (const [name, path, ready] of [
   ['an email’s preview', `${DELIVERED}?tab=preview`, 'cleo.d@example.com'],
   ['deliverability', '/deliverability', 'Deliverability'],
   ['deliverability without provider events', '/deliverability?range=30d', 'Deliverability'],
-  ['suppressions, active and lifted', '/suppressions?state=all', 'Suppressions'],
+  ['suppressions, active and lifted', '/suppressions?state=active,lifted', 'Suppressions'],
   ['a tenant’s emails', ACME_EMAILS, 'Acme Corp'],
 ] as const) {
   test(`${name} does not scroll sideways at 390px`, async ({ page }) => {
