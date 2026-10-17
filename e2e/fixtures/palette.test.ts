@@ -133,7 +133,9 @@ test('Escape on New tenant from ⌘K on a tenant page gives the heading focus', 
 
 test('sets the theme from the keyboard alone', async ({ page }) => {
   await page.goto('/e2e/harness/?path=/overview')
-  await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible({
+    timeout: COLD_TRANSFORM_BUDGET_MS,
+  })
   await expect(page.locator('html')).not.toHaveClass(/(^|\s)dark(\s|$)/)
   await page.keyboard.press('ControlOrMeta+k')
   await page.keyboard.type('dark')

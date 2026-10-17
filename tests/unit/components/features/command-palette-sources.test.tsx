@@ -532,6 +532,19 @@ describe('the This page sources', () => {
       await waitFor(() => expect(heading).toHaveFocus())
     })
 
+    it('returns focus to the heading when Deactivate, run from the palette, is cancelled', async () => {
+      serveUser()
+      const user = userEvent.setup()
+      renderAppAt(`/users/${USER_ID_2}`)
+      const heading = await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })
+      await waitFor(() => expect(registered('user-actions')).toContain('Deactivate'))
+      runFromPalette('user-actions', 'Deactivate')
+      const dialog = await screen.findByRole('alertdialog', { name: 'Deactivate account' })
+      await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(heading).toHaveFocus())
+    })
+
     it('records the user in Recent once they load, under their email, and registers Copy user ID', async () => {
       serveUser()
       renderAppAt(`/users/${USER_ID_2}`)
