@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { fullName } from '@/lib/format'
 import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
-import { platformUsersQueryOptions } from '@/queries/user-admin.queries'
+import { usersListOptions } from '@/queries/user-admin.queries'
+import { cleanSearch } from '@/schemas/list-request.schemas'
 
 /** How many matches the picker lists. */
 const PICKER_LIMIT = 8
@@ -20,11 +21,15 @@ const PICKER_LIMIT = 8
 export function FlagUserPicker({ onPick }: { onPick: (userId: string) => void }) {
   const [draft, setDraft] = useState('')
   const term = useDebouncedValue(draft.trim(), SEARCH_DEBOUNCE_MS)
+  const sent = cleanSearch(term)
   const users = useQuery({
-    ...platformUsersQueryOptions({ q: term, limit: PICKER_LIMIT }),
-    enabled: term !== '',
+    ...usersListOptions(
+      { ...(sent === '' ? {} : { search: sent }), limit: PICKER_LIMIT },
+      { total: false }
+    ),
+    enabled: sent !== '',
   })
-  const matches = term === '' ? [] : (users.data?.users ?? [])
+  const matches = term === '' ? [] : (users.data?.items ?? [])
   return (
     <div className="grid gap-2">
       <Input

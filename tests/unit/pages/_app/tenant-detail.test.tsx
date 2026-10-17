@@ -15,6 +15,7 @@ import {
   TENANT_ID_2,
   USER_ID_2,
 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -509,9 +510,7 @@ describe('/tenants/$tenantId', () => {
         http.post('/api/v1/auth/reauthenticate', () =>
           ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
         ),
-        http.get('/api/v1/platform/tenants', () =>
-          ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-        )
+        http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.'))
       )
       const router = renderAppAt(`/tenants/${TENANT_ID}`)
       const { user, menu } = await openMenu()

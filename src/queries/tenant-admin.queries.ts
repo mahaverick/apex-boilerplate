@@ -29,28 +29,14 @@ import {
   TENANT_LIFECYCLE_STATES,
   type ApiSuccess,
   type EmailSentResult,
-  type PageDirection,
   type PlatformTenantDetail,
   type PlatformTenantPage,
   type PlatformTenantRow,
-  type TenantStateFilter,
 } from '@/types/api.types'
 import type { ListRequest } from '@/types/list.types'
 
 /** The API refuses a longer term. */
 const MAX_QUERY_LENGTH = 100
-
-/** One page request: the search, the state filter and the cursor it pages from. */
-export interface TenantPageParams {
-  q: string
-  /** Omitted: the API's default (active and suspended). */
-  state?: TenantStateFilter
-  /** Omitted: the first page. */
-  cursor?: string
-  /** Which way `cursor` pages. Ignored without a cursor. */
-  dir?: PageDirection
-  limit?: number
-}
 
 /**
  * `all` prefixes every list and page key, so a write that changes what lists
@@ -62,7 +48,6 @@ export const tenantAdminKeys = {
   all: ['platform', 'tenants'] as const,
   /** The infinite search the Activity filter uses. */
   search: (q: string) => ['platform', 'tenants', 'search', q] as const,
-  page: (params: TenantPageParams) => ['platform', 'tenants', 'page', params] as const,
   detail: (id: string) => ['platform', 'tenant', id] as const,
 }
 
@@ -92,45 +77,6 @@ export function tenantsListOptions(request: ListRequest, options: { total?: bool
 /** A 404 answers who is asking, so a retry changes nothing. */
 function retryUnlessDenied(failureCount: number, error: Error): boolean {
   return !isRoleDenied(error) && failureCount < 1
-}
-
-/**
- * One keyset page of every customer tenant, for the Tenants table and the
- * palette. `direction` is sent only with a cursor.
- * @param params - Search term, state filter, cursor and direction, page size (at most 50).
- * @returns Query options for `useQuery` or a route loader.
- */
-export function platformTenantsQueryOptions({
-  q,
-  state,
-  cursor,
-  dir,
-  limit = PLATFORM_PAGE_SIZE,
-}: TenantPageParams) {
-  const term = q.trim().slice(0, MAX_QUERY_LENGTH)
-  const key: TenantPageParams = {
-    q: term,
-    state,
-    cursor,
-    dir: cursor ? (dir ?? 'next') : undefined,
-    limit,
-  }
-  return queryOptions({
-    queryKey: tenantAdminKeys.page(key),
-    queryFn: async () =>
-      unwrap(
-        await apiClient.get<ApiSuccess<PlatformTenantPage>>('/platform/tenants', {
-          params: {
-            q: term === '' ? undefined : term,
-            state,
-            cursor,
-            direction: key.dir,
-            limit,
-          },
-        })
-      ),
-    retry: retryUnlessDenied,
-  })
 }
 
 /**

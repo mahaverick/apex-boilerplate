@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
 import { auditKeys } from '@/queries/audit.queries'
-import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
+import { tenantAdminKeys, tenantsListOptions } from '@/queries/tenant-admin.queries'
 import {
   dropTenantCache,
   useInviteMember,
@@ -16,7 +16,7 @@ import {
   useUpdateMemberRole,
 } from '@/queries/tenant-writes.queries'
 import { memberName, tenantKeys, useMembers, type TenantMember } from '@/queries/tenant.queries'
-import { userAdminKeys } from '@/queries/user-admin.queries'
+import { userAdminKeys, usersListOptions } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import {
   INVITATION_ID,
@@ -84,9 +84,9 @@ describe('member writes', () => {
   /** Every cache a staff member's role or membership shows up in, beyond the member list itself. */
   const DIRECTORY_KEYS = [
     userAdminKeys.detail(USER_ID_2),
-    userAdminKeys.list({ limit: 20 }),
+    usersListOptions({ limit: 20 }).queryKey,
     tenantAdminKeys.detail(TENANT_ID),
-    tenantAdminKeys.page({ q: '' }),
+    tenantsListOptions({}).queryKey,
     auditKeys.platform({}),
   ]
 

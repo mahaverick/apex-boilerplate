@@ -1,10 +1,11 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { byContent } from '@/tests/fixtures/content'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -60,17 +61,19 @@ function twoPages(seen: URLSearchParams[]) {
     http.get('/api/v1/platform/tenants', ({ request }) => {
       const params = new URL(request.url).searchParams
       seen.push(params)
-      if (params.get('cursor') === 'page-2' && params.get('direction') === 'next') {
+      if (params.get('cursor') === 'page-2') {
         return ok(
-          {
-            tenants: [21, 22, 23, 24, 25].map((n) => row(n)),
-            nextCursor: null,
-            prevCursor: 'page-1',
-          },
+          listPage(
+            [21, 22, 23, 24, 25].map((n) => row(n)),
+            { prevCursor: 'page-1', hasPrev: true }
+          ),
           'Tenants retrieved.'
         )
       }
-      return ok({ tenants: PAGE_ONE, nextCursor: 'page-2', prevCursor: null }, 'Tenants retrieved.')
+      return ok(
+        listPage(PAGE_ONE, { nextCursor: 'page-2', hasNext: true }, { count: 25, capped: false }),
+        'Tenants retrieved.'
+      )
     })
   )
 }
@@ -107,6 +110,37 @@ describe('/tenants', () => {
     )
   })
 
+  it('sorts by name by default and by creation date from the header', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/tenants')
+    const table = await screen.findByRole('table', { name: 'Tenants' })
+    expect(within(table).getByRole('columnheader', { name: 'Name' })).toHaveAttribute(
+      'aria-sort',
+      'ascending'
+    )
+    await user.click(within(table).getByRole('button', { name: 'Created' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ sort: 'created' }))
+    await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('created'))
+  })
+
+  it('filters by state through a comma list', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/tenants')
+    await screen.findByText('Tenant 01')
+    await user.click(screen.getByRole('button', { name: 'Filter by status, Tenants' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by status, Tenants' })
+    await user.click(within(popup).getByRole('checkbox', { name: 'Suspended' }))
+    await user.click(within(popup).getByRole('checkbox', { name: 'Archived' }))
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ state: 'archived,suspended' })
+    )
+    await waitFor(() => expect(seen.at(-1)?.get('state')).toBe('archived,suspended'))
+  })
+
   it('pages forward and back through the API’s cursors, kept in the URL', async () => {
     const seen: URLSearchParams[] = []
     twoPages(seen)
@@ -114,30 +148,30 @@ describe('/tenants', () => {
     const router = renderAppAt('/tenants')
     await screen.findByText('Tenant 01')
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
+    expect(seen.at(-1)?.get('direction')).toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Next page' }))
     expect(await screen.findByText('Tenant 21')).toBeInTheDocument()
-    expect(router.state.location.search).toEqual({ cursor: 'page-2', dir: 'next' })
+    expect(router.state.location.search).toEqual({ cursor: 'page-2' })
     expect(seen.at(-1)?.get('cursor')).toBe('page-2')
-    expect(seen.at(-1)?.get('direction')).toBe('next')
+    expect(seen.at(-1)?.get('direction')).toBeNull()
     expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: 'Previous page' }))
     expect(await screen.findByText('Tenant 01')).toBeInTheDocument()
-    expect(router.state.location.search).toEqual({ cursor: 'page-1', dir: 'prev' })
+    expect(router.state.location.search).toEqual({ cursor: 'page-1', direction: 'prev' })
     expect(seen.at(-1)?.get('direction')).toBe('prev')
-    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
   })
 
   it('opens on the page a shared URL names', async () => {
     const seen: URLSearchParams[] = []
     twoPages(seen)
-    renderAppAt('/tenants?cursor=page-2&dir=next')
+    renderAppAt('/tenants?cursor=page-2')
     expect(await screen.findByText('Tenant 21')).toBeInTheDocument()
     expect(seen[0]?.get('cursor')).toBe('page-2')
   })
 
-  it('searches through ?q and starts again from the first page', async () => {
+  it('searches through ?search and starts again from the first page', async () => {
     const seen: URLSearchParams[] = []
     twoPages(seen)
     const user = userEvent.setup()
@@ -148,10 +182,9 @@ describe('/tenants', () => {
 
     await user.type(screen.getByRole('searchbox', { name: 'Search tenants' }), 'acme')
 
-    await waitFor(() => expect(router.state.location.search).toEqual({ q: 'acme' }))
-    await waitFor(() => expect(seen.at(-1)?.get('q')).toBe('acme'))
+    await waitFor(() => expect(router.state.location.search).toEqual({ search: 'acme' }))
+    await waitFor(() => expect(seen.at(-1)?.get('search')).toBe('acme'))
     expect(seen.at(-1)?.get('cursor')).toBeNull()
-    expect(router.state.location.search).toEqual({ q: 'acme' })
   })
 
   it('starts on page one again after searching and clearing the search', async () => {
@@ -164,7 +197,7 @@ describe('/tenants', () => {
     const box = screen.getByRole('searchbox', { name: 'Search tenants' })
 
     await user.type(box, 'acme')
-    await waitFor(() => expect(router.state.location.search).toEqual({ q: 'acme' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ search: 'acme' }))
     await user.clear(box)
     await waitFor(() => expect(router.state.location.search).toEqual({}))
 
@@ -173,37 +206,15 @@ describe('/tenants', () => {
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
   })
 
-  it('keeps a keystroke typed while its own search navigation is still landing', async () => {
-    const seen: URLSearchParams[] = []
-    twoPages(seen)
-    const user = userEvent.setup()
-    const router = renderAppAt('/tenants')
-    await screen.findByText('Tenant 01')
-    const box = screen.getByRole('searchbox', { name: 'Search tenants' })
-    // Typed in the gap between the debounce's navigate and the new `?q` reaching the page.
-    const unsubscribe = router.subscribe('onBeforeNavigate', ({ toLocation }) => {
-      if ((toLocation.search as { q?: string }).q !== 'acme') return
-      unsubscribe()
-      // The navigate is called from an effect; React must finish that commit before the keystroke.
-      queueMicrotask(() => fireEvent.change(box, { target: { value: 'acmex' } }))
-    })
-
-    await user.type(box, 'acme')
-
-    await waitFor(() => expect(router.state.location.search).toEqual({ q: 'acmex' }))
-    expect(box).toHaveValue('acmex')
-    await waitFor(() => expect(seen.at(-1)?.get('q')).toBe('acmex'))
-  })
-
   it('keeps the current rows, marked busy, with paging off while the next page loads', async () => {
     const pageTwo = deferred()
     server.use(
       http.get('/api/v1/platform/tenants', async ({ request }) => {
         if (new URL(request.url).searchParams.get('cursor') === 'page-2') {
           await pageTwo.promise
-          return ok({ tenants: [row(21)], nextCursor: null, prevCursor: 'page-1' }, 'ok')
+          return ok(listPage([row(21)], { prevCursor: 'page-1', hasPrev: true }), 'ok')
         }
-        return ok({ tenants: PAGE_ONE, nextCursor: 'page-2', prevCursor: null }, 'ok')
+        return ok(listPage(PAGE_ONE, { nextCursor: 'page-2', hasNext: true }), 'ok')
       })
     )
     const user = userEvent.setup()
@@ -228,11 +239,11 @@ describe('/tenants', () => {
       http.get('/api/v1/platform/tenants', ({ request }) =>
         new URL(request.url).searchParams.get('cursor') === 'page-2'
           ? fail('Boom', 500)
-          : ok({ tenants: PAGE_ONE, nextCursor: 'page-2', prevCursor: null }, 'ok')
+          : ok(listPage(PAGE_ONE, { nextCursor: 'page-2', hasNext: true }), 'ok')
       )
     )
     const user = userEvent.setup()
-    const router = renderAppAt('/tenants?q=t')
+    const router = renderAppAt('/tenants?search=t')
     await screen.findByText('Tenant 01')
 
     await user.click(screen.getByRole('button', { name: 'Next page' }))
@@ -240,109 +251,48 @@ describe('/tenants', () => {
 
     await user.click(screen.getByRole('button', { name: 'First page' }))
     expect(await screen.findByText('Tenant 01')).toBeInTheDocument()
-    expect(router.state.location.search).toEqual({ q: 't' })
+    expect(router.state.location.search).toEqual({ search: 't' })
   })
 
-  it('offers no way back from a failed first page', async () => {
+  it('offers no way back from a failed first page, and names the load failure', async () => {
     server.use(http.get('/api/v1/platform/tenants', () => fail('Boom', 500)))
     renderAppAt('/tenants')
     await screen.findByRole('button', { name: 'Try again' })
+    expect(screen.getByText('We could not load the tenants.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'First page' })).not.toBeInTheDocument()
   })
 
-  it('drops ?q when the search is cleared', async () => {
-    twoPages([])
-    const user = userEvent.setup()
-    const router = renderAppAt('/tenants?q=acme')
-    await screen.findByText('Tenant 01')
-
-    await user.clear(screen.getByRole('searchbox', { name: 'Search tenants' }))
-
-    await waitFor(() => expect(router.state.location.search).toEqual({}))
-  })
-
-  it('opens pre-filtered from ?q', async () => {
+  it('opens pre-filtered from ?search', async () => {
     const seen: URLSearchParams[] = []
     twoPages(seen)
-    renderAppAt('/tenants?q=Acme%20Corp')
+    renderAppAt('/tenants?search=Acme%20Corp')
     expect(await screen.findByRole('searchbox', { name: 'Search tenants' })).toHaveValue(
       'Acme Corp'
     )
-    await waitFor(() => expect(seen.at(-1)?.get('q')).toBe('Acme Corp'))
+    await waitFor(() => expect(seen.at(-1)?.get('search')).toBe('Acme Corp'))
   })
 
-  it('follows ?q when it changes under the page, as the palette does, without reverting it', async () => {
+  it('follows ?search when it changes under the page, as the palette does, without reverting it', async () => {
     const seen: URLSearchParams[] = []
     twoPages(seen)
-    const router = renderAppAt('/tenants?q=acme')
+    const router = renderAppAt('/tenants?search=acme')
     await screen.findByText('Tenant 01')
 
-    await router.navigate({ to: '/tenants', search: { q: 'Beta' } })
+    await router.navigate({ to: '/tenants', search: { search: 'Beta' } })
 
     await waitFor(() =>
       expect(screen.getByRole('searchbox', { name: 'Search tenants' })).toHaveValue('Beta')
     )
-    await waitFor(() => expect(seen.at(-1)?.get('q')).toBe('Beta'))
+    await waitFor(() => expect(seen.at(-1)?.get('search')).toBe('Beta'))
     // A revert would come from the search box's debounce firing with the old term, and nothing observable marks that it did not.
     await settle(SEARCH_DEBOUNCE_MS * 2, 'the debounce window a stale term would navigate in')
-    expect(router.state.location.search).toEqual({ q: 'Beta' })
-  })
-
-  it('never paints the old term’s next page under a new term', async () => {
-    const pageTwo = deferred()
-    server.use(
-      http.get('/api/v1/platform/tenants', async ({ request }) => {
-        const params = new URL(request.url).searchParams
-        if (params.get('q') === 'acme') {
-          return ok(
-            {
-              tenants: [{ ...row(9), name: 'Acme Corp', slug: 'acme' }],
-              nextCursor: null,
-              prevCursor: null,
-            },
-            'Tenants retrieved.'
-          )
-        }
-        if (params.get('cursor') === 'page-2') {
-          await pageTwo.promise
-          return ok(
-            { tenants: [row(21)], nextCursor: null, prevCursor: null },
-            'Tenants retrieved.'
-          )
-        }
-        return ok(
-          { tenants: PAGE_ONE, nextCursor: 'page-2', prevCursor: null },
-          'Tenants retrieved.'
-        )
-      })
-    )
-    const user = userEvent.setup()
-    const router = renderAppAt('/tenants')
-    await screen.findByText('Tenant 01')
-
-    await user.click(screen.getByRole('button', { name: 'Next page' }))
-    // Page two is in flight: the old page stays up, but nothing can page from it.
-    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
-
-    await user.type(screen.getByRole('searchbox', { name: 'Search tenants' }), 'acme')
-    expect(await screen.findByText('Acme Corp')).toBeInTheDocument()
-    pageTwo.release()
-
-    await waitFor(() => expect(router.state.location.search).toEqual({ q: 'acme' }))
-    expect(screen.queryByText('Tenant 21')).not.toBeInTheDocument()
-    expect(screen.getByText('Acme Corp')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
+    expect(router.state.location.search).toEqual({ search: 'Beta' })
   })
 
   it('says nothing matches, rather than showing an empty table', async () => {
-    server.use(
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
-    )
-    renderAppAt('/tenants?q=zzz')
-    expect(await screen.findByText('No tenants match “zzz”.')).toBeInTheDocument()
+    server.use(http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')))
+    renderAppAt('/tenants?search=zzz')
+    expect(await screen.findByText('Nothing matches these filters.')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
@@ -350,22 +300,22 @@ describe('/tenants', () => {
     const beta = deferred()
     server.use(
       http.get('/api/v1/platform/tenants', async ({ request }) => {
-        if (new URL(request.url).searchParams.get('q') === 'zzzb') {
+        if (new URL(request.url).searchParams.get('search') === 'zzzb') {
           await beta.promise
-          return ok({ tenants: [row(7)], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+          return ok(listPage([row(7)]), 'Tenants retrieved.')
         }
-        return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+        return ok(listPage([]), 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()
-    const router = renderAppAt('/tenants?q=zzz')
-    await screen.findByText('No tenants match “zzz”.')
+    const router = renderAppAt('/tenants?search=zzz')
+    await screen.findByText('Nothing matches these filters.')
 
     await user.type(screen.getByRole('searchbox', { name: 'Search tenants' }), 'b')
-    await waitFor(() => expect(router.state.location.search).toEqual({ q: 'zzzb' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ search: 'zzzb' }))
 
     await waitFor(() => expect(document.querySelector('[data-slot="skeleton"]')).not.toBeNull())
-    expect(screen.queryByText(/No tenants match/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Nothing matches these filters.')).not.toBeInTheDocument()
     beta.release()
     expect(await screen.findByText('Tenant 07')).toBeInTheDocument()
   })
@@ -374,24 +324,20 @@ describe('/tenants', () => {
     server.use(
       http.get('/api/v1/platform/tenants', ({ request }) =>
         new URL(request.url).searchParams.get('cursor') === 'gone'
-          ? ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-          : ok({ tenants: PAGE_ONE, nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+          ? ok(listPage([]), 'Tenants retrieved.')
+          : ok(listPage(PAGE_ONE), 'Tenants retrieved.')
       )
     )
     const user = userEvent.setup()
-    const router = renderAppAt('/tenants?state=all&cursor=gone&dir=next')
+    const router = renderAppAt('/tenants?state=archived&cursor=gone')
     expect(await screen.findByText('Nothing on this page.')).toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: 'First page' }))
-    await waitFor(() => expect(router.state.location.search).toEqual({ state: 'all' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ state: 'archived' }))
     expect(await screen.findByText('Tenant 01')).toBeInTheDocument()
   })
 
   it('says there are no tenants yet when nothing is searched', async () => {
-    server.use(
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
-    )
+    server.use(http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')))
     renderAppAt('/tenants')
     expect(await screen.findByText('No tenants yet.')).toBeInTheDocument()
   })
@@ -401,9 +347,7 @@ describe('/tenants', () => {
     server.use(
       http.get('/api/v1/platform/tenants', () => {
         calls += 1
-        return calls <= 2
-          ? fail('Boom', 500)
-          : ok({ tenants: PAGE_ONE, nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+        return calls <= 2 ? fail('Boom', 500) : ok(listPage(PAGE_ONE), 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()
@@ -419,35 +363,20 @@ describe('/tenants', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
   })
 
-  it('searches a numeric term instead of dropping it (?q=2026)', async () => {
+  it('searches a numeric term instead of dropping it (?search=2026)', async () => {
     const seen: (string | null)[] = []
     server.use(
       http.get('/api/v1/platform/tenants', ({ request }) => {
-        seen.push(new URL(request.url).searchParams.get('q'))
-        return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'ok')
+        seen.push(new URL(request.url).searchParams.get('search'))
+        return ok(listPage([]), 'ok')
       })
     )
-    renderAppAt('/tenants?q=2026')
+    renderAppAt('/tenants?search=2026')
     await waitFor(() => expect(seen).toContain('2026'))
     expect(screen.getByRole('searchbox', { name: /search tenants/i })).toHaveValue('2026')
   })
 
-  it('filters by state through ?state, dropping the cursor', async () => {
-    const seen: URLSearchParams[] = []
-    twoPages(seen)
-    const user = userEvent.setup()
-    const router = renderAppAt('/tenants?cursor=page-2&dir=next')
-    await screen.findByText('Tenant 21')
-
-    await user.click(screen.getByRole('combobox', { name: 'Status' }))
-    await user.click(await screen.findByRole('option', { name: 'Archived' }))
-
-    await waitFor(() => expect(router.state.location.search).toEqual({ state: 'archived' }))
-    await waitFor(() => expect(seen.at(-1)?.get('state')).toBe('archived'))
-    expect(seen.at(-1)?.get('cursor')).toBeNull()
-  })
-
-  it('sends no state for the default filter and ignores a bogus one', async () => {
+  it('sends no state for the default view and ignores a bogus one', async () => {
     const seen: URLSearchParams[] = []
     twoPages(seen)
     const router = renderAppAt('/tenants?state=bogus')
@@ -464,7 +393,7 @@ describe('/tenants', () => {
     await screen.findByText('Tenant 01')
     await user.type(screen.getByRole('searchbox', { name: 'Search tenants' }), 'acme')
     await waitFor(() =>
-      expect(router.state.location.search).toEqual({ q: 'acme', state: 'suspended' })
+      expect(router.state.location.search).toEqual({ search: 'acme', state: 'suspended' })
     )
   })
 

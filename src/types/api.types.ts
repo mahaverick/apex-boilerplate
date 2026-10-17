@@ -126,14 +126,6 @@ export const TENANT_LIFECYCLE_STATES = ['active', 'suspended', 'archived'] as co
 /** One lifecycle state a tenant can hold. */
 export type TenantLifecycleState = (typeof TENANT_LIFECYCLE_STATES)[number]
 
-/**
- * `GET /platform/tenants?state=`. Omitted means the API's default, active and
- * suspended together; `archived` and `all` reach archived (soft-deleted) rows.
- */
-export const TENANT_STATE_FILTERS = ['active', 'suspended', 'archived', 'all'] as const
-/** A value the tenants list's `state` filter accepts. */
-export type TenantStateFilter = (typeof TENANT_STATE_FILTERS)[number]
-
 /** One row of `GET /platform/tenants`: staff search across every tenant. */
 export interface PlatformTenantRow {
   id: string
@@ -306,20 +298,11 @@ export interface PlatformUserRow {
   membershipCount: number
 }
 
-/** A keyset page of `GET /platform/users`; cursors as for `PlatformTenantPage`. */
-export interface PlatformUserPage {
-  users: PlatformUserRow[]
-  nextCursor: string | null
-  prevCursor: string | null
-}
-
 /**
  * `GET /platform/users?status=`. Omitted means active and inactive live
  * accounts; `deleted` reaches soft-deleted ones, which only a purge removes.
  */
 export const USER_STATUSES = ['active', 'inactive', 'deleted'] as const
-/** A value the users list's `status` filter accepts. */
-export type UserStatusFilter = (typeof USER_STATUSES)[number]
 
 /** One customer tenant a user belongs to, archived ones included, on the staff user detail. */
 interface PlatformUserMembership {

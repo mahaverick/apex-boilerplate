@@ -17,6 +17,7 @@ import {
   TENANT_ID_2,
   USER_ID_2,
 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -398,9 +399,7 @@ describe('/users/$userId', () => {
       http.post('/api/v1/auth/reauthenticate', () =>
         ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
       ),
-      http.get('/api/v1/platform/users', () =>
-        ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
-      )
+      http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.'))
     )
     const user = userEvent.setup()
     const router = renderAppAt(`/users/${USER_ID_2}`)

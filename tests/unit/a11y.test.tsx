@@ -44,6 +44,7 @@ import {
   USER_ID_2,
   USER_ID_3,
 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import {
   fullMaintenanceView,
   maintenanceModeView,
@@ -688,24 +689,25 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
+  const TENANT_ROWS = (
+    [
+      [TENANT_ID, 'Acme Corp', 'acme', 'active'],
+      [TENANT_ID_2, 'Beta Ltd', 'beta', 'suspended'],
+      [TENANT_ID_3, 'Gamma Inc', 'gamma', 'archived'],
+    ] as const
+  ).map(([id, name, slug, lifecycleState]): PlatformTenantRow => ({
+    id,
+    name,
+    slug,
+    lifecycleState,
+    memberCount: 2,
+    createdAt: '2026-01-01T00:00:00.000Z',
+  }))
+
   it('tenants with a row in every status has no axe violations', async () => {
-    const rows = (
-      [
-        [TENANT_ID, 'Acme Corp', 'acme', 'active'],
-        [TENANT_ID_2, 'Beta Ltd', 'beta', 'suspended'],
-        [TENANT_ID_3, 'Gamma Inc', 'gamma', 'archived'],
-      ] as const
-    ).map(([id, name, slug, lifecycleState]): PlatformTenantRow => ({
-      id,
-      name,
-      slug,
-      lifecycleState,
-      memberCount: 2,
-      createdAt: '2026-01-01T00:00:00.000Z',
-    }))
     server.use(
       http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: rows, nextCursor: 'next', prevCursor: null }, 'Tenants retrieved.')
+        ok(listPage(TENANT_ROWS, { nextCursor: 'next', hasNext: true }), 'Tenants retrieved.')
       )
     )
     renderAppAt('/tenants')
@@ -716,26 +718,40 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
-  it('tenants filtered to archived with the admin controls has no axe violations', async () => {
+  it('tenants with the status facet open has no axe violations', async () => {
     server.use(
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
+      http.get('/api/v1/platform/tenants', () => ok(listPage(TENANT_ROWS), 'Tenants retrieved.'))
     )
+    renderAppAt('/tenants')
+    await screen.findByRole('table', { name: 'Tenants' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Filter by status, Tenants' }))
+    await screen.findByRole('dialog', { name: 'Filter by status, Tenants' })
+    // A portaled popover is exempt from `region`, so it is graded at document scope.
+    await expectNoViolations()
+  })
+
+  it('tenants with the column menu open has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () => ok(listPage(TENANT_ROWS), 'Tenants retrieved.'))
+    )
+    renderAppAt('/tenants')
+    await screen.findByRole('table', { name: 'Tenants' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Columns, Tenants' }))
+    await expectNoViolationsIn(await screen.findByRole('menu'))
+  })
+
+  it('tenants filtered to archived with the admin controls has no axe violations', async () => {
+    server.use(http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')))
     renderAppAt('/tenants?state=archived')
-    await screen.findByText('No tenants in this state.')
+    await screen.findByText('Nothing matches these filters.')
     expect(screen.getByRole('button', { name: 'New tenant' })).toBeInTheDocument()
     await expectNoViolations()
   })
 
   it('tenants with nothing matching has no axe violations', async () => {
-    server.use(
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
-    )
-    renderAppAt('/tenants?q=zzz')
-    await screen.findByText('No tenants match “zzz”.')
+    server.use(http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')))
+    renderAppAt('/tenants?search=zzz')
+    await screen.findByText('Nothing matches these filters.')
     await expectNoViolations()
   })
 
@@ -805,7 +821,7 @@ describe('signed-in pages', () => {
     ]
     server.use(
       http.get('/api/v1/platform/users', () =>
-        ok({ users: rows, nextCursor: 'next', prevCursor: null }, 'Users retrieved.')
+        ok(listPage(rows, { nextCursor: 'next', hasNext: true }), 'Users retrieved.')
       )
     )
     renderAppAt('/users')
@@ -817,14 +833,34 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
-  it('users with nothing matching has no axe violations', async () => {
+  it('users with the verified facet open has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/users', () => ok(listPage([USER_DETAIL]), 'Users retrieved.'))
+    )
+    renderAppAt('/users')
+    await screen.findByRole('table', { name: 'Users' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Filter by verified, Users' }))
+    await screen.findByRole('dialog', { name: 'Filter by verified, Users' })
+    await expectNoViolations()
+  })
+
+  it('users stacked as cards on a phone has no axe violations', async () => {
+    setViewportWidth(390)
     server.use(
       http.get('/api/v1/platform/users', () =>
-        ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+        ok(listPage([USER_DETAIL, { ...USER_DETAIL, id: USER_ID_3, email: 'e@example.com' }]), 'ok')
       )
     )
-    renderAppAt('/users?q=zzz&status=deleted')
-    await screen.findByText('No users match these filters.')
+    renderAppAt('/users')
+    await screen.findByRole('list', { name: 'Users' })
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('users with nothing matching has no axe violations', async () => {
+    server.use(http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.')))
+    renderAppAt('/users?search=zzz&status=deleted')
+    await screen.findByText('Nothing matches these filters.')
     await expectNoViolations()
   })
 
@@ -1081,11 +1117,7 @@ describe('invitation accept states', () => {
  */
 describe('open overlays', () => {
   it('has no violations with the New tenant dialog open', async () => {
-    server.use(
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
-    )
+    server.use(http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')))
     const user = userEvent.setup()
     renderAppAt('/tenants')
     await screen.findByText('No tenants yet.')
@@ -1191,12 +1223,8 @@ describe('open overlays', () => {
 
   it('has no violations with the command palette showing a user', async () => {
     server.use(
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      ),
-      http.get('/api/v1/platform/users', () =>
-        ok({ users: [USER_DETAIL], nextCursor: null, prevCursor: null }, 'Users retrieved.')
-      )
+      http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')),
+      http.get('/api/v1/platform/users', () => ok(listPage([USER_DETAIL]), 'Users retrieved.'))
     )
     const user = userEvent.setup()
     renderAppAt('/overview')
@@ -1393,11 +1421,7 @@ describe('open overlays', () => {
   })
 
   it('has no violations with the New user dialog open', async () => {
-    server.use(
-      http.get('/api/v1/platform/users', () =>
-        ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
-      )
-    )
+    server.use(http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.')))
     const user = userEvent.setup()
     renderAppAt('/users')
     await user.click(await screen.findByRole('button', { name: 'New user' }))

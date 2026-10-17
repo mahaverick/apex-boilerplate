@@ -10,7 +10,7 @@ import {
   useSuspendTenant,
 } from '@/queries/tenant-admin.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
-import { userAdminKeys } from '@/queries/user-admin.queries'
+import { userAdminKeys, usersListOptions } from '@/queries/user-admin.queries'
 import { TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 import { ok } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -70,7 +70,7 @@ describe('tenant-admin queries', () => {
     )
     const client = clientWithHistory()
     const userPage = userAdminKeys.detail(USER_ID_2)
-    const users = userAdminKeys.list({ limit: 20 })
+    const users = usersListOptions({ limit: 20 }).queryKey
     const staff = tenantKeys.members('platform')
     for (const key of [userPage, users, staff]) client.setQueryData(key, {})
     const { result } = renderHook(() => useSuspendTenant(TENANT_ID), {

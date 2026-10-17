@@ -1,29 +1,26 @@
 import { Link } from '@tanstack/react-router'
-import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
+import { createColumnHelper } from '@tanstack/react-table'
+import type { ReactNode } from 'react'
 import { UserStatusBadges } from '@/components/features/users/user-status-badges'
+import { DataTable } from '@/components/shared/data-table/data-table'
+import type {
+  DataTableFeatures,
+  DataTableFilter,
+} from '@/components/shared/data-table/data-table-model'
+import type { ListQueryState } from '@/components/shared/data-table/use-list-query'
 import { Pii } from '@/components/shared/pii'
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { ROLE_LABELS } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { formatDate, fullName } from '@/lib/format'
+import { analyticsKey } from '@/observability/telemetry'
 import type { PlatformUserRow } from '@/types/api.types'
 
-/** No optional features: the API orders, filters and pages. */
-const features = tableFeatures({})
-
-const column = createColumnHelper<typeof features, PlatformUserRow>()
+const column = createColumnHelper<DataTableFeatures, PlatformUserRow>()
 
 const columns = column.columns([
   column.accessor('email', {
     header: 'Email',
+    meta: { sorts: ['email'], sortName: analyticsKey('email') },
     cell: ({ row }) => (
       <Link
         to={ROUTES.user}
@@ -60,6 +57,7 @@ const columns = column.columns([
   }),
   column.accessor('lastLoggedInAt', {
     header: 'Last sign-in',
+    meta: { sorts: ['-lastSignIn'], sortName: analyticsKey('last_sign_in'), sortWords: 'date' },
     cell: ({ getValue }) => {
       const at = getValue()
       return at === null ? 'Never' : (formatDate(at, 'medium') ?? 'Unknown')
@@ -67,34 +65,62 @@ const columns = column.columns([
   }),
 ])
 
-/** One page of users, ordered by email by the API. */
-export function UsersTable({ rows }: { rows: PlatformUserRow[] }) {
-  const table = useTable({ features, columns, data: rows, getRowId: (row) => row.id })
+/** The facets: none picked in Status is the API's default, active and inactive live accounts. */
+const FILTERS: readonly DataTableFilter[] = [
+  {
+    name: 'status',
+    label: 'Status',
+    options: [
+      { value: 'active', label: 'Active' },
+      { value: 'inactive', label: 'Inactive' },
+      { value: 'deleted', label: 'Deleted' },
+    ],
+  },
+  {
+    name: 'verified',
+    label: 'Verified',
+    single: true,
+    options: [
+      { value: 'true', label: 'Verified' },
+      { value: 'false', label: 'Unverified' },
+    ],
+  },
+  {
+    name: 'staff',
+    label: 'Staff',
+    single: true,
+    options: [
+      { value: 'true', label: 'Staff' },
+      { value: 'false', label: 'Not staff' },
+    ],
+  },
+]
+
+/** User accounts, through the shared list table. */
+export function UsersTable({
+  query,
+  empty,
+  errorMessage,
+  toolbar,
+}: {
+  query: ListQueryState<PlatformUserRow>
+  empty: ReactNode
+  /** The page's own load-error copy. */
+  errorMessage: string
+  /** The list's primary action, beside the search box. */
+  toolbar?: ReactNode
+}) {
   return (
-    <Table aria-label="Users">
-      <TableCaption className="sr-only">Every user, by email</TableCaption>
-      <TableHeader>
-        {table.getHeaderGroups().map((group) => (
-          <TableRow key={group.id}>
-            {group.headers.map((header) => (
-              <TableHead key={header.id} scope="col">
-                <table.FlexRender header={header} />
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.map((row) => (
-          <TableRow key={row.id}>
-            {row.getAllCells().map((cell) => (
-              <TableCell key={cell.id}>
-                <table.FlexRender cell={cell} />
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <DataTable
+      columns={columns}
+      query={query}
+      label="Users"
+      getRowId={(row) => row.id}
+      empty={empty}
+      errorMessage={errorMessage}
+      search={{ label: 'Search users', placeholder: 'Search by name or email' }}
+      filters={FILTERS}
+      toolbar={toolbar}
+    />
   )
 }

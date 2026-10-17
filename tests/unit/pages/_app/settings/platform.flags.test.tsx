@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from '@/lib/toast'
 import { flagRow, flagsEvaluation, flagsList, flagUrl, TRAITS } from '@/tests/fixtures/flags'
 import { TENANT_ID, TENANT_ID_2, USER_ID_2 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -45,6 +46,7 @@ const CLEO: PlatformUserDetail = {
 function serve(list: () => Response = () => ok(flagsList(), 'Flags retrieved.')) {
   const evaluated: string[] = []
   const searched: string[] = []
+  const searchedTotals: (string | null)[] = []
   server.use(
     http.get('/api/v1/platform/flags', list),
     http.get('/api/v1/platform/flags/evaluate', ({ request }) => {
@@ -52,12 +54,14 @@ function serve(list: () => Response = () => ok(flagsList(), 'Flags retrieved.'))
       return ok(flagsEvaluation(), 'Flags evaluated.')
     }),
     http.get('/api/v1/platform/users', ({ request }) => {
-      searched.push(new URL(request.url).searchParams.get('q') ?? '')
-      return ok({ users: [CLEO_ROW], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+      const params = new URL(request.url).searchParams
+      searched.push(params.get('search') ?? '')
+      searchedTotals.push(params.get('total'))
+      return ok(listPage([CLEO_ROW]), 'Users retrieved.')
     }),
     http.get(`/api/v1/platform/users/${USER_ID_2}`, () => ok(CLEO, 'User retrieved.'))
   )
-  return { evaluated, searched }
+  return { evaluated, searched, searchedTotals }
 }
 
 /** The data rows of a table, header row left out. */
@@ -306,7 +310,7 @@ describe('/settings/platform/flags evaluate', () => {
   })
 
   it('finds a user through the directory and evaluates every flag for the customer app', async () => {
-    const { evaluated, searched } = serve()
+    const { evaluated, searched, searchedTotals } = serve()
     const user = userEvent.setup()
     const router = renderAppAt('/settings/platform/flags')
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
@@ -317,6 +321,8 @@ describe('/settings/platform/flags evaluate', () => {
       expect(router.state.location.search).toEqual({ userId: USER_ID_2, app: 'react' })
     )
     expect(searched.at(-1)).toBe('cleo')
+    // The picker shows no count, so it asks for none.
+    expect(searchedTotals.at(-1)).toBeNull()
     const table = await within(panel).findByRole('table', { name: 'Evaluation' })
     expect(evaluated).toEqual([`?userId=${USER_ID_2}&app=react`])
     expect(within(panel).getByText('Evaluating for')).toBeInTheDocument()
@@ -406,11 +412,7 @@ describe('/settings/platform/flags evaluate', () => {
 
   it('says when no user matches the search', async () => {
     serve()
-    server.use(
-      http.get('/api/v1/platform/users', () =>
-        ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
-      )
-    )
+    server.use(http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.')))
     const user = userEvent.setup()
     renderAppAt('/settings/platform/flags')
     const panel = await screen.findByRole('region', { name: 'Evaluate' })

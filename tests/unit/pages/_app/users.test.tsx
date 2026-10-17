@@ -6,6 +6,7 @@ import { navItemsFor } from '@/constants/navigation'
 import { toast } from '@/lib/toast'
 import { expectMaskedToast } from '@/tests/fixtures/content'
 import { USER_ID_2, USER_ID_3 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -42,9 +43,9 @@ function pages(seen: URLSearchParams[]) {
       const params = new URL(request.url).searchParams
       seen.push(params)
       if (params.get('cursor') === 'c2') {
-        return ok({ users: [row(21)], nextCursor: null, prevCursor: 'p1' }, 'Users retrieved.')
+        return ok(listPage([row(21)], { prevCursor: 'p1', hasPrev: true }), 'Users retrieved.')
       }
-      return ok({ users: PAGE_ONE, nextCursor: 'c2', prevCursor: null }, 'Users retrieved.')
+      return ok(listPage(PAGE_ONE, { nextCursor: 'c2', hasNext: true }), 'Users retrieved.')
     })
   )
 }
@@ -86,12 +87,15 @@ describe('/users', () => {
 
     await user.click(screen.getByRole('button', { name: 'Next page' }))
     expect(await screen.findByText('user21@example.com')).toBeInTheDocument()
-    expect(router.state.location.search).toEqual({ cursor: 'c2', dir: 'next' })
-    expect(seen.at(-1)?.get('direction')).toBe('next')
+    expect(router.state.location.search).toEqual({ cursor: 'c2' })
+    expect(seen.at(-1)?.get('cursor')).toBe('c2')
+    expect(seen.at(-1)?.get('direction')).toBeNull()
     expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: 'Previous page' }))
-    await waitFor(() => expect(router.state.location.search).toEqual({ cursor: 'p1', dir: 'prev' }))
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ cursor: 'p1', direction: 'prev' })
+    )
     expect(seen.at(-1)?.get('cursor')).toBe('p1')
     expect(seen.at(-1)?.get('direction')).toBe('prev')
   })
@@ -100,38 +104,39 @@ describe('/users', () => {
     const seen: URLSearchParams[] = []
     pages(seen)
     const user = userEvent.setup()
-    const router = renderAppAt('/users?cursor=c2&dir=next')
+    const router = renderAppAt('/users?cursor=c2')
     await screen.findByText('user21@example.com')
 
-    await user.click(screen.getByRole('combobox', { name: 'Filter by status' }))
-    await user.click(await screen.findByRole('option', { name: 'Active' }))
+    await user.click(screen.getByRole('button', { name: 'Filter by status, Users' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by status, Users' })
+    await user.click(within(popup).getByRole('checkbox', { name: 'Active' }))
 
     await waitFor(() => expect(router.state.location.search).toEqual({ status: 'active' }))
     await waitFor(() => expect(seen.at(-1)?.get('status')).toBe('active'))
     expect(seen.at(-1)?.get('cursor')).toBeNull()
   })
 
-  it('debounces the search into ?q and starts from the first page', async () => {
+  it('debounces the search into ?search and starts from the first page', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
     const user = userEvent.setup()
-    const router = renderAppAt('/users?cursor=c2&dir=next')
+    const router = renderAppAt('/users?cursor=c2')
     await screen.findByText('user21@example.com')
 
     await user.type(screen.getByRole('searchbox', { name: 'Search users' }), 'ada')
 
-    await waitFor(() => expect(router.state.location.search).toEqual({ q: 'ada' }))
-    await waitFor(() => expect(seen.at(-1)?.get('q')).toBe('ada'))
+    await waitFor(() => expect(router.state.location.search).toEqual({ search: 'ada' }))
+    await waitFor(() => expect(seen.at(-1)?.get('search')).toBe('ada'))
     expect(seen.at(-1)?.get('cursor')).toBeNull()
   })
 
   it('keeps a numeric search, which the router hands over as a number', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
-    renderAppAt('/users?q=2026')
+    renderAppAt('/users?search=2026')
     await screen.findByText('user01@example.com')
     expect(screen.getByRole('searchbox', { name: 'Search users' })).toHaveValue('2026')
-    expect(seen.at(-1)?.get('q')).toBe('2026')
+    expect(seen.at(-1)?.get('search')).toBe('2026')
   })
 
   it('reaches deleted accounts through ?status=deleted and badges them', async () => {
@@ -140,11 +145,7 @@ describe('/users', () => {
       http.get('/api/v1/platform/users', ({ request }) => {
         seen.push(new URL(request.url).searchParams)
         return ok(
-          {
-            users: [row(7, { deletedAt: '2026-09-20T00:00:00.000Z', active: false })],
-            nextCursor: null,
-            prevCursor: null,
-          },
+          listPage([row(7, { deletedAt: '2026-09-20T00:00:00.000Z', active: false })]),
           'Users retrieved.'
         )
       })
@@ -165,26 +166,50 @@ describe('/users', () => {
     expect(seen.at(-1)?.get('staff')).toBe('true')
   })
 
-  it('says so when nothing matches', async () => {
-    server.use(
-      http.get('/api/v1/platform/users', () =>
-        ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
-      )
+  it('sorts by email by default and by last sign-in from the header', async () => {
+    const seen: URLSearchParams[] = []
+    pages(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/users')
+    const table = await screen.findByRole('table', { name: 'Users' })
+    expect(within(table).getByRole('columnheader', { name: 'Email' })).toHaveAttribute(
+      'aria-sort',
+      'ascending'
     )
-    renderAppAt('/users?q=zzz')
-    expect(await screen.findByText('No users match these filters.')).toBeInTheDocument()
+    await user.click(within(table).getByRole('button', { name: 'Last sign-in' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ sort: '-lastSignIn' }))
+    await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('-lastSignIn'))
+  })
+
+  it('filters by verification through a yes/no facet', async () => {
+    const seen: URLSearchParams[] = []
+    pages(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/users')
+    await screen.findByText('user01@example.com')
+    await user.click(screen.getByRole('button', { name: 'Filter by verified, Users' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by verified, Users' })
+    await user.click(within(popup).getByRole('checkbox', { name: 'Unverified' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ verified: false }))
+    await waitFor(() => expect(seen.at(-1)?.get('verified')).toBe('false'))
+  })
+
+  it('says so when nothing matches', async () => {
+    server.use(http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.')))
+    renderAppAt('/users?search=zzz')
+    expect(await screen.findByText('Nothing matches these filters.')).toBeInTheDocument()
   })
 
   it('offers the first page when a linked page has emptied, rather than claiming no users', async () => {
     server.use(
       http.get('/api/v1/platform/users', ({ request }) =>
         new URL(request.url).searchParams.get('cursor') === 'gone'
-          ? ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
-          : ok({ users: PAGE_ONE, nextCursor: 'c2', prevCursor: null }, 'Users retrieved.')
+          ? ok(listPage([]), 'Users retrieved.')
+          : ok(listPage(PAGE_ONE, { nextCursor: 'c2', hasNext: true }), 'Users retrieved.')
       )
     )
     const user = userEvent.setup()
-    const router = renderAppAt('/users?status=active&cursor=gone&dir=next')
+    const router = renderAppAt('/users?status=active&cursor=gone')
     expect(await screen.findByText('Nothing on this page.')).toBeInTheDocument()
     expect(screen.queryByText('No users yet.')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'First page' }))

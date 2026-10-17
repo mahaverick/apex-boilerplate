@@ -1,7 +1,8 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { listPage } from '@/tests/fixtures/list-page'
 import { ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
@@ -42,11 +43,9 @@ beforeEach(() => {
   signIn({ ...testUser, platformRole: 'viewer' })
   server.use(
     http.get('/api/v1/platform/users', () =>
-      ok({ users: [CLEO], nextCursor: 'c2', prevCursor: null }, 'Users retrieved.')
+      ok(listPage([CLEO], { nextCursor: 'c2', hasNext: true }), 'Users retrieved.')
     ),
-    http.get('/api/v1/platform/tenants', () =>
-      ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-    ),
+    http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')),
     http.get('/api/v1/platform/audit-log', () =>
       ok({ entries: [], nextCursor: null }, 'Audit log retrieved.')
     ),
@@ -81,17 +80,18 @@ describe('table_filtered', () => {
     await screen.findByText('cleo@example.com')
 
     await user.click(screen.getByRole('button', { name: 'Next page' }))
-    await waitFor(() => expect(router.state.location.search).toEqual({ cursor: 'c2', dir: 'next' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ cursor: 'c2' }))
     expect(eventsNamed('table_filtered')).toEqual([])
 
-    await user.click(screen.getByRole('combobox', { name: 'Filter by status' }))
-    await user.click(await screen.findByRole('option', { name: 'Active' }))
+    await user.click(screen.getByRole('button', { name: 'Filter by status, Users' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by status, Users' })
+    await user.click(within(popup).getByRole('checkbox', { name: 'Active' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ status: 'active' }))
     expect(eventsNamed('table_filtered')).toEqual([{ table: 'users' }])
 
     await user.type(screen.getByRole('searchbox', { name: 'Search users' }), 'pii-probe')
     await waitFor(() =>
-      expect(router.state.location.search).toEqual({ status: 'active', q: 'pii-probe' })
+      expect(router.state.location.search).toEqual({ status: 'active', search: 'pii-probe' })
     )
     expect(eventsNamed('table_filtered')).toEqual([{ table: 'users' }, { table: 'users' }])
     expect(JSON.stringify(tracked.events)).not.toContain('pii-probe')
