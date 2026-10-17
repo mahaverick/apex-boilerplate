@@ -253,17 +253,30 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     },
     url: '/settings/platform/flags',
     as: 'staff',
-    sections: [{ name: 'Flags', endpoints: ['GET /platform/flags'] }],
+    sections: [
+      { name: 'Page gate and snapshot', endpoints: ['GET /platform/flags/meta'] },
+      { name: 'Registered flags', endpoints: ['GET /platform/flags'] },
+      { name: 'In PostHog, not registered', endpoints: ['GET /platform/flags/unregistered'] },
+    ],
     empty: {
       stubs: [
         {
           endpoint: 'GET /platform/flags',
           data: {
             items: [],
-            unregistered: [],
-            traits: [],
-            snapshot: { enabled: true, stale: false, fetchedAt: null },
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
           },
+        },
+        {
+          endpoint: 'GET /platform/flags/unregistered',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+        {
+          endpoint: 'GET /platform/flags/meta',
+          data: { traits: [], snapshot: { enabled: true, stale: false, fetchedAt: null } },
         },
       ],
     },

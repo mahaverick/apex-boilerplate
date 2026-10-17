@@ -433,9 +433,13 @@ export async function assertApiServesApex(): Promise<void> {
  * @param slug - The tenant's slug, unique among live tenants.
  */
 export async function tenantIdOf(token: string, slug: string): Promise<string> {
-  const found = await apiRequest(token, 'GET', `/platform/tenants?q=${encodeURIComponent(slug)}`)
-  const tenants = (found.body as { data?: { tenants?: { id: string; slug: string }[] } } | null)
-    ?.data?.tenants
+  const found = await apiRequest(
+    token,
+    'GET',
+    `/platform/tenants?search=${encodeURIComponent(slug)}`
+  )
+  const tenants = (found.body as { data?: { items?: { id: string; slug: string }[] } } | null)?.data
+    ?.items
   const tenant = tenants?.find((row) => row.slug === slug)
   if (found.status !== 200 || tenant === undefined) {
     throw new Error(`no tenant ${slug}: ${found.status} ${JSON.stringify(found.body)}`)
