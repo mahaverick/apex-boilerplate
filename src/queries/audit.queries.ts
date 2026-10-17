@@ -1,5 +1,5 @@
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query'
-import { AUDIT_ACTIONS, type AuditAction } from '@/constants/audit-action-names'
+import { STORED_AUDIT_ACTIONS, type AuditAction } from '@/constants/audit-action-names'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
 import { analyticsKey } from '@/observability/telemetry'
@@ -54,16 +54,16 @@ const AUDIT_ACCESS_PATHS = ['member', 'platform', 'system'] as const
 
 /**
  * The platform Activity list's URL contract: newest first, filtered by tenant,
- * actor, action and access path. The action facets offer the written actions
- * only (`AUDIT_ACTIONS`): the retired ones stay stored, so a pasted URL may
- * still filter by one, but the facet never lists them.
+ * actor, action and access path. The `action` URL param accepts the stored
+ * names, the retired ones included, as the API does, so an old link still
+ * filters; the facet offers only the written actions (`AUDIT_ACTIONS`).
  */
 export const platformActivityList = defineList({
   sorts: ['-occurred', 'occurred'],
   filters: {
     tenant: idFilter(),
     actor: idFilter(),
-    action: listFilter(AUDIT_ACTIONS),
+    action: listFilter(STORED_AUDIT_ACTIONS),
     access: listFilter(AUDIT_ACCESS_PATHS),
   },
   table: analyticsKey('activity'),
@@ -72,7 +72,7 @@ export const platformActivityList = defineList({
 /** A History card's URL contract (the user and tenant cards): prefixed, since the page holds other lists. The card's own filter is fixed by the page, never in the URL. */
 export const historyList = defineList({
   sorts: ['-occurred', 'occurred'],
-  filters: { action: listFilter(AUDIT_ACTIONS) },
+  filters: { action: listFilter(STORED_AUDIT_ACTIONS) },
   table: analyticsKey('history'),
   prefix: 'history',
 })
@@ -80,7 +80,7 @@ export const historyList = defineList({
 /** A tenant's Activity tab: newest first, filtered by action. */
 export const tenantActivityList = defineList({
   sorts: ['-occurred', 'occurred'],
-  filters: { action: listFilter(AUDIT_ACTIONS) },
+  filters: { action: listFilter(STORED_AUDIT_ACTIONS) },
   table: analyticsKey('tenant_activity'),
 })
 

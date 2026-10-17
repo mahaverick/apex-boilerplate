@@ -2,6 +2,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { http } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
+import { AUDIT_ACTIONS } from '@/constants/audit-action-names'
 import {
   auditKeys,
   historyList,
@@ -190,16 +191,27 @@ describe('the apex list definitions', () => {
     })
   })
 
-  it('never offers a retired audit action as a facet value', () => {
-    for (const retired of [
+  it('offers only written audit actions, yet keeps and sends a retired one from an old link', () => {
+    const retired = [
       'user.timeline_viewed',
       'tenant.timeline_viewed',
       'user.errors_viewed',
       'tenant.errors_viewed',
-    ]) {
-      expect(platformActivityList.filters.action.values).not.toContain(retired)
-      expect(tenantActivityList.filters.action.values).not.toContain(retired)
-    }
+    ]
+    for (const name of retired) expect(AUDIT_ACTIONS).not.toContain(name)
+    expect(AUDIT_ACTIONS).toHaveLength(36)
+    expect(requestFor(platformActivityList, { action: 'user.errors_viewed,user.created' })).toEqual(
+      {
+        action: 'user.created,user.errors_viewed',
+      }
+    )
+    expect(requestFor(tenantActivityList, { action: 'tenant.timeline_viewed' })).toEqual({
+      action: 'tenant.timeline_viewed',
+    })
+    expect(requestFor(historyList, { historyAction: 'user.timeline_viewed' })).toEqual({
+      action: 'user.timeline_viewed',
+    })
+    expect(requestFor(tenantActivityList, { action: 'made.up' })).toEqual({})
   })
 })
 
@@ -240,9 +252,10 @@ describe('the apex list options', () => {
   })
 
   it('keeps the owners read and the meta read under their own keys', () => {
-    expect(ownersQueryOptions('acme', ID).queryKey.slice(0, 4)).toEqual(
-      tenantKeys.members('acme', ID).slice(0, 4)
-    )
+    expect(ownersQueryOptions('acme', ID).queryKey).toEqual([
+      ...tenantKeys.members('acme', ID),
+      'owners',
+    ])
     expect(flagsMetaQueryOptions().queryKey).toEqual([...flagInspectorKeys.all, 'meta'])
   })
 })
@@ -288,12 +301,70 @@ describe('the apex list endpoints', () => {
   })
 
   it('reads the flags meta from its own endpoint', async () => {
+    const paths: string[] = []
     server.use(
-      http.get('/api/v1/platform/flags/meta', () =>
-        ok({ traits: [], snapshot: { enabled: true, fetchedAt: null, stale: false } }, 'Retrieved.')
-      )
+      http.get(/\/api\/v1\/platform\/.*/, ({ request }) => {
+        paths.push(new URL(request.url).pathname)
+        return ok(
+          { traits: [], snapshot: { enabled: true, fetchedAt: null, stale: false } },
+          'Retrieved.'
+        )
+      })
     )
     const client = new QueryClient()
     await expect(client.fetchQuery(flagsMetaQueryOptions())).resolves.toMatchObject({ traits: [] })
+    expect(paths).toEqual(['/api/v1/platform/flags/meta'])
+  })
+})
+
+describe('the apex list total opt-out', () => {
+  it('keys a read without its total apart and leaves total=1 off the request', async () => {
+    const seen: string[] = []
+    server.use(
+      http.get(/\/api\/v1\/platform\/.*/, ({ request }) => {
+        seen.push(new URL(request.url).search)
+        return ok(listPage([]), 'Retrieved.')
+      })
+    )
+    const client = new QueryClient()
+    const pairs = [
+      [tenantsListOptions({ limit: 50 }), tenantsListOptions({ limit: 50 }, { total: false })],
+      [usersListOptions({ limit: 50 }), usersListOptions({ limit: 50 }, { total: false })],
+      [flagsListOptions({ limit: 50 }), flagsListOptions({ limit: 50 }, { total: false })],
+    ] as const
+    for (const [withTotal, without] of pairs) {
+      expect(without.queryKey).not.toEqual(withTotal.queryKey)
+      expect(without.queryKey.at(-1)).toBe('no-total')
+    }
+    await client.fetchQuery(tenantsListOptions({ limit: 50 }, { total: false }))
+    await client.fetchQuery(usersListOptions({ limit: 50 }, { total: false }))
+    await client.fetchQuery(flagsListOptions({ limit: 50 }, { total: false }))
+    expect(seen).toEqual(['?limit=50', '?limit=50', '?limit=50'])
+  })
+
+  it('reads the registry for pickers without a total', () => {
+    expect(flagsListOptions({ limit: 100 }, { total: false }).queryKey).toEqual([
+      ...flagInspectorKeys.all,
+      'registry',
+      'list',
+      { limit: 100 },
+      'no-total',
+    ])
+  })
+})
+
+describe('tenantAuditListOptions keys', () => {
+  it('appends the tenant id after the slug prefix, and nothing without one', () => {
+    expect(tenantAuditListOptions('acme', ID, { action: 'member.left' }).queryKey).toEqual([
+      ...auditKeys.tenantAll('acme'),
+      { tenantId: ID },
+      'list',
+      { action: 'member.left' },
+    ])
+    expect(tenantAuditListOptions('acme', undefined, {}).queryKey).toEqual([
+      ...auditKeys.tenantAll('acme'),
+      'list',
+      {},
+    ])
   })
 })

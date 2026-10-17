@@ -77,13 +77,15 @@ export const tenantsList = defineList({
  * One page of every customer tenant (`GET /platform/tenants`), for the
  * Tenants table, the palette and the activity tenant facet.
  * @param request - From `listRequest(tenantsList, …)`, or `{ search, limit }`.
+ * @param options - `total: false` for a read that never shows the total (the palette and pickers).
  * @returns Query options for `useListQuery`, `useQuery` or a route loader.
  */
-export function tenantsListOptions(request: ListRequest) {
+export function tenantsListOptions(request: ListRequest, options: { total?: boolean } = {}) {
   return listQueryOptions<PlatformTenantRow>({
     key: tenantAdminKeys.all,
     path: '/platform/tenants',
     request,
+    ...options,
   })
 }
 

@@ -49,3 +49,17 @@ export const AUDIT_ACTIONS = [
 ] as const
 /** An audit action as the API names it (`area.event`) that this build has wording for. */
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
+
+/**
+ * Actions the API still stores and filters by but never writes again. A link
+ * made before they were retired keeps working; the Action facet never offers them.
+ */
+export const RETIRED_AUDIT_ACTIONS = [
+  'user.timeline_viewed',
+  'tenant.timeline_viewed',
+  'user.errors_viewed',
+  'tenant.errors_viewed',
+] as const
+
+/** Every action name a stored row may hold, which the `action` URL param accepts. */
+export const STORED_AUDIT_ACTIONS = [...AUDIT_ACTIONS, ...RETIRED_AUDIT_ACTIONS] as const

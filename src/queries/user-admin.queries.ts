@@ -77,13 +77,15 @@ export const usersList = defineList({
  * One page of user accounts (`GET /platform/users`), for the Users table, the
  * palette and the activity actor facet.
  * @param request - From `listRequest(usersList, …)`, or `{ search, limit }`.
+ * @param options - `total: false` for a read that never shows the total (the palette and pickers).
  * @returns Query options for `useListQuery`, `useQuery` or a route loader.
  */
-export function usersListOptions(request: ListRequest) {
+export function usersListOptions(request: ListRequest, options: { total?: boolean } = {}) {
   return listQueryOptions<PlatformUserRow>({
     key: userAdminKeys.all,
     path: '/platform/users',
     request,
+    ...options,
   })
 }
 

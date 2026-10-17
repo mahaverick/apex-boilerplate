@@ -64,13 +64,15 @@ export const flagsList = defineList({
  * One page of the flag registry with each flag's live state (`GET /platform/flags`).
  * Its key sits apart from the unregistered list's: both default to the request `{}`.
  * @param request - From `listRequest(flagsList, …)`, or `{ limit }`.
+ * @param options - `total: false` for a read that never shows the total (the evaluate panel).
  * @returns Query options for `useListQuery`, `useQuery` or a route loader.
  */
-export function flagsListOptions(request: ListRequest) {
+export function flagsListOptions(request: ListRequest, options: { total?: boolean } = {}) {
   return listQueryOptions<FlagRow>({
     key: [...flagInspectorKeys.all, 'registry'],
     path: '/platform/flags',
     request,
+    ...options,
   })
 }
 
@@ -104,7 +106,7 @@ export function flagsMetaQueryOptions() {
 /** The registry's first hundred flags, for the evaluate panel and the tenant Flags tab. */
 export function useFlagRegistry() {
   return useQuery({
-    ...flagsListOptions({ limit: 100 }),
+    ...flagsListOptions({ limit: 100 }, { total: false }),
     select: (page) => page.items,
   })
 }
