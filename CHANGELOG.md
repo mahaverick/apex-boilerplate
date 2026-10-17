@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.0](https://github.com/mahaverick/apex-boilerplate/compare/v4.1.0...v4.2.0) (2026-10-17)
+
+
+### Features
+
+* **lists:** one shared DataTable for every apex list, on the 5.0.0 list API ([#74](https://github.com/mahaverick/apex-boilerplate/issues/74)) ([063dda2](https://github.com/mahaverick/apex-boilerplate/commit/063dda20934db14bbe96b2d04b4ef1b487e8cf38))
+
 ## [4.1.0](https://github.com/mahaverick/apex-boilerplate/compare/v4.0.0...v4.1.0) (2026-10-16)
 
 
