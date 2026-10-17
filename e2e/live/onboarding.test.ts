@@ -67,7 +67,7 @@ test('a staff reminder is a tracked email to the owner, and a staff completion i
   await logIn(page, admin)
 
   // A customer-created tenant is tracked from the start, so it is in progress.
-  await page.goto('/onboarding?state=in_progress')
+  await page.goto(`/onboarding?state=in_progress&search=${slug}`)
   await page.getByRole('table', { name: 'Onboarding tenants' }).getByRole('link', { name }).click()
   await expect(page).toHaveURL(new RegExp(`/tenants/${tenantId}/onboarding$`))
   await expect(page.getByText('In progress', { exact: true })).toBeVisible()

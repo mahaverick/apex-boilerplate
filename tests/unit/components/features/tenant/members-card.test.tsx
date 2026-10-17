@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
+import { formatDate } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
@@ -24,6 +25,7 @@ import {
   USER_ID_4,
   USER_ID_5,
 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { settle } from '@/tests/fixtures/timing'
 import {
@@ -40,6 +42,7 @@ import {
   type PlatformTenantDetail,
   type TenantInvitation,
 } from '@/types/api.types'
+import type { ListPage } from '@/types/list.types'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -94,7 +97,7 @@ function mockPlatformDetail() {
     http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
       ok(PLATFORM_DETAIL, 'Tenant retrieved.')
     ),
-    http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.'))
+    http.get('/api/v1/tenants/acme/invitations', () => ok(listPage([]), 'Invitations retrieved.'))
   )
 }
 
@@ -132,7 +135,7 @@ function mockTenant(myRole: MembershipRole, members: TenantMember[]) {
   mockPlatformDetail()
   server.use(
     http.get('/api/v1/tenants/acme', () => ok(tenantDetail(TENANT, myRole), 'Tenant retrieved.')),
-    http.get('/api/v1/tenants/acme/members', () => ok(members, 'Members retrieved.'))
+    http.get('/api/v1/tenants/acme/members', () => ok(listPage(members), 'Members retrieved.'))
   )
 }
 
@@ -156,7 +159,10 @@ function serveLeaving(myRole: MembershipRole, others: ReturnType<typeof member>[
       )
     ),
     http.get('/api/v1/tenants/acme/members', () =>
-      ok(state.left > 0 ? others : [member(ME, myRole, 'Me'), ...others], 'Members retrieved.')
+      ok(
+        listPage(state.left > 0 ? others : [member(ME, myRole, 'Me'), ...others]),
+        'Members retrieved.'
+      )
     ),
     http.delete('/api/v1/tenants/acme/membership', () => {
       state.left += 1
@@ -172,6 +178,19 @@ async function rowFor(name: string) {
   const row = cell.closest('tr')
   if (!row) throw new Error(`no row for ${name}`)
   return within(row)
+}
+
+/**
+ * A row's Leave button once it is enabled. An owner's own waits for the owners read, and is a different
+ * element once it has landed, so it is read fresh.
+ * @param row - The row, from `rowFor`.
+ */
+function enabledLeave(row: Awaited<ReturnType<typeof rowFor>>) {
+  return waitFor(() => {
+    const leave = row.getByRole('button', { name: 'Leave' })
+    expect(leave).toBeEnabled()
+    return leave
+  })
 }
 
 /**
@@ -282,14 +301,14 @@ describe('members tab permissions', () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () => {
         invitationCalls += 1
-        return ok([], 'Invitations retrieved.')
+        return ok(listPage([]), 'Invitations retrieved.')
       })
     )
     const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
 
     const vic = await rowFor('Vic')
     const main = within(screen.getByRole('main'))
-    expect(main.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(main.queryByRole('combobox', { name: /^Role for / })).not.toBeInTheDocument()
     expect(main.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
     expect(vic.queryByRole('button', { name: 'Leave' })).not.toBeInTheDocument()
     // Only Leave, on their own row.
@@ -310,6 +329,8 @@ describe('members tab permissions', () => {
     renderAppAt(`/tenants/${TENANT_ID}/members`)
 
     const me = await rowFor('Me')
+    // The reason shows once the owners read has landed and found no other owner.
+    await me.findByText('A tenant must always have an owner. Add another owner first.')
     // The backend answers 409 here, so the UI must not offer the action.
     expect(me.getByRole('combobox', { name: 'Role for Me X' })).toBeDisabled()
     expect(me.getByRole('button', { name: 'Leave' })).toBeDisabled()
@@ -334,8 +355,8 @@ describe('members tab permissions', () => {
     renderAppAt(`/tenants/${TENANT_ID}/members`)
 
     const me = await rowFor('Me')
+    await enabledLeave(me)
     expect(me.getByRole('combobox', { name: 'Role for Me X' })).toBeEnabled()
-    expect(me.getByRole('button', { name: 'Leave' })).toBeEnabled()
   })
 
   it('re-enables them once a second owner exists', async () => {
@@ -343,8 +364,8 @@ describe('members tab permissions', () => {
     renderAppAt(`/tenants/${TENANT_ID}/members`)
 
     const me = await rowFor('Me')
+    await enabledLeave(me)
     expect(me.getByRole('combobox', { name: 'Role for Me X' })).toBeEnabled()
-    expect(me.getByRole('button', { name: 'Leave' })).toBeEnabled()
   })
 
   /**
@@ -394,7 +415,10 @@ describe('members tab permissions', () => {
           : ok(tenantDetail(TENANT, 'owner'), 'Tenant retrieved.')
       }),
       http.get('/api/v1/tenants/acme/members', () =>
-        ok([member(ME, 'owner', 'Me'), member(USER_ID_4, 'owner', 'Otto')], 'Members retrieved.')
+        ok(
+          listPage([member(ME, 'owner', 'Me'), member(USER_ID_4, 'owner', 'Otto')]),
+          'Members retrieved.'
+        )
       )
     )
     const user = userEvent.setup()
@@ -438,7 +462,11 @@ describe('members tab permissions', () => {
         detailCalls += 1
         return ok(tenantDetail(TENANT, 'owner'), 'Tenant retrieved.')
       }),
-      http.get('/api/v1/tenants/acme/members', () => {
+      http.get('/api/v1/tenants/acme/members', ({ request }) => {
+        // The owners read is a request of its own, and it answers.
+        if (new URL(request.url).searchParams.get('role') === 'owner') {
+          return ok(listPage([member(ME, 'owner', 'Me')]), 'Members retrieved.')
+        }
         memberCalls += 1
         return fail('Something went wrong.', 500)
       })
@@ -464,7 +492,7 @@ describe('members tab permissions', () => {
     expect(detailCalls).toBe(detailBefore)
   })
 
-  it('shows BOTH failures when both queries fail, each with its own retry', async () => {
+  it('shows the role failure in place of the list when the role lookup fails too, with its own retry', async () => {
     let detailFails = false
     server.use(
       http.get('/api/v1/tenants/acme', () =>
@@ -475,7 +503,10 @@ describe('members tab permissions', () => {
       http.get('/api/v1/tenants/acme/members', () => fail('Something went wrong.', 500))
     )
     renderAppAt(`/tenants/${TENANT_ID}/members`)
-    await screen.findByRole('alert')
+    const members = await screen.findByRole('region', { name: 'Members' })
+    expect(await within(members).findByRole('alert')).toHaveTextContent(
+      /could not load this tenant’s members/i
+    )
 
     detailFails = true
     await act(async () => {
@@ -485,19 +516,11 @@ describe('members tab permissions', () => {
       })
     })
 
-    // Both alerts show at once: showing only one would leave a failure whose retry cannot fix the other.
-    await waitFor(() => {
-      expect(screen.getAllByRole('alert')).toHaveLength(2)
-    })
-    const text = screen
-      .getAllByRole('alert')
-      .map((alert) => alert.textContent)
-      .join(' ')
-    expect(text).toMatch(/could not load this tenant’s members/i)
-    expect(text).toMatch(/could not load your role in this tenant/i)
-    for (const alert of screen.getAllByRole('alert')) {
-      expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument()
-    }
+    // Without a role the list's controls cannot be decided, so the role failure stands alone and its retry is the one that can fix the page.
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/could not load your role in this tenant/i)
+    expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Members' })).not.toBeInTheDocument()
   })
 
   it('changes a role through the API and reports it', async () => {
@@ -566,9 +589,11 @@ describe('removing and leaving', () => {
     server.use(
       http.get('/api/v1/tenants/acme/members', () =>
         ok(
-          removed
-            ? [member(ME, 'owner', 'Me')]
-            : [member(ME, 'owner', 'Me'), member(USER_ID_3, 'viewer', 'Vic')],
+          listPage(
+            removed
+              ? [member(ME, 'owner', 'Me')]
+              : [member(ME, 'owner', 'Me'), member(USER_ID_3, 'viewer', 'Vic')]
+          ),
           'Members retrieved.'
         )
       ),
@@ -664,7 +689,7 @@ describe('removing and leaving', () => {
     const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
 
     const me = await rowFor('Me')
-    await user.click(me.getByRole('button', { name: 'Leave' }))
+    await user.click(await enabledLeave(me))
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
 
@@ -688,7 +713,7 @@ describe('removing and leaving', () => {
     const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
 
     const me = await rowFor('Me')
-    await user.click(me.getByRole('button', { name: 'Leave' }))
+    await user.click(await enabledLeave(me))
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     expect(dialog).toHaveAccessibleDescription(LEAVE_CUSTOMER)
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
@@ -708,7 +733,7 @@ describe('removing and leaving', () => {
       const user = userEvent.setup()
       renderAppAt(`/tenants/${TENANT_ID}/members`)
 
-      await user.click((await rowFor('Me')).getByRole('button', { name: 'Leave' }))
+      await user.click(await enabledLeave(await rowFor('Me')))
       expect(await screen.findByRole('alertdialog')).toHaveAccessibleDescription(LEAVE_CUSTOMER)
     }
   )
@@ -720,7 +745,7 @@ describe('removing and leaving', () => {
       const user = userEvent.setup()
       renderAppAt(`/tenants/${TENANT_ID}/members`)
 
-      await user.click((await rowFor('Me')).getByRole('button', { name: 'Leave' }))
+      await user.click(await enabledLeave(await rowFor('Me')))
       expect(await screen.findByRole('alertdialog')).toHaveAccessibleDescription(
         `${LEAVE_CUSTOMER} Pending invitations you sent are revoked.`
       )
@@ -746,7 +771,7 @@ describe('removing and leaving', () => {
     renderAppAt(`/tenants/${TENANT_ID}/members`)
 
     const me = await rowFor('Me')
-    await user.click(me.getByRole('button', { name: 'Leave' }))
+    await user.click(await enabledLeave(me))
     const confirm = within(await screen.findByRole('alertdialog')).getByRole('button', {
       name: 'Leave',
     })
@@ -778,7 +803,7 @@ describe('removing and leaving', () => {
       const user = userEvent.setup()
       renderAppAt(`/tenants/${TENANT_ID}/members`)
 
-      await user.click((await rowFor('Me')).getByRole('button', { name: 'Leave' }))
+      await user.click(await enabledLeave(await rowFor('Me')))
       await user.click(
         within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' })
       )
@@ -793,31 +818,32 @@ describe('removing and leaving', () => {
   })
 
   it('shows the refreshed member list after a refused leave', async () => {
-    let memberCalls = 0
+    // Otto stops being an owner while the leave is in flight.
+    let ottoDemoted = false
     mockTenant('owner', [])
     server.use(
-      http.get('/api/v1/tenants/acme/members', () => {
-        memberCalls += 1
-        return ok(
-          [
+      http.get('/api/v1/tenants/acme/members', () =>
+        ok(
+          listPage([
             member(ME, 'owner', 'Me'),
-            member(USER_ID_4, memberCalls === 1 ? 'owner' : 'admin', 'Otto'),
-          ],
+            member(USER_ID_4, ottoDemoted ? 'admin' : 'owner', 'Otto'),
+          ]),
           'Members retrieved.'
         )
-      }),
-      http.delete('/api/v1/tenants/acme/membership', () =>
-        fail(
+      ),
+      http.delete('/api/v1/tenants/acme/membership', () => {
+        ottoDemoted = true
+        return fail(
           'You are the last owner: make someone else an owner before you leave.',
           409,
           'LAST_OWNER'
         )
-      )
+      })
     )
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/members`)
 
-    await user.click((await rowFor('Me')).getByRole('button', { name: 'Leave' }))
+    await user.click(await enabledLeave(await rowFor('Me')))
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' })
     )
@@ -844,7 +870,7 @@ describe('removing and leaving', () => {
     const user = userEvent.setup()
     const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
     const me = await rowFor('Me')
-    await user.click(me.getByRole('button', { name: 'Leave' }))
+    await user.click(await enabledLeave(me))
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
     expect(
@@ -867,7 +893,7 @@ describe('removing and leaving', () => {
     const user = userEvent.setup()
     const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
 
-    await user.click((await rowFor('Me')).getByRole('button', { name: 'Leave' }))
+    await user.click(await enabledLeave(await rowFor('Me')))
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' })
     )
@@ -979,6 +1005,10 @@ function invitation(
 }
 
 describe('inviting, and the pending invitations', () => {
+  afterEach(() => {
+    setViewportWidth(realInnerWidth)
+  })
+
   beforeEach(() => {
     signIn()
     mockPlatformDetail()
@@ -992,9 +1022,11 @@ describe('inviting, and the pending invitations', () => {
       http.get('/api/v1/tenants/acme/invitations', () => {
         listCalls += 1
         return ok(
-          listCalls === 1
-            ? []
-            : [invitation(INVITATION_ID_2, 'new-member@example.com', { role: 'viewer' })],
+          listPage(
+            listCalls === 1
+              ? []
+              : [invitation(INVITATION_ID_2, 'new-member@example.com', { role: 'viewer' })]
+          ),
           'Invitations retrieved.'
         )
       }),
@@ -1053,7 +1085,7 @@ describe('inviting, and the pending invitations', () => {
       http.get('/api/v1/tenants/acme/invitations', () => {
         listCalls += 1
         return ok(
-          listCalls === 1 ? [] : [invitation(INVITATION_ID_9, 'new-member@example.com')],
+          listPage(listCalls === 1 ? [] : [invitation(INVITATION_ID_9, 'new-member@example.com')]),
           'Invitations retrieved.'
         )
       }),
@@ -1103,13 +1135,41 @@ describe('inviting, and the pending invitations', () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
         ok(
-          [
+          listPage([
             testInvitation,
             invitation(INVITATION_ID_2, 'old-invite@example.com', {
               role: 'viewer',
               invitedBy: null,
             }),
-          ],
+          ]),
+          'Invitations retrieved.'
+        )
+      )
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+
+    const table = await screen.findByRole('table', { name: 'Pending invitations' })
+    const first = within((await within(table).findByText('invited@example.com')).closest('tr')!)
+    expect(first.getByText('Editor')).toBeInTheDocument()
+    expect(first.getByText(/^by/)).toHaveTextContent('by A B')
+    expect(first.getByText(formatDate(testInvitation.expiresAt, 'medium')!)).toBeInTheDocument()
+    // An inviter whose account is gone is `null` and renders as a teammate.
+    const second = within(within(table).getByText('old-invite@example.com').closest('tr')!)
+    expect(second.getByText(/^by/)).toHaveTextContent('by A teammate')
+  })
+
+  it('stacks pending invitations as cards on a phone, with role, inviter and expiry', async () => {
+    setViewportWidth(390)
+    server.use(
+      http.get('/api/v1/tenants/acme/invitations', () =>
+        ok(
+          listPage([
+            testInvitation,
+            invitation(INVITATION_ID_2, 'old-invite@example.com', {
+              role: 'viewer',
+              invitedBy: null,
+            }),
+          ]),
           'Invitations retrieved.'
         )
       )
@@ -1122,7 +1182,6 @@ describe('inviting, and the pending invitations', () => {
     )
     expect(first.getByText(byContent('Editor · Invited by A B'))).toBeInTheDocument()
     expect(first.getByText(/^Expires /)).toBeInTheDocument()
-    // An inviter whose account is gone is `null` and renders as a teammate.
     const second = within(
       screen.getByText('old-invite@example.com').closest('[role="listitem"]') as HTMLElement
     )
@@ -1145,7 +1204,7 @@ describe('inviting, and the pending invitations', () => {
         // Two failures, because the query retries once by itself.
         return calls <= 2
           ? fail('Something went wrong.', 500)
-          : ok([testInvitation], 'Invitations retrieved.')
+          : ok(listPage([testInvitation]), 'Invitations retrieved.')
       })
     )
     const user = userEvent.setup()
@@ -1172,7 +1231,7 @@ describe('inviting, and the pending invitations', () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () => {
         listCalls += 1
-        return ok([testInvitation], 'Invitations retrieved.')
+        return ok(listPage([testInvitation]), 'Invitations retrieved.')
       }),
       http.post('/api/v1/tenants/acme/invitations/:id/resend', async ({ params, request }) => {
         resent = params.id
@@ -1201,7 +1260,7 @@ describe('inviting, and the pending invitations', () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
         ok(
-          [invitation(INVITATION_ID, 'invited@example.com', { role: 'owner' })],
+          listPage([invitation(INVITATION_ID, 'invited@example.com', { role: 'owner' })]),
           'Invitations retrieved.'
         )
       ),
@@ -1226,11 +1285,11 @@ describe('inviting, and the pending invitations', () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
         ok(
-          [
+          listPage([
             invitation(INVITATION_ID, 'owner@example.com', { role: 'owner' }),
             invitation(INVITATION_ID_2, 'admin@example.com', { role: 'admin' }),
             invitation(INVITATION_ID_3, 'editor@example.com', { role: 'editor' }),
-          ],
+          ]),
           'Invitations retrieved.'
         )
       )
@@ -1256,11 +1315,11 @@ describe('inviting, and the pending invitations', () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
         ok(
-          [
+          listPage([
             invitation(INVITATION_ID, 'owner@example.com', { role: 'owner' }),
             invitation(INVITATION_ID_2, 'admin@example.com', { role: 'admin' }),
             invitation(INVITATION_ID_3, 'editor@example.com', { role: 'editor' }),
-          ],
+          ]),
           'Invitations retrieved.'
         )
       )
@@ -1285,11 +1344,11 @@ describe('inviting, and the pending invitations', () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
         ok(
-          [
+          listPage([
             invitation(INVITATION_ID, 'owner@example.com', { role: 'owner' }),
             invitation(INVITATION_ID_2, 'admin@example.com', { role: 'admin' }),
             invitation(INVITATION_ID_3, 'editor@example.com', { role: 'editor' }),
-          ],
+          ]),
           'Invitations retrieved.'
         )
       )
@@ -1312,7 +1371,7 @@ describe('inviting, and the pending invitations', () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () => {
         listCalls += 1
-        return ok(listCalls === 1 ? [testInvitation] : [], 'Invitations retrieved.')
+        return ok(listPage(listCalls === 1 ? [testInvitation] : []), 'Invitations retrieved.')
       }),
       http.post('/api/v1/tenants/acme/invitations/:id/resend', () =>
         fail('Invitation not found.', 404, 'invitation_not_found')
@@ -1335,7 +1394,7 @@ describe('inviting, and the pending invitations', () => {
     let deletes = 0
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
-        ok([testInvitation], 'Invitations retrieved.')
+        ok(listPage([testInvitation]), 'Invitations retrieved.')
       ),
       http.delete('/api/v1/tenants/acme/invitations/:id', () => {
         deletes += 1
@@ -1365,7 +1424,7 @@ describe('inviting, and the pending invitations', () => {
     let body: string | undefined
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
-        ok(revoked ? [] : [testInvitation], 'Invitations retrieved.')
+        ok(listPage(revoked ? [] : [testInvitation]), 'Invitations retrieved.')
       ),
       http.delete('/api/v1/tenants/acme/invitations/:id', async ({ params, request }) => {
         revoked = params.id
@@ -1400,7 +1459,7 @@ describe('inviting, and the pending invitations', () => {
   it('returns focus to Revoke when the revoke fails', async () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
-        ok([testInvitation], 'Invitations retrieved.')
+        ok(listPage([testInvitation]), 'Invitations retrieved.')
       ),
       http.delete('/api/v1/tenants/acme/invitations/:id', () =>
         fail('Server error', 500, 'internal_error')
@@ -1425,7 +1484,7 @@ describe('inviting, and the pending invitations', () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () => {
         listCalls += 1
-        return ok(listCalls === 1 ? [testInvitation] : [], 'Invitations retrieved.')
+        return ok(listPage(listCalls === 1 ? [testInvitation] : []), 'Invitations retrieved.')
       }),
       http.delete('/api/v1/tenants/acme/invitations/:id', () =>
         fail('Invitation not found.', 404, 'invitation_not_found')
@@ -1460,7 +1519,7 @@ describe('staff acting through platform access', () => {
       ),
       http.get('/api/v1/tenants/acme/members', () =>
         ok(
-          [member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')],
+          listPage([member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')]),
           'Members retrieved.'
         )
       ),
@@ -1481,7 +1540,10 @@ describe('staff acting through platform access', () => {
     // The API never lists the caller here; a listing that did must still not offer the members-only route.
     server.use(
       http.get('/api/v1/tenants/acme/members', () =>
-        ok([member(ME, 'viewer', 'Me'), member(USER_ID_3, 'viewer', 'Vic')], 'Members retrieved.')
+        ok(
+          listPage([member(ME, 'viewer', 'Me'), member(USER_ID_3, 'viewer', 'Vic')]),
+          'Members retrieved.'
+        )
       )
     )
     renderAppAt(`/tenants/${TENANT_ID}/members`)
@@ -1553,9 +1615,11 @@ describe('staff acting through platform access', () => {
       http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => ok(null, 'Member removed.')),
       http.get('/api/v1/tenants/acme/members', () =>
         ok(
-          listed
-            ? [member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')]
-            : [member(USER_ID_4, 'owner', 'Otto')],
+          listPage(
+            listed
+              ? [member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')]
+              : [member(USER_ID_4, 'owner', 'Otto')]
+          ),
           'Members retrieved.'
         )
       )
@@ -1590,9 +1654,11 @@ describe('staff acting through platform access', () => {
       // The refetch after the removal no longer lists Vic, as express answers, so the row and its trigger go.
       http.get('/api/v1/tenants/acme/members', () =>
         ok(
-          body === undefined
-            ? [member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')]
-            : [member(USER_ID_4, 'owner', 'Otto')],
+          listPage(
+            body === undefined
+              ? [member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')]
+              : [member(USER_ID_4, 'owner', 'Otto')]
+          ),
           'Members retrieved.'
         )
       )
@@ -1664,7 +1730,9 @@ describe('staff acting through platform access', () => {
   it('asks for a reason after the invite form validates, and sends it with the invitation', async () => {
     let body: unknown
     server.use(
-      http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.')),
+      http.get('/api/v1/tenants/acme/invitations', () =>
+        ok(listPage([]), 'Invitations retrieved.')
+      ),
       http.post('/api/v1/tenants/acme/invitations', async ({ request }) => {
         body = await request.json()
         return ok(null, INVITATION_SENT_MESSAGE, 202)
@@ -1694,7 +1762,9 @@ describe('staff acting through platform access', () => {
 
   it('says a racing invite won inside the reason dialog', async () => {
     server.use(
-      http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.')),
+      http.get('/api/v1/tenants/acme/invitations', () =>
+        ok(listPage([]), 'Invitations retrieved.')
+      ),
       http.post('/api/v1/tenants/acme/invitations', () =>
         fail('An invitation is already pending.', 409, 'invitation_conflict')
       )
@@ -1717,7 +1787,7 @@ describe('staff acting through platform access', () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
         ok(
-          revoked ? [] : [invitation(INVITATION_ID, 'invitee@example.com')],
+          listPage(revoked ? [] : [invitation(INVITATION_ID, 'invitee@example.com')]),
           'Invitations retrieved.'
         )
       ),
@@ -1838,7 +1908,7 @@ describe('staff acting through platform access', () => {
       const bodies: unknown[] = []
       server.use(
         http.get('/api/v1/tenants/acme/invitations', () =>
-          ok([invitation(INVITATION_ID, 'invitee@example.com')], 'Invitations retrieved.')
+          ok(listPage([invitation(INVITATION_ID, 'invitee@example.com')]), 'Invitations retrieved.')
         ),
         http[method](url, async ({ request }) => {
           bodies.push(await request.json())
@@ -1864,7 +1934,7 @@ describe('staff acting through platform access', () => {
   it('names the address in the revoke dialog without a possessive', async () => {
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
-        ok([invitation(INVITATION_ID, 'invitee@example.com')], 'Invitations retrieved.')
+        ok(listPage([invitation(INVITATION_ID, 'invitee@example.com')]), 'Invitations retrieved.')
       )
     )
     const user = userEvent.setup()
@@ -1902,7 +1972,7 @@ describe('staff acting through platform access', () => {
         http.get('/api/v1/tenants/acme/invitations', () => {
           listCalls += 1
           return ok(
-            listCalls === 1 ? [invitation(INVITATION_ID, 'invitee@example.com')] : [],
+            listPage(listCalls === 1 ? [invitation(INVITATION_ID, 'invitee@example.com')] : []),
             'Invitations retrieved.'
           )
         }),
@@ -1971,7 +2041,10 @@ describe('staff acting through platform access', () => {
       http.get('/api/v1/tenants/acme/invitations', () =>
         refused
           ? fail('Tenant not found', 404)
-          : ok([invitation(INVITATION_ID, 'invitee@example.com')], 'Invitations retrieved.')
+          : ok(
+              listPage([invitation(INVITATION_ID, 'invitee@example.com')]),
+              'Invitations retrieved.'
+            )
       ),
       http.post('/api/v1/tenants/acme/invitations/:id/resend', () => {
         refused = true
@@ -2208,10 +2281,11 @@ describe('a write that finds the member already gone', () => {
       http.get('/api/v1/tenants/acme', () =>
         ok(tenantDetail(TENANT, 'owner', asStaff ? 'platform' : 'member'), 'Tenant retrieved.')
       ),
-      http.get('/api/v1/tenants/acme/members', () => {
-        state.listReads += 1
+      http.get('/api/v1/tenants/acme/members', ({ request }) => {
+        // The owners read is the last-owner rule's own request, not a read of the table's list.
+        if (new URL(request.url).searchParams.get('role') !== 'owner') state.listReads += 1
         return ok(
-          state.gone ? [first] : [first, member(USER_ID_3, 'viewer', 'Vic')],
+          listPage(state.gone ? [first] : [first, member(USER_ID_3, 'viewer', 'Vic')]),
           'Members retrieved.'
         )
       }),
@@ -2295,10 +2369,12 @@ describe('a write that finds the member already gone', () => {
       serveDeparture(asStaff, GONE_REPLIES.code)
       const rowAtToast: boolean[] = []
       vi.spyOn(toast, 'error').mockImplementation(() => {
-        const lists = queryClient.getQueriesData<TenantMember[]>({
+        const lists = queryClient.getQueriesData<ListPage<TenantMember>>({
           queryKey: tenantKeys.members('acme'),
         })
-        rowAtToast.push(lists.some(([, list]) => list?.some((row) => row.user.id === USER_ID_3)))
+        rowAtToast.push(
+          lists.some(([, page]) => page?.items.some((row) => row.user.id === USER_ID_3))
+        )
         return 0
       })
       const user = userEvent.setup()
@@ -2349,4 +2425,204 @@ describe('a write that finds the member already gone', () => {
       expect(screen.getByRole('cell', { name: /Vic/, hidden: true })).toBeInTheDocument()
     }
   )
+})
+
+describe('the members list', () => {
+  const LAST_OWNER_TEXT = 'A tenant must always have an owner. Add another owner first.'
+
+  /** The caller as an owner, the row the last-owner rule reads. */
+  const OWNER_ROW = member(ME, 'owner', 'Me')
+
+  afterEach(() => {
+    setViewportWidth(realInnerWidth)
+  })
+
+  beforeEach(() => {
+    signIn()
+    mockPlatformDetail()
+  })
+
+  it('counts an owner who is not on this page toward the last-owner rule', async () => {
+    const other = member(USER_ID_4, 'owner', 'Otto')
+    mockTenant('owner', [OWNER_ROW])
+    server.use(
+      http.get('/api/v1/tenants/acme/members', ({ request }) => {
+        const params = new URL(request.url).searchParams
+        // The page holds only the caller; the owners read finds the second owner.
+        return params.get('role') === 'owner'
+          ? ok(listPage([OWNER_ROW, other]), 'Members retrieved.')
+          : ok(listPage([OWNER_ROW], { hasNext: true, nextCursor: 'c2' }), 'Members retrieved.')
+      })
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    const me = await rowFor('Me')
+    await waitFor(() => expect(me.getByRole('button', { name: 'Leave' })).toBeEnabled())
+    expect(me.queryByText(LAST_OWNER_TEXT)).not.toBeInTheDocument()
+  })
+
+  it('counts more owners than one read holds toward the last-owner rule', async () => {
+    mockTenant('owner', [OWNER_ROW])
+    server.use(
+      http.get('/api/v1/tenants/acme/members', ({ request }) => {
+        const params = new URL(request.url).searchParams
+        // The owners read holds only the caller, and says more owners follow.
+        return params.get('role') === 'owner'
+          ? ok(listPage([OWNER_ROW], { hasNext: true, nextCursor: 'c2' }), 'Members retrieved.')
+          : ok(listPage([OWNER_ROW]), 'Members retrieved.')
+      })
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    const me = await rowFor('Me')
+    await waitFor(() => expect(me.getByRole('button', { name: 'Leave' })).toBeEnabled())
+  })
+
+  it('says when the owners could not be loaded, and keeps the last owner locked', async () => {
+    mockTenant('owner', [OWNER_ROW])
+    server.use(
+      http.get('/api/v1/tenants/acme/members', ({ request }) =>
+        new URL(request.url).searchParams.get('role') === 'owner'
+          ? fail('Something went wrong', 500)
+          : ok(listPage([OWNER_ROW]), 'Members retrieved.')
+      )
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    expect(await screen.findByText('Owners could not be loaded.')).toBeInTheDocument()
+    const me = await rowFor('Me')
+    expect(me.getByRole('button', { name: 'Leave' })).toBeDisabled()
+    // Failed is not the same as one owner: the page does not claim the tenant has only one.
+    expect(screen.queryByText(LAST_OWNER_TEXT)).not.toBeInTheDocument()
+  })
+
+  it('keeps the owner’s controls off, with no reason, until the owners read lands', async () => {
+    mockTenant('owner', [OWNER_ROW])
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    server.use(
+      http.get('/api/v1/tenants/acme/members', async ({ request }) => {
+        if (new URL(request.url).searchParams.get('role') === 'owner') await held
+        return ok(
+          listPage(
+            new URL(request.url).searchParams.get('role') === 'owner'
+              ? [OWNER_ROW, member(USER_ID_4, 'owner', 'Otto')]
+              : [OWNER_ROW]
+          ),
+          'Members retrieved.'
+        )
+      })
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    const me = await rowFor('Me')
+    expect(me.getByRole('button', { name: 'Leave' })).toBeDisabled()
+    expect(me.getByRole('button', { name: 'Leave' })).not.toHaveAttribute('aria-describedby')
+    expect(me.queryByText(LAST_OWNER_TEXT)).not.toBeInTheDocument()
+    release()
+    await waitFor(() => expect(me.getByRole('button', { name: 'Leave' })).toBeEnabled())
+  })
+
+  it.each([
+    { label: 'an admin member', role: 'admin', access: 'member', asked: false },
+    {
+      label: 'an owner reaching the tenant through platform access',
+      role: 'owner',
+      access: 'platform',
+      asked: false,
+    },
+    { label: 'an owner who is a member', role: 'owner', access: 'member', asked: true },
+  ] as const)('asks for the owners for $label: $asked', async ({ role, access, asked }) => {
+    const roles: string[] = []
+    const rows = [member(USER_ID_3, 'viewer', 'Vic'), member(USER_ID_4, 'owner', 'Otto')]
+    mockPlatformDetail()
+    server.use(
+      http.get('/api/v1/tenants/acme', () =>
+        ok(tenantDetail(TENANT, role, access), 'Tenant retrieved.')
+      ),
+      http.get('/api/v1/tenants/acme/members', ({ request }) => {
+        roles.push(new URL(request.url).searchParams.get('role') ?? '')
+        return ok(listPage(rows), 'Members retrieved.')
+      })
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    // The table has its rows, so the owners read, had it been due, was due with the list.
+    await rowFor('Vic')
+    expect(roles).toContain('')
+    await settle(100, 'absence has no event: no owners request follows')
+    expect(roles.includes('owner')).toBe(asked)
+  })
+
+  it('has no Actions column for staff who cannot manage the tenant, who could have no action', async () => {
+    mockPlatformDetail()
+    server.use(
+      http.get('/api/v1/tenants/acme', () =>
+        ok(tenantDetail(TENANT, 'viewer', 'platform'), 'Tenant retrieved.')
+      ),
+      http.get('/api/v1/tenants/acme/members', () =>
+        ok(listPage([member(USER_ID_3, 'viewer', 'Vic')]), 'Members retrieved.')
+      )
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    await rowFor('Vic')
+    expect(screen.getByRole('columnheader', { name: 'Role' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Actions' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the Role column, and the last owner’s reason, when ?hidden=role asks to hide it', async () => {
+    mockTenant('owner', [OWNER_ROW])
+    renderAppAt(`/tenants/${TENANT_ID}/members?hidden=role`)
+
+    const members = await screen.findByRole('table', { name: 'Members' })
+    expect(within(members).getByRole('columnheader', { name: 'Role' })).toBeInTheDocument()
+    const reason = await within(members).findByText(LAST_OWNER_TEXT)
+    const leave = within(members).getByRole('button', { name: 'Leave' })
+    expect(leave).toBeDisabled()
+    expect(leave).toHaveAttribute('aria-describedby', reason.id)
+    expect(document.getElementById(reason.id)).toBe(reason)
+  })
+
+  it('offers no Role toggle in the Columns menu', async () => {
+    mockTenant('owner', [OWNER_ROW])
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+    const members = await screen.findByRole('region', { name: 'Members' })
+    await user.click(await within(members).findByRole('button', { name: 'Columns, Members' }))
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).queryByRole('menuitemcheckbox', { name: 'Role' })).not.toBeInTheDocument()
+    expect(within(menu).getByRole('menuitemcheckbox', { name: 'Email' })).toBeInTheDocument()
+  })
+
+  it('shows a dash in Name for a member with no name, and the address once in Email', async () => {
+    const nameless = member(USER_ID_3, 'viewer', '')
+    nameless.user.lastName = ''
+    mockTenant('owner', [OWNER_ROW, nameless])
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    const table = await screen.findByRole('table', { name: 'Members' })
+    const row = await within(table).findByRole('row', {
+      name: new RegExp(`${USER_ID_3}@example.com`),
+    })
+    expect(within(row).getByText('—')).toBeInTheDocument()
+    expect(within(row).getAllByText(`${USER_ID_3}@example.com`)).toHaveLength(1)
+  })
+
+  it('keeps the staff Remove, with its reason dialog, in the Actions cell', async () => {
+    mockPlatformDetail()
+    server.use(
+      http.get('/api/v1/tenants/acme', () =>
+        ok(tenantDetail(TENANT, 'owner', 'platform'), 'Tenant retrieved.')
+      ),
+      http.get('/api/v1/tenants/acme/members', () =>
+        ok(listPage([member(USER_ID_3, 'viewer', 'Vic')]), 'Members retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    const vic = await rowFor('Vic')
+    expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeInTheDocument()
+    await user.click(vic.getByRole('button', { name: 'Remove' }))
+    expect(
+      await screen.findByRole('alertdialog', { name: 'Remove this member?' })
+    ).toBeInTheDocument()
+  })
 })

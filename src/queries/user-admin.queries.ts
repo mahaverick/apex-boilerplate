@@ -4,80 +4,59 @@
  * (`invalidateDirectory`): the user shows on tenant and Staff pages too, and
  * each write is a platform audit entry, which the History card reads.
  */
-import { keepPreviousData, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
+import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { isRoleDenied } from '@/lib/role-denied'
+import { analyticsKey } from '@/observability/telemetry'
+import { listQueryOptions } from '@/queries/list.queries'
 import { invalidateDirectory } from '@/queries/platform.queries'
+import { booleanFilter, defineList, listFilter } from '@/schemas/list.schemas'
 import type { CreateUserInput, UpdateUserNameInput } from '@/schemas/user-admin.schemas'
-import type {
-  ApiSuccess,
-  PageDirection,
-  PlatformUserDetail,
-  PlatformUserPage,
-  PlatformUserRow,
-  UserStatusFilter,
+import {
+  USER_STATUSES,
+  type ApiSuccess,
+  type PlatformUserDetail,
+  type PlatformUserRow,
 } from '@/types/api.types'
-
-/** The API's default page; its cap is 50. */
-const USER_PAGE_SIZE = 20
-
-/** The API refuses a longer term. */
-const MAX_QUERY_LENGTH = 100
-
-/** `GET /platform/users` filters, in the API's own names. Unset means "any live account". */
-export interface UserSearchParams {
-  q?: string
-  status?: UserStatusFilter
-  verified?: boolean
-  staff?: boolean
-  cursor?: string
-  /** Which way `cursor` pages. Sent only with a cursor. */
-  direction?: PageDirection
-  limit?: number
-}
+import type { ListRequest } from '@/types/list.types'
 
 /** `all` is `['platform', 'users']` (lists); `detail` sits under `['platform', 'user']`, so invalidating `all` leaves open user pages alone. */
 export const userAdminKeys = {
   /** Every users page; a write invalidates them all, since any row may move between filters. */
   all: ['platform', 'users'] as const,
-  list: (params: UserSearchParams) => ['platform', 'users', params] as const,
   detail: (id: string) => ['platform', 'user', id] as const,
 }
 
-/** The params as sent: trimmed term, unset filters left out, so equal searches share one cache entry. */
-function normalise(params: UserSearchParams): UserSearchParams {
-  const q = params.q?.trim().slice(0, MAX_QUERY_LENGTH)
-  return {
-    ...(q ? { q } : {}),
-    ...(params.status ? { status: params.status } : {}),
-    ...(params.verified === undefined ? {} : { verified: params.verified }),
-    ...(params.staff === undefined ? {} : { staff: params.staff }),
-    ...(params.cursor ? { cursor: params.cursor, direction: params.direction ?? 'next' } : {}),
-    limit: params.limit ?? USER_PAGE_SIZE,
-  }
+/** The Users list's URL contract: email order by default, filtered by account status, verification and staff. */
+export const usersList = defineList({
+  sorts: ['email', 'created', '-created', '-lastSignIn'],
+  filters: {
+    status: listFilter(USER_STATUSES),
+    verified: booleanFilter(),
+    staff: booleanFilter(),
+  },
+  table: analyticsKey('users'),
+})
+
+/**
+ * One page of user accounts (`GET /platform/users`), for the Users table, the
+ * palette and the activity actor facet.
+ * @param request - From `listRequest(usersList, …)`, or `{ search, limit }`.
+ * @param options - `total: false` for a read that never shows the total (the palette and pickers).
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function usersListOptions(request: ListRequest, options: { total?: boolean } = {}) {
+  return listQueryOptions<PlatformUserRow>({
+    key: userAdminKeys.all,
+    path: '/platform/users',
+    request,
+    ...options,
+  })
 }
 
 /** A 404 answers who is asking, so a retry changes nothing. */
 function retryUnlessDenied(failureCount: number, error: Error): boolean {
   return !isRoleDenied(error) && failureCount < 1
-}
-
-/**
- * One keyset page of users, for the Users table and the palette.
- * @param params - Filters and the cursor to page from.
- * @returns Query options for `useQuery` or a route loader.
- */
-export function platformUsersQueryOptions(params: UserSearchParams) {
-  const sent = normalise(params)
-  return queryOptions({
-    queryKey: userAdminKeys.list(sent),
-    queryFn: async () =>
-      unwrap(
-        await apiClient.get<ApiSuccess<PlatformUserPage>>('/platform/users', { params: sent })
-      ),
-    placeholderData: keepPreviousData,
-    retry: retryUnlessDenied,
-  })
 }
 
 /**

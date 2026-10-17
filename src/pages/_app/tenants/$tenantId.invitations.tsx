@@ -5,9 +5,11 @@ import { FrozenTenant } from '@/components/features/tenants/frozen-tenant'
 import { DetailTabPending } from '@/components/shared/pending-templates'
 import { pageTitle } from '@/constants/app'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
+import { invitationsList } from '@/queries/tenant.queries'
 
 /** A tenant's Invitations tab: pending invitations with invite, resend and revoke, or a frozen notice when the tenant is not active. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/invitations')({
+  validateSearch: invitationsList.schema,
   head: () => ({ meta: [{ title: pageTitle('Tenant invitations') }] }),
   staticData: { crumb: 'Invitations' },
   component: TenantInvitationsTab,

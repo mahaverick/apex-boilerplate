@@ -1,14 +1,15 @@
 /**
  * @file The flags inspector's and the status card's responses, shaped as
- * express serves them: the two reference flags, PostHog flag links and the
+ * express serves them: the reference flags, PostHog flag links and the
  * five traits.
  */
 import type {
   FlagRow,
   FlagsEvaluateResponse,
-  FlagsListResponse,
+  FlagsMetaResponse,
   FlagsStatus,
   TraitRow,
+  UnregisteredRow,
 } from '@/types/api.types'
 
 /**
@@ -110,14 +111,29 @@ export const TRAITS: TraitRow[] = [
 ]
 
 /**
- * A configured environment's inspector list; override what a test is about.
+ * The registry as `GET /platform/flags` lists it: the beta page, the
+ * experiment and the unsupported server-only flag.
+ * @returns The rows, in key order as express sorts them.
+ */
+export function flagRows(): FlagRow[] {
+  return [flagRow(), EXPERIMENT_ROW, UNSUPPORTED_ROW]
+}
+
+/**
+ * The flags PostHog has that the registry lacks, as `GET /platform/flags/unregistered` lists them.
+ * @returns The rows.
+ */
+export function unregisteredRows(): UnregisteredRow[] {
+  return [{ key: 'legacy_marketing_banner', active: true, posthogUrl: flagUrl(104) }]
+}
+
+/**
+ * A configured environment's `GET /platform/flags/meta`; override what a test is about.
  * @param overrides - The fields that differ.
  * @returns The response.
  */
-export function flagsList(overrides: Partial<FlagsListResponse> = {}): FlagsListResponse {
+export function flagsMeta(overrides: Partial<FlagsMetaResponse> = {}): FlagsMetaResponse {
   return {
-    items: [flagRow(), EXPERIMENT_ROW, UNSUPPORTED_ROW],
-    unregistered: [{ key: 'legacy_marketing_banner', active: true, posthogUrl: flagUrl(104) }],
     traits: TRAITS,
     snapshot: { enabled: true, fetchedAt: '2026-10-05T09:59:30.000Z', stale: false },
     ...overrides,

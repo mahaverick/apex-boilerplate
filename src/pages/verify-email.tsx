@@ -1,3 +1,4 @@
+import '@/lib/zod-jitless'
 import { useForm } from '@tanstack/react-form'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -5,6 +6,7 @@ import { z } from 'zod'
 import { AuthCard } from '@/components/layouts/auth-card'
 import { AuthLayout } from '@/components/layouts/auth-layout'
 import { BusyButton } from '@/components/shared/busy-button'
+import { AuthPagePending } from '@/components/shared/pending-templates'
 import { buttonVariants } from '@/components/ui/button'
 import { FieldDescription, FieldGroup, FieldSeparator } from '@/components/ui/field'
 import {
@@ -40,6 +42,7 @@ export const Route = createFileRoute('/verify-email')({
   validateSearch: z.object({ token: z.string().optional().catch(undefined) }),
   head: () => ({ meta: [{ title: pageTitle('Verify email') }] }),
   component: VerifyEmailPage,
+  pendingComponent: AuthPagePending,
 })
 
 /** The token-and-password form that verifies the address, and a resend form once a verification fails. */

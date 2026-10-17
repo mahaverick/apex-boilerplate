@@ -109,8 +109,12 @@ test('an invited newcomer registers from the accept page, verifies from an Apex 
 
 /** The id of the account at `email`, looked up with a staff token. */
 async function userIdOf(token: string, email: string): Promise<string> {
-  const found = await apiRequest(token, 'GET', `/platform/users?q=${encodeURIComponent(email)}`)
-  const users = (found.body as { data: { users: { id: string; email: string }[] } }).data.users
+  const found = await apiRequest(
+    token,
+    'GET',
+    `/platform/users?search=${encodeURIComponent(email)}`
+  )
+  const users = (found.body as { data: { items: { id: string; email: string }[] } }).data.items
   return users.find((user) => user.email === email)!.id
 }
 
@@ -157,11 +161,19 @@ test('an admin evaluates one user twice and the Activity log records it once', a
   expect(again.status).toBe(200)
 
   await page.goto('/activity')
-  await page.getByRole('combobox', { name: 'Filter by action' }).click()
-  await page.getByRole('option', { name: 'User flags evaluated', exact: true }).click()
-  await page.getByRole('combobox', { name: 'Filter by who acted' }).click()
-  await page.getByRole('option', { name: admin, exact: false }).click()
-  const log = page.getByRole('list', { name: 'Activity' })
-  await expect(log.getByRole('listitem')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Filter by action, Activity' }).click()
+  await page
+    .getByRole('dialog', { name: 'Filter by action, Activity' })
+    .getByRole('checkbox', { name: 'User flags evaluated', exact: true })
+    .click()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Filter by actor, Activity' }).click()
+  await page
+    .getByRole('dialog', { name: 'Filter by actor, Activity' })
+    .getByRole('checkbox', { name: admin, exact: false })
+    .click()
+  await page.keyboard.press('Escape')
+  const log = page.getByRole('table', { name: 'Activity' })
+  await expect(log.getByRole('row').filter({ hasText: 'evaluated' })).toHaveCount(1)
   await expect(log.getByText(/evaluated a user’s feature flags for the customer app/)).toBeVisible()
 })

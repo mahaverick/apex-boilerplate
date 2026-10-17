@@ -1,47 +1,8 @@
+import { AUDIT_ACTIONS, type AuditAction } from '@/constants/audit-action-names'
 import { templateLabel } from '@/constants/email.constants'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
 
-/** The audit actions this build has a sentence for. One the server writes that is not listed still renders, through the fallback sentence. */
-export const AUDIT_ACTIONS = [
-  'tenant.created',
-  'tenant.updated',
-  'tenant.settings_updated',
-  'member.role_changed',
-  'member.removed',
-  'member.left',
-  'invitation.created',
-  'invitation.resent',
-  'invitation.revoked',
-  'invitation.accepted',
-  'platform.member.auto_joined',
-  'platform.member.granted',
-  'tenant.accessed_by_platform',
-  'tenant.suspended',
-  'tenant.reactivated',
-  'tenant.archived',
-  'tenant.owner_invited',
-  'user.created',
-  'user.updated',
-  'user.deactivated',
-  'user.reactivated',
-  'user.signed_out',
-  'user.password_setup_sent',
-  'user.verification_resent',
-  'user.deleted',
-  'user.purged',
-  'tenant.purged',
-  'auth.reauthenticated',
-  'email.resent',
-  'email.suppression_lifted',
-  'onboarding.dismissed',
-  'onboarding.undismissed',
-  'onboarding.step_completed',
-  'onboarding.reminder_sent',
-  'user.flags_evaluated',
-  'platform.maintenance_mode_changed',
-] as const
-/** An audit action as the API names it (`area.event`) that this build has wording for. */
-export type AuditAction = (typeof AUDIT_ACTIONS)[number]
+export { AUDIT_ACTIONS, type AuditAction }
 
 /** Whether `value` is an audit action this build has a sentence for. */
 export function isAuditAction(value: string): value is AuditAction {
@@ -247,6 +208,15 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
 }
 
 /**
+ * An action name as words ("tenant errors viewed"), for a stored action this
+ * build has no sentence for.
+ * @param action - The stored action name, such as `tenant.errors_viewed`.
+ */
+export function readableAction(action: string): string {
+  return action.replaceAll(/[._]+/g, ' ')
+}
+
+/**
  * What the actor did, as the rest of a sentence their name begins. Reads the
  * metadata defensively, so a row whose fields are missing or mistyped still renders.
  */
@@ -254,7 +224,7 @@ export function auditSentence(entry: { action: string; metadata: Metadata }): st
   const build: ((metadata: Metadata) => string) | undefined = isAuditAction(entry.action)
     ? SENTENCES[entry.action]
     : undefined
-  return build ? build(entry.metadata) : `performed ${entry.action}`
+  return build ? build(entry.metadata) : `performed ${readableAction(entry.action)}`
 }
 
 /**

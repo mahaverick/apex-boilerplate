@@ -49,8 +49,12 @@ async function signedInStaff(page: Page, role: 'admin' | 'owner'): Promise<strin
 
 /** The id of the account at `email`, looked up with a staff token. */
 async function userIdOf(token: string, email: string): Promise<string> {
-  const found = await apiRequest(token, 'GET', `/platform/users?q=${encodeURIComponent(email)}`)
-  const users = (found.body as { data: { users: { id: string; email: string }[] } }).data.users
+  const found = await apiRequest(
+    token,
+    'GET',
+    `/platform/users?search=${encodeURIComponent(email)}`
+  )
+  const users = (found.body as { data: { items: { id: string; email: string }[] } }).data.items
   return users.find((user) => user.email === email)!.id
 }
 
@@ -147,7 +151,10 @@ test('a staff invitation from the Staff page mails a link that opens Apex', asyn
   expect(new URL(link).origin).toBe(APEX_ORIGIN)
   await acceptInvitationAs(invitee, link)
   await page.reload()
-  await expect(page.getByText(invitee).first()).toBeVisible()
+  // Found by search, not by its place on a page.
+  const invitations = page.getByRole('region', { name: 'Pending invitations' })
+  await invitations.getByRole('searchbox', { name: 'Search invitations' }).fill(invitee)
+  await expect(invitations.getByText(invitee)).toBeVisible()
 })
 
 test('deleting a user with a stale sign-in asks for the password; an owner then deletes it permanently', async ({

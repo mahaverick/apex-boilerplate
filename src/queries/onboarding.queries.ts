@@ -3,6 +3,7 @@
  * `/platform/tenants/:id/onboarding*`). Imports nothing from
  * platform.queries.ts, whose `invalidateDirectory` reaches these keys.
  */
+import '@/lib/zod-jitless'
 import {
   hashKey,
   keepPreviousData,
@@ -13,32 +14,26 @@ import {
   type QueryKey,
 } from '@tanstack/react-query'
 import { AxiosError } from 'axios'
+import { z } from 'zod'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
+import { analyticsKey } from '@/observability/telemetry'
 import { auditKeys } from '@/queries/audit.queries'
 import { invalidateEmails } from '@/queries/email.queries'
-import type {
-  ApiSuccess,
-  OnboardingFunnel,
-  OnboardingListState,
-  OnboardingRange,
-  OnboardingReminderResult,
-  OnboardingTenantPage,
-  PageDirection,
-  TenantOnboardingDetail,
+import { listQueryOptions } from '@/queries/list.queries'
+import { defineList } from '@/schemas/list.schemas'
+import {
+  ONBOARDING_LIST_STATES,
+  ONBOARDING_RANGES,
+  type ApiSuccess,
+  type OnboardingFunnel,
+  type OnboardingListState,
+  type OnboardingRange,
+  type OnboardingReminderResult,
+  type OnboardingTenantRow,
+  type TenantOnboardingDetail,
 } from '@/types/api.types'
-
-/** The API's default page; its cap is 50. */
-const ONBOARDING_PAGE_SIZE = 20
-
-/** `GET /platform/onboarding/tenants` params, in the API's own names. */
-export interface OnboardingTenantsParams {
-  state: OnboardingListState
-  cursor?: string
-  /** Which way `cursor` pages. Sent only with a cursor. */
-  direction?: PageDirection
-  limit?: number
-}
+import type { ListRequest } from '@/types/list.types'
 
 /**
  * Every onboarding query sits under `all`: the funnel, the lists and each
@@ -47,9 +42,38 @@ export interface OnboardingTenantsParams {
 export const onboardingKeys = {
   all: ['platform', 'onboarding'] as const,
   funnel: (range: OnboardingRange) => ['platform', 'onboarding', 'funnel', range] as const,
-  tenants: (params: OnboardingTenantsParams) =>
-    ['platform', 'onboarding', 'tenants', params] as const,
   tenant: (id: string) => ['platform', 'onboarding', 'tenant', id] as const,
+}
+
+/**
+ * The Onboarding list's URL contract. `-order` is this client's name for the
+ * API's default order for the tab's state (longest stuck first for `stuck`,
+ * newest first otherwise); it is never written or sent, and `name` is the
+ * only other sort. The funnel's window and the tab ride in the URL beside the
+ * list's own params.
+ */
+export const onboardingTenantsList = defineList({
+  sorts: ['-order', 'name'],
+  filters: {},
+  table: analyticsKey('onboarding_tenants'),
+  extra: {
+    range: z.enum(ONBOARDING_RANGES).default('30d').catch('30d'),
+    state: z.enum(ONBOARDING_LIST_STATES).default('stuck').catch('stuck'),
+  },
+})
+
+/**
+ * One page of tracked tenants in one state (`GET /platform/onboarding/tenants`).
+ * @param state - The tab; part of the request, so each tab has its own key.
+ * @param request - From `listRequest(onboardingTenantsList, …)`.
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function onboardingTenantsListOptions(state: OnboardingListState, request: ListRequest) {
+  return listQueryOptions<OnboardingTenantRow>({
+    key: [...onboardingKeys.all, 'tenants'],
+    path: '/platform/onboarding/tenants',
+    request: { ...request, state },
+  })
 }
 
 /** The Overview's figures carry `totals.stuckTenants`, which a staff action can change. */
@@ -73,36 +97,6 @@ export function onboardingFunnelQueryOptions(range: OnboardingRange) {
       unwrap(
         await apiClient.get<ApiSuccess<OnboardingFunnel>>('/platform/onboarding/funnel', {
           params: { range },
-        })
-      ),
-    placeholderData: keepPreviousData,
-    retry: retryUnlessDenied,
-  })
-}
-
-/**
- * One keyset page of tracked tenants in one state: stuck ones by days stuck,
- * the rest newest first, as the API orders them.
- * @param params - The state, and the cursor to page from.
- * @returns Query options for `useQuery` or a route loader.
- */
-export function onboardingTenantsQueryOptions({
-  state,
-  cursor,
-  direction,
-  limit = ONBOARDING_PAGE_SIZE,
-}: OnboardingTenantsParams) {
-  const sent: OnboardingTenantsParams = {
-    state,
-    ...(cursor ? { cursor, direction: direction ?? 'next' } : {}),
-    limit,
-  }
-  return queryOptions({
-    queryKey: onboardingKeys.tenants(sent),
-    queryFn: async () =>
-      unwrap(
-        await apiClient.get<ApiSuccess<OnboardingTenantPage>>('/platform/onboarding/tenants', {
-          params: sent,
         })
       ),
     placeholderData: keepPreviousData,

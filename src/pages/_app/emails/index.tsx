@@ -1,309 +1,65 @@
-import { IconChevronLeft, IconChevronRight, IconMail } from '@tabler/icons-react'
-import { useQuery } from '@tanstack/react-query'
+import { IconMail } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
 import { DateRangeFilter } from '@/components/features/emails/date-range-filter'
-import { TenantFilterChip, UserFilterChip } from '@/components/features/emails/email-filter-chips'
+import { emailFilters } from '@/components/features/emails/email-filters'
 import { EmailsTable } from '@/components/features/emails/emails-table'
-import { LoadError } from '@/components/features/load-error'
-import { RoleDenied } from '@/components/features/role-denied'
+import { useListQuery } from '@/components/shared/data-table/use-list-query'
+import { useListSearch } from '@/components/shared/data-table/use-list-search'
 import { EmptyState } from '@/components/shared/empty-state'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
-import { EMAIL_STATUS_BADGE, EMAIL_TEMPLATES } from '@/constants/email.constants'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import { isRoleDenied } from '@/lib/role-denied'
-import { analyticsKey, track } from '@/observability/telemetry'
-import { emailsQueryOptions, type EmailSearchParams } from '@/queries/email.queries'
-import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
-import { emailsSearchSchema, type EmailsSearch } from '@/schemas/email.schemas'
-import {
-  EMAIL_MESSAGE_STATUSES,
-  EMAIL_TEMPLATE_KEYS,
-  type EmailMessageStatus,
-  type EmailTemplateKey,
-  type PageDirection,
-} from '@/types/api.types'
+import { emailsList, emailsListOptions, emailsSearchSchema } from '@/queries/email.queries'
+import { listRequest, listValues } from '@/schemas/list-request.schemas'
 
-/** The API's query for the page's `?` search. */
-function toParams(search: EmailsSearch): EmailSearchParams {
-  return {
-    q: search.q,
-    status: search.status,
-    template: search.template,
-    userId: search.userId,
-    tenantId: search.tenantId,
-    from: search.from,
-    to: search.to,
-    cursor: search.cursor,
-    direction: search.dir,
-  }
-}
-
-/** This list, as `table_filtered` names it. */
-const TABLE = analyticsKey('emails')
-
-/** The Emails page: every tracked email, filtered through the URL. */
+/** The Emails page: every tracked email, with everything that picks the rows in the URL. */
 export const Route = createFileRoute('/_app/emails/')({
   validateSearch: emailsSearchSchema,
-  loaderDeps: ({ search }) => toParams(search),
+  loaderDeps: ({ search }) => listRequest(emailsList, listValues(emailsList, search)),
   // Started, not awaited: the page renders its skeleton while this runs.
   loader: ({ context, deps }) => {
-    void context.queryClient.prefetchQuery(emailsQueryOptions(deps))
+    void context.queryClient.prefetchQuery(emailsListOptions(deps))
   },
   head: () => ({ meta: [{ title: pageTitle('Emails') }] }),
   staticData: { crumb: 'Emails' },
   component: EmailsPage,
 })
 
-/** The select value meaning "no filter". */
-const ANY = 'any'
-
-const STATUS_OPTIONS: readonly (readonly [string, string])[] = [
-  [ANY, 'Any status'],
-  ...EMAIL_MESSAGE_STATUSES.map((status) => [status, EMAIL_STATUS_BADGE[status].label] as const),
-]
-
-const TEMPLATE_OPTIONS: readonly (readonly [string, string])[] = [
-  [ANY, 'Any template'],
-  ...EMAIL_TEMPLATE_KEYS.map((key) => [key, EMAIL_TEMPLATES[key].label] as const),
-]
-
-/** A labelled select over `[value, label]` options, reporting `ANY` when nothing is chosen. */
-function FilterSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  value: string
-  options: readonly (readonly [string, string])[]
-  onChange: (value: string) => void
-}) {
-  /** The label for a value, or the first option's label when none matches. */
-  const labelOf = (current: string) =>
-    options.find(([option]) => option === current)?.[1] ?? options[0]![1]
-  return (
-    <Select value={value} onValueChange={(next: string | null) => onChange(next ?? ANY)}>
-      <SelectTrigger aria-label={label} className="w-44">
-        <SelectValue>{(current: string) => labelOf(current)}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {options.map(([option, text]) => (
-          <SelectItem key={option} value={option}>
-            {text}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  )
-}
-
-/** The search without its page: a cursor belongs to the list it was cut from. */
-type FilterSearch = Omit<EmailsSearch, 'cursor' | 'dir'>
-
-/** The filters of `search` with the page and every unset or blank one left out. */
-function firstPageOf(search: EmailsSearch): FilterSearch {
-  const { q, status, template, userId, tenantId, from, to } = search
-  return {
-    ...(q ? { q } : {}),
-    ...(status ? { status } : {}),
-    ...(template ? { template } : {}),
-    ...(userId ? { userId } : {}),
-    ...(tenantId ? { tenantId } : {}),
-    ...(from ? { from } : {}),
-    ...(to ? { to } : {}),
-  }
-}
-
 /**
  * Every tracked email, newest first, filtered in the URL: recipient search,
  * status, template, creation dates, and a user or tenant (reached from their
  * pages, shown as removable chips). Pages are the API's keyset cursors in
- * `?cursor`/`?dir`; any filter change starts again from the first page.
+ * `?cursor`/`?direction`; any filter change starts again from the first page.
+ * The table owns the loading, error and empty states.
  */
 function EmailsPage() {
-  const search = Route.useSearch()
-  const navigate = Route.useNavigate()
-  const q = search.q ?? ''
-  const [draft, setDraft] = useState(q)
-  const [followed, setFollowed] = useState(q)
-  const term = useDebouncedValue(draft, SEARCH_DEBOUNCE_MS)
-  const page = useQuery(emailsQueryOptions(toParams(search)))
-
-  // A `?q` set under the page (Back, a link) fills the box; one this page navigated to is the debounced term, and the box may already hold newer keystrokes.
-  if (q !== followed) {
-    setFollowed(q)
-    if (q !== draft.trim() && q !== term.trim()) setDraft(q)
-  }
-
-  /** Applies a filter change from the first page: a cursor belongs to the list it was cut from. */
-  function filter(next: Partial<FilterSearch>) {
-    track('table_filtered', { table: TABLE })
-    void navigate({ search: (prev) => firstPageOf({ ...prev, ...next }) })
-  }
-
-  useEffect(() => {
-    const next = term.trim()
-    if (term !== draft || next === q) return
-    track('table_filtered', { table: TABLE })
-    void navigate({
-      search: (prev) => firstPageOf({ ...prev, q: next === '' ? undefined : next }),
-      replace: true,
-    })
-  }, [term, draft, q, navigate])
-
-  /** Pages to a keyset cursor; does nothing without one. */
-  function goTo(cursor: string | null, dir: PageDirection) {
-    if (cursor) void navigate({ search: (prev) => ({ ...prev, cursor, dir }) })
-  }
-
-  /** Back to the first page, keeping the filters. */
-  const firstPage = () => void navigate({ search: (prev) => firstPageOf(prev) })
-
-  // The previous view's rows stay up while the next loads; its "nothing matches" would describe the wrong view.
-  const settled =
-    page.data !== undefined && !(page.isPlaceholderData && page.data.messages.length === 0)
-  const rows = page.data?.messages ?? []
-
-  const filtered =
-    q !== '' ||
-    search.status !== undefined ||
-    search.template !== undefined ||
-    search.userId !== undefined ||
-    search.tenantId !== undefined ||
-    search.from !== undefined ||
-    search.to !== undefined
+  const list = useListSearch(emailsList)
+  const query = useListQuery(list, emailsListOptions)
 
   return (
     <div className="grid grid-cols-1 gap-4">
       <h1 className="text-2xl font-semibold">Emails</h1>
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          type="search"
-          aria-label="Search emails"
-          placeholder="Search by recipient"
-          className="w-72"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <FilterSelect
-          label="Filter by status"
-          value={search.status ?? ANY}
-          options={STATUS_OPTIONS}
-          onChange={(value) =>
-            filter({ status: value === ANY ? undefined : (value as EmailMessageStatus) })
-          }
-        />
-        <FilterSelect
-          label="Filter by template"
-          value={search.template ?? ANY}
-          options={TEMPLATE_OPTIONS}
-          onChange={(value) =>
-            filter({ template: value === ANY ? undefined : (value as EmailTemplateKey) })
-          }
-        />
-        <DateRangeFilter
-          value={{ from: search.from, to: search.to }}
-          onChange={({ from, to }) => filter({ from, to })}
-        />
-      </div>
-      {(search.userId !== undefined || search.tenantId !== undefined) && (
-        <div className="flex flex-wrap items-center gap-2">
-          {search.userId !== undefined && (
-            <UserFilterChip
-              userId={search.userId}
-              knownName={rows.find((row) => row.user?.id === search.userId)?.user?.name}
-              onRemove={() => filter({ userId: undefined })}
-            />
-          )}
-          {search.tenantId !== undefined && (
-            <TenantFilterChip
-              tenantId={search.tenantId}
-              knownName={rows.find((row) => row.tenant?.id === search.tenantId)?.tenant?.name}
-              onRemove={() => filter({ tenantId: undefined })}
-            />
-          )}
-        </div>
-      )}
-      {page.isError ? (
-        isRoleDenied(page.error) ? (
-          <RoleDenied />
-        ) : (
-          <div className="grid justify-items-start gap-2">
-            <LoadError
-              message="We could not load the emails."
-              onRetry={() => void page.refetch()}
-            />
-            {search.cursor !== undefined && (
-              <Button variant="ghost" size="sm" onClick={firstPage}>
-                <IconChevronLeft aria-hidden="true" />
-                First page
-              </Button>
-            )}
-          </div>
-        )
-      ) : !settled || page.data === undefined ? (
-        <Skeleton className="h-96 w-full" />
-      ) : rows.length === 0 && search.cursor !== undefined ? (
-        <EmptyState
-          icon={<IconMail aria-hidden="true" />}
-          title="Nothing on this page."
-          description="The list changed since this page was opened."
-          action={
-            <Button variant="outline" size="sm" onClick={firstPage}>
-              <IconChevronLeft aria-hidden="true" />
-              First page
-            </Button>
-          }
-        />
-      ) : rows.length === 0 ? (
-        <EmptyState
-          icon={<IconMail aria-hidden="true" />}
-          title={filtered ? 'No emails match these filters.' : 'No emails yet.'}
-          description={
-            filtered
-              ? 'Try fewer filters, or part of the address.'
-              : 'Every email the app sends is listed here, with its delivery status.'
-          }
-        />
-      ) : (
-        <>
-          <div aria-busy={page.isPlaceholderData}>
-            <EmailsTable rows={rows} />
-          </div>
-          <nav aria-label="Pagination" className="flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label="Previous page"
-              disabled={page.data.prevCursor === null || page.isPlaceholderData}
-              onClick={() => goTo(page.data?.prevCursor ?? null, 'prev')}
-            >
-              <IconChevronLeft aria-hidden="true" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label="Next page"
-              disabled={page.data.nextCursor === null || page.isPlaceholderData}
-              onClick={() => goTo(page.data?.nextCursor ?? null, 'next')}
-            >
-              <IconChevronRight aria-hidden="true" />
-            </Button>
-          </nav>
-        </>
-      )}
+      <EmailsTable
+        query={query}
+        errorMessage="We could not load the emails."
+        filters={emailFilters(query.items)}
+        empty={
+          <EmptyState
+            icon={<IconMail aria-hidden="true" />}
+            title="No emails yet."
+            description="Every email the app sends is listed here, with its delivery status."
+          />
+        }
+        toolbar={
+          <DateRangeFilter
+            value={{ from: list.values.filters.from?.[0], to: list.values.filters.to?.[0] }}
+            onChange={(range) =>
+              list.setFilters({
+                from: range.from === undefined ? [] : [range.from],
+                to: range.to === undefined ? [] : [range.to],
+              })
+            }
+          />
+        }
+      />
     </div>
   )
 }

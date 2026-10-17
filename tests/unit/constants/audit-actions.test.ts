@@ -235,7 +235,7 @@ describe('auditSentence', () => {
   it('renders a removed staff-read action through the fallback sentence', () => {
     expect(isAuditAction('user.timeline_viewed')).toBe(false)
     expect(auditSentence({ action: 'user.timeline_viewed', metadata: {} })).toBe(
-      'performed user.timeline_viewed'
+      'performed user timeline viewed'
     )
   })
 
@@ -247,7 +247,7 @@ describe('auditSentence', () => {
       'updated the tenant'
     )
     expect(auditSentence({ action: 'tenant.deleted', metadata: {} })).toBe(
-      'performed tenant.deleted'
+      'performed tenant deleted'
     )
     expect(auditSentence({ action: 'tenant.purged', metadata: {} })).toBe(
       'permanently deleted a tenant'

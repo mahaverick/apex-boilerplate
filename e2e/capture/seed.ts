@@ -42,9 +42,9 @@ export async function seedCapture(): Promise<Seed> {
   const users = await apiRequest(
     staffToken,
     'GET',
-    `/platform/users?q=${encodeURIComponent(customer)}`
+    `/platform/users?search=${encodeURIComponent(customer)}`
   )
-  const userId = (users.body as { data?: { users?: { id: string }[] } } | null)?.data?.users?.[0]
+  const userId = (users.body as { data?: { items?: { id: string }[] } } | null)?.data?.items?.[0]
     ?.id
   if (!userId) throw new Error(`no user row for ${customer}: ${JSON.stringify(users.body)}`)
   const emailId = await emailIdFor(staffToken, customer, 'email_verification')

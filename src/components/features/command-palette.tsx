@@ -22,11 +22,12 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { isRoleDenied } from '@/lib/role-denied'
 import { useFlagValues } from '@/observability/flags/flag-hooks'
 import { analyticsKey, track } from '@/observability/telemetry'
-import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
-import { platformTenantsQueryOptions } from '@/queries/tenant-admin.queries'
-import { platformUsersQueryOptions } from '@/queries/user-admin.queries'
+import { tenantsListOptions } from '@/queries/tenant-admin.queries'
+import { usersListOptions } from '@/queries/user-admin.queries'
+import { cleanSearch } from '@/schemas/list-request.schemas'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
+import { LIST_SEARCH_DEBOUNCE_MS } from '@/types/list.types'
 
 /** How many tenants, and how many users, the palette lists for a term. */
 const RESULTS_PER_GROUP = 8
@@ -74,16 +75,20 @@ export function CommandPalette() {
   }
   const staff = isStaff(role)
   const current = query.trim()
-  const term = useDebouncedValue(current, SEARCH_DEBOUNCE_MS)
+  const term = useDebouncedValue(current, LIST_SEARCH_DEBOUNCE_MS)
+  // The API refuses an empty `search`, and a term it would cut or strip is searched as it will be sent.
+  const sent = cleanSearch(term)
+  const request = { ...(sent === '' ? {} : { search: sent }), limit: RESULTS_PER_GROUP }
   const tenants = useQuery({
-    ...platformTenantsQueryOptions({ q: term, limit: RESULTS_PER_GROUP }),
-    enabled: open && staff && term !== '',
+    ...tenantsListOptions(request, { total: false }),
+    // The list keeps the previous term's page as placeholder; the palette must not show it.
+    placeholderData: undefined,
+    enabled: open && staff && sent !== '',
   })
   const users = useQuery({
-    ...platformUsersQueryOptions({ q: term, limit: RESULTS_PER_GROUP }),
-    // The users query keeps the previous term's page as placeholder; the palette must not show it.
+    ...usersListOptions(request, { total: false }),
     placeholderData: undefined,
-    enabled: open && staff && term !== '',
+    enabled: open && staff && sent !== '',
   })
 
   useEffect(() => {
@@ -119,10 +124,10 @@ export function CommandPalette() {
   const tenantsCurrent = term === current && tenants.data !== undefined && !tenants.isFetching
   const usersCurrent = term === current && users.data !== undefined && !users.isFetching
   const tenantItems: PaletteItem[] = tenantsCurrent
-    ? tenants.data.tenants.map((row) => ({ kind: 'tenant', value: row.id, label: row.name }))
+    ? tenants.data.items.map((row) => ({ kind: 'tenant', value: row.id, label: row.name }))
     : []
   const userItems: PaletteItem[] = usersCurrent
-    ? users.data.users.map((row) => ({
+    ? users.data.items.map((row) => ({
         kind: 'user',
         value: row.id,
         label: row.email,

@@ -4,6 +4,7 @@ import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { navItemsFor } from '@/constants/navigation'
 import { EMAIL_ID, EMAIL_ID_2, EMAIL_ID_3, TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { emailSummary, fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -31,15 +32,17 @@ function pages(seen: URLSearchParams[]) {
       seen.push(params)
       if (params.get('cursor') === 'c2') {
         return ok(
-          {
-            messages: [emailSummary({ id: EMAIL_ID_3, recipient: 'late@example.com' })],
-            nextCursor: null,
+          listPage([emailSummary({ id: EMAIL_ID_3, recipient: 'late@example.com' })], {
             prevCursor: 'p1',
-          },
+            hasPrev: true,
+          }),
           'Emails retrieved.'
         )
       }
-      return ok({ messages: PAGE_ONE, nextCursor: 'c2', prevCursor: null }, 'Emails retrieved.')
+      return ok(
+        listPage(PAGE_ONE, { nextCursor: 'c2', hasNext: true }, { count: 2, capped: false }),
+        'Emails retrieved.'
+      )
     })
   )
 }
@@ -84,13 +87,9 @@ describe('/emails', () => {
     server.use(
       http.get('/api/v1/platform/emails', () =>
         ok(
-          {
-            messages: [
-              emailSummary({ tenant: { id: TENANT_ID, name: 'Platform', slug: 'platform' } }),
-            ],
-            nextCursor: null,
-            prevCursor: null,
-          },
+          listPage([
+            emailSummary({ tenant: { id: TENANT_ID, name: 'Platform', slug: 'platform' } }),
+          ]),
           'Emails retrieved.'
         )
       )
@@ -113,6 +112,23 @@ describe('/emails', () => {
     expect(await screen.findByRole('heading', { name: 'cleo@example.com', level: 1 })).toBeVisible()
   })
 
+  it('sorts newest first by default, and by oldest first from the Created header', async () => {
+    const seen: URLSearchParams[] = []
+    pages(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/emails')
+    const table = await screen.findByRole('table', { name: 'Emails' })
+    expect(within(table).getByRole('columnheader', { name: 'Created' })).toHaveAttribute(
+      'aria-sort',
+      'descending'
+    )
+    expect(seen.at(-1)?.get('sort')).toBeNull()
+
+    await user.click(within(table).getByRole('button', { name: 'Created' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ sort: 'created' }))
+    await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('created'))
+  })
+
   it('pages with the API cursors, carrying them in the URL', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
@@ -123,65 +139,84 @@ describe('/emails', () => {
 
     await user.click(screen.getByRole('button', { name: 'Next page' }))
     expect(await screen.findByText('late@example.com')).toBeInTheDocument()
-    expect(router.state.location.search).toEqual({ cursor: 'c2', dir: 'next' })
-    expect(seen.at(-1)?.get('direction')).toBe('next')
+    expect(router.state.location.search).toEqual({ cursor: 'c2' })
+    expect(seen.at(-1)?.get('cursor')).toBe('c2')
 
     await user.click(screen.getByRole('button', { name: 'Previous page' }))
-    await waitFor(() => expect(router.state.location.search).toEqual({ cursor: 'p1', dir: 'prev' }))
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ cursor: 'p1', direction: 'prev' })
+    )
     expect(seen.at(-1)?.get('direction')).toBe('prev')
   })
 
-  it.each([
-    ['Filter by status', 'Suppressed', { status: 'suppressed' }],
-    ['Filter by template', 'Account setup', { template: 'account_setup' }],
-  ])('%s drops the cursor and sends the filter', async (label, option, expected) => {
+  it('filters by status, dropping the cursor', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
     const user = userEvent.setup()
-    const router = renderAppAt('/emails?cursor=c2&dir=next')
+    const router = renderAppAt('/emails?cursor=c2')
     await screen.findByText('late@example.com')
 
-    await user.click(screen.getByRole('combobox', { name: label }))
-    await user.click(await screen.findByRole('option', { name: option }))
+    await user.click(screen.getByRole('button', { name: 'Filter by status, Emails' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by status, Emails' })
+    await user.click(within(popup).getByRole('checkbox', { name: 'Suppressed' }))
 
-    await waitFor(() => expect(router.state.location.search).toEqual(expected))
-    const [[key, value]] = Object.entries(expected) as [[string, string]]
-    await waitFor(() => expect(seen.at(-1)?.get(key)).toBe(value))
+    await waitFor(() => expect(router.state.location.search).toEqual({ status: 'suppressed' }))
+    await waitFor(() => expect(seen.at(-1)?.get('status')).toBe('suppressed'))
     expect(seen.at(-1)?.get('cursor')).toBeNull()
   })
 
-  it('debounces the recipient search into ?q and starts from the first page', async () => {
+  it('filters by two templates through one comma list', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
     const user = userEvent.setup()
-    const router = renderAppAt('/emails?cursor=c2&dir=next')
+    const router = renderAppAt('/emails')
+    await screen.findByText('cleo@example.com')
+
+    await user.click(screen.getByRole('button', { name: 'Filter by template, Emails' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by template, Emails' })
+    await user.click(within(popup).getByRole('checkbox', { name: 'Password changed' }))
+    await user.click(within(popup).getByRole('checkbox', { name: 'Account setup' }))
+
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ template: 'account_setup,password_changed' })
+    )
+    await waitFor(() => expect(seen.at(-1)?.get('template')).toBe('account_setup,password_changed'))
+  })
+
+  it('debounces the recipient search into ?search and starts from the first page', async () => {
+    const seen: URLSearchParams[] = []
+    pages(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/emails?cursor=c2')
     await screen.findByText('late@example.com')
 
-    await user.type(screen.getByRole('searchbox', { name: 'Search emails' }), 'cleo@')
+    const box = screen.getByRole('searchbox', { name: 'Search emails' })
+    expect(box).toHaveAttribute('placeholder', 'Search by recipient')
+    await user.type(box, 'cleo@')
 
-    await waitFor(() => expect(router.state.location.search).toEqual({ q: 'cleo@' }))
-    await waitFor(() => expect(seen.at(-1)?.get('q')).toBe('cleo@'))
+    await waitFor(() => expect(router.state.location.search).toEqual({ search: 'cleo@' }))
+    await waitFor(() => expect(seen.at(-1)?.get('search')).toBe('cleo@'))
     expect(seen.at(-1)?.get('cursor')).toBeNull()
   })
 
   it('keeps a numeric search, which the router hands over as a number', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
-    renderAppAt('/emails?q=2026')
+    renderAppAt('/emails?search=2026')
     await screen.findByText('cleo@example.com')
     expect(screen.getByRole('searchbox', { name: 'Search emails' })).toHaveValue('2026')
-    expect(seen.at(-1)?.get('q')).toBe('2026')
+    expect(seen.at(-1)?.get('search')).toBe('2026')
   })
 
   it('drops malformed filters rather than sending them', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
     const router = renderAppAt(
-      '/emails?status=lost&template=welcome&userId=not-a-uuid&from=2026-13-40&to=yesterday'
+      '/emails?status=lost&template=welcome&user=not-a-uuid&from=2026-13-40&to=yesterday'
     )
     await screen.findByText('cleo@example.com')
     expect(router.state.location.search).toEqual({})
-    expect(Object.fromEntries(seen.at(-1)!)).toEqual({ limit: '20' })
+    expect(Object.fromEntries(seen.at(-1)!)).toEqual({ total: '1' })
   })
 
   it('reads a date range from the URL and names it on the trigger', async () => {
@@ -196,11 +231,34 @@ describe('/emails', () => {
     expect(seen.at(-1)?.get('to')).toBe('2026-09-30')
   })
 
+  it('drops an inverted date range, which the API refuses, and asks for the list without it', async () => {
+    const seen: URLSearchParams[] = []
+    pages(seen)
+    renderAppAt('/emails?from=2026-09-30&to=2026-09-01&status=delivered')
+    await screen.findByText('cleo@example.com')
+    expect(
+      screen.getByRole('button', { name: 'Filter by date. Current: Any date' })
+    ).toBeInTheDocument()
+    expect(seen.every((params) => params.get('from') === null && params.get('to') === null)).toBe(
+      true
+    )
+    expect(seen.at(-1)?.get('status')).toBe('delivered')
+  })
+
+  it('keeps a one-day range, whose bounds are equal', async () => {
+    const seen: URLSearchParams[] = []
+    pages(seen)
+    renderAppAt('/emails?from=2026-09-10&to=2026-09-10')
+    await screen.findByText('cleo@example.com')
+    expect(seen.at(-1)?.get('from')).toBe('2026-09-10')
+    expect(seen.at(-1)?.get('to')).toBe('2026-09-10')
+  })
+
   it('picks days on the calendar: one day, then a range, then clears them', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
     const user = userEvent.setup()
-    const router = renderAppAt('/emails?from=2026-09-10&to=2026-09-10&cursor=c2&dir=next')
+    const router = renderAppAt('/emails?from=2026-09-10&to=2026-09-10&cursor=c2')
     await screen.findByText('late@example.com')
 
     await user.click(screen.getByRole('button', { name: /^Filter by date/ }))
@@ -221,42 +279,62 @@ describe('/emails', () => {
     expect(screen.getByRole('button', { name: 'Filter by date. Current: Any date' })).toBeVisible()
   })
 
-  it('shows ?userId and ?tenantId as chips named from the listed rows, and removes them', async () => {
+  it('shows ?user and ?tenant as chips named from the listed rows, and removes them', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
     const user = userEvent.setup()
-    const router = renderAppAt(`/emails?userId=${USER_ID_2}&tenantId=${TENANT_ID}&status=delivered`)
+    const router = renderAppAt(`/emails?user=${USER_ID_2}&tenant=${TENANT_ID}&status=delivered`)
     await screen.findByText('cleo@example.com')
-    expect(seen.at(-1)?.get('userId')).toBe(USER_ID_2)
-    expect(seen.at(-1)?.get('tenantId')).toBe(TENANT_ID)
+    expect(seen.at(-1)?.get('user')).toBe(USER_ID_2)
+    expect(seen.at(-1)?.get('tenant')).toBe(TENANT_ID)
+    // The chips have no button of their own: the URL sets them from a link on the user's or tenant's page.
+    expect(screen.queryByRole('button', { name: /^Filter by user/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Filter by tenant/ })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Remove filter: User: Cleo Doe' }))
     await waitFor(() =>
-      expect(router.state.location.search).toEqual({ tenantId: TENANT_ID, status: 'delivered' })
+      expect(router.state.location.search).toEqual({ tenant: TENANT_ID, status: 'delivered' })
     )
     await user.click(screen.getByRole('button', { name: 'Remove filter: Tenant: Acme Corp' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ status: 'delivered' }))
-    await waitFor(() => expect(seen.at(-1)?.get('tenantId')).toBeNull())
+    await waitFor(() => expect(seen.at(-1)?.get('tenant')).toBeNull())
+  })
+
+  it('masks the user chip’s name for session replay, and not the tenant’s', async () => {
+    pages([])
+    renderAppAt(`/emails?user=${USER_ID_2}&tenant=${TENANT_ID}`)
+    await screen.findByText('cleo@example.com')
+    const userChip = screen.getByRole('button', { name: 'Remove filter: User: Cleo Doe' })
+    expect(within(userChip.parentElement!).getByText('Cleo Doe')).toHaveClass('ph-mask')
+    const tenantChip = screen.getByRole('button', { name: 'Remove filter: Tenant: Acme Corp' })
+    expect(tenantChip.parentElement!.querySelector('.ph-mask')).toBeNull()
+  })
+
+  it('masks each recipient and user name in the rows', async () => {
+    pages([])
+    renderAppAt('/emails')
+    const table = await screen.findByRole('table', { name: 'Emails' })
+    const [, first] = within(table).getAllByRole('row')
+    expect(within(first!).getByText('cleo@example.com')).toHaveClass('ph-mask')
+    expect(within(first!).getByText('Cleo Doe')).toHaveClass('ph-mask')
   })
 
   it('names a chip from the record when no row does, and says so when it is gone', async () => {
     server.use(
-      http.get('/api/v1/platform/emails', () =>
-        ok({ messages: [], nextCursor: null, prevCursor: null }, 'Emails retrieved.')
-      ),
+      http.get('/api/v1/platform/emails', () => ok(listPage([]), 'Emails retrieved.')),
       http.get(`/api/v1/platform/users/${USER_ID_2}`, () => fail('Not found', 404)),
       http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
         ok({ id: TENANT_ID, name: 'Acme Corp' }, 'Tenant retrieved.')
       )
     )
-    renderAppAt(`/emails?userId=${USER_ID_2}&tenantId=${TENANT_ID}`)
+    renderAppAt(`/emails?user=${USER_ID_2}&tenant=${TENANT_ID}`)
     expect(
       await screen.findByRole('button', { name: 'Remove filter: Tenant: Acme Corp' })
     ).toBeInTheDocument()
     expect(
       await screen.findByRole('button', { name: 'Remove filter: User: Unknown user' })
     ).toBeInTheDocument()
-    expect(screen.getByText('No emails match these filters.')).toBeInTheDocument()
+    expect(await screen.findByText('Nothing matches these filters.')).toBeInTheDocument()
   })
 
   it('says there is no mail yet when nothing is filtered', async () => {
@@ -268,12 +346,12 @@ describe('/emails', () => {
     server.use(
       http.get('/api/v1/platform/emails', ({ request }) =>
         new URL(request.url).searchParams.get('cursor') === 'gone'
-          ? ok({ messages: [], nextCursor: null, prevCursor: null }, 'Emails retrieved.')
-          : ok({ messages: PAGE_ONE, nextCursor: null, prevCursor: null }, 'Emails retrieved.')
+          ? ok(listPage([]), 'Emails retrieved.')
+          : ok(listPage(PAGE_ONE), 'Emails retrieved.')
       )
     )
     const user = userEvent.setup()
-    const router = renderAppAt('/emails?status=delivered&cursor=gone&dir=next')
+    const router = renderAppAt('/emails?status=delivered&cursor=gone')
     expect(await screen.findByText('Nothing on this page.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'First page' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ status: 'delivered' }))
@@ -293,7 +371,7 @@ describe('/emails', () => {
         calls += 1
         return calls <= 2
           ? fail('Something went wrong.', 500)
-          : ok({ messages: PAGE_ONE, nextCursor: null, prevCursor: null }, 'Emails retrieved.')
+          : ok(listPage(PAGE_ONE), 'Emails retrieved.')
       })
     )
     const user = userEvent.setup()

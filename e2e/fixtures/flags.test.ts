@@ -19,7 +19,8 @@ test('the flags page lists the registry, PostHog’s unregistered flags and the 
 }) => {
   await page.goto('/e2e/harness/?path=/settings/platform/flags')
   await expect(page.getByRole('heading', { name: 'Feature flags', level: 1 })).toBeVisible()
-  const registry = page.getByRole('table', { name: 'Registered flags', exact: true })
+  const registered = page.getByRole('region', { name: 'Registered flags' })
+  const registry = registered.getByRole('table', { name: 'Registered flags', exact: true })
   await expect(registry.getByRole('row')).toHaveCount(4)
   await expect(registry.getByText('Unsupported', { exact: true })).toBeVisible()
   await expect(registry.getByText('cohort', { exact: true })).toBeVisible()
@@ -28,13 +29,36 @@ test('the flags page lists the registry, PostHog’s unregistered flags and the 
     'href',
     'https://us.posthog.com/project/1/feature_flags/101'
   )
+  const unregistered = page.getByRole('region', { name: 'In PostHog, not registered' })
   await expect(
-    page
+    unregistered
       .getByRole('table', { name: 'Unregistered flags' })
       .getByText('legacy_marketing_banner', { exact: true })
   ).toBeVisible()
   const traits = page.getByRole('region', { name: 'Traits reference' })
   await expect(traits.getByRole('button', { name: /^Copy / })).toHaveCount(5)
+})
+
+test('the registry filters by state and searches, each list in its own region', async ({
+  page,
+}) => {
+  await page.goto('/e2e/harness/?path=/settings/platform/flags')
+  const registered = page.getByRole('region', { name: 'Registered flags' })
+  const registry = registered.getByRole('table', { name: 'Registered flags', exact: true })
+  await expect(registry.getByRole('row')).toHaveCount(4)
+  await registered.getByRole('button', { name: 'Filter by state, Registered flags' }).click()
+  const popup = page.getByRole('dialog', { name: 'Filter by state, Registered flags' })
+  await popup.getByRole('checkbox', { name: 'Unsupported' }).click()
+  await expect(page).toHaveURL(/state=unsupported/)
+  await page.keyboard.press('Escape')
+  await expect(registry.getByRole('row')).toHaveCount(2)
+  await expect(registry.getByText('Unsupported', { exact: true })).toBeVisible()
+  // The unregistered list keeps its own view: its row is still there.
+  const unregistered = page.getByRole('region', { name: 'In PostHog, not registered' })
+  await expect(unregistered.getByText('legacy_marketing_banner', { exact: true })).toBeVisible()
+  await unregistered.getByRole('searchbox', { name: 'Search unregistered flags' }).fill('zzz')
+  await expect(unregistered.getByText('legacy_marketing_banner', { exact: true })).toHaveCount(0)
+  await expect(registry.getByRole('row')).toHaveCount(2)
 })
 
 test('an admin’s evaluation explains each value, the holdout included', async ({ page }) => {

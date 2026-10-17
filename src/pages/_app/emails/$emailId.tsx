@@ -180,7 +180,7 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
           sent to it until the suppression is lifted.{' '}
           <Link
             to={ROUTES.suppressions}
-            search={{ q: message.recipient }}
+            search={{ search: message.recipient }}
             className="underline underline-offset-4"
           >
             View suppression

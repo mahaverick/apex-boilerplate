@@ -38,8 +38,11 @@ import {
   USER_ID_2,
   USER_ID_3,
 } from '../../tests/fixtures/ids'
+import { listPage } from '../../tests/fixtures/list-page'
 
 /** The one tenant the activity rows and the tenant filter name. */
+/** The Activity page's third entry: a suspension whose reason names a person. */
+const SUSPENDED_AUDIT_ID = '60000000-0000-4000-8000-000000000101'
 const ACME = { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' }
 
 /** The platform tenant's staff, for the Staff page and the activity page's actor filter. */
@@ -151,17 +154,73 @@ function ok<T>(data: T, message = 'OK', statusCode = 200) {
   return Response.json({ success: true, message, statusCode, data })
 }
 
+/** How a list handler reads a request: the params that narrow the rows, then the page. */
+interface ServeOptions<T> {
+  /** The row text `search` matches, lower-cased by the caller or not. */
+  searchIn?: (row: T) => string[]
+  /** One predicate per filter param the handler understands, given the comma list's values. */
+  filters?: Record<string, (row: T, values: string[]) => boolean>
+  /** The sort keys the handler orders by; a key not listed, or none, keeps the array order. */
+  sorts?: Record<string, (a: T, b: T) => number>
+}
+
+/**
+ * Answers a list request the way express does: the search, the filters and
+ * the sort applied, then one page of `limit` rows from a cursor, with a total
+ * on the first page when it was asked for. A cursor is the offset of a page
+ * boundary, so `direction=prev` reads the rows before it.
+ * @param rows - Every row the list holds.
+ * @param params - The request's query.
+ * @param options - How to match, filter and sort.
+ * @returns The list envelope's data.
+ */
+function serveList<T>(rows: T[], params: URLSearchParams, options: ServeOptions<T> = {}) {
+  const search = (params.get('search') ?? '').trim().toLowerCase()
+  let matched = rows.filter((row) => {
+    if (
+      search !== '' &&
+      !(options.searchIn?.(row) ?? []).some((text) => text.toLowerCase().includes(search))
+    ) {
+      return false
+    }
+    return Object.entries(options.filters ?? {}).every(([name, test]) => {
+      const raw = params.get(name)
+      return raw === null || raw === '' || test(row, raw.split(','))
+    })
+  })
+  const sort = params.get('sort')
+  const descending = sort?.startsWith('-') ?? false
+  const compare = options.sorts?.[sort?.replace(/^-/, '') ?? '']
+  if (compare) matched = [...matched].sort((a, b) => (descending ? compare(b, a) : compare(a, b)))
+  const limit = Number(params.get('limit') ?? 20)
+  const cursor = Number(params.get('cursor') ?? 0)
+  const backwards = params.get('direction') === 'prev'
+  const end = backwards ? cursor : cursor + limit
+  const start = backwards ? Math.max(0, cursor - limit) : cursor
+  return listPage(
+    matched.slice(start, Math.min(end, matched.length)),
+    {
+      nextCursor: end < matched.length ? String(Math.min(end, matched.length)) : null,
+      prevCursor: start > 0 ? String(start) : null,
+      hasNext: end < matched.length,
+      hasPrev: start > 0,
+      limit,
+    },
+    params.has('total') ? { count: matched.length, capped: false } : undefined
+  )
+}
+
 /** A staff actor on the History cards, and the platform tenant their `user.*` entries are filed under. */
 const SAM = { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' }
 const PLATFORM = { id: PLATFORM_TENANT_ID, name: 'Platform', slug: 'platform' }
 
 /**
- * A History card's entries: a user's (`targetId`) or a tenant's staff actions
- * (`tenantId` with `access=platform`), each carrying a long reason so the
+ * A History card's entries: a user's (`target`) or a tenant's staff actions
+ * (`tenant` with `access=platform`), each carrying a long reason so the
  * card's wrapping is measured too.
  */
 function historyOf(params: URLSearchParams) {
-  const targetId = params.get('targetId')
+  const targetId = params.get('target')
   if (targetId !== null) {
     return [
       {
@@ -171,7 +230,9 @@ function historyOf(params: URLSearchParams) {
         access: 'platform',
         actor: SAM,
         target: { type: 'user', id: targetId },
-        metadata: { reason: 'Repeated chargebacks reported by the billing provider this month' },
+        metadata: {
+          reason: 'Repeated chargebacks reported by Cleo D at the billing provider this month',
+        },
         tenant: PLATFORM,
       },
       {
@@ -193,7 +254,7 @@ function historyOf(params: URLSearchParams) {
       action: 'tenant.suspended',
       access: 'platform',
       actor: SAM,
-      target: { type: 'tenant', id: params.get('tenantId') },
+      target: { type: 'tenant', id: params.get('tenant') ?? TENANT_ID },
       metadata: { reason: 'Billing hold while the overdue invoices are reconciled' },
       tenant: ACME,
     },
@@ -751,64 +812,73 @@ function flagUrl(id: number) {
 }
 
 /**
- * The inspector's list: two reference flags (an active beta page and an
- * inactive experiment), a third made unsupported by a cohort condition with a
- * long description, an unregistered PostHog flag and the five traits.
+ * The registry: two reference flags (an active beta page and an inactive
+ * experiment) and a third made unsupported by a cohort condition with a long
+ * description.
  */
-function flagsList() {
+function flagRegistryRows() {
+  const enabled = flagsParam !== 'unconfigured'
+  return [
+    {
+      key: 'example_beta_page',
+      description: 'Reference flag: the tenant Beta page and its API route',
+      kind: 'boolean',
+      variants: null,
+      scope: 'tenant',
+      client: true,
+      apps: ['react'],
+      experiment: false,
+      fallback: false,
+      state: enabled ? 'active' : 'missing',
+      conditions: 1,
+      maxRollout: 50,
+      posthogUrl: enabled ? flagUrl(101) : null,
+    },
+    {
+      key: 'example_cta_experiment',
+      description: 'Reference experiment: the getting-started call-to-action style',
+      kind: 'multivariate',
+      variants: ['control', 'bold'],
+      scope: 'user',
+      client: true,
+      apps: ['react'],
+      experiment: true,
+      fallback: 'control',
+      state: enabled ? 'inactive' : 'missing',
+      conditions: 1,
+      maxRollout: 0,
+      posthogUrl: enabled ? flagUrl(102) : null,
+    },
+    {
+      key: 'server_side_reconciliation_with_an_unusually_long_flag_key_x',
+      description: `Reconciles ${'every tenant ledger overnight '.repeat(4)}on the worker.`,
+      kind: 'boolean',
+      variants: null,
+      scope: 'user',
+      client: false,
+      apps: [],
+      experiment: false,
+      fallback: false,
+      state: enabled ? 'unsupported' : 'missing',
+      ...(enabled ? { unsupportedReason: 'cohort' } : {}),
+      conditions: 2,
+      maxRollout: 100,
+      posthogUrl: enabled ? flagUrl(103) : null,
+    },
+  ]
+}
+
+/** PostHog's flags the registry lacks: one, unless PostHog is not configured. */
+function unregisteredFlagRows() {
+  return flagsParam === 'unconfigured'
+    ? []
+    : [{ key: 'legacy_marketing_banner', active: true, posthogUrl: flagUrl(104) }]
+}
+
+/** The inspector's meta read: the five traits and the snapshot. */
+function flagsMeta() {
   const enabled = flagsParam !== 'unconfigured'
   return {
-    items: [
-      {
-        key: 'example_beta_page',
-        description: 'Reference flag: the tenant Beta page and its API route',
-        kind: 'boolean',
-        variants: null,
-        scope: 'tenant',
-        client: true,
-        apps: ['react'],
-        experiment: false,
-        fallback: false,
-        state: enabled ? 'active' : 'missing',
-        conditions: 1,
-        maxRollout: 50,
-        posthogUrl: enabled ? flagUrl(101) : null,
-      },
-      {
-        key: 'example_cta_experiment',
-        description: 'Reference experiment: the getting-started call-to-action style',
-        kind: 'multivariate',
-        variants: ['control', 'bold'],
-        scope: 'user',
-        client: true,
-        apps: ['react'],
-        experiment: true,
-        fallback: 'control',
-        state: enabled ? 'inactive' : 'missing',
-        conditions: 1,
-        maxRollout: 0,
-        posthogUrl: enabled ? flagUrl(102) : null,
-      },
-      {
-        key: 'server_side_reconciliation_with_an_unusually_long_flag_key_x',
-        description: `Reconciles ${'every tenant ledger overnight '.repeat(4)}on the worker.`,
-        kind: 'boolean',
-        variants: null,
-        scope: 'user',
-        client: false,
-        apps: [],
-        experiment: false,
-        fallback: false,
-        state: enabled ? 'unsupported' : 'missing',
-        ...(enabled ? { unsupportedReason: 'cohort' } : {}),
-        conditions: 2,
-        maxRollout: 100,
-        posthogUrl: enabled ? flagUrl(103) : null,
-      },
-    ],
-    unregistered: enabled
-      ? [{ key: 'legacy_marketing_banner', active: true, posthogUrl: flagUrl(104) }]
-      : [],
     traits: [
       {
         name: 'platform_role',
@@ -1021,6 +1091,23 @@ const sectionHandlers = [
   ),
 ]
 
+/** The Tenants table's rows: one in each status, then enough more to fill a second page. */
+const PLATFORM_TENANT_ROWS = [
+  { ...ACME, lifecycleState: 'active' },
+  { id: TENANT_ID_2, name: 'Beta Ltd', slug: 'beta', lifecycleState: 'suspended' },
+  { id: TENANT_ID_3, name: 'Gamma Inc', slug: 'gamma', lifecycleState: 'archived' },
+  ...Array.from({ length: 21 }, (_, index) => ({
+    id: `10000000-0000-4000-8000-${String(100 + index).padStart(12, '0')}`,
+    name: `Filler ${String(index + 1).padStart(2, '0')} Co`,
+    slug: `filler-${index + 1}`,
+    lifecycleState: 'active',
+  })),
+].map((tenant, index) => ({
+  ...tenant,
+  memberCount: 2,
+  createdAt: `2026-01-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+}))
+
 const worker = setupWorker(
   ...sectionHandlers,
   // The Overview, the default route: its KPI cards and both charts.
@@ -1059,19 +1146,39 @@ const worker = setupWorker(
     ok({ flags: {}, evaluatedAt: '2026-10-05T10:00:00.000Z' }, 'Flags retrieved.')
   ),
   // The flags inspector and its evaluation, configured unless `?flags=unconfigured`.
-  http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')),
+  http.get('/api/v1/platform/flags', ({ request }) =>
+    ok(
+      serveList(flagRegistryRows(), new URL(request.url).searchParams, {
+        searchIn: (row) => [row.key, row.description],
+        filters: {
+          kind: (row, values) => values.includes(row.kind),
+          state: (row, values) => values.includes(row.state),
+        },
+      }),
+      'Flags retrieved.'
+    )
+  ),
+  http.get('/api/v1/platform/flags/unregistered', ({ request }) =>
+    ok(
+      serveList(unregisteredFlagRows(), new URL(request.url).searchParams, {
+        searchIn: (row) => [row.key],
+      }),
+      'Unregistered flags retrieved.'
+    )
+  ),
+  http.get('/api/v1/platform/flags/meta', () => ok(flagsMeta(), 'Flags meta retrieved.')),
   http.get('/api/v1/platform/flags/evaluate', ({ request }) =>
     ok(flagsEvaluation(new URL(request.url).searchParams), 'Flags evaluated.')
   ),
-  // The activity page's log and the History cards: a user's by `targetId`, a tenant's by `tenantId` with `access=platform`.
+  // The activity page's log and the History cards: a user's by `target`, a tenant's by `tenant` with `access=platform`.
   http.get('/api/v1/platform/audit-log', ({ request }) => {
     const params = new URL(request.url).searchParams
-    if (params.has('targetId') || (params.has('tenantId') && params.get('access') === 'platform')) {
-      return ok({ entries: historyOf(params), nextCursor: null }, 'Audit log retrieved.')
+    if (params.has('target') || (params.has('tenant') && params.get('access') === 'platform')) {
+      return ok(listPage(historyOf(params)), 'Audit log retrieved.')
     }
     return ok(
-      {
-        entries: [
+      listPage(
+        [
           {
             id: AUDIT_ID_2,
             occurredAt: '2026-09-25T10:00:00.000Z',
@@ -1092,9 +1199,19 @@ const worker = setupWorker(
             metadata: { name: 'Acme Corp', slug: 'acme' },
             tenant: ACME,
           },
+          {
+            id: SUSPENDED_AUDIT_ID,
+            occurredAt: '2026-09-24T09:00:00.000Z',
+            action: 'tenant.suspended',
+            access: 'platform',
+            actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
+            target: { type: 'tenant', id: TENANT_ID },
+            metadata: { reason: 'Escalated by Cleo D after the overdue invoices' },
+            tenant: ACME,
+          },
         ],
-        nextCursor: 'c2',
-      },
+        { hasNext: true, nextCursor: 'c2' }
+      ),
       'Audit log retrieved.'
     )
   }),
@@ -1119,27 +1236,42 @@ const worker = setupWorker(
       'Tenant retrieved.'
     )
   ),
-  http.get('/api/v1/tenants/platform/members', () => ok(MEMBERS, 'Members retrieved.')),
-  http.get('/api/v1/tenants/platform/invitations', () => ok([], 'Invitations retrieved.')),
+  http.get('/api/v1/tenants/platform/members', () => ok(listPage(MEMBERS), 'Members retrieved.')),
+  http.get('/api/v1/tenants/platform/invitations', () =>
+    ok(listPage([]), 'Invitations retrieved.')
+  ),
   // The Tenants table, the palette and the activity tenant filter: one tenant in each status, so every badge renders.
-  http.get('/api/v1/platform/tenants', () =>
+  http.get('/api/v1/platform/tenants', ({ request }) =>
     ok(
-      {
-        tenants: [
-          { ...ACME, lifecycleState: 'active' },
-          { id: TENANT_ID_2, name: 'Beta Ltd', slug: 'beta', lifecycleState: 'suspended' },
-          { id: TENANT_ID_3, name: 'Gamma Inc', slug: 'gamma', lifecycleState: 'archived' },
-        ].map((tenant) => ({ ...tenant, memberCount: 2, createdAt: '2026-01-01T00:00:00.000Z' })),
-        nextCursor: null,
-        prevCursor: null,
-      },
+      serveList(PLATFORM_TENANT_ROWS, new URL(request.url).searchParams, {
+        searchIn: (row) => [row.name, row.slug],
+        filters: { state: (row, values) => values.includes(row.lifecycleState) },
+        sorts: {
+          name: (a, b) => a.name.localeCompare(b.name),
+          created: (a, b) => a.createdAt.localeCompare(b.createdAt),
+        },
+      }),
       'Tenants retrieved.'
     )
   ),
   // The Users table and the palette's user search; `prevCursor` is null, as on a real first page.
-  http.get('/api/v1/platform/users', () =>
-    ok({ users: USER_ROWS, nextCursor: 'n', prevCursor: null }, 'Users retrieved.')
-  ),
+  http.get('/api/v1/platform/users', ({ request }) => {
+    const params = new URL(request.url).searchParams
+    const page = serveList(USER_ROWS, params, {
+      searchIn: (row) => [row.email, row.firstName, row.lastName],
+      filters: {
+        status: (row, values) => values.includes(row.active ? 'active' : 'inactive'),
+        verified: (row, values) => values.includes(String(row.emailVerifiedAt !== null)),
+        staff: (row, values) => values.includes(String(row.platformRole !== null)),
+      },
+    })
+    return ok(
+      params.has('cursor')
+        ? page
+        : { ...page, page: { ...page.page, hasNext: true, nextCursor: 'n' } },
+      'Users retrieved.'
+    )
+  }),
   http.get('/api/v1/platform/users/:userId', ({ params }) =>
     ok(userDetail(String(params.userId)), 'User retrieved.')
   ),
@@ -1154,9 +1286,13 @@ const worker = setupWorker(
     )
   ),
   http.get('/api/v1/platform/onboarding/tenants', ({ request }) => {
-    const state = new URL(request.url).searchParams.get('state') ?? 'stuck'
+    const params = new URL(request.url).searchParams
+    const state = params.get('state') ?? 'stuck'
     const tenants = ONBOARDING_ROWS.filter((row) => row.state === state)
-    return ok({ tenants, nextCursor: null, prevCursor: null }, 'Onboarding tenants retrieved.')
+    return ok(
+      serveList(tenants, params, { searchIn: (row) => [row.name, row.slug] }),
+      'Onboarding tenants retrieved.'
+    )
   }),
   http.get('/api/v1/platform/tenants/:tenantId/onboarding', ({ params }) =>
     ok(tenantOnboarding(String(params.tenantId)), 'Tenant onboarding retrieved.')
@@ -1182,14 +1318,16 @@ const worker = setupWorker(
   ),
   http.get('/api/v1/tenants/acme/members', () =>
     ok(
-      MEMBERS.map((member, index) => ({
-        ...member,
-        membership: {
-          ...member.membership,
-          tenantId: TENANT_ID,
-          ...(acmeRole ? { role: index === 0 ? acmeRole : 'owner' } : {}),
-        },
-      })).filter((_, index) => !(acmeRole && hasLeftAcme && index === 0)),
+      listPage(
+        MEMBERS.map((member, index) => ({
+          ...member,
+          membership: {
+            ...member.membership,
+            tenantId: TENANT_ID,
+            ...(acmeRole ? { role: index === 0 ? acmeRole : 'owner' } : {}),
+          },
+        })).filter((_, index) => !(acmeRole && hasLeftAcme && index === 0))
+      ),
       'Members retrieved.'
     )
   ),
@@ -1197,23 +1335,20 @@ const worker = setupWorker(
     if (params.slug === 'acme') hasLeftAcme = true
     return ok(null, 'You left the tenant.')
   }),
-  http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.')),
+  http.get('/api/v1/tenants/acme/invitations', () => ok(listPage([]), 'Invitations retrieved.')),
   http.get('/api/v1/tenants/acme/audit-log', () =>
     ok(
-      {
-        entries: [
-          {
-            id: AUDIT_ID_1,
-            occurredAt: '2026-09-25T09:00:00.000Z',
-            action: 'tenant.created',
-            access: 'member',
-            actor: { id: USER_ID, name: 'A B', email: 'a.b@example.com' },
-            target: { type: 'tenant', id: TENANT_ID },
-            metadata: { name: 'Acme Corp', slug: 'acme' },
-          },
-        ],
-        nextCursor: null,
-      },
+      listPage([
+        {
+          id: AUDIT_ID_1,
+          occurredAt: '2026-09-25T09:00:00.000Z',
+          action: 'tenant.created',
+          access: 'member',
+          actor: { id: USER_ID, name: 'A B', email: 'a.b@example.com' },
+          target: { type: 'tenant', id: TENANT_ID },
+          metadata: { name: 'Acme Corp', slug: 'acme' },
+        },
+      ]),
       'Audit log retrieved.'
     )
   ),
@@ -1243,17 +1378,21 @@ const worker = setupWorker(
     ok(emailDetail(String(params.emailId)), 'Email retrieved.')
   ),
   http.get('/api/v1/platform/email-suppressions', ({ request }) => {
-    const state = new URL(request.url).searchParams.get('state') ?? 'active'
-    const suppressions = SUPPRESSION_ROWS.filter(
-      (row) => state === 'all' || (state === 'lifted') === (row.liftedAt !== null)
+    const params = new URL(request.url).searchParams
+    const states = (params.get('state') ?? 'active').split(',')
+    const suppressions = SUPPRESSION_ROWS.filter((row) =>
+      states.includes(row.liftedAt === null ? 'active' : 'lifted')
     )
-    return ok({ suppressions, nextCursor: null, prevCursor: null }, 'Suppressions retrieved.')
+    return ok(
+      serveList(suppressions, params, { searchIn: (row) => [row.address] }),
+      'Suppressions retrieved.'
+    )
   }),
   // Filtered the way the API filters: a user's card sees their emails, a tenant's tab its own.
   http.get('/api/v1/platform/emails', ({ request }) => {
     const params = new URL(request.url).searchParams
-    const userId = params.get('userId')
-    const tenantId = params.get('tenantId')
+    const userId = params.get('user')
+    const tenantId = params.get('tenant')
     const emails =
       emailsParam === 'none'
         ? []
@@ -1262,7 +1401,16 @@ const worker = setupWorker(
               (userId === null || row.user?.id === userId) &&
               (tenantId === null || row.tenant?.id === tenantId)
           )
-    return ok({ messages: emails, nextCursor: null, prevCursor: null }, 'Emails retrieved.')
+    return ok(
+      serveList(emails, params, {
+        searchIn: (row) => [row.recipient, row.templateKey],
+        filters: {
+          status: (row, values) => values.includes(row.status),
+          template: (row, values) => values.includes(row.templateKey),
+        },
+      }),
+      'Emails retrieved.'
+    )
   }),
   // Suspending a tenant, inviting an owner and deactivating a user answer with the step-up refusal, so the fixtures can open the stacked step-up dialog.
   http.post('/api/v1/platform/tenants/:tenantId/suspend', reauthRequired),

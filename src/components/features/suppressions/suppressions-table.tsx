@@ -1,27 +1,26 @@
 import { Link } from '@tanstack/react-router'
-import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
-import { useMemo, type RefCallback } from 'react'
+import { createColumnHelper } from '@tanstack/react-table'
+import { createContext, useContext, type ReactNode, type RefCallback } from 'react'
+import { DataTable } from '@/components/shared/data-table/data-table'
+import type {
+  DataTableFeatures,
+  DataTableFilter,
+} from '@/components/shared/data-table/data-table-model'
+import type { ListQueryState } from '@/components/shared/data-table/use-list-query'
 import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { SUPPRESSION_REASON_LABELS } from '@/constants/email.constants'
 import { ROUTES } from '@/constants/routes'
 import { formatDate } from '@/lib/format'
+import { analyticsKey } from '@/observability/telemetry'
 import type { EmailSuppression } from '@/types/api.types'
 
-/** No optional features: the API orders, filters and pages. */
-const features = tableFeatures({})
+/** Offers Lift on a row: hands over its button so focus can return there. */
+type LiftHandler = (row: EmailSuppression, opener: HTMLButtonElement) => void
 
-const column = createColumnHelper<typeof features, EmailSuppression>()
+/** What the cells read from the page: the Lift action, which changes between renders. */
+const LiftScope = createContext<LiftHandler | undefined>(undefined)
 
 /** A lifted row's who, when and why; an active one's badge. */
 function SuppressionState({ row }: { row: EmailSuppression }) {
@@ -44,112 +43,126 @@ function SuppressionState({ row }: { row: EmailSuppression }) {
   )
 }
 
-/** The suppressions to list, and the optional Lift action with the focus landmarks it needs. */
-interface SuppressionsTableProps {
-  rows: EmailSuppression[]
-  /** Offers Lift on each active row, handing over its button so focus can return there; omitted, the table offers no action (below admin). */
-  onLift?: (row: EmailSuppression, opener: HTMLButtonElement) => void
-  /** The ref callback that registers a row as a focus landmark (`useFocusAfter`), keyed by suppression id. */
-  target?: (id: string) => RefCallback<HTMLElement>
+/** The Lift button of an active row; nothing on a lifted one. */
+function LiftCell({ row }: { row: EmailSuppression }) {
+  const onLift = useContext(LiftScope)
+  if (onLift === undefined || row.liftedAt !== null) return null
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      aria-label={`Lift suppression for ${row.address}`}
+      onClick={(event) => onLift(row, event.currentTarget)}
+    >
+      Lift
+    </Button>
+  )
 }
 
+const column = createColumnHelper<DataTableFeatures, EmailSuppression>()
+
+/** The columns every role sees. */
+const READ_COLUMNS = [
+  column.accessor('address', {
+    header: 'Address',
+    meta: { sorts: ['address'], sortName: analyticsKey('address') },
+    cell: ({ getValue }) => <Pii className="font-medium break-all">{getValue()}</Pii>,
+  }),
+  column.accessor('reason', {
+    header: 'Reason',
+    cell: ({ getValue }) => SUPPRESSION_REASON_LABELS[getValue()],
+  }),
+  column.accessor('sourceMessageId', {
+    header: 'Source',
+    cell: ({ getValue, row }) => {
+      const emailId = getValue()
+      return emailId === null ? (
+        <span className="text-muted-foreground">—</span>
+      ) : (
+        <Link
+          to={ROUTES.email}
+          params={{ emailId }}
+          aria-label={`View the email that suppressed ${row.original.address}`}
+          className="underline-offset-4 hover:underline"
+        >
+          View email
+        </Link>
+      )
+    },
+  }),
+  column.accessor('createdAt', {
+    header: 'Suppressed',
+    meta: { sorts: ['-created', 'created'], sortName: analyticsKey('created'), sortWords: 'date' },
+    cell: ({ getValue }) => formatDate(getValue(), 'medium') ?? 'Unknown',
+  }),
+  column.display({
+    id: 'state',
+    header: 'State',
+    cell: ({ row }) => <SuppressionState row={row.original} />,
+  }),
+]
+
+/** The read-only columns, for a role that cannot lift. */
+const VIEW_COLUMNS = column.columns(READ_COLUMNS)
+
+/** The read columns, then Lift. */
+const LIFT_COLUMNS = column.columns([
+  ...READ_COLUMNS,
+  column.display({
+    id: 'actions',
+    header: () => <span className="sr-only">Actions</span>,
+    meta: { label: 'Actions', actions: true },
+    cell: ({ row }) => <LiftCell row={row.original} />,
+  }),
+])
+
+/** Active or lifted; none picked is the API's default, active. */
+const FILTERS: readonly DataTableFilter[] = [
+  {
+    name: 'state',
+    label: 'State',
+    options: [
+      { value: 'active', label: 'Active' },
+      { value: 'lifted', label: 'Lifted' },
+    ],
+  },
+]
+
 /**
- * One page of suppressed addresses, newest first as the API orders them. With
- * `target`, each row can take focus from code: once Lift replaces its button
- * with the lifted state, focus lands on the row.
+ * Suppressed addresses, newest first as the API orders them, through the
+ * shared list table. With `rowTarget`, each row (or card, on a phone) can
+ * take focus from code: once Lift replaces its button with the lifted state,
+ * focus lands on it.
  */
-export function SuppressionsTable({ rows, onLift, target }: SuppressionsTableProps) {
-  const columns = useMemo(
-    () =>
-      column.columns([
-        column.accessor('address', {
-          header: 'Address',
-          cell: ({ getValue }) => <Pii className="font-medium break-all">{getValue()}</Pii>,
-        }),
-        column.accessor('reason', {
-          header: 'Reason',
-          cell: ({ getValue }) => SUPPRESSION_REASON_LABELS[getValue()],
-        }),
-        column.accessor('sourceMessageId', {
-          header: 'Source',
-          cell: ({ getValue, row }) => {
-            const emailId = getValue()
-            return emailId === null ? (
-              <span className="text-muted-foreground">—</span>
-            ) : (
-              <Link
-                to={ROUTES.email}
-                params={{ emailId }}
-                aria-label={`View the email that suppressed ${row.original.address}`}
-                className="underline-offset-4 hover:underline"
-              >
-                View email
-              </Link>
-            )
-          },
-        }),
-        column.accessor('createdAt', {
-          header: 'Suppressed',
-          cell: ({ getValue }) => formatDate(getValue(), 'medium') ?? 'Unknown',
-        }),
-        column.display({
-          id: 'state',
-          header: 'State',
-          cell: ({ row }) => <SuppressionState row={row.original} />,
-        }),
-        ...(onLift === undefined
-          ? []
-          : [
-              column.display({
-                id: 'actions',
-                header: () => <span className="sr-only">Actions</span>,
-                cell: ({ row }) =>
-                  row.original.liftedAt === null && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      aria-label={`Lift suppression for ${row.original.address}`}
-                      onClick={(event) => onLift(row.original, event.currentTarget)}
-                    >
-                      Lift
-                    </Button>
-                  ),
-              }),
-            ]),
-      ]),
-    [onLift]
-  )
-  const table = useTable({ features, columns, data: rows, getRowId: (row) => row.id })
+export function SuppressionsTable({
+  query,
+  empty,
+  errorMessage,
+  onLift,
+  rowTarget,
+}: {
+  query: ListQueryState<EmailSuppression>
+  empty: ReactNode
+  /** The page's own load-error copy. */
+  errorMessage: string
+  /** Offers Lift on each active row, handing over its button so focus can return there; omitted, the table offers no action (below admin). */
+  onLift?: LiftHandler
+  /** The ref callback that registers a row as a focus landmark (`useFocusAfter`), keyed by suppression id. */
+  rowTarget?: (id: string) => RefCallback<HTMLElement>
+}) {
   return (
-    <Table aria-label="Suppressions">
-      <TableCaption className="sr-only">Suppressed addresses, newest first</TableCaption>
-      <TableHeader>
-        {table.getHeaderGroups().map((group) => (
-          <TableRow key={group.id}>
-            {group.headers.map((header) => (
-              <TableHead key={header.id} scope="col">
-                <table.FlexRender header={header} />
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.map((row) => (
-          <TableRow
-            key={row.id}
-            ref={target?.(row.id)}
-            tabIndex={target === undefined ? undefined : -1}
-            className="outline-none"
-          >
-            {row.getAllCells().map((cell) => (
-              <TableCell key={cell.id}>
-                <table.FlexRender cell={cell} />
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <LiftScope value={onLift}>
+      <DataTable
+        columns={onLift === undefined ? VIEW_COLUMNS : LIFT_COLUMNS}
+        query={query}
+        label="Suppressions"
+        getRowId={(row) => row.id}
+        empty={empty}
+        errorMessage={errorMessage}
+        search={{ label: 'Search suppressions', placeholder: 'Search by address' }}
+        filters={FILTERS}
+        rowTarget={rowTarget}
+      />
+    </LiftScope>
   )
 }

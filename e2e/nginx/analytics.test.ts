@@ -495,10 +495,10 @@ test.describe('analytics end to end, through express', () => {
     const found = await apiRequest(
       staff.token,
       'GET',
-      `/platform/users?q=${encodeURIComponent(target.email)}`
+      `/platform/users?search=${encodeURIComponent(target.email)}`
     )
     target.id =
-      (found.body as { data: { users: { id: string; email: string }[] } }).data.users.find(
+      (found.body as { data: { items: { id: string; email: string }[] } }).data.items.find(
         (user) => user.email === target.email
       )?.id ?? ''
     expect(target.id).not.toBe('')
@@ -507,13 +507,13 @@ test.describe('analytics end to end, through express', () => {
     await logIn(page, staff.email)
     await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
     for (const [url, heading] of [
-      ['/users?q=pii-probe&status=active', 'Users'],
+      ['/users?search=pii-probe&status=active', 'Users'],
       [`/users/${staff.id}`, PROBE_NAME],
       ['/tenants', 'Tenants'],
       [`/tenants/${tenantId}`, tenantName],
       [`/tenants/${tenantId}/members`, tenantName],
       [`/tenants/${tenantId}/invitations`, tenantName],
-      [`/emails?q=${encodeURIComponent(invitee)}`, 'Emails'],
+      [`/emails?search=${encodeURIComponent(invitee)}`, 'Emails'],
       // The invitation email's own page, its preview tab with the rendered subject, text and frame.
       [`/emails/${emailId}?tab=preview`, invitee],
       [`/emails/${emailId}`, invitee],

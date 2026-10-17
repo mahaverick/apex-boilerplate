@@ -10,6 +10,7 @@ import { userAdminKeys } from '@/queries/user-admin.queries'
 import { queryClient } from '@/router'
 import {
   AUDIT_ID_1,
+  AUDIT_ID_2,
   INVITATION_ID,
   PLATFORM_TENANT_ID,
   STAFF_USER_ID,
@@ -17,6 +18,7 @@ import {
   TENANT_ID_2,
   USER_ID_2,
 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -113,6 +115,8 @@ describe('/users/$userId', () => {
     answer()
     renderAppAt(`/users/${USER_ID_2}`)
     expect(await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })).toBeInTheDocument()
+    // The Emails card reads its own list; busy is only the part still loading.
+    expect(await screen.findByText('No emails sent to this account yet.')).toBeInTheDocument()
     expect(screen.getByRole('main').querySelector('[aria-busy="true"]')).toBeNull()
   })
 
@@ -398,9 +402,7 @@ describe('/users/$userId', () => {
       http.post('/api/v1/auth/reauthenticate', () =>
         ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
       ),
-      http.get('/api/v1/platform/users', () =>
-        ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
-      )
+      http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.'))
     )
     const user = userEvent.setup()
     const router = renderAppAt(`/users/${USER_ID_2}`)
@@ -632,38 +634,69 @@ describe('/users/$userId', () => {
     })
   })
 
+  /** An entry of the platform log about Cleo's account, filed under the platform tenant. */
+  function historyEntry(id: string, action: string) {
+    return {
+      id,
+      occurredAt: '2026-09-25T09:00:00.000Z',
+      action,
+      access: 'platform',
+      actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
+      target: { type: 'user', id: USER_ID_2 },
+      metadata: { reason: 'left the company' },
+      tenant: { id: PLATFORM_TENANT_ID, name: 'Platform', slug: 'platform' },
+    }
+  }
+
   it('shows what was recorded on this account, filtered by target, without linking back to it', async () => {
     answer()
     let params: URLSearchParams | undefined
     server.use(
       http.get('/api/v1/platform/audit-log', ({ request }) => {
         params = new URL(request.url).searchParams
-        return ok(
-          {
-            entries: [
-              {
-                id: AUDIT_ID_1,
-                occurredAt: '2026-09-25T09:00:00.000Z',
-                action: 'user.deactivated',
-                access: 'platform',
-                actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
-                target: { type: 'user', id: USER_ID_2 },
-                metadata: { reason: 'left the company' },
-                tenant: { id: PLATFORM_TENANT_ID, name: 'Platform', slug: 'platform' },
-              },
-            ],
-            nextCursor: null,
-          },
-          'Audit log retrieved.'
-        )
+        return ok(listPage([historyEntry(AUDIT_ID_1, 'user.deactivated')]), 'Audit log retrieved.')
       })
     )
     renderAppAt(`/users/${USER_ID_2}`)
     const card = await screen.findByRole('region', { name: 'Recorded actions on this account' })
     expect(await within(card).findByText(/deactivated a user/)).toBeInTheDocument()
-    expect(params?.get('targetId')).toBe(USER_ID_2)
-    expect(params?.get('tenantId')).toBeNull()
+    expect(
+      within(card).getByRole('table', { name: 'Recorded actions on this account' })
+    ).toBeVisible()
+    expect(params?.get('target')).toBe(USER_ID_2)
+    expect(params?.get('tenant')).toBeNull()
     expect(within(card).queryByRole('link', { name: 'View user' })).not.toBeInTheDocument()
+    expect(within(card).getByRole('link', { name: 'Platform' })).toBeVisible()
+  })
+
+  it('pages the history with Next page, keeping the card’s cursor in the URL', async () => {
+    answer()
+    const seen: URLSearchParams[] = []
+    server.use(
+      http.get('/api/v1/platform/audit-log', ({ request }) => {
+        const params = new URL(request.url).searchParams
+        seen.push(params)
+        return params.get('cursor') === 'h2'
+          ? ok(listPage([historyEntry(AUDIT_ID_2, 'user.reactivated')]), 'Audit log retrieved.')
+          : ok(
+              listPage([historyEntry(AUDIT_ID_1, 'user.deactivated')], {
+                hasNext: true,
+                nextCursor: 'h2',
+              }),
+              'Audit log retrieved.'
+            )
+      })
+    )
+    const user = userEvent.setup()
+    const router = renderAppAt(`/users/${USER_ID_2}`)
+    const card = await screen.findByRole('region', { name: 'Recorded actions on this account' })
+    await within(card).findByText(/deactivated a user/)
+
+    await user.click(within(card).getByRole('button', { name: 'Next page' }))
+
+    expect(await within(card).findByText(/reactivated a user/)).toBeInTheDocument()
+    expect(router.state.location.search).toEqual({ historyCursor: 'h2' })
+    expect(seen.at(-1)?.get('target')).toBe(USER_ID_2)
   })
 
   it('says so when nothing was recorded on this account', async () => {

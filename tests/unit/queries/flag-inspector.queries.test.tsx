@@ -7,11 +7,13 @@ import { resetSessionForTests } from '@/http/session'
 import {
   flagInspectorKeys,
   flagsEvaluateQueryOptions,
-  flagsListQueryOptions,
+  flagsMetaQueryOptions,
+  useFlagRegistry,
 } from '@/queries/flag-inspector.queries'
 import { useAuthStore } from '@/states/auth.store'
-import { flagsEvaluation, flagsList } from '@/tests/fixtures/flags'
+import { flagRows, flagsEvaluation, flagsMeta } from '@/tests/fixtures/flags'
 import { TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
@@ -29,7 +31,7 @@ beforeEach(() => {
 
 describe('flags inspector options', () => {
   it('keys every read under platform, apart from the app’s own flag values', () => {
-    expect(flagsListQueryOptions().queryKey).toEqual(['platform', 'flags', 'list'])
+    expect(flagsMetaQueryOptions().queryKey).toEqual(['platform', 'flags', 'meta'])
     expect(
       flagsEvaluateQueryOptions({ userId: USER_ID_2, tenantId: TENANT_ID, app: 'react' }).queryKey
     ).toEqual(['platform', 'flags', 'evaluate', USER_ID_2, TENANT_ID, 'react'])
@@ -48,23 +50,40 @@ describe('flags inspector options', () => {
     expect(options.staleTime).toBe(30_000)
   })
 
-  it('reads the list from /platform/flags', async () => {
-    server.use(http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')))
-    const { result } = renderHook(() => useQuery(flagsListQueryOptions()), {
+  it('reads the registry’s first hundred flags as rows, asking for no total', async () => {
+    const seen: string[] = []
+    server.use(
+      http.get('/api/v1/platform/flags', ({ request }) => {
+        seen.push(new URL(request.url).search)
+        return ok(listPage(flagRows()), 'Flags retrieved.')
+      })
+    )
+    const { result } = renderHook(() => useFlagRegistry(), {
       wrapper: wrapperWith(new QueryClient()),
     })
-    await waitFor(() => expect(result.current.data).toEqual(flagsList()))
+    await waitFor(() => expect(result.current.data).toEqual(flagRows()))
+    expect(seen).toEqual(['?limit=100'])
   })
 
-  it('does not retry the list on a 404, which answers who is asking', async () => {
+  it('reads the trait reference and the snapshot from /platform/flags/meta', async () => {
+    server.use(
+      http.get('/api/v1/platform/flags/meta', () => ok(flagsMeta(), 'Flags meta retrieved.'))
+    )
+    const { result } = renderHook(() => useQuery(flagsMetaQueryOptions()), {
+      wrapper: wrapperWith(new QueryClient()),
+    })
+    await waitFor(() => expect(result.current.data).toEqual(flagsMeta()))
+  })
+
+  it('does not retry the meta read on a 404, which answers who is asking', async () => {
     let calls = 0
     server.use(
-      http.get('/api/v1/platform/flags', () => {
+      http.get('/api/v1/platform/flags/meta', () => {
         calls += 1
         return fail('Not found', 404)
       })
     )
-    const { result } = renderHook(() => useQuery(flagsListQueryOptions()), {
+    const { result } = renderHook(() => useQuery(flagsMetaQueryOptions()), {
       wrapper: wrapperWith(new QueryClient()),
     })
     await waitFor(() => expect(result.current.isError).toBe(true))

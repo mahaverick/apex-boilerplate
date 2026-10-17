@@ -61,7 +61,15 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
       { name: 'Activity', endpoints: ['GET /platform/audit-log'] },
     ],
     empty: {
-      stubs: [{ endpoint: 'GET /platform/audit-log', data: { entries: [], nextCursor: null } }],
+      stubs: [
+        {
+          endpoint: 'GET /platform/audit-log',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+      ],
     },
   },
   '/deliverability': {
@@ -117,7 +125,7 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     url: '/suppressions',
     as: 'staff',
     sections: [{ name: 'Suppressions', endpoints: ['GET /platform/email-suppressions'] }],
-    empty: { url: '/suppressions?q=zzzz-no-match' },
+    empty: { url: '/suppressions?search=zzzz-no-match' },
   },
   '/forgot-password': {
     kind: 'page',
@@ -186,7 +194,7 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     as: 'staff',
     responsive: true,
     sections: [{ name: 'Emails', endpoints: ['GET /platform/emails'] }],
-    empty: { url: '/emails?q=zzzz-no-match' },
+    empty: { url: '/emails?search=zzzz-no-match' },
   },
   '/settings/': {
     kind: 'page',
@@ -205,7 +213,7 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     as: 'staff',
     responsive: true,
     sections: [{ name: 'Tenants', endpoints: ['GET /platform/tenants'] }],
-    empty: { url: '/tenants?q=zzzz-no-match' },
+    empty: { url: '/tenants?search=zzzz-no-match' },
   },
   '/users/': {
     kind: 'page',
@@ -216,7 +224,7 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     as: 'staff',
     responsive: true,
     sections: [{ name: 'Users', endpoints: ['GET /platform/users'] }],
-    empty: { url: '/users?q=zzzz-no-match' },
+    empty: { url: '/users?search=zzzz-no-match' },
   },
   '/settings/account/profile': {
     kind: 'page',
@@ -245,17 +253,30 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     },
     url: '/settings/platform/flags',
     as: 'staff',
-    sections: [{ name: 'Flags', endpoints: ['GET /platform/flags'] }],
+    sections: [
+      { name: 'Page gate and snapshot', endpoints: ['GET /platform/flags/meta'] },
+      { name: 'Registered flags', endpoints: ['GET /platform/flags'] },
+      { name: 'In PostHog, not registered', endpoints: ['GET /platform/flags/unregistered'] },
+    ],
     empty: {
       stubs: [
         {
           endpoint: 'GET /platform/flags',
           data: {
             items: [],
-            unregistered: [],
-            traits: [],
-            snapshot: { enabled: true, stale: false, fetchedAt: null },
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
           },
+        },
+        {
+          endpoint: 'GET /platform/flags/unregistered',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+        {
+          endpoint: 'GET /platform/flags/meta',
+          data: { traits: [], snapshot: { enabled: true, stale: false, fetchedAt: null } },
         },
       ],
     },
@@ -301,7 +322,13 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     sections: [TENANT, { name: 'Activity', endpoints: ['GET /tenants/:slug/audit-log'] }],
     empty: {
       stubs: [
-        { endpoint: 'GET /tenants/:slug/audit-log', data: { entries: [], nextCursor: null } },
+        {
+          endpoint: 'GET /tenants/:slug/audit-log',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
       ],
     },
   },
@@ -316,7 +343,10 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
       stubs: [
         {
           endpoint: 'GET /platform/emails',
-          data: { messages: [], nextCursor: null, prevCursor: null },
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
         },
       ],
     },
@@ -351,7 +381,17 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
       TENANT,
       { name: 'Pending invitations', endpoints: ['GET /tenants/:slug/invitations'] },
     ],
-    empty: { stubs: [{ endpoint: 'GET /tenants/:slug/invitations', data: [] }] },
+    empty: {
+      stubs: [
+        {
+          endpoint: 'GET /tenants/:slug/invitations',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+      ],
+    },
   },
   '/tenants/$tenantId/members': {
     kind: 'page',
@@ -364,7 +404,17 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     url: '/tenants/{tenantId}/members',
     as: 'staff',
     sections: [TENANT, { name: 'Members', endpoints: ['GET /tenants/:slug/members'] }],
-    empty: { stubs: [{ endpoint: 'GET /tenants/:slug/members', data: [] }] },
+    empty: {
+      stubs: [
+        {
+          endpoint: 'GET /tenants/:slug/members',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+      ],
+    },
   },
   '/tenants/$tenantId/onboarding': {
     kind: 'page',
@@ -390,7 +440,15 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     responsive: true,
     sections: [TENANT, { name: 'History', endpoints: ['GET /platform/audit-log'] }],
     empty: {
-      stubs: [{ endpoint: 'GET /platform/audit-log', data: { entries: [], nextCursor: null } }],
+      stubs: [
+        {
+          endpoint: 'GET /platform/audit-log',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+      ],
     },
   },
   '/users/$userId/': {
@@ -433,7 +491,7 @@ export const NAVIGATIONS: readonly NavigationCapture[] = [
     area: 'users',
     shot: 'user',
     as: 'staff',
-    from: '/users?q={userEmail}',
+    from: '/users?search={userEmail}',
     link: '{userEmail}',
     template: { variant: 'detail', nested: false },
     endpoints: ['GET /platform/users/:id'],

@@ -1,26 +1,23 @@
 import { Link } from '@tanstack/react-router'
-import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
+import { createColumnHelper } from '@tanstack/react-table'
+import type { ReactNode } from 'react'
 import { TenantStateBadge } from '@/components/features/tenants/tenant-state-badge'
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { DataTable } from '@/components/shared/data-table/data-table'
+import type {
+  DataTableFeatures,
+  DataTableFilter,
+} from '@/components/shared/data-table/data-table-model'
+import type { ListQueryState } from '@/components/shared/data-table/use-list-query'
 import { ROUTES } from '@/constants/routes'
-import type { PlatformTenantRow } from '@/types/api.types'
+import { analyticsKey } from '@/observability/telemetry'
+import { TENANT_LIFECYCLE_STATES, type PlatformTenantRow } from '@/types/api.types'
 
-/** No optional features: the API orders, filters and pages, so the table only lays rows out. */
-const features = tableFeatures({})
-
-const column = createColumnHelper<typeof features, PlatformTenantRow>()
+const column = createColumnHelper<DataTableFeatures, PlatformTenantRow>()
 
 const columns = column.columns([
   column.accessor('name', {
     header: 'Name',
+    meta: { sorts: ['name'], sortName: analyticsKey('name') },
     cell: ({ getValue, row }) => (
       <Link
         to={ROUTES.tenant}
@@ -45,6 +42,7 @@ const columns = column.columns([
   }),
   column.accessor('createdAt', {
     header: 'Created',
+    meta: { sorts: ['created', '-created'], sortName: analyticsKey('created'), sortWords: 'date' },
     cell: ({ getValue }) =>
       new Date(getValue()).toLocaleDateString('en-US', {
         year: 'numeric',
@@ -54,37 +52,42 @@ const columns = column.columns([
   }),
 ])
 
-/**
- * One page of customer tenants. Ordering and paging are the API's (by name,
- * keyset), so the table sorts nothing itself.
- */
-export function TenantsTable({ rows }: { rows: PlatformTenantRow[] }) {
-  const table = useTable({ features, columns, data: rows, getRowId: (row) => row.id })
+/** The lifecycle states a tenant holds, as the Status facet's options. None picked is the API's default, active and suspended. */
+const STATE_LABELS = { active: 'Active', suspended: 'Suspended', archived: 'Archived' } as const
+
+const FILTERS: readonly DataTableFilter[] = [
+  {
+    name: 'state',
+    label: 'Status',
+    options: TENANT_LIFECYCLE_STATES.map((state) => ({ value: state, label: STATE_LABELS[state] })),
+  },
+]
+
+/** Customer tenants, through the shared list table. */
+export function TenantsTable({
+  query,
+  empty,
+  errorMessage,
+  toolbar,
+}: {
+  query: ListQueryState<PlatformTenantRow>
+  empty: ReactNode
+  /** The page's own load-error copy. */
+  errorMessage: string
+  /** The list's primary action, beside the search box. */
+  toolbar?: ReactNode
+}) {
   return (
-    <Table aria-label="Tenants">
-      <TableCaption className="sr-only">Customer tenants, by name</TableCaption>
-      <TableHeader>
-        {table.getHeaderGroups().map((group) => (
-          <TableRow key={group.id}>
-            {group.headers.map((header) => (
-              <TableHead key={header.id} scope="col">
-                <table.FlexRender header={header} />
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.map((row) => (
-          <TableRow key={row.id}>
-            {row.getAllCells().map((cell) => (
-              <TableCell key={cell.id}>
-                <table.FlexRender cell={cell} />
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <DataTable
+      columns={columns}
+      query={query}
+      label="Tenants"
+      getRowId={(row) => row.id}
+      empty={empty}
+      errorMessage={errorMessage}
+      search={{ label: 'Search tenants', placeholder: 'Search by name or slug' }}
+      filters={FILTERS}
+      toolbar={toolbar}
+    />
   )
 }

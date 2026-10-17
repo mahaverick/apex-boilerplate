@@ -12,51 +12,23 @@ import {
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
+import { analyticsKey } from '@/observability/telemetry'
 import { auditKeys } from '@/queries/audit.queries'
-import type {
-  ApiSuccess,
-  EmailHealth,
-  EmailMessageDetail,
-  EmailMessagePage,
-  EmailMessageStatus,
-  EmailPreview,
-  EmailResendResult,
-  EmailSuppressionPage,
-  PageDirection,
-  StatsRange,
-  SuppressionStateFilter,
+import { listQueryOptions } from '@/queries/list.queries'
+import { dayFilter, defineList, idFilter, listFilter } from '@/schemas/list.schemas'
+import {
+  EMAIL_MESSAGE_STATUSES,
+  EMAIL_TEMPLATE_KEYS,
+  type ApiSuccess,
+  type EmailHealth,
+  type EmailMessageDetail,
+  type EmailMessageSummary,
+  type EmailPreview,
+  type EmailResendResult,
+  type EmailSuppression,
+  type StatsRange,
 } from '@/types/api.types'
-
-/** The API's default page; its cap is 50. */
-const EMAIL_PAGE_SIZE = 20
-
-/** The API refuses a longer term. */
-const MAX_QUERY_LENGTH = 100
-
-/** `GET /platform/emails` filters, in the API's own names. `from` and `to` are UTC `YYYY-MM-DD`, `to` inclusive. */
-export interface EmailSearchParams {
-  /** Part of the recipient address, case-insensitive. */
-  q?: string
-  status?: EmailMessageStatus
-  template?: string
-  userId?: string
-  tenantId?: string
-  from?: string
-  to?: string
-  cursor?: string
-  /** Which way `cursor` pages. Sent only with a cursor. */
-  direction?: PageDirection
-  limit?: number
-}
-
-/** `GET /platform/email-suppressions` filters. Unset `state` is the API's default, `active`. */
-export interface SuppressionSearchParams {
-  q?: string
-  state?: SuppressionStateFilter
-  cursor?: string
-  direction?: PageDirection
-  limit?: number
-}
+import type { ListRequest } from '@/types/list.types'
 
 /**
  * `all` prefixes every email list and the health report; a message's detail and
@@ -64,74 +36,88 @@ export interface SuppressionSearchParams {
  */
 export const emailKeys = {
   all: ['platform', 'emails'] as const,
-  list: (params: EmailSearchParams) => ['platform', 'emails', params] as const,
   health: (range: StatsRange) => ['platform', 'emails', 'health', range] as const,
   message: ['platform', 'email'] as const,
   detail: (id: string) => ['platform', 'email', id] as const,
   preview: (id: string) => ['platform', 'email', id, 'preview'] as const,
   suppressionsAll: ['platform', 'email-suppressions'] as const,
-  suppressions: (params: SuppressionSearchParams) =>
-    ['platform', 'email-suppressions', params] as const,
 }
 
-/** The trimmed term, or nothing: an empty `q` is not a search. */
-function term(q: string | undefined): { q?: string } {
-  const value = q?.trim().slice(0, MAX_QUERY_LENGTH)
-  return value ? { q: value } : {}
+/** The Emails list's URL contract: newest first, filtered by status, template, user, tenant and day. */
+export const emailsList = defineList({
+  sorts: ['-created', 'created'],
+  filters: {
+    status: listFilter(EMAIL_MESSAGE_STATUSES),
+    template: listFilter(EMAIL_TEMPLATE_KEYS),
+    user: idFilter(),
+    tenant: idFilter(),
+    from: dayFilter(),
+    to: dayFilter(),
+  },
+  table: analyticsKey('emails'),
+})
+
+/**
+ * The Emails route's `validateSearch`: the list's schema, less an inverted
+ * day range. The API refuses `from` after `to` with a 400, so a URL that
+ * holds one (typed, or a stale link) opens the list without either bound, and
+ * the date filter shows no range, rather than failing the page.
+ */
+export const emailsSearchSchema = emailsList.schema.transform((search) =>
+  search.from !== undefined && search.to !== undefined && search.from > search.to
+    ? { ...search, from: undefined, to: undefined }
+    : search
+)
+
+/** A tenant's Emails tab: the same list with the tenant fixed by the page, so its URL has no `tenant` or user facet. */
+export const tenantEmailsList = defineList({
+  sorts: ['-created', 'created'],
+  filters: {
+    status: listFilter(EMAIL_MESSAGE_STATUSES),
+    template: listFilter(EMAIL_TEMPLATE_KEYS),
+  },
+  table: analyticsKey('tenant_emails'),
+})
+
+/** The Suppressions list's URL contract: newest first, active ones unless the state says otherwise. */
+export const suppressionsList = defineList({
+  sorts: ['-created', 'created', 'address'],
+  filters: { state: listFilter(['active', 'lifted']) },
+  table: analyticsKey('suppressions'),
+})
+
+/**
+ * One page of tracked email (`GET /platform/emails`), for the Emails page, a
+ * user's Emails card and a tenant's Emails tab (which adds its `tenant`).
+ * @param request - From `listRequest(emailsList, …)` or `listRequest(tenantEmailsList, …)` with `tenant`.
+ * @param options - `total: false` for a read that never shows the total (a user's Emails card).
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function emailsListOptions(request: ListRequest, options: { total?: boolean } = {}) {
+  return listQueryOptions<EmailMessageSummary>({
+    key: emailKeys.all,
+    path: '/platform/emails',
+    request,
+    ...options,
+  })
 }
 
-/** The cursor with its direction, or nothing on the first page. */
-function page(cursor: string | undefined, direction: PageDirection | undefined) {
-  return cursor ? { cursor, direction: direction ?? 'next' } : {}
-}
-
-/** The params as sent: unset filters left out, so equal searches share one cache entry. */
-function normaliseEmails(params: EmailSearchParams): EmailSearchParams {
-  return {
-    ...term(params.q),
-    ...(params.status ? { status: params.status } : {}),
-    ...(params.template ? { template: params.template } : {}),
-    ...(params.userId ? { userId: params.userId } : {}),
-    ...(params.tenantId ? { tenantId: params.tenantId } : {}),
-    ...(params.from ? { from: params.from } : {}),
-    ...(params.to ? { to: params.to } : {}),
-    ...page(params.cursor, params.direction),
-    limit: params.limit ?? EMAIL_PAGE_SIZE,
-  }
-}
-
-/** The suppression params as sent: unset filters left out, so equal searches share one cache entry. */
-function normaliseSuppressions(params: SuppressionSearchParams): SuppressionSearchParams {
-  return {
-    ...term(params.q),
-    ...(params.state ? { state: params.state } : {}),
-    ...page(params.cursor, params.direction),
-    limit: params.limit ?? EMAIL_PAGE_SIZE,
-  }
+/**
+ * One page of suppressed addresses (`GET /platform/email-suppressions`).
+ * @param request - From `listRequest(suppressionsList, …)`.
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function suppressionsListOptions(request: ListRequest) {
+  return listQueryOptions<EmailSuppression>({
+    key: emailKeys.suppressionsAll,
+    path: '/platform/email-suppressions',
+    request,
+  })
 }
 
 /** A 404 answers who is asking (or an unknown id), so a retry changes nothing. */
 function retryUnlessDenied(failureCount: number, error: Error): boolean {
   return statusFrom(error) !== 404 && failureCount < 1
-}
-
-/**
- * One keyset page of tracked email, newest first, for the Emails page, a
- * user's Emails card and a tenant's Emails tab.
- * @param params - Filters and the cursor to page from.
- * @returns Query options for `useQuery` or a route loader.
- */
-export function emailsQueryOptions(params: EmailSearchParams) {
-  const sent = normaliseEmails(params)
-  return queryOptions({
-    queryKey: emailKeys.list(sent),
-    queryFn: async () =>
-      unwrap(
-        await apiClient.get<ApiSuccess<EmailMessagePage>>('/platform/emails', { params: sent })
-      ),
-    placeholderData: keepPreviousData,
-    retry: retryUnlessDenied,
-  })
 }
 
 /** One message with its attempts, provider events, suppression and resend links. A 404 is an unknown or expired id. */
@@ -169,22 +155,6 @@ export function emailHealthQueryOptions(range: StatsRange) {
       unwrap(
         await apiClient.get<ApiSuccess<EmailHealth>>('/platform/emails/health', {
           params: { range },
-        })
-      ),
-    placeholderData: keepPreviousData,
-    retry: retryUnlessDenied,
-  })
-}
-
-/** One keyset page of suppressed addresses. */
-export function emailSuppressionsQueryOptions(params: SuppressionSearchParams) {
-  const sent = normaliseSuppressions(params)
-  return queryOptions({
-    queryKey: emailKeys.suppressions(sent),
-    queryFn: async () =>
-      unwrap(
-        await apiClient.get<ApiSuccess<EmailSuppressionPage>>('/platform/email-suppressions', {
-          params: sent,
         })
       ),
     placeholderData: keepPreviousData,

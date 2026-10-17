@@ -47,7 +47,7 @@ describe('/overview', () => {
     expect(within(tile as HTMLElement).getByText('6')).toBeInTheDocument()
     expect(
       within(tile as HTMLElement).getByRole('link', { name: 'View stuck tenants' })
-    ).toHaveAttribute('href', '/onboarding?state=stuck')
+    ).toHaveAttribute('href', '/onboarding') // stuck is the default tab, so its link leaves `?state` out
   })
 
   it('leaves suppressed emails out of the rate: they never left our server', async () => {

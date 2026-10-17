@@ -6,9 +6,11 @@ import { SettingsPagePending } from '@/components/shared/pending-templates'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { pageTitle } from '@/constants/app'
 import { PLATFORM_TENANT_SLUG } from '@/constants/routes'
+import { membersList } from '@/queries/tenant.queries'
 
 /** The Staff page: the platform tenant's members and invitations. */
 export const Route = createFileRoute('/_app/settings/platform/staff')({
+  validateSearch: membersList.schema,
   head: () => ({ meta: [{ title: pageTitle('Staff') }] }),
   staticData: { crumb: 'Staff' },
   component: StaffPage,
@@ -16,7 +18,9 @@ export const Route = createFileRoute('/_app/settings/platform/staff')({
   /**
    * Kept out of a lazy chunk, as the router's default error screen is: a failed
    * fetch could not load it. Splitting it would also pull the error listener
-   * out of the entry chunk (pnpm check:bundle).
+   * out of the entry chunk (pnpm check:bundle). A page chunk that imported its
+   * `Route` back would split it out too, which is why the lists read their
+   * search with `useListSearch`, which needs no `Route`.
    */
   codeSplitGroupings: [['component']],
   errorComponent: SettingsRouteError,
@@ -39,6 +43,7 @@ function StaffPage() {
       />
       <InvitationsSection
         slug={PLATFORM_TENANT_SLUG}
+        showRoleError={false}
         inviteTitle="Invite staff"
         inviteDescription="We email them a link to join as staff. The link opens Apex; someone without an account creates one with that address."
       />

@@ -3,19 +3,15 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
-import { auditKeys } from '@/queries/audit.queries'
-import {
-  platformUsersQueryOptions,
-  useDeleteUser,
-  usePurgeUser,
-  userAdminKeys,
-} from '@/queries/user-admin.queries'
+import { platformAuditListOptions } from '@/queries/audit.queries'
+import { useDeleteUser, usePurgeUser, userAdminKeys } from '@/queries/user-admin.queries'
 import { USER_ID_2 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { ok } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
 /** A History card's cached page: every write must mark it stale. */
-const AUDIT_KEY = auditKeys.platform({ targetId: USER_ID_2 })
+const AUDIT_KEY = platformAuditListOptions({ target: USER_ID_2 }).queryKey
 
 /** A provider around `client`, so the test can read the cache a hook wrote. */
 function wrapperWith(client: QueryClient) {
@@ -25,34 +21,6 @@ function wrapperWith(client: QueryClient) {
 }
 
 describe('user-admin queries', () => {
-  it('sends only the filters that are set, trimmed, with the API parameter names', async () => {
-    let seen: URLSearchParams | undefined
-    server.use(
-      http.get('/api/v1/platform/users', ({ request }) => {
-        seen = new URL(request.url).searchParams
-        return ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
-      })
-    )
-    const client = new QueryClient()
-    await client.fetchQuery(
-      platformUsersQueryOptions({
-        q: '  ada ',
-        status: 'inactive',
-        verified: false,
-        cursor: 'c1',
-        direction: 'prev',
-      })
-    )
-    expect(Object.fromEntries(seen!)).toEqual({
-      q: 'ada',
-      status: 'inactive',
-      verified: 'false',
-      cursor: 'c1',
-      direction: 'prev',
-      limit: '20',
-    })
-  })
-
   it('sends a DELETE body with the reason and refreshes the detail, which now shows the deleted account', async () => {
     let body: unknown
     server.use(
@@ -63,7 +31,7 @@ describe('user-admin queries', () => {
     )
     const client = new QueryClient()
     client.setQueryData(userAdminKeys.detail(USER_ID_2), { id: USER_ID_2 })
-    client.setQueryData(AUDIT_KEY, { pages: [], pageParams: [] })
+    client.setQueryData(AUDIT_KEY, listPage([]))
     const { result } = renderHook(() => useDeleteUser(), { wrapper: wrapperWith(client) })
     result.current.mutate({ userId: USER_ID_2, reason: 'Spam account' })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
@@ -82,7 +50,7 @@ describe('user-admin queries', () => {
     )
     const client = new QueryClient()
     client.setQueryData(userAdminKeys.detail(USER_ID_2), { id: USER_ID_2 })
-    client.setQueryData(AUDIT_KEY, { pages: [], pageParams: [] })
+    client.setQueryData(AUDIT_KEY, listPage([]))
     const { result } = renderHook(() => usePurgeUser({ onPurged: async () => {} }), {
       wrapper: wrapperWith(client),
     })

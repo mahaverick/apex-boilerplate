@@ -1,19 +1,24 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { ActivityList } from '@/components/features/activity/activity-list'
+import { ACTION_FILTER } from '@/components/features/activity/activity-filters'
+import { ActivityTable } from '@/components/features/activity/activity-table'
 import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
 import { FrozenTenant } from '@/components/features/tenants/frozen-tenant'
+import { useListQuery } from '@/components/shared/data-table/use-list-query'
+import { useListSearch } from '@/components/shared/data-table/use-list-search'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
 import { DetailTabPending } from '@/components/shared/pending-templates'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { canViewActivity } from '@/constants/roles'
-import { flattenAuditPages, useTenantAuditLog } from '@/queries/audit.queries'
+import { tenantActivityList, tenantAuditListOptions } from '@/queries/audit.queries'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { useMyRole } from '@/queries/tenant.queries'
 
 /** A tenant's Activity tab: its audit log. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/activity')({
+  validateSearch: tenantActivityList.schema,
   head: () => ({ meta: [{ title: pageTitle('Tenant activity') }] }),
   staticData: { crumb: 'Activity' },
   component: TenantActivityTab,
@@ -33,7 +38,10 @@ function TenantActivityTab() {
 function TenantActivity({ slug, tenantId }: { slug: string; tenantId: string }) {
   const { role, isPending, isError, retry } = useMyRole(slug, tenantId)
   const allowed = role !== undefined && canViewActivity(role)
-  const log = useTenantAuditLog(slug, {}, { enabled: allowed }, tenantId)
+  const list = useListSearch(tenantActivityList)
+  const log = useListQuery(list, (request) => tenantAuditListOptions(slug, tenantId, request), {
+    enabled: allowed,
+  })
   if (isPending) return <Skeleton className="h-40 w-full" />
   if (isError || !role) return <LoadError message={ROLE_ERROR} onRetry={retry} />
   if (!allowed) {
@@ -44,16 +52,10 @@ function TenantActivity({ slug, tenantId }: { slug: string; tenantId: string }) 
     )
   }
   return (
-    <ActivityList
-      entries={flattenAuditPages(log.data)}
-      isPending={log.isPending}
-      isError={log.isError}
-      onRetry={() => void log.refetch()}
-      hasNextPage={log.hasNextPage}
-      isFetchingNextPage={log.isFetchingNextPage}
-      isFetchNextPageError={log.isFetchNextPageError}
-      onLoadMore={() => void log.fetchNextPage()}
-      emptyMessage="Nothing has happened in this tenant yet."
+    <ActivityTable
+      query={log}
+      filters={[ACTION_FILTER]}
+      empty={<EmptyState size="compact" title="Nothing has happened in this tenant yet." />}
     />
   )
 }

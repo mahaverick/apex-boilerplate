@@ -3,6 +3,7 @@
  * value is dropped rather than failing the page. Route configs load with the
  * first visit, so this file imports nothing of the pages' own.
  */
+import '@/lib/zod-jitless'
 import { z } from 'zod'
 import type { FlagApp } from '@/types/api.types'
 

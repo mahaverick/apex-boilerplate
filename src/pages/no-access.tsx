@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { AuthCard } from '@/components/layouts/auth-card'
 import { AuthLayout } from '@/components/layouts/auth-layout'
+import { AuthPagePending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { pageTitle } from '@/constants/app'
@@ -18,6 +19,7 @@ export const Route = createFileRoute('/no-access')({
   },
   head: () => ({ meta: [{ title: pageTitle('No access') }] }),
   component: NoAccessPage,
+  pendingComponent: AuthPagePending,
 })
 
 /**

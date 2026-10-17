@@ -1,59 +1,34 @@
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useId, useState } from 'react'
-import { ActivityList } from '@/components/features/activity/activity-list'
+import { useState } from 'react'
+import { ACCESS_FILTER, ACTION_FILTER } from '@/components/features/activity/activity-filters'
+import { ActivityTable } from '@/components/features/activity/activity-table'
+import { TenantFilterChip, UserFilterChip } from '@/components/features/emails/email-filter-chips'
 import { RoleDenied } from '@/components/features/role-denied'
-import { Pii } from '@/components/shared/pii'
-import { Button } from '@/components/ui/button'
+import type { DataTableFilter } from '@/components/shared/data-table/data-table-model'
+import { useListQuery } from '@/components/shared/data-table/use-list-query'
+import { useListSearch } from '@/components/shared/data-table/use-list-search'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-  ComboboxTrigger,
-} from '@/components/ui/combobox'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { pageTitle } from '@/constants/app'
-import { AUDIT_ACTION_LABELS, AUDIT_ACTIONS, isAuditAction } from '@/constants/audit-actions'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { PLATFORM_TENANT_SLUG, ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { isRoleDenied } from '@/lib/role-denied'
-import { cn } from '@/lib/utils'
-import { analyticsKey, track } from '@/observability/telemetry'
-import {
-  flattenAuditPages,
-  usePlatformAuditLog,
-  type PlatformAuditFilters,
-} from '@/queries/audit.queries'
-import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
-import { flattenTenantPages, usePlatformTenantSearch } from '@/queries/tenant-admin.queries'
+import { platformActivityList, platformAuditListOptions } from '@/queries/audit.queries'
+import { tenantsListOptions } from '@/queries/tenant-admin.queries'
 import { memberName, useMembers } from '@/queries/tenant.queries'
+import { cleanSearch } from '@/schemas/list-request.schemas'
 import { useAuthStore } from '@/states/auth.store'
-import type { PlatformTenantRow } from '@/types/api.types'
-
-/** This list, as `table_filtered` names it. */
-const TABLE = analyticsKey('activity')
+import { LIST_SEARCH_DEBOUNCE_MS } from '@/types/list.types'
 
 /** The Activity page: the platform audit log across all tenants, for platform admins. */
 export const Route = createFileRoute('/_app/activity')({
+  validateSearch: platformActivityList.schema,
   head: () => ({ meta: [{ title: pageTitle('Activity') }] }),
   staticData: { crumb: 'Activity' },
   component: PlatformActivityPage,
 })
-
-/** The select value meaning "no filter". */
-const ANY = 'any'
 
 /**
  * The panel for staff below admin, matching the API: the page never confirms it
@@ -80,131 +55,81 @@ function PlatformNotFound() {
 }
 
 /**
- * A tenant picker over the platform search, run only while open. The popup is
- * named and holds the search box, so Base UI makes it a `dialog`, which axe's
- * `region` rule exempts. The input's vendored trigger and clear icon buttons
- * are off because they carry no accessible name; the Clear button beside the
- * trigger has one. The status line stays mounted and
- * only its text changes, so the live region announces it; while a new term
- * loads over listed results it says "Searching…".
- */
-function TenantFilter({
-  value,
-  onChange,
-}: {
-  value: PlatformTenantRow | null
-  onChange: (tenant: PlatformTenantRow | null) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const term = useDebouncedValue(query, SEARCH_DEBOUNCE_MS)
-  const search = usePlatformTenantSearch(term, { enabled: open })
-  const items = flattenTenantPages(search.data)
-  const isRefreshing = search.isPlaceholderData && items.length > 0
-
-  return (
-    <div className="flex items-center gap-1">
-      <Combobox<PlatformTenantRow>
-        items={items}
-        filter={null}
-        value={value}
-        open={open}
-        onOpenChange={setOpen}
-        onValueChange={(tenant) => onChange(tenant)}
-        inputValue={query}
-        onInputValueChange={(next) => setQuery(next)}
-        itemToStringLabel={(tenant) => tenant.name}
-        isItemEqualToValue={(a, b) => a.id === b.id}
-      >
-        <ComboboxTrigger
-          render={
-            <Button
-              variant="outline"
-              className="w-56 justify-between font-normal"
-              aria-label={`Filter by tenant. Current: ${value?.name ?? 'Any tenant'}`}
-            />
-          }
-        >
-          <span className="truncate">{value?.name ?? 'Any tenant'}</span>
-        </ComboboxTrigger>
-        <ComboboxContent aria-label="Filter by tenant">
-          <ComboboxInput
-            showTrigger={false}
-            aria-label="Search tenants"
-            placeholder="Search tenants"
-          />
-          <p
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-            className={cn('text-sm text-muted-foreground', isRefreshing && 'px-2 py-1.5')}
-          >
-            {isRefreshing ? 'Searching…' : null}
-          </p>
-          <ComboboxEmpty>
-            {search.isPending || search.isPlaceholderData
-              ? 'Searching…'
-              : search.isError
-                ? 'Tenants could not be loaded'
-                : 'No tenants match'}
-          </ComboboxEmpty>
-          <ComboboxList>
-            {(tenant: PlatformTenantRow) => (
-              <ComboboxItem key={tenant.id} value={tenant}>
-                {tenant.name}
-              </ComboboxItem>
-            )}
-          </ComboboxList>
-        </ComboboxContent>
-      </Combobox>
-      {value && (
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="Clear the tenant filter"
-          onClick={() => {
-            onChange(null)
-            setQuery('')
-          }}
-        >
-          Clear
-        </Button>
-      )}
-    </div>
-  )
-}
-
-/**
- * Every tenant's activity, with tenant, action, actor and staff-only filters;
- * the actor filter offers the platform tenant's members. A 404 from the log
- * (the viewer was demoted since the profile loaded) gets the role-denied state.
+ * Every tenant's activity, filtered by tenant, action, actor and access path,
+ * all in the URL. The Actor facet lists the first hundred staff by name; a URL
+ * naming another actor still filters, and its chip resolves the name from the
+ * user's record. A 404 from the log (the viewer was demoted since the profile
+ * loaded) gets the role-denied state.
  */
 function PlatformActivity() {
-  const staffOnlyId = useId()
-  const [tenant, setTenant] = useState<PlatformTenantRow | null>(null)
-  const [action, setAction] = useState(ANY)
-  const [actor, setActor] = useState(ANY)
-  const [staffOnly, setStaffOnly] = useState(false)
-  /** Reports a filter change to analytics: which list, never the value chosen. */
-  const filtered = () => track('table_filtered', { table: TABLE })
+  const list = useListSearch(platformActivityList)
+  const log = useListQuery(list, platformAuditListOptions)
+  /** The platform tenant's members: the Actor facet's options. */
   const staff = useMembers(PLATFORM_TENANT_SLUG)
-  const filters: PlatformAuditFilters = {
-    tenantId: tenant?.id,
-    action: isAuditAction(action) ? action : undefined,
-    actorUserId: actor === ANY ? undefined : actor,
-    access: staffOnly ? 'platform' : undefined,
-  }
-  const log = usePlatformAuditLog(filters)
-  const isFiltered = tenant !== null || action !== ANY || actor !== ANY || staffOnly
+  /** What the reader typed in the Tenant facet's search box. */
+  const [tenantTerm, setTenantTerm] = useState('')
+  /** The tenant search term the request waits for, so a keystroke is not a request. */
+  const tenantSearch = useDebouncedValue(cleanSearch(tenantTerm), LIST_SEARCH_DEBOUNCE_MS)
+  /** The Tenant facet's options: the tenants the search names, twenty at a time, with no total. */
+  const tenants = useQuery(
+    tenantsListOptions({ search: tenantSearch || undefined, limit: 20 }, { total: false })
+  )
+  /** The facets, in the toolbar's order. */
+  const filters: DataTableFilter[] = [
+    {
+      name: 'tenant',
+      label: 'Tenant',
+      single: true,
+      options: (tenants.data?.items ?? []).map((tenant) => ({
+        value: tenant.id,
+        label: tenant.name,
+      })),
+      optionsState: {
+        isPending: tenants.isPending,
+        isError: tenants.isError,
+        retry: () => void tenants.refetch(),
+      },
+      onSearch: setTenantTerm,
+      renderChip: (value, onRemove) => (
+        <TenantFilterChip
+          tenantId={value}
+          knownName={tenants.data?.items.find((tenant) => tenant.id === value)?.name}
+          onRemove={onRemove}
+        />
+      ),
+    },
+    ACTION_FILTER,
+    {
+      name: 'actor',
+      label: 'Actor',
+      single: true,
+      isPersonal: true,
+      options: (staff.data ?? []).map((member) => ({
+        value: member.user.id,
+        label: memberName(member),
+      })),
+      // The staff list's own failure shows in the facet, with a retry.
+      optionsState: {
+        isPending: staff.isPending,
+        isError: staff.isError,
+        retry: () => void staff.refetch(),
+      },
+      renderChip: (value, onRemove) => {
+        const member = staff.data?.find((entry) => entry.user.id === value)
+        return (
+          <UserFilterChip
+            userId={value}
+            knownName={member ? memberName(member) : undefined}
+            prefix="Actor: "
+            onRemove={onRemove}
+          />
+        )
+      },
+    },
+    ACCESS_FILTER,
+  ]
 
-  /** The actor filter's text for a member id, or "A staff member" when the loaded members lack it. */
-  function actorLabel(value: string): string {
-    if (value === ANY) return 'Anyone'
-    const match = staff.data?.find((member) => member.user.id === value)
-    return match ? memberName(match) : 'A staff member'
-  }
-
-  if (log.isError && isRoleDenied(log.error)) {
+  if (log.query.isError && isRoleDenied(log.query.error)) {
     return (
       <div className="grid gap-4">
         <h1 className="text-2xl font-semibold">Activity</h1>
@@ -224,88 +149,12 @@ function PlatformActivity() {
             Every change and every staff visit, across all tenants, newest first.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <TenantFilter
-              value={tenant}
-              onChange={(next) => {
-                filtered()
-                setTenant(next)
-              }}
-            />
-            <Select
-              value={action}
-              onValueChange={(value: string | null) => {
-                filtered()
-                setAction(value ?? ANY)
-              }}
-            >
-              <SelectTrigger aria-label="Filter by action" className="w-52">
-                <SelectValue>
-                  {(value: string) =>
-                    isAuditAction(value) ? AUDIT_ACTION_LABELS[value] : 'All actions'
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ANY}>All actions</SelectItem>
-                {AUDIT_ACTIONS.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {AUDIT_ACTION_LABELS[option]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={actor}
-              onValueChange={(value: string | null) => {
-                filtered()
-                setActor(value ?? ANY)
-              }}
-            >
-              <SelectTrigger aria-label="Filter by who acted" className="w-52">
-                <SelectValue>
-                  {(value: string) =>
-                    value === ANY ? actorLabel(value) : <Pii>{actorLabel(value)}</Pii>
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ANY}>Anyone</SelectItem>
-                {(staff.data ?? []).map((member) => (
-                  <SelectItem key={member.user.id} value={member.user.id}>
-                    <Pii>{memberName(member)}</Pii>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-2">
-              <Switch
-                id={staffOnlyId}
-                checked={staffOnly}
-                onCheckedChange={(checked) => {
-                  filtered()
-                  setStaffOnly(checked)
-                }}
-              />
-              <Label htmlFor={staffOnlyId} className="text-sm font-normal">
-                Staff only
-              </Label>
-            </div>
-          </div>
-          <ActivityList
-            entries={flattenAuditPages(log.data)}
-            isPending={log.isPending}
-            isError={log.isError}
-            onRetry={() => void log.refetch()}
-            hasNextPage={log.hasNextPage}
-            isFetchingNextPage={log.isFetchingNextPage}
-            isFetchNextPageError={log.isFetchNextPageError}
-            onLoadMore={() => void log.fetchNextPage()}
-            emptyMessage={
-              isFiltered ? 'Nothing matches these filters.' : 'Nothing has happened yet.'
-            }
-            renderTenant={(entry) => <span className="font-medium">{entry.tenant.name}</span>}
+        <CardContent>
+          <ActivityTable
+            query={log}
+            showTenant
+            filters={filters}
+            empty={<EmptyState size="compact" title="Nothing has happened yet." />}
           />
         </CardContent>
       </Card>

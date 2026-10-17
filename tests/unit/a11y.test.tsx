@@ -21,7 +21,7 @@ import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
 import { byContent } from '@/tests/fixtures/content'
-import { flagsEvaluation, flagsList } from '@/tests/fixtures/flags'
+import { flagsEvaluation, flagsMeta } from '@/tests/fixtures/flags'
 import {
   AUDIT_ID_1,
   AUDIT_ID_2,
@@ -44,6 +44,7 @@ import {
   USER_ID_2,
   USER_ID_3,
 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import {
   fullMaintenanceView,
   maintenanceModeView,
@@ -123,8 +124,12 @@ const STAFF_MEMBERS = MEMBERS.map((member, index) => ({
 /** The Staff page's two requests beyond the platform tenant the top-level `beforeEach` answers. */
 function serveStaff() {
   server.use(
-    http.get('/api/v1/tenants/platform/members', () => ok(STAFF_MEMBERS, 'Members retrieved.')),
-    http.get('/api/v1/tenants/platform/invitations', () => ok([], 'Invitations retrieved.'))
+    http.get('/api/v1/tenants/platform/members', () =>
+      ok(listPage(STAFF_MEMBERS), 'Members retrieved.')
+    ),
+    http.get('/api/v1/tenants/platform/invitations', () =>
+      ok(listPage([]), 'Invitations retrieved.')
+    )
   )
 }
 
@@ -202,10 +207,10 @@ function serveTenant(state: TenantLifecycleState) {
         'Tenant retrieved.'
       )
     ),
-    http.get('/api/v1/tenants/acme/members', () => ok(MEMBERS, 'Members retrieved.')),
-    http.get('/api/v1/tenants/acme/invitations', () => ok([], 'Invitations retrieved.')),
+    http.get('/api/v1/tenants/acme/members', () => ok(listPage(MEMBERS), 'Members retrieved.')),
+    http.get('/api/v1/tenants/acme/invitations', () => ok(listPage([]), 'Invitations retrieved.')),
     http.get('/api/v1/tenants/acme/audit-log', () =>
-      ok({ entries: AUDIT_ENTRIES, nextCursor: null }, 'Audit log retrieved.')
+      ok(listPage(AUDIT_ENTRIES), 'Audit log retrieved.')
     )
   )
 }
@@ -688,24 +693,25 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
+  const TENANT_ROWS = (
+    [
+      [TENANT_ID, 'Acme Corp', 'acme', 'active'],
+      [TENANT_ID_2, 'Beta Ltd', 'beta', 'suspended'],
+      [TENANT_ID_3, 'Gamma Inc', 'gamma', 'archived'],
+    ] as const
+  ).map(([id, name, slug, lifecycleState]): PlatformTenantRow => ({
+    id,
+    name,
+    slug,
+    lifecycleState,
+    memberCount: 2,
+    createdAt: '2026-01-01T00:00:00.000Z',
+  }))
+
   it('tenants with a row in every status has no axe violations', async () => {
-    const rows = (
-      [
-        [TENANT_ID, 'Acme Corp', 'acme', 'active'],
-        [TENANT_ID_2, 'Beta Ltd', 'beta', 'suspended'],
-        [TENANT_ID_3, 'Gamma Inc', 'gamma', 'archived'],
-      ] as const
-    ).map(([id, name, slug, lifecycleState]): PlatformTenantRow => ({
-      id,
-      name,
-      slug,
-      lifecycleState,
-      memberCount: 2,
-      createdAt: '2026-01-01T00:00:00.000Z',
-    }))
     server.use(
       http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: rows, nextCursor: 'next', prevCursor: null }, 'Tenants retrieved.')
+        ok(listPage(TENANT_ROWS, { nextCursor: 'next', hasNext: true }), 'Tenants retrieved.')
       )
     )
     renderAppAt('/tenants')
@@ -716,26 +722,40 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
-  it('tenants filtered to archived with the admin controls has no axe violations', async () => {
+  it('tenants with the status facet open has no axe violations', async () => {
     server.use(
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
+      http.get('/api/v1/platform/tenants', () => ok(listPage(TENANT_ROWS), 'Tenants retrieved.'))
     )
+    renderAppAt('/tenants')
+    await screen.findByRole('table', { name: 'Tenants' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Filter by status, Tenants' }))
+    await screen.findByRole('dialog', { name: 'Filter by status, Tenants' })
+    // A portaled popover is exempt from `region`, so it is graded at document scope.
+    await expectNoViolations()
+  })
+
+  it('tenants with the column menu open has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () => ok(listPage(TENANT_ROWS), 'Tenants retrieved.'))
+    )
+    renderAppAt('/tenants')
+    await screen.findByRole('table', { name: 'Tenants' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Columns, Tenants' }))
+    await expectNoViolationsIn(await screen.findByRole('menu'))
+  })
+
+  it('tenants filtered to archived with the admin controls has no axe violations', async () => {
+    server.use(http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')))
     renderAppAt('/tenants?state=archived')
-    await screen.findByText('No tenants in this state.')
+    await screen.findByText('Nothing matches these filters.')
     expect(screen.getByRole('button', { name: 'New tenant' })).toBeInTheDocument()
     await expectNoViolations()
   })
 
   it('tenants with nothing matching has no axe violations', async () => {
-    server.use(
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
-    )
-    renderAppAt('/tenants?q=zzz')
-    await screen.findByText('No tenants match “zzz”.')
+    server.use(http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')))
+    renderAppAt('/tenants?search=zzz')
+    await screen.findByText('Nothing matches these filters.')
     await expectNoViolations()
   })
 
@@ -753,10 +773,10 @@ describe('signed-in pages', () => {
       tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
     }))
     server.use(
-      http.get('/api/v1/platform/audit-log', () =>
-        ok({ entries, nextCursor: null }, 'Audit log retrieved.')
-      ),
-      http.get('/api/v1/tenants/platform/members', () => ok(MEMBERS, 'Members retrieved.'))
+      http.get('/api/v1/platform/audit-log', () => ok(listPage(entries), 'Audit log retrieved.')),
+      http.get('/api/v1/tenants/platform/members', () =>
+        ok(listPage(MEMBERS), 'Members retrieved.')
+      )
     )
     renderAppAt('/activity')
     await screen.findByText('changed the settings (timezone)')
@@ -776,6 +796,24 @@ describe('signed-in pages', () => {
     serveTenant('active')
     renderAppAt(`/tenants/${TENANT_ID}${suffix}`)
     await ready()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the member list stacked as cards on a phone', async () => {
+    setViewportWidth(390)
+    serveTenant('active')
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    await screen.findByRole('list', { name: 'Members' })
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with a facet popover open on the members list', async () => {
+    serveTenant('active')
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    await screen.findByRole('table', { name: 'Members' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Filter by role, Members' }))
+    await screen.findByRole('dialog', { name: 'Filter by role, Members' })
     await expectNoViolations()
   })
 
@@ -805,7 +843,7 @@ describe('signed-in pages', () => {
     ]
     server.use(
       http.get('/api/v1/platform/users', () =>
-        ok({ users: rows, nextCursor: 'next', prevCursor: null }, 'Users retrieved.')
+        ok(listPage(rows, { nextCursor: 'next', hasNext: true }), 'Users retrieved.')
       )
     )
     renderAppAt('/users')
@@ -817,14 +855,34 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
-  it('users with nothing matching has no axe violations', async () => {
+  it('users with the verified facet open has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/users', () => ok(listPage([USER_DETAIL]), 'Users retrieved.'))
+    )
+    renderAppAt('/users')
+    await screen.findByRole('table', { name: 'Users' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Filter by verified, Users' }))
+    await screen.findByRole('dialog', { name: 'Filter by verified, Users' })
+    await expectNoViolations()
+  })
+
+  it('users stacked as cards on a phone has no axe violations', async () => {
+    setViewportWidth(390)
     server.use(
       http.get('/api/v1/platform/users', () =>
-        ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+        ok(listPage([USER_DETAIL, { ...USER_DETAIL, id: USER_ID_3, email: 'e@example.com' }]), 'ok')
       )
     )
-    renderAppAt('/users?q=zzz&status=deleted')
-    await screen.findByText('No users match these filters.')
+    renderAppAt('/users')
+    await screen.findByRole('list', { name: 'Users' })
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('users with nothing matching has no axe violations', async () => {
+    server.use(http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.')))
+    renderAppAt('/users?search=zzz&status=deleted')
+    await screen.findByText('Nothing matches these filters.')
     await expectNoViolations()
   })
 
@@ -857,11 +915,11 @@ describe('signed-in pages', () => {
   it('the flags page with every table, the traits and an evaluation has no axe violations', async () => {
     serveUser()
     server.use(
-      http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')),
       http.get('/api/v1/platform/flags/evaluate', () => ok(flagsEvaluation(), 'Flags evaluated.'))
     )
     renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
     await screen.findByRole('heading', { name: 'Feature flags', level: 1 })
+    await screen.findByRole('table', { name: 'Registered flags' })
     await screen.findByRole('table', { name: 'Evaluation' })
     await screen.findByRole('table', { name: 'Unregistered flags' })
     await expectNoViolations()
@@ -869,13 +927,13 @@ describe('signed-in pages', () => {
 
   it('the flags page when flags are not set up has no axe violations', async () => {
     server.use(
-      http.get('/api/v1/platform/flags', () =>
+      http.get('/api/v1/platform/flags/unregistered', () =>
+        ok(listPage([]), 'Unregistered flags retrieved.')
+      ),
+      http.get('/api/v1/platform/flags/meta', () =>
         ok(
-          flagsList({
-            unregistered: [],
-            snapshot: { enabled: false, fetchedAt: null, stale: false },
-          }),
-          'Flags retrieved.'
+          flagsMeta({ snapshot: { enabled: false, fetchedAt: null, stale: false } }),
+          'Flags meta retrieved.'
         )
       )
     )
@@ -891,7 +949,6 @@ describe('signed-in pages', () => {
   it('a tenant’s flags with a member picked has no axe violations', async () => {
     serveTenant('active')
     server.use(
-      http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')),
       http.get('/api/v1/platform/flags/evaluate', () => ok(flagsEvaluation(), 'Flags evaluated.'))
     )
     renderAppAt(`/tenants/${TENANT_ID}/flags?userId=${USER_ID}`)
@@ -909,10 +966,17 @@ describe('signed-in pages', () => {
     )
     server.use(
       http.get('/api/v1/platform/emails', () =>
-        ok({ messages: rows, nextCursor: 'next', prevCursor: null }, 'Emails retrieved.')
+        ok(
+          listPage(
+            rows,
+            { nextCursor: 'next', hasNext: true },
+            { count: rows.length, capped: false }
+          ),
+          'Emails retrieved.'
+        )
       )
     )
-    renderAppAt(`/emails?userId=${USER_ID_2}&tenantId=${TENANT_ID}&from=2026-09-01&to=2026-09-30`)
+    renderAppAt(`/emails?user=${USER_ID_2}&tenant=${TENANT_ID}&from=2026-09-01&to=2026-09-30`)
     // The h1 renders before the page lands; grade the table, every badge, the chips and the pager.
     const table = await screen.findByRole('table', { name: 'Emails' })
     expect(within(table).getByText('Suppressed')).toBeInTheDocument()
@@ -924,8 +988,8 @@ describe('signed-in pages', () => {
   })
 
   it('emails with nothing matching has no axe violations', async () => {
-    renderAppAt('/emails?q=zzz&status=failed')
-    await screen.findByText('No emails match these filters.')
+    renderAppAt('/emails?search=zzz&status=failed')
+    await screen.findByText('Nothing matches these filters.')
     await expectNoViolations()
   })
 
@@ -1081,11 +1145,7 @@ describe('invitation accept states', () => {
  */
 describe('open overlays', () => {
   it('has no violations with the New tenant dialog open', async () => {
-    server.use(
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
-    )
+    server.use(http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')))
     const user = userEvent.setup()
     renderAppAt('/tenants')
     await screen.findByText('No tenants yet.')
@@ -1130,49 +1190,40 @@ describe('open overlays', () => {
     }
   )
 
-  /** A combobox whose search box lives inside the popup, so Base UI makes the popup a named `dialog` and the portaled list is exempt from `region`; graded at document scope. */
+  /** The Activity page's Tenant facet: a named `dialog` holding a search box and the tenants the API found, graded at document scope. */
   it('has no violations with the activity tenant filter open', async () => {
     useAuthStore.setState({ user: { ...testUser, platformRole: 'admin' } })
     server.use(
       http.get('/api/v1/platform/tenants', () =>
         ok(
-          {
-            tenants: [
-              {
-                id: TENANT_ID,
-                name: 'Acme Corp',
-                slug: 'acme',
-                lifecycleState: 'active',
-                memberCount: 2,
-                createdAt: '2026-01-01T00:00:00.000Z',
-              },
-            ],
-            nextCursor: null,
-          },
+          listPage([
+            {
+              id: TENANT_ID,
+              name: 'Acme Corp',
+              slug: 'acme',
+              lifecycleState: 'active',
+              memberCount: 2,
+              createdAt: '2026-01-01T00:00:00.000Z',
+            },
+          ]),
           'Tenants retrieved.'
         )
       ),
-      http.get('/api/v1/tenants/platform/members', () => ok(MEMBERS, 'Members retrieved.'))
+      http.get('/api/v1/tenants/platform/members', () =>
+        ok(listPage(MEMBERS), 'Members retrieved.')
+      )
     )
     const user = userEvent.setup()
     renderAppAt('/activity')
     await screen.findByRole('heading', { name: 'Activity', level: 1 })
 
-    const trigger = screen.getByRole('combobox', { name: /filter by tenant/i })
-    await user.click(trigger)
+    await user.click(screen.getByRole('button', { name: /^Filter by tenant/ }))
 
+    const popup = await screen.findByRole('dialog', { name: /^Filter by tenant/ })
     // A popup that opened empty would pass axe while grading no list.
-    expect(await screen.findByRole('option', { name: 'Acme Corp' })).toBeInTheDocument()
-    // `KNOWN_INCOMPLETE` accepts `aria-valid-attr-value` here because both `aria-controls` targets exist; this asserts that.
-    const input = screen.getByLabelText('Search tenants')
-    for (const element of [trigger, input]) {
-      const controls = element.getAttribute('aria-controls')
-      expect(controls).not.toBeNull()
-      expect(document.getElementById(controls as string)).not.toBeNull()
-    }
+    expect(await within(popup).findByRole('checkbox', { name: 'Acme Corp' })).toBeInTheDocument()
+    expect(within(popup).getByRole('searchbox', { name: 'Search tenant' })).toBeInTheDocument()
     await expectNoViolations()
-    const popup = screen.getByRole('dialog', { name: 'Filter by tenant' })
-    expect(within(popup).getByRole('listbox')).toBeInTheDocument()
   })
 
   /** The ⌘K palette as the shell mounts it: a named `dialog`, so its portaled list is exempt from `region` and it is graded at document scope. */
@@ -1191,12 +1242,8 @@ describe('open overlays', () => {
 
   it('has no violations with the command palette showing a user', async () => {
     server.use(
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      ),
-      http.get('/api/v1/platform/users', () =>
-        ok({ users: [USER_DETAIL], nextCursor: null, prevCursor: null }, 'Users retrieved.')
-      )
+      http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')),
+      http.get('/api/v1/platform/users', () => ok(listPage([USER_DETAIL]), 'Users retrieved.'))
     )
     const user = userEvent.setup()
     renderAppAt('/overview')
@@ -1217,7 +1264,7 @@ describe('open overlays', () => {
   it('has no violations with the emails date filter open', async () => {
     const user = userEvent.setup()
     renderAppAt('/emails?from=2026-09-01&to=2026-09-10')
-    await screen.findByText('No emails match these filters.')
+    await screen.findByText('Nothing matches these filters.')
     await user.click(screen.getByRole('button', { name: /^Filter by date/ }))
     const popup = await screen.findByRole('dialog', { name: 'Filter by date' })
     // A calendar that rendered no grid would pass axe while grading nothing.
@@ -1278,17 +1325,20 @@ describe('open overlays', () => {
       ),
       http.get('/api/v1/tenants/acme/members', () =>
         ok(
-          MEMBERS.map((member) => ({
-            ...member,
-            membership: { ...member.membership, role: 'owner' },
-          })),
+          listPage(
+            MEMBERS.map((member) => ({
+              ...member,
+              membership: { ...member.membership, role: 'owner' },
+            }))
+          ),
           'Members retrieved.'
         )
       )
     )
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/members`)
-    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Leave' })).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: 'Leave' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     expect(within(dialog).getByRole('button', { name: 'Leave' })).toBeInTheDocument()
     await expectNoViolations()
@@ -1298,7 +1348,7 @@ describe('open overlays', () => {
     serveTenant('active')
     server.use(
       http.get('/api/v1/tenants/acme/invitations', () =>
-        ok([testInvitation], 'Invitations retrieved.')
+        ok(listPage([testInvitation]), 'Invitations retrieved.')
       )
     )
     const user = userEvent.setup()
@@ -1333,7 +1383,7 @@ describe('open overlays', () => {
     serveStaff()
     server.use(
       http.get('/api/v1/tenants/platform/invitations', () =>
-        ok([testInvitation], 'Invitations retrieved.')
+        ok(listPage([testInvitation]), 'Invitations retrieved.')
       )
     )
     const user = userEvent.setup()
@@ -1393,11 +1443,7 @@ describe('open overlays', () => {
   })
 
   it('has no violations with the New user dialog open', async () => {
-    server.use(
-      http.get('/api/v1/platform/users', () =>
-        ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
-      )
-    )
+    server.use(http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.')))
     const user = userEvent.setup()
     renderAppAt('/users')
     await user.click(await screen.findByRole('button', { name: 'New user' }))
@@ -1621,7 +1667,14 @@ describe('deliverability, suppressions and the embedded email lists', () => {
   function serveEmails(rows: EmailMessageSummary[]) {
     server.use(
       http.get('/api/v1/platform/emails', () =>
-        ok({ messages: rows, nextCursor: 'next', prevCursor: null }, 'Emails retrieved.')
+        ok(
+          listPage(
+            rows,
+            { nextCursor: 'next', hasNext: true },
+            { count: rows.length, capped: false }
+          ),
+          'Emails retrieved.'
+        )
       )
     )
   }
@@ -1678,14 +1731,14 @@ describe('deliverability, suppressions and the embedded email lists', () => {
   function serveSuppressions(rows: EmailSuppression[]) {
     server.use(
       http.get('/api/v1/platform/email-suppressions', () =>
-        ok({ suppressions: rows, nextCursor: null, prevCursor: 'p' }, 'Suppressions retrieved.')
+        ok(listPage(rows, { prevCursor: 'p', hasPrev: true }), 'Suppressions retrieved.')
       )
     )
   }
 
   it('suppressions, active and lifted, with the Lift controls has no axe violations', async () => {
     serveSuppressions(SUPPRESSIONS)
-    renderAppAt('/suppressions?state=all')
+    renderAppAt('/suppressions?state=active,lifted')
     const table = await screen.findByRole('table', { name: 'Suppressions' })
     expect(
       within(table).getByRole('button', { name: /^Lift suppression for / })
@@ -1741,17 +1794,16 @@ describe('onboarding', () => {
       server.use(
         http.get('/api/v1/platform/onboarding/tenants', () =>
           ok(
-            {
-              tenants: [
+            listPage(
+              [
                 onboardingTenantRow({
                   state,
                   daysStuck: state === 'stuck' ? 9 : null,
                   startedAt: state === 'awaiting_owner' ? null : '2026-09-10T09:00:00.000Z',
                 }),
               ],
-              nextCursor: 'n1',
-              prevCursor: null,
-            },
+              { nextCursor: 'n1', hasNext: true }
+            ),
             'Onboarding tenants retrieved.'
           )
         )

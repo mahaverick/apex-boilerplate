@@ -8,10 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { formatDate } from '@/lib/format'
+import { historyList } from '@/queries/audit.queries'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 
 /** A tenant's Overview tab: its details, owners and history. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/')({
+  validateSearch: historyList.schema,
   head: () => ({ meta: [{ title: pageTitle('Tenant overview') }] }),
   component: TenantOverviewTab,
   pendingComponent: DetailTabPending,

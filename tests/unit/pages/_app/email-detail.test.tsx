@@ -281,7 +281,7 @@ describe('/emails/$emailId', () => {
       within(screen.getByRole('status')).getByRole('link', { name: 'View suppression' })
     )
     await waitFor(() => expect(router.state.location.pathname).toBe('/suppressions'))
-    expect(router.state.location.search).toEqual({ q: 'cleo@example.com' })
+    expect(router.state.location.search).toEqual({ search: 'cleo@example.com' })
     expect(
       await screen.findByRole('heading', { name: 'Suppressions', level: 1 })
     ).toBeInTheDocument()

@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { maintenanceModeKeys } from '@/queries/maintenance-mode.queries'
 import { queryClient } from '@/router'
+import { listPage } from '@/tests/fixtures/list-page'
 import { fullMaintenanceView, maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -99,7 +100,7 @@ describe('the maintenance banner', () => {
             success: true,
             message: 'Tenants retrieved.',
             statusCode: 200,
-            data: { tenants: [], nextCursor: null, prevCursor: null },
+            data: listPage([]),
           },
           { headers: { 'Maintenance-Mode': 'full' } }
         )

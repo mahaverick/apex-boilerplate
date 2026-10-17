@@ -1,17 +1,16 @@
-import { IconChecklist, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import { IconChecklist } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
-import { LoadError } from '@/components/features/load-error'
+import { createFileRoute, stripSearchParams } from '@tanstack/react-router'
 import { FunnelCard } from '@/components/features/onboarding/funnel-card'
 import { OnboardingKpis } from '@/components/features/onboarding/onboarding-kpis'
 import { OnboardingTenantsTable } from '@/components/features/onboarding/onboarding-tenants-table'
-import { RoleDenied } from '@/components/features/role-denied'
+import { useListQuery } from '@/components/shared/data-table/use-list-query'
+import { useListSearch } from '@/components/shared/data-table/use-list-search'
 import { EmptyState } from '@/components/shared/empty-state'
 import { DashboardPending } from '@/components/shared/pending-templates'
 import { QueryState } from '@/components/shared/query-state'
 import { SectionBoundary } from '@/components/shared/section-boundary'
 import { KpiCardSkeleton } from '@/components/shared/section-skeleton'
-import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -21,19 +20,18 @@ import {
   ONBOARDING_RANGE_LABELS,
   ONBOARDING_TAB_LABELS,
 } from '@/constants/onboarding.constants'
-import { statusFrom } from '@/lib/api-error'
 import { isRoleDenied } from '@/lib/role-denied'
 import { analyticsKey, track } from '@/observability/telemetry'
 import {
   onboardingFunnelQueryOptions,
-  onboardingTenantsQueryOptions,
+  onboardingTenantsList,
+  onboardingTenantsListOptions,
 } from '@/queries/onboarding.queries'
-import { onboardingSearchSchema } from '@/schemas/onboarding.schemas'
+import { listRequest, listValues } from '@/schemas/list-request.schemas'
 import {
   ONBOARDING_LIST_STATES,
   ONBOARDING_RANGES,
   type OnboardingListState,
-  type PageDirection,
 } from '@/types/api.types'
 
 /** This list, as `table_filtered` names it. */
@@ -41,18 +39,18 @@ const TABLE = analyticsKey('onboarding_tenants')
 
 /** The Onboarding page: the activation funnel and the tracked tenants by state. */
 export const Route = createFileRoute('/_app/onboarding')({
-  validateSearch: onboardingSearchSchema,
-  loaderDeps: ({ search }) => search,
+  validateSearch: onboardingTenantsList.schema,
+  // The default range and tab stay out of the URL, so a list write that spreads the search does not write them back.
+  search: { middlewares: [stripSearchParams({ range: '30d', state: 'stuck' })] },
+  loaderDeps: ({ search }) => ({
+    range: search.range,
+    state: search.state,
+    request: listRequest(onboardingTenantsList, listValues(onboardingTenantsList, search)),
+  }),
   // Started, not awaited: the page renders its skeletons while this runs.
   loader: ({ context, deps }) => {
     void context.queryClient.prefetchQuery(onboardingFunnelQueryOptions(deps.range))
-    void context.queryClient.prefetchQuery(
-      onboardingTenantsQueryOptions({
-        state: deps.state,
-        cursor: deps.cursor,
-        direction: deps.dir,
-      })
-    )
+    void context.queryClient.prefetchQuery(onboardingTenantsListOptions(deps.state, deps.request))
   },
   head: () => ({ meta: [{ title: pageTitle('Onboarding') }] }),
   staticData: { crumb: 'Onboarding' },
@@ -106,7 +104,7 @@ function FunnelSkeleton() {
 /**
  * Onboarding across every active tenant: the funnel for a window kept in the
  * URL, and the tracked tenants by state, as tabs in `?state` (stuck first),
- * paged by `?cursor` and `?dir`. The tenants list is not windowed, so the
+ * sorted, searched and paged through the shared list table. The tenants list is not windowed, so the
  * range never resets it. The funnel loads through `QueryState` and the
  * tenants start their own read with the page; a role refusal of the funnel
  * shows once, and until any tenant is tracked the page says only that.
@@ -188,7 +186,10 @@ function TenantsByState() {
         onValueChange={(next: unknown) => {
           if (!isListState(next)) return
           track('table_filtered', { table: TABLE })
-          void navigate({ search: (prev) => ({ range: prev.range, state: next }) })
+          // A cursor belongs to its tab; the search and the sort carry over.
+          void navigate({
+            search: (prev) => ({ ...prev, state: next, cursor: undefined, direction: undefined }),
+          })
         }}
       >
         <div className="max-w-full overflow-x-auto">
@@ -210,88 +211,21 @@ function TenantsByState() {
   )
 }
 
-/** One state's tenants, a page at a time by keyset cursor. */
+/** One state's tenants, through the shared list table. */
 function TenantsPanel({ state }: { state: OnboardingListState }) {
-  const { cursor, dir } = Route.useSearch()
-  const navigate = Route.useNavigate()
-  const page = useQuery(onboardingTenantsQueryOptions({ state, cursor, direction: dir }))
-
-  /** Pages to a keyset cursor; does nothing without one. */
-  function goTo(target: string | null, direction: PageDirection) {
-    if (target) {
-      void navigate({ search: (prev) => ({ ...prev, cursor: target, dir: direction }) })
-    }
-  }
-  /** Back to the first page of this state, keeping the range. */
-  const firstPage = () =>
-    void navigate({ search: (prev) => ({ range: prev.range, state: prev.state }) })
-
-  // The previous page's rows stay up while the next loads; its "nothing here" would describe the wrong view.
-  const settled =
-    page.data !== undefined && !(page.isPlaceholderData && page.data.tenants.length === 0)
-
-  if (page.isError) {
-    return statusFrom(page.error) === 404 ? (
-      <RoleDenied />
-    ) : (
-      <div className="grid justify-items-start gap-2">
-        <LoadError message="We could not load these tenants." onRetry={() => void page.refetch()} />
-        {cursor !== undefined && (
-          <Button variant="ghost" size="sm" onClick={firstPage}>
-            <IconChevronLeft aria-hidden="true" />
-            First page
-          </Button>
-        )}
-      </div>
-    )
-  }
-  if (!settled || page.data === undefined) return <Skeleton className="h-64 w-full" />
-  if (page.data.tenants.length === 0) {
-    return cursor !== undefined ? (
-      <EmptyState
-        icon={<IconChecklist aria-hidden="true" />}
-        title="Nothing on this page."
-        description="The list changed since this page was opened."
-        action={
-          <Button variant="outline" size="sm" onClick={firstPage}>
-            <IconChevronLeft aria-hidden="true" />
-            First page
-          </Button>
-        }
-      />
-    ) : (
-      <EmptyState
-        icon={<IconChecklist aria-hidden="true" />}
-        title={EMPTY_TAB[state].title}
-        description={EMPTY_TAB[state].description}
-      />
-    )
-  }
+  const list = useListSearch(onboardingTenantsList)
+  const query = useListQuery(list, (request) => onboardingTenantsListOptions(state, request))
   return (
-    <div className="grid gap-2">
-      <div aria-busy={page.isPlaceholderData} className="min-w-0">
-        <OnboardingTenantsTable rows={page.data.tenants} state={state} />
-      </div>
-      <nav aria-label="Pagination" className="flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          aria-label="Previous page"
-          disabled={page.data.prevCursor === null || page.isPlaceholderData}
-          onClick={() => goTo(page.data?.prevCursor ?? null, 'prev')}
-        >
-          <IconChevronLeft aria-hidden="true" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          aria-label="Next page"
-          disabled={page.data.nextCursor === null || page.isPlaceholderData}
-          onClick={() => goTo(page.data?.nextCursor ?? null, 'next')}
-        >
-          <IconChevronRight aria-hidden="true" />
-        </Button>
-      </nav>
-    </div>
+    <OnboardingTenantsTable
+      state={state}
+      query={query}
+      empty={
+        <EmptyState
+          icon={<IconChecklist aria-hidden="true" />}
+          title={EMPTY_TAB[state].title}
+          description={EMPTY_TAB[state].description}
+        />
+      }
+    />
   )
 }

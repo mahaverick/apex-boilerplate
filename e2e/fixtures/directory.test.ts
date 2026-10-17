@@ -188,14 +188,15 @@ test('lets a member leave a tenant from their own row, and stay on it through st
   page,
 }) => {
   await page.goto(`/e2e/harness/?path=${ACME_PAGE}/members&member=viewer`)
-  await page.getByRole('row', { name: /A B/ }).getByRole('button', { name: 'Leave' }).click()
+  const members = page.getByRole('region', { name: 'Members' })
+  await members.getByRole('row', { name: /A B/ }).getByRole('button', { name: 'Leave' }).click()
 
   const dialog = page.getByRole('alertdialog', { name: 'Leave this tenant?' })
   await expect(dialog).toContainText('You keep your staff access to it')
   await dialog.getByRole('button', { name: 'Leave' }).click()
 
   await expect(page.getByText('You left this tenant.')).toBeVisible()
-  await expect(page.getByRole('row', { name: /A B/ })).toHaveCount(0)
+  await expect(members.getByRole('row', { name: /A B/ })).toHaveCount(0)
   await expect(page).toHaveURL(new RegExp(`${ACME_PAGE}/members`))
 })
 

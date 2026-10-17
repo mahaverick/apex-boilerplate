@@ -433,9 +433,13 @@ export async function assertApiServesApex(): Promise<void> {
  * @param slug - The tenant's slug, unique among live tenants.
  */
 export async function tenantIdOf(token: string, slug: string): Promise<string> {
-  const found = await apiRequest(token, 'GET', `/platform/tenants?q=${encodeURIComponent(slug)}`)
-  const tenants = (found.body as { data?: { tenants?: { id: string; slug: string }[] } } | null)
-    ?.data?.tenants
+  const found = await apiRequest(
+    token,
+    'GET',
+    `/platform/tenants?search=${encodeURIComponent(slug)}`
+  )
+  const tenants = (found.body as { data?: { items?: { id: string; slug: string }[] } } | null)?.data
+    ?.items
   const tenant = tenants?.find((row) => row.slug === slug)
   if (found.status !== 200 || tenant === undefined) {
     throw new Error(`no tenant ${slug}: ${found.status} ${JSON.stringify(found.body)}`)
@@ -496,7 +500,7 @@ interface EmailRow {
 
 /**
  * Every email to `recipient` the API lists, newest first, read with a staff
- * token. `q` matches the recipient by substring, so the exact address is
+ * token. `search` matches the recipient by substring, so the exact address is
  * filtered here too.
  * @param token - A staff access token.
  * @param recipient - The address the emails went to.
@@ -505,13 +509,13 @@ async function emailsTo(token: string, recipient: string): Promise<EmailRow[]> {
   const found = await apiRequest(
     token,
     'GET',
-    `/platform/emails?q=${encodeURIComponent(recipient)}&limit=50`
+    `/platform/emails?search=${encodeURIComponent(recipient)}&limit=50`
   )
   if (found.status !== 200) {
     throw new Error(`email search failed: ${found.status} ${JSON.stringify(found.body)}`)
   }
-  const { messages } = (found.body as { data: { messages: EmailRow[] } }).data
-  return messages.filter((email) => email.recipient.toLowerCase() === recipient.toLowerCase())
+  const { items } = (found.body as { data: { items: EmailRow[] } }).data
+  return items.filter((email) => email.recipient.toLowerCase() === recipient.toLowerCase())
 }
 
 /**

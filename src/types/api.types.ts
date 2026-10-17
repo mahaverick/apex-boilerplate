@@ -1,4 +1,4 @@
-import type { AuditAction } from '@/constants/audit-actions'
+import type { AuditAction } from '@/constants/audit-action-names'
 import type { MembershipRole } from '@/constants/roles'
 
 /** The envelope express wraps a successful response in; `data` is the payload. */
@@ -116,21 +116,10 @@ export const MEMBER_NOT_FOUND_MESSAGE = 'Member not found'
 /** 403 on accept: the signed-in account is the invited one, but its email is unverified. */
 export const INVITATION_EMAIL_UNVERIFIED = 'invitation_email_unverified'
 
-/** A keyset page's direction. `prev` pages backward from the given cursor. */
-export const PAGE_DIRECTIONS = ['next', 'prev'] as const
-/** A direction a keyset list can page in. */
-export type PageDirection = (typeof PAGE_DIRECTIONS)[number]
-
 /** Mirrors express's TENANT_LIFECYCLE_STATES. */
-export type TenantLifecycleState = 'active' | 'suspended' | 'archived'
-
-/**
- * `GET /platform/tenants?state=`. Omitted means the API's default, active and
- * suspended together; `archived` and `all` reach archived (soft-deleted) rows.
- */
-export const TENANT_STATE_FILTERS = ['active', 'suspended', 'archived', 'all'] as const
-/** A value the tenants list's `state` filter accepts. */
-export type TenantStateFilter = (typeof TENANT_STATE_FILTERS)[number]
+export const TENANT_LIFECYCLE_STATES = ['active', 'suspended', 'archived'] as const
+/** One lifecycle state a tenant can hold. */
+export type TenantLifecycleState = (typeof TENANT_LIFECYCLE_STATES)[number]
 
 /** One row of `GET /platform/tenants`: staff search across every tenant. */
 export interface PlatformTenantRow {
@@ -140,17 +129,6 @@ export interface PlatformTenantRow {
   lifecycleState: TenantLifecycleState
   memberCount: number
   createdAt: string
-}
-
-/**
- * A keyset page of `GET /platform/tenants`. Both cursors are opaque; send one
- * back as-is with `direction`. Each is null at its own end, so the first page
- * has `prevCursor: null`.
- */
-export interface PlatformTenantPage {
-  tenants: PlatformTenantRow[]
-  nextCursor: string | null
-  prevCursor: string | null
 }
 
 /** How an audit entry's actor reached the tenant. `system` is a script, with no actor. */
@@ -163,20 +141,26 @@ interface AuditActor {
   email: string
 }
 
+/** The kinds of record an audit entry can point at. Mirrors express's AUDIT_TARGET_TYPES. */
+export type KnownAuditTargetType =
+  | 'tenant'
+  | 'membership'
+  | 'invitation'
+  | 'settings'
+  | 'user'
+  | 'email_message'
+  | 'email_suppression'
+  | 'platform'
+
+/** A target kind: a known one (autocompleted) or any other the API sends. */
+export type AuditTargetType = KnownAuditTargetType | (string & {})
+
 /**
  * The record an audit entry acted on. `platform` is the platform as a whole
  * (maintenance mode), whose id is the platform tenant's.
  */
 interface AuditTarget {
-  type:
-    | 'tenant'
-    | 'membership'
-    | 'invitation'
-    | 'settings'
-    | 'user'
-    | 'email_message'
-    | 'email_suppression'
-    | 'platform'
+  type: AuditTargetType
   id: string
 }
 
@@ -185,7 +169,12 @@ export interface AuditEntry {
   id: string
   /** ISO 8601, millisecond precision. */
   occurredAt: string
-  action: AuditAction
+  /**
+   * A stored action name. The retired ones (`user.timeline_viewed` and the like)
+   * are still stored but never written, so any string may arrive; read it
+   * through `auditSentence`, which has a fallback.
+   */
+  action: AuditAction | (string & {})
   access: AuditAccess
   actor: AuditActor | null
   target: AuditTarget | null
@@ -196,12 +185,6 @@ export interface AuditEntry {
 /** One row of `GET /platform/audit-log`: the same entry, plus where it happened. */
 export interface PlatformAuditEntry extends AuditEntry {
   tenant: { id: string; name: string; slug: string }
-}
-
-/** A keyset page of either audit log. `nextCursor` is opaque. */
-export interface AuditPage<T extends AuditEntry> {
-  entries: T[]
-  nextCursor: string | null
 }
 
 /** One sign-in method linked to the account, as `GET /auth/providers` lists it. */
@@ -296,20 +279,11 @@ export interface PlatformUserRow {
   membershipCount: number
 }
 
-/** A keyset page of `GET /platform/users`; cursors as for `PlatformTenantPage`. */
-export interface PlatformUserPage {
-  users: PlatformUserRow[]
-  nextCursor: string | null
-  prevCursor: string | null
-}
-
 /**
  * `GET /platform/users?status=`. Omitted means active and inactive live
  * accounts; `deleted` reaches soft-deleted ones, which only a purge removes.
  */
-export const USER_STATUS_FILTERS = ['active', 'inactive', 'deleted'] as const
-/** A value the users list's `status` filter accepts. */
-export type UserStatusFilter = (typeof USER_STATUS_FILTERS)[number]
+export const USER_STATUSES = ['active', 'inactive', 'deleted'] as const
 
 /** One customer tenant a user belongs to, archived ones included, on the staff user detail. */
 interface PlatformUserMembership {
@@ -414,11 +388,6 @@ export type EmailEventType =
 /** Why an address is suppressed: only a hard bounce or a complaint adds one. */
 export type SuppressionReason = 'hard_bounce' | 'complaint'
 
-/** `GET /platform/email-suppressions?state=`; the API's default is `active`. */
-export const SUPPRESSION_STATE_FILTERS = ['active', 'lifted', 'all'] as const
-/** A value the suppressions list's `state` filter accepts. */
-export type SuppressionStateFilter = (typeof SUPPRESSION_STATE_FILTERS)[number]
-
 /** The five disjoint status groups the stats and the health report count, in stacking order. */
 export const EMAIL_GROUP_KEYS = [
   'delivered',
@@ -456,13 +425,6 @@ export interface EmailMessageSummary {
   user: { id: string; name: string } | null
   tenant: { id: string; name: string; slug: string } | null
   canResend: boolean
-}
-
-/** A keyset page of `GET /platform/emails`, newest first; cursors as for `PlatformTenantPage`. */
-export interface EmailMessagePage {
-  messages: EmailMessageSummary[]
-  nextCursor: string | null
-  prevCursor: string | null
 }
 
 /** One send attempt (`email_logs`). `errorCode` is set on a failed one. */
@@ -585,13 +547,6 @@ export interface EmailSuppression {
   liftReason: string | null
 }
 
-/** A keyset page of `GET /platform/email-suppressions`; cursors as for `PlatformTenantPage`. */
-export interface EmailSuppressionPage {
-  suppressions: EmailSuppression[]
-  nextCursor: string | null
-  prevCursor: string | null
-}
-
 /** 409 on resend or preview: the stored template is no longer in the API's registry. */
 export const TEMPLATE_UNAVAILABLE = 'template_unavailable'
 
@@ -709,13 +664,6 @@ export interface OnboardingTenantRow {
   nextStep: OnboardingStepSummary | null
   requiredDone: number
   requiredTotal: number
-}
-
-/** A keyset page of `GET /platform/onboarding/tenants`; cursors as for `PlatformTenantPage`. */
-export interface OnboardingTenantPage {
-  tenants: OnboardingTenantRow[]
-  nextCursor: string | null
-  prevCursor: string | null
 }
 
 /** One live member's own status on a member step. */
@@ -861,7 +809,9 @@ export type FlagReason =
  * `missing` is absent (or deleted) there, `unsupported` uses a construct
  * express cannot evaluate, so it serves its fallback.
  */
-export type FlagState = 'active' | 'inactive' | 'missing' | 'unsupported'
+export const FLAG_STATES = ['active', 'inactive', 'missing', 'unsupported'] as const
+/** One state a registered flag can be in. */
+export type FlagState = (typeof FLAG_STATES)[number]
 
 /**
  * Why express will not evaluate a flag's PostHog definition, as a flag row's
@@ -944,10 +894,8 @@ interface FlagsListSnapshot extends FlagSnapshotInfo {
   enabled: boolean
 }
 
-/** `GET /platform/flags`. */
-export interface FlagsListResponse {
-  items: FlagRow[]
-  unregistered: UnregisteredRow[]
+/** `GET /platform/flags/meta`: the trait reference and the snapshot's freshness. */
+export interface FlagsMetaResponse {
   traits: TraitRow[]
   snapshot: FlagsListSnapshot
 }

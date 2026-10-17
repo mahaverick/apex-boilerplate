@@ -12,12 +12,13 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CommandPalette } from '@/components/features/command-palette'
-import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
+import { listPage } from '@/tests/fixtures/list-page'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import { LIST_SEARCH_DEBOUNCE_MS } from '@/types/list.types'
 
 const ACME = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -82,18 +83,36 @@ function renderPalette() {
   return router
 }
 
+/**
+ * Opens the palette with its shortcut and waits until its input has focus. The dialog mounts and
+ * focuses the input after the key press, so keys typed straight away can land before that and be
+ * lost; a slow machine shows it.
+ * @param user - The test's user.
+ */
+async function openPalette(user: ReturnType<typeof userEvent.setup>) {
+  await user.keyboard('{Control>}k{/Control}')
+  const input = await screen.findByRole('combobox')
+  await waitFor(() => expect(input).toHaveFocus())
+}
+
+/** A promise the test resolves by hand, to hold a response in flight. */
+function deferred() {
+  /** Resolves `promise`. */
+  let release = () => {}
+  const promise = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  return { promise, release }
+}
+
 describe('CommandPalette', () => {
   beforeEach(() => {
     useAuthStore.setState({ user: { ...testUser, platformRole: 'viewer' }, isAuthenticated: true })
     useCommandPaletteStore.setState({ open: false })
     // Every search asks for both lists; a test's own `server.use` still wins.
     server.use(
-      http.get('/api/v1/platform/users', () =>
-        ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
-      ),
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
+      http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.')),
+      http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.'))
     )
   })
 
@@ -119,7 +138,7 @@ describe('CommandPalette', () => {
     const user = userEvent.setup()
     const router = renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
 
     await user.keyboard('ten')
     expect(await screen.findByRole('option', { name: 'Tenants' })).toBeInTheDocument()
@@ -139,7 +158,7 @@ describe('CommandPalette', () => {
     const user = userEvent.setup()
     const router = renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
 
     await user.keyboard(term)
     await user.click(await screen.findByRole('option', { name: label }))
@@ -154,7 +173,7 @@ describe('CommandPalette', () => {
     const user = userEvent.setup()
     renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
 
     const palette = await screen.findByRole('dialog', { name: 'Command palette' })
     expect(within(palette).queryAllByRole('option')).toEqual([])
@@ -162,45 +181,48 @@ describe('CommandPalette', () => {
     expect(within(palette).queryByRole('option', { name: 'Staff' })).not.toBeInTheDocument()
   })
 
-  it('finds a tenant through the API and opens its page', async () => {
+  it('finds a tenant through the API, asking for no total, and opens its page', async () => {
+    const seen: URLSearchParams[] = []
     server.use(
       http.get('/api/v1/platform/tenants', ({ request }) => {
-        const q = new URL(request.url).searchParams.get('q')
-        return ok(
-          { tenants: q === 'acme' ? [ACME] : [], nextCursor: null, prevCursor: null },
-          'Tenants retrieved.'
-        )
+        const params = new URL(request.url).searchParams
+        seen.push(params)
+        const q = params.get('search')
+        return ok(listPage(q === 'acme' ? [ACME] : []), 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()
     const router = renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
 
     await user.keyboard('acme')
     await user.click(await screen.findByRole('option', { name: /Acme Corp/ }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe(`/tenants/${ACME.id}`))
+    // A picker never shows a count, so it never asks for one.
+    expect(seen.at(-1)?.get('total')).toBeNull()
+    expect(seen.at(-1)?.get('limit')).toBe('8')
   })
 
   it('never acts on a previous term’s tenants', async () => {
     let release: (() => void) | undefined
     server.use(
       http.get('/api/v1/platform/tenants', async ({ request }) => {
-        const q = new URL(request.url).searchParams.get('q')
+        const q = new URL(request.url).searchParams.get('search')
         if (q === 'acmez') {
           await new Promise<void>((resolve) => {
             release = resolve
           })
-          return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+          return ok(listPage([]), 'Tenants retrieved.')
         }
-        return ok({ tenants: [ACME], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+        return ok(listPage([ACME]), 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()
     renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
     await user.keyboard('acme')
     await screen.findByRole('option', { name: /Acme Corp/ })
 
@@ -216,20 +238,19 @@ describe('CommandPalette', () => {
 
   it('finds a user by email, first 8 only, and Enter opens their page', async () => {
     let limit: string | null = null
+    let total: string | null = 'unset'
     server.use(
       http.get('/api/v1/platform/users', ({ request }) => {
         const params = new URL(request.url).searchParams
         limit = params.get('limit')
-        return ok(
-          { users: params.get('q') === 'cleo' ? [CLEO] : [], nextCursor: null, prevCursor: null },
-          'Users retrieved.'
-        )
+        total = params.get('total')
+        return ok(listPage(params.get('search') === 'cleo' ? [CLEO] : []), 'Users retrieved.')
       })
     )
     const user = userEvent.setup()
     const router = renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
 
     await user.keyboard('cleo')
     expect(await screen.findByRole('option', { name: /cleo@example\.com/ })).toBeInTheDocument()
@@ -238,26 +259,27 @@ describe('CommandPalette', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe(`/users/${CLEO.id}`))
     expect(limit).toBe('8')
+    expect(total).toBeNull()
   })
 
   it('never acts on a previous term’s users', async () => {
     let release: (() => void) | undefined
     server.use(
       http.get('/api/v1/platform/users', async ({ request }) => {
-        const q = new URL(request.url).searchParams.get('q')
+        const q = new URL(request.url).searchParams.get('search')
         if (q === 'cleox') {
           await new Promise<void>((resolve) => {
             release = resolve
           })
-          return ok({ users: [], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+          return ok(listPage([]), 'Users retrieved.')
         }
-        return ok({ users: [CLEO], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+        return ok(listPage([CLEO]), 'Users retrieved.')
       })
     )
     const user = userEvent.setup()
     const router = renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
     await user.keyboard('cleo')
     await screen.findByRole('option', { name: /cleo@example\.com/ })
 
@@ -275,7 +297,7 @@ describe('CommandPalette', () => {
     const user = userEvent.setup()
     renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
     await user.keyboard('o')
 
     expect(await screen.findByText('Some results could not be loaded.')).toBeInTheDocument()
@@ -285,14 +307,12 @@ describe('CommandPalette', () => {
   it('says the user search failed, and keeps the tenants it found', async () => {
     server.use(
       http.get('/api/v1/platform/users', () => fail('Boom', 500)),
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [ACME], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
+      http.get('/api/v1/platform/tenants', () => ok(listPage([ACME]), 'Tenants retrieved.'))
     )
     const user = userEvent.setup()
     renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
     await user.keyboard('acme')
 
     expect(await screen.findByText('Some results could not be loaded.')).toBeInTheDocument()
@@ -303,13 +323,13 @@ describe('CommandPalette', () => {
     const user = userEvent.setup()
     renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
     await user.keyboard('ov')
     expect(screen.getByRole('combobox')).toHaveValue('ov')
 
     await user.keyboard('{Control>}k{/Control}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
 
     expect(await screen.findByRole('combobox')).toHaveValue('')
   })
@@ -354,22 +374,22 @@ describe('CommandPalette', () => {
     server.use(
       http.get('/api/v1/platform/tenants', () => {
         calls += 1
-        return ok({ tenants: [ACME], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+        return ok(listPage([ACME]), 'Tenants retrieved.')
       }),
       http.get('/api/v1/platform/users', () => {
         calls += 1
-        return ok({ users: [CLEO], nextCursor: null, prevCursor: null }, 'Users retrieved.')
+        return ok(listPage([CLEO]), 'Users retrieved.')
       })
     )
     useAuthStore.setState({ user: { ...testUser, platformRole: null } })
     const user = userEvent.setup()
     renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
     await user.keyboard('acme')
 
     await settle(
-      SEARCH_DEBOUNCE_MS * 2,
+      LIST_SEARCH_DEBOUNCE_MS * 2,
       'absence has no event: a request would follow the debounce'
     )
     expect(calls).toBe(0)
@@ -377,38 +397,52 @@ describe('CommandPalette', () => {
   })
 
   it('says nothing about tenants when the role is refused', async () => {
-    server.use(http.get('/api/v1/platform/tenants', () => fail('Not found', 404)))
+    let asked = false
+    server.use(
+      http.get('/api/v1/platform/tenants', () => {
+        asked = true
+        return fail('Not found', 404)
+      })
+    )
     const user = userEvent.setup()
     renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
     await user.keyboard('o')
 
-    expect(await screen.findByText('Searching…')).toBeInTheDocument()
+    // The request is the event to wait on: "Searching…" can come and go between two polls under load.
+    await waitFor(() => expect(asked).toBe(true))
     await waitFor(() => expect(screen.queryByText('Searching…')).not.toBeInTheDocument())
     expect(screen.queryByText('Some results could not be loaded.')).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Overview' })).toBeInTheDocument()
   })
 
   it('does not show the previous term’s error while the next term waits', async () => {
+    const next = deferred()
     server.use(
-      http.get('/api/v1/platform/tenants', ({ request }) => {
-        const q = new URL(request.url).searchParams.get('q')
-        return q === 'o'
-          ? fail('Boom', 500)
-          : ok({ tenants: [], nextCursor: null, prevCursor: null })
+      http.get('/api/v1/platform/tenants', async ({ request }) => {
+        const q = new URL(request.url).searchParams.get('search')
+        if (q === 'o') return fail('Boom', 500)
+        // Held, so "Searching…" stays up until the test has looked at it.
+        await next.promise
+        return ok(listPage([]))
       })
     )
     const user = userEvent.setup()
     renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
     await user.keyboard('o')
     await screen.findByText('Some results could not be loaded.')
 
-    await user.keyboard('v')
-    expect(screen.queryByText('Some results could not be loaded.')).not.toBeInTheDocument()
-    expect(screen.getByText('Searching…')).toBeInTheDocument()
+    try {
+      await user.keyboard('v')
+      expect(screen.queryByText('Some results could not be loaded.')).not.toBeInTheDocument()
+      expect(screen.getByText('Searching…')).toBeInTheDocument()
+    } finally {
+      next.release()
+    }
+    await waitFor(() => expect(screen.queryByText('Searching…')).not.toBeInTheDocument())
   })
 
   it('does not say "No results." while tenants are still being searched', async () => {
@@ -418,13 +452,13 @@ describe('CommandPalette', () => {
         await new Promise<void>((resolve) => {
           release = resolve
         })
-        return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
+        return ok(listPage([]), 'Tenants retrieved.')
       })
     )
     const user = userEvent.setup()
     renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
     try {
       await user.keyboard('zzz')
       await waitFor(() => expect(release).toBeDefined())
@@ -438,14 +472,12 @@ describe('CommandPalette', () => {
 
   it('ignores Enter typed before the new term is searched', async () => {
     server.use(
-      http.get('/api/v1/platform/tenants', () =>
-        ok({ tenants: [ACME], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-      )
+      http.get('/api/v1/platform/tenants', () => ok(listPage([ACME]), 'Tenants retrieved.'))
     )
     const user = userEvent.setup()
     const router = renderPalette()
     await screen.findByRole('heading', { name: '/overview' })
-    await user.keyboard('{Control>}k{/Control}')
+    await openPalette(user)
     await user.keyboard('acme')
     await screen.findByRole('option', { name: /Acme Corp/ })
 

@@ -9,12 +9,16 @@ import { useAuthStore } from '@/states/auth.store'
 import { byContent } from '@/tests/fixtures/content'
 import {
   AUDIT_ID_1,
+  AUDIT_ID_2,
+  INVITATION_ID,
+  INVITATION_ID_2,
   MEMBERSHIP_ID_2,
   STAFF_USER_ID,
   TENANT_ID,
   TENANT_ID_2,
   USER_ID_2,
 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -80,9 +84,9 @@ function serve(tenant: PlatformTenantDetail, effectiveRole: MembershipRole = 'ad
     http.get('/api/v1/tenants/acme/*', ({ request }) => {
       const path = new URL(request.url).pathname
       internal.push(path)
-      if (path.endsWith('/members')) return ok(MEMBERS, 'ok')
-      if (path.endsWith('/invitations')) return ok([], 'ok')
-      return ok({ entries: [], nextCursor: null }, 'ok')
+      if (path.endsWith('/members')) return ok(listPage(MEMBERS), 'ok')
+      if (path.endsWith('/invitations')) return ok(listPage([]), 'ok')
+      return ok(listPage([]), 'ok')
     })
   )
   return internal
@@ -509,9 +513,7 @@ describe('/tenants/$tenantId', () => {
         http.post('/api/v1/auth/reauthenticate', () =>
           ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
         ),
-        http.get('/api/v1/platform/tenants', () =>
-          ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Tenants retrieved.')
-        )
+        http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.'))
       )
       const router = renderAppAt(`/tenants/${TENANT_ID}`)
       const { user, menu } = await openMenu()
@@ -549,7 +551,7 @@ describe('/tenants/$tenantId', () => {
         ),
         http.get('/api/v1/tenants/acme/members', () => {
           seen.push('members')
-          return ok(seen.length === 1 ? MEMBERS : [], 'ok')
+          return ok(listPage(seen.length === 1 ? MEMBERS : []), 'ok')
         })
       )
       const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
@@ -770,8 +772,8 @@ describe('/tenants/$tenantId', () => {
             ok({ ...detail(), isPlatform: false, role: 'admin', access: 'platform' }, 'ok')
           )
         ),
-        http.get('/api/v1/tenants/acme/members', () => ownRoute(() => ok(MEMBERS, 'ok'))),
-        http.get('/api/v1/tenants/acme/invitations', () => ownRoute(() => ok([], 'ok'))),
+        http.get('/api/v1/tenants/acme/members', () => ownRoute(() => ok(listPage(MEMBERS), 'ok'))),
+        http.get('/api/v1/tenants/acme/invitations', () => ownRoute(() => ok(listPage([]), 'ok'))),
         http.post(`/api/v1/platform/tenants/${TENANT_ID}/suspend`, () => {
           state = 'suspended'
           return ok(detail({ lifecycleState: 'suspended' }), 'Tenant suspended.')
@@ -930,21 +932,18 @@ describe('/tenants/$tenantId', () => {
         http.get('/api/v1/platform/audit-log', ({ request }) => {
           params = new URL(request.url).searchParams
           return ok(
-            {
-              entries: [
-                {
-                  id: AUDIT_ID_1,
-                  occurredAt: '2026-09-25T09:00:00.000Z',
-                  action: 'tenant.owner_invited',
-                  access: 'platform',
-                  actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
-                  target: { type: 'tenant', id: TENANT_ID },
-                  metadata: { emailDomain: 'acme.test', reason: 'Owner left' },
-                  tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
-                },
-              ],
-              nextCursor: null,
-            },
+            listPage([
+              {
+                id: AUDIT_ID_1,
+                occurredAt: '2026-09-25T09:00:00.000Z',
+                action: 'tenant.owner_invited',
+                access: 'platform',
+                actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
+                target: { type: 'tenant', id: TENANT_ID },
+                metadata: { emailDomain: 'acme.test', reason: 'Owner left' },
+                tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
+              },
+            ]),
             'Audit log retrieved.'
           )
         })
@@ -954,9 +953,12 @@ describe('/tenants/$tenantId', () => {
       expect(
         await within(card).findByText(/invited someone at acme\.test as the owner/)
       ).toBeInTheDocument()
-      expect(params?.get('tenantId')).toBe(TENANT_ID)
+      expect(params?.get('tenant')).toBe(TENANT_ID)
       expect(params?.get('access')).toBe('platform')
-      expect(params?.get('targetId')).toBeNull()
+      expect(params?.get('target')).toBeNull()
+      expect(
+        within(card).getByRole('table', { name: 'Staff actions on this tenant' })
+      ).toBeVisible()
       expect(within(card).queryByRole('link', { name: 'View tenant' })).not.toBeInTheDocument()
     })
 
@@ -996,26 +998,68 @@ describe('/tenants/$tenantId', () => {
       server.use(
         http.get('/api/v1/tenants/acme/audit-log', () =>
           ok(
-            {
-              entries: [
-                {
-                  id: '60000000-0000-4000-8000-000000000001',
-                  action: 'tenant.created',
-                  access: 'member',
-                  actor: { id: USER_ID_2, email: 'olive@acme.test', name: 'Olive Owner' },
-                  target: { type: 'tenant', id: TENANT_ID },
-                  metadata: { name: 'Acme Corp', slug: 'acme' },
-                  occurredAt: '2026-09-28T00:00:00.000Z',
-                },
-              ],
-              nextCursor: null,
-            },
+            listPage([
+              {
+                id: '60000000-0000-4000-8000-000000000001',
+                action: 'tenant.created',
+                access: 'member',
+                actor: { id: USER_ID_2, email: 'olive@acme.test', name: 'Olive Owner' },
+                target: { type: 'tenant', id: TENANT_ID },
+                metadata: { name: 'Acme Corp', slug: 'acme' },
+                occurredAt: '2026-09-28T00:00:00.000Z',
+              },
+            ]),
             'ok'
           )
         )
       )
       renderAppAt(`/tenants/${TENANT_ID}/activity`)
       expect(await screen.findByText('Olive Owner')).toBeInTheDocument()
+    })
+
+    it('pages the tenant’s activity with Next page, and filters it by action through ?action=', async () => {
+      serve(detail())
+      const seen: URLSearchParams[] = []
+      /** A member-access entry of `action`, with no target. */
+      const entry = (id: string, action: string) => ({
+        id,
+        action,
+        access: 'member',
+        actor: { id: USER_ID_2, email: 'olive@acme.test', name: 'Olive Owner' },
+        target: null,
+        metadata: {},
+        occurredAt: '2026-09-28T00:00:00.000Z',
+      })
+      server.use(
+        http.get('/api/v1/tenants/acme/audit-log', ({ request }) => {
+          const params = new URL(request.url).searchParams
+          seen.push(params)
+          return params.get('cursor') === 'a2'
+            ? ok(listPage([entry(AUDIT_ID_2, 'member.left')]), 'ok')
+            : ok(
+                listPage([entry(AUDIT_ID_1, 'tenant.created')], {
+                  hasNext: true,
+                  nextCursor: 'a2',
+                }),
+                'ok'
+              )
+        })
+      )
+      const user = userEvent.setup()
+      const router = renderAppAt(`/tenants/${TENANT_ID}/activity`)
+      await screen.findByText(/created the tenant/)
+      expect(screen.queryByRole('button', { name: /Load more/ })).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Next page' }))
+      expect(await screen.findByText('left the tenant')).toBeInTheDocument()
+      expect(router.state.location.search).toEqual({ cursor: 'a2' })
+
+      await user.click(screen.getByRole('button', { name: 'Filter by action, Activity' }))
+      const popup = await screen.findByRole('dialog', { name: 'Filter by action, Activity' })
+      await user.click(within(popup).getByRole('checkbox', { name: 'Member left' }))
+      await waitFor(() => expect(router.state.location.search).toEqual({ action: 'member.left' }))
+      await waitFor(() => expect(seen.at(-1)?.get('action')).toBe('member.left'))
+      expect(seen.at(-1)?.get('cursor')).toBeNull()
     })
 
     it('tells an effective viewer the activity is not theirs to see, and asks nothing', async () => {
@@ -1039,5 +1083,85 @@ describe('/tenants/$tenantId', () => {
       expect(note.closest('[role="status"]')).toBeNull()
       expect(internal).toEqual(['/api/v1/tenants/acme'])
     })
+  })
+})
+
+describe('/tenants/$tenantId lists', () => {
+  beforeEach(() => signIn({ ...testUser, platformRole: 'admin' }))
+
+  /** Two pending invitations, one per role. */
+  const INVITATIONS = [
+    {
+      id: INVITATION_ID,
+      email: 'amy@acme.test',
+      role: 'viewer',
+      invitedBy: { id: USER_ID_2, firstName: 'Olive', lastName: 'Owner' },
+      expiresAt: '2026-10-01T00:00:00.000Z',
+      createdAt: '2026-09-24T00:00:00.000Z',
+    },
+    {
+      id: INVITATION_ID_2,
+      email: 'bob@acme.test',
+      role: 'admin',
+      invitedBy: null,
+      expiresAt: '2026-10-02T00:00:00.000Z',
+      createdAt: '2026-09-25T00:00:00.000Z',
+    },
+  ]
+
+  it('lists members in a table sorted by name, and sorts by email through ?sort=email', async () => {
+    serve(detail())
+    const seen: URLSearchParams[] = []
+    server.use(
+      http.get('/api/v1/tenants/acme/members', ({ request }) => {
+        seen.push(new URL(request.url).searchParams)
+        return ok(listPage(MEMBERS), 'Members retrieved.')
+      })
+    )
+    const user = userEvent.setup()
+    const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
+    const table = await screen.findByRole('table', { name: 'Members' })
+    expect(within(table).getByRole('columnheader', { name: 'Name' })).toHaveAttribute(
+      'aria-sort',
+      'ascending'
+    )
+    await user.click(within(table).getByRole('button', { name: 'Email' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ sort: 'email' }))
+    await waitFor(() => expect(seen.some((params) => params.get('sort') === 'email')).toBe(true))
+  })
+
+  it('sorts invitations by email and filters them by role, in prefixed keys', async () => {
+    serve(detail(), 'owner')
+    const seen: URLSearchParams[] = []
+    server.use(
+      http.get('/api/v1/tenants/acme/invitations', ({ request }) => {
+        seen.push(new URL(request.url).searchParams)
+        return ok(listPage(INVITATIONS), 'Invitations retrieved.')
+      })
+    )
+    const router = renderAppAt(
+      `/tenants/${TENANT_ID}/invitations?invitationsSort=email&invitationsRole=admin`
+    )
+    const table = await screen.findByRole('table', { name: 'Pending invitations' })
+    expect(within(table).getByRole('columnheader', { name: 'Email' })).toHaveAttribute(
+      'aria-sort',
+      'ascending'
+    )
+    await waitFor(() =>
+      expect(
+        seen.some((params) => params.get('sort') === 'email' && params.get('role') === 'admin')
+      ).toBe(true)
+    )
+    expect(router.state.location.search).toEqual({
+      invitationsSort: 'email',
+      invitationsRole: 'admin',
+    })
+    expect(within(table).getByText('Invited')).toBeInTheDocument()
+    expect(within(table).getByText('amy@acme.test')).toBeInTheDocument()
+    expect(
+      within(table)
+        .getAllByText(/^by/)
+        .map((by) => by.textContent)
+    ).toEqual(['by Olive Owner', 'by A teammate'])
   })
 })

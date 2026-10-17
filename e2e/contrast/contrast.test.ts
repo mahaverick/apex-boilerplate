@@ -444,6 +444,49 @@ test.describe('popups that are not menus', () => {
       const result = await runAxe(page, '[role="dialog"]')
       expect(report('mobile sheet', theme, result), report('mobile sheet', theme, result)).toBe('')
     })
+
+    test(`the list toolbar, a facet popover, its chips and the column menu meet WCAG AA contrast in ${theme}`, async ({
+      page,
+    }) => {
+      // The facet popover, the chip row and the column menu carry their own tokens, and no page entry opens them.
+      await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+      await page.goto('/e2e/harness/?path=/tenants')
+      await expect(page.getByRole('table', { name: 'Tenants' })).toBeVisible({
+        timeout: COLD_TRANSFORM_BUDGET_MS,
+      })
+
+      const tenants = page.getByRole('region', { name: 'Tenants' })
+      await tenants.getByRole('button', { name: 'Filter by status, Tenants' }).click()
+      const facet = page.getByRole('dialog', { name: 'Filter by status, Tenants' })
+      await expect(facet.getByRole('checkbox').first()).toBeVisible()
+      await afterAnimations(facet)
+      await afterFontsAndFrames(page)
+      await page.addScriptTag({ path: AXE_PATH })
+      const popup = await runAxe(page, '[role="dialog"]')
+      expect(report('facet popover', theme, popup), report('facet popover', theme, popup)).toBe('')
+
+      await facet.getByRole('checkbox', { name: 'Active' }).click()
+      await page.keyboard.press('Escape')
+      await expect(
+        tenants.getByRole('button', { name: 'Remove filter: Status: Active' })
+      ).toBeVisible()
+      const chips = await runAxe(page)
+      expect(report('filter chips', theme, chips), report('filter chips', theme, chips)).toBe('')
+
+      await tenants.getByRole('button', { name: 'Columns, Tenants' }).click()
+      const menu = page.getByRole('menu')
+      await expect(menu.getByRole('menuitemcheckbox').first()).toBeVisible()
+      await afterAnimations(menu)
+      const columns = await runAxe(page, '[role="menu"]')
+      expect(report('column menu', theme, columns), report('column menu', theme, columns)).toBe('')
+    })
+
+    test(`the user cards on a phone meet WCAG AA contrast in ${theme}`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 })
+      const result = await contrastOf(page, '/e2e/harness/?path=/users', theme, /^Users$/)
+      await expect(page.getByRole('list', { name: 'Users' })).toBeVisible()
+      expect(report('user cards', theme, result), report('user cards', theme, result)).toBe('')
+    })
   }
 })
 
@@ -672,8 +715,8 @@ test.describe('staff surfaces', () => {
   for (const theme of THEMES) {
     test(`the Activity Staff badge meets WCAG AA contrast in ${theme}`, async ({ page }) => {
       const result = await contrastOf(page, '/e2e/harness/?path=/activity', theme, 'Activity')
-      const row = page.getByRole('listitem').filter({ hasText: 'Sam Staff' })
-      await expect(row.getByText('Staff', { exact: true })).toBeVisible()
+      const row = page.getByRole('row').filter({ hasText: 'Sam Staff' })
+      await expect(row.getByText('Staff', { exact: true }).first()).toBeVisible()
       expect(report('staff badge', theme, result), report('staff badge', theme, result)).toBe('')
     })
 
@@ -681,7 +724,7 @@ test.describe('staff surfaces', () => {
       const result = await contrastOf(page, '/e2e/harness/?path=/tenants', theme, 'Tenants')
       const table = page.getByRole('table', { name: 'Tenants' })
       for (const status of ['Active', 'Suspended', 'Archived']) {
-        await expect(table.getByText(status, { exact: true })).toBeVisible()
+        await expect(table.getByText(status, { exact: true }).first()).toBeVisible()
       }
       expect(report('status badges', theme, result), report('status badges', theme, result)).toBe(
         ''
@@ -721,7 +764,7 @@ const TRACKING_SURFACES = [
   },
   {
     name: 'suppressions',
-    path: '/suppressions?state=all',
+    path: '/suppressions?state=active,lifted',
     heading: 'Suppressions',
     shows: ['Active'],
   },

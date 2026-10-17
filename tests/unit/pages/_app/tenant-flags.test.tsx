@@ -2,8 +2,9 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { flagsEvaluation, flagsList } from '@/tests/fixtures/flags'
+import { flagRows, flagsEvaluation } from '@/tests/fixtures/flags'
 import { MEMBERSHIP_ID_2, TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, tenantDetail, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -46,6 +47,9 @@ const MEMBERS = [
   },
 ]
 
+/** The query string of each registry read of the running test. */
+const registryReads: string[] = []
+
 /** Acme, its members and the flags; records each members and evaluation request. */
 function serve(lifecycleState: TenantLifecycleState = 'active') {
   const seen: string[] = []
@@ -58,9 +62,12 @@ function serve(lifecycleState: TenantLifecycleState = 'active') {
     ),
     http.get('/api/v1/tenants/acme/members', () => {
       seen.push('members')
-      return ok(MEMBERS, 'Members retrieved.')
+      return ok(listPage(MEMBERS), 'Members retrieved.')
     }),
-    http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')),
+    http.get('/api/v1/platform/flags', ({ request }) => {
+      registryReads.push(new URL(request.url).search)
+      return ok(listPage(flagRows()), 'Flags retrieved.')
+    }),
     http.get('/api/v1/platform/flags/evaluate', ({ request }) => {
       seen.push(new URL(request.url).search)
       return ok(flagsEvaluation(), 'Flags evaluated.')
@@ -79,6 +86,7 @@ function tabLabels() {
 
 describe('/tenants/$tenantId/flags', () => {
   beforeEach(() => {
+    registryReads.length = 0
     signIn({ ...testUser, platformRole: 'admin' })
   })
 
@@ -110,6 +118,39 @@ describe('/tenants/$tenantId/flags', () => {
       'true'
     )
     expect(seen).toEqual(['members', `?userId=${USER_ID_2}&tenantId=${TENANT_ID}&app=react`])
+  })
+
+  it('reads the registry as rows, with no total, to mark what the app receives', async () => {
+    serve()
+    renderAppAt(`${FLAGS}?userId=${USER_ID_2}`)
+    const table = await screen.findByRole('table', { name: 'Evaluation' })
+    expect(within(table).getByText('example_beta_page')).toBeInTheDocument()
+    expect(registryReads).toEqual(['?limit=100'])
+  })
+
+  it('shows the flags error, retrying the registry, when it fails to load', async () => {
+    serve()
+    let calls = 0
+    server.use(
+      http.get('/api/v1/platform/flags', () => {
+        calls += 1
+        return calls <= 2 ? fail('Boom', 500) : ok(listPage(flagRows()), 'Flags retrieved.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`${FLAGS}?userId=${USER_ID_2}`)
+    expect(
+      await screen.findByText('We could not load the flags. This is not a sign they are off.')
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('table', { name: 'Evaluation' })).toBeInTheDocument()
+  })
+
+  it('shows one role refusal when the registry answers 404', async () => {
+    serve()
+    server.use(http.get('/api/v1/platform/flags', () => fail('Not found', 404)))
+    renderAppAt(FLAGS)
+    expect(await screen.findByText(/Your role can’t see this any more/)).toBeInTheDocument()
   })
 
   it('shows the Flags heading and the member picker’s skeleton while the tenant loads', async () => {

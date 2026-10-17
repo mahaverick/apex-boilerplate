@@ -12,7 +12,7 @@ import { pageTitle } from '@/constants/app'
 import { FLAGS_LIST_ERROR } from '@/constants/flags.constants'
 import { platformRoleAtLeast, ROLE_LABELS } from '@/constants/roles'
 import { isRoleDenied } from '@/lib/role-denied'
-import { flagsListQueryOptions } from '@/queries/flag-inspector.queries'
+import { useFlagRegistry } from '@/queries/flag-inspector.queries'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { memberName, useMembers } from '@/queries/tenant.queries'
 import { tenantFlagsSearchSchema } from '@/schemas/flags.schemas'
@@ -55,7 +55,7 @@ function TenantFlagsPanel({ tenant }: { tenant: PlatformTenantDetail }) {
   const { userId } = Route.useSearch()
   const navigate = Route.useNavigate()
   const members = useMembers(tenant.slug, tenant.id)
-  const flags = useQuery(flagsListQueryOptions())
+  const flags = useFlagRegistry()
 
   if (members.isError || flags.isError) {
     if (isRoleDenied(members.error) || isRoleDenied(flags.error)) return <RoleDenied />
@@ -94,7 +94,7 @@ function TenantFlagsPanel({ tenant }: { tenant: PlatformTenantDetail }) {
       ) : (
         <FlagEvaluation
           params={{ userId: picked.user.id, tenantId: tenant.id, app: 'react' }}
-          registry={flags.data.items}
+          registry={flags.data}
         />
       )}
     </div>

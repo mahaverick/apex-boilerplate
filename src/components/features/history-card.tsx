@@ -1,21 +1,23 @@
-import { ActivityList } from '@/components/features/activity/activity-list'
+import { ACTION_FILTER } from '@/components/features/activity/activity-filters'
+import { ActivityTable } from '@/components/features/activity/activity-table'
+import { useListQuery } from '@/components/shared/data-table/use-list-query'
+import { useListSearch } from '@/components/shared/data-table/use-list-search'
+import { EmptyState } from '@/components/shared/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { platformRoleAtLeast } from '@/constants/roles'
-import {
-  flattenAuditPages,
-  usePlatformAuditLog,
-  type PlatformAuditFilters,
-} from '@/queries/audit.queries'
+import { historyList, platformAuditListOptions } from '@/queries/audit.queries'
 import { useAuthStore } from '@/states/auth.store'
 
 /** What a history card needs: the audit filter, the record it sits on, and its heading and empty text. */
 interface HistoryCardProps {
-  /** The platform audit-log filter that picks this record's entries. */
-  filters: PlatformAuditFilters
+  /** The platform audit-log filter that picks this record's entries, in the API's names. */
+  filters: { target?: string; tenant?: string; access?: 'platform' }
   /** The record the card sits on; an entry targeting it gets no link back to this page. */
   subjectId: string
   title: string
   emptyMessage: string
+  /** Whether the entries name their tenant: the user's card lists every tenant's. */
+  showTenant?: boolean
 }
 
 /**
@@ -23,17 +25,17 @@ interface HistoryCardProps {
  * owners (its route answers 404 below admin), so a viewer gets no card rather
  * than an error.
  */
-function HistoryCard({ filters, subjectId, title, emptyMessage }: HistoryCardProps) {
+function HistoryCard(props: HistoryCardProps) {
   const role = useAuthStore((s) => s.user?.platformRole)
   if (!platformRoleAtLeast(role, 'admin')) return null
-  return (
-    <History filters={filters} subjectId={subjectId} title={title} emptyMessage={emptyMessage} />
-  )
+  return <History {...props} />
 }
 
 /** The card's body, mounted only for a role that may read the platform audit log. */
-function History({ filters, subjectId, title, emptyMessage }: HistoryCardProps) {
-  const log = usePlatformAuditLog(filters)
+function History({ filters, subjectId, title, emptyMessage, showTenant }: HistoryCardProps) {
+  const list = useListSearch(historyList)
+  // The card's fixed filter is spread last; `historyList` filters only by `action`, so the two never name the same param.
+  const log = useListQuery(list, (request) => platformAuditListOptions({ ...request, ...filters }))
   const headingId = `history-${subjectId}`
   return (
     <section aria-labelledby={headingId}>
@@ -44,17 +46,14 @@ function History({ filters, subjectId, title, emptyMessage }: HistoryCardProps) 
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ActivityList
-            entries={flattenAuditPages(log.data)}
-            isPending={log.isPending}
-            isError={log.isError}
-            onRetry={() => void log.refetch()}
-            hasNextPage={log.hasNextPage}
-            isFetchingNextPage={log.isFetchingNextPage}
-            isFetchNextPageError={log.isFetchNextPageError}
-            onLoadMore={() => void log.fetchNextPage()}
-            emptyMessage={emptyMessage}
+          <ActivityTable
+            query={log}
+            label={title}
+            landmark={false}
             subjectId={subjectId}
+            showTenant={showTenant}
+            filters={[ACTION_FILTER]}
+            empty={<EmptyState size="compact" title={emptyMessage} />}
           />
         </CardContent>
       </Card>
@@ -70,7 +69,8 @@ function History({ filters, subjectId, title, emptyMessage }: HistoryCardProps) 
 export function UserHistoryCard({ userId }: { userId: string }) {
   return (
     <HistoryCard
-      filters={{ targetId: userId }}
+      filters={{ target: userId }}
+      showTenant
       subjectId={userId}
       title="Recorded actions on this account"
       emptyMessage="Nothing recorded yet."
@@ -87,7 +87,7 @@ export function UserHistoryCard({ userId }: { userId: string }) {
 export function TenantHistoryCard({ tenantId }: { tenantId: string }) {
   return (
     <HistoryCard
-      filters={{ tenantId, access: 'platform' }}
+      filters={{ tenant: tenantId, access: 'platform' }}
       subjectId={tenantId}
       title="Staff actions on this tenant"
       emptyMessage="No staff actions recorded yet."

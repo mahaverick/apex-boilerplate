@@ -5,6 +5,7 @@
  * reaching the database is a Postgres 22001 (a 500), not a 400. Not
  * sibling-synced: the two apps' tenant forms differ.
  */
+import '@/lib/zod-jitless'
 import { z } from 'zod'
 import { MEMBERSHIP_ROLES } from '@/constants/roles'
 import { emailSchema } from '@/schemas/auth.schemas'

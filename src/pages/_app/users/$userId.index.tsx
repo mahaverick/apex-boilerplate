@@ -22,12 +22,14 @@ import { platformRoleAtLeast, ROLE_LABELS } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { statusFrom } from '@/lib/api-error'
 import { formatDate, fullName } from '@/lib/format'
+import { historyList } from '@/queries/audit.queries'
 import { platformUserQueryOptions } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import type { PlatformUserDetail } from '@/types/api.types'
 
 /** One user's page: the account, its tenants, emails and, for admins, history. */
 export const Route = createFileRoute('/_app/users/$userId/')({
+  validateSearch: historyList.schema,
   head: () => ({ meta: [{ title: pageTitle('User') }] }),
   component: UserDetailPage,
   pendingComponent: DetailPending,
@@ -131,7 +133,7 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
           {isAdmin && (
             <Link
               to={ROUTES.flags}
-              search={{ userId: user.id, app: 'react' }}
+              search={{ userId: user.id }}
               className={buttonVariants({ variant: 'outline', size: 'sm' })}
             >
               Flags

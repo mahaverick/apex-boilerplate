@@ -5,6 +5,7 @@
  * be blank unless the change switches on or escalates, which also needs the
  * API's environment typed.
  */
+import '@/lib/zod-jitless'
 import { z } from 'zod'
 import { MAINTENANCE_TEXT_MAX_LENGTH } from '@/constants/maintenance-mode.constants'
 import { isSwitchOn } from '@/lib/maintenance-mode'

@@ -1,27 +1,22 @@
 import { Link } from '@tanstack/react-router'
-import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
-import { useMemo } from 'react'
+import { createColumnHelper } from '@tanstack/react-table'
+import type { ReactNode } from 'react'
 import { EmailStatusBadge } from '@/components/features/emails/email-status-badge'
 import { EmailTenantLink } from '@/components/features/emails/email-tenant-link'
+import { DataTable } from '@/components/shared/data-table/data-table'
+import type {
+  DataTableFeatures,
+  DataTableFilter,
+} from '@/components/shared/data-table/data-table-model'
+import type { ListQueryState } from '@/components/shared/data-table/use-list-query'
 import { Pii } from '@/components/shared/pii'
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { templateLabel } from '@/constants/email.constants'
 import { ROUTES } from '@/constants/routes'
 import { formatDateTime } from '@/lib/format'
+import { analyticsKey } from '@/observability/telemetry'
 import type { EmailMessageSummary } from '@/types/api.types'
 
-/** No optional features: the API orders, filters and pages. */
-const features = tableFeatures({})
-
-const column = createColumnHelper<typeof features, EmailMessageSummary>()
+const column = createColumnHelper<DataTableFeatures, EmailMessageSummary>()
 
 const none = <span className="text-muted-foreground">—</span>
 
@@ -48,6 +43,7 @@ const columns = column.columns([
   }),
   column.accessor('createdAt', {
     header: 'Created',
+    meta: { sorts: ['-created', 'created'], sortName: analyticsKey('created'), sortWords: 'date' },
     cell: ({ getValue }) => formatDateTime(getValue()) ?? 'Unknown',
   }),
   column.accessor('user', {
@@ -80,56 +76,50 @@ const columns = column.columns([
   }),
 ])
 
+/** The columns, and without Tenant for a page that is one tenant's. */
+const COLUMNS = {
+  all: columns,
+  tenant: columns.filter((def) => !('accessorKey' in def && def.accessorKey === 'tenant')),
+}
+
 /**
- * One page of tracked email, newest first as the API orders it. The
- * recipient opens the message; the User and Tenant columns link to their
- * records, and a dash is a mail with none, or one whose record was purged.
- * `label` names the table for a page that shows more than one; `omit` drops
- * a column that would only repeat the page's own record, `tenant` on a
+ * Tracked email, newest first as the API orders it, through the shared list
+ * table. The recipient opens the message; the User and Tenant columns link to
+ * their records, and a dash is a mail with none, or one whose record was
+ * purged. `label` names the table for a page that shows more than one; `omit`
+ * drops a column that would only repeat the page's own record, `tenant` on a
  * tenant's Emails tab.
  */
 export function EmailsTable({
-  rows,
+  query,
+  empty,
+  errorMessage,
   label = 'Emails',
   omit,
+  toolbar,
+  filters,
 }: {
-  rows: EmailMessageSummary[]
+  query: ListQueryState<EmailMessageSummary>
+  empty: ReactNode
+  /** The page's own load-error copy. */
+  errorMessage: string
   label?: string
-  omit?: 'user' | 'tenant'
+  omit?: 'tenant'
+  /** The list's own controls beside the search box, such as the date range. */
+  toolbar?: ReactNode
+  filters: readonly DataTableFilter[]
 }) {
-  const shown = useMemo(
-    () =>
-      omit === undefined
-        ? columns
-        : columns.filter((def) => !('accessorKey' in def && def.accessorKey === omit)),
-    [omit]
-  )
-  const table = useTable({ features, columns: shown, data: rows, getRowId: (row) => row.id })
   return (
-    <Table aria-label={label}>
-      <TableCaption className="sr-only">Tracked email, newest first</TableCaption>
-      <TableHeader>
-        {table.getHeaderGroups().map((group) => (
-          <TableRow key={group.id}>
-            {group.headers.map((header) => (
-              <TableHead key={header.id} scope="col">
-                <table.FlexRender header={header} />
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.map((row) => (
-          <TableRow key={row.id}>
-            {row.getAllCells().map((cell) => (
-              <TableCell key={cell.id}>
-                <table.FlexRender cell={cell} />
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <DataTable
+      columns={COLUMNS[omit ?? 'all']}
+      query={query}
+      label={label}
+      getRowId={(row) => row.id}
+      empty={empty}
+      errorMessage={errorMessage}
+      search={{ label: 'Search emails', placeholder: 'Search by recipient' }}
+      filters={filters}
+      toolbar={toolbar}
+    />
   )
 }

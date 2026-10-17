@@ -1,3 +1,4 @@
+import '@/lib/zod-jitless'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'

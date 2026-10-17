@@ -4,12 +4,12 @@ import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
-import { auditKeys } from '@/queries/audit.queries'
-import { emailKeys } from '@/queries/email.queries'
+import { platformAuditListOptions, tenantAuditListOptions } from '@/queries/audit.queries'
+import { emailKeys, emailsListOptions } from '@/queries/email.queries'
 import {
   onboardingFunnelQueryOptions,
   onboardingKeys,
-  onboardingTenantsQueryOptions,
+  onboardingTenantsListOptions,
   tenantOnboardingQueryOptions,
   useCompleteOnboardingStep,
   useSendOnboardingReminder,
@@ -18,6 +18,7 @@ import { invalidateDirectory, platformKeys } from '@/queries/platform.queries'
 import { useCreatePlatformTenant } from '@/queries/tenant-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { TENANT_ID } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import {
   fail,
   ok,
@@ -31,15 +32,15 @@ import { server } from '@/tests/mocks/server'
 /** Every onboarding cache a staff write can make stale. */
 const ONBOARDING_KEYS: QueryKey[] = [
   onboardingKeys.funnel('30d'),
-  onboardingKeys.tenants({ state: 'stuck', limit: 20 }),
+  onboardingTenantsListOptions('stuck', {}).queryKey,
   onboardingKeys.tenant(TENANT_ID),
 ]
 
 /** What else a staff onboarding write refreshes: the Overview's stuck count and both logs. */
 const AROUND: QueryKey[] = [
   platformKeys.stats('7d'),
-  auditKeys.tenant('acme', {}, TENANT_ID),
-  auditKeys.platform({ tenantId: TENANT_ID, access: 'platform' }),
+  tenantAuditListOptions('acme', TENANT_ID, {}).queryKey,
+  platformAuditListOptions({ tenant: TENANT_ID, access: 'platform' }).queryKey,
 ]
 
 /** A provider around `client`, so the test can read the cache a hook wrote. */
@@ -82,30 +83,30 @@ describe('onboarding reads', () => {
     expect(funnel.totals).toEqual(testOnboardingFunnel.totals)
   })
 
-  it('sends the state, a cursor with its direction, and the page size', async () => {
+  it('sends the state with the list request, and asks for the total on the first page only', async () => {
     const seen: Record<string, string>[] = []
     server.use(
       http.get('/api/v1/platform/onboarding/tenants', ({ request }) => {
         seen.push(Object.fromEntries(new URL(request.url).searchParams))
-        return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'OK')
+        return ok(listPage([]), 'OK')
       })
     )
     const client = new QueryClient()
     await client.fetchQuery(
-      onboardingTenantsQueryOptions({ state: 'complete', cursor: 'c1', direction: 'prev' })
+      onboardingTenantsListOptions('complete', { cursor: 'c1', direction: 'prev' })
     )
-    await client.fetchQuery(onboardingTenantsQueryOptions({ state: 'stuck', direction: 'prev' }))
+    await client.fetchQuery(onboardingTenantsListOptions('stuck', { sort: 'name' }))
     expect(seen).toEqual([
-      { state: 'complete', cursor: 'c1', direction: 'prev', limit: '20' },
-      { state: 'stuck', limit: '20' },
+      { state: 'complete', cursor: 'c1', direction: 'prev' },
+      { state: 'stuck', sort: 'name', total: '1' },
     ])
   })
 
   it('answers every read from the default handlers, so a page that embeds one needs no setup', async () => {
     const client = new QueryClient()
-    await expect(
-      client.fetchQuery(onboardingTenantsQueryOptions({ state: 'stuck' }))
-    ).resolves.toEqual({ tenants: [], nextCursor: null, prevCursor: null })
+    await expect(client.fetchQuery(onboardingTenantsListOptions('stuck', {}))).resolves.toEqual(
+      listPage([])
+    )
     await expect(client.fetchQuery(tenantOnboardingQueryOptions(TENANT_ID))).resolves.toEqual(
       tenantOnboardingDetail()
     )
@@ -140,7 +141,7 @@ describe('onboarding writes', () => {
         }
       )
     )
-    const client = seeded([...ONBOARDING_KEYS, ...AROUND, emailKeys.list({ limit: 20 })])
+    const client = seeded([...ONBOARDING_KEYS, ...AROUND, emailsListOptions({}).queryKey])
     const { result } = renderHook(() => useCompleteOnboardingStep(TENANT_ID, 'acme'), {
       wrapper: wrapperWith(client),
     })
@@ -154,10 +155,10 @@ describe('onboarding writes', () => {
     expect(client.getQueryState(onboardingKeys.tenant(TENANT_ID))?.isInvalidated).toBe(false)
     expectStale(client, [
       onboardingKeys.funnel('30d'),
-      onboardingKeys.tenants({ state: 'stuck', limit: 20 }),
+      onboardingTenantsListOptions('stuck', {}).queryKey,
       ...AROUND,
     ])
-    expect(client.getQueryState(emailKeys.list({ limit: 20 }))?.isInvalidated).toBe(false)
+    expect(client.getQueryState(emailsListOptions({}).queryKey)?.isInvalidated).toBe(false)
   })
 
   it('refreshes the same after a refusal, since the cached state was stale', async () => {
@@ -184,7 +185,7 @@ describe('onboarding writes', () => {
         return ok({ emailSent: false, recipientCount: 2 }, 'Reminder sent.', 202)
       })
     )
-    const emails = [emailKeys.list({ tenantId: TENANT_ID, limit: 20 }), emailKeys.detail('x')]
+    const emails = [emailsListOptions({ tenant: TENANT_ID }).queryKey, emailKeys.detail('x')]
     const client = seeded([...ONBOARDING_KEYS, ...AROUND, ...emails])
     const { result } = renderHook(() => useSendOnboardingReminder(TENANT_ID, 'acme'), {
       wrapper: wrapperWith(client),
@@ -202,14 +203,14 @@ describe('onboarding writes', () => {
         fail('A reminder went out less than 24 hours ago.', 409, 'reminded_recently')
       )
     )
-    const client = seeded([...ONBOARDING_KEYS, ...AROUND, emailKeys.list({ limit: 20 })])
+    const client = seeded([...ONBOARDING_KEYS, ...AROUND, emailsListOptions({}).queryKey])
     const { result } = renderHook(() => useSendOnboardingReminder(TENANT_ID, 'acme'), {
       wrapper: wrapperWith(client),
     })
     result.current.mutate('Stalled since the call')
     await waitFor(() => expect(result.current.isError).toBe(true))
     await waitFor(() =>
-      expectStale(client, [...ONBOARDING_KEYS, ...AROUND, emailKeys.list({ limit: 20 })])
+      expectStale(client, [...ONBOARDING_KEYS, ...AROUND, emailsListOptions({}).queryKey])
     )
   })
 })

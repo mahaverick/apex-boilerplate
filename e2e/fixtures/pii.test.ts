@@ -40,7 +40,7 @@ for (const [name, path, ready] of [
   ['an email’s preview', `${DELIVERED}?tab=preview`, 'cleo.d@example.com'],
   ['a bounced email', BOUNCED, 'a-very-long-address-for-the-overflow-check@example-corp.co.uk'],
   ['deliverability', '/deliverability', 'Deliverability'],
-  ['suppressions, active and lifted', '/suppressions?state=all', 'Suppressions'],
+  ['suppressions, active and lifted', '/suppressions?state=active,lifted', 'Suppressions'],
   ['onboarding', '/onboarding', 'Onboarding'],
   [
     'maintenance, with the banner',
@@ -74,8 +74,23 @@ for (const [name, path] of [
 
 test('the flags user picker lists its matches inside Pii', async ({ page }) => {
   await page.goto('/e2e/harness/?path=/settings/platform/flags')
+  // The page reads its meta, the registry and the unregistered flags apart; the picker is there once the registry has landed.
+  await expect(page.getByRole('table', { name: 'Registered flags', exact: true })).toBeVisible()
   await page.getByRole('searchbox', { name: 'Find a user' }).fill('c')
   await expect(page.getByRole('list', { name: 'Matching users' })).toBeVisible()
+  expect(await unmaskedPii(page, NAMES)).toEqual([])
+})
+
+/**
+ * The Activity page's sentence: a reason a staff member typed can name a
+ * person, and the sentence carries it, so the whole sentence renders inside Pii.
+ */
+test('the activity sentence keeps a reason’s typed name inside Pii', async ({ page }) => {
+  await page.goto('/e2e/harness/?path=/activity')
+  const sentence = page.getByText(/Escalated by Cleo D after the overdue invoices/)
+  await expect(sentence).toBeVisible()
+  await expect(sentence).toHaveClass(/ph-sensitive/)
+  await expect(sentence).toHaveClass(/ph-mask/)
   expect(await unmaskedPii(page, NAMES)).toEqual([])
 })
 
