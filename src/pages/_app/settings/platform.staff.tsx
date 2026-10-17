@@ -43,6 +43,7 @@ function StaffPage() {
       />
       <InvitationsSection
         slug={PLATFORM_TENANT_SLUG}
+        showRoleError={false}
         inviteTitle="Invite staff"
         inviteDescription="We email them a link to join as staff. The link opens Apex; someone without an account creates one with that address."
       />

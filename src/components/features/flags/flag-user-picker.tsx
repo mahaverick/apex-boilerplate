@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { fullName } from '@/lib/format'
-import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { usersListOptions } from '@/queries/user-admin.queries'
 import { cleanSearch } from '@/schemas/list-request.schemas'
+import { LIST_SEARCH_DEBOUNCE_MS } from '@/types/list.types'
 
 /** How many matches the picker lists. */
 const PICKER_LIMIT = 8
@@ -20,7 +20,7 @@ const PICKER_LIMIT = 8
  */
 export function FlagUserPicker({ onPick }: { onPick: (userId: string) => void }) {
   const [draft, setDraft] = useState('')
-  const term = useDebouncedValue(draft.trim(), SEARCH_DEBOUNCE_MS)
+  const term = useDebouncedValue(draft.trim(), LIST_SEARCH_DEBOUNCE_MS)
   const sent = cleanSearch(term)
   const users = useQuery({
     ...usersListOptions(

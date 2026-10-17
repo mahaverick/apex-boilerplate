@@ -12,9 +12,6 @@ import { invalidateEmails } from '@/queries/email.queries'
 import { onboardingKeys } from '@/queries/onboarding.queries'
 import type { ApiSuccess, PlatformStats, StatsRange, SystemStatus } from '@/types/api.types'
 
-/** How long a tenant search box waits for typing to stop before asking the API. */
-export const SEARCH_DEBOUNCE_MS = 250
-
 /** Query keys for the Overview's figures and the system status; tenant search and paging live in tenant-admin.queries.ts. */
 export const platformKeys = {
   stats: (range: string) => ['platform', 'stats', range] as const,

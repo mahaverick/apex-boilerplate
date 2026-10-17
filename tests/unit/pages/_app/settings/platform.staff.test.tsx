@@ -42,6 +42,7 @@ describe('/settings/platform/staff', () => {
       })
       expect(invitationsProps).toHaveBeenLastCalledWith({
         slug: 'platform',
+        showRoleError: false,
         inviteTitle: 'Invite staff',
         inviteDescription:
           'We email them a link to join as staff. The link opens Apex; someone without an account creates one with that address.',

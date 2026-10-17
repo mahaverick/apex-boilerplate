@@ -2,7 +2,6 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { byContent } from '@/tests/fixtures/content'
 import { listPage } from '@/tests/fixtures/list-page'
@@ -11,6 +10,7 @@ import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type { PlatformTenantDetail, PlatformTenantRow } from '@/types/api.types'
+import { LIST_SEARCH_DEBOUNCE_MS } from '@/types/list.types'
 
 /** A tenant row numbered `index`: named "Tenant NN" with `index` members. */
 function row(
@@ -301,7 +301,7 @@ describe('/tenants', () => {
     )
     await waitFor(() => expect(seen.at(-1)?.get('search')).toBe('Beta'))
     // A revert would come from the search box's debounce firing with the old term, and nothing observable marks that it did not.
-    await settle(SEARCH_DEBOUNCE_MS * 2, 'the debounce window a stale term would navigate in')
+    await settle(LIST_SEARCH_DEBOUNCE_MS * 2, 'the debounce window a stale term would navigate in')
     expect(router.state.location.search).toEqual({ search: 'Beta' })
   })
 

@@ -21,10 +21,10 @@ The platform activity log across every tenant (`/activity`), for admins and owne
 
 Every filter lives in the URL, so Back undoes one. The Actor facet lists the first hundred staff by name; a URL naming another actor still filters, and its chip resolves the name. When the staff read fails, the facet says "Actor could not be loaded." and offers Try again.
 
-| Loading                                        | Error                                                                                                                                | Empty                                          |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| ![](img/activity/activity--loading.jpg)        | ![](img/activity/activity--error.jpg)                                                                                                | ![](img/activity/activity--empty.jpg)          |
-| skeleton · the card and filters over 2× `h-14` | alert · `LoadError` "We could not load the activity, so none is listed here. This is not a sign that there is none." inside the card | log stubbed empty: "Nothing has happened yet." |
+| Loading                                                                  | Error                                                                                                                                | Empty                                          |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| ![](img/activity/activity--loading.jpg)                                  | ![](img/activity/activity--error.jpg)                                                                                                | ![](img/activity/activity--empty.jpg)          |
+| skeleton · the card and filters over `DataTable`’s table-shaped skeleton | alert · `LoadError` "We could not load the activity, so none is listed here. This is not a sign that there is none." inside the card | log stubbed empty: "Nothing has happened yet." |
 
 | Role-denied                                                               |
 | ------------------------------------------------------------------------- |

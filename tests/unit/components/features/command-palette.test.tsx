@@ -12,13 +12,13 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CommandPalette } from '@/components/features/command-palette'
-import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { listPage } from '@/tests/fixtures/list-page'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import { LIST_SEARCH_DEBOUNCE_MS } from '@/types/list.types'
 
 const ACME = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -389,7 +389,7 @@ describe('CommandPalette', () => {
     await user.keyboard('acme')
 
     await settle(
-      SEARCH_DEBOUNCE_MS * 2,
+      LIST_SEARCH_DEBOUNCE_MS * 2,
       'absence has no event: a request would follow the debounce'
     )
     expect(calls).toBe(0)

@@ -21,17 +21,22 @@ export function InvitationsSection({
   inviteTitle = 'Invite a member',
   inviteDescription = DEFAULT_INVITE_DESCRIPTION,
   tenantId,
+  showRoleError = true,
 }: {
   slug: string
   inviteTitle?: string
   inviteDescription?: string
   /** An Apex tenant page's id, scoping the cache; the Staff page passes none. */
   tenantId?: string
+  /** False when a sibling section on the page reads the same role and reports its failure, so it shows once (the Staff page). Try again there retries this one too. */
+  showRoleError?: boolean
 }) {
   const { role, access, isPending, isError, retry } = useMyRole(slug, tenantId)
   const asStaff = access === 'platform'
   if (isPending) return <Skeleton className="h-40 w-full" />
-  if (isError || !role) return <LoadError message={ROLE_ERROR} onRetry={retry} />
+  if (isError || !role) {
+    return showRoleError ? <LoadError message={ROLE_ERROR} onRetry={retry} /> : null
+  }
   if (!canManageTenant(role)) {
     return (
       <Note tone="passive">

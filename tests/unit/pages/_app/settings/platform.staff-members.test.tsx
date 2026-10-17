@@ -248,6 +248,32 @@ describe('/staff with the real sections', () => {
     }
   )
 
+  it('shows the role failure once on the Staff page, with a Try again that retries it', async () => {
+    serveStaff('owner', 'viewer')
+    let roleFails = true
+    server.use(
+      http.get('/api/v1/tenants/platform', () => {
+        return roleFails
+          ? fail('Server error', 500)
+          : ok(
+              { ...PLATFORM, isPlatform: true, role: 'owner', access: 'member' },
+              'Tenant retrieved.'
+            )
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt('/settings/platform/staff')
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/could not load your role in this tenant/i)
+    // The invitations section waits silently: no second alert, no invite form.
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    expect(screen.queryByRole('heading', { name: 'Invite staff' })).not.toBeInTheDocument()
+    roleFails = false
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('heading', { name: 'Invite staff' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('keeps the staff search and the invitations search apart', async () => {
     serveStaff('owner', 'viewer')
     const memberReads: URLSearchParams[] = []

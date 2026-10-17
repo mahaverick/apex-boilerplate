@@ -22,12 +22,12 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { isRoleDenied } from '@/lib/role-denied'
 import { useFlagValues } from '@/observability/flags/flag-hooks'
 import { analyticsKey, track } from '@/observability/telemetry'
-import { SEARCH_DEBOUNCE_MS } from '@/queries/platform.queries'
 import { tenantsListOptions } from '@/queries/tenant-admin.queries'
 import { usersListOptions } from '@/queries/user-admin.queries'
 import { cleanSearch } from '@/schemas/list-request.schemas'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
+import { LIST_SEARCH_DEBOUNCE_MS } from '@/types/list.types'
 
 /** How many tenants, and how many users, the palette lists for a term. */
 const RESULTS_PER_GROUP = 8
@@ -75,7 +75,7 @@ export function CommandPalette() {
   }
   const staff = isStaff(role)
   const current = query.trim()
-  const term = useDebouncedValue(current, SEARCH_DEBOUNCE_MS)
+  const term = useDebouncedValue(current, LIST_SEARCH_DEBOUNCE_MS)
   // The API refuses an empty `search`, and a term it would cut or strip is searched as it will be sent.
   const sent = cleanSearch(term)
   const request = { ...(sent === '' ? {} : { search: sent }), limit: RESULTS_PER_GROUP }

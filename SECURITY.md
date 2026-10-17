@@ -619,7 +619,8 @@ Some of what staff see comes from someone the API does not vouch for.
   (`location ~* ^/api/v1/auth/google/callback/?$`, whose `code` and `state`
   are credentials) sets its error log to `crit`. Every other path under
   `/api/` still writes its query string on an upstream error, including the
-  term (`q`) of every staff search sent as a query string, often an email
+  term (`search`, or the prefixed `invitationsSearch`,
+  `historySearch` and `unregisteredSearch`) of every staff search sent as a query string, often an email
   address: the users and tenants directories (the command palette's searches
   among them), the emails list and the suppressions list.
 - **HSTS is the edge's job.** See [CSP and headers](#csp-and-headers).

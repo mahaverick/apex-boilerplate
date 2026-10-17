@@ -432,8 +432,8 @@ What is particular to this app:
 - **Reads that show no total** pass `total: false`: the command palette and the
   user and tenant pickers (`tenantsListOptions`, `usersListOptions`; the palette
   also sets `placeholderData: undefined`, since a stale page is not its
-  results), a user's Emails card, the flag registry read behind the user
-  evaluation, and the owners read.
+  results), a user's Emails card and the flag registry read behind the user
+  evaluation. The owners read is not a list query and asks for no total.
 - **The last-owner rule under paging.** A members page holds one page, so the
   owners come from their own read (`ownersQueryOptions`: `role=owner`,
   `limit=100`, no total). `ownersBesides` counts the owners other than the
