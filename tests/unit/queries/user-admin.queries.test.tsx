@@ -10,7 +10,7 @@ import { ok } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
 /** A History card's cached page: every write must mark it stale. */
-const AUDIT_KEY = auditKeys.platform({ targetId: USER_ID_2 })
+const AUDIT_KEY = [...auditKeys.platformAll, { target: USER_ID_2 }]
 
 /** A provider around `client`, so the test can read the cache a hook wrote. */
 function wrapperWith(client: QueryClient) {

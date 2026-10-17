@@ -39,8 +39,8 @@ const ONBOARDING_KEYS: QueryKey[] = [
 /** What else a staff onboarding write refreshes: the Overview's stuck count and both logs. */
 const AROUND: QueryKey[] = [
   platformKeys.stats('7d'),
-  auditKeys.tenant('acme', {}, TENANT_ID),
-  auditKeys.platform({ tenantId: TENANT_ID, access: 'platform' }),
+  [...auditKeys.tenantAll('acme'), { tenantId: TENANT_ID }],
+  [...auditKeys.platformAll, { tenant: TENANT_ID, access: 'platform' }],
 ]
 
 /** A provider around `client`, so the test can read the cache a hook wrote. */

@@ -46,9 +46,7 @@ beforeEach(() => {
       ok(listPage([CLEO], { nextCursor: 'c2', hasNext: true }), 'Users retrieved.')
     ),
     http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')),
-    http.get('/api/v1/platform/audit-log', () =>
-      ok({ entries: [], nextCursor: null }, 'Audit log retrieved.')
-    ),
+    http.get('/api/v1/platform/audit-log', () => ok(listPage([]), 'Audit log retrieved.')),
     http.get('/api/v1/tenants/platform/members', () => ok(listPage([]), 'Members retrieved.'))
   )
 })
@@ -110,7 +108,10 @@ describe('table_filtered', () => {
     signIn(testUser)
     const user = userEvent.setup()
     renderAppAt('/activity')
-    await user.click(await screen.findByRole('switch', { name: 'Staff only' }))
+    await user.click(await screen.findByRole('button', { name: 'Filter by access, Activity' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by access, Activity' })
+    await user.click(within(popup).getByRole('checkbox', { name: 'Staff' }))
+    await waitFor(() => expect(eventsNamed('table_filtered')).toHaveLength(1))
     expect(eventsNamed('table_filtered')).toEqual([{ table: 'activity' }])
   })
 })

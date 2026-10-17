@@ -587,9 +587,7 @@ export const handlers = [
     ok(testSystemStatus, 'System status retrieved.')
   ),
   // The platform audit log, empty.
-  http.get('/api/v1/platform/audit-log', () =>
-    ok({ entries: [], nextCursor: null }, 'Audit log retrieved.')
-  ),
+  http.get('/api/v1/platform/audit-log', () => ok(listPage([]), 'Audit log retrieved.')),
   // A tenant's members and pending invitations default to empty pages; a page test serves its own rows.
   http.get('/api/v1/tenants/:slug/members', () => ok(listPage([]), 'Members retrieved.')),
   http.get('/api/v1/tenants/:slug/invitations', () => ok(listPage([]), 'Invitations retrieved.')),

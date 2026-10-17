@@ -9,6 +9,7 @@ import { useAuthStore } from '@/states/auth.store'
 import { byContent } from '@/tests/fixtures/content'
 import {
   AUDIT_ID_1,
+  AUDIT_ID_2,
   INVITATION_ID,
   INVITATION_ID_2,
   MEMBERSHIP_ID_2,
@@ -85,7 +86,7 @@ function serve(tenant: PlatformTenantDetail, effectiveRole: MembershipRole = 'ad
       internal.push(path)
       if (path.endsWith('/members')) return ok(listPage(MEMBERS), 'ok')
       if (path.endsWith('/invitations')) return ok(listPage([]), 'ok')
-      return ok({ entries: [], nextCursor: null }, 'ok')
+      return ok(listPage([]), 'ok')
     })
   )
   return internal
@@ -931,21 +932,18 @@ describe('/tenants/$tenantId', () => {
         http.get('/api/v1/platform/audit-log', ({ request }) => {
           params = new URL(request.url).searchParams
           return ok(
-            {
-              entries: [
-                {
-                  id: AUDIT_ID_1,
-                  occurredAt: '2026-09-25T09:00:00.000Z',
-                  action: 'tenant.owner_invited',
-                  access: 'platform',
-                  actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
-                  target: { type: 'tenant', id: TENANT_ID },
-                  metadata: { emailDomain: 'acme.test', reason: 'Owner left' },
-                  tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
-                },
-              ],
-              nextCursor: null,
-            },
+            listPage([
+              {
+                id: AUDIT_ID_1,
+                occurredAt: '2026-09-25T09:00:00.000Z',
+                action: 'tenant.owner_invited',
+                access: 'platform',
+                actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
+                target: { type: 'tenant', id: TENANT_ID },
+                metadata: { emailDomain: 'acme.test', reason: 'Owner left' },
+                tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
+              },
+            ]),
             'Audit log retrieved.'
           )
         })
@@ -955,9 +953,12 @@ describe('/tenants/$tenantId', () => {
       expect(
         await within(card).findByText(/invited someone at acme\.test as the owner/)
       ).toBeInTheDocument()
-      expect(params?.get('tenantId')).toBe(TENANT_ID)
+      expect(params?.get('tenant')).toBe(TENANT_ID)
       expect(params?.get('access')).toBe('platform')
-      expect(params?.get('targetId')).toBeNull()
+      expect(params?.get('target')).toBeNull()
+      expect(
+        within(card).getByRole('table', { name: 'Staff actions on this tenant' })
+      ).toBeVisible()
       expect(within(card).queryByRole('link', { name: 'View tenant' })).not.toBeInTheDocument()
     })
 
@@ -997,26 +998,68 @@ describe('/tenants/$tenantId', () => {
       server.use(
         http.get('/api/v1/tenants/acme/audit-log', () =>
           ok(
-            {
-              entries: [
-                {
-                  id: '60000000-0000-4000-8000-000000000001',
-                  action: 'tenant.created',
-                  access: 'member',
-                  actor: { id: USER_ID_2, email: 'olive@acme.test', name: 'Olive Owner' },
-                  target: { type: 'tenant', id: TENANT_ID },
-                  metadata: { name: 'Acme Corp', slug: 'acme' },
-                  occurredAt: '2026-09-28T00:00:00.000Z',
-                },
-              ],
-              nextCursor: null,
-            },
+            listPage([
+              {
+                id: '60000000-0000-4000-8000-000000000001',
+                action: 'tenant.created',
+                access: 'member',
+                actor: { id: USER_ID_2, email: 'olive@acme.test', name: 'Olive Owner' },
+                target: { type: 'tenant', id: TENANT_ID },
+                metadata: { name: 'Acme Corp', slug: 'acme' },
+                occurredAt: '2026-09-28T00:00:00.000Z',
+              },
+            ]),
             'ok'
           )
         )
       )
       renderAppAt(`/tenants/${TENANT_ID}/activity`)
       expect(await screen.findByText('Olive Owner')).toBeInTheDocument()
+    })
+
+    it('pages the tenant’s activity with Next page, and filters it by action through ?action=', async () => {
+      serve(detail())
+      const seen: URLSearchParams[] = []
+      /** A member-access entry of `action`, with no target. */
+      const entry = (id: string, action: string) => ({
+        id,
+        action,
+        access: 'member',
+        actor: { id: USER_ID_2, email: 'olive@acme.test', name: 'Olive Owner' },
+        target: null,
+        metadata: {},
+        occurredAt: '2026-09-28T00:00:00.000Z',
+      })
+      server.use(
+        http.get('/api/v1/tenants/acme/audit-log', ({ request }) => {
+          const params = new URL(request.url).searchParams
+          seen.push(params)
+          return params.get('cursor') === 'a2'
+            ? ok(listPage([entry(AUDIT_ID_2, 'member.left')]), 'ok')
+            : ok(
+                listPage([entry(AUDIT_ID_1, 'tenant.created')], {
+                  hasNext: true,
+                  nextCursor: 'a2',
+                }),
+                'ok'
+              )
+        })
+      )
+      const user = userEvent.setup()
+      const router = renderAppAt(`/tenants/${TENANT_ID}/activity`)
+      await screen.findByText(/created the tenant/)
+      expect(screen.queryByRole('button', { name: /Load more/ })).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Next page' }))
+      expect(await screen.findByText('left the tenant')).toBeInTheDocument()
+      expect(router.state.location.search).toEqual({ cursor: 'a2' })
+
+      await user.click(screen.getByRole('button', { name: 'Filter by action, Activity' }))
+      const popup = await screen.findByRole('dialog', { name: 'Filter by action, Activity' })
+      await user.click(within(popup).getByRole('checkbox', { name: 'Member left' }))
+      await waitFor(() => expect(router.state.location.search).toEqual({ action: 'member.left' }))
+      await waitFor(() => expect(seen.at(-1)?.get('action')).toBe('member.left'))
+      expect(seen.at(-1)?.get('cursor')).toBeNull()
     })
 
     it('tells an effective viewer the activity is not theirs to see, and asks nothing', async () => {

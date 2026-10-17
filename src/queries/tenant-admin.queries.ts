@@ -5,23 +5,15 @@
  * tenant-writes.queries.ts (member and invitation writes), its audit log in
  * audit.queries.ts.
  */
-import {
-  keepPreviousData,
-  queryOptions,
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-  type InfiniteData,
-} from '@tanstack/react-query'
+import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
-import { isRoleDenied } from '@/lib/role-denied'
 import { analyticsKey } from '@/observability/telemetry'
 import { auditKeys } from '@/queries/audit.queries'
 import { invalidateEmails } from '@/queries/email.queries'
 import { listQueryOptions } from '@/queries/list.queries'
 import { invalidateOnboarding } from '@/queries/onboarding.queries'
-import { invalidateDirectory, PLATFORM_PAGE_SIZE } from '@/queries/platform.queries'
+import { invalidateDirectory } from '@/queries/platform.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
 import { defineList, listFilter } from '@/schemas/list.schemas'
 import type { CreatePlatformTenantInput } from '@/schemas/tenant.schemas'
@@ -30,13 +22,9 @@ import {
   type ApiSuccess,
   type EmailSentResult,
   type PlatformTenantDetail,
-  type PlatformTenantPage,
   type PlatformTenantRow,
 } from '@/types/api.types'
 import type { ListRequest } from '@/types/list.types'
-
-/** The API refuses a longer term. */
-const MAX_QUERY_LENGTH = 100
 
 /**
  * `all` prefixes every list and page key, so a write that changes what lists
@@ -46,8 +34,6 @@ const MAX_QUERY_LENGTH = 100
  */
 export const tenantAdminKeys = {
   all: ['platform', 'tenants'] as const,
-  /** The infinite search the Activity filter uses. */
-  search: (q: string) => ['platform', 'tenants', 'search', q] as const,
   detail: (id: string) => ['platform', 'tenant', id] as const,
 }
 
@@ -72,52 +58,6 @@ export function tenantsListOptions(request: ListRequest, options: { total?: bool
     request,
     ...options,
   })
-}
-
-/** A 404 answers who is asking, so a retry changes nothing. */
-function retryUnlessDenied(failureCount: number, error: Error): boolean {
-  return !isRoleDenied(error) && failureCount < 1
-}
-
-/**
- * Every tenant on the platform, for staff: case-insensitive substring of the
- * name or slug, the platform tenant itself excluded by the API.
- *
- * Non-staff get a 404 here, so the caller passes `enabled: false` for them
- * rather than asking. An empty term sends no `q` at all.
- *
- * While a new term's first page loads, `data` is the previous term's results
- * and `isPlaceholderData` is true, so a caller that shows a searching state
- * checks that as well as `isPending`.
- */
-export function usePlatformTenantSearch(q: string, { enabled }: { enabled: boolean }) {
-  const term = q.trim().slice(0, MAX_QUERY_LENGTH)
-  return useInfiniteQuery({
-    queryKey: tenantAdminKeys.search(term),
-    initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }) =>
-      unwrap(
-        await apiClient.get<ApiSuccess<PlatformTenantPage>>('/platform/tenants', {
-          params: {
-            q: term === '' ? undefined : term,
-            cursor: pageParam,
-            limit: PLATFORM_PAGE_SIZE,
-          },
-        })
-      ),
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    enabled,
-    /** The previous term's results stay listed, and pickable, while the next term loads. */
-    placeholderData: keepPreviousData,
-    retry: retryUnlessDenied,
-  })
-}
-
-/** Every loaded page of the search, flattened. */
-export function flattenTenantPages(
-  data: InfiniteData<PlatformTenantPage> | undefined
-): PlatformTenantRow[] {
-  return data?.pages.flatMap((page) => page.tenants) ?? []
 }
 
 /**

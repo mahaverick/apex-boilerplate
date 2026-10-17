@@ -21,9 +21,6 @@ export const platformKeys = {
   systemStatus: ['platform', 'system', 'status'] as const,
 }
 
-/** The API's default page; its cap is 50. */
-export const PLATFORM_PAGE_SIZE = 20
-
 /** The windows the Overview offers, in toggle order. */
 export const STATS_RANGES = ['7d', '30d'] as const satisfies readonly StatsRange[]
 

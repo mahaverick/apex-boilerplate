@@ -61,7 +61,15 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
       { name: 'Activity', endpoints: ['GET /platform/audit-log'] },
     ],
     empty: {
-      stubs: [{ endpoint: 'GET /platform/audit-log', data: { entries: [], nextCursor: null } }],
+      stubs: [
+        {
+          endpoint: 'GET /platform/audit-log',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+      ],
     },
   },
   '/deliverability': {
@@ -301,7 +309,13 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     sections: [TENANT, { name: 'Activity', endpoints: ['GET /tenants/:slug/audit-log'] }],
     empty: {
       stubs: [
-        { endpoint: 'GET /tenants/:slug/audit-log', data: { entries: [], nextCursor: null } },
+        {
+          endpoint: 'GET /tenants/:slug/audit-log',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
       ],
     },
   },
@@ -413,7 +427,15 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     responsive: true,
     sections: [TENANT, { name: 'History', endpoints: ['GET /platform/audit-log'] }],
     empty: {
-      stubs: [{ endpoint: 'GET /platform/audit-log', data: { entries: [], nextCursor: null } }],
+      stubs: [
+        {
+          endpoint: 'GET /platform/audit-log',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+      ],
     },
   },
   '/users/$userId/': {

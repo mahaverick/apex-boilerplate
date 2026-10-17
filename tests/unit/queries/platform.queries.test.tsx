@@ -5,13 +5,13 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
 import { platformStatsQueryOptions, systemStatusQueryOptions } from '@/queries/platform.queries'
-import { tenantsListOptions, usePlatformTenantSearch } from '@/queries/tenant-admin.queries'
+import { tenantsListOptions } from '@/queries/tenant-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testSystemStatus, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
-describe('usePlatformTenantSearch', () => {
+describe('tenantsListOptions', () => {
   let client: QueryClient
 
   /** A provider around the suite's `client`. */
@@ -31,7 +31,7 @@ describe('usePlatformTenantSearch', () => {
     })
   })
 
-  // A non-staff caller gets a 404 here; asking again changes nothing, the same reason `usePlatformAuditLog` does not retry one either.
+  // A non-staff caller gets a 404 here; asking again changes nothing, the same reason the audit-log options do not retry one either.
   it('does not retry a 404', async () => {
     let calls = 0
     server.use(
@@ -41,9 +41,12 @@ describe('usePlatformTenantSearch', () => {
       })
     )
 
-    const { result } = renderHook(() => usePlatformTenantSearch('', { enabled: true }), {
-      wrapper,
-    })
+    const { result } = renderHook(
+      () => useQuery(tenantsListOptions({ limit: 20 }, { total: false })),
+      {
+        wrapper,
+      }
+    )
 
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(calls).toBe(1)
@@ -58,9 +61,12 @@ describe('usePlatformTenantSearch', () => {
       })
     )
 
-    const { result } = renderHook(() => usePlatformTenantSearch('', { enabled: true }), {
-      wrapper,
-    })
+    const { result } = renderHook(
+      () => useQuery(tenantsListOptions({ limit: 20 }, { total: false })),
+      {
+        wrapper,
+      }
+    )
 
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(calls).toBe(2)

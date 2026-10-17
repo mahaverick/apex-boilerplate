@@ -210,7 +210,7 @@ function serveTenant(state: TenantLifecycleState) {
     http.get('/api/v1/tenants/acme/members', () => ok(listPage(MEMBERS), 'Members retrieved.')),
     http.get('/api/v1/tenants/acme/invitations', () => ok(listPage([]), 'Invitations retrieved.')),
     http.get('/api/v1/tenants/acme/audit-log', () =>
-      ok({ entries: AUDIT_ENTRIES, nextCursor: null }, 'Audit log retrieved.')
+      ok(listPage(AUDIT_ENTRIES), 'Audit log retrieved.')
     )
   )
 }
@@ -773,9 +773,7 @@ describe('signed-in pages', () => {
       tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
     }))
     server.use(
-      http.get('/api/v1/platform/audit-log', () =>
-        ok({ entries, nextCursor: null }, 'Audit log retrieved.')
-      ),
+      http.get('/api/v1/platform/audit-log', () => ok(listPage(entries), 'Audit log retrieved.')),
       http.get('/api/v1/tenants/platform/members', () =>
         ok(listPage(MEMBERS), 'Members retrieved.')
       )
@@ -1192,25 +1190,22 @@ describe('open overlays', () => {
     }
   )
 
-  /** A combobox whose search box lives inside the popup, so Base UI makes the popup a named `dialog` and the portaled list is exempt from `region`; graded at document scope. */
+  /** The Activity page's Tenant facet: a named `dialog` holding a search box and the tenants the API found, graded at document scope. */
   it('has no violations with the activity tenant filter open', async () => {
     useAuthStore.setState({ user: { ...testUser, platformRole: 'admin' } })
     server.use(
       http.get('/api/v1/platform/tenants', () =>
         ok(
-          {
-            tenants: [
-              {
-                id: TENANT_ID,
-                name: 'Acme Corp',
-                slug: 'acme',
-                lifecycleState: 'active',
-                memberCount: 2,
-                createdAt: '2026-01-01T00:00:00.000Z',
-              },
-            ],
-            nextCursor: null,
-          },
+          listPage([
+            {
+              id: TENANT_ID,
+              name: 'Acme Corp',
+              slug: 'acme',
+              lifecycleState: 'active',
+              memberCount: 2,
+              createdAt: '2026-01-01T00:00:00.000Z',
+            },
+          ]),
           'Tenants retrieved.'
         )
       ),
@@ -1222,21 +1217,13 @@ describe('open overlays', () => {
     renderAppAt('/activity')
     await screen.findByRole('heading', { name: 'Activity', level: 1 })
 
-    const trigger = screen.getByRole('combobox', { name: /filter by tenant/i })
-    await user.click(trigger)
+    await user.click(screen.getByRole('button', { name: /^Filter by tenant/ }))
 
+    const popup = await screen.findByRole('dialog', { name: /^Filter by tenant/ })
     // A popup that opened empty would pass axe while grading no list.
-    expect(await screen.findByRole('option', { name: 'Acme Corp' })).toBeInTheDocument()
-    // `KNOWN_INCOMPLETE` accepts `aria-valid-attr-value` here because both `aria-controls` targets exist; this asserts that.
-    const input = screen.getByLabelText('Search tenants')
-    for (const element of [trigger, input]) {
-      const controls = element.getAttribute('aria-controls')
-      expect(controls).not.toBeNull()
-      expect(document.getElementById(controls as string)).not.toBeNull()
-    }
+    expect(await within(popup).findByRole('checkbox', { name: 'Acme Corp' })).toBeInTheDocument()
+    expect(within(popup).getByRole('searchbox', { name: 'Search tenant' })).toBeInTheDocument()
     await expectNoViolations()
-    const popup = screen.getByRole('dialog', { name: 'Filter by tenant' })
-    expect(within(popup).getByRole('listbox')).toBeInTheDocument()
   })
 
   /** The ⌘K palette as the shell mounts it: a named `dialog`, so its portaled list is exempt from `region` and it is graded at document scope. */

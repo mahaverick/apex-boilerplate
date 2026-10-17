@@ -144,7 +144,7 @@ describe('member writes', () => {
     usersListOptions({ limit: 20 }).queryKey,
     tenantAdminKeys.detail(TENANT_ID),
     tenantsListOptions({}).queryKey,
-    auditKeys.platform({}),
+    [...auditKeys.platformAll, {}],
   ]
 
   beforeEach(() => {

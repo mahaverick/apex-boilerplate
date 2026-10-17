@@ -131,17 +131,6 @@ export interface PlatformTenantRow {
   createdAt: string
 }
 
-/**
- * A keyset page of `GET /platform/tenants`. Both cursors are opaque; send one
- * back as-is with `direction`. Each is null at its own end, so the first page
- * has `prevCursor: null`.
- */
-export interface PlatformTenantPage {
-  tenants: PlatformTenantRow[]
-  nextCursor: string | null
-  prevCursor: string | null
-}
-
 /** How an audit entry's actor reached the tenant. `system` is a script, with no actor. */
 export type AuditAccess = 'member' | 'platform' | 'system'
 
@@ -153,7 +142,7 @@ interface AuditActor {
 }
 
 /** The kinds of record an audit entry can point at. Mirrors express's AUDIT_TARGET_TYPES. */
-type AuditTargetType =
+export type KnownAuditTargetType =
   | 'tenant'
   | 'membership'
   | 'invitation'
@@ -162,6 +151,9 @@ type AuditTargetType =
   | 'email_message'
   | 'email_suppression'
   | 'platform'
+
+/** A target kind: a known one (autocompleted) or any other the API sends. */
+export type AuditTargetType = KnownAuditTargetType | (string & {})
 
 /**
  * The record an audit entry acted on. `platform` is the platform as a whole
@@ -193,12 +185,6 @@ export interface AuditEntry {
 /** One row of `GET /platform/audit-log`: the same entry, plus where it happened. */
 export interface PlatformAuditEntry extends AuditEntry {
   tenant: { id: string; name: string; slug: string }
-}
-
-/** A keyset page of either audit log. `nextCursor` is opaque. */
-export interface AuditPage<T extends AuditEntry> {
-  entries: T[]
-  nextCursor: string | null
 }
 
 /** One sign-in method linked to the account, as `GET /auth/providers` lists it. */

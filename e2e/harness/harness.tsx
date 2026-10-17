@@ -157,12 +157,12 @@ const SAM = { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' }
 const PLATFORM = { id: PLATFORM_TENANT_ID, name: 'Platform', slug: 'platform' }
 
 /**
- * A History card's entries: a user's (`targetId`) or a tenant's staff actions
- * (`tenantId` with `access=platform`), each carrying a long reason so the
+ * A History card's entries: a user's (`target`) or a tenant's staff actions
+ * (`tenant` with `access=platform`), each carrying a long reason so the
  * card's wrapping is measured too.
  */
 function historyOf(params: URLSearchParams) {
-  const targetId = params.get('targetId')
+  const targetId = params.get('target')
   if (targetId !== null) {
     return [
       {
@@ -194,7 +194,7 @@ function historyOf(params: URLSearchParams) {
       action: 'tenant.suspended',
       access: 'platform',
       actor: SAM,
-      target: { type: 'tenant', id: params.get('tenantId') },
+      target: { type: 'tenant', id: params.get('tenant') ?? TENANT_ID },
       metadata: { reason: 'Billing hold while the overdue invoices are reconciled' },
       tenant: ACME,
     },
@@ -1067,12 +1067,12 @@ const worker = setupWorker(
   // The activity page's log and the History cards: a user's by `targetId`, a tenant's by `tenantId` with `access=platform`.
   http.get('/api/v1/platform/audit-log', ({ request }) => {
     const params = new URL(request.url).searchParams
-    if (params.has('targetId') || (params.has('tenantId') && params.get('access') === 'platform')) {
-      return ok({ entries: historyOf(params), nextCursor: null }, 'Audit log retrieved.')
+    if (params.has('target') || (params.has('tenant') && params.get('access') === 'platform')) {
+      return ok(listPage(historyOf(params)), 'Audit log retrieved.')
     }
     return ok(
-      {
-        entries: [
+      listPage(
+        [
           {
             id: AUDIT_ID_2,
             occurredAt: '2026-09-25T10:00:00.000Z',
@@ -1094,8 +1094,8 @@ const worker = setupWorker(
             tenant: ACME,
           },
         ],
-        nextCursor: 'c2',
-      },
+        { hasNext: true, nextCursor: 'c2' }
+      ),
       'Audit log retrieved.'
     )
   }),
@@ -1203,20 +1203,17 @@ const worker = setupWorker(
   http.get('/api/v1/tenants/acme/invitations', () => ok(listPage([]), 'Invitations retrieved.')),
   http.get('/api/v1/tenants/acme/audit-log', () =>
     ok(
-      {
-        entries: [
-          {
-            id: AUDIT_ID_1,
-            occurredAt: '2026-09-25T09:00:00.000Z',
-            action: 'tenant.created',
-            access: 'member',
-            actor: { id: USER_ID, name: 'A B', email: 'a.b@example.com' },
-            target: { type: 'tenant', id: TENANT_ID },
-            metadata: { name: 'Acme Corp', slug: 'acme' },
-          },
-        ],
-        nextCursor: null,
-      },
+      listPage([
+        {
+          id: AUDIT_ID_1,
+          occurredAt: '2026-09-25T09:00:00.000Z',
+          action: 'tenant.created',
+          access: 'member',
+          actor: { id: USER_ID, name: 'A B', email: 'a.b@example.com' },
+          target: { type: 'tenant', id: TENANT_ID },
+          metadata: { name: 'Acme Corp', slug: 'acme' },
+        },
+      ]),
       'Audit log retrieved.'
     )
   ),

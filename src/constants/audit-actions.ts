@@ -208,6 +208,15 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
 }
 
 /**
+ * An action name as words ("tenant errors viewed"), for a stored action this
+ * build has no sentence for.
+ * @param action - The stored action name, such as `tenant.errors_viewed`.
+ */
+function readableAction(action: string): string {
+  return action.replaceAll(/[._]+/g, ' ')
+}
+
+/**
  * What the actor did, as the rest of a sentence their name begins. Reads the
  * metadata defensively, so a row whose fields are missing or mistyped still renders.
  */
@@ -215,7 +224,7 @@ export function auditSentence(entry: { action: string; metadata: Metadata }): st
   const build: ((metadata: Metadata) => string) | undefined = isAuditAction(entry.action)
     ? SENTENCES[entry.action]
     : undefined
-  return build ? build(entry.metadata) : `performed ${entry.action}`
+  return build ? build(entry.metadata) : `performed ${readableAction(entry.action)}`
 }
 
 /**

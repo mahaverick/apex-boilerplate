@@ -16,7 +16,7 @@ import { ok } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
 /** A cached platform audit page (the Activity page's, or the tenant History card's): each write must mark it stale. */
-const AUDIT_KEY = auditKeys.platform({ tenantId: TENANT_ID, access: 'platform' })
+const AUDIT_KEY = [...auditKeys.platformAll, { tenant: TENANT_ID, access: 'platform' }]
 
 /** A client holding the cached platform audit page. */
 function clientWithHistory() {
