@@ -397,7 +397,7 @@ beforeEach(() => {
   resetSessionForTests()
   queryClient.clear()
   useSidebarStore.setState({ isCollapsed: false })
-  useCommandPaletteStore.setState({ open: false })
+  useCommandPaletteStore.setState({ open: false, query: '' })
   server.use(
     http.get('/api/v1/tenants/platform', () =>
       ok(
