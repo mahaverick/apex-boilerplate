@@ -19,6 +19,8 @@
     // Type declarations for scripts/*.mjs. TypeScript resolves them in place
     // of the .mjs, so no import names a .d.mts.
     "scripts/*.d.mts",
+    // The registry snapshot `pnpm ui:drift` reads as text; nothing imports it.
+    "scripts/ui-registry/**",
     // MSW's service worker, fetched by the browser when
     // e2e/harness/harness.tsx calls `setupWorker`.
     "public/mockServiceWorker.js",
