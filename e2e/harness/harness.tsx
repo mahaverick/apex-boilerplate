@@ -38,6 +38,7 @@ import {
   USER_ID_2,
   USER_ID_3,
 } from '../../tests/fixtures/ids'
+import { listPage } from '../../tests/fixtures/list-page'
 
 /** The one tenant the activity rows and the tenant filter name. */
 const ACME = { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' }
@@ -1243,17 +1244,17 @@ const worker = setupWorker(
     ok(emailDetail(String(params.emailId)), 'Email retrieved.')
   ),
   http.get('/api/v1/platform/email-suppressions', ({ request }) => {
-    const state = new URL(request.url).searchParams.get('state') ?? 'active'
-    const suppressions = SUPPRESSION_ROWS.filter(
-      (row) => state === 'all' || (state === 'lifted') === (row.liftedAt !== null)
+    const states = (new URL(request.url).searchParams.get('state') ?? 'active').split(',')
+    const suppressions = SUPPRESSION_ROWS.filter((row) =>
+      states.includes(row.liftedAt === null ? 'active' : 'lifted')
     )
-    return ok({ suppressions, nextCursor: null, prevCursor: null }, 'Suppressions retrieved.')
+    return ok(listPage(suppressions), 'Suppressions retrieved.')
   }),
   // Filtered the way the API filters: a user's card sees their emails, a tenant's tab its own.
   http.get('/api/v1/platform/emails', ({ request }) => {
     const params = new URL(request.url).searchParams
-    const userId = params.get('userId')
-    const tenantId = params.get('tenantId')
+    const userId = params.get('user')
+    const tenantId = params.get('tenant')
     const emails =
       emailsParam === 'none'
         ? []
@@ -1262,7 +1263,7 @@ const worker = setupWorker(
               (userId === null || row.user?.id === userId) &&
               (tenantId === null || row.tenant?.id === tenantId)
           )
-    return ok({ messages: emails, nextCursor: null, prevCursor: null }, 'Emails retrieved.')
+    return ok(listPage(emails), 'Emails retrieved.')
   }),
   // Suspending a tenant, inviting an owner and deactivating a user answer with the step-up refusal, so the fixtures can open the stacked step-up dialog.
   http.post('/api/v1/platform/tenants/:tenantId/suspend', reauthRequired),

@@ -114,6 +114,8 @@ describe('/users/$userId', () => {
     answer()
     renderAppAt(`/users/${USER_ID_2}`)
     expect(await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })).toBeInTheDocument()
+    // The Emails card reads its own list; busy is only the part still loading.
+    expect(await screen.findByText('No emails sent to this account yet.')).toBeInTheDocument()
     expect(screen.getByRole('main').querySelector('[aria-busy="true"]')).toBeNull()
   })
 

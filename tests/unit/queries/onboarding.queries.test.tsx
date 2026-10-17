@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
 import { auditKeys } from '@/queries/audit.queries'
-import { emailKeys } from '@/queries/email.queries'
+import { emailKeys, emailsListOptions } from '@/queries/email.queries'
 import {
   onboardingFunnelQueryOptions,
   onboardingKeys,
@@ -140,7 +140,7 @@ describe('onboarding writes', () => {
         }
       )
     )
-    const client = seeded([...ONBOARDING_KEYS, ...AROUND, emailKeys.list({ limit: 20 })])
+    const client = seeded([...ONBOARDING_KEYS, ...AROUND, emailsListOptions({}).queryKey])
     const { result } = renderHook(() => useCompleteOnboardingStep(TENANT_ID, 'acme'), {
       wrapper: wrapperWith(client),
     })
@@ -157,7 +157,7 @@ describe('onboarding writes', () => {
       onboardingKeys.tenants({ state: 'stuck', limit: 20 }),
       ...AROUND,
     ])
-    expect(client.getQueryState(emailKeys.list({ limit: 20 }))?.isInvalidated).toBe(false)
+    expect(client.getQueryState(emailsListOptions({}).queryKey)?.isInvalidated).toBe(false)
   })
 
   it('refreshes the same after a refusal, since the cached state was stale', async () => {
@@ -184,7 +184,7 @@ describe('onboarding writes', () => {
         return ok({ emailSent: false, recipientCount: 2 }, 'Reminder sent.', 202)
       })
     )
-    const emails = [emailKeys.list({ tenantId: TENANT_ID, limit: 20 }), emailKeys.detail('x')]
+    const emails = [emailsListOptions({ tenant: TENANT_ID }).queryKey, emailKeys.detail('x')]
     const client = seeded([...ONBOARDING_KEYS, ...AROUND, ...emails])
     const { result } = renderHook(() => useSendOnboardingReminder(TENANT_ID, 'acme'), {
       wrapper: wrapperWith(client),
@@ -202,14 +202,14 @@ describe('onboarding writes', () => {
         fail('A reminder went out less than 24 hours ago.', 409, 'reminded_recently')
       )
     )
-    const client = seeded([...ONBOARDING_KEYS, ...AROUND, emailKeys.list({ limit: 20 })])
+    const client = seeded([...ONBOARDING_KEYS, ...AROUND, emailsListOptions({}).queryKey])
     const { result } = renderHook(() => useSendOnboardingReminder(TENANT_ID, 'acme'), {
       wrapper: wrapperWith(client),
     })
     result.current.mutate('Stalled since the call')
     await waitFor(() => expect(result.current.isError).toBe(true))
     await waitFor(() =>
-      expectStale(client, [...ONBOARDING_KEYS, ...AROUND, emailKeys.list({ limit: 20 })])
+      expectStale(client, [...ONBOARDING_KEYS, ...AROUND, emailsListOptions({}).queryKey])
     )
   })
 })

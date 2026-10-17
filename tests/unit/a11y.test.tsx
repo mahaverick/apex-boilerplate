@@ -945,10 +945,17 @@ describe('signed-in pages', () => {
     )
     server.use(
       http.get('/api/v1/platform/emails', () =>
-        ok({ messages: rows, nextCursor: 'next', prevCursor: null }, 'Emails retrieved.')
+        ok(
+          listPage(
+            rows,
+            { nextCursor: 'next', hasNext: true },
+            { count: rows.length, capped: false }
+          ),
+          'Emails retrieved.'
+        )
       )
     )
-    renderAppAt(`/emails?userId=${USER_ID_2}&tenantId=${TENANT_ID}&from=2026-09-01&to=2026-09-30`)
+    renderAppAt(`/emails?user=${USER_ID_2}&tenant=${TENANT_ID}&from=2026-09-01&to=2026-09-30`)
     // The h1 renders before the page lands; grade the table, every badge, the chips and the pager.
     const table = await screen.findByRole('table', { name: 'Emails' })
     expect(within(table).getByText('Suppressed')).toBeInTheDocument()
@@ -960,8 +967,8 @@ describe('signed-in pages', () => {
   })
 
   it('emails with nothing matching has no axe violations', async () => {
-    renderAppAt('/emails?q=zzz&status=failed')
-    await screen.findByText('No emails match these filters.')
+    renderAppAt('/emails?search=zzz&status=failed')
+    await screen.findByText('Nothing matches these filters.')
     await expectNoViolations()
   })
 
@@ -1245,7 +1252,7 @@ describe('open overlays', () => {
   it('has no violations with the emails date filter open', async () => {
     const user = userEvent.setup()
     renderAppAt('/emails?from=2026-09-01&to=2026-09-10')
-    await screen.findByText('No emails match these filters.')
+    await screen.findByText('Nothing matches these filters.')
     await user.click(screen.getByRole('button', { name: /^Filter by date/ }))
     const popup = await screen.findByRole('dialog', { name: 'Filter by date' })
     // A calendar that rendered no grid would pass axe while grading nothing.
@@ -1645,7 +1652,14 @@ describe('deliverability, suppressions and the embedded email lists', () => {
   function serveEmails(rows: EmailMessageSummary[]) {
     server.use(
       http.get('/api/v1/platform/emails', () =>
-        ok({ messages: rows, nextCursor: 'next', prevCursor: null }, 'Emails retrieved.')
+        ok(
+          listPage(
+            rows,
+            { nextCursor: 'next', hasNext: true },
+            { count: rows.length, capped: false }
+          ),
+          'Emails retrieved.'
+        )
       )
     )
   }
@@ -1702,14 +1716,14 @@ describe('deliverability, suppressions and the embedded email lists', () => {
   function serveSuppressions(rows: EmailSuppression[]) {
     server.use(
       http.get('/api/v1/platform/email-suppressions', () =>
-        ok({ suppressions: rows, nextCursor: null, prevCursor: 'p' }, 'Suppressions retrieved.')
+        ok(listPage(rows, { prevCursor: 'p', hasPrev: true }), 'Suppressions retrieved.')
       )
     )
   }
 
   it('suppressions, active and lifted, with the Lift controls has no axe violations', async () => {
     serveSuppressions(SUPPRESSIONS)
-    renderAppAt('/suppressions?state=all')
+    renderAppAt('/suppressions?state=active,lifted')
     const table = await screen.findByRole('table', { name: 'Suppressions' })
     expect(
       within(table).getByRole('button', { name: /^Lift suppression for / })

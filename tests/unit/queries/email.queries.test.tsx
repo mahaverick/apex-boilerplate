@@ -10,8 +10,8 @@ import {
   emailKeys,
   emailPreviewQueryOptions,
   emailQueryOptions,
-  emailsQueryOptions,
-  emailSuppressionsQueryOptions,
+  emailsListOptions,
+  suppressionsListOptions,
   useLiftSuppression,
   useResendEmail,
 } from '@/queries/email.queries'
@@ -22,6 +22,7 @@ import { tenantKeys } from '@/queries/tenant.queries'
 import { userAdminKeys, useSendPasswordSetup } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { EMAIL_ID, INVITATION_ID, SUPPRESSION_ID, TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import {
   emailDetail,
   fail,
@@ -34,12 +35,12 @@ import { server } from '@/tests/mocks/server'
 
 /** Every email cache a write can make stale. */
 const EMAIL_KEYS: QueryKey[] = [
-  emailKeys.list({ limit: 20 }),
-  emailKeys.list({ userId: USER_ID_2, limit: 10 }),
+  emailsListOptions({}).queryKey,
+  emailsListOptions({ user: USER_ID_2, limit: 10 }, { total: false }).queryKey,
   emailKeys.health('7d'),
   emailKeys.detail(EMAIL_ID),
   emailKeys.preview(EMAIL_ID),
-  emailKeys.suppressions({ limit: 20 }),
+  suppressionsListOptions({}).queryKey,
 ]
 
 /** A provider around `client`, so the test can read the cache a hook wrote. */
@@ -69,58 +70,9 @@ beforeEach(() => {
 })
 
 describe('email reads', () => {
-  it('sends only the filters that are set, with the API parameter names', async () => {
-    let seen: URLSearchParams | undefined
-    server.use(
-      http.get('/api/v1/platform/emails', ({ request }) => {
-        seen = new URL(request.url).searchParams
-        return ok({ messages: [], nextCursor: null, prevCursor: null }, 'Emails retrieved.')
-      })
-    )
-    await new QueryClient().fetchQuery(
-      emailsQueryOptions({
-        q: '  cleo@ ',
-        status: 'bounced',
-        template: 'tenant_invitation',
-        from: '2026-09-01',
-        to: '2026-09-30',
-        cursor: 'c1',
-        direction: 'prev',
-      })
-    )
-    expect(Object.fromEntries(seen!)).toEqual({
-      q: 'cleo@',
-      status: 'bounced',
-      template: 'tenant_invitation',
-      from: '2026-09-01',
-      to: '2026-09-30',
-      cursor: 'c1',
-      direction: 'prev',
-      limit: '20',
-    })
-  })
-
-  it('sends no direction without a cursor, and a blank search as none', async () => {
-    let seen: URLSearchParams | undefined
-    server.use(
-      http.get('/api/v1/platform/emails', ({ request }) => {
-        seen = new URL(request.url).searchParams
-        return ok({ messages: [], nextCursor: null, prevCursor: null }, 'Emails retrieved.')
-      })
-    )
-    await new QueryClient().fetchQuery(
-      emailsQueryOptions({ q: '   ', userId: USER_ID_2, direction: 'prev', limit: 10 })
-    )
-    expect(Object.fromEntries(seen!)).toEqual({ userId: USER_ID_2, limit: '10' })
-  })
-
   it('answers every read from the default handlers, so a page that embeds one needs no setup', async () => {
     const client = new QueryClient()
-    await expect(client.fetchQuery(emailsQueryOptions({}))).resolves.toEqual({
-      messages: [],
-      nextCursor: null,
-      prevCursor: null,
-    })
+    await expect(client.fetchQuery(emailsListOptions({}))).resolves.toEqual(listPage([]))
     await expect(client.fetchQuery(emailHealthQueryOptions('7d'))).resolves.toEqual(testEmailHealth)
     await expect(client.fetchQuery(emailQueryOptions(EMAIL_ID))).resolves.toEqual(
       emailDetail({ id: EMAIL_ID })
@@ -128,32 +80,36 @@ describe('email reads', () => {
     await expect(client.fetchQuery(emailPreviewQueryOptions(EMAIL_ID))).resolves.toEqual(
       testEmailPreview
     )
-    await expect(client.fetchQuery(emailSuppressionsQueryOptions({}))).resolves.toEqual({
-      suppressions: [],
-      nextCursor: null,
-      prevCursor: null,
-    })
+    await expect(client.fetchQuery(suppressionsListOptions({}))).resolves.toEqual(listPage([]))
   })
 
-  it('sends the suppression state filter and the health range', async () => {
+  it('asks for the total on the first page unless the read opts out', async () => {
     const seen: URLSearchParams[] = []
     server.use(
-      http.get('/api/v1/platform/email-suppressions', ({ request }) => {
+      http.get('/api/v1/platform/emails', ({ request }) => {
         seen.push(new URL(request.url).searchParams)
-        return ok({ suppressions: [], nextCursor: null, prevCursor: null }, 'OK')
-      }),
+        return ok(listPage([]), 'Emails retrieved.')
+      })
+    )
+    const client = new QueryClient()
+    await client.fetchQuery(emailsListOptions({ user: USER_ID_2, limit: 10 }))
+    await client.fetchQuery(emailsListOptions({ user: USER_ID_2, limit: 10 }, { total: false }))
+    expect(seen.map((params) => Object.fromEntries(params))).toEqual([
+      { user: USER_ID_2, limit: '10', total: '1' },
+      { user: USER_ID_2, limit: '10' },
+    ])
+  })
+
+  it('sends the health range', async () => {
+    const seen: URLSearchParams[] = []
+    server.use(
       http.get('/api/v1/platform/emails/health', ({ request }) => {
         seen.push(new URL(request.url).searchParams)
         return ok({ ...testEmailHealth, range: '30d' }, 'OK')
       })
     )
-    const client = new QueryClient()
-    await client.fetchQuery(emailSuppressionsQueryOptions({ state: 'lifted', q: 'acme' }))
-    await client.fetchQuery(emailHealthQueryOptions('30d'))
-    expect(seen.map((params) => Object.fromEntries(params))).toEqual([
-      { q: 'acme', state: 'lifted', limit: '20' },
-      { range: '30d' },
-    ])
+    await new QueryClient().fetchQuery(emailHealthQueryOptions('30d'))
+    expect(seen.map((params) => Object.fromEntries(params))).toEqual([{ range: '30d' }])
   })
 
   it.each([

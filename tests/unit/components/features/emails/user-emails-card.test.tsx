@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { USER_EMAILS_SHOWN } from '@/components/features/emails/user-emails-card'
 import { useAuthStore } from '@/states/auth.store'
 import { EMAIL_ID, EMAIL_ID_2, USER_ID_2 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { emailSummary, fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -34,7 +35,7 @@ function serve(seen: URLSearchParams[], emails = [emailSummary()]) {
     http.get(`/api/v1/platform/users/${USER_ID_2}`, () => ok(CLEO, 'User retrieved.')),
     http.get('/api/v1/platform/emails', ({ request }) => {
       seen.push(new URL(request.url).searchParams)
-      return ok({ messages: emails, nextCursor: 'more', prevCursor: null }, 'Emails retrieved.')
+      return ok(listPage(emails, { nextCursor: 'more', hasNext: true }), 'Emails retrieved.')
     })
   )
 }
@@ -66,7 +67,9 @@ describe('the Emails card on a user’s page', () => {
     )
     expect(within(items[1]!).getByText('Bounced')).toBeInTheDocument()
 
-    expect(seen.at(-1)?.get('userId')).toBe(USER_ID_2)
+    expect(seen.at(-1)?.get('user')).toBe(USER_ID_2)
+    // The card shows ten newest and no count, so it does not ask for one.
+    expect(seen.at(-1)?.get('total')).toBeNull()
     expect(seen.at(-1)?.get('limit')).toBe(String(USER_EMAILS_SHOWN))
     expect(USER_EMAILS_SHOWN).toBe(10)
   })
@@ -77,7 +80,7 @@ describe('the Emails card on a user’s page', () => {
     const card = await screen.findByRole('region', { name: 'Emails' })
     expect(within(card).getByRole('link', { name: 'View all emails' })).toHaveAttribute(
       'href',
-      `/emails?userId=${USER_ID_2}`
+      `/emails?user=${USER_ID_2}`
     )
   })
 
@@ -94,9 +97,7 @@ describe('the Emails card on a user’s page', () => {
       http.get(`/api/v1/platform/users/${USER_ID_2}`, () => ok(CLEO, 'User retrieved.')),
       http.get('/api/v1/platform/emails', () => {
         calls += 1
-        return calls <= 2
-          ? fail('Boom', 500)
-          : ok({ messages: [emailSummary()], nextCursor: null, prevCursor: null }, 'ok')
+        return calls <= 2 ? fail('Boom', 500) : ok(listPage([emailSummary()]), 'ok')
       })
     )
     const user = userEvent.setup()

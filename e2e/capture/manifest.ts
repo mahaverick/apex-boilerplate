@@ -316,7 +316,10 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
       stubs: [
         {
           endpoint: 'GET /platform/emails',
-          data: { messages: [], nextCursor: null, prevCursor: null },
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
         },
       ],
     },

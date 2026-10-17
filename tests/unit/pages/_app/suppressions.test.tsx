@@ -1,12 +1,13 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { navItemsFor } from '@/constants/navigation'
 import { toast } from '@/lib/toast'
 import { useAuthStore } from '@/states/auth.store'
 import { byContent, expectMaskedToast } from '@/tests/fixtures/content'
 import { EMAIL_ID, STAFF_USER_ID, SUPPRESSION_ID, SUPPRESSION_ID_2 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { emailSuppression, fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -43,9 +44,16 @@ function serve(
       const params = new URL(request.url).searchParams
       seen.push(params)
       if (params.get('cursor') === 'c2') {
-        return ok({ suppressions: [], nextCursor: null, prevCursor: 'p1' }, 'ok')
+        return ok(listPage([], { prevCursor: 'p1', hasPrev: true }), 'ok')
       }
-      return ok({ suppressions: rows, nextCursor, prevCursor: null }, 'Suppressions retrieved.')
+      return ok(
+        listPage(
+          rows,
+          { nextCursor, hasNext: nextCursor !== null },
+          { count: rows.length, capped: false }
+        ),
+        'Suppressions retrieved.'
+      )
     })
   )
 }
@@ -53,6 +61,10 @@ function serve(
 describe('/suppressions', () => {
   beforeEach(() => {
     signIn({ ...testUser, platformRole: 'admin' })
+  })
+
+  afterEach(() => {
+    window.innerWidth = 1024
   })
 
   it('lists active suppressions by default, with the reason, source email and lift details', async () => {
@@ -79,46 +91,85 @@ describe('/suppressions', () => {
     expect(within(lifted!).queryByRole('button', { name: /Lift/ })).not.toBeInTheDocument()
   })
 
+  it('sorts newest first by default, by address and by oldest first from the headers', async () => {
+    const seen: URLSearchParams[] = []
+    serve(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/suppressions')
+    const table = await screen.findByRole('table', { name: 'Suppressions' })
+    expect(within(table).getByRole('columnheader', { name: 'Suppressed' })).toHaveAttribute(
+      'aria-sort',
+      'descending'
+    )
+    expect(seen.at(-1)?.get('sort')).toBeNull()
+
+    await user.click(within(table).getByRole('button', { name: 'Address' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ sort: 'address' }))
+    await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('address'))
+    expect(within(table).getByRole('columnheader', { name: 'Address' })).toHaveAttribute(
+      'aria-sort',
+      'ascending'
+    )
+  })
+
   it('keeps the state filter in the URL, and leaves the default out of it', async () => {
     const seen: URLSearchParams[] = []
     serve(seen)
     const user = userEvent.setup()
-    const router = renderAppAt('/suppressions?cursor=c1&dir=next')
+    const router = renderAppAt('/suppressions?cursor=c1')
     await screen.findByRole('table', { name: 'Suppressions' })
 
-    await user.click(screen.getByRole('combobox', { name: 'Filter by state' }))
-    await user.click(await screen.findByRole('option', { name: 'Lifted' }))
+    await user.click(screen.getByRole('button', { name: 'Filter by state, Suppressions' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by state, Suppressions' })
+    await user.click(within(popup).getByRole('checkbox', { name: 'Lifted' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ state: 'lifted' }))
     await waitFor(() => expect(seen.at(-1)?.get('state')).toBe('lifted'))
     expect(seen.at(-1)?.get('cursor')).toBeNull()
 
-    await user.click(screen.getByRole('combobox', { name: 'Filter by state' }))
-    await user.click(await screen.findByRole('option', { name: 'Active' }))
+    await user.click(within(popup).getByRole('checkbox', { name: 'Lifted' }))
     await waitFor(() => expect(router.state.location.search).toEqual({}))
+    await waitFor(() => expect(seen.at(-1)?.get('state')).toBeNull())
   })
 
-  it('falls back to active for a state it does not offer', async () => {
-    const seen: URLSearchParams[] = []
-    serve(seen)
-    renderAppAt('/suppressions?state=expired')
-    await screen.findByRole('table', { name: 'Suppressions' })
-    expect(seen.at(-1)?.get('state')).toBeNull()
-    expect(screen.getByRole('combobox', { name: 'Filter by state' })).toHaveTextContent('Active')
-  })
-
-  it('debounces the address search into ?q and starts from the first page', async () => {
+  it('asks for both states as a comma list', async () => {
     const seen: URLSearchParams[] = []
     serve(seen)
     const user = userEvent.setup()
-    const router = renderAppAt('/suppressions?state=all&cursor=c1&dir=next')
+    const router = renderAppAt('/suppressions')
     await screen.findByRole('table', { name: 'Suppressions' })
 
-    await user.type(screen.getByRole('searchbox', { name: 'Search suppressions' }), 'bounced')
+    await user.click(screen.getByRole('button', { name: 'Filter by state, Suppressions' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by state, Suppressions' })
+    await user.click(within(popup).getByRole('checkbox', { name: 'Lifted' }))
+    await user.click(within(popup).getByRole('checkbox', { name: 'Active' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ state: 'active,lifted' }))
+    await waitFor(() => expect(seen.at(-1)?.get('state')).toBe('active,lifted'))
+  })
+
+  it('drops a state it does not offer', async () => {
+    const seen: URLSearchParams[] = []
+    serve(seen)
+    const router = renderAppAt('/suppressions?state=expired,all')
+    await screen.findByRole('table', { name: 'Suppressions' })
+    expect(seen.at(-1)?.get('state')).toBeNull()
+    expect(router.state.location.search).toEqual({})
+  })
+
+  it('debounces the address search into ?search and starts from the first page', async () => {
+    const seen: URLSearchParams[] = []
+    serve(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/suppressions?state=active,lifted&cursor=c1')
+    await screen.findByRole('table', { name: 'Suppressions' })
+
+    const box = screen.getByRole('searchbox', { name: 'Search suppressions' })
+    expect(box).toHaveAttribute('placeholder', 'Search by address')
+    await user.type(box, 'bounced')
 
     await waitFor(() =>
-      expect(router.state.location.search).toEqual({ q: 'bounced', state: 'all' })
+      expect(router.state.location.search).toEqual({ search: 'bounced', state: 'active,lifted' })
     )
-    await waitFor(() => expect(seen.at(-1)?.get('q')).toBe('bounced'))
+    await waitFor(() => expect(seen.at(-1)?.get('search')).toBe('bounced'))
     expect(seen.at(-1)?.get('cursor')).toBeNull()
   })
 
@@ -131,32 +182,40 @@ describe('/suppressions', () => {
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: 'Next page' }))
-    await waitFor(() => expect(router.state.location.search).toEqual({ cursor: 'c3', dir: 'next' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ cursor: 'c3' }))
     await waitFor(() => expect(seen.at(-1)?.get('cursor')).toBe('c3'))
-    expect(seen.at(-1)?.get('direction')).toBe('next')
+    expect(seen.at(-1)?.get('direction')).toBeNull()
   })
 
   it('says a stale page is empty and offers the first page', async () => {
     const seen: URLSearchParams[] = []
     serve(seen)
     const user = userEvent.setup()
-    const router = renderAppAt('/suppressions?cursor=c2&dir=next')
+    const router = renderAppAt('/suppressions?cursor=c2')
     expect(await screen.findByText('Nothing on this page.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'First page' }))
     await waitFor(() => expect(router.state.location.search).toEqual({}))
     expect(await screen.findByRole('table', { name: 'Suppressions' })).toBeInTheDocument()
   })
 
-  it.each([
-    ['/suppressions', 'No suppressed addresses.'],
-    ['/suppressions?state=lifted', 'No lifted suppressions.'],
-    ['/suppressions?state=all', 'No suppressions yet.'],
-    ['/suppressions?q=nobody', 'No suppressions match this search.'],
-  ])('%s with nothing in it says %s', async (path, message) => {
+  it('says no address is suppressed when the first page is empty and nothing is filtered', async () => {
     serve([], [])
-    renderAppAt(path)
-    expect(await screen.findByText(message)).toBeInTheDocument()
+    renderAppAt('/suppressions')
+    expect(await screen.findByText('No suppressed addresses.')).toBeInTheDocument()
+    expect(
+      screen.getByText('An address is suppressed after a hard bounce or a spam complaint.')
+    ).toBeInTheDocument()
   })
+
+  it.each(['/suppressions?search=nobody', '/suppressions?state=lifted'])(
+    '%s with nothing in it says nothing matches',
+    async (path) => {
+      serve([], [])
+      renderAppAt(path)
+      expect(await screen.findByText('Nothing matches these filters.')).toBeInTheDocument()
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    }
+  )
 
   it('lifts a suppression with a reason, toasts and refetches the list', async () => {
     const seen: URLSearchParams[] = []
@@ -200,14 +259,7 @@ describe('/suppressions', () => {
     let lifted = false
     server.use(
       http.get('/api/v1/platform/email-suppressions', () =>
-        ok(
-          {
-            suppressions: lifted ? [] : [ACTIVE],
-            nextCursor: null,
-            prevCursor: null,
-          },
-          'Suppressions retrieved.'
-        )
+        ok(listPage(lifted ? [] : [ACTIVE]), 'Suppressions retrieved.')
       ),
       http.post(`/api/v1/platform/email-suppressions/${SUPPRESSION_ID}/lift`, () => {
         lifted = true
@@ -256,11 +308,7 @@ describe('/suppressions', () => {
     server.use(
       http.get('/api/v1/platform/email-suppressions', () =>
         ok(
-          {
-            suppressions: [lifted ? { ...ACTIVE, liftedAt: '2026-09-30T00:00:00.000Z' } : ACTIVE],
-            nextCursor: null,
-            prevCursor: null,
-          },
+          listPage([lifted ? { ...ACTIVE, liftedAt: '2026-09-30T00:00:00.000Z' } : ACTIVE]),
           'Suppressions retrieved.'
         )
       ),
@@ -270,7 +318,7 @@ describe('/suppressions', () => {
       })
     )
     const user = userEvent.setup()
-    renderAppAt('/suppressions?state=all')
+    renderAppAt('/suppressions?state=active,lifted')
     await user.click(
       await screen.findByRole('button', { name: 'Lift suppression for bounced@example.com' })
     )
@@ -285,6 +333,40 @@ describe('/suppressions', () => {
       .getAllByRole('row')
       .at(1)
     await waitFor(() => expect(row).toHaveFocus())
+  })
+
+  it('moves focus to the lifted row’s card on a phone', async () => {
+    window.innerWidth = 390
+    let lifted = false
+    server.use(
+      http.get('/api/v1/platform/email-suppressions', () =>
+        ok(
+          listPage([lifted ? { ...ACTIVE, liftedAt: '2026-09-30T00:00:00.000Z' } : ACTIVE]),
+          'Suppressions retrieved.'
+        )
+      ),
+      http.post(`/api/v1/platform/email-suppressions/${SUPPRESSION_ID}/lift`, () => {
+        lifted = true
+        return ok({ ...ACTIVE, liftedAt: '2026-09-30T00:00:00.000Z' }, 'Suppression lifted.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt('/suppressions?state=active,lifted')
+    await user.click(
+      await screen.findByRole('button', { name: 'Lift suppression for bounced@example.com' })
+    )
+    const dialog = await screen.findByRole('alertdialog', { name: 'Lift this suppression?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Mailbox fixed')
+    await user.click(within(dialog).getByRole('button', { name: 'Lift suppression' }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /Lift suppression for/ })).not.toBeInTheDocument()
+    )
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    const card = within(screen.getByRole('list', { name: 'Suppressions' })).getAllByRole(
+      'listitem'
+    )[0]!
+    await waitFor(() => expect(card).toHaveFocus())
   })
 
   it('shows the server’s own sentence in the dialog when the suppression was already lifted', async () => {
@@ -312,7 +394,7 @@ describe('/suppressions', () => {
     serve([])
     renderAppAt('/suppressions')
     const table = await screen.findByRole('table', { name: 'Suppressions' })
-    expect(within(table).queryByRole('button')).not.toBeInTheDocument()
+    expect(within(table).queryByRole('button', { name: /^Lift/ })).not.toBeInTheDocument()
     expect(within(table).queryByText('Actions')).not.toBeInTheDocument()
   })
 
@@ -321,9 +403,7 @@ describe('/suppressions', () => {
     server.use(
       http.get('/api/v1/platform/email-suppressions', () => {
         calls += 1
-        return calls <= 2
-          ? fail('Boom', 500)
-          : ok({ suppressions: [ACTIVE], nextCursor: null, prevCursor: null }, 'ok')
+        return calls <= 2 ? fail('Boom', 500) : ok(listPage([ACTIVE]), 'ok')
       })
     )
     const user = userEvent.setup()

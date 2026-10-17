@@ -14,6 +14,7 @@ import {
   USER_ID_2,
   USER_ID_3,
 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
 import type {
   EmailHealth,
@@ -589,9 +590,7 @@ export const handlers = [
     ok({ entries: [], nextCursor: null }, 'Audit log retrieved.')
   ),
   // The email list defaults to empty, so a page that only embeds one renders unchanged; `/emails/health` is registered before `:emailId`, which would otherwise match it.
-  http.get('/api/v1/platform/emails', () =>
-    ok({ messages: [], nextCursor: null, prevCursor: null }, 'Emails retrieved.')
-  ),
+  http.get('/api/v1/platform/emails', () => ok(listPage([]), 'Emails retrieved.')),
   http.get('/api/v1/platform/emails/health', () => ok(testEmailHealth, 'Email health retrieved.')),
   http.get('/api/v1/platform/emails/:emailId', ({ params }) =>
     ok(emailDetail({ id: String(params.emailId) }), 'Email retrieved.')
@@ -601,7 +600,7 @@ export const handlers = [
   ),
   http.post('/api/v1/platform/emails/:emailId/resend', () => ok({}, 'Resend requested.', 202)),
   http.get('/api/v1/platform/email-suppressions', () =>
-    ok({ suppressions: [], nextCursor: null, prevCursor: null }, 'Suppressions retrieved.')
+    ok(listPage([]), 'Suppressions retrieved.')
   ),
   http.post('/api/v1/platform/email-suppressions/:suppressionId/lift', () =>
     ok(

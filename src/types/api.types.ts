@@ -407,11 +407,6 @@ export type EmailEventType =
 /** Why an address is suppressed: only a hard bounce or a complaint adds one. */
 export type SuppressionReason = 'hard_bounce' | 'complaint'
 
-/** `GET /platform/email-suppressions?state=`; the API's default is `active`. */
-export const SUPPRESSION_STATE_FILTERS = ['active', 'lifted', 'all'] as const
-/** A value the suppressions list's `state` filter accepts. */
-export type SuppressionStateFilter = (typeof SUPPRESSION_STATE_FILTERS)[number]
-
 /** The five disjoint status groups the stats and the health report count, in stacking order. */
 export const EMAIL_GROUP_KEYS = [
   'delivered',
@@ -449,13 +444,6 @@ export interface EmailMessageSummary {
   user: { id: string; name: string } | null
   tenant: { id: string; name: string; slug: string } | null
   canResend: boolean
-}
-
-/** A keyset page of `GET /platform/emails`, newest first; cursors as for `PlatformTenantPage`. */
-export interface EmailMessagePage {
-  messages: EmailMessageSummary[]
-  nextCursor: string | null
-  prevCursor: string | null
 }
 
 /** One send attempt (`email_logs`). `errorCode` is set on a failed one. */
@@ -576,13 +564,6 @@ export interface EmailSuppression {
   liftedAt: string | null
   liftedBy: { id: string; name: string } | null
   liftReason: string | null
-}
-
-/** A keyset page of `GET /platform/email-suppressions`; cursors as for `PlatformTenantPage`. */
-export interface EmailSuppressionPage {
-  suppressions: EmailSuppression[]
-  nextCursor: string | null
-  prevCursor: string | null
 }
 
 /** 409 on resend or preview: the stored template is no longer in the API's registry. */

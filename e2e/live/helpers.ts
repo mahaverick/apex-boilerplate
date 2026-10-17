@@ -496,7 +496,7 @@ interface EmailRow {
 
 /**
  * Every email to `recipient` the API lists, newest first, read with a staff
- * token. `q` matches the recipient by substring, so the exact address is
+ * token. `search` matches the recipient by substring, so the exact address is
  * filtered here too.
  * @param token - A staff access token.
  * @param recipient - The address the emails went to.
@@ -505,13 +505,13 @@ async function emailsTo(token: string, recipient: string): Promise<EmailRow[]> {
   const found = await apiRequest(
     token,
     'GET',
-    `/platform/emails?q=${encodeURIComponent(recipient)}&limit=50`
+    `/platform/emails?search=${encodeURIComponent(recipient)}&limit=50`
   )
   if (found.status !== 200) {
     throw new Error(`email search failed: ${found.status} ${JSON.stringify(found.body)}`)
   }
-  const { messages } = (found.body as { data: { messages: EmailRow[] } }).data
-  return messages.filter((email) => email.recipient.toLowerCase() === recipient.toLowerCase())
+  const { items } = (found.body as { data: { items: EmailRow[] } }).data
+  return items.filter((email) => email.recipient.toLowerCase() === recipient.toLowerCase())
 }
 
 /**

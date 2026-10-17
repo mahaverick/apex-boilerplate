@@ -1,32 +1,23 @@
-import { IconChevronLeft, IconChevronRight, IconMail } from '@tabler/icons-react'
-import { useQuery } from '@tanstack/react-query'
+import { IconMail } from '@tabler/icons-react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { z } from 'zod'
+import { EMAIL_FACETS } from '@/components/features/emails/email-filters'
 import { EmailsTable } from '@/components/features/emails/emails-table'
-import { LoadError } from '@/components/features/load-error'
-import { RoleDenied } from '@/components/features/role-denied'
+import { useListQuery } from '@/components/shared/data-table/use-list-query'
+import { useListSearch } from '@/components/shared/data-table/use-list-search'
 import { EmptyState } from '@/components/shared/empty-state'
 import { DetailTabPending } from '@/components/shared/pending-templates'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
-import { isRoleDenied } from '@/lib/role-denied'
-import { emailsQueryOptions } from '@/queries/email.queries'
-import { PAGE_DIRECTIONS, type PageDirection } from '@/types/api.types'
+import { emailsListOptions, tenantEmailsList } from '@/queries/email.queries'
+import { listRequest, listValues } from '@/schemas/list-request.schemas'
 
 /** A tenant's Emails tab: the emails filed under it. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/emails')({
-  validateSearch: z.object({
-    cursor: z.string().optional().catch(undefined),
-    dir: z.enum(PAGE_DIRECTIONS).optional().catch(undefined),
-  }),
-  loaderDeps: ({ search }) => ({ cursor: search.cursor, direction: search.dir }),
+  validateSearch: tenantEmailsList.schema,
+  loaderDeps: ({ search }) => listRequest(tenantEmailsList, listValues(tenantEmailsList, search)),
   // Started, not awaited: the tab renders its skeleton while this runs.
   loader: ({ context, params, deps }) => {
-    void context.queryClient.prefetchQuery(
-      emailsQueryOptions({ tenantId: params.tenantId, ...deps })
-    )
+    void context.queryClient.prefetchQuery(emailsListOptions({ ...deps, tenant: params.tenantId }))
   },
   head: () => ({ meta: [{ title: pageTitle('Tenant emails') }] }),
   staticData: { crumb: 'Emails' },
@@ -35,29 +26,16 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/emails')({
 })
 
 /**
- * The emails filed under this tenant, newest first and paged in the URL. This
- * is a platform read, `/platform/emails?tenantId=`, not one of the tenant's
- * own routes, so a suspended or archived tenant still lists its emails.
- * Filtering by status, template or date is the Emails list's job; the link
- * opens it scoped here.
+ * The emails filed under this tenant, newest first, with status and template
+ * filters and the recipient search, all in the URL. This is a platform read,
+ * `/platform/emails?tenant=`, not one of the tenant's own routes, so a
+ * suspended or archived tenant still lists its emails. The date range and
+ * the user are the Emails list's; the link opens it scoped here.
  */
 function TenantEmailsTab() {
   const { tenantId } = Route.useParams()
-  const search = Route.useSearch()
-  const navigate = Route.useNavigate()
-  const page = useQuery(
-    emailsQueryOptions({ tenantId, cursor: search.cursor, direction: search.dir })
-  )
-
-  /** Pages to a keyset cursor; does nothing without one. */
-  function goTo(cursor: string | null, dir: PageDirection) {
-    if (cursor) void navigate({ search: { cursor, dir } })
-  }
-  /** Drops the cursor, which returns the list to its first page. */
-  const firstPage = () => void navigate({ search: {} })
-
-  const settled =
-    page.data !== undefined && !(page.isPlaceholderData && page.data.messages.length === 0)
+  const list = useListSearch(tenantEmailsList)
+  const query = useListQuery(list, (request) => emailsListOptions({ ...request, tenant: tenantId }))
 
   return (
     <div className="grid grid-cols-1 gap-4">
@@ -65,76 +43,25 @@ function TenantEmailsTab() {
         <p className="text-sm text-muted-foreground">Emails sent for this tenant, newest first.</p>
         <Link
           to={ROUTES.emails}
-          search={{ tenantId }}
+          search={{ tenant: tenantId }}
           className="text-sm underline underline-offset-4"
         >
           Filter these in Emails
         </Link>
       </div>
-      {page.isError ? (
-        isRoleDenied(page.error) ? (
-          <RoleDenied />
-        ) : (
-          <div className="grid justify-items-start gap-2">
-            <LoadError
-              message="We could not load this tenant’s emails."
-              onRetry={() => void page.refetch()}
-            />
-            {search.cursor !== undefined && (
-              <Button variant="ghost" size="sm" onClick={firstPage}>
-                <IconChevronLeft aria-hidden="true" />
-                First page
-              </Button>
-            )}
-          </div>
-        )
-      ) : !settled || page.data === undefined ? (
-        <Skeleton className="h-64 w-full" />
-      ) : page.data.messages.length === 0 && search.cursor !== undefined ? (
-        <EmptyState
-          icon={<IconMail aria-hidden="true" />}
-          title="Nothing on this page."
-          description="The list changed since this page was opened."
-          action={
-            <Button variant="outline" size="sm" onClick={firstPage}>
-              <IconChevronLeft aria-hidden="true" />
-              First page
-            </Button>
-          }
-        />
-      ) : page.data.messages.length === 0 ? (
-        <EmptyState
-          icon={<IconMail aria-hidden="true" />}
-          title="No emails for this tenant yet."
-          description="Its invitations appear here once they are sent."
-        />
-      ) : (
-        <>
-          <div aria-busy={page.isPlaceholderData}>
-            <EmailsTable rows={page.data.messages} omit="tenant" />
-          </div>
-          <nav aria-label="Pagination" className="flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label="Previous page"
-              disabled={page.data.prevCursor === null || page.isPlaceholderData}
-              onClick={() => goTo(page.data?.prevCursor ?? null, 'prev')}
-            >
-              <IconChevronLeft aria-hidden="true" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label="Next page"
-              disabled={page.data.nextCursor === null || page.isPlaceholderData}
-              onClick={() => goTo(page.data?.nextCursor ?? null, 'next')}
-            >
-              <IconChevronRight aria-hidden="true" />
-            </Button>
-          </nav>
-        </>
-      )}
+      <EmailsTable
+        query={query}
+        omit="tenant"
+        errorMessage="We could not load this tenant’s emails."
+        filters={EMAIL_FACETS}
+        empty={
+          <EmptyState
+            icon={<IconMail aria-hidden="true" />}
+            title="No emails for this tenant yet."
+            description="Its invitations appear here once they are sent."
+          />
+        }
+      />
     </div>
   )
 }
