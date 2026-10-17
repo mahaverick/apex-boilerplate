@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.0](https://github.com/mahaverick/apex-boilerplate/compare/v4.2.1...v4.3.0) (2026-10-17)
+
+
+### Features
+
+* **palette:** move the palette onto the shared shell, with page actions and recents ([#79](https://github.com/mahaverick/apex-boilerplate/issues/79)) ([1dd2c17](https://github.com/mahaverick/apex-boilerplate/commit/1dd2c176c2194389671d9e6d50a803a0d30653a3))
+
 ## [4.2.1](https://github.com/mahaverick/apex-boilerplate/compare/v4.2.0...v4.2.1) (2026-10-17)
 
 
