@@ -9,7 +9,7 @@ import { emailKeys, emailsListOptions } from '@/queries/email.queries'
 import {
   onboardingFunnelQueryOptions,
   onboardingKeys,
-  onboardingTenantsQueryOptions,
+  onboardingTenantsListOptions,
   tenantOnboardingQueryOptions,
   useCompleteOnboardingStep,
   useSendOnboardingReminder,
@@ -18,6 +18,7 @@ import { invalidateDirectory, platformKeys } from '@/queries/platform.queries'
 import { useCreatePlatformTenant } from '@/queries/tenant-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { TENANT_ID } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import {
   fail,
   ok,
@@ -31,7 +32,7 @@ import { server } from '@/tests/mocks/server'
 /** Every onboarding cache a staff write can make stale. */
 const ONBOARDING_KEYS: QueryKey[] = [
   onboardingKeys.funnel('30d'),
-  onboardingKeys.tenants({ state: 'stuck', limit: 20 }),
+  onboardingTenantsListOptions('stuck', {}).queryKey,
   onboardingKeys.tenant(TENANT_ID),
 ]
 
@@ -82,30 +83,30 @@ describe('onboarding reads', () => {
     expect(funnel.totals).toEqual(testOnboardingFunnel.totals)
   })
 
-  it('sends the state, a cursor with its direction, and the page size', async () => {
+  it('sends the state with the list request, and asks for the total on the first page only', async () => {
     const seen: Record<string, string>[] = []
     server.use(
       http.get('/api/v1/platform/onboarding/tenants', ({ request }) => {
         seen.push(Object.fromEntries(new URL(request.url).searchParams))
-        return ok({ tenants: [], nextCursor: null, prevCursor: null }, 'OK')
+        return ok(listPage([]), 'OK')
       })
     )
     const client = new QueryClient()
     await client.fetchQuery(
-      onboardingTenantsQueryOptions({ state: 'complete', cursor: 'c1', direction: 'prev' })
+      onboardingTenantsListOptions('complete', { cursor: 'c1', direction: 'prev' })
     )
-    await client.fetchQuery(onboardingTenantsQueryOptions({ state: 'stuck', direction: 'prev' }))
+    await client.fetchQuery(onboardingTenantsListOptions('stuck', { sort: 'name' }))
     expect(seen).toEqual([
-      { state: 'complete', cursor: 'c1', direction: 'prev', limit: '20' },
-      { state: 'stuck', limit: '20' },
+      { state: 'complete', cursor: 'c1', direction: 'prev' },
+      { state: 'stuck', sort: 'name', total: '1' },
     ])
   })
 
   it('answers every read from the default handlers, so a page that embeds one needs no setup', async () => {
     const client = new QueryClient()
-    await expect(
-      client.fetchQuery(onboardingTenantsQueryOptions({ state: 'stuck' }))
-    ).resolves.toEqual({ tenants: [], nextCursor: null, prevCursor: null })
+    await expect(client.fetchQuery(onboardingTenantsListOptions('stuck', {}))).resolves.toEqual(
+      listPage([])
+    )
     await expect(client.fetchQuery(tenantOnboardingQueryOptions(TENANT_ID))).resolves.toEqual(
       tenantOnboardingDetail()
     )
@@ -154,7 +155,7 @@ describe('onboarding writes', () => {
     expect(client.getQueryState(onboardingKeys.tenant(TENANT_ID))?.isInvalidated).toBe(false)
     expectStale(client, [
       onboardingKeys.funnel('30d'),
-      onboardingKeys.tenants({ state: 'stuck', limit: 20 }),
+      onboardingTenantsListOptions('stuck', {}).queryKey,
       ...AROUND,
     ])
     expect(client.getQueryState(emailsListOptions({}).queryKey)?.isInvalidated).toBe(false)

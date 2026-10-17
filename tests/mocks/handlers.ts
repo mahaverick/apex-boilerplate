@@ -620,7 +620,7 @@ export const handlers = [
     )
   ),
   http.get('/api/v1/platform/onboarding/tenants', () =>
-    ok({ tenants: [], nextCursor: null, prevCursor: null }, 'Onboarding tenants retrieved.')
+    ok(listPage([]), 'Onboarding tenants retrieved.')
   ),
   http.get('/api/v1/platform/tenants/:tenantId/onboarding', () =>
     ok(tenantOnboardingDetail(), 'Tenant onboarding retrieved.')

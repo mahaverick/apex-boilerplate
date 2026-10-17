@@ -1157,7 +1157,7 @@ const worker = setupWorker(
   http.get('/api/v1/platform/onboarding/tenants', ({ request }) => {
     const state = new URL(request.url).searchParams.get('state') ?? 'stuck'
     const tenants = ONBOARDING_ROWS.filter((row) => row.state === state)
-    return ok({ tenants, nextCursor: null, prevCursor: null }, 'Onboarding tenants retrieved.')
+    return ok(listPage(tenants), 'Onboarding tenants retrieved.')
   }),
   http.get('/api/v1/platform/tenants/:tenantId/onboarding', ({ params }) =>
     ok(tenantOnboarding(String(params.tenantId)), 'Tenant onboarding retrieved.')

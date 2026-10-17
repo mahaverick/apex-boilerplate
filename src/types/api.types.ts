@@ -116,11 +116,6 @@ export const MEMBER_NOT_FOUND_MESSAGE = 'Member not found'
 /** 403 on accept: the signed-in account is the invited one, but its email is unverified. */
 export const INVITATION_EMAIL_UNVERIFIED = 'invitation_email_unverified'
 
-/** A keyset page's direction. `prev` pages backward from the given cursor. */
-export const PAGE_DIRECTIONS = ['next', 'prev'] as const
-/** A direction a keyset list can page in. */
-export type PageDirection = (typeof PAGE_DIRECTIONS)[number]
-
 /** Mirrors express's TENANT_LIFECYCLE_STATES. */
 export const TENANT_LIFECYCLE_STATES = ['active', 'suspended', 'archived'] as const
 /** One lifecycle state a tenant can hold. */
@@ -683,13 +678,6 @@ export interface OnboardingTenantRow {
   nextStep: OnboardingStepSummary | null
   requiredDone: number
   requiredTotal: number
-}
-
-/** A keyset page of `GET /platform/onboarding/tenants`; cursors as for `PlatformTenantPage`. */
-export interface OnboardingTenantPage {
-  tenants: OnboardingTenantRow[]
-  nextCursor: string | null
-  prevCursor: string | null
 }
 
 /** One live member's own status on a member step. */

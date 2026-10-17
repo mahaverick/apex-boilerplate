@@ -1779,17 +1779,16 @@ describe('onboarding', () => {
       server.use(
         http.get('/api/v1/platform/onboarding/tenants', () =>
           ok(
-            {
-              tenants: [
+            listPage(
+              [
                 onboardingTenantRow({
                   state,
                   daysStuck: state === 'stuck' ? 9 : null,
                   startedAt: state === 'awaiting_owner' ? null : '2026-09-10T09:00:00.000Z',
                 }),
               ],
-              nextCursor: 'n1',
-              prevCursor: null,
-            },
+              { nextCursor: 'n1', hasNext: true }
+            ),
             'Onboarding tenants retrieved.'
           )
         )
