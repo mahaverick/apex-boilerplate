@@ -1,7 +1,6 @@
 import { IconSearch } from '@tabler/icons-react'
 import { Link, Outlet, useLocation, useMatches, type LinkProps } from '@tanstack/react-router'
 import { Fragment, useEffect, type ReactNode } from 'react'
-import { CommandPalette } from '@/components/features/command-palette'
 import { MaintenanceBanner } from '@/components/features/maintenance/maintenance-banner'
 import { MAIN_CONTENT_ID, SkipLink } from '@/components/features/skip-link'
 import { StepUpProvider } from '@/components/features/step-up/step-up-provider'
@@ -11,6 +10,8 @@ import { NavMain } from '@/components/layouts/nav-main'
 import { NavSecondary } from '@/components/layouts/nav-secondary'
 import { NavSettings } from '@/components/layouts/nav-settings'
 import { AppMark } from '@/components/shared/app-mark'
+import { CommandPaletteHost } from '@/components/shared/command-palette/command-palette-host'
+import { prefetchPalette } from '@/components/shared/command-palette/palette-loader'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -40,7 +41,7 @@ import { navGroupsFor } from '@/constants/navigation'
 import { ROUTES } from '@/constants/routes'
 import { isSettingsPath } from '@/constants/settings'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { paletteShortcutHint } from '@/lib/shortcut'
+import { isApplePlatform, paletteShortcutHint } from '@/lib/shortcut'
 import { useFeaturePropertiesSync, useFlagValues } from '@/observability/flags/flag-hooks'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
@@ -117,11 +118,13 @@ function SidebarBrand() {
  * elsewhere it is `NavMain` plus the bottom group (`NavSecondary`). The brand
  * header and the account menu never change.
  *
- * The palette, the theme listener and the one mount of the `$feature/*`
- * super-property sync (`useFeaturePropertiesSync`) live here, not in the
- * sidebar: below `md` the `Sidebar` renders into a `Sheet` whose content
- * unmounts while closed. The theme toggle sits in the header from `md` up
- * and in the drawer's footer below it, where the header has no room left
+ * The palette's host (its shortcut, and its code fetched once the shell is
+ * idle or the header's Search… is hovered or focused), the theme listener and
+ * the one mount of the `$feature/*` super-property sync
+ * (`useFeaturePropertiesSync`) live here, not in the sidebar: below `md` the
+ * `Sidebar` renders into a `Sheet` whose content unmounts while closed. The
+ * theme toggle sits in the header from `md` up and in the drawer's footer
+ * below it, where the header has no room left
  * beside a full breadcrumb trail; it is never an item in the account menu,
  * which unmounts its content whenever the menu closes. `SidebarInset` is the
  * `main` element, so its own `header` is not a second banner.
@@ -209,13 +212,18 @@ export function AppLayout() {
               variant="outline"
               size="sm"
               className="ml-auto shrink-0 justify-between font-normal text-muted-foreground sm:w-56"
+              aria-keyshortcuts={isApplePlatform() ? 'Meta+K' : 'Control+K'}
               onClick={() => openPalette(true)}
+              onPointerEnter={prefetchPalette}
+              onFocus={prefetchPalette}
             >
               <span className="flex items-center gap-2">
                 <IconSearch aria-hidden="true" className="size-4" />
                 <span className="max-sm:sr-only">Search…</span>
               </span>
-              <Kbd className="max-sm:hidden">{paletteShortcutHint()}</Kbd>
+              <Kbd aria-hidden="true" className="max-sm:hidden">
+                {paletteShortcutHint()}
+              </Kbd>
             </Button>
             {!isMobile && <ThemeToggle />}
           </header>
@@ -224,7 +232,7 @@ export function AppLayout() {
             <Outlet />
           </div>
         </SidebarInset>
-        <CommandPalette />
+        <CommandPaletteHost />
       </SidebarProvider>
     </StepUpProvider>
   )

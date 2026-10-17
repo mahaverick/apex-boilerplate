@@ -3,6 +3,8 @@ import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useState, type RefObject } from 'react'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { EditUserNameDialog } from '@/components/features/users/edit-user-name-dialog'
+import { usePaletteCommands } from '@/components/shared/command-palette/palette-registry'
+import type { PaletteCommand } from '@/components/shared/command-palette/palette-types'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,7 +19,8 @@ import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom } from '@/lib/api-error'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
 import { toast } from '@/lib/toast'
-import { availableUserActions } from '@/lib/user-actions'
+import { availableUserActions, type UserAction } from '@/lib/user-actions'
+import { analyticsKey, type AnalyticsKey } from '@/observability/telemetry'
 import {
   useDeactivateUser,
   useDeleteUser,
@@ -32,6 +35,30 @@ import type { PlatformUserDetail } from '@/types/api.types'
 
 /** Which action's dialog is open, if any. */
 type OpenDialog = 'edit' | 'signOut' | 'deactivate' | 'reactivate' | 'delete' | 'purge' | null
+
+/** The menu's order, which the palette lists them in too. */
+const MENU_ORDER: readonly UserAction[] = [
+  'edit',
+  'passwordSetup',
+  'resendVerification',
+  'signOut',
+  'deactivate',
+  'reactivate',
+  'delete',
+  'purge',
+]
+
+/** The fixed key the palette sends for each action; mapped, never built from the camelCase name. */
+const PALETTE_ACTION_KEYS: Record<UserAction, AnalyticsKey> = {
+  edit: analyticsKey('page_action_edit'),
+  passwordSetup: analyticsKey('page_action_password_setup'),
+  resendVerification: analyticsKey('page_action_resend_verification'),
+  signOut: analyticsKey('page_action_sign_out'),
+  deactivate: analyticsKey('page_action_deactivate'),
+  reactivate: analyticsKey('page_action_reactivate'),
+  delete: analyticsKey('page_action_delete'),
+  purge: analyticsKey('page_action_purge'),
+}
 
 /**
  * The actions the API would accept from the signed-in staff member on this
@@ -51,6 +78,8 @@ export function UserActionsMenu({
   const navigate = useNavigate()
   const stepUp = useStepUp()
   const [dialog, setDialog] = useState<OpenDialog>(null)
+  /** Whether the open dialog came from the palette, whose close has already moved focus. */
+  const [fromPalette, setFromPalette] = useState(false)
   const deactivate = useDeactivateUser()
   const reactivate = useReactivateUser()
   const signOut = useSignOutUser()
@@ -84,7 +113,71 @@ export function UserActionsMenu({
     )
   }
 
-  const finalFocus = allowed.size > 0 ? undefined : fallbackFocus
+  const finalFocus = allowed.size > 0 && !fromPalette ? undefined : fallbackFocus
+
+  /** Opens an action's dialog from the menu, whose trigger takes focus back on close. */
+  const openFromMenu = (which: Exclude<OpenDialog, null>) => {
+    setFromPalette(false)
+    setDialog(which)
+  }
+
+  /** Opens an action's dialog for the palette, once the palette has closed. */
+  const dialogFromPalette = (which: Exclude<OpenDialog, null>) => {
+    setFromPalette(true)
+    setDialog(which)
+  }
+
+  const passwordSetupLabel = user.hasPassword
+    ? 'Send password reset link'
+    : 'Send set-password link'
+  /** What each allowed action does from the palette: the same dialog, or the same email the menu sends. */
+  const paletteRuns: Record<UserAction, Pick<PaletteCommand, 'label' | 'timing' | 'run'>> = {
+    edit: { label: 'Edit name', timing: 'afterClose', run: () => dialogFromPalette('edit') },
+    passwordSetup: {
+      label: passwordSetupLabel,
+      timing: 'immediate',
+      run: () =>
+        mail(
+          passwordSetup,
+          user.hasPassword ? 'Password reset email sent.' : 'Set-password email sent.'
+        ),
+    },
+    resendVerification: {
+      label: 'Resend verification email',
+      timing: 'immediate',
+      run: () => mail(resendVerification, 'Verification email sent.'),
+    },
+    signOut: {
+      label: 'Sign out everywhere',
+      timing: 'afterClose',
+      run: () => dialogFromPalette('signOut'),
+    },
+    deactivate: {
+      label: 'Deactivate',
+      timing: 'afterClose',
+      run: () => dialogFromPalette('deactivate'),
+    },
+    reactivate: {
+      label: 'Reactivate',
+      timing: 'afterClose',
+      run: () => dialogFromPalette('reactivate'),
+    },
+    delete: { label: 'Delete', timing: 'afterClose', run: () => dialogFromPalette('delete') },
+    purge: {
+      label: 'Delete permanently',
+      timing: 'afterClose',
+      run: () => dialogFromPalette('purge'),
+    },
+  }
+
+  usePaletteCommands(
+    'user-actions',
+    MENU_ORDER.filter((key) => allowed.has(key)).map((key): PaletteCommand => ({
+      id: key,
+      action: PALETTE_ACTION_KEYS[key],
+      ...paletteRuns[key],
+    }))
+  )
 
   const hasStateChange =
     allowed.has('signOut') || allowed.has('deactivate') || allowed.has('reactivate')
@@ -108,7 +201,7 @@ export function UserActionsMenu({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-56">
             {allowed.has('edit') && (
-              <DropdownMenuItem onClick={() => setDialog('edit')}>Edit name</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openFromMenu('edit')}>Edit name</DropdownMenuItem>
             )}
             {allowed.has('passwordSetup') && (
               <DropdownMenuItem
@@ -119,7 +212,7 @@ export function UserActionsMenu({
                   )
                 }
               >
-                {user.hasPassword ? 'Send password reset link' : 'Send set-password link'}
+                {passwordSetupLabel}
               </DropdownMenuItem>
             )}
             {allowed.has('resendVerification') && (
@@ -131,30 +224,30 @@ export function UserActionsMenu({
             )}
             {hasStateChange && <DropdownMenuSeparator />}
             {allowed.has('signOut') && (
-              <DropdownMenuItem onClick={() => setDialog('signOut')}>
+              <DropdownMenuItem onClick={() => openFromMenu('signOut')}>
                 Sign out everywhere
               </DropdownMenuItem>
             )}
             {allowed.has('deactivate') && (
-              <DropdownMenuItem variant="destructive" onClick={() => setDialog('deactivate')}>
+              <DropdownMenuItem variant="destructive" onClick={() => openFromMenu('deactivate')}>
                 Deactivate
               </DropdownMenuItem>
             )}
             {allowed.has('reactivate') && (
-              <DropdownMenuItem onClick={() => setDialog('reactivate')}>
+              <DropdownMenuItem onClick={() => openFromMenu('reactivate')}>
                 Reactivate
               </DropdownMenuItem>
             )}
             {allowed.has('delete') && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onClick={() => setDialog('delete')}>
+                <DropdownMenuItem variant="destructive" onClick={() => openFromMenu('delete')}>
                   Delete
                 </DropdownMenuItem>
               </>
             )}
             {allowed.has('purge') && (
-              <DropdownMenuItem variant="destructive" onClick={() => setDialog('purge')}>
+              <DropdownMenuItem variant="destructive" onClick={() => openFromMenu('purge')}>
                 Delete permanently
               </DropdownMenuItem>
             )}
@@ -162,7 +255,14 @@ export function UserActionsMenu({
         </DropdownMenu>
       )}
 
-      {dialog === 'edit' && <EditUserNameDialog user={user} open onOpenChange={close} />}
+      {dialog === 'edit' && (
+        <EditUserNameDialog
+          user={user}
+          open
+          onOpenChange={close}
+          finalFocus={fromPalette ? fallbackFocus : undefined}
+        />
+      )}
       <ReasonDialog
         open={dialog === 'signOut'}
         onOpenChange={close}

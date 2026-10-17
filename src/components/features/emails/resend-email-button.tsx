@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { ReasonDialog, type ReasonDialogProps } from '@/components/features/reason-dialog'
+import { usePaletteCommands } from '@/components/shared/command-palette/palette-registry'
 import { Button } from '@/components/ui/button'
 import {
   EMAIL_TEMPLATES,
@@ -9,6 +10,7 @@ import {
 } from '@/constants/email.constants'
 import { useStepUp } from '@/hooks/use-step-up'
 import { toast } from '@/lib/toast'
+import { analyticsKey } from '@/observability/telemetry'
 import { useResendEmail } from '@/queries/email.queries'
 import type { EmailMessageSummary } from '@/types/api.types'
 
@@ -32,15 +34,50 @@ export function ResendEmailButton({
 }) {
   const opener = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
+  /** Whether the dialog came from the palette, whose close has already moved focus off this button. */
+  const [fromPalette, setFromPalette] = useState(false)
   const stepUp = useStepUp()
   const resend = useResendEmail()
+  usePaletteCommands(
+    'email-actions',
+    message.canResend
+      ? [
+          {
+            id: 'resend',
+            label: 'Resend email',
+            action: analyticsKey('page_action_resend'),
+            timing: 'afterClose',
+            run: () => {
+              setFromPalette(true)
+              setOpen(true)
+            },
+          },
+        ]
+      : []
+  )
   if (!message.canResend) return null
+  /**
+   * The return after a palette open: the page's answer when a resend moved
+   * focus or is about to, otherwise this button, since the palette's close
+   * left focus elsewhere.
+   */
+  const toButton: ReasonDialogProps['finalFocus'] = (closeType) => {
+    const answer = typeof finalFocus === 'function' ? finalFocus(closeType) : true
+    return answer === true || answer === undefined ? opener.current : answer
+  }
   const sentence = isEmailTemplateKey(message.templateKey)
     ? EMAIL_TEMPLATES[message.templateKey].resendLabel
     : null
   return (
     <>
-      <Button ref={opener} variant="outline" onClick={() => setOpen(true)}>
+      <Button
+        ref={opener}
+        variant="outline"
+        onClick={() => {
+          setFromPalette(false)
+          setOpen(true)
+        }}
+      >
         Resend
       </Button>
       <ReasonDialog
@@ -49,7 +86,7 @@ export function ResendEmailButton({
         title="Resend this email?"
         description={sentence ?? 'Runs the action that sent it again.'}
         confirmLabel="Resend"
-        finalFocus={finalFocus}
+        finalFocus={fromPalette ? toButton : finalFocus}
         onConfirm={async (reason) => {
           const result = await stepUp.run(() => resend.mutateAsync({ id: message.id, reason }))
           if (result?.emailSent === false) toast.warning(RESEND_NOT_SENT)

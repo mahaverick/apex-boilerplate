@@ -548,7 +548,12 @@ test.describe('analytics end to end, through express', () => {
     await page
       .getByRole('combobox', { name: 'Search pages, tenants and users' })
       .fill(staff.email.split('@')[0] ?? '')
-    await page.getByRole('option', { name: new RegExp(staff.email.replaceAll('.', '\\.')) }).click()
+    // Recent lists the account too (the walk opened its page), so the click is the search result's.
+    await page
+      .getByRole('dialog', { name: 'Command palette', exact: true })
+      .getByRole('group', { name: 'Users', exact: true })
+      .getByRole('option', { name: new RegExp(staff.email.replaceAll('.', '\\.')) })
+      .click()
     await expect(page.getByRole('heading', { name: PROBE_NAME, level: 1 })).toBeVisible()
 
     await signOut(page)

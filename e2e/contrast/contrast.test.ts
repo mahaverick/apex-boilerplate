@@ -524,8 +524,10 @@ test.describe('chart legends', () => {
 })
 
 /**
- * The ⌘K palette: its own dialog surface and its highlighted-option pair
- * (`--accent` on `--popover`), neither of which any page above renders.
+ * The ⌘K palette: its own dialog surface, its highlighted-option pair
+ * (`--accent` on `--popover`), the muted detail text on a highlighted and on
+ * a plain row, and a failed search's Try again row, none of which any page
+ * above renders.
  */
 test.describe('command palette', () => {
   for (const theme of THEMES) {
@@ -549,6 +551,48 @@ test.describe('command palette', () => {
 
       const result = await runAxe(page, '[role="dialog"]')
       expect(report('palette', theme, result), report('palette', theme, result)).toBe('')
+    })
+
+    test(`the palette's failed search and detail text meet WCAG AA contrast in ${theme}`, async ({
+      page,
+    }) => {
+      await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+      await page.goto('/e2e/harness/?path=/overview&fail=/api/v1/platform/tenants')
+      await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible({
+        timeout: COLD_TRANSFORM_BUDGET_MS,
+      })
+
+      await page.keyboard.press('ControlOrMeta+k')
+      const palette = page.getByRole('dialog', { name: 'Command palette', exact: true })
+      await expect(palette).toBeVisible({ timeout: COLD_TRANSFORM_BUDGET_MS })
+      await page.keyboard.type('cleo')
+      // The failed tenant search's row, and a user row with its muted detail: neither shows on an open with no term.
+      const retry = palette.getByRole('option', { name: 'Search failed. Try again' })
+      const user = palette.getByRole('option', { name: /cleo\.d@example\.com/ })
+      await expect(retry).toBeVisible()
+      await expect(user).toBeVisible()
+
+      // The user row comes first, so it is graded highlighted (on `--accent`), then plain (on `--popover`) once the highlight moves to Try again.
+      await expect(user).toHaveAttribute('data-highlighted')
+      await afterAnimations(palette)
+      await afterFontsAndFrames(page)
+      await page.addScriptTag({ path: AXE_PATH })
+      const highlighted = await runAxe(page, '[role="dialog"]')
+      expect(
+        report('palette failure', theme, highlighted),
+        report('palette failure', theme, highlighted)
+      ).toBe('')
+
+      await page.keyboard.press('ArrowDown')
+      await expect(retry).toHaveAttribute('data-highlighted')
+      await expect(user).not.toHaveAttribute('data-highlighted')
+      await afterAnimations(palette)
+      await afterFontsAndFrames(page)
+      const plain = await runAxe(page, '[role="dialog"]')
+      expect(
+        report('palette failure, plain user row', theme, plain),
+        report('palette failure, plain user row', theme, plain)
+      ).toBe('')
     })
   }
 })

@@ -1,12 +1,15 @@
+import { IconCopy } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useRef } from 'react'
 import { UserEmailsCard } from '@/components/features/emails/user-emails-card'
 import { UserHistoryCard } from '@/components/features/history-card'
 import { LoadError } from '@/components/features/load-error'
+import { PagePaletteCommands } from '@/components/features/page-palette-commands'
 import { UserActionsMenu } from '@/components/features/users/user-actions-menu'
 import { UserNotFound } from '@/components/features/users/user-not-found'
 import { UserStatusBadges } from '@/components/features/users/user-status-badges'
+import { copyId } from '@/components/shared/command-palette/copy-id'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
 import { DetailPending } from '@/components/shared/pending-templates'
@@ -20,8 +23,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast, ROLE_LABELS } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
+import { useRecordRecent } from '@/hooks/use-record-recent'
 import { statusFrom } from '@/lib/api-error'
 import { formatDate, fullName } from '@/lib/format'
+import { analyticsKey } from '@/observability/telemetry'
 import { historyList } from '@/queries/audit.queries'
 import { platformUserQueryOptions } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
@@ -51,6 +56,8 @@ const PROVIDER_LABELS: Record<string, string> = { email: 'Email', google: 'Googl
 function UserDetailPage() {
   const { userId } = Route.useParams()
   const detail = useQuery(platformUserQueryOptions(userId))
+  const notFound = detail.isError && statusFrom(detail.error) === 404
+  useRecordRecent('user', userId, detail.data && { label: detail.data.email }, notFound)
 
   if (detail.isError && (detail.data === undefined || statusFrom(detail.error) === 404)) {
     return statusFrom(detail.error) === 404 ? (
@@ -87,6 +94,19 @@ function UserDetailPage() {
         <LoadError message="We could not load this user." onRetry={() => void detail.refetch()} />
       )}
       <UserDetail user={detail.data} />
+      <PagePaletteCommands
+        source="user-page"
+        commands={[
+          {
+            id: 'copy-id',
+            label: 'Copy user ID',
+            icon: IconCopy,
+            action: analyticsKey('copy_id'),
+            timing: 'immediate',
+            run: () => copyId(userId, 'User ID copied.'),
+          },
+        ]}
+      />
     </div>
   )
 }

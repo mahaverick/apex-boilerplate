@@ -4,6 +4,8 @@ import { useMemo, useState, type RefObject } from 'react'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { EditTenantDialog } from '@/components/features/tenants/edit-tenant-dialog'
 import { OwnerInvitationDialog } from '@/components/features/tenants/owner-invitation-dialog'
+import { usePaletteCommands } from '@/components/shared/command-palette/palette-registry'
+import type { PaletteCommand } from '@/components/shared/command-palette/palette-types'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -16,6 +18,7 @@ import { ROUTES } from '@/constants/routes'
 import { useStepUp } from '@/hooks/use-step-up'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
 import { toast } from '@/lib/toast'
+import { analyticsKey } from '@/observability/telemetry'
 import {
   activeOwnerCount,
   useArchiveTenant,
@@ -28,6 +31,16 @@ import type { PlatformTenantDetail } from '@/types/api.types'
 
 /** Which action's dialog is open, if any. */
 type Open = 'edit' | 'owner' | 'suspend' | 'reactivate' | 'archive' | 'purge' | null
+
+/** Each action's menu label and the fixed key the palette sends for it, in menu order. */
+const PALETTE_ACTIONS = [
+  { open: 'edit', label: 'Edit details', action: analyticsKey('page_action_edit') },
+  { open: 'owner', label: 'Resend owner invitation', action: analyticsKey('page_action_owner') },
+  { open: 'suspend', label: 'Suspend', action: analyticsKey('page_action_suspend') },
+  { open: 'reactivate', label: 'Reactivate', action: analyticsKey('page_action_reactivate') },
+  { open: 'archive', label: 'Archive', action: analyticsKey('page_action_archive') },
+  { open: 'purge', label: 'Delete permanently', action: analyticsKey('page_action_purge') },
+] as const
 
 /**
  * The tenant's staff actions, each shown only when the API would accept it:
@@ -57,6 +70,8 @@ export function TenantActionsMenu({
     onPurged: () => navigate({ to: ROUTES.tenants, search: { state: 'archived' } }),
   })
   const [open, setOpen] = useState<Open>(null)
+  /** Whether the open dialog came from the palette, whose close has already moved focus. */
+  const [fromPalette, setFromPalette] = useState(false)
   const keepFocusOnPage = useMemo(() => focusFallbackOnRemoval(fallbackFocus), [fallbackFocus])
 
   const isAdmin = platformRoleAtLeast(role, 'admin')
@@ -72,12 +87,34 @@ export function TenantActionsMenu({
   }
   const hasActions = Object.values(can).some(Boolean)
 
+  usePaletteCommands(
+    'tenant-actions',
+    PALETTE_ACTIONS.filter((entry) => can[entry.open]).map((entry): PaletteCommand => ({
+      id: entry.open,
+      label: entry.label,
+      action: entry.action,
+      timing: 'afterClose',
+      run: () => {
+        setFromPalette(true)
+        setOpen(entry.open)
+      },
+    }))
+  )
+
+  /** Opens an action's dialog from the menu, whose trigger takes focus back on close. */
+  const openFromMenu = (which: Exclude<Open, null>) => {
+    setFromPalette(false)
+    setOpen(which)
+  }
+
   /** The open state for one of the action dialogs. */
   const dialogProps = (which: Exclude<Open, null>) => ({
     open: open === which,
     onOpenChange: (next: boolean) => setOpen(next ? which : null),
   })
-  const finalFocus = hasActions ? undefined : fallbackFocus
+  const finalFocus = hasActions && !fromPalette ? undefined : fallbackFocus
+  /** The form dialogs' return: the heading after a palette open, else the menu's trigger. */
+  const paletteFocus = fromPalette ? fallbackFocus : undefined
 
   return (
     <>
@@ -89,26 +126,28 @@ export function TenantActionsMenu({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-56">
             {can.edit && (
-              <DropdownMenuItem onClick={() => setOpen('edit')}>Edit details</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openFromMenu('edit')}>Edit details</DropdownMenuItem>
             )}
             {can.owner && (
-              <DropdownMenuItem onClick={() => setOpen('owner')}>
+              <DropdownMenuItem onClick={() => openFromMenu('owner')}>
                 Resend owner invitation
               </DropdownMenuItem>
             )}
             {can.suspend && (
-              <DropdownMenuItem onClick={() => setOpen('suspend')}>Suspend</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openFromMenu('suspend')}>Suspend</DropdownMenuItem>
             )}
             {can.reactivate && (
-              <DropdownMenuItem onClick={() => setOpen('reactivate')}>Reactivate</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openFromMenu('reactivate')}>
+                Reactivate
+              </DropdownMenuItem>
             )}
             {can.archive && (
-              <DropdownMenuItem variant="destructive" onClick={() => setOpen('archive')}>
+              <DropdownMenuItem variant="destructive" onClick={() => openFromMenu('archive')}>
                 Archive
               </DropdownMenuItem>
             )}
             {can.purge && (
-              <DropdownMenuItem variant="destructive" onClick={() => setOpen('purge')}>
+              <DropdownMenuItem variant="destructive" onClick={() => openFromMenu('purge')}>
                 Delete permanently
               </DropdownMenuItem>
             )}
@@ -116,8 +155,16 @@ export function TenantActionsMenu({
         </DropdownMenu>
       )}
 
-      {can.edit && <EditTenantDialog tenant={tenant} {...dialogProps('edit')} />}
-      {can.owner && <OwnerInvitationDialog tenant={tenant} {...dialogProps('owner')} />}
+      {can.edit && (
+        <EditTenantDialog tenant={tenant} {...dialogProps('edit')} finalFocus={paletteFocus} />
+      )}
+      {can.owner && (
+        <OwnerInvitationDialog
+          tenant={tenant}
+          {...dialogProps('owner')}
+          finalFocus={paletteFocus}
+        />
+      )}
       <ReasonDialog
         {...dialogProps('suspend')}
         finalFocus={finalFocus}

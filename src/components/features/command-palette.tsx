@@ -1,221 +1,267 @@
-import { IconBuilding, IconUser } from '@tabler/icons-react'
+import {
+  IconBuilding,
+  IconDeviceDesktop,
+  IconLogout,
+  IconMoon,
+  IconPlus,
+  IconSettings,
+  IconSun,
+  IconUser,
+} from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useId, useState } from 'react'
-import { Pii } from '@/components/shared/pii'
-import {
-  Command,
-  CommandCollection,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandGroupLabel,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
+import { useState } from 'react'
+import { MAIN_CONTENT_ID } from '@/components/features/skip-link'
+import { CreateTenantDialog } from '@/components/features/tenants/create-tenant-dialog'
+import { CommandPaletteShell } from '@/components/shared/command-palette/command-palette-shell'
+import type {
+  PaletteCommand,
+  PaletteGroup,
+  RecentEntry,
+} from '@/components/shared/command-palette/palette-types'
+import { remoteGroup } from '@/components/shared/command-palette/remote-group'
+import { usePaletteTerm } from '@/components/shared/command-palette/use-palette-term'
 import { navItemsFor, type NavPath } from '@/constants/navigation'
-import { isStaff } from '@/constants/roles'
+import { isStaff, platformRoleAtLeast } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { SETTINGS_SECTIONS, type SettingsPath } from '@/constants/settings'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import { isRoleDenied } from '@/lib/role-denied'
+import { fullName } from '@/lib/format'
 import { useFlagValues } from '@/observability/flags/flag-hooks'
-import { analyticsKey, track } from '@/observability/telemetry'
+import { analyticsKey } from '@/observability/telemetry'
+import { useLogout, useLogoutPending } from '@/queries/auth.queries'
 import { tenantsListOptions } from '@/queries/tenant-admin.queries'
 import { usersListOptions } from '@/queries/user-admin.queries'
-import { cleanSearch } from '@/schemas/list-request.schemas'
 import { useAuthStore } from '@/states/auth.store'
-import { useCommandPaletteStore } from '@/states/command-palette.store'
-import { LIST_SEARCH_DEBOUNCE_MS } from '@/types/list.types'
+import { useThemeStore, type Theme } from '@/states/theme.store'
+import type { TenantLifecycleState } from '@/types/api.types'
 
 /** How many tenants, and how many users, the palette lists for a term. */
 const RESULTS_PER_GROUP = 8
 
-/** What choosing each kind of item does, as `command_palette_action_run` names it. */
-const PALETTE_ACTIONS = {
+/** The fixed `action` each kind of command sends. */
+const ACTIONS = {
   page: analyticsKey('open_page'),
   tenant: analyticsKey('open_tenant'),
   user: analyticsKey('open_user'),
+  recent: analyticsKey('open_recent'),
+  theme: analyticsKey('set_theme'),
+  signOut: analyticsKey('sign_out'),
+  create: analyticsKey('create_tenant'),
 } as const
 
-/** One selectable row, tagged by what choosing it opens. */
-type PaletteItem =
-  | { kind: 'page'; value: string; label: string; to: NavPath | SettingsPath }
-  | { kind: 'tenant'; value: string; label: string }
-  | { kind: 'user'; value: string; label: string; detail: string | null }
+/** The three themes, as the header's theme menu lists them. */
+const THEMES: readonly { value: Theme; label: string; icon: typeof IconSun }[] = [
+  { value: 'light', label: 'Light', icon: IconSun },
+  { value: 'dark', label: 'Dark', icon: IconMoon },
+  { value: 'system', label: 'System', icon: IconDeviceDesktop },
+]
 
-/** A labelled group of rows; `value` is both the label shown and the React key. */
-interface PaletteGroup {
-  value: string
-  items: PaletteItem[]
+/** A tenant state worth saying beside a search result; an active tenant says only its slug. */
+const STATE_DETAIL: Partial<Record<TenantLifecycleState, string>> = {
+  suspended: 'Suspended',
+  archived: 'Archived',
 }
 
 /**
- * The ⌘K / Ctrl+K palette: the pages the user's role can see, filtered here,
- * and customer tenants and users, filtered by the API. Choosing a tenant or a
- * user opens its detail page. Tenant and user results are each shown only for
- * the term they were fetched for, so Enter can never act on an older term's
- * list. Every close clears the search, however it closed.
+ * Where focus goes when the New tenant dialog closes. The palette opened it,
+ * and its close has already handed focus back, so no trigger is waiting: the
+ * page's heading when it takes focus, else the main landmark.
+ * @returns The heading for the dialog to focus, or false once the landmark has focus.
+ */
+function returnFocusToPage(): HTMLElement | false {
+  const main = document.getElementById(MAIN_CONTENT_ID)
+  const heading = main?.querySelector<HTMLElement>('h1[tabindex]')
+  if (heading) return heading
+  // Given the landmark, Base UI would focus its first tabbable child (the sidebar toggle), so it is focused here.
+  main?.focus({ preventScroll: true })
+  return false
+}
+
+/**
+ * The ⌘K palette's commands: Go to (the pages the role can see, the
+ * Settings landing page and every settings section), customer tenants and
+ * users from the API, Theme, and Account (New tenant for admins, Sign out).
+ * Recent lists the tenants and users opened lately; This page lists what the
+ * open page's own controls registered. Tenant and user results show only for
+ * the term they were fetched for, so Enter never acts on an older list.
  */
 export function CommandPalette() {
   const navigate = useNavigate()
-  const open = useCommandPaletteStore((state) => state.open)
-  const setOpen = useCommandPaletteStore((state) => state.setOpen)
-  const toggle = useCommandPaletteStore((state) => state.toggle)
   const role = useAuthStore((state) => state.user?.platformRole)
   const flags = useFlagValues()
-  const shortcutsId = useId()
-  const [query, setQuery] = useState('')
-  const [wasOpen, setWasOpen] = useState(open)
-  // The shortcut and the header flip the store's `open` directly, and Base UI fires no `onOpenChange` for that, so reset here.
-  if (open !== wasOpen) {
-    setWasOpen(open)
-    if (!open) setQuery('')
-  }
+  const theme = useThemeStore((state) => state.theme)
+  const setTheme = useThemeStore((state) => state.setTheme)
+  const logout = useLogout()
+  const signingOut = useLogoutPending()
+  const [creating, setCreating] = useState(false)
   const staff = isStaff(role)
-  const current = query.trim()
-  const term = useDebouncedValue(current, LIST_SEARCH_DEBOUNCE_MS)
-  // The API refuses an empty `search`, and a term it would cut or strip is searched as it will be sent.
-  const sent = cleanSearch(term)
-  const request = { ...(sent === '' ? {} : { search: sent }), limit: RESULTS_PER_GROUP }
+  const { current, term, ready } = usePaletteTerm()
+  const request = { search: term, limit: RESULTS_PER_GROUP }
   const tenants = useQuery({
     ...tenantsListOptions(request, { total: false }),
-    // The list keeps the previous term's page as placeholder; the palette must not show it.
+    // The list keeps the previous term's page as a placeholder; the palette must not show it.
     placeholderData: undefined,
-    enabled: open && staff && sent !== '',
+    enabled: staff && ready,
   })
   const users = useQuery({
     ...usersListOptions(request, { total: false }),
     placeholderData: undefined,
-    enabled: open && staff && sent !== '',
+    enabled: staff && ready,
   })
 
-  useEffect(() => {
-    if (open) track('command_palette_opened')
-  }, [open])
+  /** A page row. */
+  const page = (
+    label: string,
+    to: NavPath | SettingsPath | typeof ROUTES.settings,
+    icon?: PaletteCommand['icon']
+  ): PaletteCommand => ({
+    id: to,
+    label,
+    icon,
+    keywords: to.startsWith(ROUTES.settings) ? ['settings'] : undefined,
+    action: ACTIONS.page,
+    timing: 'immediate',
+    run: () => void navigate({ to }),
+  })
 
-  useEffect(() => {
-    /** Toggles the palette on Cmd/Ctrl+K, ignoring repeats, composition and other modifiers. */
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.repeat || event.isComposing || event.defaultPrevented) return
-      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return
-      // The physical key, so the shortcut works on non-Latin layouts too.
-      if (event.code !== 'KeyK') return
-      event.preventDefault()
-      toggle()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [toggle])
-
-  const needle = current.toLowerCase()
-  const pages: PaletteItem[] = [
-    ...navItemsFor(role, flags).map((item) => ({ label: item.label, to: item.to })),
-    // Gated as the nav items are: a session whose platform role dropped to null gets no pages.
-    ...(staff ? SETTINGS_SECTIONS : []).map((section) => ({
-      label: section.label,
-      to: section.to,
-    })),
-  ]
-    .filter((item) => needle === '' || item.label.toLowerCase().includes(needle))
-    .map((item) => ({ kind: 'page', value: item.to, label: item.label, to: item.to }))
-  // Only the current term's results: a stale list must never take the Enter.
-  const tenantsCurrent = term === current && tenants.data !== undefined && !tenants.isFetching
-  const usersCurrent = term === current && users.data !== undefined && !users.isFetching
-  const tenantItems: PaletteItem[] = tenantsCurrent
-    ? tenants.data.items.map((row) => ({ kind: 'tenant', value: row.id, label: row.name }))
-    : []
-  const userItems: PaletteItem[] = usersCurrent
-    ? users.data.items.map((row) => ({
-        kind: 'user',
-        value: row.id,
-        label: row.email,
-        detail: [row.firstName, row.lastName].filter(Boolean).join(' ') || null,
-      }))
-    : []
   const groups: PaletteGroup[] = [
-    ...(pages.length > 0 ? [{ value: 'Pages', items: pages }] : []),
-    ...(tenantItems.length > 0 ? [{ value: 'Tenants', items: tenantItems }] : []),
-    ...(userItems.length > 0 ? [{ value: 'Users', items: userItems }] : []),
+    {
+      id: 'navigate',
+      commands: [
+        ...navItemsFor(role, flags).map((item) => page(item.label, item.to, item.Icon)),
+        // Gated as the nav items are: a session whose platform role dropped to null gets no pages.
+        ...(staff
+          ? [
+              page('Settings', ROUTES.settings, IconSettings),
+              ...SETTINGS_SECTIONS.map((section) => page(section.label, section.to, section.Icon)),
+            ]
+          : []),
+      ],
+    },
+    {
+      id: 'theme',
+      commands: THEMES.map(({ value, label, icon }) => ({
+        id: value,
+        label,
+        icon,
+        detail: theme === value ? 'Current' : undefined,
+        keywords: ['theme', 'appearance', `${value} mode`],
+        action: ACTIONS.theme,
+        timing: 'immediate',
+        run: () => setTheme(value),
+      })),
+    },
+    {
+      id: 'account',
+      commands: [
+        ...(platformRoleAtLeast(role, 'admin')
+          ? [
+              {
+                id: 'new-tenant',
+                label: 'New tenant',
+                icon: IconPlus,
+                keywords: ['create tenant', 'add tenant'],
+                action: ACTIONS.create,
+                timing: 'afterClose' as const,
+                run: () => setCreating(true),
+              },
+            ]
+          : []),
+        {
+          id: 'sign-out',
+          label: 'Sign out',
+          icon: IconLogout,
+          keywords: ['log out', 'logout'],
+          disabled: signingOut,
+          action: ACTIONS.signOut,
+          timing: 'immediate',
+          run: () => logout.mutate(),
+        },
+      ],
+    },
   ]
 
-  /** Records the choice, closes the palette and opens the item's page. */
-  function choose(item: PaletteItem) {
-    track('command_palette_action_run', { action: PALETTE_ACTIONS[item.kind] })
-    setOpen(false)
-    if (item.kind === 'page') void navigate({ to: item.to })
-    else if (item.kind === 'tenant') {
-      void navigate({ to: ROUTES.tenant, params: { tenantId: item.value } })
-    } else void navigate({ to: ROUTES.user, params: { userId: item.value } })
+  const remote = [
+    remoteGroup({
+      id: 'tenants',
+      enabled: staff,
+      current,
+      term,
+      query: tenants,
+      toCommands: (data) =>
+        data.items.map((row) => ({
+          id: row.id,
+          label: row.name,
+          detail: [row.slug, STATE_DETAIL[row.lifecycleState]].filter(Boolean).join(' · '),
+          icon: IconBuilding,
+          action: ACTIONS.tenant,
+          timing: 'immediate',
+          run: () => void navigate({ to: ROUTES.tenant, params: { tenantId: row.id } }),
+        })),
+    }),
+    remoteGroup({
+      id: 'users',
+      enabled: staff,
+      current,
+      term,
+      query: users,
+      toCommands: (data) =>
+        data.items.map((row) => ({
+          id: row.id,
+          label: row.email,
+          detail: fullName(row) ?? undefined,
+          icon: IconUser,
+          pii: true,
+          action: ACTIONS.user,
+          timing: 'immediate',
+          run: () => void navigate({ to: ROUTES.user, params: { userId: row.id } }),
+        })),
+    }),
+  ]
+
+  /** A recent tenant or user as a row that opens its page; none for a caller who is not staff. */
+  const recentToCommand = (entry: RecentEntry): PaletteCommand | null => {
+    if (!staff) return null
+    return entry.kind === 'tenant'
+      ? {
+          id: entry.id,
+          label: entry.label,
+          detail: entry.detail,
+          icon: IconBuilding,
+          action: ACTIONS.recent,
+          timing: 'immediate',
+          run: () => void navigate({ to: ROUTES.tenant, params: { tenantId: entry.id } }),
+        }
+      : {
+          id: entry.id,
+          label: entry.label,
+          icon: IconUser,
+          pii: true,
+          action: ACTIONS.recent,
+          timing: 'immediate',
+          run: () => void navigate({ to: ROUTES.user, params: { userId: entry.id } }),
+        }
   }
 
-  const searching =
-    staff && current !== '' && (term !== current || tenants.isFetching || users.isFetching)
-  // An error belongs to `term`, so it is shown only once `term` is what is typed.
-  const failed =
-    term === current &&
-    ((tenants.isError && !isRoleDenied(tenants.error)) ||
-      (users.isError && !isRoleDenied(users.error)))
-  const searchStatus =
-    !staff || current === ''
-      ? null
-      : searching
-        ? 'Searching…'
-        : failed
-          ? 'Some results could not be loaded.'
-          : null
-
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
-      <Command
-        open
-        inline
-        items={groups}
-        filteredItems={groups}
-        value={query}
-        onValueChange={(next) => setQuery(next)}
-        autoHighlight="always"
-        keepHighlight
-      >
-        <CommandInput
-          aria-label="Search pages, tenants and users"
-          aria-describedby={shortcutsId}
-          placeholder="Search pages, tenants and users…"
-        />
-        <p role="status" aria-live="polite" className="px-3 pt-2 text-xs text-muted-foreground">
-          {searchStatus}
-        </p>
-        <CommandEmpty>{searching ? null : 'No results.'}</CommandEmpty>
-        <CommandList>
-          {(group: PaletteGroup) => (
-            <CommandGroup key={group.value} items={group.items}>
-              <CommandGroupLabel>{group.value}</CommandGroupLabel>
-              <CommandCollection>
-                {(item: PaletteItem) => (
-                  <CommandItem key={item.value} value={item} onClick={() => choose(item)}>
-                    {item.kind === 'tenant' && <IconBuilding aria-hidden="true" />}
-                    {item.kind === 'user' && <IconUser aria-hidden="true" />}
-                    {item.kind === 'user' ? (
-                      <Pii className="truncate">{item.label}</Pii>
-                    ) : (
-                      <span className="truncate">{item.label}</span>
-                    )}
-                    {item.kind === 'user' && item.detail && (
-                      <Pii className="ml-auto truncate text-xs text-muted-foreground">
-                        {item.detail}
-                      </Pii>
-                    )}
-                  </CommandItem>
-                )}
-              </CommandCollection>
-            </CommandGroup>
-          )}
-        </CommandList>
-        <p id={shortcutsId} className="sr-only">
-          Use the arrow keys to move and Enter to open the highlighted item.
-        </p>
-      </Command>
-    </CommandDialog>
+    <>
+      <CommandPaletteShell
+        groups={groups}
+        remote={remote}
+        recentToCommand={recentToCommand}
+        inputLabel="Search pages, tenants and users"
+        placeholder="Search pages, tenants and users…"
+        description="Go to a page, a tenant or a user, or run an action."
+      />
+      <CreateTenantDialog
+        trigger={false}
+        open={creating}
+        onOpenChange={setCreating}
+        finalFocus={returnFocusToPage}
+        onCreated={(tenant) =>
+          void navigate({ to: ROUTES.tenant, params: { tenantId: tenant.id } })
+        }
+      />
+    </>
   )
 }

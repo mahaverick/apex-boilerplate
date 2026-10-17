@@ -52,10 +52,15 @@ test('⌘K finds a page and Enter opens it', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
 
   await page.keyboard.press('ControlOrMeta+k')
-  const palette = page.getByRole('dialog', { name: 'Command palette' })
+  const palette = page.getByRole('dialog', { name: 'Command palette', exact: true })
   await expect(palette.getByRole('option', { name: 'Overview' })).toBeVisible()
   await page.keyboard.type('tenants')
-  await expect(palette.getByRole('option', { name: 'Tenants' })).toBeVisible()
+  // Scoped and exact: a tenant row from the API search could match the term too.
+  await expect(
+    palette
+      .getByRole('group', { name: 'Go to' })
+      .getByRole('option', { name: 'Tenants', exact: true })
+  ).toBeVisible()
   await page.keyboard.press('Enter')
 
   await expect(page.getByRole('heading', { name: 'Tenants', level: 1 })).toBeVisible()

@@ -1,4 +1,5 @@
 import { useForm } from '@tanstack/react-form'
+import type { ComponentProps } from 'react'
 import { BusyButton } from '@/components/shared/busy-button'
 import {
   Dialog,
@@ -37,10 +38,13 @@ export function EditUserNameDialog({
   user,
   open,
   onOpenChange,
+  finalFocus,
 }: {
   user: PlatformUserDetail
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Where focus goes on close; unset returns it to whatever opened the dialog. */
+  finalFocus?: ComponentProps<typeof DialogContent>['finalFocus']
 }) {
   const update = useUpdateUser()
   const serverErrors = useServerErrors()
@@ -71,7 +75,7 @@ export function EditUserNameDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent finalFocus={finalFocus}>
         <DialogHeader>
           <DialogTitle>Edit name</DialogTitle>
         </DialogHeader>

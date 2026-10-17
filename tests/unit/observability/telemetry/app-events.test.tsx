@@ -39,7 +39,7 @@ function eventsNamed(name: string): unknown[] {
 
 beforeEach(() => {
   tracked.events = []
-  useCommandPaletteStore.setState({ open: false })
+  useCommandPaletteStore.setState({ open: false, query: '' })
   signIn({ ...testUser, platformRole: 'viewer' })
   server.use(
     http.get('/api/v1/platform/users', () =>

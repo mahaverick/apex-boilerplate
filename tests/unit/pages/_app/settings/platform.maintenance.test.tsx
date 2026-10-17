@@ -129,7 +129,9 @@ describe('/settings/platform/maintenance', () => {
     serve(maintenanceModeView())
     await openPage()
     expect(
-      screen.getAllByRole('button', { name: /…$/ }).map((button) => button.textContent)
+      within(screen.getByRole('region', { name: 'Customer access' }))
+        .getAllByRole('button', { name: /…$/ })
+        .map((button) => button.textContent)
     ).toEqual(['Turn on maintenance…'])
   })
 

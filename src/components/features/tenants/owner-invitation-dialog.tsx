@@ -1,5 +1,5 @@
 import { useForm } from '@tanstack/react-form'
-import { useState } from 'react'
+import { useState, type ComponentProps } from 'react'
 import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
@@ -46,10 +46,13 @@ export function OwnerInvitationDialog({
   tenant,
   open,
   onOpenChange,
+  finalFocus,
 }: {
   tenant: PlatformTenantDetail
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Where focus goes on close; unset returns it to whatever opened the dialog. */
+  finalFocus?: ComponentProps<typeof DialogContent>['finalFocus']
 }) {
   const [busy, setBusy] = useState(false)
   return (
@@ -61,7 +64,7 @@ export function OwnerInvitationDialog({
         onOpenChange(next)
       }}
     >
-      <DialogContent>
+      <DialogContent finalFocus={finalFocus}>
         <DialogHeader>
           <DialogTitle>Owner invitation</DialogTitle>
           <DialogDescription>

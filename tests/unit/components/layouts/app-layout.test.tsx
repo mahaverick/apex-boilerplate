@@ -44,7 +44,7 @@ describe('AppLayout', () => {
   beforeEach(() => {
     signIn()
     useSidebarStore.setState({ isCollapsed: false })
-    useCommandPaletteStore.setState({ open: false })
+    useCommandPaletteStore.setState({ open: false, query: '' })
   })
 
   const realLocation = window.location
@@ -465,7 +465,7 @@ describe('AppLayout system theme', () => {
   beforeEach(() => {
     signIn()
     useSidebarStore.setState({ isCollapsed: false })
-    useCommandPaletteStore.setState({ open: false })
+    useCommandPaletteStore.setState({ open: false, query: '' })
     localStorage.clear()
     document.documentElement.classList.remove('dark')
     useThemeStore.setState({ theme: 'system' })

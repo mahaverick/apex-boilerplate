@@ -1,5 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
+import type { ComponentProps } from 'react'
 import type { z } from 'zod'
 import { BusyButton } from '@/components/shared/busy-button'
 import {
@@ -40,14 +41,17 @@ export function EditTenantDialog({
   tenant,
   open,
   onOpenChange,
+  finalFocus,
 }: {
   tenant: PlatformTenantDetail
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Where focus goes on close; unset returns it to whatever opened the dialog. */
+  finalFocus?: ComponentProps<typeof DialogContent>['finalFocus']
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent finalFocus={finalFocus}>
         <DialogHeader>
           <DialogTitle>Edit details</DialogTitle>
         </DialogHeader>
