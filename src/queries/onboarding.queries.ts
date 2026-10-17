@@ -3,6 +3,7 @@
  * `/platform/tenants/:id/onboarding*`). Imports nothing from
  * platform.queries.ts, whose `invalidateDirectory` reaches these keys.
  */
+import '@/lib/zod-jitless'
 import {
   hashKey,
   keepPreviousData,

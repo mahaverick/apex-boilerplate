@@ -1,3 +1,4 @@
+import '@/lib/zod-jitless'
 import { useForm } from '@tanstack/react-form'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useRef } from 'react'

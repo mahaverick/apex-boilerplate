@@ -1,3 +1,4 @@
+import '@/lib/zod-jitless'
 import { z } from 'zod'
 import { emailSchema } from '@/schemas/auth.schemas'
 import { notAllowedMessage, safeText } from '@/schemas/safe-text.schemas'

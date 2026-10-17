@@ -5,6 +5,7 @@
  * is stored in the audit log. A textarea's value never holds `\r\n` (the DOM
  * normalises line breaks to `\n`), and the API normalises any that arrive.
  */
+import '@/lib/zod-jitless'
 import { z } from 'zod'
 import { notAllowedMessage, safeText } from '@/schemas/safe-text.schemas'
 

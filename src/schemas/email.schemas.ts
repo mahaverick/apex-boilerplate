@@ -2,6 +2,7 @@
  * @file The email detail page's URL search params. The Emails list's own are
  * the list contract's, in `email.queries.ts`.
  */
+import '@/lib/zod-jitless'
 import { z } from 'zod'
 
 /** The email detail page's tabs; the first is the default, which the URL leaves out. */
