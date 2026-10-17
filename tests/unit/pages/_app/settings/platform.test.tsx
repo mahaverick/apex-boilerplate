@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react'
 import { http } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { flagsEvaluation, flagsList } from '@/tests/fixtures/flags'
+import { flagsEvaluation } from '@/tests/fixtures/flags'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
@@ -44,7 +44,6 @@ describe('settings: platform', () => {
   it('keeps a flags bookmark’s evaluation search', async () => {
     signIn({ ...testUser, platformRole: 'admin' })
     server.use(
-      http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')),
       http.get('/api/v1/platform/flags/evaluate', () => ok(flagsEvaluation(), 'Flags evaluated.')),
       http.get(`/api/v1/platform/users/${testUser.id}`, () => ok(ME, 'User retrieved.'))
     )

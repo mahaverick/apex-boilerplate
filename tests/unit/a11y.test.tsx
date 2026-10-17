@@ -21,7 +21,7 @@ import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
 import { byContent } from '@/tests/fixtures/content'
-import { flagsEvaluation, flagsList } from '@/tests/fixtures/flags'
+import { flagsEvaluation, flagsMeta } from '@/tests/fixtures/flags'
 import {
   AUDIT_ID_1,
   AUDIT_ID_2,
@@ -917,7 +917,6 @@ describe('signed-in pages', () => {
   it('the flags page with every table, the traits and an evaluation has no axe violations', async () => {
     serveUser()
     server.use(
-      http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')),
       http.get('/api/v1/platform/flags/evaluate', () => ok(flagsEvaluation(), 'Flags evaluated.'))
     )
     renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
@@ -929,13 +928,13 @@ describe('signed-in pages', () => {
 
   it('the flags page when flags are not set up has no axe violations', async () => {
     server.use(
-      http.get('/api/v1/platform/flags', () =>
+      http.get('/api/v1/platform/flags/unregistered', () =>
+        ok(listPage([]), 'Unregistered flags retrieved.')
+      ),
+      http.get('/api/v1/platform/flags/meta', () =>
         ok(
-          flagsList({
-            unregistered: [],
-            snapshot: { enabled: false, fetchedAt: null, stale: false },
-          }),
-          'Flags retrieved.'
+          flagsMeta({ snapshot: { enabled: false, fetchedAt: null, stale: false } }),
+          'Flags meta retrieved.'
         )
       )
     )
@@ -951,7 +950,6 @@ describe('signed-in pages', () => {
   it('a tenant’s flags with a member picked has no axe violations', async () => {
     serveTenant('active')
     server.use(
-      http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')),
       http.get('/api/v1/platform/flags/evaluate', () => ok(flagsEvaluation(), 'Flags evaluated.'))
     )
     renderAppAt(`/tenants/${TENANT_ID}/flags?userId=${USER_ID}`)

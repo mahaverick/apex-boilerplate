@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import type { MembershipRole } from '@/constants/roles'
 import type { ClientFlagValues } from '@/observability/flags/flag-types'
+import { flagRows, flagsMeta, unregisteredRows } from '@/tests/fixtures/flags'
 import {
   AUDIT_ID_4,
   EMAIL_ATTEMPT_ID,
@@ -592,6 +593,12 @@ export const handlers = [
   // A tenant's members and pending invitations default to empty pages; a page test serves its own rows.
   http.get('/api/v1/tenants/:slug/members', () => ok(listPage([]), 'Members retrieved.')),
   http.get('/api/v1/tenants/:slug/invitations', () => ok(listPage([]), 'Invitations retrieved.')),
+  // The flags inspector's registry, unregistered flags and meta read answer the reference fixtures.
+  http.get('/api/v1/platform/flags', () => ok(listPage(flagRows()), 'Flags retrieved.')),
+  http.get('/api/v1/platform/flags/unregistered', () =>
+    ok(listPage(unregisteredRows()), 'Unregistered flags retrieved.')
+  ),
+  http.get('/api/v1/platform/flags/meta', () => ok(flagsMeta(), 'Flags meta retrieved.')),
   // The email list defaults to empty, so a page that only embeds one renders unchanged; `/emails/health` is registered before `:emailId`, which would otherwise match it.
   http.get('/api/v1/platform/emails', () => ok(listPage([]), 'Emails retrieved.')),
   http.get('/api/v1/platform/emails/health', () => ok(testEmailHealth, 'Email health retrieved.')),

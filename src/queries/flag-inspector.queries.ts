@@ -18,7 +18,6 @@ import {
   type FlagApp,
   type FlagRow,
   type FlagsEvaluateResponse,
-  type FlagsListResponse,
   type FlagsMetaResponse,
   type UnregisteredRow,
 } from '@/types/api.types'
@@ -31,11 +30,10 @@ export interface FlagEvaluateParams {
   app: FlagApp
 }
 
-/** Keys under `['platform', 'flags']`, apart from the app's own flag values; invalidating `all` reaches the list and every evaluation. */
+/** Keys under `['platform', 'flags']`, apart from the app's own flag values; invalidating `all` reaches every list, the meta read and every evaluation. */
 export const flagInspectorKeys = {
   /** Every inspector read. */
   all: ['platform', 'flags'] as const,
-  list: ['platform', 'flags', 'list'] as const,
   evaluate: ({ userId, tenantId, app }: FlagEvaluateParams) =>
     ['platform', 'flags', 'evaluate', userId, tenantId ?? null, app] as const,
 }
@@ -108,21 +106,6 @@ export function useFlagRegistry() {
   return useQuery({
     ...flagsListOptions({ limit: 100 }, { total: false }),
     select: (page) => page.items,
-  })
-}
-
-/**
- * Every registered flag with its live state, PostHog's unregistered flags
- * and the trait reference. Viewers and up.
- * @returns Query options for `useQuery`.
- */
-export function flagsListQueryOptions() {
-  return queryOptions({
-    queryKey: flagInspectorKeys.list,
-    queryFn: async () =>
-      unwrap(await apiClient.get<ApiSuccess<FlagsListResponse>>('/platform/flags')),
-    /** A 404 answers who is asking, so a retry changes nothing. */
-    retry: (failureCount, error) => !isRoleDenied(error) && failureCount < 1,
   })
 }
 

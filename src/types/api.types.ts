@@ -914,14 +914,6 @@ export interface FlagsMetaResponse {
   snapshot: FlagsListSnapshot
 }
 
-/** `GET /platform/flags`. */
-export interface FlagsListResponse {
-  items: FlagRow[]
-  unregistered: UnregisteredRow[]
-  traits: TraitRow[]
-  snapshot: FlagsListSnapshot
-}
-
 /** One flag's evaluation for the person asked about. */
 export interface FlagEvaluationRow {
   key: string

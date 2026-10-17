@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
-import type { ReactNode } from 'react'
+import { createFileRoute, stripSearchParams, useNavigate, useSearch } from '@tanstack/react-router'
+import type { ComponentProps, ReactNode } from 'react'
 import { FlagEvaluatePanel } from '@/components/features/flags/flag-evaluate-panel'
 import { FlagRegistryTable } from '@/components/features/flags/flag-registry-table'
 import { TraitsPanel } from '@/components/features/flags/traits-panel'
@@ -8,8 +8,11 @@ import { UnregisteredFlagsTable } from '@/components/features/flags/unregistered
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { SettingsRouteError } from '@/components/features/route-error'
+import { useListQuery } from '@/components/shared/data-table/use-list-query'
+import { useListSearch } from '@/components/shared/data-table/use-list-search'
 import { Note } from '@/components/shared/note'
 import { SettingsPagePending } from '@/components/shared/pending-templates'
+import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import {
@@ -21,17 +24,32 @@ import { platformRoleAtLeast } from '@/constants/roles'
 import { useNow } from '@/hooks/use-now'
 import { relativeTime } from '@/lib/relative-time'
 import { isRoleDenied } from '@/lib/role-denied'
-import { flagsListQueryOptions } from '@/queries/flag-inspector.queries'
-import { flagsSearchSchema } from '@/schemas/flags.schemas'
+import {
+  flagsList,
+  flagsListOptions,
+  flagsMetaQueryOptions,
+  unregisteredFlagsList,
+  unregisteredFlagsListOptions,
+  useFlagRegistry,
+} from '@/queries/flag-inspector.queries'
+import { listRequest, listValues } from '@/schemas/list-request.schemas'
 import { useAuthStore } from '@/states/auth.store'
-import type { FlagsListResponse } from '@/types/api.types'
+import type { FlagsMetaResponse } from '@/types/api.types'
 
 /** The Feature flags page: the read-only flags inspector. */
 export const Route = createFileRoute('/_app/settings/platform/flags')({
-  validateSearch: flagsSearchSchema,
+  validateSearch: flagsList.schema,
+  // The evaluate form's default app is no part of a list's view, so a list write never puts it in the URL.
+  search: { middlewares: [stripSearchParams({ app: 'react' })] },
+  loaderDeps: ({ search }) => ({
+    registry: listRequest(flagsList, listValues(flagsList, search)),
+    unregistered: listRequest(unregisteredFlagsList, listValues(unregisteredFlagsList, search)),
+  }),
   // Started, not awaited: the page renders its skeleton while this runs.
-  loader: ({ context }) => {
-    void context.queryClient.prefetchQuery(flagsListQueryOptions())
+  loader: ({ context, deps }) => {
+    void context.queryClient.prefetchQuery(flagsMetaQueryOptions())
+    void context.queryClient.prefetchQuery(flagsListOptions(deps.registry))
+    void context.queryClient.prefetchQuery(unregisteredFlagsListOptions(deps.unregistered))
   },
   head: () => ({ meta: [{ title: pageTitle('Feature flags') }] }),
   staticData: { crumb: 'Feature flags' },
@@ -58,46 +76,71 @@ function FlagsSection({ id, title, children }: { id: string; title: string; chil
   )
 }
 
+/** The evaluate panel, once the registry that says which flags each app receives has loaded. */
+function EvaluateSection({
+  search,
+  onSearchChange,
+}: {
+  search: ComponentProps<typeof FlagEvaluatePanel>['search']
+  onSearchChange: ComponentProps<typeof FlagEvaluatePanel>['onSearchChange']
+}) {
+  const registry = useFlagRegistry()
+  if (registry.isError) {
+    return <LoadError message={FLAGS_LIST_ERROR} onRetry={() => void registry.refetch()} />
+  }
+  if (registry.data === undefined) return <CardRowsSkeleton rows={2} />
+  return (
+    <FlagEvaluatePanel search={search} onSearchChange={onSearchChange} registry={registry.data} />
+  )
+}
+
 /** The loaded page: notes on the snapshot, then each section. */
-function FlagsContent({ data, isAdmin }: { data: FlagsListResponse; isAdmin: boolean }) {
+function FlagsContent({ meta, isAdmin }: { meta: FlagsMetaResponse; isAdmin: boolean }) {
   const now = useNow()
   // Not `Route.useSearch()` or `Route.useNavigate()`: this route module imports the error screen (route-error, then observability/errors), and a page chunk importing `Route` back from it makes Rolldown split the error listener out of the entry chunk (pnpm check:bundle).
   const search = useSearch({ from: '/_app/settings/platform/flags' })
   const navigate = useNavigate({ from: '/settings/platform/flags' })
+  const registry = useListQuery(useListSearch(flagsList), flagsListOptions)
+  const unregistered = useListQuery(
+    useListSearch(unregisteredFlagsList),
+    unregisteredFlagsListOptions
+  )
+  const { snapshot } = meta
   return (
     <>
-      {!data.snapshot.enabled && <Note tone="passive">{FLAGS_NOT_CONFIGURED}</Note>}
-      {data.snapshot.enabled && data.snapshot.stale && (
-        <Note tone="warning">{FLAGS_STALE_NOTE}</Note>
-      )}
+      {!snapshot.enabled && <Note tone="passive">{FLAGS_NOT_CONFIGURED}</Note>}
+      {snapshot.enabled && snapshot.stale && <Note tone="warning">{FLAGS_STALE_NOTE}</Note>}
       <FlagsSection id="flags-registered" title="Registered flags">
-        <FlagRegistryTable items={data.items} />
-        {data.snapshot.fetchedAt !== null && (
+        <FlagRegistryTable query={registry} />
+        {snapshot.fetchedAt !== null && (
           <p className="text-xs text-muted-foreground">
             Flag definitions last changed{' '}
-            <time dateTime={data.snapshot.fetchedAt}>
-              {relativeTime(data.snapshot.fetchedAt, now)}
-            </time>
-            . Rollouts are edited in PostHog.
+            <time dateTime={snapshot.fetchedAt}>{relativeTime(snapshot.fetchedAt, now)}</time>.
+            Rollouts are edited in PostHog.
           </p>
         )}
       </FlagsSection>
       <FlagsSection id="flags-evaluate" title="Evaluate">
         {isAdmin ? (
-          <FlagEvaluatePanel
+          <EvaluateSection
             search={search}
-            onSearchChange={(next) => void navigate({ search: next, replace: true })}
-            registry={data.items}
+            // The panel leaves a choice out to clear it, so the user and tenant go before `next` is spread; both lists' params stay.
+            onSearchChange={(next) =>
+              void navigate({
+                search: (prev) => ({ ...prev, userId: undefined, tenantId: undefined, ...next }),
+                replace: true,
+              })
+            }
           />
         ) : (
           <p className="text-sm text-muted-foreground">Admins can evaluate flags for a user.</p>
         )}
       </FlagsSection>
       <FlagsSection id="flags-unregistered" title="In PostHog, not registered">
-        <UnregisteredFlagsTable rows={data.unregistered} />
+        <UnregisteredFlagsTable query={unregistered} />
       </FlagsSection>
       <FlagsSection id="flags-traits" title="Traits reference">
-        <TraitsPanel traits={data.traits} />
+        <TraitsPanel traits={meta.traits} />
       </FlagsSection>
     </>
   )
@@ -107,26 +150,28 @@ function FlagsContent({ data, isAdmin }: { data: FlagsListResponse; isAdmin: boo
  * The flags inspector, read-only: every registered flag with its live
  * PostHog state, PostHog's unregistered flags, the traits a release
  * condition may use. For admins, any user's evaluation; other staff see
- * that it exists. Rollouts are edited in PostHog, never here.
+ * that it exists. Rollouts are edited in PostHog, never here. The meta read
+ * gates the page: a refusal shows once for the whole page, and each list
+ * shows its own states after that.
  */
 function FlagsPage() {
-  const flags = useQuery(flagsListQueryOptions())
+  const meta = useQuery(flagsMetaQueryOptions())
   const isAdmin = platformRoleAtLeast(
     useAuthStore((state) => state.user?.platformRole),
     'admin'
   )
   return (
     <div className="grid gap-6">
-      {flags.isError ? (
-        isRoleDenied(flags.error) ? (
+      {meta.isError ? (
+        isRoleDenied(meta.error) ? (
           <RoleDenied />
         ) : (
-          <LoadError message={FLAGS_LIST_ERROR} onRetry={() => void flags.refetch()} />
+          <LoadError message={FLAGS_LIST_ERROR} onRetry={() => void meta.refetch()} />
         )
-      ) : flags.data === undefined ? (
+      ) : meta.data === undefined ? (
         <Skeleton className="h-64 w-full" />
       ) : (
-        <FlagsContent data={flags.data} isAdmin={isAdmin} />
+        <FlagsContent meta={meta.data} isAdmin={isAdmin} />
       )}
     </div>
   )

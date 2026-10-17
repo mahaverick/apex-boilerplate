@@ -1,12 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSidebarStore } from '@/states/sidebar.store'
-import { flagsList } from '@/tests/fixtures/flags'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
-import { ok } from '@/tests/mocks/handlers'
-import { server } from '@/tests/mocks/server'
 
 // The Staff page's sections read the platform tenant, which no default handler serves; platform.staff-members.test.tsx covers them.
 vi.mock('@/components/features/tenant/members-card', () => ({
@@ -20,7 +16,6 @@ describe('the settings sidebar', () => {
   beforeEach(() => {
     signIn()
     useSidebarStore.setState({ isCollapsed: false })
-    server.use(http.get('/api/v1/platform/flags', () => ok(flagsList(), 'Flags retrieved.')))
   })
 
   it('swaps the main nav for Back to console and the labelled settings groups', async () => {

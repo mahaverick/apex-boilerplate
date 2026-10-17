@@ -423,9 +423,12 @@ read-only: rollouts are edited in PostHog. Its queries
 (`src/queries/flag-inspector.queries.ts`) sit under `['platform', 'flags']`,
 apart from the app's own flag values ([Feature flags](#feature-flags)).
 
-- **The list** (`GET /platform/flags`, every staff role) holds each
-  registered flag with its live state, PostHog's unregistered flags and the
-  trait reference.
+- **The lists** (every staff role) are two list reads through the shared
+  table: `GET /platform/flags` holds each registered flag with its live state
+  (search, a Kind and a State filter, cursor paging), and
+  `GET /platform/flags/unregistered` the flags PostHog has that the registry
+  lacks. `GET /platform/flags/meta` answers the trait reference and the
+  snapshot's age, and gates the page.
 - **An evaluation** (`GET /platform/flags/evaluate`, admins and up) answers
   one user's value for every registered flag, optionally in one of their
   tenants, as one app's client, with the traits the API used. It is an

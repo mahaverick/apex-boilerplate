@@ -3,13 +3,28 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from '@/lib/toast'
-import { flagRow, flagsEvaluation, flagsList, flagUrl, TRAITS } from '@/tests/fixtures/flags'
+import {
+  flagRow,
+  flagRows,
+  flagsEvaluation,
+  flagsMeta,
+  flagUrl,
+  TRAITS,
+  unregisteredRows,
+} from '@/tests/fixtures/flags'
 import { TENANT_ID, TENANT_ID_2, USER_ID_2 } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { FlagReason, FlagRow, PlatformUserDetail, PlatformUserRow } from '@/types/api.types'
+import type {
+  FlagReason,
+  FlagRow,
+  FlagsMetaResponse,
+  PlatformUserDetail,
+  PlatformUserRow,
+  UnregisteredRow,
+} from '@/types/api.types'
 
 const CLEO_ROW: PlatformUserRow = {
   id: USER_ID_2,
@@ -42,13 +57,45 @@ const CLEO: PlatformUserDetail = {
   pendingInvitations: [],
 }
 
-/** Answers the list, the directory search and Cleo's detail; records each evaluation's query. */
-function serve(list: () => Response = () => ok(flagsList(), 'Flags retrieved.')) {
+/** What `serve` answers the three flags reads with; each defaults to the reference fixtures. */
+interface Served {
+  registry?: () => Response
+  unregistered?: () => Response
+  meta?: () => Response
+}
+
+/** The registry rows as a list answer. */
+function registryAnswer(rows: FlagRow[] = flagRows()) {
+  return ok(listPage(rows), 'Flags retrieved.')
+}
+
+/** The unregistered rows as a list answer. */
+function unregisteredAnswer(rows: UnregisteredRow[] = unregisteredRows()) {
+  return ok(listPage(rows), 'Unregistered flags retrieved.')
+}
+
+/** The meta read as an answer. */
+function metaAnswer(overrides: Partial<FlagsMetaResponse> = {}) {
+  return ok(flagsMeta(overrides), 'Flags meta retrieved.')
+}
+
+/** Answers the three flags reads, the directory search and Cleo's detail; records each request's query string. */
+function serve({ registry, unregistered, meta }: Served = {}) {
   const evaluated: string[] = []
   const searched: string[] = []
   const searchedTotals: (string | null)[] = []
+  const registryReads: string[] = []
+  const unregisteredReads: string[] = []
   server.use(
-    http.get('/api/v1/platform/flags', list),
+    http.get('/api/v1/platform/flags', ({ request }) => {
+      registryReads.push(new URL(request.url).search)
+      return (registry ?? registryAnswer)()
+    }),
+    http.get('/api/v1/platform/flags/unregistered', ({ request }) => {
+      unregisteredReads.push(new URL(request.url).search)
+      return (unregistered ?? unregisteredAnswer)()
+    }),
+    http.get('/api/v1/platform/flags/meta', () => (meta ?? metaAnswer)()),
     http.get('/api/v1/platform/flags/evaluate', ({ request }) => {
       evaluated.push(new URL(request.url).search)
       return ok(flagsEvaluation(), 'Flags evaluated.')
@@ -61,7 +108,7 @@ function serve(list: () => Response = () => ok(flagsList(), 'Flags retrieved.'))
     }),
     http.get(`/api/v1/platform/users/${USER_ID_2}`, () => ok(CLEO, 'User retrieved.'))
   )
-  return { evaluated, searched, searchedTotals }
+  return { evaluated, searched, searchedTotals, registryReads, unregisteredReads }
 }
 
 /** The data rows of a table, header row left out. */
@@ -82,7 +129,7 @@ describe('/settings/platform/flags', () => {
   // A relative time read once at render froze at "just now" while the page stayed open.
   it('moves its relative times on as the clock ticks', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    vi.setSystemTime(Date.parse(flagsList().snapshot.fetchedAt!))
+    vi.setSystemTime(Date.parse(flagsMeta().snapshot.fetchedAt!))
     serve()
     renderAppAt('/settings/platform/flags')
 
@@ -125,14 +172,10 @@ describe('/settings/platform/flags', () => {
   })
 
   it('names a field express does not evaluate as the construct an unsupported flag uses', async () => {
-    serve(() =>
-      ok(
-        flagsList({
-          items: [flagRow({ state: 'unsupported', unsupportedReason: 'unknown_field' })],
-        }),
-        'Flags retrieved.'
-      )
-    )
+    serve({
+      registry: () =>
+        registryAnswer([flagRow({ state: 'unsupported', unsupportedReason: 'unknown_field' })]),
+    })
     renderAppAt('/settings/platform/flags')
     await screen.findByRole('table', { name: 'Registered flags' })
     const [row] = rowsOf('Registered flags')
@@ -141,14 +184,12 @@ describe('/settings/platform/flags', () => {
   })
 
   it('names a missing flag, and leaves the link out when the API has none', async () => {
-    serve(() =>
-      ok(
-        flagsList({
-          items: [flagRow({ state: 'missing', conditions: 0, maxRollout: null, posthogUrl: null })],
-        }),
-        'Flags retrieved.'
-      )
-    )
+    serve({
+      registry: () =>
+        registryAnswer([
+          flagRow({ state: 'missing', conditions: 0, maxRollout: null, posthogUrl: null }),
+        ]),
+    })
     renderAppAt('/settings/platform/flags')
     await screen.findByRole('table', { name: 'Registered flags' })
     const [missing] = rowsOf('Registered flags')
@@ -171,7 +212,7 @@ describe('/settings/platform/flags', () => {
   })
 
   it('says when every PostHog flag is registered', async () => {
-    serve(() => ok(flagsList({ unregistered: [] }), 'Flags retrieved.'))
+    serve({ unregistered: () => unregisteredAnswer([]) })
     renderAppAt('/settings/platform/flags')
     expect(await screen.findByText('None.')).toBeInTheDocument()
     expect(screen.getByText('Every PostHog flag is registered.')).toBeInTheDocument()
@@ -179,16 +220,11 @@ describe('/settings/platform/flags', () => {
   })
 
   it('says when flags are not set up, and still lists the registry', async () => {
-    serve(() =>
-      ok(
-        flagsList({
-          items: [flagRow({ state: 'missing', posthogUrl: null })],
-          unregistered: [],
-          snapshot: { enabled: false, fetchedAt: null, stale: false },
-        }),
-        'Flags retrieved.'
-      )
-    )
+    serve({
+      registry: () => registryAnswer([flagRow({ state: 'missing', posthogUrl: null })]),
+      unregistered: () => unregisteredAnswer([]),
+      meta: () => metaAnswer({ snapshot: { enabled: false, fetchedAt: null, stale: false } }),
+    })
     renderAppAt('/settings/platform/flags')
     expect(
       await screen.findByText(
@@ -200,14 +236,12 @@ describe('/settings/platform/flags', () => {
   })
 
   it('warns when the snapshot is stale, and says when the definitions last changed', async () => {
-    serve(() =>
-      ok(
-        flagsList({
+    serve({
+      meta: () =>
+        metaAnswer({
           snapshot: { enabled: true, fetchedAt: '2026-10-05T09:00:00.000Z', stale: true },
         }),
-        'Flags retrieved.'
-      )
-    )
+    })
     renderAppAt('/settings/platform/flags')
     expect(
       await screen.findByText(
@@ -221,12 +255,9 @@ describe('/settings/platform/flags', () => {
   })
 
   it('shows a neutral badge with the raw value for a state this app does not know', async () => {
-    serve(() =>
-      ok(
-        flagsList({ items: [flagRow({ state: 'archived' as FlagRow['state'] })] }),
-        'Flags retrieved.'
-      )
-    )
+    serve({
+      registry: () => registryAnswer([flagRow({ state: 'archived' as FlagRow['state'] })]),
+    })
     renderAppAt('/settings/platform/flags')
     await screen.findByRole('table', { name: 'Registered flags' })
     const [row] = rowsOf('Registered flags')
@@ -277,14 +308,18 @@ describe('/settings/platform/flags', () => {
     expect(
       within(evaluate).queryByText('Admins can evaluate flags for a user.')
     ).not.toBeInTheDocument()
-    expect(within(evaluate).getByRole('searchbox', { name: 'Find a user' })).toBeInTheDocument()
+    expect(
+      await within(evaluate).findByRole('searchbox', { name: 'Find a user' })
+    ).toBeInTheDocument()
   })
 
-  it('shows one retryable error when the list fails', async () => {
+  it('shows one retryable error when the page cannot load, retrying the meta read', async () => {
     let calls = 0
-    serve(() => {
-      calls += 1
-      return calls <= 2 ? fail('Boom', 500) : ok(flagsList(), 'Flags retrieved.')
+    serve({
+      meta: () => {
+        calls += 1
+        return calls <= 2 ? fail('Boom', 500) : metaAnswer()
+      },
     })
     const user = userEvent.setup()
     renderAppAt('/settings/platform/flags')
@@ -297,10 +332,151 @@ describe('/settings/platform/flags', () => {
   })
 
   it('says the role cannot see this on a 404, without signing out', async () => {
-    serve(() => fail('Not found', 404))
+    serve({ meta: () => fail('Not found', 404) })
     renderAppAt('/settings/platform/flags')
     expect(await screen.findByText(/Your role can’t see this any more/)).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+  })
+
+  it('shows one role refusal for the page when every read answers 404', async () => {
+    serve({
+      registry: () => fail('Not found', 404),
+      unregistered: () => fail('Not found', 404),
+      meta: () => fail('Not found', 404),
+    })
+    renderAppAt('/settings/platform/flags')
+    await screen.findByText(/Your role can’t see this any more/)
+    expect(screen.getAllByText(/Your role can’t see this any more/)).toHaveLength(1)
+    expect(screen.queryByRole('region', { name: 'Registered flags' })).not.toBeInTheDocument()
+  })
+
+  it('shows a list’s own error, with Try again, while the other list and the page stay', async () => {
+    let calls = 0
+    serve({
+      registry: () => {
+        calls += 1
+        return calls <= 2 ? fail('Boom', 500) : registryAnswer()
+      },
+    })
+    const user = userEvent.setup()
+    renderAppAt('/settings/platform/flags')
+    const registered = await screen.findByRole('region', { name: 'Registered flags' })
+    expect(
+      await within(registered).findByText(
+        'We could not load the flags. This is not a sign they are off.'
+      )
+    ).toBeInTheDocument()
+    const unregistered = screen.getByRole('region', { name: 'In PostHog, not registered' })
+    expect(
+      await within(unregistered).findByRole('table', { name: 'Unregistered flags' })
+    ).toBeVisible()
+    await user.click(within(registered).getByRole('button', { name: 'Try again' }))
+    expect(await within(registered).findByRole('table', { name: 'Registered flags' })).toBeVisible()
+  })
+})
+
+describe('/settings/platform/flags lists', () => {
+  beforeEach(() => {
+    signIn({ ...testUser, platformRole: 'viewer' })
+  })
+
+  it('asks for the default view of both lists with no list params', async () => {
+    const { registryReads, unregisteredReads } = serve()
+    const router = renderAppAt('/settings/platform/flags')
+    await screen.findByRole('table', { name: 'Registered flags' })
+    await screen.findByRole('table', { name: 'Unregistered flags' })
+    expect(registryReads).toEqual(['?total=1'])
+    expect(unregisteredReads).toEqual(['?total=1'])
+    expect(router.state.location.search).toEqual({})
+  })
+
+  it('searches the registry and the unregistered list apart', async () => {
+    const { registryReads, unregisteredReads } = serve()
+    const user = userEvent.setup()
+    const router = renderAppAt('/settings/platform/flags')
+    const registered = await screen.findByRole('region', { name: 'Registered flags' })
+    await user.type(within(registered).getByRole('searchbox', { name: 'Search flags' }), 'beta')
+    const unregistered = screen.getByRole('region', { name: 'In PostHog, not registered' })
+    await user.type(
+      within(unregistered).getByRole('searchbox', { name: 'Search unregistered flags' }),
+      'old'
+    )
+
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ search: 'beta', unregisteredSearch: 'old' })
+    )
+    await waitFor(() => expect(registryReads.at(-1)).toBe('?search=beta&total=1'))
+    await waitFor(() => expect(unregisteredReads.at(-1)).toBe('?search=old&total=1'))
+    expect(registryReads.some((read) => read.includes('old'))).toBe(false)
+    expect(unregisteredReads.some((read) => read.includes('beta'))).toBe(false)
+  })
+
+  it('filters the registry by kind', async () => {
+    const { registryReads, unregisteredReads } = serve()
+    renderAppAt('/settings/platform/flags?kind=multivariate')
+    await screen.findByRole('table', { name: 'Registered flags' })
+    expect(registryReads).toEqual(['?kind=multivariate&total=1'])
+    expect(unregisteredReads).toEqual(['?total=1'])
+  })
+
+  it('filters the registry by state through the State facet', async () => {
+    const { registryReads } = serve()
+    const user = userEvent.setup()
+    const router = renderAppAt('/settings/platform/flags')
+    const registered = await screen.findByRole('region', { name: 'Registered flags' })
+    await user.click(
+      within(registered).getByRole('button', { name: 'Filter by state, Registered flags' })
+    )
+    const popup = await screen.findByRole('dialog', { name: 'Filter by state, Registered flags' })
+    await user.click(within(popup).getByRole('checkbox', { name: 'Unsupported' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ state: 'unsupported' }))
+    await waitFor(() => expect(registryReads.at(-1)).toBe('?state=unsupported&total=1'))
+  })
+
+  it('keeps both lists’ params when a user is picked for evaluation', async () => {
+    signIn({ ...testUser, platformRole: 'admin' })
+    serve()
+    const user = userEvent.setup()
+    const router = renderAppAt('/settings/platform/flags?search=beta&unregisteredSearch=old')
+    const panel = await screen.findByRole('region', { name: 'Evaluate' })
+    await user.type(await within(panel).findByRole('searchbox', { name: 'Find a user' }), 'cleo')
+    await user.click(await within(panel).findByRole('button', { name: /Cleo Doe/ }))
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({
+        search: 'beta',
+        unregisteredSearch: 'old',
+        userId: USER_ID_2,
+      })
+    )
+  })
+
+  it('clears the picked user with Change user, keeping the lists’ params', async () => {
+    signIn({ ...testUser, platformRole: 'admin' })
+    serve()
+    const user = userEvent.setup()
+    const router = renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}&search=beta`)
+    const panel = await screen.findByRole('region', { name: 'Evaluate' })
+    await user.click(await within(panel).findByRole('button', { name: 'Change user' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ search: 'beta' }))
+    expect(await within(panel).findByRole('searchbox', { name: 'Find a user' })).toBeInTheDocument()
+  })
+
+  it('keeps the default app out of the URL when a list writes', async () => {
+    serve()
+    const user = userEvent.setup()
+    const router = renderAppAt('/settings/platform/flags')
+    const registered = await screen.findByRole('region', { name: 'Registered flags' })
+    await user.type(within(registered).getByRole('searchbox', { name: 'Search flags' }), 'beta')
+    await waitFor(() => expect(router.state.location.search).toEqual({ search: 'beta' }))
+    expect(router.state.location.searchStr).not.toContain('app')
+  })
+
+  it('reads the evaluate panel’s registry apart from the page’s lists', async () => {
+    signIn({ ...testUser, platformRole: 'admin' })
+    const { registryReads } = serve()
+    renderAppAt('/settings/platform/flags?search=beta')
+    await screen.findByRole('searchbox', { name: 'Find a user' })
+    expect(registryReads.sort()).toEqual(['?limit=100', '?search=beta&total=1'])
   })
 })
 
@@ -314,12 +490,10 @@ describe('/settings/platform/flags evaluate', () => {
     const user = userEvent.setup()
     const router = renderAppAt('/settings/platform/flags')
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
-    await user.type(within(panel).getByRole('searchbox', { name: 'Find a user' }), 'cleo')
+    await user.type(await within(panel).findByRole('searchbox', { name: 'Find a user' }), 'cleo')
     await user.click(await within(panel).findByRole('button', { name: /Cleo Doe/ }))
 
-    await waitFor(() =>
-      expect(router.state.location.search).toEqual({ userId: USER_ID_2, app: 'react' })
-    )
+    await waitFor(() => expect(router.state.location.search).toEqual({ userId: USER_ID_2 }))
     expect(searched.at(-1)).toBe('cleo')
     // The picker shows no count, so it asks for none.
     expect(searchedTotals.at(-1)).toBeNull()
@@ -356,7 +530,6 @@ describe('/settings/platform/flags evaluate', () => {
       expect(router.state.location.search).toEqual({
         userId: USER_ID_2,
         tenantId: TENANT_ID,
-        app: 'react',
       })
     )
     await waitFor(() =>
@@ -407,7 +580,7 @@ describe('/settings/platform/flags evaluate', () => {
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
     await user.click(await within(panel).findByRole('button', { name: 'Change user' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ app: 'apex' }))
-    expect(within(panel).getByRole('searchbox', { name: 'Find a user' })).toBeInTheDocument()
+    expect(await within(panel).findByRole('searchbox', { name: 'Find a user' })).toBeInTheDocument()
   })
 
   it('says when no user matches the search', async () => {
@@ -416,7 +589,7 @@ describe('/settings/platform/flags evaluate', () => {
     const user = userEvent.setup()
     renderAppAt('/settings/platform/flags')
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
-    await user.type(within(panel).getByRole('searchbox', { name: 'Find a user' }), 'nobody')
+    await user.type(await within(panel).findByRole('searchbox', { name: 'Find a user' }), 'nobody')
     expect(await within(panel).findByText('No users match.')).toBeInTheDocument()
   })
 
@@ -439,7 +612,7 @@ describe('/settings/platform/flags evaluate', () => {
     const user = userEvent.setup()
     renderAppAt('/settings/platform/flags')
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
-    const box = within(panel).getByRole('searchbox', { name: 'Find a user' })
+    const box = await within(panel).findByRole('searchbox', { name: 'Find a user' })
     await user.type(box, 'cleo')
     await within(panel).findByRole('button', { name: /Cleo Doe/ })
 
@@ -536,7 +709,7 @@ describe('the user detail page’s Flags link', () => {
     renderAppAt(`/users/${USER_ID_2}`)
     expect(await screen.findByRole('link', { name: 'Flags' })).toHaveAttribute(
       'href',
-      `/settings/platform/flags?userId=${USER_ID_2}&app=react`
+      `/settings/platform/flags?userId=${USER_ID_2}`
     )
   })
 
