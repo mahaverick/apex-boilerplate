@@ -7,16 +7,21 @@
 import { keepPreviousData, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { isRoleDenied } from '@/lib/role-denied'
+import { analyticsKey } from '@/observability/telemetry'
+import { listQueryOptions } from '@/queries/list.queries'
 import { invalidateDirectory } from '@/queries/platform.queries'
+import { booleanFilter, defineList, listFilter } from '@/schemas/list.schemas'
 import type { CreateUserInput, UpdateUserNameInput } from '@/schemas/user-admin.schemas'
-import type {
-  ApiSuccess,
-  PageDirection,
-  PlatformUserDetail,
-  PlatformUserPage,
-  PlatformUserRow,
-  UserStatusFilter,
+import {
+  USER_STATUSES,
+  type ApiSuccess,
+  type PageDirection,
+  type PlatformUserDetail,
+  type PlatformUserPage,
+  type PlatformUserRow,
+  type UserStatusFilter,
 } from '@/types/api.types'
+import type { ListRequest } from '@/types/list.types'
 
 /** The API's default page; its cap is 50. */
 const USER_PAGE_SIZE = 20
@@ -55,6 +60,31 @@ function normalise(params: UserSearchParams): UserSearchParams {
     ...(params.cursor ? { cursor: params.cursor, direction: params.direction ?? 'next' } : {}),
     limit: params.limit ?? USER_PAGE_SIZE,
   }
+}
+
+/** The Users list's URL contract: email order by default, filtered by account status, verification and staff. */
+export const usersList = defineList({
+  sorts: ['email', 'created', '-created', '-lastSignIn'],
+  filters: {
+    status: listFilter(USER_STATUSES),
+    verified: booleanFilter(),
+    staff: booleanFilter(),
+  },
+  table: analyticsKey('users'),
+})
+
+/**
+ * One page of user accounts (`GET /platform/users`), for the Users table, the
+ * palette and the activity actor facet.
+ * @param request - From `listRequest(usersList, …)`, or `{ search, limit }`.
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function usersListOptions(request: ListRequest) {
+  return listQueryOptions<PlatformUserRow>({
+    key: userAdminKeys.all,
+    path: '/platform/users',
+    request,
+  })
 }
 
 /** A 404 answers who is asking, so a retry changes nothing. */

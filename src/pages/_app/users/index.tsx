@@ -29,14 +29,14 @@ import { searchText } from '@/schemas/search.schemas'
 import { useAuthStore } from '@/states/auth.store'
 import {
   PAGE_DIRECTIONS,
-  USER_STATUS_FILTERS,
+  USER_STATUSES,
   type PageDirection,
   type UserStatusFilter,
 } from '@/types/api.types'
 
 const usersSearchSchema = z.object({
   q: searchText,
-  status: z.enum(USER_STATUS_FILTERS).optional().catch(undefined),
+  status: z.enum(USER_STATUSES).optional().catch(undefined),
   // The router JSON-parses search values, so `?verified=true` is already a boolean here.
   verified: z.boolean().optional().catch(undefined),
   staff: z.boolean().optional().catch(undefined),

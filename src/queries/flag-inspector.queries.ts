@@ -5,15 +5,24 @@
  * remount after `staleTime`, and its cache is dropped when the page is left.
  * Keys sit under `platform`, apart from the app's own flag values.
  */
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, useQuery } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { isRoleDenied } from '@/lib/role-denied'
-import type {
-  ApiSuccess,
-  FlagApp,
-  FlagsEvaluateResponse,
-  FlagsListResponse,
+import { analyticsKey } from '@/observability/telemetry'
+import { listQueryOptions } from '@/queries/list.queries'
+import { flagsSearchSchema } from '@/schemas/flags.schemas'
+import { defineList, listFilter } from '@/schemas/list.schemas'
+import {
+  FLAG_STATES,
+  type ApiSuccess,
+  type FlagApp,
+  type FlagRow,
+  type FlagsEvaluateResponse,
+  type FlagsListResponse,
+  type FlagsMetaResponse,
+  type UnregisteredRow,
 } from '@/types/api.types'
+import type { ListRequest } from '@/types/list.types'
 
 /** Who to evaluate: a user, optionally in one of their tenants, as one app's client. */
 export interface FlagEvaluateParams {
@@ -29,6 +38,75 @@ export const flagInspectorKeys = {
   list: ['platform', 'flags', 'list'] as const,
   evaluate: ({ userId, tenantId, app }: FlagEvaluateParams) =>
     ['platform', 'flags', 'evaluate', userId, tenantId ?? null, app] as const,
+}
+
+/** The unregistered flags' URL contract on the Feature flags page: prefixed, since the registry shares the route. */
+export const unregisteredFlagsList = defineList({
+  sorts: ['key'],
+  filters: {},
+  table: analyticsKey('unregistered_flags'),
+  prefix: 'unregistered',
+})
+
+/** The Feature flags page's URL contract: the registry's list, the unregistered list's keys, and who to evaluate. */
+export const flagsList = defineList({
+  sorts: ['key'],
+  filters: {
+    kind: listFilter(['boolean', 'multivariate']),
+    state: listFilter(FLAG_STATES),
+  },
+  table: analyticsKey('flags'),
+  extra: flagsSearchSchema.shape,
+  also: [unregisteredFlagsList],
+})
+
+/**
+ * One page of the flag registry with each flag's live state (`GET /platform/flags`).
+ * Its key sits apart from the unregistered list's: both default to the request `{}`.
+ * @param request - From `listRequest(flagsList, …)`, or `{ limit }`.
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function flagsListOptions(request: ListRequest) {
+  return listQueryOptions<FlagRow>({
+    key: [...flagInspectorKeys.all, 'registry'],
+    path: '/platform/flags',
+    request,
+  })
+}
+
+/**
+ * One page of the flags PostHog has that the registry lacks (`GET /platform/flags/unregistered`).
+ * @param request - From `listRequest(unregisteredFlagsList, …)`.
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function unregisteredFlagsListOptions(request: ListRequest) {
+  return listQueryOptions<UnregisteredRow>({
+    key: [...flagInspectorKeys.all, 'unregistered'],
+    path: '/platform/flags/unregistered',
+    request,
+  })
+}
+
+/**
+ * The trait reference and the snapshot's freshness (`GET /platform/flags/meta`).
+ * @returns Query options for `useQuery`.
+ */
+export function flagsMetaQueryOptions() {
+  return queryOptions({
+    queryKey: [...flagInspectorKeys.all, 'meta'] as const,
+    queryFn: async () =>
+      unwrap(await apiClient.get<ApiSuccess<FlagsMetaResponse>>('/platform/flags/meta')),
+    /** A 404 answers who is asking, so a retry changes nothing. */
+    retry: (failureCount, error) => !isRoleDenied(error) && failureCount < 1,
+  })
+}
+
+/** The registry's first hundred flags, for the evaluate panel and the tenant Flags tab. */
+export function useFlagRegistry() {
+  return useQuery({
+    ...flagsListOptions({ limit: 100 }),
+    select: (page) => page.items,
+  })
 }
 
 /**

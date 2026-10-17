@@ -16,21 +16,26 @@ import {
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
 import { isRoleDenied } from '@/lib/role-denied'
+import { analyticsKey } from '@/observability/telemetry'
 import { auditKeys } from '@/queries/audit.queries'
 import { invalidateEmails } from '@/queries/email.queries'
+import { listQueryOptions } from '@/queries/list.queries'
 import { invalidateOnboarding } from '@/queries/onboarding.queries'
 import { invalidateDirectory, PLATFORM_PAGE_SIZE } from '@/queries/platform.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
+import { defineList, listFilter } from '@/schemas/list.schemas'
 import type { CreatePlatformTenantInput } from '@/schemas/tenant.schemas'
-import type {
-  ApiSuccess,
-  EmailSentResult,
-  PageDirection,
-  PlatformTenantDetail,
-  PlatformTenantPage,
-  PlatformTenantRow,
-  TenantStateFilter,
+import {
+  TENANT_LIFECYCLE_STATES,
+  type ApiSuccess,
+  type EmailSentResult,
+  type PageDirection,
+  type PlatformTenantDetail,
+  type PlatformTenantPage,
+  type PlatformTenantRow,
+  type TenantStateFilter,
 } from '@/types/api.types'
+import type { ListRequest } from '@/types/list.types'
 
 /** The API refuses a longer term. */
 const MAX_QUERY_LENGTH = 100
@@ -59,6 +64,27 @@ export const tenantAdminKeys = {
   search: (q: string) => ['platform', 'tenants', 'search', q] as const,
   page: (params: TenantPageParams) => ['platform', 'tenants', 'page', params] as const,
   detail: (id: string) => ['platform', 'tenant', id] as const,
+}
+
+/** The Tenants list's URL contract: name order by default, filtered by lifecycle state. */
+export const tenantsList = defineList({
+  sorts: ['name', 'created', '-created'],
+  filters: { state: listFilter(TENANT_LIFECYCLE_STATES) },
+  table: analyticsKey('tenants'),
+})
+
+/**
+ * One page of every customer tenant (`GET /platform/tenants`), for the
+ * Tenants table, the palette and the activity tenant facet.
+ * @param request - From `listRequest(tenantsList, …)`, or `{ search, limit }`.
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function tenantsListOptions(request: ListRequest) {
+  return listQueryOptions<PlatformTenantRow>({
+    key: tenantAdminKeys.all,
+    path: '/platform/tenants',
+    request,
+  })
 }
 
 /** A 404 answers who is asking, so a retry changes nothing. */

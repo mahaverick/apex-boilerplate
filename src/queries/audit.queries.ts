@@ -1,7 +1,10 @@
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query'
-import type { AuditAction } from '@/constants/audit-actions'
+import { AUDIT_ACTIONS, type AuditAction } from '@/constants/audit-action-names'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
+import { analyticsKey } from '@/observability/telemetry'
+import { listQueryOptions } from '@/queries/list.queries'
+import { defineList, idFilter, listFilter } from '@/schemas/list.schemas'
 import type {
   ApiSuccess,
   AuditAccess,
@@ -9,6 +12,7 @@ import type {
   AuditPage,
   PlatformAuditEntry,
 } from '@/types/api.types'
+import type { ListRequest } from '@/types/list.types'
 
 /** The platform audit log's filters; each narrows the entries the API returns. */
 export interface PlatformAuditFilters {
@@ -43,6 +47,79 @@ export const auditKeys = {
       filters,
       ...(tenantId === undefined ? [] : [{ tenantId }]),
     ] as const,
+}
+
+/** How an actor reached the tenant, as the API's `access` filter names it. */
+const AUDIT_ACCESS_PATHS = ['member', 'platform', 'system'] as const
+
+/**
+ * The platform Activity list's URL contract: newest first, filtered by tenant,
+ * actor, action and access path. The action facets offer the written actions
+ * only (`AUDIT_ACTIONS`): the retired ones stay stored, so a pasted URL may
+ * still filter by one, but the facet never lists them.
+ */
+export const platformActivityList = defineList({
+  sorts: ['-occurred', 'occurred'],
+  filters: {
+    tenant: idFilter(),
+    actor: idFilter(),
+    action: listFilter(AUDIT_ACTIONS),
+    access: listFilter(AUDIT_ACCESS_PATHS),
+  },
+  table: analyticsKey('activity'),
+})
+
+/** A History card's URL contract (the user and tenant cards): prefixed, since the page holds other lists. The card's own filter is fixed by the page, never in the URL. */
+export const historyList = defineList({
+  sorts: ['-occurred', 'occurred'],
+  filters: { action: listFilter(AUDIT_ACTIONS) },
+  table: analyticsKey('history'),
+  prefix: 'history',
+})
+
+/** A tenant's Activity tab: newest first, filtered by action. */
+export const tenantActivityList = defineList({
+  sorts: ['-occurred', 'occurred'],
+  filters: { action: listFilter(AUDIT_ACTIONS) },
+  table: analyticsKey('tenant_activity'),
+})
+
+/**
+ * One page of the platform audit log (`GET /platform/audit-log`), for the
+ * Activity list and the History cards. Never fresh, so returning to a view
+ * shows what happened meanwhile.
+ * @param request - From `listRequest(platformActivityList, …)`, or a History card's request with its fixed filter (`target`, or `tenant` and `access`).
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function platformAuditListOptions(request: ListRequest) {
+  return listQueryOptions<PlatformAuditEntry>({
+    key: auditKeys.platformAll,
+    path: '/platform/audit-log',
+    request,
+    staleTime: 0,
+  })
+}
+
+/**
+ * One page of a tenant's audit log (`GET /tenants/:slug/audit-log`), under the
+ * tenant's `['tenants', slug]` prefix. A 403 is not retried: the role check
+ * passed on cached data, so a fresh one means the role changed since.
+ * @param slug - The tenant.
+ * @param tenantId - The Apex tenant page's id, which keeps a reused slug's cache apart.
+ * @param request - From `listRequest(tenantActivityList, …)`.
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function tenantAuditListOptions(
+  slug: string,
+  tenantId: string | undefined,
+  request: ListRequest
+) {
+  return listQueryOptions<AuditEntry>({
+    key: [...auditKeys.tenantAll(slug), ...(tenantId === undefined ? [] : [{ tenantId }])],
+    path: `/tenants/${slug}/audit-log`,
+    request,
+    staleTime: 0,
+  })
 }
 
 /** The API's default page; its cap is 100. */

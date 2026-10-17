@@ -1,4 +1,4 @@
-import type { AuditAction } from '@/constants/audit-actions'
+import type { AuditAction } from '@/constants/audit-action-names'
 import type { MembershipRole } from '@/constants/roles'
 
 /** The envelope express wraps a successful response in; `data` is the payload. */
@@ -122,7 +122,9 @@ export const PAGE_DIRECTIONS = ['next', 'prev'] as const
 export type PageDirection = (typeof PAGE_DIRECTIONS)[number]
 
 /** Mirrors express's TENANT_LIFECYCLE_STATES. */
-export type TenantLifecycleState = 'active' | 'suspended' | 'archived'
+export const TENANT_LIFECYCLE_STATES = ['active', 'suspended', 'archived'] as const
+/** One lifecycle state a tenant can hold. */
+export type TenantLifecycleState = (typeof TENANT_LIFECYCLE_STATES)[number]
 
 /**
  * `GET /platform/tenants?state=`. Omitted means the API's default, active and
@@ -163,20 +165,23 @@ interface AuditActor {
   email: string
 }
 
+/** The kinds of record an audit entry can point at. Mirrors express's AUDIT_TARGET_TYPES. */
+type AuditTargetType =
+  | 'tenant'
+  | 'membership'
+  | 'invitation'
+  | 'settings'
+  | 'user'
+  | 'email_message'
+  | 'email_suppression'
+  | 'platform'
+
 /**
  * The record an audit entry acted on. `platform` is the platform as a whole
  * (maintenance mode), whose id is the platform tenant's.
  */
 interface AuditTarget {
-  type:
-    | 'tenant'
-    | 'membership'
-    | 'invitation'
-    | 'settings'
-    | 'user'
-    | 'email_message'
-    | 'email_suppression'
-    | 'platform'
+  type: AuditTargetType
   id: string
 }
 
@@ -185,7 +190,12 @@ export interface AuditEntry {
   id: string
   /** ISO 8601, millisecond precision. */
   occurredAt: string
-  action: AuditAction
+  /**
+   * A stored action name. The retired ones (`user.timeline_viewed` and the like)
+   * are still stored but never written, so any string may arrive; read it
+   * through `auditSentence`, which has a fallback.
+   */
+  action: AuditAction | (string & {})
   access: AuditAccess
   actor: AuditActor | null
   target: AuditTarget | null
@@ -307,9 +317,9 @@ export interface PlatformUserPage {
  * `GET /platform/users?status=`. Omitted means active and inactive live
  * accounts; `deleted` reaches soft-deleted ones, which only a purge removes.
  */
-export const USER_STATUS_FILTERS = ['active', 'inactive', 'deleted'] as const
+export const USER_STATUSES = ['active', 'inactive', 'deleted'] as const
 /** A value the users list's `status` filter accepts. */
-export type UserStatusFilter = (typeof USER_STATUS_FILTERS)[number]
+export type UserStatusFilter = (typeof USER_STATUSES)[number]
 
 /** One customer tenant a user belongs to, archived ones included, on the staff user detail. */
 interface PlatformUserMembership {
@@ -861,7 +871,9 @@ export type FlagReason =
  * `missing` is absent (or deleted) there, `unsupported` uses a construct
  * express cannot evaluate, so it serves its fallback.
  */
-export type FlagState = 'active' | 'inactive' | 'missing' | 'unsupported'
+export const FLAG_STATES = ['active', 'inactive', 'missing', 'unsupported'] as const
+/** One state a registered flag can be in. */
+export type FlagState = (typeof FLAG_STATES)[number]
 
 /**
  * Why express will not evaluate a flag's PostHog definition, as a flag row's
@@ -942,6 +954,12 @@ interface FlagSnapshotInfo {
  */
 interface FlagsListSnapshot extends FlagSnapshotInfo {
   enabled: boolean
+}
+
+/** `GET /platform/flags/meta`: the trait reference and the snapshot's freshness. */
+export interface FlagsMetaResponse {
+  traits: TraitRow[]
+  snapshot: FlagsListSnapshot
 }
 
 /** `GET /platform/flags`. */

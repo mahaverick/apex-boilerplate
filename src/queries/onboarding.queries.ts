@@ -15,8 +15,12 @@ import {
 import { AxiosError } from 'axios'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
+import { analyticsKey } from '@/observability/telemetry'
 import { auditKeys } from '@/queries/audit.queries'
 import { invalidateEmails } from '@/queries/email.queries'
+import { listQueryOptions } from '@/queries/list.queries'
+import { defineList } from '@/schemas/list.schemas'
+import { onboardingTabShape } from '@/schemas/onboarding.schemas'
 import type {
   ApiSuccess,
   OnboardingFunnel,
@@ -24,9 +28,11 @@ import type {
   OnboardingRange,
   OnboardingReminderResult,
   OnboardingTenantPage,
+  OnboardingTenantRow,
   PageDirection,
   TenantOnboardingDetail,
 } from '@/types/api.types'
+import type { ListRequest } from '@/types/list.types'
 
 /** The API's default page; its cap is 50. */
 const ONBOARDING_PAGE_SIZE = 20
@@ -50,6 +56,33 @@ export const onboardingKeys = {
   tenants: (params: OnboardingTenantsParams) =>
     ['platform', 'onboarding', 'tenants', params] as const,
   tenant: (id: string) => ['platform', 'onboarding', 'tenant', id] as const,
+}
+
+/**
+ * The Onboarding list's URL contract. `-order` is this client's name for the
+ * API's default order for the tab's state (longest stuck first for `stuck`,
+ * newest first otherwise); it is never sent, and `name` is the only other sort.
+ * The funnel's window and the tab ride in the URL beside the list's own params.
+ */
+export const onboardingTenantsList = defineList({
+  sorts: ['-order', 'name'],
+  filters: {},
+  table: analyticsKey('onboarding_tenants'),
+  extra: onboardingTabShape,
+})
+
+/**
+ * One page of tracked tenants in one state (`GET /platform/onboarding/tenants`).
+ * @param state - The tab; part of the request, so each tab has its own key.
+ * @param request - From `listRequest(onboardingTenantsList, …)`.
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function onboardingTenantsListOptions(state: OnboardingListState, request: ListRequest) {
+  return listQueryOptions<OnboardingTenantRow>({
+    key: [...onboardingKeys.all, 'tenants'],
+    path: '/platform/onboarding/tenants',
+    request: { ...request, state },
+  })
 }
 
 /** The Overview's figures carry `totals.stuckTenants`, which a staff action can change. */

@@ -12,20 +12,28 @@ import {
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
+import { analyticsKey } from '@/observability/telemetry'
 import { auditKeys } from '@/queries/audit.queries'
-import type {
-  ApiSuccess,
-  EmailHealth,
-  EmailMessageDetail,
-  EmailMessagePage,
-  EmailMessageStatus,
-  EmailPreview,
-  EmailResendResult,
-  EmailSuppressionPage,
-  PageDirection,
-  StatsRange,
-  SuppressionStateFilter,
+import { listQueryOptions } from '@/queries/list.queries'
+import { dayFilter, defineList, idFilter, listFilter } from '@/schemas/list.schemas'
+import {
+  EMAIL_MESSAGE_STATUSES,
+  EMAIL_TEMPLATE_KEYS,
+  type ApiSuccess,
+  type EmailHealth,
+  type EmailMessageDetail,
+  type EmailMessagePage,
+  type EmailMessageStatus,
+  type EmailMessageSummary,
+  type EmailPreview,
+  type EmailResendResult,
+  type EmailSuppression,
+  type EmailSuppressionPage,
+  type PageDirection,
+  type StatsRange,
+  type SuppressionStateFilter,
 } from '@/types/api.types'
+import type { ListRequest } from '@/types/list.types'
 
 /** The API's default page; its cap is 50. */
 const EMAIL_PAGE_SIZE = 20
@@ -108,6 +116,64 @@ function normaliseSuppressions(params: SuppressionSearchParams): SuppressionSear
     ...page(params.cursor, params.direction),
     limit: params.limit ?? EMAIL_PAGE_SIZE,
   }
+}
+
+/** The Emails list's URL contract: newest first, filtered by status, template, user, tenant and day. */
+export const emailsList = defineList({
+  sorts: ['-created', 'created'],
+  filters: {
+    status: listFilter(EMAIL_MESSAGE_STATUSES),
+    template: listFilter(EMAIL_TEMPLATE_KEYS),
+    user: idFilter(),
+    tenant: idFilter(),
+    from: dayFilter(),
+    to: dayFilter(),
+  },
+  table: analyticsKey('emails'),
+})
+
+/** A tenant's Emails tab: the same list with the tenant fixed by the page, so its URL has no `tenant` or user facet. */
+export const tenantEmailsList = defineList({
+  sorts: ['-created', 'created'],
+  filters: {
+    status: listFilter(EMAIL_MESSAGE_STATUSES),
+    template: listFilter(EMAIL_TEMPLATE_KEYS),
+  },
+  table: analyticsKey('tenant_emails'),
+})
+
+/** The Suppressions list's URL contract: newest first, active ones unless the state says otherwise. */
+export const suppressionsList = defineList({
+  sorts: ['-created', 'created', 'address'],
+  filters: { state: listFilter(['active', 'lifted']) },
+  table: analyticsKey('suppressions'),
+})
+
+/**
+ * One page of tracked email (`GET /platform/emails`), for the Emails page, a
+ * user's Emails card and a tenant's Emails tab (which adds its `tenant`).
+ * @param request - From `listRequest(emailsList, …)` or `listRequest(tenantEmailsList, …)` with `tenant`.
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function emailsListOptions(request: ListRequest) {
+  return listQueryOptions<EmailMessageSummary>({
+    key: emailKeys.all,
+    path: '/platform/emails',
+    request,
+  })
+}
+
+/**
+ * One page of suppressed addresses (`GET /platform/email-suppressions`).
+ * @param request - From `listRequest(suppressionsList, …)`.
+ * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ */
+export function suppressionsListOptions(request: ListRequest) {
+  return listQueryOptions<EmailSuppression>({
+    key: emailKeys.suppressionsAll,
+    path: '/platform/email-suppressions',
+    request,
+  })
 }
 
 /** A 404 answers who is asking (or an unknown id), so a retry changes nothing. */

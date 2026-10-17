@@ -1,0 +1,51 @@
+/**
+ * @file The audit action names alone, apart from their wording, so a route's
+ * `validateSearch` and the list definitions can name the Action facet's values
+ * without pulling the sentences into the entry chunk.
+ */
+/**
+ * The audit actions this build has a sentence for, which the Action facet
+ * offers. One the server stores that is not listed (a retired one such as
+ * `tenant.errors_viewed`, which stays filterable on the API but is never
+ * written again) still renders, through the fallback sentence.
+ */
+export const AUDIT_ACTIONS = [
+  'tenant.created',
+  'tenant.updated',
+  'tenant.settings_updated',
+  'member.role_changed',
+  'member.removed',
+  'member.left',
+  'invitation.created',
+  'invitation.resent',
+  'invitation.revoked',
+  'invitation.accepted',
+  'platform.member.auto_joined',
+  'platform.member.granted',
+  'tenant.accessed_by_platform',
+  'tenant.suspended',
+  'tenant.reactivated',
+  'tenant.archived',
+  'tenant.owner_invited',
+  'user.created',
+  'user.updated',
+  'user.deactivated',
+  'user.reactivated',
+  'user.signed_out',
+  'user.password_setup_sent',
+  'user.verification_resent',
+  'user.deleted',
+  'user.purged',
+  'tenant.purged',
+  'auth.reauthenticated',
+  'email.resent',
+  'email.suppression_lifted',
+  'onboarding.dismissed',
+  'onboarding.undismissed',
+  'onboarding.step_completed',
+  'onboarding.reminder_sent',
+  'user.flags_evaluated',
+  'platform.maintenance_mode_changed',
+] as const
+/** An audit action as the API names it (`area.event`) that this build has wording for. */
+export type AuditAction = (typeof AUDIT_ACTIONS)[number]
