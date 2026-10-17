@@ -134,6 +134,7 @@ test('Escape on New tenant from ⌘K on a tenant page gives the heading focus', 
 test('sets the theme from the keyboard alone', async ({ page }) => {
   await page.goto('/e2e/harness/?path=/overview')
   await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
+  await expect(page.locator('html')).not.toHaveClass(/(^|\s)dark(\s|$)/)
   await page.keyboard.press('ControlOrMeta+k')
   await page.keyboard.type('dark')
   await expect(page.getByRole('option', { name: /^Dark/ })).toBeVisible({
@@ -151,6 +152,7 @@ test('shows the shortcut hint on the header button', async ({ page }) => {
   await expect(trigger).toHaveAttribute('aria-keyshortcuts', /^(Meta|Control)\+K$/)
 })
 
+/** The palette chunk's dev-server URL, which the routes below hold or abort. */
 const CHUNK_URL = /\/src\/components\/features\/command-palette\.tsx(\?|$)/
 
 /** What the toast says when the palette's chunk cannot be fetched. */
@@ -191,6 +193,12 @@ test('a failed palette chunk load offers a reload, on every open, and the reload
   await expect(page.getByText('Loading search…')).toHaveCount(0)
   await expect(dialog).toHaveCount(0)
 
+  // Base UI hides the close button from the tree, so it is clicked by slot; a raise while the toast shows would only update it.
+  await page
+    .getByRole('dialog', { name: LOAD_FAILED, exact: true })
+    .locator('[data-slot="toast-close"]')
+    .click()
+  await expect(page.getByText(LOAD_FAILED)).toHaveCount(0)
   // The browser keeps a failed import() for the page, so the next press makes no request and fails the same way.
   await page.keyboard.press('ControlOrMeta+k')
   await expect(page.getByText(LOAD_FAILED)).toBeVisible()
