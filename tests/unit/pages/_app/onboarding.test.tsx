@@ -1,4 +1,5 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import type { RouterHistory } from '@tanstack/react-router'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -362,19 +363,28 @@ describe('/onboarding', () => {
       await waitFor(() => expect(seen.at(-1)).toMatchObject({ state: 'complete', sort: 'name' }))
     })
 
-    it('searches the tenant name, keeps the search when the tab changes and drops the cursor', async () => {
-      const seen = serveTenants([onboardingTenantRow()], 'n1')
+    it('searches the tenant name', async () => {
+      const seen = serveTenants([onboardingTenantRow()])
       const user = userEvent.setup()
-      const router = renderAppAt('/onboarding?cursor=n1&sort=name')
+      const router = renderAppAt('/onboarding?sort=name')
       await screen.findByRole('table', { name: 'Onboarding tenants' })
       const box = screen.getByRole('searchbox', { name: 'Search tenants' })
       expect(box).toHaveAttribute('placeholder', 'Search by tenant name')
 
       await user.type(box, 'acme')
+
       await waitFor(() =>
         expect(router.state.location.search).toEqual({ search: 'acme', sort: 'name' })
       )
       await waitFor(() => expect(seen.at(-1)).toMatchObject({ search: 'acme', sort: 'name' }))
+    })
+
+    it('keeps the search and the sort when the tab changes, and drops the cursor', async () => {
+      const seen = serveTenants([onboardingTenantRow()], 'n1')
+      const user = userEvent.setup()
+      const router = renderAppAt('/onboarding?cursor=n1&search=acme&sort=name')
+      await screen.findByRole('table', { name: 'Onboarding tenants' })
+      await waitFor(() => expect(seen.at(-1)).toMatchObject({ cursor: 'n1', search: 'acme' }))
 
       await user.click(screen.getByRole('tab', { name: 'Complete' }))
 
@@ -389,6 +399,50 @@ describe('/onboarding', () => {
         expect(seen.at(-1)).toMatchObject({ state: 'complete', search: 'acme', sort: 'name' })
       )
       expect(seen.at(-1)).not.toHaveProperty('cursor')
+    })
+
+    it('returns to the previous tab and its rows on Back, and to the next on Forward', async () => {
+      server.use(
+        http.get('/api/v1/platform/onboarding/tenants', ({ request }) => {
+          const state = new URL(request.url).searchParams.get('state')
+          return ok(
+            listPage(
+              state === 'complete'
+                ? [onboardingTenantRow({ name: 'Gamma Inc', state: 'complete', daysStuck: null })]
+                : [onboardingTenantRow()]
+            ),
+            'Onboarding tenants retrieved.'
+          )
+        })
+      )
+      const user = userEvent.setup()
+      const router = renderAppAt('/onboarding')
+      const history = router.history as RouterHistory
+      await screen.findByRole('link', { name: 'Acme Corp' })
+
+      await user.click(screen.getByRole('tab', { name: 'Complete' }))
+      await screen.findByRole('link', { name: 'Gamma Inc' })
+
+      act(() => history.back())
+      await screen.findByRole('link', { name: 'Acme Corp' })
+      expect(screen.getByRole('tab', { name: 'Stuck' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.queryByRole('link', { name: 'Gamma Inc' })).not.toBeInTheDocument()
+
+      act(() => history.forward())
+      await screen.findByRole('link', { name: 'Gamma Inc' })
+      expect(screen.getByRole('tab', { name: 'Complete' })).toHaveAttribute('aria-selected', 'true')
+      expect(router.state.location.search).toEqual({ state: 'complete' })
+    })
+
+    it('shows the role refusal in the list, and keeps the funnel, when only the list is refused', async () => {
+      server.use(http.get('/api/v1/platform/onboarding/tenants', () => fail('Not found', 404)))
+      renderAppAt('/onboarding')
+      const section = (await screen.findByRole('heading', { name: 'Tenants' })).closest('section')!
+      expect(await within(section).findByRole('alert')).toHaveTextContent(
+        'Your role can’t see this any more.'
+      )
+      expect(screen.getByRole('region', { name: 'Onboarding figures' })).toBeInTheDocument()
+      expect(screen.getAllByRole('alert')).toHaveLength(1)
     })
 
     it('keeps the default range and tab out of the URL', async () => {
