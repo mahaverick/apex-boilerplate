@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from '@/lib/toast'
+import { queryClient } from '@/router'
 import {
   flagRow,
   flagRows,
@@ -85,10 +86,17 @@ function serve({ registry, unregistered, meta }: Served = {}) {
   const searched: string[] = []
   const searchedTotals: (string | null)[] = []
   const registryReads: string[] = []
+  const panelReads: string[] = []
   const unregisteredReads: string[] = []
   server.use(
     http.get('/api/v1/platform/flags', ({ request }) => {
-      registryReads.push(new URL(request.url).search)
+      const { search } = new URL(request.url)
+      // The evaluate panel's registry read is apart from the page's list; a test overrides it by its own handler.
+      if (search === '?limit=100') {
+        panelReads.push(search)
+        return registryAnswer()
+      }
+      registryReads.push(search)
       return (registry ?? registryAnswer)()
     }),
     http.get('/api/v1/platform/flags/unregistered', ({ request }) => {
@@ -108,7 +116,7 @@ function serve({ registry, unregistered, meta }: Served = {}) {
     }),
     http.get(`/api/v1/platform/users/${USER_ID_2}`, () => ok(CLEO, 'User retrieved.'))
   )
-  return { evaluated, searched, searchedTotals, registryReads, unregisteredReads }
+  return { evaluated, searched, searchedTotals, registryReads, panelReads, unregisteredReads }
 }
 
 /** The data rows of a table, header row left out. */
@@ -308,9 +316,7 @@ describe('/settings/platform/flags', () => {
     expect(
       within(evaluate).queryByText('Admins can evaluate flags for a user.')
     ).not.toBeInTheDocument()
-    expect(
-      await within(evaluate).findByRole('searchbox', { name: 'Find a user' })
-    ).toBeInTheDocument()
+    expect(within(evaluate).getByRole('searchbox', { name: 'Find a user' })).toBeInTheDocument()
   })
 
   it('shows one retryable error when the page cannot load, retrying the meta read', async () => {
@@ -380,6 +386,71 @@ describe('/settings/platform/flags lists', () => {
     signIn({ ...testUser, platformRole: 'viewer' })
   })
 
+  it('offers no sort control on the Flag header, or in the phone Sort menu', async () => {
+    serve()
+    renderAppAt('/settings/platform/flags')
+    for (const name of ['Registered flags', 'Unregistered flags']) {
+      const table = await screen.findByRole('table', { name })
+      const header = within(table).getByRole('columnheader', { name: 'Flag' })
+      expect(within(header).queryByRole('button')).not.toBeInTheDocument()
+      expect(header).not.toHaveAttribute('aria-sort')
+    }
+  })
+
+  it('offers no Sort menu on a phone', async () => {
+    window.innerWidth = 390
+    try {
+      serve()
+      renderAppAt('/settings/platform/flags')
+      await screen.findByRole('region', { name: 'Registered flags' })
+      await screen.findByText('example_beta_page')
+      expect(screen.queryByRole('button', { name: /^Sort by/ })).not.toBeInTheDocument()
+    } finally {
+      window.innerWidth = 1024
+    }
+  })
+
+  it('lines the registry cells up at the top beside a wrapped description', async () => {
+    serve()
+    renderAppAt('/settings/platform/flags')
+    const table = await screen.findByRole('table', { name: 'Registered flags' })
+    const [beta] = within(table).getAllByRole('row').slice(1)
+    for (const cell of within(beta!).getAllByRole('cell')) expect(cell).toHaveClass('align-top')
+  })
+
+  it('shows one role refusal when the role is refused after the page loaded', async () => {
+    serve()
+    renderAppAt('/settings/platform/flags')
+    await screen.findByRole('table', { name: 'Registered flags' })
+    await screen.findByRole('table', { name: 'Unregistered flags' })
+    server.use(
+      http.get('/api/v1/platform/flags', () => fail('Not found', 404)),
+      http.get('/api/v1/platform/flags/unregistered', () => fail('Not found', 404)),
+      http.get('/api/v1/platform/flags/meta', () => fail('Not found', 404))
+    )
+    await act(() => queryClient.invalidateQueries({ queryKey: ['platform', 'flags'] }))
+    await screen.findByText(/Your role can’t see this any more/)
+    expect(screen.getAllByText(/Your role can’t see this any more/)).toHaveLength(1)
+  })
+
+  it('shows one role refusal when only a list is refused after a search', async () => {
+    serve()
+    const user = userEvent.setup()
+    renderAppAt('/settings/platform/flags')
+    const registered = await screen.findByRole('region', { name: 'Registered flags' })
+    await screen.findByRole('table', { name: 'Unregistered flags' })
+    server.use(
+      http.get('/api/v1/platform/flags', () => fail('Not found', 404)),
+      http.get('/api/v1/platform/flags/unregistered', () => fail('Not found', 404))
+    )
+    await user.type(within(registered).getByRole('searchbox', { name: 'Search flags' }), 'beta')
+    await screen.findByText(/Your role can’t see this any more/)
+    expect(screen.getAllByText(/Your role can’t see this any more/)).toHaveLength(1)
+    // The refusal replaces the page's sections, not just the refused list.
+    expect(screen.queryByRole('table', { name: 'Unregistered flags' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Traits reference' })).not.toBeInTheDocument()
+  })
+
   it('asks for the default view of both lists with no list params', async () => {
     const { registryReads, unregisteredReads } = serve()
     const router = renderAppAt('/settings/platform/flags')
@@ -439,7 +510,7 @@ describe('/settings/platform/flags lists', () => {
     const user = userEvent.setup()
     const router = renderAppAt('/settings/platform/flags?search=beta&unregisteredSearch=old')
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
-    await user.type(await within(panel).findByRole('searchbox', { name: 'Find a user' }), 'cleo')
+    await user.type(within(panel).getByRole('searchbox', { name: 'Find a user' }), 'cleo')
     await user.click(await within(panel).findByRole('button', { name: /Cleo Doe/ }))
     await waitFor(() =>
       expect(router.state.location.search).toEqual({
@@ -458,7 +529,7 @@ describe('/settings/platform/flags lists', () => {
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
     await user.click(await within(panel).findByRole('button', { name: 'Change user' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ search: 'beta' }))
-    expect(await within(panel).findByRole('searchbox', { name: 'Find a user' })).toBeInTheDocument()
+    expect(within(panel).getByRole('searchbox', { name: 'Find a user' })).toBeInTheDocument()
   })
 
   it('keeps the default app out of the URL when a list writes', async () => {
@@ -473,10 +544,11 @@ describe('/settings/platform/flags lists', () => {
 
   it('reads the evaluate panel’s registry apart from the page’s lists', async () => {
     signIn({ ...testUser, platformRole: 'admin' })
-    const { registryReads } = serve()
+    const { registryReads, panelReads } = serve()
     renderAppAt('/settings/platform/flags?search=beta')
     await screen.findByRole('searchbox', { name: 'Find a user' })
-    expect(registryReads.sort()).toEqual(['?limit=100', '?search=beta&total=1'])
+    await waitFor(() => expect(panelReads).toEqual(['?limit=100']))
+    expect(registryReads).toEqual(['?search=beta&total=1'])
   })
 })
 
@@ -485,12 +557,98 @@ describe('/settings/platform/flags evaluate', () => {
     signIn({ ...testUser, platformRole: 'admin' })
   })
 
+  it('shows the user picker while the evaluate panel’s registry read is held', async () => {
+    signIn({ ...testUser, platformRole: 'admin' })
+    serve()
+    server.use(
+      http.get('/api/v1/platform/flags', ({ request }) =>
+        new URL(request.url).search === '?limit=100'
+          ? new Promise<Response>(() => {})
+          : registryAnswer()
+      )
+    )
+    renderAppAt('/settings/platform/flags')
+    const panel = await screen.findByRole('region', { name: 'Evaluate' })
+    expect(panel.querySelector('[data-slot="skeleton"]')).toBeNull()
+    expect(within(panel).getByRole('searchbox', { name: 'Find a user' })).toBeInTheDocument()
+  })
+
+  it('holds the evaluation table, not the picked user, while the registry loads', async () => {
+    signIn({ ...testUser, platformRole: 'admin' })
+    serve()
+    server.use(
+      http.get('/api/v1/platform/flags', ({ request }) =>
+        new URL(request.url).search === '?limit=100'
+          ? new Promise<Response>(() => {})
+          : registryAnswer()
+      )
+    )
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
+    const panel = await screen.findByRole('region', { name: 'Evaluate' })
+    expect(await within(panel).findByRole('button', { name: 'Change user' })).toBeVisible()
+    await waitFor(() =>
+      expect(panel.querySelectorAll('[data-slot="table-rows-skeleton"]')).toHaveLength(1)
+    )
+    expect(within(panel).queryByRole('table', { name: 'Evaluation' })).not.toBeInTheDocument()
+  })
+
+  it('shows the Evaluate section’s own error with Try again when the registry fails', async () => {
+    signIn({ ...testUser, platformRole: 'admin' })
+    let calls = 0
+    serve()
+    server.use(
+      http.get('/api/v1/platform/flags', ({ request }) => {
+        if (new URL(request.url).search !== '?limit=100') return registryAnswer()
+        calls += 1
+        return calls <= 2 ? fail('Boom', 500) : registryAnswer()
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
+    const panel = await screen.findByRole('region', { name: 'Evaluate' })
+    expect(
+      await within(panel).findByText(
+        'We could not load the flags. This is not a sign they are off.'
+      )
+    ).toBeInTheDocument()
+    expect(within(panel).getByRole('button', { name: 'Change user' })).toBeVisible()
+    await user.click(within(panel).getByRole('button', { name: 'Try again' }))
+    expect(await within(panel).findByRole('table', { name: 'Evaluation' })).toBeInTheDocument()
+  })
+
+  it('says when the evaluation’s registry holds only the first hundred flags', async () => {
+    signIn({ ...testUser, platformRole: 'admin' })
+    serve()
+    server.use(
+      http.get('/api/v1/platform/flags', ({ request }) =>
+        new URL(request.url).search === '?limit=100'
+          ? ok(
+              listPage(flagRows(), { hasNext: true, nextCursor: 'more', limit: 100 }),
+              'Flags retrieved.'
+            )
+          : registryAnswer()
+      )
+    )
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
+    const panel = await screen.findByRole('region', { name: 'Evaluate' })
+    expect(await within(panel).findByText('Showing the first 100 flags.')).toBeInTheDocument()
+  })
+
+  it('does not say it when the registry fits one read', async () => {
+    signIn({ ...testUser, platformRole: 'admin' })
+    serve()
+    renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
+    const panel = await screen.findByRole('region', { name: 'Evaluate' })
+    await within(panel).findByRole('table', { name: 'Evaluation' })
+    expect(within(panel).queryByText('Showing the first 100 flags.')).not.toBeInTheDocument()
+  })
+
   it('finds a user through the directory and evaluates every flag for the customer app', async () => {
     const { evaluated, searched, searchedTotals } = serve()
     const user = userEvent.setup()
     const router = renderAppAt('/settings/platform/flags')
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
-    await user.type(await within(panel).findByRole('searchbox', { name: 'Find a user' }), 'cleo')
+    await user.type(within(panel).getByRole('searchbox', { name: 'Find a user' }), 'cleo')
     await user.click(await within(panel).findByRole('button', { name: /Cleo Doe/ }))
 
     await waitFor(() => expect(router.state.location.search).toEqual({ userId: USER_ID_2 }))
@@ -580,7 +738,7 @@ describe('/settings/platform/flags evaluate', () => {
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
     await user.click(await within(panel).findByRole('button', { name: 'Change user' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ app: 'apex' }))
-    expect(await within(panel).findByRole('searchbox', { name: 'Find a user' })).toBeInTheDocument()
+    expect(within(panel).getByRole('searchbox', { name: 'Find a user' })).toBeInTheDocument()
   })
 
   it('says when no user matches the search', async () => {
@@ -589,7 +747,7 @@ describe('/settings/platform/flags evaluate', () => {
     const user = userEvent.setup()
     renderAppAt('/settings/platform/flags')
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
-    await user.type(await within(panel).findByRole('searchbox', { name: 'Find a user' }), 'nobody')
+    await user.type(within(panel).getByRole('searchbox', { name: 'Find a user' }), 'nobody')
     expect(await within(panel).findByText('No users match.')).toBeInTheDocument()
   })
 
@@ -612,7 +770,7 @@ describe('/settings/platform/flags evaluate', () => {
     const user = userEvent.setup()
     renderAppAt('/settings/platform/flags')
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
-    const box = await within(panel).findByRole('searchbox', { name: 'Find a user' })
+    const box = within(panel).getByRole('searchbox', { name: 'Find a user' })
     await user.type(box, 'cleo')
     await within(panel).findByRole('button', { name: /Cleo Doe/ })
 

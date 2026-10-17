@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { FLAG_APP_LABELS } from '@/constants/flags.constants'
+import { FLAG_APP_LABELS, FLAGS_LIST_ERROR } from '@/constants/flags.constants'
 import { statusFrom } from '@/lib/api-error'
 import { fullName } from '@/lib/format'
 import { platformUserQueryOptions } from '@/queries/user-admin.queries'
@@ -32,11 +32,21 @@ interface FlagEvaluateSearch {
   app: FlagApp
 }
 
-/** The evaluation form's state and its way to change it, with the registry that says which flags the chosen app receives. */
+/** The registry read that says which flags the chosen app receives; the picker never waits for it, only the evaluation does. */
+export interface FlagRegistryRead {
+  /** Undefined while the read is pending or failed. */
+  rows: FlagRow[] | undefined
+  /** The read held only its first page of flags. */
+  truncated: boolean
+  isError: boolean
+  retry: () => void
+}
+
+/** The evaluation form's state and its way to change it, with the registry read. */
 interface FlagEvaluatePanelProps {
   search: FlagEvaluateSearch
   onSearchChange: (next: FlagEvaluateSearch) => void
-  registry: FlagRow[]
+  registry: FlagRegistryRead
 }
 
 /**
@@ -125,7 +135,15 @@ function EvaluateUser({
           Apex is evaluated with no tenant, as staff use it.
         </p>
       )}
-      <FlagEvaluation params={{ userId: user.id, tenantId, app: search.app }} registry={registry} />
+      {registry.isError ? (
+        <LoadError message={FLAGS_LIST_ERROR} onRetry={registry.retry} />
+      ) : (
+        <FlagEvaluation
+          params={{ userId: user.id, tenantId, app: search.app }}
+          registry={registry.rows}
+          truncated={registry.truncated}
+        />
+      )}
     </div>
   )
 }

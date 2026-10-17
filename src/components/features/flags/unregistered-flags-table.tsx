@@ -6,7 +6,6 @@ import type { DataTableFeatures } from '@/components/shared/data-table/data-tabl
 import type { ListQueryState } from '@/components/shared/data-table/use-list-query'
 import { EmptyState } from '@/components/shared/empty-state'
 import { FLAGS_LIST_ERROR } from '@/constants/flags.constants'
-import { analyticsKey } from '@/observability/telemetry'
 import type { UnregisteredRow } from '@/types/api.types'
 
 const column = createColumnHelper<DataTableFeatures, UnregisteredRow>()
@@ -15,7 +14,7 @@ const column = createColumnHelper<DataTableFeatures, UnregisteredRow>()
 const UNREGISTERED_COLUMNS = column.columns([
   column.accessor('key', {
     header: 'Flag',
-    meta: { sorts: ['key'], sortName: analyticsKey('key') },
+    // Not sortable: `key` is the list's only sort and its default, so a sort control would change nothing.
     cell: ({ getValue }) => <code className="text-sm break-all">{getValue()}</code>,
   }),
   column.accessor('active', {

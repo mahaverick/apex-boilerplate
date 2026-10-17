@@ -12,7 +12,6 @@ import { useListQuery } from '@/components/shared/data-table/use-list-query'
 import { useListSearch } from '@/components/shared/data-table/use-list-search'
 import { Note } from '@/components/shared/note'
 import { SettingsPagePending } from '@/components/shared/pending-templates'
-import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import {
@@ -25,12 +24,12 @@ import { useNow } from '@/hooks/use-now'
 import { relativeTime } from '@/lib/relative-time'
 import { isRoleDenied } from '@/lib/role-denied'
 import {
+  FLAG_REGISTRY_READ,
   flagsList,
   flagsListOptions,
   flagsMetaQueryOptions,
   unregisteredFlagsList,
   unregisteredFlagsListOptions,
-  useFlagRegistry,
 } from '@/queries/flag-inspector.queries'
 import { listRequest, listValues } from '@/schemas/list-request.schemas'
 import { useAuthStore } from '@/states/auth.store'
@@ -49,6 +48,7 @@ export const Route = createFileRoute('/_app/settings/platform/flags')({
   loader: ({ context, deps }) => {
     void context.queryClient.prefetchQuery(flagsMetaQueryOptions())
     void context.queryClient.prefetchQuery(flagsListOptions(deps.registry))
+    void context.queryClient.prefetchQuery(flagsListOptions(FLAG_REGISTRY_READ, { total: false }))
     void context.queryClient.prefetchQuery(unregisteredFlagsListOptions(deps.unregistered))
   },
   head: () => ({ meta: [{ title: pageTitle('Feature flags') }] }),
@@ -76,7 +76,7 @@ function FlagsSection({ id, title, children }: { id: string; title: string; chil
   )
 }
 
-/** The evaluate panel, once the registry that says which flags each app receives has loaded. */
+/** The evaluate panel; only its evaluation table waits for the registry read. */
 function EvaluateSection({
   search,
   onSearchChange,
@@ -84,13 +84,18 @@ function EvaluateSection({
   search: ComponentProps<typeof FlagEvaluatePanel>['search']
   onSearchChange: ComponentProps<typeof FlagEvaluatePanel>['onSearchChange']
 }) {
-  const registry = useFlagRegistry()
-  if (registry.isError) {
-    return <LoadError message={FLAGS_LIST_ERROR} onRetry={() => void registry.refetch()} />
-  }
-  if (registry.data === undefined) return <CardRowsSkeleton rows={2} />
+  const registry = useQuery(flagsListOptions(FLAG_REGISTRY_READ, { total: false }))
   return (
-    <FlagEvaluatePanel search={search} onSearchChange={onSearchChange} registry={registry.data} />
+    <FlagEvaluatePanel
+      search={search}
+      onSearchChange={onSearchChange}
+      registry={{
+        rows: registry.data?.items,
+        truncated: registry.data?.page.hasNext === true,
+        isError: registry.isError,
+        retry: () => void registry.refetch(),
+      }}
+    />
   )
 }
 
@@ -106,6 +111,10 @@ function FlagsContent({ meta, isAdmin }: { meta: FlagsMetaResponse; isAdmin: boo
     unregisteredFlagsListOptions
   )
   const { snapshot } = meta
+  // A list refused after the page loaded (the role changed): one refusal for the page, as the meta read gives.
+  if (isRoleDenied(registry.query.error) || isRoleDenied(unregistered.query.error)) {
+    return <RoleDenied />
+  }
   return (
     <>
       {!snapshot.enabled && <Note tone="passive">{FLAGS_NOT_CONFIGURED}</Note>}

@@ -921,6 +921,7 @@ describe('signed-in pages', () => {
     )
     renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
     await screen.findByRole('heading', { name: 'Feature flags', level: 1 })
+    await screen.findByRole('table', { name: 'Registered flags' })
     await screen.findByRole('table', { name: 'Evaluation' })
     await screen.findByRole('table', { name: 'Unregistered flags' })
     await expectNoViolations()

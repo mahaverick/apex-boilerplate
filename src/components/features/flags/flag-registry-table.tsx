@@ -10,7 +10,6 @@ import type { ListQueryState } from '@/components/shared/data-table/use-list-que
 import { EmptyState } from '@/components/shared/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { FLAG_APP_LABELS, FLAGS_LIST_ERROR, flagStateBadge } from '@/constants/flags.constants'
-import { analyticsKey } from '@/observability/telemetry'
 import type { FlagRow } from '@/types/api.types'
 
 /** "3 conditions, up to 50%", or what PostHog holds when it has none. */
@@ -26,7 +25,8 @@ const column = createColumnHelper<DataTableFeatures, FlagRow>()
 const REGISTRY_COLUMNS = column.columns([
   column.accessor('key', {
     header: 'Flag',
-    meta: { sorts: ['key'], sortName: analyticsKey('key') },
+    // Not sortable: `key` is the list's only sort and its default, so a sort control would change nothing.
+    meta: { className: 'align-top' },
     cell: ({ row }) => (
       // Capped: the cell wraps its description instead of widening the table.
       <div className="max-w-sm whitespace-normal">
@@ -40,6 +40,7 @@ const REGISTRY_COLUMNS = column.columns([
   }),
   column.accessor('kind', {
     header: 'Kind',
+    meta: { className: 'align-top' },
     cell: ({ row }) =>
       row.original.kind === 'boolean' ? (
         'Boolean'
@@ -51,12 +52,13 @@ const REGISTRY_COLUMNS = column.columns([
   }),
   column.accessor('scope', {
     header: 'Scope',
+    meta: { className: 'align-top' },
     cell: ({ getValue }) => (getValue() === 'tenant' ? 'Tenant' : 'User'),
   }),
   column.accessor('apps', {
     id: 'sentTo',
     header: 'Sent to',
-    meta: { label: 'Sent to' },
+    meta: { label: 'Sent to', className: 'align-top' },
     cell: ({ row }) =>
       row.original.client ? (
         <div className="flex flex-wrap gap-1">
@@ -72,10 +74,12 @@ const REGISTRY_COLUMNS = column.columns([
   }),
   column.accessor('fallback', {
     header: 'Fallback',
+    meta: { className: 'align-top' },
     cell: ({ getValue }) => <code className="text-sm">{String(getValue())}</code>,
   }),
   column.accessor('state', {
     header: 'State',
+    meta: { className: 'align-top' },
     // The state cell also names the construct that made a flag unsupported, so hiding it would hide that reason.
     enableHiding: false,
     cell: ({ row }) => {
@@ -95,6 +99,7 @@ const REGISTRY_COLUMNS = column.columns([
   column.display({
     id: 'rollout',
     header: 'Rollout',
+    meta: { className: 'align-top' },
     cell: ({ row }) => (
       <span className="text-sm whitespace-normal">{rolloutText(row.original)}</span>
     ),
@@ -102,7 +107,7 @@ const REGISTRY_COLUMNS = column.columns([
   column.display({
     id: 'posthog',
     header: () => <span className="sr-only">PostHog</span>,
-    meta: { label: 'PostHog', actions: true },
+    meta: { label: 'PostHog', actions: true, className: 'align-top' },
     cell: ({ row }) => <PosthogLink href={row.original.posthogUrl} flagKey={row.original.key} />,
   }),
 ])

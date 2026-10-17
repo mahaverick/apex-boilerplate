@@ -101,10 +101,13 @@ export function flagsMetaQueryOptions() {
   })
 }
 
+/** The request for the registry's first hundred flags, the most one page holds. */
+export const FLAG_REGISTRY_READ: ListRequest = { limit: 100 }
+
 /** The registry's first hundred flags, for the evaluate panel and the tenant Flags tab. */
 export function useFlagRegistry() {
   return useQuery({
-    ...flagsListOptions({ limit: 100 }, { total: false }),
+    ...flagsListOptions(FLAG_REGISTRY_READ, { total: false }),
     select: (page) => page.items,
   })
 }

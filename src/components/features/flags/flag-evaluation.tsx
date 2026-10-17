@@ -84,9 +84,13 @@ function EvaluationRow({ row, sentToApp }: { row: FlagEvaluationRow; sentToApp: 
 export function FlagEvaluation({
   params,
   registry,
+  truncated = false,
 }: {
   params: FlagEvaluateParams
-  registry: FlagRow[]
+  /** The registry that says which flags each app receives; undefined while it loads, which holds the table. */
+  registry: FlagRow[] | undefined
+  /** The registry read held only its first page, so some rows may not be marked. */
+  truncated?: boolean
 }) {
   const evaluation = useQuery(flagsEvaluateQueryOptions(params))
   if (evaluation.isError) {
@@ -96,7 +100,9 @@ export function FlagEvaluation({
       <LoadError message={FLAGS_EVALUATE_ERROR} onRetry={() => void evaluation.refetch()} />
     )
   }
-  if (evaluation.data === undefined) return <TableRowsSkeleton rows={6} columns={3} />
+  if (evaluation.data === undefined || registry === undefined) {
+    return <TableRowsSkeleton rows={6} columns={3} />
+  }
   const sentTo = new Set(
     registry.filter((row) => row.client && row.apps.includes(params.app)).map((row) => row.key)
   )
@@ -120,6 +126,7 @@ export function FlagEvaluation({
           ))}
         </TableBody>
       </Table>
+      {truncated && <p className="text-xs text-muted-foreground">Showing the first 100 flags.</p>}
     </div>
   )
 }

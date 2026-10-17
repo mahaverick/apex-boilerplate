@@ -131,7 +131,7 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
           {isAdmin && (
             <Link
               to={ROUTES.flags}
-              search={{ userId: user.id, app: 'react' }}
+              search={{ userId: user.id }}
               className={buttonVariants({ variant: 'outline', size: 'sm' })}
             >
               Flags
