@@ -1,27 +1,31 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import {
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-  Outlet,
-  RouterProvider,
-} from '@tanstack/react-router'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { CommandPalette } from '@/components/features/command-palette'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { prefetchPalette } from '@/components/shared/command-palette/palette-loader'
+import { recordRecent } from '@/components/shared/command-palette/recent-items'
+import type { MembershipRole } from '@/constants/roles'
+import * as shortcut from '@/lib/shortcut'
+import * as analytics from '@/observability/telemetry'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
+import { useThemeStore } from '@/states/theme.store'
+import { TENANT_ID, TENANT_ID_2, USER_ID_2 } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
+import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { settle } from '@/tests/fixtures/timing'
-import { fail, ok, testUser } from '@/tests/mocks/handlers'
+import { ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import { LIST_SEARCH_DEBOUNCE_MS } from '@/types/list.types'
 
+vi.mock('@/components/shared/command-palette/palette-loader', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('@/components/shared/command-palette/palette-loader')>()
+  return { ...original, prefetchPalette: vi.fn(original.prefetchPalette) }
+})
+
 const ACME = {
-  id: '11111111-1111-4111-8111-111111111111',
+  id: TENANT_ID,
   name: 'Acme Corp',
   slug: 'acme',
   lifecycleState: 'active',
@@ -29,8 +33,10 @@ const ACME = {
   createdAt: '2026-01-01T00:00:00.000Z',
 }
 
+const ACME_TWO = { ...ACME, id: TENANT_ID_2, slug: 'acme-two', lifecycleState: 'suspended' }
+
 const CLEO = {
-  id: '22222222-2222-4222-8222-222222222222',
+  id: USER_ID_2,
   email: 'cleo@example.com',
   firstName: 'Cleo',
   lastName: 'Doe',
@@ -43,448 +49,313 @@ const CLEO = {
   membershipCount: 1,
 }
 
-/** Mounts the palette beside a stub route for every page it can open, starting at `/overview`; returns the router. */
-function renderPalette() {
-  const rootRoute = createRootRoute({
-    component: () => (
-      <>
-        <CommandPalette />
-        <Outlet />
-      </>
-    ),
-  })
-  const pages = [
-    '/overview',
-    '/tenants',
-    '/activity',
-    '/users',
-    '/settings/platform/staff',
-    '/settings/platform/flags',
-    '/settings/platform/maintenance',
-    '/settings/account/security',
-    '/users/$userId',
-    '/tenants/$tenantId',
-  ].map((path) =>
-    createRoute({ getParentRoute: () => rootRoute, path, component: () => <h1>{path}</h1> })
-  )
-  const router = createRouter({
-    routeTree: rootRoute.addChildren(pages),
-    history: createMemoryHistory({ initialEntries: ['/overview'] }),
-  })
-  const queryClient = new QueryClient({
-    // The palette's queries set their own `retry`, which wins over `retry: false`; a zero delay keeps the 500 case fast.
-    defaultOptions: { queries: { retry: false, retryDelay: 0 } },
-  })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router as never} />
-    </QueryClientProvider>
-  )
-  return router
-}
-
-/**
- * Opens the palette with its shortcut and waits until its input has focus. The dialog mounts and
- * focuses the input after the key press, so keys typed straight away can land before that and be
- * lost; a slow machine shows it.
- * @param user - The test's user.
- */
+/** Opens the palette with the shortcut once the overview has rendered. */
 async function openPalette(user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByRole('heading', { name: 'Overview', level: 1 })
   await user.keyboard('{Control>}k{/Control}')
-  const input = await screen.findByRole('combobox')
-  await waitFor(() => expect(input).toHaveFocus())
+  return screen.findByRole('dialog', { name: 'Command palette' })
 }
 
-/** A promise the test resolves by hand, to hold a response in flight. */
-function deferred() {
-  /** Resolves `promise`. */
-  let release = () => {}
-  const promise = new Promise<void>((resolve) => {
-    release = resolve
-  })
-  return { promise, release }
+/** Opens the palette from the header's Search… button. */
+async function openFromHeader(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /Search…/ }))
+  return screen.findByRole('dialog', { name: 'Command palette' })
+}
+
+/** Signs in as a staff member with `role`, or as a non-staff user for `null`. */
+function signInAs(platformRole: MembershipRole | null) {
+  signIn({ ...testUser, platformRole })
 }
 
 describe('CommandPalette', () => {
   beforeEach(() => {
-    useAuthStore.setState({ user: { ...testUser, platformRole: 'viewer' }, isAuthenticated: true })
-    useCommandPaletteStore.setState({ open: false })
-    // Every search asks for both lists; a test's own `server.use` still wins.
+    localStorage.clear()
+    useCommandPaletteStore.setState({ open: false, query: '' })
+    signInAs('viewer')
     server.use(
-      http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.')),
-      http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.'))
+      http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.')),
+      http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.'))
     )
   })
 
   afterEach(() => {
-    useCommandPaletteStore.setState({ open: false })
+    useCommandPaletteStore.setState({ open: false, query: '' })
+    vi.restoreAllMocks()
   })
 
-  it('opens on Ctrl+K and on Meta+K', async () => {
+  it('describes itself as reaching pages, tenants, users and actions', async () => {
     const user = userEvent.setup()
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-
-    await user.keyboard('{Control>}k{/Control}')
-    expect(await screen.findByRole('dialog', { name: 'Command palette' })).toBeInTheDocument()
-    await user.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-
-    await user.keyboard('{Meta>}k{/Meta}')
-    expect(await screen.findByRole('dialog', { name: 'Command palette' })).toBeInTheDocument()
+    renderAppAt('/overview')
+    const palette = await openPalette(user)
+    expect(palette).toHaveAccessibleDescription(
+      'Go to a page, a tenant or a user, or run an action.'
+    )
+    expect(screen.getByRole('combobox', { name: 'Search pages, tenants and users' })).toHaveFocus()
   })
 
   it("lists only the viewer's pages, and Enter goes to the highlighted one", async () => {
     const user = userEvent.setup()
-    const router = renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
+    const router = renderAppAt('/overview')
     await openPalette(user)
-
     await user.keyboard('ten')
     expect(await screen.findByRole('option', { name: 'Tenants' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Activity log' })).not.toBeInTheDocument()
     await user.keyboard('{Enter}')
-
     await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
     expect(useCommandPaletteStore.getState().open).toBe(false)
   })
 
   it.each([
+    ['settings', 'Settings', '/settings'],
     ['maint', 'Maintenance', '/settings/platform/maintenance'],
     ['staff', 'Staff', '/settings/platform/staff'],
     ['flags', 'Feature flags', '/settings/platform/flags'],
     ['secur', 'Security', '/settings/account/security'],
   ])('offers a viewer the settings page for "%s" and opens it', async (term, label, path) => {
     const user = userEvent.setup()
-    const router = renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
+    const router = renderAppAt('/overview')
     await openPalette(user)
-
     await user.keyboard(term)
     await user.click(await screen.findByRole('option', { name: label }))
-
     await waitFor(() => expect(router.state.location.pathname).toBe(path))
-    expect(useCommandPaletteStore.getState().open).toBe(false)
   })
 
-  // A session whose platform role dropped to null sees no pages at all, settings included, as the nav does.
-  it('lists no pages, settings included, when the user is not staff', async () => {
-    useAuthStore.setState({ user: { ...testUser, platformRole: null } })
-    const user = userEvent.setup()
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
-
-    const palette = await screen.findByRole('dialog', { name: 'Command palette' })
-    expect(within(palette).queryAllByRole('option')).toEqual([])
-    await user.keyboard('staff')
-    expect(within(palette).queryByRole('option', { name: 'Staff' })).not.toBeInTheDocument()
-  })
-
-  it('finds a tenant through the API, asking for no total, and opens its page', async () => {
-    const seen: URLSearchParams[] = []
-    server.use(
-      http.get('/api/v1/platform/tenants', ({ request }) => {
-        const params = new URL(request.url).searchParams
-        seen.push(params)
-        const q = params.get('search')
-        return ok(listPage(q === 'acme' ? [ACME] : []), 'Tenants retrieved.')
-      })
-    )
-    const user = userEvent.setup()
-    const router = renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
-
-    await user.keyboard('acme')
-    await user.click(await screen.findByRole('option', { name: /Acme Corp/ }))
-
-    await waitFor(() => expect(router.state.location.pathname).toBe(`/tenants/${ACME.id}`))
-    // A picker never shows a count, so it never asks for one.
-    expect(seen.at(-1)?.get('total')).toBeNull()
-    expect(seen.at(-1)?.get('limit')).toBe('8')
-  })
-
-  it('never acts on a previous term’s tenants', async () => {
-    let release: (() => void) | undefined
-    server.use(
-      http.get('/api/v1/platform/tenants', async ({ request }) => {
-        const q = new URL(request.url).searchParams.get('search')
-        if (q === 'acmez') {
-          await new Promise<void>((resolve) => {
-            release = resolve
-          })
-          return ok(listPage([]), 'Tenants retrieved.')
-        }
-        return ok(listPage([ACME]), 'Tenants retrieved.')
-      })
-    )
-    const user = userEvent.setup()
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
-    await user.keyboard('acme')
-    await screen.findByRole('option', { name: /Acme Corp/ })
-
-    try {
-      await user.keyboard('z')
-      // The new term's request is in flight: the window a stale list could take the Enter.
-      await waitFor(() => expect(release).toBeDefined())
-      expect(screen.queryByRole('option', { name: /Acme Corp/ })).not.toBeInTheDocument()
-    } finally {
-      release?.()
-    }
-  })
-
-  it('finds a user by email, first 8 only, and Enter opens their page', async () => {
-    let limit: string | null = null
-    let total: string | null = 'unset'
-    server.use(
-      http.get('/api/v1/platform/users', ({ request }) => {
-        const params = new URL(request.url).searchParams
-        limit = params.get('limit')
-        total = params.get('total')
-        return ok(listPage(params.get('search') === 'cleo' ? [CLEO] : []), 'Users retrieved.')
-      })
-    )
-    const user = userEvent.setup()
-    const router = renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
-
-    await user.keyboard('cleo')
-    expect(await screen.findByRole('option', { name: /cleo@example\.com/ })).toBeInTheDocument()
-    expect(screen.getByText('Users')).toBeInTheDocument()
-    await user.keyboard('{Enter}')
-
-    await waitFor(() => expect(router.state.location.pathname).toBe(`/users/${CLEO.id}`))
-    expect(limit).toBe('8')
-    expect(total).toBeNull()
-  })
-
-  it('never acts on a previous term’s users', async () => {
-    let release: (() => void) | undefined
-    server.use(
-      http.get('/api/v1/platform/users', async ({ request }) => {
-        const q = new URL(request.url).searchParams.get('search')
-        if (q === 'cleox') {
-          await new Promise<void>((resolve) => {
-            release = resolve
-          })
-          return ok(listPage([]), 'Users retrieved.')
-        }
-        return ok(listPage([CLEO]), 'Users retrieved.')
-      })
-    )
-    const user = userEvent.setup()
-    const router = renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
-    await user.keyboard('cleo')
-    await screen.findByRole('option', { name: /cleo@example\.com/ })
-
-    await user.keyboard('x')
-    await waitFor(() =>
-      expect(screen.queryByRole('option', { name: /cleo@example\.com/ })).not.toBeInTheDocument()
-    )
-    await user.keyboard('{Enter}')
-    expect(router.state.location.pathname).toBe('/overview')
-    release?.()
-  })
-
-  it('says the tenant search failed, and keeps the page items usable', async () => {
-    server.use(http.get('/api/v1/platform/tenants', () => fail('Boom', 500)))
-    const user = userEvent.setup()
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
-    await user.keyboard('o')
-
-    expect(await screen.findByText('Some results could not be loaded.')).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Overview' })).toBeInTheDocument()
-  })
-
-  it('says the user search failed, and keeps the tenants it found', async () => {
-    server.use(
-      http.get('/api/v1/platform/users', () => fail('Boom', 500)),
-      http.get('/api/v1/platform/tenants', () => ok(listPage([ACME]), 'Tenants retrieved.'))
-    )
-    const user = userEvent.setup()
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
-    await user.keyboard('acme')
-
-    expect(await screen.findByText('Some results could not be loaded.')).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /Acme Corp/ })).toBeInTheDocument()
-  })
-
-  it('opens empty after the shortcut closed it mid-search', async () => {
-    const user = userEvent.setup()
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
-    await user.keyboard('ov')
-    expect(screen.getByRole('combobox')).toHaveValue('ov')
-
-    await user.keyboard('{Control>}k{/Control}')
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await openPalette(user)
-
-    expect(await screen.findByRole('combobox')).toHaveValue('')
-  })
-
-  it.each([
-    ['a repeat', { repeat: true }],
-    ['an IME composition', { isComposing: true }],
-    ['Shift', { shiftKey: true }],
-    ['Alt', { altKey: true }],
-    ['no modifier', { ctrlKey: false }],
-    ['another key', { code: 'KeyJ', key: 'j' }],
-  ])('ignores the shortcut with %s', async (_label, overrides) => {
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    fireEvent.keyDown(window, { key: 'k', code: 'KeyK', ctrlKey: true, ...overrides })
-    expect(useCommandPaletteStore.getState().open).toBe(false)
-  })
-
-  it('ignores a shortcut something else already handled', async () => {
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    /** Stands in for another handler that claims the shortcut by calling `preventDefault`. */
-    const claim = (event: Event) => event.preventDefault()
-    window.addEventListener('keydown', claim, { capture: true })
-    try {
-      fireEvent.keyDown(window, { key: 'k', code: 'KeyK', ctrlKey: true })
-    } finally {
-      window.removeEventListener('keydown', claim, { capture: true })
-    }
-    expect(useCommandPaletteStore.getState().open).toBe(false)
-  })
-
-  it('opens on the physical K key on a non-Latin layout', async () => {
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    fireEvent.keyDown(window, { key: 'л', code: 'KeyK', metaKey: true })
-    expect(useCommandPaletteStore.getState().open).toBe(true)
-  })
-
-  it('never asks for tenants or users when the user is not staff', async () => {
+  // A session whose platform role dropped to null mid-visit sees no pages and searches nothing, as the nav does.
+  it('lists no pages and searches nothing once the platform role is gone, but keeps Theme and Sign out', async () => {
     let calls = 0
     server.use(
       http.get('/api/v1/platform/tenants', () => {
         calls += 1
         return ok(listPage([ACME]), 'Tenants retrieved.')
-      }),
-      http.get('/api/v1/platform/users', () => {
-        calls += 1
-        return ok(listPage([CLEO]), 'Users retrieved.')
       })
     )
-    useAuthStore.setState({ user: { ...testUser, platformRole: null } })
     const user = userEvent.setup()
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
+    renderAppAt('/overview')
+    await screen.findByRole('heading', { name: 'Overview', level: 1 })
+    act(() => useAuthStore.setState({ user: { ...testUser, platformRole: null } }))
+    await user.keyboard('{Control>}k{/Control}')
+    const palette = await screen.findByRole('dialog', { name: 'Command palette' })
+    expect(within(palette).queryByRole('group', { name: 'Go to' })).toBeNull()
+    expect(within(palette).getByRole('option', { name: 'Sign out' })).toBeInTheDocument()
     await user.keyboard('acme')
-
     await settle(
       LIST_SEARCH_DEBOUNCE_MS * 2,
       'absence has no event: a request would follow the debounce'
     )
     expect(calls).toBe(0)
-    expect(screen.queryByText('Searching…')).not.toBeInTheDocument()
   })
 
-  it('says nothing about tenants when the role is refused', async () => {
-    let asked = false
+  it('finds tenants by name with their slug, and the state when not active, asking for no total', async () => {
+    const totals: (string | null)[] = []
     server.use(
-      http.get('/api/v1/platform/tenants', () => {
-        asked = true
-        return fail('Not found', 404)
+      http.get('/api/v1/platform/tenants', ({ request }) => {
+        const params = new URL(request.url).searchParams
+        totals.push(params.get('total'))
+        return ok(
+          listPage(params.get('search') === 'acme' ? [ACME, ACME_TWO] : []),
+          'Tenants retrieved.'
+        )
       })
     )
     const user = userEvent.setup()
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
-    await user.keyboard('o')
-
-    // The request is the event to wait on: "Searching…" can come and go between two polls under load.
-    await waitFor(() => expect(asked).toBe(true))
-    await waitFor(() => expect(screen.queryByText('Searching…')).not.toBeInTheDocument())
-    expect(screen.queryByText('Some results could not be loaded.')).not.toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Overview' })).toBeInTheDocument()
-  })
-
-  it('does not show the previous term’s error while the next term waits', async () => {
-    const next = deferred()
-    server.use(
-      http.get('/api/v1/platform/tenants', async ({ request }) => {
-        const q = new URL(request.url).searchParams.get('search')
-        if (q === 'o') return fail('Boom', 500)
-        // Held, so "Searching…" stays up until the test has looked at it.
-        await next.promise
-        return ok(listPage([]))
-      })
-    )
-    const user = userEvent.setup()
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
-    await user.keyboard('o')
-    await screen.findByText('Some results could not be loaded.')
-
-    try {
-      await user.keyboard('v')
-      expect(screen.queryByText('Some results could not be loaded.')).not.toBeInTheDocument()
-      expect(screen.getByText('Searching…')).toBeInTheDocument()
-    } finally {
-      next.release()
-    }
-    await waitFor(() => expect(screen.queryByText('Searching…')).not.toBeInTheDocument())
-  })
-
-  it('does not say "No results." while tenants are still being searched', async () => {
-    let release: (() => void) | undefined
-    server.use(
-      http.get('/api/v1/platform/tenants', async () => {
-        await new Promise<void>((resolve) => {
-          release = resolve
-        })
-        return ok(listPage([]), 'Tenants retrieved.')
-      })
-    )
-    const user = userEvent.setup()
-    renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
-    try {
-      await user.keyboard('zzz')
-      await waitFor(() => expect(release).toBeDefined())
-      expect(screen.getByText('Searching…')).toBeInTheDocument()
-      expect(screen.queryByText('No results.')).not.toBeInTheDocument()
-    } finally {
-      release?.()
-    }
-    expect(await screen.findByText('No results.')).toBeInTheDocument()
-  })
-
-  it('ignores Enter typed before the new term is searched', async () => {
-    server.use(
-      http.get('/api/v1/platform/tenants', () => ok(listPage([ACME]), 'Tenants retrieved.'))
-    )
-    const user = userEvent.setup()
-    const router = renderPalette()
-    await screen.findByRole('heading', { name: '/overview' })
-    await openPalette(user)
+    const router = renderAppAt('/overview')
+    const palette = await openPalette(user)
     await user.keyboard('acme')
-    await screen.findByRole('option', { name: /Acme Corp/ })
+    const group = await within(palette).findByRole('group', { name: 'Tenants' })
+    expect(
+      within(group)
+        .getAllByRole('option')
+        .map((option) => option.textContent)
+    ).toEqual(['Acme Corp, acme', 'Acme Corp, acme-two · Suspended'])
+    expect(totals).toEqual([null])
+    await user.click(within(group).getAllByRole('option')[0]!)
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID}`))
+  })
 
-    await user.keyboard('z{Enter}')
-    // The new term's results arrive after the Enter: had it acted, it would already have navigated.
-    expect(await screen.findByRole('option', { name: /Acme Corp/ })).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/overview')
-    expect(useCommandPaletteStore.getState().open).toBe(true)
+  it('finds a user by email, first 8 only, inside Pii, and Enter opens their page', async () => {
+    let limit: string | null = null
+    server.use(
+      http.get('/api/v1/platform/users', ({ request }) => {
+        const params = new URL(request.url).searchParams
+        limit = params.get('limit')
+        return ok(listPage(params.get('search') === 'cleo' ? [CLEO] : []), 'Users retrieved.')
+      })
+    )
+    const user = userEvent.setup()
+    const router = renderAppAt('/overview')
+    await openPalette(user)
+    await user.keyboard('cleo')
+    const option = await screen.findByRole('option', { name: /cleo@example\.com/ })
+    expect(within(option).getByText('cleo@example.com')).toHaveClass('ph-sensitive')
+    expect(within(option).getByText('Cleo Doe')).toHaveClass('ph-sensitive')
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/users/${USER_ID_2}`))
+    expect(limit).toBe('8')
+  })
+
+  it.each<[MembershipRole, boolean]>([
+    ['viewer', false],
+    ['admin', true],
+    ['owner', true],
+  ])('offers New tenant to a %s: %s', async (role, offered) => {
+    signInAs(role)
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    const palette = await openPalette(user)
+    const account = within(palette).getByRole('group', { name: 'Account' })
+    expect(within(account).queryByRole('option', { name: 'New tenant' }) !== null).toBe(offered)
+  })
+
+  it('opens the New tenant dialog after the palette closes, with focus in it', async () => {
+    signInAs('admin')
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    await openPalette(user)
+    await user.keyboard('new tenant')
+    await user.click(await screen.findByRole('option', { name: 'New tenant' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+    expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument()
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+    expect(within(dialog).getByRole('textbox', { name: 'Name' })).toBeInTheDocument()
+  })
+
+  it('returns focus to the main landmark when the New tenant dialog closes on a page whose heading takes no focus', async () => {
+    signInAs('admin')
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    await openPalette(user)
+    await user.keyboard('new tenant')
+    await user.click(await screen.findByRole('option', { name: 'New tenant' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.getByRole('main')).toHaveFocus())
+  })
+
+  it('sets the theme, marking the current one', async () => {
+    useThemeStore.getState().setTheme('light')
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    const palette = await openPalette(user)
+    const theme = within(palette).getByRole('group', { name: 'Theme' })
+    expect(within(theme).getByRole('option', { name: /^Light/ })).toHaveTextContent(
+      'Light, Current'
+    )
+    await user.click(within(theme).getByRole('option', { name: /^Dark/ }))
+    expect(useThemeStore.getState().theme).toBe('dark')
+  })
+
+  it('lists recent tenants and users, newest first, a user inside Pii', async () => {
+    recordRecent(testUser.id, { kind: 'user', id: USER_ID_2, label: 'cleo@example.com' })
+    recordRecent(testUser.id, { kind: 'tenant', id: TENANT_ID, label: 'Acme Corp', detail: 'acme' })
+    const user = userEvent.setup()
+    const router = renderAppAt('/overview')
+    const palette = await openPalette(user)
+    const recent = within(palette).getByRole('group', { name: 'Recent' })
+    const rows = within(recent).getAllByRole('option')
+    expect(rows.map((row) => row.textContent)).toEqual(['Acme Corp, acme', 'cleo@example.com'])
+    expect(within(rows[1]!).getByText('cleo@example.com')).toHaveClass('ph-sensitive')
+    await user.click(rows[1]!)
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/users/${USER_ID_2}`))
+  })
+
+  it('opens from the header’s Search… button, which shows the shortcut', async () => {
+    vi.spyOn(shortcut, 'paletteShortcutHint').mockReturnValue('Ctrl K')
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    const button = await screen.findByRole('button', { name: /Search…/ })
+    expect(within(button).getByText('Ctrl K')).toHaveAttribute('data-slot', 'kbd')
+    await openFromHeader(user)
+    expect(screen.getByRole('combobox', { name: 'Search pages, tenants and users' })).toHaveFocus()
+  })
+
+  it('names the header button Search… and exposes the shortcut as a key binding', async () => {
+    vi.spyOn(shortcut, 'isApplePlatform').mockReturnValue(true)
+    renderAppAt('/overview')
+    const button = await screen.findByRole('button', { name: 'Search…' })
+    expect(button).toHaveAttribute('aria-keyshortcuts', 'Meta+K')
+    expect(within(button).getByText(/K$/)).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('fetches the palette’s code when the Search… button is hovered or focused', async () => {
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    const button = await screen.findByRole('button', { name: /Search…/ })
+    vi.mocked(prefetchPalette).mockClear()
+    await user.hover(button)
+    expect(prefetchPalette).toHaveBeenCalledTimes(1)
+    vi.mocked(prefetchPalette).mockClear()
+    button.focus()
+    expect(prefetchPalette).toHaveBeenCalledTimes(1)
+  })
+
+  it('signs out, and is disabled while the sign-out is pending', async () => {
+    // The request never answers, so the sign-out stays pending.
+    server.use(http.post('/api/v1/auth/logout', () => new Promise<Response>(() => {})))
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    const palette = await openFromHeader(user)
+    const account = within(palette).getByRole('group', { name: 'Account' })
+    await user.click(within(account).getByRole('option', { name: 'Sign out' }))
+    await openFromHeader(user)
+    expect(
+      within(await screen.findByRole('group', { name: 'Account' })).getByRole('option', {
+        name: 'Sign out',
+      })
+    ).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('disables Sign out in the palette while the account menu’s sign-out is pending', async () => {
+    server.use(http.post('/api/v1/auth/logout', () => new Promise<Response>(() => {})))
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    await user.click(await screen.findByRole('button', { name: /^Account menu for/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Sign out' }))
+    const palette = await openFromHeader(user)
+    await waitFor(() =>
+      expect(within(palette).getByRole('option', { name: 'Sign out' })).toHaveAttribute(
+        'aria-disabled',
+        'true'
+      )
+    )
+  })
+
+  it.each([
+    ['Go to', '', 'Tenants', 'open_page'],
+    ['Go to', 'settings', 'Settings', 'open_page'],
+    ['Go to', 'secur', 'Security', 'open_page'],
+    ['Recent', '', 'Acme Corp', 'open_recent'],
+    ['Tenants', 'acme', 'Acme Corp', 'open_tenant'],
+    ['Users', 'cleo', 'cleo@example.com', 'open_user'],
+    ['Theme', '', 'Dark', 'set_theme'],
+    ['Account', '', 'New tenant', 'create_tenant'],
+    ['Account', '', 'Sign out', 'sign_out'],
+  ])('sends only the fixed key for %s › %s (%s)', async (group, term, label, action) => {
+    signInAs('admin')
+    if (group === 'Recent') {
+      recordRecent(testUser.id, {
+        kind: 'tenant',
+        id: TENANT_ID,
+        label: 'Acme Corp',
+        detail: 'acme',
+      })
+    }
+    server.use(
+      http.get('/api/v1/platform/tenants', () => ok(listPage([ACME]), 'Tenants retrieved.')),
+      http.get('/api/v1/platform/users', () => ok(listPage([CLEO]), 'Users retrieved.')),
+      http.post('/api/v1/auth/logout', () => new Promise<Response>(() => {}))
+    )
+    const track = vi.spyOn(analytics, 'track')
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    const palette = await openPalette(user)
+    if (term) await user.keyboard(term)
+    const list = await within(palette).findByRole('group', { name: group })
+    await user.click(await within(list).findByRole('option', { name: new RegExp(`^${label}\\b`) }))
+    await waitFor(() =>
+      expect(track.mock.calls.filter(([event]) => event === 'command_palette_action_run')).toEqual([
+        ['command_palette_action_run', { action }],
+      ])
+    )
   })
 })

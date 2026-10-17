@@ -1,6 +1,6 @@
 import { IconPlus } from '@tabler/icons-react'
 import { useForm } from '@tanstack/react-form'
-import { useState } from 'react'
+import { useState, type ComponentProps } from 'react'
 import type { z } from 'zod'
 import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
@@ -60,13 +60,15 @@ const FIELD_FOR_CODE: Partial<Record<string, 'slug' | 'ownerEmail'>> = {
  * lands on the field its code names: a taken slug on Slug, a deactivated owner
  * account on Owner email; any other error on the form. `onCreated` lets the
  * page decide where to go next. The command palette opens it with
- * `trigger={false}` and its own `open`.
+ * `trigger={false}`, its own `open` and a `finalFocus`, since no trigger is
+ * there to take focus back.
  */
 export function CreateTenantDialog({
   onCreated,
   open: controlledOpen,
   onOpenChange,
   trigger = true,
+  finalFocus,
 }: {
   onCreated?: (tenant: PlatformTenantDetail) => void
   /** Controls the dialog from outside, as the command palette does; it keeps its own state when unset. */
@@ -74,6 +76,8 @@ export function CreateTenantDialog({
   onOpenChange?: (open: boolean) => void
   /** False renders no New tenant button: whoever controls `open` opens it. */
   trigger?: boolean
+  /** Where focus goes on close; unset returns it to whatever opened the dialog. */
+  finalFocus?: ComponentProps<typeof DialogContent>['finalFocus']
 }) {
   const [ownOpen, setOwnOpen] = useState(false)
   const open = controlledOpen ?? ownOpen
@@ -90,7 +94,7 @@ export function CreateTenantDialog({
           New tenant
         </DialogTrigger>
       )}
-      <DialogContent>
+      <DialogContent finalFocus={finalFocus}>
         <DialogHeader>
           <DialogTitle>New tenant</DialogTitle>
           <DialogDescription>

@@ -10,6 +10,7 @@ import type { PaletteCommand } from '@/components/shared/command-palette/palette
 import { recordRecent } from '@/components/shared/command-palette/recent-items'
 import { RECENT_KEY_PREFIX } from '@/components/shared/command-palette/recent-keys'
 import type { MembershipRole } from '@/constants/roles'
+import * as analytics from '@/observability/telemetry'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { queryClient } from '@/router'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
@@ -172,6 +173,12 @@ async function menuItems(name: string): Promise<string[]> {
   return items
 }
 
+/** Opens the palette from the header's Search… button. */
+async function openPalette(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /Search…/ }))
+  return screen.findByRole('dialog', { name: 'Command palette' })
+}
+
 describe('the This page sources', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -327,11 +334,51 @@ describe('the This page sources', () => {
       expect(registered('tenant-page')).not.toContain('Go to Flags')
     })
 
-    it.todo(
-      'runs Suspend from the palette: the reason dialog opens with focus, and closing it returns focus to the heading'
-    )
+    it('runs Suspend from the palette: the reason dialog opens with focus, and closing it returns focus to the heading', async () => {
+      const track = vi.spyOn(analytics, 'track')
+      serveTenant(tenant())
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const heading = await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })
+      const palette = await openPalette(user)
+      const page = await within(palette).findByRole('group', { name: 'This page' })
+      await user.click(within(page).getByRole('option', { name: 'Suspend' }))
 
-    it.todo('copies the tenant’s ID')
+      const dialog = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
+      await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+      expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument()
+      expect(track).toHaveBeenCalledWith('command_palette_action_run', {
+        action: 'page_action_suspend',
+      })
+
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(heading).toHaveFocus())
+    })
+
+    it('copies the tenant’s ID', async () => {
+      serveTenant(tenant())
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })
+      const palette = await openPalette(user)
+      await user.click(await within(palette).findByRole('option', { name: 'Copy tenant ID' }))
+      await expect(navigator.clipboard.readText()).resolves.toBe(TENANT_ID)
+      expect(await screen.findByText('Tenant ID copied.')).toBeInTheDocument()
+    })
+
+    it('returns focus to the heading when the palette’s New tenant dialog closes on a tenant page', async () => {
+      serveTenant(tenant())
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const heading = await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })
+      const palette = await openPalette(user)
+      await user.keyboard('new tenant')
+      await user.click(await within(palette).findByRole('option', { name: 'New tenant' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+      await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(heading).toHaveFocus())
+    })
 
     it('records the tenant in Recent once it loads, with its slug', async () => {
       serveTenant(tenant())
@@ -469,9 +516,42 @@ describe('the This page sources', () => {
       expect(pageLabels()[0]).toBe('Edit name')
     })
 
-    it.todo('sends the set-password email from the palette as the menu does')
+    it('sends the set-password email from the palette as the menu does', async () => {
+      let sent = 0
+      serveUser()
+      server.use(
+        http.post(`/api/v1/platform/users/${USER_ID_2}/password-setup`, () => {
+          sent += 1
+          return ok({ emailSent: true }, 'Sent.')
+        })
+      )
+      const user = userEvent.setup()
+      renderAppAt(`/users/${USER_ID_2}`)
+      await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })
+      const palette = await openPalette(user)
+      await user.click(
+        await within(palette).findByRole('option', { name: 'Send set-password link' })
+      )
+      expect(await screen.findByText('Set-password email sent.')).toBeInTheDocument()
+      expect(sent).toBe(1)
+    })
 
-    it.todo('copies the user’s ID and records them in Recent under their email')
+    it('copies the user’s ID and records them in Recent under their email', async () => {
+      serveUser()
+      const user = userEvent.setup()
+      renderAppAt(`/users/${USER_ID_2}`)
+      await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })
+      await waitFor(() =>
+        expect(
+          JSON.parse(localStorage.getItem(`${RECENT_KEY_PREFIX}${testUser.id}`) ?? '[]')
+        ).toEqual([
+          expect.objectContaining({ kind: 'user', id: USER_ID_2, label: 'cleo@example.com' }),
+        ])
+      )
+      const palette = await openPalette(user)
+      await user.click(await within(palette).findByRole('option', { name: 'Copy user ID' }))
+      await expect(navigator.clipboard.readText()).resolves.toBe(USER_ID_2)
+    })
 
     it('forgets the user when their page answers 404', async () => {
       recordRecent(testUser.id, { kind: 'user', id: USER_ID_2, label: 'cleo@example.com' })

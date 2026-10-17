@@ -11,6 +11,7 @@ import axeCore from 'axe-core'
 import { http } from 'msw'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { ThemeToggle } from '@/components/features/theme-toggle'
+import { recordRecent } from '@/components/shared/command-palette/recent-items'
 import { PageSkeleton, type PageVariant } from '@/components/shared/page-skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GOOGLE_OAUTH_PATH } from '@/constants/routes'
@@ -1256,6 +1257,32 @@ describe('open overlays', () => {
     // The user group is what this grades; without the row it would repeat the test above.
     expect(
       await within(palette).findByRole('option', { name: /cleo@example\.com/ })
+    ).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  /** The palette on a tenant page: Recent (a user, inside Pii), This page (the tabs, Copy tenant ID and the actions) and a failed search's Try again row. */
+  it('has no violations with the command palette showing Recent, This page and a failed search', async () => {
+    serveTenant('active')
+    server.use(
+      http.get('/api/v1/platform/tenants', () => fail('Boom', 500)),
+      http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.'))
+    )
+    recordRecent(testUser.id, { kind: 'user', id: USER_ID_2, label: 'cleo.d@example.com' })
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}`)
+    await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })
+
+    await user.click(screen.getByRole('button', { name: /Search…/ }))
+    const palette = await screen.findByRole('dialog', { name: 'Command palette' })
+    expect(within(palette).getByRole('group', { name: 'Recent' })).toBeInTheDocument()
+    const page = within(palette).getByRole('group', { name: 'This page' })
+    expect(within(page).getByRole('option', { name: 'Suspend' })).toBeInTheDocument()
+    await expectNoViolations()
+
+    await user.keyboard('a')
+    expect(
+      await within(palette).findByRole('option', { name: 'Search failed. Try again' })
     ).toBeInTheDocument()
     await expectNoViolations()
   })
