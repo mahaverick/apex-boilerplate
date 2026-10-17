@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { ReasonDialog, type ReasonDialogProps } from '@/components/features/reason-dialog'
+import { usePaletteCommands } from '@/components/shared/command-palette/palette-registry'
 import { Button } from '@/components/ui/button'
 import {
   EMAIL_TEMPLATES,
@@ -9,6 +10,7 @@ import {
 } from '@/constants/email.constants'
 import { useStepUp } from '@/hooks/use-step-up'
 import { toast } from '@/lib/toast'
+import { analyticsKey } from '@/observability/telemetry'
 import { useResendEmail } from '@/queries/email.queries'
 import type { EmailMessageSummary } from '@/types/api.types'
 
@@ -34,6 +36,20 @@ export function ResendEmailButton({
   const [open, setOpen] = useState(false)
   const stepUp = useStepUp()
   const resend = useResendEmail()
+  usePaletteCommands(
+    'email-actions',
+    message.canResend
+      ? [
+          {
+            id: 'resend',
+            label: 'Resend email',
+            action: analyticsKey('page_action_resend'),
+            timing: 'afterClose',
+            run: () => setOpen(true),
+          },
+        ]
+      : []
+  )
   if (!message.canResend) return null
   const sentence = isEmailTemplateKey(message.templateKey)
     ? EMAIL_TEMPLATES[message.templateKey].resendLabel

@@ -1,4 +1,4 @@
-import { IconSearchOff } from '@tabler/icons-react'
+import { IconCopy, IconSearchOff } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { EmailPreviewPanel } from '@/components/features/emails/email-preview'
@@ -7,6 +7,8 @@ import { EmailTenantLink } from '@/components/features/emails/email-tenant-link'
 import { EmailTimeline } from '@/components/features/emails/email-timeline'
 import { ResendEmailButton } from '@/components/features/emails/resend-email-button'
 import { LoadError } from '@/components/features/load-error'
+import { copyId } from '@/components/shared/command-palette/copy-id'
+import { usePaletteCommands } from '@/components/shared/command-palette/palette-registry'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
 import { DetailPending } from '@/components/shared/pending-templates'
@@ -21,6 +23,7 @@ import { ROUTES } from '@/constants/routes'
 import { useFocusAfter } from '@/hooks/use-focus-after'
 import { statusFrom } from '@/lib/api-error'
 import { formatDate, formatDateTime } from '@/lib/format'
+import { analyticsKey } from '@/observability/telemetry'
 import { emailQueryOptions } from '@/queries/email.queries'
 import {
   EMAIL_DETAIL_TABS,
@@ -76,6 +79,22 @@ function isDetailTab(value: unknown): value is EmailDetailTab {
 function EmailDetailPage() {
   const { emailId } = Route.useParams()
   const detail = useQuery(emailQueryOptions(emailId))
+  const notFound = detail.isError && statusFrom(detail.error) === 404
+  usePaletteCommands(
+    'email-page',
+    detail.data === undefined || notFound
+      ? []
+      : [
+          {
+            id: 'copy-id',
+            label: 'Copy email ID',
+            icon: IconCopy,
+            action: analyticsKey('copy_id'),
+            timing: 'immediate',
+            run: () => copyId(emailId, 'Email ID copied.'),
+          },
+        ]
+  )
 
   if (detail.isError && (detail.data === undefined || statusFrom(detail.error) === 404)) {
     return statusFrom(detail.error) === 404 ? (
