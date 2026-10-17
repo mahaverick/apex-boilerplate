@@ -23,6 +23,9 @@ src/components/ui/*
 # and unchecked.
 !src/components/ui/form.tsx
 !src/components/ui/command.tsx
+# The registry snapshot `pnpm ui:drift` compares against: shadcn's files
+# byte for byte, so its formatting is upstream's.
+scripts/ui-registry/
 
 # StyleSeed's compiled output. resolve-context.mjs records a sha256 for the
 # bundle and both palette files in .styleseed/manifests/, and the scanner
