@@ -341,7 +341,7 @@ describe('platform activity page', () => {
     await waitFor(() => expect(router.state.location.search).toEqual({ actor: STAFF_USER_ID }))
     await waitFor(() => expect(seen.at(-1)?.searchParams.get('actor')).toBe(STAFF_USER_ID))
     expect(
-      await screen.findByRole('button', { name: 'Remove filter: User: Sam Staff' })
+      await screen.findByRole('button', { name: 'Remove filter: Actor: Sam Staff' })
     ).toBeInTheDocument()
   })
 
@@ -429,6 +429,45 @@ describe('platform activity page', () => {
     expect(
       within(popup).queryByRole('checkbox', { name: /errors viewed/i })
     ).not.toBeInTheDocument()
+  })
+
+  /** A suspension carrying a staff-typed reason, which can name a person. */
+  const REASONED = {
+    ...STAFF_VISIT,
+    action: 'tenant.suspended',
+    metadata: { reason: 'Cleo D asked' },
+  }
+
+  it('masks the sentence, which carries staff-typed reasons, in the table', async () => {
+    signInAs('admin')
+    mockLog(() => page([REASONED]))
+    renderPlatformActivity()
+    const sentence = await screen.findByText(/suspended the tenant: “Cleo D asked”/)
+    expect(sentence).toHaveClass('ph-sensitive', 'ph-mask')
+  })
+
+  it('masks the sentence in the phone cards too', async () => {
+    const realWidth = window.innerWidth
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+    try {
+      signInAs('admin')
+      mockLog(() => page([REASONED]))
+      renderPlatformActivity()
+      const sentence = await screen.findByText(/suspended the tenant: “Cleo D asked”/)
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+      expect(sentence).toHaveClass('ph-sensitive', 'ph-mask')
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: realWidth })
+    }
+  })
+
+  it('names a retired action in words on its chip, as its rows do', async () => {
+    signInAs('admin')
+    mockLog(() => page([STAFF_VISIT]))
+    renderPlatformActivity('/activity?action=tenant.errors_viewed')
+    expect(
+      await screen.findByRole('button', { name: 'Remove filter: Action: tenant errors viewed' })
+    ).toBeInTheDocument()
   })
 
   it('promises only what the API searches in the search box', async () => {

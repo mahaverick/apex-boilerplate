@@ -212,7 +212,7 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
  * build has no sentence for.
  * @param action - The stored action name, such as `tenant.errors_viewed`.
  */
-function readableAction(action: string): string {
+export function readableAction(action: string): string {
   return action.replaceAll(/[._]+/g, ' ')
 }
 

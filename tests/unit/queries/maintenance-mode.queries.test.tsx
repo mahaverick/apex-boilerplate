@@ -8,6 +8,7 @@ import {
   MAINTENANCE_MODE_POLL_MS,
 } from '@/constants/maintenance-mode.constants'
 import { resetSessionForTests } from '@/http/session'
+import { platformAuditListOptions } from '@/queries/audit.queries'
 import {
   isMaintenanceModeConflict,
   MaintenanceModeConflict,
@@ -17,6 +18,7 @@ import {
 } from '@/queries/maintenance-mode.queries'
 import { platformKeys } from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
+import { listPage } from '@/tests/fixtures/list-page'
 import { fullMaintenanceView, maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -162,11 +164,11 @@ describe('useChangeMaintenanceMode', () => {
       )
     )
     client.setQueryData(platformKeys.systemStatus, { release: 'dev' })
-    client.setQueryData(['platform', 'audit-log', {}], { pages: [] })
+    client.setQueryData(platformAuditListOptions({}).queryKey, listPage([]))
     const { result } = renderHook(() => useChangeMaintenanceMode(), { wrapper })
     await act(() => result.current.mutateAsync(BODY))
     expect(client.getQueryState(platformKeys.systemStatus)?.isInvalidated).toBe(true)
-    expect(client.getQueryState(['platform', 'audit-log', {}])?.isInvalidated).toBe(true)
+    expect(client.getQueryState(platformAuditListOptions({}).queryKey)?.isInvalidated).toBe(true)
   })
 
   it('on a 409 reads the state again before rejecting', async () => {

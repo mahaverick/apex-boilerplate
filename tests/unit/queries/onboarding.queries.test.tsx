@@ -4,7 +4,7 @@ import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
-import { auditKeys } from '@/queries/audit.queries'
+import { platformAuditListOptions, tenantAuditListOptions } from '@/queries/audit.queries'
 import { emailKeys, emailsListOptions } from '@/queries/email.queries'
 import {
   onboardingFunnelQueryOptions,
@@ -39,8 +39,8 @@ const ONBOARDING_KEYS: QueryKey[] = [
 /** What else a staff onboarding write refreshes: the Overview's stuck count and both logs. */
 const AROUND: QueryKey[] = [
   platformKeys.stats('7d'),
-  [...auditKeys.tenantAll('acme'), { tenantId: TENANT_ID }],
-  [...auditKeys.platformAll, { tenant: TENANT_ID, access: 'platform' }],
+  tenantAuditListOptions('acme', TENANT_ID, {}).queryKey,
+  platformAuditListOptions({ tenant: TENANT_ID, access: 'platform' }).queryKey,
 ]
 
 /** A provider around `client`, so the test can read the cache a hook wrote. */

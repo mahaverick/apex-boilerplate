@@ -4,7 +4,7 @@ import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
-import { auditKeys } from '@/queries/audit.queries'
+import { platformAuditListOptions } from '@/queries/audit.queries'
 import { tenantAdminKeys, tenantsListOptions } from '@/queries/tenant-admin.queries'
 import {
   dropTenantCache,
@@ -144,7 +144,7 @@ describe('member writes', () => {
     usersListOptions({ limit: 20 }).queryKey,
     tenantAdminKeys.detail(TENANT_ID),
     tenantsListOptions({}).queryKey,
-    [...auditKeys.platformAll, {}],
+    platformAuditListOptions({}).queryKey,
   ]
 
   beforeEach(() => {

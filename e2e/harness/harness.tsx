@@ -172,7 +172,9 @@ function historyOf(params: URLSearchParams) {
         access: 'platform',
         actor: SAM,
         target: { type: 'user', id: targetId },
-        metadata: { reason: 'Repeated chargebacks reported by the billing provider this month' },
+        metadata: {
+          reason: 'Repeated chargebacks reported by Cleo D at the billing provider this month',
+        },
         tenant: PLATFORM,
       },
       {
@@ -1064,7 +1066,7 @@ const worker = setupWorker(
   http.get('/api/v1/platform/flags/evaluate', ({ request }) =>
     ok(flagsEvaluation(new URL(request.url).searchParams), 'Flags evaluated.')
   ),
-  // The activity page's log and the History cards: a user's by `targetId`, a tenant's by `tenantId` with `access=platform`.
+  // The activity page's log and the History cards: a user's by `target`, a tenant's by `tenant` with `access=platform`.
   http.get('/api/v1/platform/audit-log', ({ request }) => {
     const params = new URL(request.url).searchParams
     if (params.has('target') || (params.has('tenant') && params.get('access') === 'platform')) {

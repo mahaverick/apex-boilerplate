@@ -163,7 +163,7 @@ const tenant = column.display({
 const action = column.display({
   id: 'action',
   header: 'Action',
-  cell: ({ row }) => <span className="whitespace-normal">{auditSentence(row.original)}</span>,
+  cell: ({ row }) => <Pii className="whitespace-normal">{auditSentence(row.original)}</Pii>,
 })
 
 const target = column.accessor('target', {

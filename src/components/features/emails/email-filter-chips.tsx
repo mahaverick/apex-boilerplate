@@ -13,10 +13,13 @@ export function UserFilterChip({
   userId,
   knownName,
   onRemove,
+  prefix = 'User: ',
 }: {
   userId: string
   knownName: string | undefined
   onRemove: () => void
+  /** The chip's lead-in; "Actor: " where the user is who acted. */
+  prefix?: string
 }) {
   const user = useQuery({ ...platformUserQueryOptions(userId), enabled: knownName === undefined })
   const name =
@@ -26,7 +29,7 @@ export function UserFilterChip({
       : user.isError
         ? 'Unknown user'
         : 'Loading…')
-  return <DataTableChip prefix="User: " value={name} isPersonal onRemove={onRemove} />
+  return <DataTableChip prefix={prefix} value={name} isPersonal onRemove={onRemove} />
 }
 
 /** The tenant a `?tenant=` filter names, resolved as `UserFilterChip` resolves a user. */

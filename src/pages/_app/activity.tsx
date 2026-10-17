@@ -120,6 +120,7 @@ function PlatformActivity() {
           <UserFilterChip
             userId={value}
             knownName={member ? memberName(member) : undefined}
+            prefix="Actor: "
             onRemove={onRemove}
           />
         )

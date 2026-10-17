@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
-import { auditKeys } from '@/queries/audit.queries'
+import { platformAuditListOptions } from '@/queries/audit.queries'
 import {
   usePurgeTenant,
   useReissueOwnerInvitation,
@@ -12,16 +12,17 @@ import {
 import { tenantKeys } from '@/queries/tenant.queries'
 import { userAdminKeys, usersListOptions } from '@/queries/user-admin.queries'
 import { TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { ok } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
 /** A cached platform audit page (the Activity page's, or the tenant History card's): each write must mark it stale. */
-const AUDIT_KEY = [...auditKeys.platformAll, { tenant: TENANT_ID, access: 'platform' }]
+const AUDIT_KEY = platformAuditListOptions({ tenant: TENANT_ID, access: 'platform' }).queryKey
 
 /** A client holding the cached platform audit page. */
 function clientWithHistory() {
   const client = new QueryClient()
-  client.setQueryData(AUDIT_KEY, { pages: [], pageParams: [] })
+  client.setQueryData(AUDIT_KEY, listPage([]))
   return client
 }
 

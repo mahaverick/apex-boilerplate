@@ -1,5 +1,12 @@
+import { createElement } from 'react'
+import { DataTableChip } from '@/components/shared/data-table/data-table-chip'
 import type { DataTableFilter } from '@/components/shared/data-table/data-table-model'
-import { AUDIT_ACTION_LABELS, AUDIT_ACTIONS } from '@/constants/audit-actions'
+import {
+  AUDIT_ACTION_LABELS,
+  AUDIT_ACTIONS,
+  isAuditAction,
+  readableAction,
+} from '@/constants/audit-actions'
 import type { AuditTargetType, KnownAuditTargetType } from '@/types/api.types'
 
 /** What an entry acted on, in a word. */
@@ -36,6 +43,13 @@ export const ACTION_FILTER: DataTableFilter = {
   name: 'action',
   label: 'Action',
   options: AUDIT_ACTIONS.map((action) => ({ value: action, label: AUDIT_ACTION_LABELS[action] })),
+  // A retired action in the URL reads as words, as its rows do, not as the raw name.
+  renderChip: (value, onRemove) =>
+    createElement(DataTableChip, {
+      prefix: 'Action: ',
+      value: isAuditAction(value) ? AUDIT_ACTION_LABELS[value] : readableAction(value),
+      onRemove,
+    }),
 }
 
 /** The Access facet: how the actor reached the tenant. */

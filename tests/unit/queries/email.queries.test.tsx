@@ -4,7 +4,7 @@ import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
-import { auditKeys } from '@/queries/audit.queries'
+import { platformAuditListOptions, tenantAuditListOptions } from '@/queries/audit.queries'
 import {
   emailHealthQueryOptions,
   emailKeys,
@@ -153,7 +153,7 @@ describe('email writes', () => {
       })
     )
     const others = [
-      [...auditKeys.platformAll, {}],
+      platformAuditListOptions({}).queryKey,
       tenantKeys.invitations('acme'),
       userAdminKeys.detail(USER_ID_2),
     ]
@@ -172,12 +172,12 @@ describe('email writes', () => {
         fail('This address is suppressed.', 409, 'recipient_suppressed')
       )
     )
-    const client = seeded([...EMAIL_KEYS, [...auditKeys.platformAll, {}]])
+    const client = seeded([...EMAIL_KEYS, platformAuditListOptions({}).queryKey])
     const { result } = renderHook(() => useResendEmail(), { wrapper: wrapperWith(client) })
     result.current.mutate({ id: EMAIL_ID, reason: 'Lost in spam' })
     await waitFor(() => expect(result.current.isError).toBe(true))
     await waitFor(() => expectStale(client, EMAIL_KEYS))
-    expect(client.getQueryState([...auditKeys.platformAll, {}])?.isInvalidated).toBe(false)
+    expect(client.getQueryState(platformAuditListOptions({}).queryKey)?.isInvalidated).toBe(false)
   })
 
   it('lifts with the reason, and refreshes the email queries even when someone lifted it first', async () => {
@@ -191,12 +191,12 @@ describe('email writes', () => {
         }
       )
     )
-    const client = seeded([...EMAIL_KEYS, [...auditKeys.platformAll, {}]])
+    const client = seeded([...EMAIL_KEYS, platformAuditListOptions({}).queryKey])
     const { result } = renderHook(() => useLiftSuppression(), { wrapper: wrapperWith(client) })
     result.current.mutate({ id: SUPPRESSION_ID, reason: 'Mailbox fixed' })
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(body).toEqual({ reason: 'Mailbox fixed' })
-    await waitFor(() => expectStale(client, [...EMAIL_KEYS, [...auditKeys.platformAll, {}]]))
+    await waitFor(() => expectStale(client, [...EMAIL_KEYS, platformAuditListOptions({}).queryKey]))
   })
 })
 
@@ -213,11 +213,11 @@ describe('email queries go stale with the directory', () => {
         ok({ emailSent: true }, 'Password setup email sent.')
       )
     )
-    const client = seeded([...EMAIL_KEYS, [...auditKeys.platformAll, { target: USER_ID_2 }]])
+    const client = seeded([...EMAIL_KEYS, platformAuditListOptions({ target: USER_ID_2 }).queryKey])
     const { result } = renderHook(() => useSendPasswordSetup(), { wrapper: wrapperWith(client) })
     result.current.mutate({ userId: USER_ID_2 })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expectStale(client, [...EMAIL_KEYS, [...auditKeys.platformAll, { target: USER_ID_2 }]])
+    expectStale(client, [...EMAIL_KEYS, platformAuditListOptions({ target: USER_ID_2 }).queryKey])
   })
 
   it('an invitation resend refreshes the email queries and both audit logs', async () => {
@@ -226,7 +226,10 @@ describe('email queries go stale with the directory', () => {
         ok(null, 'If that address can be invited, an invitation has been sent.', 202)
       )
     )
-    const logs = [[...auditKeys.platformAll, {}], auditKeys.tenantAll('acme')]
+    const logs = [
+      platformAuditListOptions({}).queryKey,
+      tenantAuditListOptions('acme', undefined, {}).queryKey,
+    ]
     const client = seeded([...EMAIL_KEYS, ...logs, tenantKeys.invitations('acme')])
     const { result } = renderHook(() => useResendInvitation('acme'), {
       wrapper: wrapperWith(client),
@@ -253,7 +256,10 @@ describe('email queries go stale with the directory', () => {
     await waitFor(() => expect(first.result.current.isError).toBe(true))
     for (const key of EMAIL_KEYS) expect(refused.getQueryState(key)?.isInvalidated).toBe(false)
 
-    const logs = [[...auditKeys.platformAll, {}], auditKeys.tenantAll('acme')]
+    const logs = [
+      platformAuditListOptions({}).queryKey,
+      tenantAuditListOptions('acme', undefined, {}).queryKey,
+    ]
     const sent = seeded([...EMAIL_KEYS, ...logs])
     const second = renderHook(() => useInviteMember('acme'), { wrapper: wrapperWith(sent) })
     second.result.current.mutate({ email: 'new@acme.test', role: 'viewer' })
@@ -271,7 +277,10 @@ describe('email queries go stale with the directory', () => {
         )
       )
     )
-    const logs = [[...auditKeys.platformAll, {}], auditKeys.tenantAll('acme')]
+    const logs = [
+      platformAuditListOptions({}).queryKey,
+      tenantAuditListOptions('acme', undefined, {}).queryKey,
+    ]
     const client = seeded([...EMAIL_KEYS, ...logs])
     const { result } = renderHook(() => useCreatePlatformTenant(), { wrapper: wrapperWith(client) })
     result.current.mutate({ name: 'Acme Corp', slug: 'acme', ownerEmail: 'olive@acme.test' })
