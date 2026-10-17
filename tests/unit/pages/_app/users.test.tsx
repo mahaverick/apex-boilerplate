@@ -217,6 +217,20 @@ describe('/users', () => {
     expect(await screen.findByText('user01@example.com')).toBeInTheDocument()
   })
 
+  it('names the failure and offers a retry when the first load fails', async () => {
+    server.use(http.get('/api/v1/platform/users', () => fail('Boom', 500)))
+    renderAppAt('/users')
+    expect(await screen.findByText('We could not load the users.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('says there are no users yet when nothing is filtered', async () => {
+    server.use(http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.')))
+    renderAppAt('/users')
+    expect(await screen.findByText('No users yet.')).toBeInTheDocument()
+    expect(screen.queryByText('Nothing matches these filters.')).not.toBeInTheDocument()
+  })
+
   it('shows the role-denied state on a 404, without signing out', async () => {
     server.use(http.get('/api/v1/platform/users', () => fail('Not found', 404)))
     renderAppAt('/users')

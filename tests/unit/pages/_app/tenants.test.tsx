@@ -141,6 +141,22 @@ describe('/tenants', () => {
     await waitFor(() => expect(seen.at(-1)?.get('state')).toBe('archived,suspended'))
   })
 
+  it('drops the cursor when a filter changes', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/tenants?cursor=page-2')
+    await screen.findByText('Tenant 21')
+
+    await user.click(screen.getByRole('button', { name: 'Filter by status, Tenants' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by status, Tenants' })
+    await user.click(within(popup).getByRole('checkbox', { name: 'Archived' }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ state: 'archived' }))
+    await waitFor(() => expect(seen.at(-1)?.get('state')).toBe('archived'))
+    expect(seen.at(-1)?.get('cursor')).toBeNull()
+  })
+
   it('pages forward and back through the API’s cursors, kept in the URL', async () => {
     const seen: URLSearchParams[] = []
     twoPages(seen)

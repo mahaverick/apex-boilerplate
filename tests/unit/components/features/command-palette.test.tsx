@@ -435,10 +435,13 @@ describe('CommandPalette', () => {
     await user.keyboard('o')
     await screen.findByText('Some results could not be loaded.')
 
-    await user.keyboard('v')
-    expect(screen.queryByText('Some results could not be loaded.')).not.toBeInTheDocument()
-    expect(screen.getByText('Searching…')).toBeInTheDocument()
-    next.release()
+    try {
+      await user.keyboard('v')
+      expect(screen.queryByText('Some results could not be loaded.')).not.toBeInTheDocument()
+      expect(screen.getByText('Searching…')).toBeInTheDocument()
+    } finally {
+      next.release()
+    }
     await waitFor(() => expect(screen.queryByText('Searching…')).not.toBeInTheDocument())
   })
 

@@ -27,6 +27,8 @@ export function FlagUserPicker({ onPick }: { onPick: (userId: string) => void })
       { ...(sent === '' ? {} : { search: sent }), limit: PICKER_LIMIT },
       { total: false }
     ),
+    // The list keeps the previous term's page as placeholder; the picker must not show it.
+    placeholderData: undefined,
     enabled: sent !== '',
   })
   const matches = term === '' ? [] : (users.data?.items ?? [])

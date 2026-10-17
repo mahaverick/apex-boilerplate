@@ -420,6 +420,41 @@ describe('/settings/platform/flags evaluate', () => {
     expect(await within(panel).findByText('No users match.')).toBeInTheDocument()
   })
 
+  it('shows neither the old matches nor "No users match." while a new term loads', async () => {
+    serve()
+    /** Resolves `held`. */
+    let release = () => {}
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    server.use(
+      http.get('/api/v1/platform/users', async ({ request }) => {
+        if (new URL(request.url).searchParams.get('search') === 'cleox') {
+          await held
+          return ok(listPage([]), 'Users retrieved.')
+        }
+        return ok(listPage([CLEO_ROW]), 'Users retrieved.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt('/settings/platform/flags')
+    const panel = await screen.findByRole('region', { name: 'Evaluate' })
+    const box = within(panel).getByRole('searchbox', { name: 'Find a user' })
+    await user.type(box, 'cleo')
+    await within(panel).findByRole('button', { name: /Cleo Doe/ })
+
+    try {
+      await user.type(box, 'x')
+      await waitFor(() =>
+        expect(within(panel).queryByRole('button', { name: /Cleo Doe/ })).not.toBeInTheDocument()
+      )
+      expect(within(panel).queryByText('No users match.')).not.toBeInTheDocument()
+    } finally {
+      release()
+    }
+    expect(await within(panel).findByText('No users match.')).toBeInTheDocument()
+  })
+
   it('says when the user no longer exists, and evaluates nothing', async () => {
     const { evaluated } = serve()
     server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => fail('Not found', 404)))
