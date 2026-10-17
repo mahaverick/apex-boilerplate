@@ -12,6 +12,9 @@ import {
   PII_CLASS_NAME,
   type PosthogOptionsInput,
 } from '@/observability/telemetry/posthog-options'
+import { historyList } from '@/queries/audit.queries'
+import { unregisteredFlagsList } from '@/queries/flag-inspector.queries'
+import { invitationsList } from '@/queries/tenant.queries'
 
 /** A valid options input with consent mode `opt_out` and no cross-subdomain cookie; `overrides` change what a test is about. */
 function input(overrides: Partial<PosthogOptionsInput> = {}): PosthogOptionsInput {
@@ -45,6 +48,9 @@ describe('buildPosthogOptions', () => {
         'invitation',
         'q',
         'search',
+        'invitationsSearch',
+        'historySearch',
+        'unregisteredSearch',
         'ph_did',
         'ph_sid',
       ],
@@ -163,6 +169,12 @@ describe('buildPosthogOptions', () => {
   it('names the same classes <Pii> renders as the replay mask selector', () => {
     for (const className of PII_CLASS_NAME.split(' ')) {
       expect(MASK_TEXT_SELECTOR).toContain(`.${className}`)
+    }
+  })
+
+  it('masks the search text of every list whose keys are prefixed', () => {
+    for (const list of [invitationsList, historyList, unregisteredFlagsList]) {
+      expect(CUSTOM_PERSONAL_DATA_PROPERTIES).toContain(list.urlKey('search'))
     }
   })
 })
