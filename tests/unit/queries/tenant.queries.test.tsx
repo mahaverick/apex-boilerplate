@@ -16,6 +16,7 @@ import {
   useUpdateMemberRole,
 } from '@/queries/tenant-writes.queries'
 import {
+  invitationsListOptions,
   memberName,
   membersListOptions,
   ownersBesides,
@@ -183,6 +184,9 @@ describe('member writes', () => {
 describe('member writes and pending invitations', () => {
   let client: QueryClient
 
+  /** The key the Pending invitations table caches its first page under. */
+  const INVITATIONS_KEY = invitationsListOptions('acme', TENANT_ID, {}).queryKey
+
   /** A provider around the suite's `client`. */
   function wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -192,7 +196,7 @@ describe('member writes and pending invitations', () => {
     client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     resetSessionForTests()
     useAuthStore.setState({ accessToken: 'access-token', user: testUser, isAuthenticated: true })
-    client.setQueryData(tenantKeys.invitations('acme', TENANT_ID), listPage([]))
+    client.setQueryData(INVITATIONS_KEY, listPage([]))
   })
 
   it('a role change refreshes the tenant’s pending invitations, which the API revokes for the target', async () => {
@@ -204,9 +208,7 @@ describe('member writes and pending invitations', () => {
     const { result } = renderHook(() => useUpdateMemberRole('acme'), { wrapper })
     result.current.mutate({ userId: USER_ID_2, role: 'viewer' })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(client.getQueryState(tenantKeys.invitations('acme', TENANT_ID))?.isInvalidated).toBe(
-      true
-    )
+    expect(client.getQueryState(INVITATIONS_KEY)?.isInvalidated).toBe(true)
   })
 
   it('a removal refreshes the tenant’s pending invitations, which the API revokes for the target', async () => {
@@ -216,9 +218,7 @@ describe('member writes and pending invitations', () => {
     const { result } = renderHook(() => useRemoveMember('acme'), { wrapper })
     result.current.mutate({ userId: USER_ID_2 })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(client.getQueryState(tenantKeys.invitations('acme', TENANT_ID))?.isInvalidated).toBe(
-      true
-    )
+    expect(client.getQueryState(INVITATIONS_KEY)?.isInvalidated).toBe(true)
   })
 })
 

@@ -1127,21 +1127,19 @@ const worker = setupWorker(
   // The Tenants table, the palette and the activity tenant filter: one tenant in each status, so every badge renders.
   http.get('/api/v1/platform/tenants', () =>
     ok(
-      {
-        tenants: [
+      listPage(
+        [
           { ...ACME, lifecycleState: 'active' },
           { id: TENANT_ID_2, name: 'Beta Ltd', slug: 'beta', lifecycleState: 'suspended' },
           { id: TENANT_ID_3, name: 'Gamma Inc', slug: 'gamma', lifecycleState: 'archived' },
-        ].map((tenant) => ({ ...tenant, memberCount: 2, createdAt: '2026-01-01T00:00:00.000Z' })),
-        nextCursor: null,
-        prevCursor: null,
-      },
+        ].map((tenant) => ({ ...tenant, memberCount: 2, createdAt: '2026-01-01T00:00:00.000Z' }))
+      ),
       'Tenants retrieved.'
     )
   ),
   // The Users table and the palette's user search; `prevCursor` is null, as on a real first page.
   http.get('/api/v1/platform/users', () =>
-    ok({ users: USER_ROWS, nextCursor: 'n', prevCursor: null }, 'Users retrieved.')
+    ok(listPage(USER_ROWS, { hasNext: true, nextCursor: 'n' }), 'Users retrieved.')
   ),
   http.get('/api/v1/platform/users/:userId', ({ params }) =>
     ok(userDetail(String(params.userId)), 'User retrieved.')

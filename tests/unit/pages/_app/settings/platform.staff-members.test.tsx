@@ -250,6 +250,18 @@ describe('/staff with the real sections', () => {
 
   it('keeps the staff search and the invitations search apart', async () => {
     serveStaff('owner', 'viewer')
+    const memberReads: URLSearchParams[] = []
+    const invitationReads: URLSearchParams[] = []
+    server.use(
+      http.get('/api/v1/tenants/platform/members', ({ request }) => {
+        memberReads.push(new URL(request.url).searchParams)
+        return ok(listPage([staff(USER_ID, MEMBERSHIP_ID, 'owner', 'Me')]), 'Members retrieved.')
+      }),
+      http.get('/api/v1/tenants/platform/invitations', ({ request }) => {
+        invitationReads.push(new URL(request.url).searchParams)
+        return ok(listPage([]), 'Invitations retrieved.')
+      })
+    )
     const user = userEvent.setup()
     const router = renderAppAt('/settings/platform/staff')
     await screen.findByRole('table', { name: 'Staff members' })
@@ -257,6 +269,39 @@ describe('/staff with the real sections', () => {
     await user.type(screen.getByRole('searchbox', { name: 'Search invitations' }), 'inv')
     await waitFor(() =>
       expect(router.state.location.search).toEqual({ search: 'otto', invitationsSearch: 'inv' })
+    )
+    // Each list asks the API in the API's own names, with only its own term.
+    await waitFor(() => {
+      expect(memberReads.some((p) => p.get('search') === 'otto')).toBe(true)
+      expect(invitationReads.some((p) => p.get('search') === 'inv')).toBe(true)
+    })
+    expect(memberReads.some((p) => p.get('search') === 'inv')).toBe(false)
+    expect(invitationReads.some((p) => p.get('search') === 'otto')).toBe(false)
+  })
+
+  it('keeps the invitations cursor when the staff list is paged', async () => {
+    serveStaff('owner', 'viewer')
+    server.use(
+      http.get('/api/v1/tenants/platform/members', ({ request }) => {
+        const second = new URL(request.url).searchParams.get('cursor') === 'm2'
+        return ok(
+          listPage(
+            [staff(USER_ID, MEMBERSHIP_ID, 'owner', 'Me')],
+            second ? { hasPrev: true, prevCursor: 'm1' } : { hasNext: true, nextCursor: 'm2' }
+          ),
+          'Members retrieved.'
+        )
+      }),
+      http.get('/api/v1/tenants/platform/invitations', () =>
+        ok(listPage([], { hasPrev: true, prevCursor: 'i0' }), 'Invitations retrieved.')
+      )
+    )
+    const user = userEvent.setup()
+    const router = renderAppAt('/settings/platform/staff?invitationsCursor=i1')
+    const staffRegion = await screen.findByRole('region', { name: 'Staff members' })
+    await user.click(await within(staffRegion).findByRole('button', { name: 'Next page' }))
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ cursor: 'm2', invitationsCursor: 'i1' })
     )
   })
 

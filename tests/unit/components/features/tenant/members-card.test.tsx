@@ -2521,29 +2521,51 @@ describe('the members list', () => {
     await waitFor(() => expect(me.getByRole('button', { name: 'Leave' })).toBeEnabled())
   })
 
-  it('asks for the owners only on behalf of an owner who is a member', async () => {
-    const owners: string[] = []
-    for (const [role, asked] of [
-      ['admin', false],
-      ['owner', true],
-    ] as const) {
-      owners.length = 0
-      mockTenant(role, [member(ME, role, 'Me'), member(USER_ID_3, 'viewer', 'Vic')])
-      server.use(
-        http.get('/api/v1/tenants/acme/members', ({ request }) => {
-          owners.push(new URL(request.url).searchParams.get('role') ?? '')
-          return ok(
-            listPage([member(ME, role, 'Me'), member(USER_ID_3, 'viewer', 'Vic')]),
-            'Members retrieved.'
-          )
-        })
+  it.each([
+    { label: 'an admin member', role: 'admin', access: 'member', asked: false },
+    {
+      label: 'an owner reaching the tenant through platform access',
+      role: 'owner',
+      access: 'platform',
+      asked: false,
+    },
+    { label: 'an owner who is a member', role: 'owner', access: 'member', asked: true },
+  ] as const)('asks for the owners for $label: $asked', async ({ role, access, asked }) => {
+    const roles: string[] = []
+    const rows = [member(USER_ID_3, 'viewer', 'Vic'), member(USER_ID_4, 'owner', 'Otto')]
+    mockPlatformDetail()
+    server.use(
+      http.get('/api/v1/tenants/acme', () =>
+        ok(tenantDetail(TENANT, role, access), 'Tenant retrieved.')
+      ),
+      http.get('/api/v1/tenants/acme/members', ({ request }) => {
+        roles.push(new URL(request.url).searchParams.get('role') ?? '')
+        return ok(listPage(rows), 'Members retrieved.')
+      })
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    // The table has its rows, so the owners read, had it been due, was due with the list.
+    await rowFor('Vic')
+    expect(roles).toContain('')
+    await settle(100, 'absence has no event: no owners request follows')
+    expect(roles.includes('owner')).toBe(asked)
+  })
+
+  it('has no Actions column for staff who cannot manage the tenant, who could have no action', async () => {
+    mockPlatformDetail()
+    server.use(
+      http.get('/api/v1/tenants/acme', () =>
+        ok(tenantDetail(TENANT, 'viewer', 'platform'), 'Tenant retrieved.')
+      ),
+      http.get('/api/v1/tenants/acme/members', () =>
+        ok(listPage([member(USER_ID_3, 'viewer', 'Vic')]), 'Members retrieved.')
       )
-      const { unmount } = renderAppAt(`/tenants/${TENANT_ID}/members`)
-      await rowFor('Vic')
-      await waitFor(() => expect(owners.includes('owner')).toBe(asked))
-      unmount()
-      signIn()
-    }
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/members`)
+    await rowFor('Vic')
+    expect(screen.getByRole('columnheader', { name: 'Role' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Actions' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
   })
 
   it('keeps the Role column, and the last owner’s reason, when ?hidden=role asks to hide it', async () => {

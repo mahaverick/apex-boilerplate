@@ -147,7 +147,10 @@ test('a staff invitation from the Staff page mails a link that opens Apex', asyn
   expect(new URL(link).origin).toBe(APEX_ORIGIN)
   await acceptInvitationAs(invitee, link)
   await page.reload()
-  await expect(page.getByText(invitee).first()).toBeVisible()
+  // Found by search, not by its place on a page.
+  const invitations = page.getByRole('region', { name: 'Pending invitations' })
+  await invitations.getByRole('searchbox', { name: 'Search invitations' }).fill(invitee)
+  await expect(invitations.getByText(invitee)).toBeVisible()
 })
 
 test('deleting a user with a stale sign-in asks for the password; an owner then deletes it permanently', async ({

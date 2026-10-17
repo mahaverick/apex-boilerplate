@@ -746,8 +746,8 @@ function MemberActionsCell({ member }: { member: TenantMember }) {
 
 const column = createColumnHelper<DataTableFeatures, TenantMember>()
 
-/** The name, email, role and actions columns. */
-const MEMBER_COLUMNS = column.columns([
+/** The name, email and role columns every viewer sees. */
+const READ_COLUMNS = [
   column.accessor((member) => fullName(member.user) ?? '', {
     id: 'name',
     header: 'Name',
@@ -768,6 +768,11 @@ const MEMBER_COLUMNS = column.columns([
     meta: { sorts: ['role'], sortName: analyticsKey('role') },
     cell: ({ row }) => <MemberRoleCell member={row.original} />,
   }),
+]
+
+/** The read columns, then Actions. */
+const MEMBER_COLUMNS = column.columns([
+  ...READ_COLUMNS,
   column.display({
     id: 'actions',
     header: () => <span className="sr-only">Actions</span>,
@@ -775,6 +780,13 @@ const MEMBER_COLUMNS = column.columns([
     cell: ({ row }) => <MemberActionsCell member={row.original} />,
   }),
 ])
+
+/**
+ * The read columns alone, for staff through platform access who cannot manage
+ * the tenant: they hold no membership to leave and may remove no one, so no
+ * row could ever have an action.
+ */
+const READ_ONLY_COLUMNS = column.columns(READ_COLUMNS)
 
 /**
  * A tenant's members. Its states, in order:
@@ -866,7 +878,9 @@ export function MembersCard({
             )}
             <MembersCardScope value={card}>
               <DataTable
-                columns={MEMBER_COLUMNS}
+                columns={
+                  asStaff && !canManageTenant(card.myRole) ? READ_ONLY_COLUMNS : MEMBER_COLUMNS
+                }
                 query={members}
                 label={title}
                 errorMessage={MEMBERS_ERROR}
