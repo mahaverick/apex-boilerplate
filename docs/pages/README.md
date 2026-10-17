@@ -116,6 +116,7 @@ flowchart LR
   palette --> page["A page"]
   palette --> tenant
   palette --> user
+  palette --> action["A page action"]
 
   overview --> settings["/settings"]
   settings --> profile["/settings/account/profile"]

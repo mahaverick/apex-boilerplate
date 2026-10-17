@@ -453,14 +453,15 @@ What is particular to this app:
 
 ## State
 
-| What                                  | Where                                 | Persisted                                                     |
-| ------------------------------------- | ------------------------------------- | ------------------------------------------------------------- |
-| Access token, user, bootstrapped flag | `src/states/auth.store.ts`            | No: memory only                                               |
-| Command palette open                  | `src/states/command-palette.store.ts` | No                                                            |
-| Sidebar collapsed                     | `src/states/sidebar.store.ts`         | No                                                            |
-| Theme (`light`, `dark`, `system`)     | `src/states/theme.store.ts`           | `localStorage` key `theme`, read pre-paint by `theme-init.js` |
-| Everything the API returns            | The TanStack Query cache              | No                                                            |
-| Form state                            | TanStack Form, per form               | No                                                            |
+| What                                              | Where                                                   | Persisted                                                                                                                                                                                                                           |
+| ------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Access token, user, bootstrapped flag             | `src/states/auth.store.ts`                              | No: memory only                                                                                                                                                                                                                     |
+| Command palette open, and the typed query         | `src/states/command-palette.store.ts`                   | No                                                                                                                                                                                                                                  |
+| Recent tenants and users in the palette, per user | `src/components/shared/command-palette/recent-items.ts` | `localStorage` key `palette.recent.v1:<userId>`, when storage allows: kind, id, the name or email and slug the pages show, a time; at most 5 of each kind; cleared when the session ends, expiry and a dead session cookie included |
+| Sidebar collapsed                                 | `src/states/sidebar.store.ts`                           | No                                                                                                                                                                                                                                  |
+| Theme (`light`, `dark`, `system`)                 | `src/states/theme.store.ts`                             | `localStorage` key `theme`, read pre-paint by `theme-init.js`                                                                                                                                                                       |
+| Everything the API returns                        | The TanStack Query cache                                | No                                                                                                                                                                                                                                  |
+| Form state                                        | TanStack Form, per form                                 | No                                                                                                                                                                                                                                  |
 
 Code outside React reads and writes the stores through `getState()`, as the
 interceptors and route guards do, or subscribes to them: the session module
@@ -560,14 +561,46 @@ breadcrumbs, the ⌘K search and, from `md` up, the theme toggle. It holds:
   group's sections, listed for every staff role. The brand header and the
   account menu stay. Every sidebar link, in any of the three navs, closes
   the phone drawer.
-- **The command palette** (`src/components/features/command-palette.tsx`),
-  opened by ⌘K or Ctrl+K or the header's search button through
-  `command-palette.store.ts`. Its pages are the visible nav items and, for
-  staff, every settings section. It filters them itself and asks
-  the API for customer tenants and users once typing stops for 250 ms,
-  showing each result list only for the term it was fetched for, so Enter
-  never acts on an older term's list. `ui/command.tsx` builds it on Base
-  UI's Autocomplete.
+- **The command palette** (`src/components/shared/command-palette/`, shared
+  with react; apex's commands are `src/components/features/command-palette.tsx`),
+  opened by ⌘K or Ctrl+K or the header's Search… button through
+  `command-palette.store.ts`. `CommandPaletteHost`, mounted once in the layout,
+  holds the shortcut and fetches the palette's code (`palette-loader.ts`, one
+  `import()`) on idle, on the Search… button's hover or focus, or at the first
+  open, whichever comes first, so the entry chunk carries none of it. An open
+  that beats the fetch shows a "Loading search…" overlay whose field is bound
+  to the store's `query`, so keys typed right after the shortcut are kept. A
+  failed fetch closes the palette and shows a toast with a Reload action:
+  Chromium keeps a failed `import()` for the page's lifetime, so there is no
+  in-page retry. `pnpm check:bundle` fails when a chunk with the palette's code
+  is statically reachable from the entry or the host. The palette lists:
+  - **Recent**: the tenants and users whose pages were opened lately, recorded
+    by the detail pages (`src/hooks/use-record-recent.ts`) and forgotten when a
+    page answers 404. They live per user in `localStorage`; `logout()` in
+    `auth.store.ts` removes every `palette.recent.v1:` key (`clearAllRecents`
+    in `recent-keys.ts`), and it runs on sign-out, on a 401 verdict at the
+    cold-load restore or a refresh, and on another tab's logout, so recents
+    are cleared on every session end. `installRecentItems` also deletes a
+    user's list when the signed-in user changes away from them.
+  - **This page**: what the open page's own controls register with
+    `usePaletteCommands`: the tenant actions, the user actions, Resend on an
+    email, then the tenant tabs, then Copy ID. Each is listed under its
+    control's role rule and opens that control's dialog; a dialog opened from
+    the palette returns focus to the page heading on close, Resend's to its
+    button. Each page registers its tabs and Copy ID through
+    `src/components/features/page-palette-commands.tsx` in its loaded branch,
+    after its actions, so the order holds on a cold load and nothing is
+    registered on a 404.
+  - **Go to**: the visible nav items, then Settings and every settings section.
+  - **Tenants** and **Users**: the API's results, asked for once typing stops
+    for 250 ms (`LIST_SEARCH_DEBOUNCE_MS`), each list shown only for the term
+    it was fetched for, so Enter never acts on an older term's list. A failed
+    search offers Try again in place of "No results.".
+  - **Theme** and **Account** (New tenant for admins and up, Sign out).
+
+  Every choice sends `command_palette_action_run` with a fixed `action` key and
+  nothing else. `ui/command.tsx` builds it on Base UI's Autocomplete.
+
 - **One step-up dialog.** `StepUpProvider` wraps the shell, so every staff
   page's writes share it. A write that may need a recent sign-in runs
   through `useStepUp().run` (`src/hooks/use-step-up.ts`), which retries it
@@ -578,7 +611,7 @@ breadcrumbs, the ⌘K search and, from `md` up, the theme toggle. It holds:
 - **The `$feature/*` sync**, mounted once here
   ([Feature flags](#feature-flags)).
 
-The palette, the flag sync and the theme listener live in the layout, not the
+The palette's host, the flag sync and the theme listener live in the layout, not the
 sidebar, because below the `md` breakpoint the sidebar renders into a sheet
 whose content unmounts while it is closed. Below `md` the theme toggle itself
 moves from the header into that sheet's footer, since the header has no room
