@@ -255,7 +255,14 @@ export function UserActionsMenu({
         </DropdownMenu>
       )}
 
-      {dialog === 'edit' && <EditUserNameDialog user={user} open onOpenChange={close} />}
+      {dialog === 'edit' && (
+        <EditUserNameDialog
+          user={user}
+          open
+          onOpenChange={close}
+          finalFocus={fromPalette ? fallbackFocus : undefined}
+        />
+      )}
       <ReasonDialog
         open={dialog === 'signOut'}
         onOpenChange={close}

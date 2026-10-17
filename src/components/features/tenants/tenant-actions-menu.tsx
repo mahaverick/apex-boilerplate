@@ -113,6 +113,8 @@ export function TenantActionsMenu({
     onOpenChange: (next: boolean) => setOpen(next ? which : null),
   })
   const finalFocus = hasActions && !fromPalette ? undefined : fallbackFocus
+  /** The form dialogs' return: the heading after a palette open, else the menu's trigger. */
+  const paletteFocus = fromPalette ? fallbackFocus : undefined
 
   return (
     <>
@@ -153,8 +155,16 @@ export function TenantActionsMenu({
         </DropdownMenu>
       )}
 
-      {can.edit && <EditTenantDialog tenant={tenant} {...dialogProps('edit')} />}
-      {can.owner && <OwnerInvitationDialog tenant={tenant} {...dialogProps('owner')} />}
+      {can.edit && (
+        <EditTenantDialog tenant={tenant} {...dialogProps('edit')} finalFocus={paletteFocus} />
+      )}
+      {can.owner && (
+        <OwnerInvitationDialog
+          tenant={tenant}
+          {...dialogProps('owner')}
+          finalFocus={paletteFocus}
+        />
+      )}
       <ReasonDialog
         {...dialogProps('suspend')}
         finalFocus={finalFocus}

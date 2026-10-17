@@ -7,8 +7,8 @@ import { EmailTenantLink } from '@/components/features/emails/email-tenant-link'
 import { EmailTimeline } from '@/components/features/emails/email-timeline'
 import { ResendEmailButton } from '@/components/features/emails/resend-email-button'
 import { LoadError } from '@/components/features/load-error'
+import { PagePaletteCommands } from '@/components/features/page-palette-commands'
 import { copyId } from '@/components/shared/command-palette/copy-id'
-import { usePaletteCommands } from '@/components/shared/command-palette/palette-registry'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
 import { DetailPending } from '@/components/shared/pending-templates'
@@ -79,22 +79,6 @@ function isDetailTab(value: unknown): value is EmailDetailTab {
 function EmailDetailPage() {
   const { emailId } = Route.useParams()
   const detail = useQuery(emailQueryOptions(emailId))
-  const notFound = detail.isError && statusFrom(detail.error) === 404
-  usePaletteCommands(
-    'email-page',
-    detail.data === undefined || notFound
-      ? []
-      : [
-          {
-            id: 'copy-id',
-            label: 'Copy email ID',
-            icon: IconCopy,
-            action: analyticsKey('copy_id'),
-            timing: 'immediate',
-            run: () => copyId(emailId, 'Email ID copied.'),
-          },
-        ]
-  )
 
   if (detail.isError && (detail.data === undefined || statusFrom(detail.error) === 404)) {
     return statusFrom(detail.error) === 404 ? (
@@ -132,6 +116,19 @@ function EmailDetailPage() {
         <LoadError message="We could not load this email." onRetry={() => void detail.refetch()} />
       )}
       <EmailDetail message={detail.data} />
+      <PagePaletteCommands
+        source="email-page"
+        commands={[
+          {
+            id: 'copy-id',
+            label: 'Copy email ID',
+            icon: IconCopy,
+            action: analyticsKey('copy_id'),
+            timing: 'immediate',
+            run: () => copyId(emailId, 'Email ID copied.'),
+          },
+        ]}
+      />
     </div>
   )
 }

@@ -3,10 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, Outlet, useNavigate } from '@tanstack/react-router'
 import { useRef } from 'react'
 import { LoadError } from '@/components/features/load-error'
+import { PagePaletteCommands } from '@/components/features/page-palette-commands'
 import { TenantActionsMenu } from '@/components/features/tenants/tenant-actions-menu'
 import { TenantStateBadge } from '@/components/features/tenants/tenant-state-badge'
 import { copyId } from '@/components/shared/command-palette/copy-id'
-import { usePaletteCommands } from '@/components/shared/command-palette/palette-registry'
 import type { PaletteCommand } from '@/components/shared/command-palette/palette-types'
 import { EmptyState } from '@/components/shared/empty-state'
 import { DetailPending } from '@/components/shared/pending-templates'
@@ -72,28 +72,24 @@ function TenantLayout() {
     tenant.data && { label: tenant.data.name, detail: tenant.data.slug },
     notFound
   )
-  usePaletteCommands(
-    'tenant-page',
-    notFound
-      ? []
-      : [
-          ...tabs.map((tab): PaletteCommand => ({
-            id: tab.to,
-            label: `Go to ${tab.label}`,
-            action: analyticsKey('open_tab'),
-            timing: 'immediate',
-            run: () => void navigate({ to: tab.to, params: { tenantId } }),
-          })),
-          {
-            id: 'copy-id',
-            label: 'Copy tenant ID',
-            icon: IconCopy,
-            action: analyticsKey('copy_id'),
-            timing: 'immediate',
-            run: () => copyId(tenantId, 'Tenant ID copied.'),
-          },
-        ]
-  )
+  /** The tabs and Copy tenant ID, listed under This page once the tenant has loaded. */
+  const pageCommands: PaletteCommand[] = [
+    ...tabs.map((tab): PaletteCommand => ({
+      id: tab.to,
+      label: `Go to ${tab.label}`,
+      action: analyticsKey('open_tab'),
+      timing: 'immediate',
+      run: () => void navigate({ to: tab.to, params: { tenantId } }),
+    })),
+    {
+      id: 'copy-id',
+      label: 'Copy tenant ID',
+      icon: IconCopy,
+      action: analyticsKey('copy_id'),
+      timing: 'immediate',
+      run: () => copyId(tenantId, 'Tenant ID copied.'),
+    },
+  ]
 
   if (tenant.isError && (tenant.data === undefined || statusFrom(tenant.error) === 404)) {
     return statusFrom(tenant.error) === 404 ? (
@@ -146,6 +142,7 @@ function TenantLayout() {
               </p>
             </div>
             <TenantActionsMenu tenant={loaded} fallbackFocus={heading} />
+            <PagePaletteCommands source="tenant-page" commands={pageCommands} />
           </>
         )}
       </div>
