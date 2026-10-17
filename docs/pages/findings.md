@@ -386,7 +386,7 @@ Status: fixed. This page lists Copy tenant ID, Copy user ID and Copy email ID on
 
 ### F-palette-5
 
-With no term the palette shows the same thirteen pages every time ([shot](img/palette/palette--default.jpg)). The tenants and users staff open most are reachable only by typing a search that goes to the API. Fix: a Recent group of the last tenants and users opened, kept per browser.
+With no term the palette shows the same thirteen pages every time ([shot](img/palette/palette--before-default.jpg)). The tenants and users staff open most are reachable only by typing a search that goes to the API. Fix: a Recent group of the last tenants and users opened, kept per browser.
 
 Status: fixed. Recent lists the tenants and users whose pages were opened lately, per user in `localStorage` ([palette.md](palette.md#the-command-palette)). `tests/unit/components/features/command-palette.test.tsx` ("lists recent tenants and users, newest first, a user inside Pii") and `tests/unit/components/features/command-palette-sources.test.tsx` ("records the tenant in Recent once it loads, with its slug", "forgets the tenant when its page answers 404") cover it.
 
@@ -398,7 +398,7 @@ Status: partly fixed. This page lists the tenant actions, the user actions and R
 
 ### F-palette-7
 
-A tenant result is a building icon and the tenant's name. In the walk the term `e2e` listed five rows reading "Capture Co" ([shot](img/palette/palette--search.jpg)); nothing shows which is which. Users show their email and name, which do tell them apart. Fix: the slug, and the state when it is not active, beside a tenant's name.
+A tenant result is a building icon and the tenant's name. In the walk the term `e2e` listed five rows reading "Capture Co" ([shot](img/palette/palette--before-search.jpg)); nothing shows which is which. Users show their email and name, which do tell them apart. Fix: the slug, and the state when it is not active, beside a tenant's name.
 
 Status: fixed. A tenant row shows its slug, and "Suspended" or "Archived" when it is not active ([palette.md](palette.md#the-command-palette)). `tests/unit/components/features/command-palette.test.tsx` ("finds tenants by name with their slug, and the state when not active, asking for no total") covers it.
 
@@ -410,7 +410,7 @@ Status: partly fixed. Go to lists Settings, and This page lists the open tenant'
 
 ### F-palette-9
 
-When a search fails, the palette shows "Some results could not be loaded." in its status line and "No results." under it, with no retry; typing again is the only way to ask again ([shot](img/palette/palette--error.jpg)). With no term, the empty status paragraph and the list's padding leave about 56 px of blank space between the input and the first group ([shot](img/palette/palette--default.jpg)). Fix: a failure row with Try again in place of "No results.", and no space held by an empty status line.
+When a search fails, the palette shows "Some results could not be loaded." in its status line and "No results." under it, with no retry; typing again is the only way to ask again ([shot](img/palette/palette--before-error.jpg)). With no term, the empty status paragraph and the list's padding leave about 56 px of blank space between the input and the first group ([shot](img/palette/palette--before-default.jpg)). Fix: a failure row with Try again in place of "No results.", and no space held by an empty status line.
 
 Status: fixed. A failed search shows a "Search failed. Try again" row in place of "No results.", and an empty status line takes no room ([palette.md](palette.md#the-command-palette)). The shared suite's `tests/unit/components/shared/command-palette/command-palette-shell.test.tsx` ("offers Try again in place of "No results.", and the row keeps the palette open", "keeps the status line empty, and taking no room, when nothing is pending") covers it.
 

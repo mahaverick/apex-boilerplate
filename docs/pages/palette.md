@@ -26,17 +26,28 @@ The command palette in the staff shell, opened by ⌘K on Apple platforms or Ctr
 - **Lift on a suppression**: Lift is a list row's action, and the palette has no row to run it on; it stays in the [Suppressions](suppressions.md) table ([F-palette-6](findings.md#f-palette-6)).
 - **Emails by recipient or id, and filtered lists**: the palette neither searches emails nor opens a list with a filter applied; both are a later `[P5 palette]` follow-up ([F-palette-8](findings.md#f-palette-8)).
 
+## After
+
+The palette as built, from the fixtures harness: an admin, the harness's data.
+
+![The palette, open on the overview with no term](img/palette/palette--default.jpg)
+
+| Search                                                 | Error                                                                                              | This page                                                                                         | Mobile                                          |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| ![](img/palette/palette--search.jpg)                   | ![](img/palette/palette--error.jpg)                                                                | ![](img/palette/palette--page.jpg)                                                                | ![](img/palette/palette--mobile.jpg)            |
+| `acme`: the Tenants group's one result, with its slug. | Tenants search failing, term `acme`: the "Search failed. Try again" row in place of "No results.". | Acme Corp's page, no term: Recent, then This page with the tenant's actions first, then its tabs. | Opened from the header's search icon at 390 px. |
+
 ## Before
 
 The walk and the shots below show the palette before the shared shell, This page, Recent, Theme and Account. Its dialog was described "Search for a page or a tenant.", and a failed search said "Some results could not be loaded." over "No results.".
 
-![The palette, open with no term](img/palette/palette--default.jpg)
+![The palette, open with no term](img/palette/palette--before-default.jpg)
 
 The palette lists only places to go: it runs no action. In the walk (an owner, the dev data), the empty palette listed thirteen pages; the term `e2e` sent one tenants and one users request after the debounce and listed eight tenants, five of them reading "Capture Co" with nothing to tell them apart, and eight users; `theme`, `settings`, `sign out` and `zzzz-no-match` each gave "No results."; with the tenants search answering 500, the palette said "Some results could not be loaded." over "No results.", with no way to retry but typing again. With no term, an empty status line and the list's padding leave a band of about 56 px between the input and the first group.
 
-| Search                                               | Empty                               | Error                                                                         | Mobile                                                                                      |
-| ---------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| ![](img/palette/palette--search.jpg)                 | ![](img/palette/palette--empty.jpg) | ![](img/palette/palette--error.jpg)                                           | ![](img/palette/palette--mobile.jpg)                                                        |
-| `e2e`: the Tenants group, then Users below the fold. | `zzzz-no-match`: "No results."      | Tenants search failing: "Some results could not be loaded." and "No results." | Opened from the header's search icon at 390 px; the dialog fills the width less the gutter. |
+| Search                                               | Empty                                      | Error                                                                         | Mobile                                                                                      |
+| ---------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| ![](img/palette/palette--before-search.jpg)          | ![](img/palette/palette--before-empty.jpg) | ![](img/palette/palette--before-error.jpg)                                    | ![](img/palette/palette--before-mobile.jpg)                                                 |
+| `e2e`: the Tenants group, then Users below the fold. | `zzzz-no-match`: "No results."             | Tenants search failing: "Some results could not be loaded." and "No results." | Opened from the header's search icon at 390 px; the dialog fills the width less the gutter. |
 
 Findings: [F-palette-1](findings.md#f-palette-1), [F-palette-2](findings.md#f-palette-2), [F-palette-3](findings.md#f-palette-3), [F-palette-4](findings.md#f-palette-4), [F-palette-5](findings.md#f-palette-5), [F-palette-6](findings.md#f-palette-6), [F-palette-7](findings.md#f-palette-7), [F-palette-8](findings.md#f-palette-8), [F-palette-9](findings.md#f-palette-9), [F-palette-10](findings.md#f-palette-10)
