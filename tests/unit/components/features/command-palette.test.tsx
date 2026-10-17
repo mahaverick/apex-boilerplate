@@ -121,7 +121,8 @@ describe('CommandPalette', () => {
   })
 
   // A session whose platform role dropped to null mid-visit sees no pages and searches nothing, as the nav does.
-  it('lists no pages and searches nothing once the platform role is gone, but keeps Theme and Sign out', async () => {
+  it('lists no pages or recents and searches nothing once the platform role is gone, but keeps Theme and Sign out', async () => {
+    recordRecent(testUser.id, { kind: 'tenant', id: TENANT_ID, label: 'Acme Corp', detail: 'acme' })
     let calls = 0
     server.use(
       http.get('/api/v1/platform/tenants', () => {
@@ -136,6 +137,7 @@ describe('CommandPalette', () => {
     await user.keyboard('{Control>}k{/Control}')
     const palette = await screen.findByRole('dialog', { name: 'Command palette' })
     expect(within(palette).queryByRole('group', { name: 'Go to' })).toBeNull()
+    expect(within(palette).queryByRole('group', { name: 'Recent' })).toBeNull()
     expect(within(palette).getByRole('option', { name: 'Sign out' })).toBeInTheDocument()
     await user.keyboard('acme')
     await settle(
@@ -254,6 +256,7 @@ describe('CommandPalette', () => {
     const recent = within(palette).getByRole('group', { name: 'Recent' })
     const rows = within(recent).getAllByRole('option')
     expect(rows.map((row) => row.textContent)).toEqual(['Acme Corp, acme', 'cleo@example.com'])
+    expect(within(rows[0]!).getByText('Acme Corp')).not.toHaveClass('ph-sensitive')
     expect(within(rows[1]!).getByText('cleo@example.com')).toHaveClass('ph-sensitive')
     await user.click(rows[1]!)
     await waitFor(() => expect(router.state.location.pathname).toBe(`/users/${USER_ID_2}`))
@@ -269,13 +272,19 @@ describe('CommandPalette', () => {
     expect(screen.getByRole('combobox', { name: 'Search pages, tenants and users' })).toHaveFocus()
   })
 
-  it('names the header button Search… and exposes the shortcut as a key binding', async () => {
-    vi.spyOn(shortcut, 'isApplePlatform').mockReturnValue(true)
-    renderAppAt('/overview')
-    const button = await screen.findByRole('button', { name: 'Search…' })
-    expect(button).toHaveAttribute('aria-keyshortcuts', 'Meta+K')
-    expect(within(button).getByText(/K$/)).toHaveAttribute('aria-hidden', 'true')
-  })
+  it.each([
+    [true, 'Meta+K'],
+    [false, 'Control+K'],
+  ])(
+    'names the header button Search… and exposes the shortcut (Apple: %s) as %s',
+    async (apple, keys) => {
+      vi.spyOn(shortcut, 'isApplePlatform').mockReturnValue(apple)
+      renderAppAt('/overview')
+      const button = await screen.findByRole('button', { name: 'Search…' })
+      expect(button).toHaveAttribute('aria-keyshortcuts', keys)
+      expect(within(button).getByText(/K$/)).toHaveAttribute('aria-hidden', 'true')
+    }
+  )
 
   it('fetches the palette’s code when the Search… button is hovered or focused', async () => {
     const user = userEvent.setup()

@@ -14,7 +14,7 @@ import * as analytics from '@/observability/telemetry'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { queryClient } from '@/router'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
-import { EMAIL_ID, TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
+import { EMAIL_ID, TENANT_ID, TENANT_ID_2, USER_ID_2 } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { emailDetail, fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -379,6 +379,52 @@ describe('the This page sources', () => {
       await user.keyboard('{Escape}')
       await waitFor(() => expect(heading).toHaveFocus())
     })
+
+    it.each([
+      ['the overview', '/overview', 'Overview', 'main'],
+      ['another tenant’s page', `/tenants/${TENANT_ID}`, 'Acme Corp', 'heading'],
+    ] as const)(
+      'opens the created tenant from the palette on %s, with focus on its %s, never on the body',
+      async (_from, path, startHeading, landing) => {
+        const created = tenant({ id: TENANT_ID_2, name: 'Beta Inc', slug: 'beta', owners: [] })
+        serveTenant(tenant())
+        server.use(
+          http.post('/api/v1/platform/tenants', () =>
+            ok({ tenant: created, emailSent: true }, 'Tenant created.', 201)
+          ),
+          http.get(`/api/v1/platform/tenants/${TENANT_ID_2}`, () =>
+            ok(created, 'Tenant retrieved.')
+          ),
+          http.get('/api/v1/tenants/beta', () =>
+            ok({ ...created, isPlatform: false, role: 'admin', access: 'platform' }, 'ok')
+          ),
+          http.get('/api/v1/tenants/beta/*', () => ok(listPage([]), 'ok'))
+        )
+        const user = userEvent.setup()
+        const router = renderAppAt(path)
+        await screen.findByRole('heading', { name: startHeading, level: 1 })
+        const palette = await openPalette(user)
+        await user.keyboard('new tenant')
+        await user.click(await within(palette).findByRole('option', { name: 'New tenant' }))
+        const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+        await user.type(within(dialog).getByLabelText('Name'), 'Beta Inc')
+        await user.type(within(dialog).getByLabelText('Slug'), 'beta')
+        await user.type(within(dialog).getByLabelText('Owner email'), 'owner@beta.test')
+        await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
+
+        await waitFor(() => expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID_2}`))
+        await waitFor(() =>
+          expect(screen.queryByRole('dialog', { name: 'New tenant' })).not.toBeInTheDocument()
+        )
+        const heading = await screen.findByRole('heading', { name: 'Beta Inc', level: 1 })
+        await waitFor(() =>
+          expect(document.activeElement).toBe(
+            landing === 'main' ? screen.getByRole('main') : heading
+          )
+        )
+        expect(document.activeElement).not.toBe(document.body)
+      }
+    )
 
     it('records the tenant in Recent once it loads, with its slug', async () => {
       serveTenant(tenant())
