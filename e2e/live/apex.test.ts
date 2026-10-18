@@ -160,19 +160,18 @@ test('an admin evaluates one user twice and the Activity log records it once', a
   )
   expect(again.status).toBe(200)
 
-  await page.goto('/activity')
+  // By URL: the Actor facet lists the first hundred staff, so a fresh admin may not be an option.
+  const adminId = await userIdOf(token, admin)
+  await page.goto(`/activity?actor=${adminId}`)
   await page.getByRole('button', { name: 'Filter by action, Activity' }).click()
   await page
     .getByRole('dialog', { name: 'Filter by action, Activity' })
     .getByRole('checkbox', { name: 'User flags evaluated', exact: true })
     .click()
   await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: 'Filter by actor, Activity' }).click()
-  await page
-    .getByRole('dialog', { name: 'Filter by actor, Activity' })
-    .getByRole('checkbox', { name: admin, exact: false })
-    .click()
-  await page.keyboard.press('Escape')
+  await expect(
+    page.getByRole('button', { name: /^Filter by actor, Activity, 1 selected/ })
+  ).toBeVisible()
   const log = page.getByRole('table', { name: 'Activity' })
   await expect(log.getByRole('row').filter({ hasText: 'evaluated' })).toHaveCount(1)
   await expect(log.getByText(/evaluated a user’s feature flags for the customer app/)).toBeVisible()
