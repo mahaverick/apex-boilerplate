@@ -106,10 +106,10 @@ Findings: [F-tenants-3](findings.md#f-tenants-3), [F-tenants-4](findings.md#f-te
 
 The members read and the role read can fail alone, and each shows its own `LoadError` in the card; when both fail, the role `LoadError` shows alone, since no row's controls can be decided without a role ("We could not load this tenant’s members, so none are listed here. This is not a sign that it has none." and the role message). A failed owners read shows "Owners could not be loaded." with Try again above the table and keeps an owner's own controls off.
 
-| Loading                                                                                               | Error                                      | Empty                                                                                                                                  |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| ![](img/tenants/tenant-members--loading.jpg)                                                          | ![](img/tenants/tenant-members--error.jpg) | ![](img/tenants/tenant-members--empty.jpg)                                                                                             |
-| skeleton · the layout's header bars over the real tab row; the tab stays blank until the tenant lands | alert · the layout's `LoadError`           | (pre-4b shot) members stubbed with an empty page: "No one has access to this tenant yet. An accepted invitation gives someone access." |
+| Loading                                                                                               | Error                                      | Empty                                                                                                                    |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| ![](img/tenants/tenant-members--loading.jpg)                                                          | ![](img/tenants/tenant-members--error.jpg) | ![](img/tenants/tenant-members--empty.jpg)                                                                               |
+| skeleton · the layout's header bars over the real tab row; the tab stays blank until the tenant lands | alert · the layout's `LoadError`           | members stubbed with an empty page: "No one has access to this tenant yet. An accepted invitation gives someone access." |
 
 | Role-denied                                                            |
 | ---------------------------------------------------------------------- |

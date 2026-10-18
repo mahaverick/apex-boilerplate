@@ -336,7 +336,7 @@ The Feature flags page loads as one `Skeleton h-64` for four sections that run t
 
 ### F-settings-3
 
-Status: fixed. The Staff page shows the role alert once, in the members card with its Try again, and the invitations section waits silently. `tests/unit/pages/_app/settings/platform.staff-members.test.tsx` (“shows the role failure once on the Staff page, with a Try again that retries it”) asserts it; the shot is pre-4b.
+Status: fixed. The Staff page shows the role alert once, in the members card with its Try again, and the invitations section waits silently. `tests/unit/pages/_app/settings/platform.staff-members.test.tsx` (“shows the role failure once on the Staff page, with a Try again that retries it”) asserts it ([after](img/settings/platform-staff--error.jpg)).
 
 On the Staff page both `MembersCard` and `InvitationsSection` call `useMyRole` for the platform tenant and each shows `ROLE_ERROR` when it fails. With the role read and the members read failing, the page shows three alerts, two of them "We could not load your role in this tenant, so its controls are hidden until we can." with their own Try again ([shot](img/settings/platform-staff--error.jpg)). Fix: one page-level role alert, with the sections below waiting on it.
 
