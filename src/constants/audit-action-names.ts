@@ -64,5 +64,8 @@ export const RETIRED_AUDIT_ACTIONS = [
   'user.verification_resent',
 ] as const
 
+/** An action the API still stores but never writes again. */
+export type RetiredAuditAction = (typeof RETIRED_AUDIT_ACTIONS)[number]
+
 /** Every action name a stored row may hold, which the `action` URL param accepts. */
 export const STORED_AUDIT_ACTIONS = [...AUDIT_ACTIONS, ...RETIRED_AUDIT_ACTIONS] as const

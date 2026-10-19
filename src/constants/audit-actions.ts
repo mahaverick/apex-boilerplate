@@ -1,4 +1,8 @@
-import { AUDIT_ACTIONS, type AuditAction } from '@/constants/audit-action-names'
+import {
+  AUDIT_ACTIONS,
+  type AuditAction,
+  type RetiredAuditAction,
+} from '@/constants/audit-action-names'
 import { templateLabel } from '@/constants/email.constants'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
 
@@ -206,6 +210,23 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
 }
 
 /**
+ * Sentences for the retired password-era actions, whose rows stay in the log
+ * though nothing writes them any more. The retired view actions keep the
+ * fallback sentence.
+ */
+const RETIRED_SENTENCES = {
+  'auth.reauthenticated': 'confirmed it was them with a password',
+  'user.password_setup_sent': 'sent a user a password setup email',
+  'user.verification_resent': 'resent a user a verification email',
+  'platform.member.auto_joined': 'joined staff by email domain',
+} as const satisfies Partial<Record<RetiredAuditAction, string>>
+
+/** Whether `value` is a retired action that still has its own sentence. */
+function hasRetiredSentence(value: string): value is keyof typeof RETIRED_SENTENCES {
+  return Object.hasOwn(RETIRED_SENTENCES, value)
+}
+
+/**
  * An action name as words ("tenant errors viewed"), for a stored action this
  * build has no sentence for.
  * @param action - The stored action name, such as `tenant.errors_viewed`.
@@ -219,10 +240,9 @@ export function readableAction(action: string): string {
  * metadata defensively, so a row whose fields are missing or mistyped still renders.
  */
 export function auditSentence(entry: { action: string; metadata: Metadata }): string {
-  const build: ((metadata: Metadata) => string) | undefined = isAuditAction(entry.action)
-    ? SENTENCES[entry.action]
-    : undefined
-  return build ? build(entry.metadata) : `performed ${readableAction(entry.action)}`
+  if (isAuditAction(entry.action)) return SENTENCES[entry.action](entry.metadata)
+  if (hasRetiredSentence(entry.action)) return RETIRED_SENTENCES[entry.action]
+  return `performed ${readableAction(entry.action)}`
 }
 
 /**

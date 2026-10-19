@@ -244,6 +244,16 @@ describe('auditSentence', () => {
     expect(auditSentence({ action, metadata })).toBe(sentence)
   })
 
+  it.each([
+    ['auth.reauthenticated', 'confirmed it was them with a password'],
+    ['user.password_setup_sent', 'sent a user a password setup email'],
+    ['user.verification_resent', 'resent a user a verification email'],
+    ['platform.member.auto_joined', 'joined staff by email domain'],
+  ])('reads the retired %s as its own sentence, not the fallback', (action, sentence) => {
+    expect(isAuditAction(action)).toBe(false)
+    expect(auditSentence({ action, metadata: {} })).toBe(sentence)
+  })
+
   it('renders a removed staff-read action through the fallback sentence', () => {
     expect(isAuditAction('user.timeline_viewed')).toBe(false)
     expect(auditSentence({ action: 'user.timeline_viewed', metadata: {} })).toBe(
