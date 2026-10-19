@@ -550,11 +550,21 @@ export function tenantDetail<T extends object>(
 export const handlers = [
   http.post('/api/v1/auth/refresh', () => ok({ accessToken: 'fresh-token' }, 'Token refreshed.')),
   http.get('/api/v1/profile', () => ok(testUser, 'Profile retrieved.')),
+  // Express answers every link request 202 with no data, whether or not the address has an account.
+  http.post('/api/v1/auth/link/request', () =>
+    ok(null, 'Check your inbox for a sign-in link.', 202)
+  ),
+  http.post('/api/v1/auth/link/verify', () =>
+    ok(
+      { user: testUser, accessToken: 'link-token', isNewUser: false, redirect: null },
+      'Signed in.'
+    )
+  ),
   // express answers every registration the same way, address free or taken, so it never reveals an account.
   http.post('/api/v1/auth/register', () =>
     ok(null, 'If that address can be registered, a verification email has been sent.', 202)
   ),
-  // The profile page's Security section fetches this on mount: a password account.
+  // The step-up dialog reads `hasPassword`; the Security section ignores it and declares its own in its test.
   http.get('/api/v1/auth/providers', () =>
     ok(
       {
@@ -567,9 +577,26 @@ export const handlers = [
   http.post('/api/v1/invitations/preview', () =>
     ok(testInvitationPreview, 'Invitation retrieved.')
   ),
+  // Signed out, one click: the invitee is signed in and joined, as express's `verifyInvitation` answers.
+  http.post('/api/v1/invitations/verify', () =>
+    ok(
+      {
+        user: testUser,
+        accessToken: 'invitation-token',
+        isNewUser: false,
+        tenant: testInvitationPreview.tenant,
+        role: testInvitationPreview.role,
+      },
+      'Invitation accepted.'
+    )
+  ),
   http.post('/api/v1/invitations/accept', () =>
     ok(
-      { tenant: testInvitationPreview.tenant, role: testInvitationPreview.role },
+      {
+        tenant: testInvitationPreview.tenant,
+        role: testInvitationPreview.role,
+        alreadyMember: false,
+      },
       'Invitation accepted.'
     )
   ),

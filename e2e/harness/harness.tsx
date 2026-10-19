@@ -71,9 +71,6 @@ const MEMBERS = [
   },
 ]
 
-/** The one current password the change-password handler below accepts. */
-const HARNESS_PASSWORD = 'current-password'
-
 /**
  * `?role=none` is a signed-in user who is not staff, so /no-access renders
  * instead of redirecting to the overview; `?role=viewer` is staff below
@@ -1433,20 +1430,6 @@ const worker = setupWorker(
   http.post('/api/v1/auth/sessions/revoke-others', () =>
     ok({ revoked: 2 }, 'Other sessions signed out.')
   ),
-  // Any other current password gets a 400.
-  http.post('/api/v1/auth/change-password', async ({ request }) => {
-    const body = (await request.json()) as { currentPassword?: unknown }
-    if (body.currentPassword === HARNESS_PASSWORD) return ok(null, 'Password has been changed.')
-    return Response.json(
-      {
-        success: false,
-        message: 'Current password is incorrect.',
-        statusCode: 400,
-        requestId: 'harness',
-      },
-      { status: 400 }
-    )
-  }),
   // A refresh is answered here so it never falls through to a real backend.
   http.post('/api/v1/auth/refresh', () =>
     ok({ accessToken: 'harness-token', user: testUser }, 'Session refreshed.')

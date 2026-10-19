@@ -52,6 +52,10 @@ export interface BrowserEventProps {
   command_palette_opened: Record<never, never>
   /** An item was chosen in the palette: its kind, never its label or the typed term. */
   command_palette_action_run: { action: AnalyticsKey }
+  /** A sign-in link was requested for an address (the API answered 202); the address is never sent. */
+  sign_in_link_requested: Record<never, never>
+  /** A sign-in finished: by an emailed link (also an invitation link) or by Google. */
+  sign_in_completed: { method: 'link' | 'google' }
 }
 
 /** A registered event name. */

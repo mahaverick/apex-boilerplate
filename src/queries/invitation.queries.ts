@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { MembershipRole } from '@/constants/roles'
 import { apiClient, unwrap } from '@/http/client'
+import { switchIdentity } from '@/http/session'
 import { statusFrom } from '@/lib/api-error'
 import { fullName } from '@/lib/format'
+import { track } from '@/observability/telemetry'
 import { refreshProfile } from '@/queries/profile.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
-import type { AcceptedInvitation, ApiSuccess, InvitationPreview } from '@/types/api.types'
+import { useAuthStore } from '@/states/auth.store'
+import type { AcceptedInvitation, ApiSuccess, InvitationPreview, User } from '@/types/api.types'
 
 /** Query keys for invitation previews, one per token. */
 export const invitationKeys = {
@@ -61,6 +65,45 @@ export function useAcceptInvitation() {
     onSuccess: async ({ tenant }) => {
       await queryClient.invalidateQueries({ queryKey: tenantKeys.members(tenant.slug) })
       await refreshProfile(queryClient)
+    },
+  })
+}
+
+/** What `POST /invitations/verify` answers: the session, whether this click created the account, and the tenant joined. */
+interface InvitationSignIn {
+  accessToken: string
+  user: User
+  isNewUser: boolean
+  tenant: { name: string; slug: string }
+  role: MembershipRole
+}
+
+/**
+ * Accepts an invitation in one click, signed out: the API signs the invitee in
+ * and joins them. Public like the preview, so a stale bearer token is never
+ * sent. The response's user already carries the role the join gave, so the
+ * profile needs no refresh. A different signed-in user is switched out first
+ * (`switchIdentity`). A 404 is the dead invitation.
+ *
+ * On success the tenant's member list is invalidated, since the caller is now
+ * on it.
+ */
+export function useVerifyInvitation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (token: string) =>
+      unwrap(
+        await apiClient.post<ApiSuccess<InvitationSignIn>>(
+          '/invitations/verify',
+          { token },
+          { skipAuthRetry: true, headers: { Authorization: false } }
+        )
+      ),
+    onSuccess: async ({ accessToken, user, tenant }) => {
+      switchIdentity(queryClient, user.id)
+      useAuthStore.getState().login(accessToken, user)
+      track('sign_in_completed', { method: 'link' })
+      await queryClient.invalidateQueries({ queryKey: tenantKeys.members(tenant.slug) })
     },
   })
 }

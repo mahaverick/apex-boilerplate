@@ -78,6 +78,8 @@ export interface AcceptedInvitation {
   tenant: { name: string; slug: string }
   /** The caller's current role there: an existing member keeps theirs, so not necessarily the invited one. */
   role: MembershipRole
+  /** True when the caller had joined already, as on a repeat accept of the same link. */
+  alreadyMember: boolean
 }
 
 /**

@@ -2,13 +2,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import { http } from 'msw'
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { RECENT_KEY_PREFIX } from '@/components/shared/command-palette/recent-keys'
 import { resetSessionForTests } from '@/http/session'
+import { track, yieldSharedIdentity } from '@/observability/telemetry'
 import {
   invitationKeys,
   inviterName,
   useAcceptInvitation,
   useInvitationPreview,
+  useVerifyInvitation,
 } from '@/queries/invitation.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
 import { useAuthStore } from '@/states/auth.store'
@@ -20,6 +23,12 @@ import {
   testUser,
 } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+
+vi.mock('@/observability/telemetry', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/observability/telemetry')>()),
+  track: vi.fn(),
+  yieldSharedIdentity: vi.fn(),
+}))
 
 describe('invitation queries', () => {
   let client: QueryClient
@@ -33,6 +42,9 @@ describe('invitation queries', () => {
     // `retry: 1` as in the router's client, with no delay, so the preview's own retry rule decides.
     client = new QueryClient({ defaultOptions: { queries: { retry: 1, retryDelay: 0 } } })
     resetSessionForTests()
+    vi.mocked(track).mockReset()
+    vi.mocked(yieldSharedIdentity).mockReset()
+    localStorage.clear()
     useAuthStore.setState({
       accessToken: 'access-token',
       user: testUser,
@@ -199,6 +211,144 @@ describe('invitation queries', () => {
       expect(client.getQueryState(tenantKeys.members('acme'))?.isInvalidated).toBe(false)
       // A 403 is not a session verdict.
       expect(useAuthStore.getState().isAuthenticated).toBe(true)
+    })
+  })
+
+  describe('useAcceptInvitation alreadyMember', () => {
+    it('reads alreadyMember from accept', async () => {
+      server.use(
+        http.post('/api/v1/invitations/accept', () =>
+          ok(
+            { tenant: { name: 'Acme Corp', slug: 'acme' }, role: 'editor', alreadyMember: true },
+            'Invitation accepted.'
+          )
+        )
+      )
+
+      const { result } = renderHook(() => useAcceptInvitation(), { wrapper })
+      result.current.mutate(TEST_INVITATION_TOKEN)
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true))
+      expect(result.current.data?.alreadyMember).toBe(true)
+    })
+  })
+
+  describe('useVerifyInvitation', () => {
+    /** Signs the store out, as a visitor who opened the invitation link fresh. */
+    function signOut() {
+      useAuthStore.setState({
+        accessToken: null,
+        user: null,
+        isAuthenticated: false,
+        isBootstrapped: true,
+      })
+    }
+
+    it('signs in from a verified invitation and invalidates the members', async () => {
+      let body: unknown
+      let authorization: string | null = 'unset'
+      let profileCalls = 0
+      server.use(
+        http.post('/api/v1/invitations/verify', async ({ request }) => {
+          body = await request.json()
+          authorization = request.headers.get('authorization')
+          return ok(
+            {
+              user: testUser,
+              accessToken: 'invitation-token',
+              isNewUser: false,
+              tenant: { name: 'Acme Corp', slug: 'acme' },
+              role: 'editor',
+            },
+            'Invitation accepted.'
+          )
+        }),
+        http.get('/api/v1/profile', () => {
+          profileCalls += 1
+          return ok(testUser, 'Profile retrieved.')
+        })
+      )
+      signOut()
+      client.setQueryData(tenantKeys.members('acme'), [])
+      let signedInAtTrack: boolean | undefined
+      vi.mocked(track).mockImplementation(() => {
+        signedInAtTrack = useAuthStore.getState().isAuthenticated
+      })
+
+      const { result } = renderHook(() => useVerifyInvitation(), { wrapper })
+      result.current.mutate(TEST_INVITATION_TOKEN)
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true))
+      expect(body).toEqual({ token: TEST_INVITATION_TOKEN })
+      expect(authorization).toBeNull()
+      expect(useAuthStore.getState().user).toEqual(testUser)
+      expect(useAuthStore.getState().accessToken).toBe('invitation-token')
+      expect(track).toHaveBeenCalledWith('sign_in_completed', { method: 'link' })
+      expect(signedInAtTrack).toBe(true)
+      expect(client.getQueryState(tenantKeys.members('acme'))?.isInvalidated).toBe(true)
+      // The user arrived in the response, platform role included, so the profile is not read again.
+      expect(profileCalls).toBe(0)
+    })
+
+    it('does not retry a 401 or refresh the session', async () => {
+      let calls = 0
+      let refreshes = 0
+      server.use(
+        http.post('/api/v1/invitations/verify', () => {
+          calls += 1
+          return fail('Unauthorized', 401)
+        }),
+        http.post('/api/v1/auth/refresh', () => {
+          refreshes += 1
+          return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
+        })
+      )
+
+      const { result } = renderHook(() => useVerifyInvitation(), { wrapper })
+      result.current.mutate(TEST_INVITATION_TOKEN)
+
+      await waitFor(() => expect(result.current.isError).toBe(true))
+      expect(calls).toBe(1)
+      expect(refreshes).toBe(0)
+    })
+
+    it('drops a different user data, recents and shared identity, and tells other tabs', async () => {
+      const other = { ...testUser, id: 'other-user-id', email: 'other@b.test' }
+      useAuthStore.getState().login('other-token', other)
+      client.setQueryData(['tenants', 'secret'], { owner: other.id })
+      localStorage.setItem(`${RECENT_KEY_PREFIX}${other.id}`, '["x"]')
+      const tab = new BroadcastChannel('auth')
+      const received: unknown[] = []
+      tab.addEventListener('message', (event: MessageEvent<unknown>) => {
+        received.push(event.data)
+      })
+
+      const { result } = renderHook(() => useVerifyInvitation(), { wrapper })
+      result.current.mutate(TEST_INVITATION_TOKEN)
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true))
+      await vi.waitFor(() => expect(received).toContainEqual({ type: 'logout' }))
+      tab.close()
+      expect(client.getQueryData(['tenants', 'secret'])).toBeUndefined()
+      expect(localStorage.getItem(`${RECENT_KEY_PREFIX}${other.id}`)).toBeNull()
+      expect(yieldSharedIdentity).toHaveBeenCalledOnce()
+      expect(useAuthStore.getState().user).toEqual(testUser)
+    })
+
+    it('leaves the store signed out on a 404', async () => {
+      server.use(
+        http.post('/api/v1/invitations/verify', () =>
+          fail('This invitation is invalid or has expired.', 404, 'invitation_invalid')
+        )
+      )
+      signOut()
+
+      const { result } = renderHook(() => useVerifyInvitation(), { wrapper })
+      result.current.mutate(TEST_INVITATION_TOKEN)
+
+      await waitFor(() => expect(result.current.isError).toBe(true))
+      expect(useAuthStore.getState().isAuthenticated).toBe(false)
+      expect(track).not.toHaveBeenCalled()
     })
   })
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  changePasswordSchema,
   loginSchema,
   registerSchema,
+  signInLinkRequestSchema,
   verifyEmailSchema,
 } from '@/schemas/auth.schemas'
 
@@ -69,40 +69,6 @@ describe('auth schemas', () => {
     expect(verifyEmailSchema.safeParse({ token: 't' }).success).toBe(false)
     expect(verifyEmailSchema.safeParse({ token: 't', password: 'p' }).success).toBe(true)
   })
-
-  it('change-password verifies the current password without a policy', () => {
-    // It is compared against the stored hash, like login's.
-    const base = {
-      newPassword: 'a-long-enough-password',
-      confirmPassword: 'a-long-enough-password',
-    }
-    expect(changePasswordSchema.safeParse({ ...base, currentPassword: 'x' }).success).toBe(true)
-    expect(changePasswordSchema.safeParse({ ...base, currentPassword: '' }).success).toBe(false)
-  })
-
-  it('change-password holds the new password to the registration rule', () => {
-    /** Whether the schema accepts `newPassword` as the new password, confirmed. */
-    const parse = (newPassword: string) =>
-      changePasswordSchema.safeParse({
-        currentPassword: 'old-password',
-        newPassword,
-        confirmPassword: newPassword,
-      }).success
-    expect(parse('short7c')).toBe(false)
-    expect(parse('a'.repeat(72))).toBe(true)
-    expect(parse('a'.repeat(73))).toBe(false)
-  })
-
-  it('change-password flags a mismatched confirmation on that field', () => {
-    const result = changePasswordSchema.safeParse({
-      currentPassword: 'old-password',
-      newPassword: 'a-long-enough-password',
-      confirmPassword: 'a-different-password-9',
-    })
-    expect(result.success).toBe(false)
-    expect(result.error?.issues[0]?.path).toEqual(['confirmPassword'])
-    expect(result.error?.issues[0]?.message).toBe('Passwords do not match.')
-  })
 })
 
 describe('register names: the API safeText rule', () => {
@@ -130,5 +96,17 @@ describe('register names: the API safeText rule', () => {
     for (const firstName of ['שָׁלוֹם\u{200F}', 'Ad\u{200B}min']) {
       expect(registerSchema.safeParse({ ...base, firstName }).success).toBe(false)
     }
+  })
+})
+
+describe('signInLinkRequestSchema', () => {
+  it('lowercases and trims the sign-in email', () => {
+    expect(signInLinkRequestSchema.parse({ email: '  Ada@Example.COM ' })).toEqual({
+      email: 'ada@example.com',
+    })
+  })
+
+  it('refuses a malformed email', () => {
+    expect(signInLinkRequestSchema.safeParse({ email: 'nope' }).success).toBe(false)
   })
 })

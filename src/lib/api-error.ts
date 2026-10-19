@@ -43,6 +43,27 @@ export function codeFrom(error: unknown): string | undefined {
   return undefined
 }
 
+/** The one HTTP-date form servers send, such as `Sun, 06 Nov 1994 08:49:37 GMT`. */
+const IMF_FIXDATE = /^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/
+
+/**
+ * How long a refused request says to wait, in whole seconds and at least 1,
+ * from the `Retry-After` response header (a non-negative whole number of seconds, or an IMF-fixdate HTTP date).
+ * `null` when there is no response or header, or the header cannot be read.
+ */
+export function retryAfterSecondsFrom(error: unknown): number | null {
+  if (!(error instanceof AxiosError)) return null
+  const header: unknown = error.response?.headers?.['retry-after']
+  if (typeof header !== 'string' && typeof header !== 'number') return null
+  const value = String(header).trim()
+  if (/^\d+$/.test(value)) return Math.max(1, Number(value))
+  // Date.parse reads "1.5", "-5" or "abc 12" as a date; only the IMF-fixdate form is an HTTP-date.
+  if (!IMF_FIXDATE.test(value)) return null
+  const date = Date.parse(value)
+  if (Number.isNaN(date)) return null
+  return Math.max(1, Math.ceil((date - Date.now()) / 1_000))
+}
+
 /** The one key in `errors` that is not a field name. */
 const FORM_ERRORS_KEY = 'formErrors'
 

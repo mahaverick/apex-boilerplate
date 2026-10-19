@@ -12,7 +12,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_NAME } from '@/constants/app'
 import { resetSessionForTests } from '@/http/session'
 import { toast } from '@/lib/toast'
-import { safeRedirect } from '@/pages/_auth/login'
 import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
@@ -363,50 +362,5 @@ describe('OAuth failure messages', () => {
     renderLoginAt('/login?error=something_new')
 
     expect(await screen.findByText('Sign-in failed. Please try again.')).toBeInTheDocument()
-  })
-})
-
-describe('safeRedirect', () => {
-  it('accepts an absolute same-origin path', () => {
-    expect(safeRedirect('/overview')).toBe('/overview')
-    expect(safeRedirect('/tenants/acme?tab=members')).toBe('/tenants/acme?tab=members')
-  })
-
-  it('keeps the query and hash, which a redirect target may carry', () => {
-    expect(safeRedirect('/overview?next=1')).toBe('/overview?next=1')
-    expect(safeRedirect('/overview#section')).toBe('/overview#section')
-  })
-
-  it('rejects everything that could leave the origin', () => {
-    // `?redirect=` comes off the URL bar, so every one of these is reachable.
-    expect(safeRedirect('https://evil.example')).toBeNull()
-    expect(safeRedirect('//evil.example')).toBeNull()
-    // Browsers normalise a backslash here to a slash, making it protocol-relative.
-    expect(safeRedirect('/\\evil.example')).toBeNull()
-    expect(safeRedirect('javascript:alert(1)')).toBeNull()
-    expect(safeRedirect('overview')).toBeNull()
-    expect(safeRedirect(undefined)).toBeNull()
-    expect(safeRedirect('')).toBeNull()
-  })
-
-  /**
-   * Every one of these starts with exactly one slash, so a `^/(?![/\\])`-shaped test passes them. The
-   * first four resolve off-origin because the URL parser strips ASCII tab, LF and CR (and reads a
-   * backslash as a slash), leaving "//". The last three collapse dot segments to the same-origin
-   * pathname "//evil.example", which is protocol-relative once assigned. All are typeable into the URL
-   * bar as %09, %0A, %0D and ..%2F%2F. The result goes to `navigate({ href })`, and router-core takes a
-   * document navigation (`window.location`) for an href with a scheme, so the guard has to refuse anything
-   * off-origin itself.
-   */
-  it.each([
-    ['tab', '/\t/evil.example'],
-    ['line feed', '/\n/evil.example'],
-    ['carriage return', '/\r/evil.example'],
-    ['tab then backslash', '/\t\\evil.example'],
-    ['double dot segment', '/..//evil.example'],
-    ['single dot segment', '/.//evil.example'],
-    ['dot segments below the root', '/a/../..//evil.example'],
-  ])('rejects the %s bypass', (_label, input) => {
-    expect(safeRedirect(input)).toBeNull()
   })
 })

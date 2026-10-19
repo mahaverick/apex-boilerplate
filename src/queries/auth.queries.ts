@@ -1,11 +1,11 @@
-import { useIsMutating, useMutation, useQuery } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ROUTES } from '@/constants/routes'
 import { apiClient, unwrap } from '@/http/client'
-import { broadcastLogout } from '@/http/session'
+import { broadcastLogout, switchIdentity } from '@/http/session'
 import { statusFrom } from '@/lib/api-error'
 import { toast } from '@/lib/toast'
+import { track } from '@/observability/telemetry'
 import type {
-  ChangePasswordInput,
   ForgotPasswordInput,
   LoginInput,
   RegisterInput,
@@ -25,8 +25,60 @@ interface AuthPayload {
 /** Which frontend the API should link back to: this one. The API accepts only 'web' or 'apex'. */
 const APP = 'apex' as const
 
+/** What `POST /auth/link/verify` answers: the session, whether this click created the account, and the path stored with the link. */
+interface LinkSignIn {
+  accessToken: string
+  user: User
+  isNewUser: boolean
+  redirect: string | null
+}
+
 /** The key of the caller's linked sign-in methods, `['auth', 'providers']`. */
 export const authKeys = { providers: ['auth', 'providers'] as const }
+
+/**
+ * Requests a sign-in link that opens this app. The API answers 202 whether or
+ * not the address has an account, so success says nothing about the address.
+ * `redirect` is the same-origin path to land on after signing in; it is left
+ * out when absent. No bearer token and no refresh retry: the request is public.
+ */
+export function useRequestSignInLink() {
+  return useMutation({
+    mutationFn: async (input: { email: string; redirect?: string }) => {
+      await apiClient.post<ApiSuccess<null>>(
+        '/auth/link/request',
+        { email: input.email, app: APP, redirect: input.redirect },
+        { skipAuthRetry: true, headers: { Authorization: false } }
+      )
+    },
+    onSuccess: () => track('sign_in_link_requested'),
+  })
+}
+
+/**
+ * Signs in with the token from an emailed link. Public like the request, so a
+ * stale bearer token is never sent. A different signed-in user is switched out
+ * first (`switchIdentity`). The store is signed in before `sign_in_completed`
+ * is tracked, so the event carries the new identity.
+ */
+export function useVerifySignInLink() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (token: string) =>
+      unwrap(
+        await apiClient.post<ApiSuccess<LinkSignIn>>(
+          '/auth/link/verify',
+          { token },
+          { skipAuthRetry: true, headers: { Authorization: false } }
+        )
+      ),
+    onSuccess: ({ accessToken, user }) => {
+      switchIdentity(queryClient, user.id)
+      useAuthStore.getState().login(accessToken, user)
+      track('sign_in_completed', { method: 'link' })
+    },
+  })
+}
 
 /** Signs in with an email and password, and stores the access token and user. */
 export function useLogin() {
@@ -86,20 +138,6 @@ export function useAuthProviders() {
   return useQuery({
     queryKey: authKeys.providers,
     queryFn: async () => unwrap(await apiClient.get<ApiSuccess<AuthProviders>>('/auth/providers')),
-  })
-}
-
-/**
- * Changes the caller's password; `confirmPassword` stays client-side. The API
- * keeps this session and revokes every other one.
- */
-export function useChangePassword() {
-  return useMutation({
-    mutationFn: async (input: ChangePasswordInput) =>
-      apiClient.post<ApiSuccess<null>>('/auth/change-password', {
-        currentPassword: input.currentPassword,
-        newPassword: input.newPassword,
-      }),
   })
 }
 

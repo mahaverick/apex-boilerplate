@@ -616,7 +616,7 @@ describe('signed-in pages', () => {
       '/settings/account/security',
       async () => {
         await screen.findByRole('heading', { name: 'Security', level: 1 })
-        await screen.findByRole('button', { name: 'Change password' })
+        await screen.findByRole('button', { name: 'Sign out other sessions' })
       },
     ],
     [

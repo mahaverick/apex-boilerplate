@@ -21,9 +21,7 @@ describe('settings: account', () => {
     renderAppAt('/settings/account/security')
     expect(await screen.findByRole('heading', { name: 'Security', level: 1 })).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
-    expect(
-      screen.getByText('Your password, sign-in methods and other sessions.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Your sign-in methods and other sessions.')).toBeInTheDocument()
   })
 
   it('lists every section on the landing page, as links', async () => {
