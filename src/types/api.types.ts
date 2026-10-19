@@ -365,6 +365,10 @@ export interface TenantInvitation {
   invitedBy: InvitationInviter | null
   expiresAt: string
   createdAt: string
+  /** When the invitation was last mailed, ISO; `null` if never. */
+  lastSentAt: string | null
+  /** When a resend is allowed again, ISO; `null` when it is allowed now. */
+  resendAvailableAt: string | null
 }
 
 /** A logical email's delivery state. Mirrors express's EMAIL_MESSAGE_STATUSES. */

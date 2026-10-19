@@ -1106,6 +1106,8 @@ describe('/tenants/$tenantId lists', () => {
       invitedBy: { id: USER_ID_2, firstName: 'Olive', lastName: 'Owner' },
       expiresAt: '2026-10-01T00:00:00.000Z',
       createdAt: '2026-09-24T00:00:00.000Z',
+      lastSentAt: null,
+      resendAvailableAt: null,
     },
     {
       id: INVITATION_ID_2,
@@ -1114,6 +1116,8 @@ describe('/tenants/$tenantId lists', () => {
       invitedBy: null,
       expiresAt: '2026-10-02T00:00:00.000Z',
       createdAt: '2026-09-25T00:00:00.000Z',
+      lastSentAt: null,
+      resendAvailableAt: null,
     },
   ]
 

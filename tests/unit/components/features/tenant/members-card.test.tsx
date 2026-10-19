@@ -1239,7 +1239,7 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invited@example.com' })
+      await screen.findByRole('button', { name: 'Resend, invitation to invited@example.com' })
     )
 
     await findToast('Invitation resent to invited@example.com.')
@@ -1268,7 +1268,7 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invited@example.com' })
+      await screen.findByRole('button', { name: 'Resend, invitation to invited@example.com' })
     )
 
     expect(
@@ -1293,14 +1293,14 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     for (const email of ['owner@example.com', 'admin@example.com']) {
-      const resend = await screen.findByRole('button', { name: `Resend invitation to ${email}` })
+      const resend = await screen.findByRole('button', { name: `Resend, invitation to ${email}` })
       expect(resend).toBeDisabled()
       expect(resend).toHaveAccessibleDescription(
         'Only an owner can resend or revoke an invitation for this role.'
       )
     }
     const editorResend = screen.getByRole('button', {
-      name: 'Resend invitation to editor@example.com',
+      name: 'Resend, invitation to editor@example.com',
     })
     expect(editorResend).toBeEnabled()
     expect(editorResend).not.toHaveAttribute('aria-describedby')
@@ -1353,7 +1353,7 @@ describe('inviting, and the pending invitations', () => {
 
     for (const email of ['owner@example.com', 'admin@example.com', 'editor@example.com']) {
       expect(
-        await screen.findByRole('button', { name: `Resend invitation to ${email}` })
+        await screen.findByRole('button', { name: `Resend, invitation to ${email}` })
       ).toBeEnabled()
       expect(screen.getByRole('button', { name: `Revoke invitation to ${email}` })).toBeEnabled()
     }
@@ -1377,7 +1377,7 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invited@example.com' })
+      await screen.findByRole('button', { name: 'Resend, invitation to invited@example.com' })
     )
 
     expect(await screen.findByText('That invitation is no longer pending.')).toBeInTheDocument()
@@ -1825,7 +1825,7 @@ describe('staff acting through platform access', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invitee@example.com' })
+      await screen.findByRole('button', { name: 'Resend, invitation to invitee@example.com' })
     )
     const resend = await screen.findByRole('alertdialog', { name: 'Resend this invitation?' })
     expect(resend).toHaveTextContent(
@@ -1897,7 +1897,7 @@ describe('staff acting through platform access', () => {
       page: 'invitations',
       open: async (user) => {
         await user.click(
-          await screen.findByRole('button', { name: 'Resend invitation to invitee@example.com' })
+          await screen.findByRole('button', { name: 'Resend, invitation to invitee@example.com' })
         )
       },
       title: 'Resend this invitation?',
@@ -2003,7 +2003,9 @@ describe('staff acting through platform access', () => {
       renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
       await user.click(
-        await screen.findByRole('button', { name: `${label} invitation to invitee@example.com` })
+        await screen.findByRole('button', {
+          name: `${label}${label === 'Resend' ? ',' : ''} invitation to invitee@example.com`,
+        })
       )
       const dialog = await screen.findByRole('alertdialog', { name: title })
       await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
@@ -2076,7 +2078,7 @@ describe('staff acting through platform access', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invitee@example.com' })
+      await screen.findByRole('button', { name: 'Resend, invitation to invitee@example.com' })
     )
     const dialog = await screen.findByRole('alertdialog', { name: 'Resend this invitation?' })
     await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
