@@ -24,7 +24,7 @@ import { tenantFlagsSearchSchema } from '@/schemas/flags.schemas'
 import { cleanSearch } from '@/schemas/list-request.schemas'
 import { useAuthStore } from '@/states/auth.store'
 import type { PlatformTenantDetail } from '@/types/api.types'
-import { LIST_SEARCH_DEBOUNCE_MS } from '@/types/list.types'
+import { LIST_SEARCH_DEBOUNCE_MS, MAX_SEARCH_LENGTH } from '@/types/list.types'
 
 /** How many members the picker lists, with or without a search. */
 const PICKER_LIMIT = 20
@@ -88,8 +88,10 @@ function TenantFlagsPanel({ tenant }: { tenant: PlatformTenantDetail }) {
     enabled: userId !== undefined && members.data !== undefined && picked === undefined,
   })
 
-  if (members.isError || flags.isError) {
-    if (isRoleDenied(members.error) || isRoleDenied(flags.error)) return <RoleDenied />
+  if (isRoleDenied(members.error) || isRoleDenied(flags.error)) return <RoleDenied />
+  // A failed search keeps the box, so the reader can change the term or retry under it.
+  const searchFailed = members.isError && search !== ''
+  if (flags.isError || (members.isError && !searchFailed)) {
     return (
       <LoadError
         message={flags.isError ? FLAGS_LIST_ERROR : 'We could not load this tenant’s members.'}
@@ -97,9 +99,10 @@ function TenantFlagsPanel({ tenant }: { tenant: PlatformTenantDetail }) {
       />
     )
   }
-  if (members.data === undefined || flags.data === undefined) {
+  if ((members.data === undefined && !searchFailed) || flags.data === undefined) {
     return <MemberPickerSkeleton />
   }
+  const listed = members.data?.items ?? []
   const pickedName = picked
     ? memberName(picked)
     : pickedUser.data
@@ -114,14 +117,21 @@ function TenantFlagsPanel({ tenant }: { tenant: PlatformTenantDetail }) {
         aria-label="Find a member"
         placeholder="Search by name or email"
         className="w-72 max-w-full"
+        maxLength={MAX_SEARCH_LENGTH}
         value={term}
         onChange={(event) => setTerm(event.target.value)}
       />
-      {search !== '' && members.isSuccess && members.data.items.length === 0 && (
+      {searchFailed && (
+        <LoadError
+          message="We could not search this tenant’s members."
+          onRetry={() => void members.refetch()}
+        />
+      )}
+      {search !== '' && members.isSuccess && !members.isPlaceholderData && listed.length === 0 && (
         <p className="text-sm text-muted-foreground">No members match.</p>
       )}
       <ul aria-label="Members" className="flex flex-wrap gap-2">
-        {members.data.items.map((member) => (
+        {listed.map((member) => (
           <li key={member.user.id}>
             <Button
               variant={member.user.id === userId ? 'default' : 'outline'}

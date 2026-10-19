@@ -12,6 +12,7 @@ import {
 } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
+import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, tenantDetail, testUser, testUserDetail } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type { PlatformTenantDetail, TenantLifecycleState } from '@/types/api.types'
@@ -195,6 +196,129 @@ describe('/tenants/$tenantId/flags', () => {
     await screen.findByRole('list', { name: 'Members' })
     await user.type(screen.getByRole('searchbox', { name: 'Find a member' }), 'zed')
     expect(await screen.findByText('No members match.')).toBeInTheDocument()
+  })
+
+  it('says nothing about matches while a new search is still loading', async () => {
+    serve()
+    /** Lets the held "ada" answer go. */
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    server.use(
+      http.get('/api/v1/tenants/acme/members', async ({ request }) => {
+        const search = new URL(request.url).searchParams.get('search')
+        if (search === 'ada') {
+          await held
+          return ok(listPage([ADA]), 'Members retrieved.')
+        }
+        return ok(listPage(search === null ? MEMBERS : []), 'Members retrieved.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(FLAGS)
+    const box = await screen.findByRole('searchbox', { name: 'Find a member' })
+    await user.type(box, 'zed')
+    expect(await screen.findByText('No members match.')).toBeInTheDocument()
+
+    await user.clear(box)
+    await user.type(box, 'ada')
+    // The empty page for "zed" stays up as a placeholder while "ada" loads; it must not claim no match.
+    await waitFor(() => expect(screen.queryByText('No members match.')).not.toBeInTheDocument())
+    release()
+    expect(await screen.findByRole('button', { name: /Ada Lovelace/ })).toBeInTheDocument()
+    expect(screen.queryByText('No members match.')).not.toBeInTheDocument()
+  })
+
+  it('keeps the newer search’s members when an older, slower answer lands last', async () => {
+    serve()
+    /** Lets the held "cle" answer go. */
+    let releaseOld: () => void = () => {}
+    const oldHeld = new Promise<void>((resolve) => {
+      releaseOld = resolve
+    })
+    let oldAsked = false
+    let oldAnswered = false
+    server.use(
+      http.get('/api/v1/tenants/acme/members', async ({ request }) => {
+        const search = new URL(request.url).searchParams.get('search')
+        if (search === 'cle') {
+          oldAsked = true
+          await oldHeld
+          oldAnswered = true
+          return ok(listPage(MEMBERS), 'Members retrieved.')
+        }
+        return ok(listPage(search === 'ada' ? [ADA] : MEMBERS), 'Members retrieved.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(FLAGS)
+    const box = await screen.findByRole('searchbox', { name: 'Find a member' })
+    const members = screen.getByRole('list', { name: 'Members' })
+    await user.type(box, 'cle')
+    // The slow "cle" read is in flight before the term changes.
+    await waitFor(() => expect(oldAsked).toBe(true))
+    await user.clear(box)
+    await user.type(box, 'ada')
+    expect(await within(members).findByRole('button', { name: /Ada Lovelace/ })).toBeInTheDocument()
+
+    releaseOld()
+    await waitFor(() => expect(oldAnswered).toBe(true))
+    await settle(50, 'a late answer that is ignored renders nothing to wait on')
+    expect(within(members).getByRole('button', { name: /Ada Lovelace/ })).toBeInTheDocument()
+    expect(within(members).queryByRole('button', { name: /Cleo Doe/ })).not.toBeInTheDocument()
+  })
+
+  it('says no member matches only for a search, never for the unsearched list', async () => {
+    serve()
+    server.use(
+      http.get('/api/v1/tenants/acme/members', () => ok(listPage([]), 'Members retrieved.'))
+    )
+    renderAppAt(FLAGS)
+    expect(await screen.findByRole('list', { name: 'Members' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Pick a member to see every flag as the customer app evaluates it for them here.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText('No members match.')).not.toBeInTheDocument()
+  })
+
+  it('keeps the search box when a member search fails, with the error and a retry under it', async () => {
+    serve()
+    let failing = true
+    server.use(
+      http.get('/api/v1/tenants/acme/members', ({ request }) => {
+        const search = new URL(request.url).searchParams.get('search')
+        if (search === 'ada') {
+          return failing ? fail('Boom', 500) : ok(listPage([ADA]), 'Members retrieved.')
+        }
+        return ok(listPage(MEMBERS), 'Members retrieved.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(FLAGS)
+    const box = await screen.findByRole('searchbox', { name: 'Find a member' })
+    await user.type(box, 'ada')
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('We could not search this tenant’s members.')
+    expect(screen.getByRole('searchbox', { name: 'Find a member' })).toHaveValue('ada')
+    expect(screen.getByRole('heading', { name: 'Flags', level: 2 })).toBeInTheDocument()
+
+    failing = false
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('button', { name: /Ada Lovelace/ })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('caps the member search at the API’s 100 characters', async () => {
+    serve()
+    renderAppAt(FLAGS)
+    expect(await screen.findByRole('searchbox', { name: 'Find a member' })).toHaveAttribute(
+      'maxlength',
+      '100'
+    )
   })
 
   it('reads the registry as rows, with no total, to mark what the app receives', async () => {
