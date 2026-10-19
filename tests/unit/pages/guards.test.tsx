@@ -302,6 +302,16 @@ describe('mailed-link paths and the auth guard', () => {
     expect(router.state.location.pathname).toBe('/auth/confirm')
   })
 
+  it('lets a signed-in visitor open a sign-in link instead of bouncing them', async () => {
+    const router = renderAt(`/auth/link?token=${'t'.repeat(43)}&email=ada%40example.test`)
+
+    expect(
+      await screen.findByRole('heading', { name: 'Switch account?', level: 1 })
+    ).toBeInTheDocument()
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+    expect(router.state.location.pathname).toBe('/auth/link')
+  })
+
   it.each([
     '/register?invitation=ttt',
     '/forgot-password',

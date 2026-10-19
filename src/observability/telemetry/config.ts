@@ -14,12 +14,25 @@ export const ANALYTICS_APP = 'apex'
 
 /**
  * The query keys a captured URL may keep: the enums Apex's lists put in the
- * URL. Every other key, and the hash, is dropped before an event leaves the
- * browser: `?q=` (a search term, often an address), ids, `?token=`
- * (invitation accept, password reset, email verification), `register?invitation=`
- * and a `?redirect=` wrapping either would otherwise reach PostHog.
+ * URL, and the campaign keys express puts on every link it mails. The
+ * sanitizer keeps a campaign value only in the shape of express's constants
+ * (lowercase letters, digits, `_` and `-`, at most 64), so a hand-edited
+ * link's address or token is dropped. Every other key, and the hash, is
+ * dropped before an event leaves the browser: `?q=` (a search term, often an
+ * address), ids, the `?token=` and `?email=` of a sign-in, confirm or
+ * invitation link, and a `?redirect=` wrapping one would otherwise reach
+ * PostHog.
  */
-export const ANALYTICS_URL_QUERY_ALLOWLIST: readonly string[] = ['range', 'tab', 'state', 'status']
+export const ANALYTICS_URL_QUERY_ALLOWLIST: readonly string[] = [
+  'range',
+  'tab',
+  'state',
+  'status',
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_content',
+]
 
 /**
  * Whether `ANALYTICS_CONSENT_MODE` is honoured; an app that says no always

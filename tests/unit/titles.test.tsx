@@ -168,6 +168,25 @@ describe('page titles', () => {
     })
   })
 
+  it('names the sign-in link page while it signs the visitor in', async () => {
+    useAuthStore.setState({
+      accessToken: null,
+      user: null,
+      isAuthenticated: false,
+      isBootstrapped: false,
+    })
+    server.use(
+      http.post('/api/v1/auth/refresh', () => fail('Unauthorized', 401)),
+      http.post('/api/v1/auth/link/verify', () => new Promise<never>(() => {}))
+    )
+    renderAppAt(`/auth/link?token=${'t'.repeat(43)}&email=ada%40example.test`)
+
+    await screen.findByRole('heading', { name: 'Signing you in', level: 1 })
+    await waitFor(() => {
+      expect(document.title).toBe('Signing in · Apex')
+    })
+  })
+
   it('gives every page a title: the root has a fallback and every leaf page its own', () => {
     const router = buildRouter('/')
     expect(router.routeTree.options.head).toBeTypeOf('function')

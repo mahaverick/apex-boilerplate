@@ -30,6 +30,17 @@ interface LinkSignIn {
   redirect: string | null
 }
 
+/**
+ * What a sign-in link verify posts: the token, and the address the link names
+ * when it names one; a blank one is left out. The server refuses an address
+ * that is not the token's own, so a page can show it while verifying without
+ * trusting the URL.
+ */
+interface SignInLinkVerifyInput {
+  token: string
+  email?: string | undefined
+}
+
 /** The key of the caller's linked sign-in methods, `['auth', 'providers']`. */
 export const authKeys = { providers: ['auth', 'providers'] as const }
 
@@ -54,21 +65,26 @@ export function useRequestSignInLink() {
 
 /**
  * Signs in with the token from an emailed link. Public like the request, so a
- * stale bearer token is never sent. A different signed-in user is switched out
- * first (`switchIdentity`). The store is signed in before `sign_in_completed`
- * is tracked, so the event carries the new identity.
+ * stale bearer token is never sent. The link's address goes with the token,
+ * so the server refuses a link whose address was swapped for someone else's.
+ * A different signed-in user is switched out first (`switchIdentity`). The
+ * store is signed in before `sign_in_completed` is tracked, so the event
+ * carries the new identity.
  */
 export function useVerifySignInLink() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (token: string) =>
-      unwrap(
+    mutationFn: async ({ token, email }: SignInLinkVerifyInput) => {
+      // The API counts an empty or blank address as a mismatch, so a link without one sends none.
+      const address = email?.trim()
+      return unwrap(
         await apiClient.post<ApiSuccess<LinkSignIn>>(
           '/auth/link/verify',
-          { token },
+          address ? { token, email: address } : { token },
           { skipAuthRetry: true, headers: { Authorization: false } }
         )
-      ),
+      )
+    },
     onSuccess: ({ accessToken, user }) => {
       switchIdentity(queryClient, user.id)
       useAuthStore.getState().login(accessToken, user)

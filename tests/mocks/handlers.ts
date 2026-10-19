@@ -554,12 +554,17 @@ export const handlers = [
   http.post('/api/v1/auth/link/request', () =>
     ok(null, 'Check your inbox for a sign-in link.', 202)
   ),
-  http.post('/api/v1/auth/link/verify', () =>
-    ok(
+  // The token signs in the test user; like the API, a different address in the body is refused and spends nothing.
+  http.post('/api/v1/auth/link/verify', async ({ request }) => {
+    const { email } = (await request.json()) as { email?: string }
+    if (email !== undefined && email.toLowerCase() !== testUser.email) {
+      return fail('This link has expired or was already used.', 400, 'LINK_INVALID')
+    }
+    return ok(
       { user: testUser, accessToken: 'link-token', isNewUser: false, redirect: null },
       'Signed in.'
     )
-  ),
+  }),
   // A "Confirm it's you" link confirmed for the calling session: a new access token with a fresh `auth_time`.
   http.post('/api/v1/auth/step-up/link/verify', () =>
     ok({ accessToken: 'stepped-up' }, 'Identity confirmed.')

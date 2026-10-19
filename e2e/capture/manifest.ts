@@ -126,6 +126,14 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     kind: 'redirect',
     to: 'the safe redirect or /overview, or /login?error=google_auth_failed (in an effect)',
   },
+  '/auth/link': {
+    kind: 'page',
+    area: 'auth',
+    shot: 'sign-in-link',
+    url: '/auth/link?token=0000000000000000',
+    as: 'anonymous',
+    sections: [],
+  },
   '/auth/confirm': {
     kind: 'page',
     area: 'auth',

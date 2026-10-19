@@ -7,7 +7,7 @@ import {
   getAnalyticsConfig,
   isAnalyticsAvailable,
 } from '@/observability/telemetry/config'
-import { sanitizeUrl } from '@/observability/telemetry/url-sanitizer'
+import { sanitizeEventUrls, sanitizeUrl } from '@/observability/telemetry/url-sanitizer'
 import { analyticsConfigFor } from '@/tests/mocks/posthog'
 
 const KEY = 'phc_test_key_not_real'
@@ -68,9 +68,18 @@ describe('isAnalyticsAvailable', () => {
 })
 
 describe('the app constants', () => {
-  it('names this app and keeps only its list enums in URLs', () => {
+  it('names this app and keeps only its list enums and the campaign keys in URLs', () => {
     expect(ANALYTICS_APP).toBe('apex')
-    expect(ANALYTICS_URL_QUERY_ALLOWLIST).toEqual(['range', 'tab', 'state', 'status'])
+    expect(ANALYTICS_URL_QUERY_ALLOWLIST).toEqual([
+      'range',
+      'tab',
+      'state',
+      'status',
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_content',
+    ])
   })
 })
 
@@ -82,5 +91,40 @@ describe('the URL allowlist, through the sanitizer', () => {
         ANALYTICS_URL_QUERY_ALLOWLIST
       )
     ).toBe('https://app.example.com/tenants?range=7d&state=open&status=active&tab=members')
+  })
+
+  /** A mailed "Confirm it's you" link as express builds it: the token, the address and the four campaign keys. */
+  const CAMPAIGN =
+    'utm_source=email&utm_medium=email&utm_campaign=step_up_link&utm_content=primary_button'
+
+  it('keeps utm_* and drops token and email from a mailed link', () => {
+    expect(
+      sanitizeUrl(
+        `https://apex.test/auth/confirm?token=ttt&email=a%40b.test&${CAMPAIGN}`,
+        ANALYTICS_URL_QUERY_ALLOWLIST
+      )
+    ).toBe(`https://apex.test/auth/confirm?${CAMPAIGN}`)
+  })
+
+  it('drops redirect, result and error', () => {
+    expect(
+      sanitizeUrl(
+        `https://apex.test/auth/link?redirect=%2Fusers&result=confirmed&error=step_up_failed&${CAMPAIGN}`,
+        ANALYTICS_URL_QUERY_ALLOWLIST
+      )
+    ).toBe(`https://apex.test/auth/link?${CAMPAIGN}`)
+  })
+
+  it('keeps utm_* and drops token and email on a $pageview', () => {
+    const event = {
+      uuid: 'u',
+      event: '$pageview',
+      properties: {
+        $current_url: `https://apex.test/auth/confirm?token=ttt&email=a%40b.test&${CAMPAIGN}`,
+      },
+    }
+    expect(sanitizeEventUrls(event, ANALYTICS_URL_QUERY_ALLOWLIST).properties.$current_url).toBe(
+      `https://apex.test/auth/confirm?${CAMPAIGN}`
+    )
   })
 })
