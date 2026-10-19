@@ -22,10 +22,13 @@ export function InvitationsSection({
   inviteDescription = DEFAULT_INVITE_DESCRIPTION,
   tenantId,
   showRoleError = true,
+  submitLabel,
 }: {
   slug: string
   inviteTitle?: string
   inviteDescription?: string
+  /** The invite button's text; the form's own default when unset. */
+  submitLabel?: string
   /** An Apex tenant page's id, scoping the cache; the Staff page passes none. */
   tenantId?: string
   /** False when a sibling section on the page reads the same role and reports its failure, so it shows once (the Staff page). Try again there retries this one too. */
@@ -54,7 +57,13 @@ export function InvitationsSection({
           <CardDescription>{inviteDescription}</CardDescription>
         </CardHeader>
         <CardContent>
-          <InviteMemberForm slug={slug} myRole={role} asStaff={asStaff} tenantId={tenantId} />
+          <InviteMemberForm
+            slug={slug}
+            myRole={role}
+            asStaff={asStaff}
+            tenantId={tenantId}
+            submitLabel={submitLabel}
+          />
         </CardContent>
       </Card>
       <PendingInvitations slug={slug} myRole={role} asStaff={asStaff} tenantId={tenantId} />

@@ -61,8 +61,7 @@ afterEach(() => {
 })
 
 /** What the Leave dialog says on the Staff page: leaving the platform tenant ends staff access. */
-const LEAVE_PLATFORM =
-  'You lose staff access immediately. An owner or admin will have to invite you back, unless your address is on an auto-join domain: then you rejoin as a viewer at your next sign-in.'
+const LEAVE_PLATFORM = 'You lose staff access immediately. An owner or admin must invite you back.'
 
 /** What the Leave dialog adds about invitations for a platform owner or admin. */
 const PLATFORM_INVITATIONS_REVOKED =
@@ -349,17 +348,39 @@ describe('/staff with the real sections', () => {
     expect(screen.queryAllByRole('button', { name: 'Remove' })).toEqual([])
   })
 
-  it('warns, when removing staff, that domain auto-join can bring them back', async () => {
+  it('says leaving staff needs a new invitation', async () => {
+    serveStaff('viewer', 'owner')
+    const user = userEvent.setup()
+    renderAppAt('/settings/platform/staff')
+    await user.click(await enabledLeave())
+    const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
+    expect(dialog).toHaveTextContent('An owner or admin must invite you back.')
+    expect(dialog).not.toHaveTextContent(/auto-join|domain/)
+  })
+
+  it('labels the Staff invite button Invite staff', async () => {
+    serveStaff('owner', 'viewer')
+    renderAppAt('/settings/platform/staff')
+    expect(await screen.findByRole('button', { name: 'Invite staff' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Invite member' })).not.toBeInTheDocument()
+  })
+
+  it('says removing staff needs a new invitation to return', async () => {
     serveStaff('owner', 'viewer')
     const user = userEvent.setup()
     renderAppAt('/settings/platform/staff')
     await user.click(await screen.findByRole('button', { name: 'Remove' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Remove Otto Staff?' })
-    expect(dialog).toHaveTextContent(/auto-join domain/)
+    expect(dialog).not.toHaveTextContent(/auto-join|PLATFORM_EMAIL_DOMAINS/)
+    expect(dialog).toHaveTextContent(
+      'Only a new invitation or pnpm platform:grant gives them staff access again.'
+    )
     expect(dialog).toHaveTextContent(
       'Pending invitations they sent here are revoked, and so are any they sent in other tenants for a role they can no longer grant there.'
     )
-    expect(dialog).toHaveTextContent(/deactivate their account from Users/)
+    expect(dialog).toHaveTextContent(
+      /To block their sign-in too, deactivate their account in Users/
+    )
     expect(within(dialog).getByRole('link', { name: 'Open Otto Staff in Users' })).toHaveAttribute(
       'href',
       `/users/${USER_ID_2}`

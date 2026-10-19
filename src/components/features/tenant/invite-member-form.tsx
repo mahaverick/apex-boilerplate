@@ -62,12 +62,15 @@ export function InviteMemberForm({
   myRole,
   asStaff = false,
   tenantId,
+  submitLabel = 'Invite member',
 }: {
   slug: string
   myRole: MembershipRole
   /** Acting through platform access: the send asks for a reason first. */
   asStaff?: boolean
   tenantId?: string
+  /** The submit button's text: "Invite staff" on the Staff page. */
+  submitLabel?: string
 }) {
   const inviteMember = useInviteMember(slug, tenantId)
   const stepUp = useStepUp()
@@ -199,7 +202,7 @@ export function InviteMemberForm({
                 busyLabel={waiting && isSubmitting ? STEP_UP_WAITING_LABEL : 'Sending…'}
                 type="submit"
               >
-                Invite member
+                {submitLabel}
               </BusyButton>
             )}
           </form.Subscribe>

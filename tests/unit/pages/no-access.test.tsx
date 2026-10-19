@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -13,6 +13,21 @@ describe('/no-access', () => {
 
   afterEach(() => {
     Object.defineProperty(window, 'location', { configurable: true, value: realLocation })
+  })
+
+  it('names the invitation and the admin as the ways in, and no email domain', async () => {
+    signIn({ ...testUser, platformRole: null })
+    renderAppAt('/no-access')
+    const ways = await screen.findByRole('list')
+    expect(
+      within(ways)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    ).toEqual([
+      'If you were invited, open the invitation email and select Join.',
+      'Otherwise, ask a platform admin to invite you.',
+    ])
+    expect(document.body).not.toHaveTextContent(/domain/i)
   })
 
   it('says the account has no access, names it, explains the ways in, and signs out', async () => {
@@ -31,7 +46,7 @@ describe('/no-access', () => {
       await screen.findByRole('heading', { name: 'This account has no platform access', level: 1 })
     ).toBeInTheDocument()
     expect(screen.getByText(byContent('Signed in as a.b@example.com.'))).toBeInTheDocument()
-    expect(screen.getByText(/open the invitation link again/)).toBeInTheDocument()
+    expect(screen.getByRole('list')).toBeInTheDocument()
 
     // Sign-out leaves by a full page load (`useLogout`), and jsdom's `assign` cannot be spied on, so the whole `location` is replaced.
     const assign = vi.fn()

@@ -97,11 +97,10 @@ const LEAVE_CUSTOMER = 'You stop being a member of this tenant. You keep your st
 
 /**
  * What the Leave dialog says on the Staff page. The platform role is the
- * platform-tenant membership, so leaving ends it; an auto-join domain brings
- * a verified address back as viewer at its next sign-in.
+ * platform-tenant membership, so leaving ends it, and only a new invitation
+ * brings it back.
  */
-const LEAVE_PLATFORM =
-  'You lose staff access immediately. An owner or admin will have to invite you back, unless your address is on an auto-join domain: then you rejoin as a viewer at your next sign-in.'
+const LEAVE_PLATFORM = 'You lose staff access immediately. An owner or admin must invite you back.'
 
 /** Added on a customer tenant for an owner or admin, the roles that can have sent invitations: leaving revokes them. */
 const INVITATIONS_REVOKED_ON_LEAVE = 'Pending invitations you sent are revoked.'
@@ -491,9 +490,8 @@ function RemoveMemberButton({
               <>
                 <Pii>{name}</Pii> loses staff access immediately. Pending invitations they sent here
                 are revoked, and so are any they sent in other tenants for a role they can no longer
-                grant there. If their address is on an auto-join domain (PLATFORM_EMAIL_DOMAINS),
-                they rejoin as a viewer at their next sign-in: deactivate their account from Users
-                to offboard them.{' '}
+                grant there. Only a new invitation or <code>pnpm platform:grant</code> gives them
+                staff access again. To block their sign-in too, deactivate their account in Users.{' '}
                 <Link
                   to={ROUTES.user}
                   params={{ userId: member.user.id }}

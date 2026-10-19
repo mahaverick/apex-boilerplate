@@ -45,16 +45,24 @@ describe('/settings/platform/staff', () => {
         showRoleError: false,
         inviteTitle: 'Invite staff',
         inviteDescription:
-          'We email them a link to join as staff. The link opens Apex; someone without an account creates one with that address.',
+          'We email them a link that signs them in to Apex as staff. The link creates their account if they don’t have one, and expires in 3 days.',
+        submitLabel: 'Invite staff',
       })
     }
   )
 
-  it('names the other two ways in', async () => {
+  it('names the one other way in', async () => {
     signIn({ ...testUser, platformRole: 'viewer' })
     renderAppAt('/settings/platform/staff')
-    expect(await screen.findByText(/join as viewers automatically/)).toBeInTheDocument()
+    const card = (await screen.findByRole('heading', { name: 'Other ways in', level: 2 })).closest(
+      '[data-slot="card"]'
+    )
+    expect(card).not.toBeNull()
     expect(screen.getByText('pnpm platform:grant')).toBeInTheDocument()
+    expect(card).toHaveTextContent(
+      'On the server, pnpm platform:grant gives an account any platform role. It creates the account if none exists. Use it to create the first owner.'
+    )
+    expect(card).not.toHaveTextContent(/PLATFORM_EMAIL_DOMAINS|automatically/)
   })
 
   it('is a Platform settings section, not a nav item', () => {
