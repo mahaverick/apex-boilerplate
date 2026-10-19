@@ -560,10 +560,6 @@ export const handlers = [
       'Signed in.'
     )
   ),
-  // express answers every registration the same way, address free or taken, so it never reveals an account.
-  http.post('/api/v1/auth/register', () =>
-    ok(null, 'If that address can be registered, a verification email has been sent.', 202)
-  ),
   // The step-up dialog reads `hasPassword`; the Security section ignores it and declares its own in its test.
   http.get('/api/v1/auth/providers', () =>
     ok(

@@ -55,9 +55,6 @@ export const REAUTH_REQUIRED = 'REAUTH_REQUIRED'
  */
 export const READ_ONLY_MODE = 'READ_ONLY_MODE'
 
-/** `code` on the 409 verify-email answers for a used link whose account is already verified. */
-export const EMAIL_ALREADY_VERIFIED = 'email_already_verified'
-
 /** A 409 for a slug a live tenant already uses: it belongs on the slug field. */
 export const SLUG_TAKEN = 'slug_taken'
 

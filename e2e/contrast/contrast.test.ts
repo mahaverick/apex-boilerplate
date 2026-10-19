@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module'
 import type { Page } from '@playwright/test'
-import { expect, FALLBACK_HEADER, test } from '../hermetic'
+import { expect, test } from '../hermetic'
 import { afterAnimations, afterFontsAndFrames } from '../timing'
 
 /**
@@ -51,25 +51,7 @@ const FLAGS_PAGE = `/e2e/harness/?path=/settings/platform/flags?userId=20000000-
 
 const SURFACES = [
   // Public: straight URLs, no harness.
-  { name: 'sign-in', url: '/login', heading: 'Sign in' },
-  // Invitation-only: without `?invitation=` the route redirects to /login, and the form waits on the invitation preview that `answerInvitationPreview` supplies.
-  {
-    name: 'register',
-    url: '/register?invitation=contrast-probe',
-    heading: 'Create an account',
-  },
-  { name: 'forgot-password', url: '/forgot-password', heading: 'Forgot your password?' },
-  // Both read `?token=`. Without one, reset-password renders its "This link is incomplete" branch, and the heading assertion keeps that swap from passing unnoticed.
-  {
-    name: 'reset-password',
-    url: '/reset-password?token=contrast-probe',
-    heading: 'Choose a new password',
-  },
-  {
-    name: 'verify-email',
-    url: '/verify-email?token=contrast-probe',
-    heading: 'Verify your email',
-  },
+  { name: 'sign-in', url: '/login', heading: 'Sign in to Apex' },
   // Authenticated, mounted through the harness. The overview is strict: any axe incomplete fails, except the chart legends, which 'chart legends' below proves instead.
   {
     name: 'overview',
@@ -207,27 +189,6 @@ type ContrastResult = {
   incomplete: { id: string; nodes: { target: string[]; failureSummary?: string }[] }[]
 }
 
-/** Answer the invitation preview the register page waits on, stamped so the hermetic teardown counts it as answered here. */
-async function answerInvitationPreview(page: Page): Promise<void> {
-  await page.route('**/api/v1/invitations/preview', (route) =>
-    route.fulfill({
-      status: 200,
-      headers: { [FALLBACK_HEADER]: '1' },
-      json: {
-        success: true,
-        message: 'Invitation retrieved.',
-        statusCode: 200,
-        data: {
-          tenant: { name: 'Acme Corp', slug: 'acme' },
-          role: 'viewer',
-          invitedBy: null,
-          email: 'invitee@example.com',
-        },
-      },
-    })
-  )
-}
-
 /**
  * Loads `url` in `theme`, waits until the surface `wait` names has rendered:
  * with its data, or in the loading state it names. Runs axe over it, or over
@@ -333,7 +294,6 @@ function report(surface: string, theme: string, result: ContrastResult): string 
 for (const theme of THEMES) {
   for (const surface of SURFACES) {
     test(`${surface.name} meets WCAG AA contrast in ${theme}`, async ({ page }) => {
-      if (surface.url.startsWith('/register')) await answerInvitationPreview(page)
       const result = await contrastOf(page, surface.url, theme, surface.heading)
 
       /**
@@ -1125,7 +1085,8 @@ test.describe('toasts', () => {
     {
       name: 'error toast',
       url: '/login?error=google_auth_failed',
-      title: 'Google sign-in failed. Please try again.',
+      title:
+        "Google sign-in didn't work for this account. Use your staff Google account, or sign in with an email link.",
       raise: async () => {},
     },
     {

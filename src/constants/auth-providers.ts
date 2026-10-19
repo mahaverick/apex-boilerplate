@@ -7,8 +7,11 @@ export interface SocialProvider {
   id: string
   /** Shown as "Continue with {label}". */
   label: string
-  /** The API route that starts the provider's flow: a same-origin top-level navigation. */
-  href: string
+  /**
+   * The API route that starts the provider's flow, a same-origin top-level
+   * navigation. `redirect` is a path already passed through `safeRedirect`.
+   */
+  hrefFor: (redirect?: string) => string
   Icon: TablerIcon
 }
 
@@ -18,8 +21,16 @@ export interface SocialProvider {
  * (its `GET /auth/providers` is the signed-in caller's linked methods), and it
  * mounts `/auth/google` only while Google OAuth is configured, so a deployment
  * without Google removes its entry here. An empty list renders no divider and
- * no buttons.
+ * no buttons. Google's start already names this app (`app=apex`) so the
+ * callback comes back here, and carries the landing path, which the API keeps
+ * only when its own redirect rule accepts it.
  */
 export const SOCIAL_PROVIDERS: readonly SocialProvider[] = [
-  { id: 'google', label: 'Google', href: GOOGLE_OAUTH_PATH, Icon: IconBrandGoogleFilled },
+  {
+    id: 'google',
+    label: 'Google',
+    hrefFor: (redirect) =>
+      `${GOOGLE_OAUTH_PATH}${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''}`,
+    Icon: IconBrandGoogleFilled,
+  },
 ]

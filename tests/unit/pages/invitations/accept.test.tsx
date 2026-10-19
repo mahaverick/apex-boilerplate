@@ -164,7 +164,7 @@ describe('accept page: the link itself', () => {
 describe('accept page, signed out', () => {
   beforeEach(arriveSignedOut)
 
-  it('says who invited them, to what, and offers both ways in', async () => {
+  it('says who invited them, to what, and offers Log in', async () => {
     renderAt(ACCEPT_PATH)
 
     expect(await screen.findByRole('heading', { name: 'Join Acme Corp' })).toBeInTheDocument()
@@ -175,7 +175,8 @@ describe('accept page, signed out', () => {
     expect(screen.getByText('Ada Lovelace')).toHaveClass('ph-sensitive', 'ph-mask')
     expect(screen.queryByText('Acme Corp', { selector: '.ph-mask' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Log in' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Create account' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Create account' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/create an account/i)).not.toBeInTheDocument()
     // Nothing to accept until someone is signed in.
     expect(screen.queryByRole('button', { name: 'Accept invitation' })).not.toBeInTheDocument()
   })
@@ -190,22 +191,9 @@ describe('accept page, signed out', () => {
       expect(router.state.location.pathname).toBe('/login')
     })
     expect(router.state.location.search).toEqual({ redirect: ACCEPT_PATH })
-    expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument()
-  })
-
-  it('sends "Create account" to /register with the invitation token', async () => {
-    const user = userEvent.setup()
-    const router = renderAt(ACCEPT_PATH)
-
-    const link = await screen.findByRole('link', { name: 'Create account' })
-    expect(link).toHaveAttribute('href', `/register?invitation=${TEST_INVITATION_TOKEN}`)
-    await user.click(link)
-
-    await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/register')
-    })
-    expect(router.state.location.search).toEqual({ invitation: TEST_INVITATION_TOKEN })
-    expect(await screen.findByLabelText('Email')).toHaveValue(testInvitationPreview.email)
+    expect(
+      await screen.findByRole('button', { name: 'Email me a sign-in link' })
+    ).toBeInTheDocument()
   })
 })
 

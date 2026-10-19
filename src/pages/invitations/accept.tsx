@@ -32,7 +32,7 @@ import { INVITATION_EMAIL_UNVERIFIED, type InvitationPreview } from '@/types/api
  * The invitation landing page. Top level, under neither `_auth` nor `_app`:
  * the link is opened signed out and signed in alike, and each guard would
  * bounce one of them. The API mails links to this fixed path. It renders
- * `AuthLayout` itself, like reset-password.tsx. `.catch` treats a non-string
+ * `AuthLayout` itself, like auth/callback.tsx. `.catch` treats a non-string
  * `?token=` as none, since the router JSON-parses search values.
  */
 export const Route = createFileRoute('/invitations/accept')({
@@ -100,33 +100,20 @@ function InvalidInvitation({ message }: { message: string }) {
   )
 }
 
-/** Signed out: log in (returning here) or create an account with the invited address. */
+/** Signed out: log in, returning here. */
 function SignedOut({ token, invitation }: { token: string; invitation: InvitationPreview }) {
   return (
     <InvitationCard
       title={`Join ${invitation.tenant.name}`}
       description={invitationSentence(invitation)}
     >
-      <div className="grid gap-3">
-        <Link
-          to={ROUTES.login}
-          search={{ redirect: acceptHref(token) }}
-          className={cn(buttonVariants(), 'w-full')}
-        >
-          Log in
-        </Link>
-        <Link
-          to={ROUTES.register}
-          search={{ invitation: token }}
-          className={cn(buttonVariants({ variant: 'outline' }), 'w-full')}
-        >
-          Create account
-        </Link>
-        <p className="text-sm text-muted-foreground">
-          New here? Create an account with <Pii>{invitation.email}</Pii>, verify it from your inbox,
-          then open this invitation link again.
-        </p>
-      </div>
+      <Link
+        to={ROUTES.login}
+        search={{ redirect: acceptHref(token) }}
+        className={cn(buttonVariants(), 'w-full')}
+      >
+        Log in
+      </Link>
     </InvitationCard>
   )
 }

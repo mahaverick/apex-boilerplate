@@ -422,7 +422,7 @@ describe('the axe gate itself', () => {
   it('reports a violation when there is one, so a green run means something', async () => {
     signOut()
     renderAppAt('/login')
-    await screen.findByRole('button', { name: 'Sign in' })
+    await screen.findByRole('button', { name: 'Email me a sign-in link' })
 
     const stray = document.createElement('p')
     stray.textContent = 'Not in any landmark.'
@@ -462,26 +462,11 @@ describe('signed-out pages', () => {
   beforeEach(signOut)
 
   it.each([
-    ['login', '/login', () => screen.findByRole('button', { name: 'Sign in' })],
+    ['login', '/login', () => screen.findByRole('button', { name: 'Email me a sign-in link' })],
     [
-      'register, from an invitation',
-      `/register?invitation=${TEST_INVITATION_TOKEN}`,
-      () => screen.findByRole('button', { name: 'Create account' }),
-    ],
-    [
-      'forgot-password',
-      '/forgot-password',
-      () => screen.findByRole('button', { name: 'Send reset link' }),
-    ],
-    [
-      'reset-password',
-      '/reset-password?token=a-token',
-      () => screen.findByRole('button', { name: 'Reset password' }),
-    ],
-    [
-      'verify-email',
-      '/verify-email?token=a-token',
-      () => screen.findByRole('button', { name: 'Verify email' }),
+      'login with the note',
+      '/login?notice=sign-in-link',
+      () => screen.findByText('Sign-in now uses email links.'),
     ],
     [
       'invitation accept',
@@ -499,14 +484,13 @@ describe('signed-out pages', () => {
     await expectNoViolations()
   })
 
-  it('register with an unusable invitation has no axe violations', async () => {
-    server.use(
-      http.post('/api/v1/invitations/preview', () =>
-        fail('Invalid invitation', 404, 'invitation_invalid')
-      )
-    )
-    renderAppAt(`/register?invitation=${TEST_INVITATION_TOKEN}`)
-    await screen.findByRole('heading', { name: 'This invitation can’t be used', level: 1 })
+  it('login after sending has no axe violations', async () => {
+    const user = userEvent.setup()
+    renderAppAt('/login')
+    await user.type(await screen.findByLabelText('Email'), 'ada@example.test')
+    await user.click(screen.getByRole('button', { name: 'Email me a sign-in link' }))
+    await screen.findByRole('heading', { level: 1, name: 'Check your inbox' })
+    await screen.findByRole('button', { name: /^Resend in/ })
     await expectNoViolations()
   })
 
@@ -522,7 +506,7 @@ describe('signed-out pages', () => {
     renderAppAt('/login?error=google_auth_failed')
     const region = await screen.findByRole('region', { name: 'Status messages' })
     const item = await within(region).findByRole('dialog', {
-      name: 'Google sign-in failed. Please try again.',
+      name: "Google sign-in didn't work for this account. Use your staff Google account, or sign in with an email link.",
     })
     await expectNoViolations()
 
@@ -1630,18 +1614,15 @@ describe('keyboard', () => {
     signOut()
     const user = userEvent.setup()
     renderAppAt('/login')
-    await screen.findByRole('button', { name: 'Sign in' })
+    await screen.findByRole('button', { name: 'Email me a sign-in link' })
 
     const expected = [
       // The skip link is every layout's first Tab stop.
       screen.getByRole('link', { name: 'Skip to content' }),
-      // login-03 puts the social buttons above the form. A plain anchor to a same-origin API route, so it is in the tab order without a handler.
-      screen.getByRole('link', { name: 'Continue with Google' }),
       screen.getByLabelText('Email'),
-      // The reset link sits in the password label's row, so it reads, and tabs, before the field.
-      screen.getByRole('link', { name: 'Forgot password?' }),
-      screen.getByLabelText('Password'),
-      screen.getByRole('button', { name: 'Sign in' }),
+      screen.getByRole('button', { name: 'Email me a sign-in link' }),
+      // Google follows the form. A plain anchor to a same-origin API route, so it is in the tab order without a handler.
+      screen.getByRole('link', { name: 'Continue with Google' }),
     ]
     expect(screen.getByRole('link', { name: 'Continue with Google' })).toHaveAttribute(
       'href',

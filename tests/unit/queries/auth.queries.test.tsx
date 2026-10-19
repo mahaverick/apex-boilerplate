@@ -7,10 +7,7 @@ import { RECENT_KEY_PREFIX } from '@/components/shared/command-palette/recent-ke
 import { resetSessionForTests } from '@/http/session'
 import { track, yieldSharedIdentity } from '@/observability/telemetry'
 import {
-  useForgotPassword,
-  useRegister,
   useRequestSignInLink,
-  useResendVerification,
   useRevokeOtherSessions,
   useVerifySignInLink,
 } from '@/queries/auth.queries'
@@ -37,43 +34,6 @@ function wrapper({ children }: { children: ReactNode }) {
     </QueryClientProvider>
   )
 }
-
-/** Records the JSON body of the next POST to `path`; the returned object's `body` is set when it lands. */
-function captureBody(path: string): { body?: unknown } {
-  const seen: { body?: unknown } = {}
-  server.use(
-    http.post(`/api/v1${path}`, async ({ request }) => {
-      seen.body = await request.json()
-      return ok(null, 'Accepted.', 202)
-    })
-  )
-  return seen
-}
-
-describe('Apex auth mutations send app: "apex"', () => {
-  it('on register', async () => {
-    const seen = captureBody('/auth/register')
-    const { result } = renderHook(() => useRegister(), { wrapper })
-    await act(() =>
-      result.current.mutateAsync({ email: 'a.b@example.com', password: 'a-long-enough-password' })
-    )
-    expect(seen.body).toMatchObject({ email: 'a.b@example.com', app: 'apex' })
-  })
-
-  it('on forgot-password', async () => {
-    const seen = captureBody('/auth/forgot-password')
-    const { result } = renderHook(() => useForgotPassword(), { wrapper })
-    await act(() => result.current.mutateAsync({ email: 'a.b@example.com' }))
-    expect(seen.body).toEqual({ email: 'a.b@example.com', app: 'apex' })
-  })
-
-  it('on resend-verification', async () => {
-    const seen = captureBody('/auth/resend-verification')
-    const { result } = renderHook(() => useResendVerification(), { wrapper })
-    await act(() => result.current.mutateAsync({ email: 'a.b@example.com' }))
-    expect(seen.body).toEqual({ email: 'a.b@example.com', app: 'apex' })
-  })
-})
 
 describe('useRevokeOtherSessions', () => {
   // With the refresh cookie the API spares only the chain it names; without it, the whole calling session is kept, sibling chains included.
