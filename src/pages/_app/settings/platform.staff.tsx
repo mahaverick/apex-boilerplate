@@ -45,13 +45,13 @@ function StaffPage() {
         slug={PLATFORM_TENANT_SLUG}
         showRoleError={false}
         inviteTitle="Invite staff"
-        inviteDescription="We email them a link that signs them in to Apex as staff. The link creates their account if they don’t have one, and expires in 3 days."
+        inviteDescription="We email them an invitation that expires in 3 days. When they open it, we email a sign-in link that adds them to Apex as staff."
         submitLabel="Invite staff"
       />
       <Card>
         <CardHeader>
           <CardTitle>
-            <h2>Other ways in</h2>
+            <h2>Another way in</h2>
           </CardTitle>
           <CardDescription>Invitations are not the only way someone becomes staff.</CardDescription>
         </CardHeader>

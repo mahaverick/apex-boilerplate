@@ -7,8 +7,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { canManageTenant } from '@/constants/roles'
 import { useMyRole } from '@/queries/tenant.queries'
 
+/** A customer tenant's invite card: a new address joins on the click, an existing account confirms by a sign-in link. */
 const DEFAULT_INVITE_DESCRIPTION =
-  'We email them a link to join. Someone without an account can create one with that address, then open the link again.'
+  'We email them an invitation that expires in 3 days. Someone new joins in one click. Someone with an account gets a sign-in link to confirm.'
 
 /**
  * Invite form and pending invitations. The invitation routes are owner/admin

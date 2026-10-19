@@ -948,6 +948,17 @@ describe('the invite form role select', () => {
     mockTenant('owner', [member(ME, 'owner', 'Me'), member(USER_ID_4, 'owner', 'Otto')])
   })
 
+  it('describes the invitation as it works now: one click for someone new, a sign-in link otherwise', async () => {
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    const heading = await screen.findByRole('heading', { name: 'Invite a member', level: 2 })
+    const card = heading.closest('[data-slot="card"]')
+    expect(card).toHaveTextContent(
+      'We email them an invitation that expires in 3 days. Someone new joins in one click. Someone with an account gets a sign-in link to confirm.'
+    )
+    expect(card).not.toHaveTextContent(/open the link again/)
+    expect(screen.getByRole('button', { name: 'Invite member' })).toBeInTheDocument()
+  })
+
   it('points its label at the VISIBLE control, not at a hidden input', async () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 

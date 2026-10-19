@@ -45,7 +45,7 @@ describe('/settings/platform/staff', () => {
         showRoleError: false,
         inviteTitle: 'Invite staff',
         inviteDescription:
-          'We email them a link that signs them in to Apex as staff. The link creates their account if they don’t have one, and expires in 3 days.',
+          'We email them an invitation that expires in 3 days. When they open it, we email a sign-in link that adds them to Apex as staff.',
         submitLabel: 'Invite staff',
       })
     }
@@ -54,7 +54,7 @@ describe('/settings/platform/staff', () => {
   it('names the one other way in', async () => {
     signIn({ ...testUser, platformRole: 'viewer' })
     renderAppAt('/settings/platform/staff')
-    const card = (await screen.findByRole('heading', { name: 'Other ways in', level: 2 })).closest(
+    const card = (await screen.findByRole('heading', { name: 'Another way in', level: 2 })).closest(
       '[data-slot="card"]'
     )
     expect(card).not.toBeNull()

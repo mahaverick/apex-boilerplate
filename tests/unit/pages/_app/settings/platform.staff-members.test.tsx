@@ -373,10 +373,11 @@ describe('/staff with the real sections', () => {
     const dialog = await screen.findByRole('alertdialog', { name: 'Remove Otto Staff?' })
     expect(dialog).not.toHaveTextContent(/auto-join|PLATFORM_EMAIL_DOMAINS/)
     expect(dialog).toHaveTextContent(
-      'Only a new invitation or pnpm platform:grant gives them staff access again.'
+      'A new invitation gives them staff access again. An operator can grant the role again on the server.'
     )
+    expect(dialog).not.toHaveTextContent(/pnpm|platform:grant/)
     expect(dialog).toHaveTextContent(
-      'Pending invitations they sent here are revoked, and so are any they sent in other tenants for a role they can no longer grant there.'
+      'Pending invitations they sent here are revoked. So are any they sent in other tenants for a role they can no longer grant there.'
     )
     expect(dialog).toHaveTextContent(
       /To block their sign-in too, deactivate their account in Users/

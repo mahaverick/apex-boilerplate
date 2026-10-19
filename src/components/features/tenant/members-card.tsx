@@ -489,9 +489,10 @@ function RemoveMemberButton({
             ) : slug === PLATFORM_TENANT_SLUG ? (
               <>
                 <Pii>{name}</Pii> loses staff access immediately. Pending invitations they sent here
-                are revoked, and so are any they sent in other tenants for a role they can no longer
-                grant there. Only a new invitation or <code>pnpm platform:grant</code> gives them
-                staff access again. To block their sign-in too, deactivate their account in Users.{' '}
+                are revoked. So are any they sent in other tenants for a role they can no longer
+                grant there. A new invitation gives them staff access again. An operator can grant
+                the role again on the server. To block their sign-in too, deactivate their account
+                in Users.{' '}
                 <Link
                   to={ROUTES.user}
                   params={{ userId: member.user.id }}
