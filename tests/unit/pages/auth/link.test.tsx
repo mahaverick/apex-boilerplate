@@ -442,6 +442,16 @@ describe('/auth/link, signed out', () => {
       'The service is unavailable. Try again in 1 minute.',
     ],
     [
+      'a 503 MAINTENANCE_MODE',
+      () =>
+        fail(
+          'The service is down for maintenance. Try again in 30 seconds.',
+          503,
+          'MAINTENANCE_MODE'
+        ),
+      'The service is down for maintenance. Try again in 30 seconds.',
+    ],
+    [
       'network',
       () => HttpResponse.error(),
       "We couldn't reach the server. Check your connection, then try again.",

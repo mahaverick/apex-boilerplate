@@ -137,6 +137,19 @@ describe('/auth/callback', () => {
     }
   )
 
+  it.each(['/auth/link?token=abc', '/auth/confirm?token=abc', '/AUTH/Link/'])(
+    'does not land on a token page (%s); the user goes to Overview',
+    async (tokenPage) => {
+      arriveSignedIn()
+      const router = renderAt(`/auth/callback?redirect=${encodeURIComponent(tokenPage)}`)
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe('/overview')
+      })
+      expect(router.state.location.href).not.toContain('token')
+    }
+  )
+
   it('tracks sign_in_completed with method google, once under StrictMode', async () => {
     arriveSignedIn()
     const router = renderAt('/auth/callback')

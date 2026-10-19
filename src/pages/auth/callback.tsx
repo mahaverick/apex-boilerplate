@@ -8,7 +8,7 @@ import { AuthPagePending } from '@/components/shared/pending-templates'
 import { Spinner } from '@/components/ui/spinner'
 import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
-import { safeRedirect } from '@/lib/safe-redirect'
+import { safeLanding } from '@/lib/landing'
 import { track } from '@/observability/telemetry'
 import { useAuthStore } from '@/states/auth.store'
 
@@ -49,7 +49,7 @@ function OAuthCallbackPage() {
       return
     }
     track('sign_in_completed', { method: 'google' })
-    const target = safeRedirect(redirect)
+    const target = safeLanding(redirect)
     void (target
       ? navigate({ href: target, replace: true })
       : navigate({ to: ROUTES.overview, replace: true }))
