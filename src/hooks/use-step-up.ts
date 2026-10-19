@@ -19,3 +19,17 @@ export function useStepUp(): StepUp {
   if (!value) throw new Error('useStepUp must be used inside <StepUpProvider>')
   return value
 }
+
+/**
+ * True while "Confirm it's you" waits on the user: from the refused request
+ * until they confirm or dismiss. False outside `<StepUpProvider>`.
+ */
+export const StepUpWaitingContext = createContext(false)
+
+/** Whether a step-up is waiting, so the action's own dialog can say what it waits on. */
+export function useStepUpWaiting(): boolean {
+  return useContext(StepUpWaitingContext)
+}
+
+/** The busy label of an action's button while its step-up waits. */
+export const STEP_UP_WAITING_LABEL = 'Waiting for you to confirm…'

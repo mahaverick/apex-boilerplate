@@ -9,7 +9,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axeCore from 'axe-core'
 import { http } from 'msw'
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ThemeToggle } from '@/components/features/theme-toggle'
 import { recordRecent } from '@/components/shared/command-palette/recent-items'
 import { PageSkeleton, type PageVariant } from '@/components/shared/page-skeleton'
@@ -1515,23 +1515,97 @@ describe('open overlays', () => {
     await expectNoViolations()
   })
 
-  it('has no violations with the step-up dialog open', async () => {
+  /**
+   * Suspends Acme through the reason dialog into a REAUTH_REQUIRED, so
+   * "Confirm it's you" stacks over that dialog, and returns it.
+   */
+  async function openStepUpOverReason(user: ReturnType<typeof userEvent.setup>) {
     serveTenant('active')
     server.use(
       http.post(`/api/v1/platform/tenants/${TENANT_ID}/suspend`, () =>
         fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
       )
     )
-    const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}`)
     await user.click(await screen.findByRole('button', { name: 'Actions' }))
     await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }))
     const reason = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
     await user.type(within(reason).getByLabelText('Reason'), 'x')
     await user.click(within(reason).getByRole('button', { name: 'Suspend' }))
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    expect(await within(stepUp).findByLabelText('Password')).toBeInTheDocument()
+    return screen.findByRole('dialog', { name: 'Confirm it’s you' })
+  }
+
+  it('has no violations with the step-up dialog open on its choices (step-up choose)', async () => {
+    server.use(
+      http.get('/api/v1/auth/providers', () =>
+        ok(
+          {
+            providers: [
+              { provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' },
+              { provider: 'google', linkedAt: '2026-01-02T00:00:00.000Z' },
+            ],
+          },
+          'Auth providers retrieved.'
+        )
+      )
+    )
+    const user = userEvent.setup()
+    const stepUp = await openStepUpOverReason(user)
+    expect(
+      await within(stepUp).findByRole('button', { name: 'Re-confirm with Google' })
+    ).toBeInTheDocument()
     await expectNoViolations()
+  })
+
+  it('has no violations with the step-up dialog waiting on a link (step-up email sent)', async () => {
+    const user = userEvent.setup()
+    const stepUp = await openStepUpOverReason(user)
+    await user.click(within(stepUp).getByRole('button', { name: 'Email me a link' }))
+    expect(
+      await within(stepUp).findByText(
+        'Check your email. Click the link in this browser to continue.'
+      )
+    ).toBeInTheDocument()
+    // The reason dialog beneath is inert behind the modal step-up, so its button is in the hidden tree.
+    expect(
+      screen.getByRole('button', { name: 'Waiting for you to confirm…', hidden: true })
+    ).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the step-up dialog waiting on Google (step-up waiting on Google)', async () => {
+    server.use(
+      http.get('/api/v1/auth/providers', () =>
+        ok(
+          {
+            providers: [
+              { provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' },
+              { provider: 'google', linkedAt: '2026-01-02T00:00:00.000Z' },
+            ],
+          },
+          'Auth providers retrieved.'
+        )
+      )
+    )
+    // jsdom has no window.open; a stand-in popup takes the Google URL.
+    const open = vi
+      .spyOn(window, 'open')
+      .mockReturnValue({ location: { assign: vi.fn() }, close: vi.fn() } as unknown as Window)
+    try {
+      const user = userEvent.setup()
+      const stepUp = await openStepUpOverReason(user)
+      await user.click(
+        await within(stepUp).findByRole('button', { name: 'Re-confirm with Google' })
+      )
+      expect(
+        await within(stepUp).findByText(
+          'Finish in the Google window. This dialog continues on its own when you’re done.'
+        )
+      ).toBeInTheDocument()
+      await expectNoViolations()
+    } finally {
+      open.mockRestore()
+    }
   })
 
   it('has no violations with the Edit details dialog open', async () => {
@@ -1613,36 +1687,6 @@ describe('open overlays', () => {
       name: 'Permanently delete this account?',
     })
     expect(within(dialog).getByLabelText('Type cleo@example.com to confirm')).toBeInTheDocument()
-    await expectNoViolations()
-  })
-
-  it('has no violations with the step-up dialog open for an account without a password', async () => {
-    serveTenant('active')
-    server.use(
-      http.post(`/api/v1/platform/tenants/${TENANT_ID}/suspend`, () =>
-        fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
-      ),
-      http.get('/api/v1/auth/providers', () =>
-        ok(
-          {
-            providers: [{ provider: 'google', linkedAt: '2026-01-01T00:00:00.000Z' }],
-            hasPassword: false,
-          },
-          'Auth providers retrieved.'
-        )
-      )
-    )
-    const user = userEvent.setup()
-    renderAppAt(`/tenants/${TENANT_ID}`)
-    await user.click(await screen.findByRole('button', { name: 'Actions' }))
-    await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }))
-    const reason = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
-    await user.type(within(reason).getByLabelText('Reason'), 'x')
-    await user.click(within(reason).getByRole('button', { name: 'Suspend' }))
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    expect(
-      await within(stepUp).findByRole('link', { name: 'Open your user page' })
-    ).toBeInTheDocument()
     await expectNoViolations()
   })
 

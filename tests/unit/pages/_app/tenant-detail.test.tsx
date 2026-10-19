@@ -22,6 +22,7 @@ import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import { confirmStepUp, dismissStepUp } from '@/tests/mocks/step-up'
 import {
   REAUTH_REQUIRED,
   type PlatformTenantDetail,
@@ -291,10 +292,7 @@ describe('/tenants/$tenantId', () => {
           return bodies.length === 1
             ? fail('Recent sign-in required', 401, REAUTH_REQUIRED)
             : ok(detail({ lifecycleState: 'suspended' }), 'Tenant suspended.')
-        }),
-        http.post('/api/v1/auth/reauthenticate', () =>
-          ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-        )
+        })
       )
       renderAppAt(`/tenants/${TENANT_ID}`)
       const { user, menu } = await openMenu()
@@ -304,16 +302,14 @@ describe('/tenants/$tenantId', () => {
       await user.type(within(reasonDialog).getByLabelText('Reason'), 'unpaid invoices')
       await user.click(within(reasonDialog).getByRole('button', { name: 'Suspend' }))
 
-      const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-      await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
-      await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+      const stepped = await confirmStepUp(user)
 
       expect(await screen.findByText('Acme Corp suspended.')).toBeInTheDocument()
       expect(bodies).toEqual([{ reason: 'unpaid invoices' }, { reason: 'unpaid invoices' }])
       expect(await screen.findByText('Suspended')).toBeInTheDocument()
       expect(useAuthStore.getState()).toMatchObject({
         isAuthenticated: true,
-        accessToken: 'stepped-up-token',
+        accessToken: stepped,
       })
     })
 
@@ -460,17 +456,34 @@ describe('/tenants/$tenantId', () => {
       await user.type(within(dialog).getByLabelText('Owner email'), 'new@acme.test')
       await user.type(within(dialog).getByLabelText('Reason'), 'owner left')
       await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
-      await screen.findByLabelText('Password')
-
-      await user.keyboard('{Escape}')
-
-      await waitFor(() =>
-        expect(screen.queryByRole('dialog', { name: 'Confirm it’s you' })).not.toBeInTheDocument()
-      )
+      await dismissStepUp(user)
       const still = screen.getByRole('dialog', { name: 'Owner invitation' })
       expect(await within(still).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
       expect(within(still).getByLabelText('Reason')).toHaveValue('owner left')
       await waitFor(() => expect(still.contains(document.activeElement)).toBe(true))
+    })
+
+    it('says the owner invitation waits on the confirmation while the step-up waits', async () => {
+      serve(detail({ owners: [] }))
+      server.use(
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/owner-invitation`, () =>
+          fail('Recent sign-in required', 401, REAUTH_REQUIRED)
+        )
+      )
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Resend owner invitation' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Owner invitation' })
+      await user.type(within(dialog).getByLabelText('Owner email'), 'new@acme.test')
+      await user.type(within(dialog).getByLabelText('Reason'), 'owner left')
+      await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
+      await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+      // The owner dialog is inert behind the modal step-up, so its button is in the hidden tree.
+      const busy = within(dialog).getByRole('button', {
+        name: 'Waiting for you to confirm…',
+        hidden: true,
+      })
+      expect(busy).toBeDisabled()
     })
 
     it('shows a deactivated invitee’s 409 inside the owner-invitation dialog', async () => {
@@ -510,9 +523,6 @@ describe('/tenants/$tenantId', () => {
           purged = true
           return ok(null, 'Tenant permanently deleted.')
         }),
-        http.post('/api/v1/auth/reauthenticate', () =>
-          ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-        ),
         http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.'))
       )
       const router = renderAppAt(`/tenants/${TENANT_ID}`)
@@ -525,9 +535,7 @@ describe('/tenants/$tenantId', () => {
       await user.type(within(dialog).getByLabelText('Type acme to confirm'), 'acme')
       await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }))
 
-      const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-      await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
-      await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+      await confirmStepUp(user)
 
       await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
       expect(router.state.location.search).toEqual({ state: 'archived' })

@@ -9,7 +9,7 @@
 import '@/lib/zod-jitless'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
-import { http, passthrough } from 'msw'
+import { http, HttpResponse, passthrough } from 'msw'
 import { setupWorker } from 'msw/browser'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -1422,11 +1422,19 @@ const worker = setupWorker(
           { provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' },
           { provider: 'google', linkedAt: '2026-01-02T00:00:00.000Z' },
         ],
-        hasPassword: true,
       },
       'Auth providers retrieved.'
     )
   ),
+  // "Confirm it's you": a link mailed, the API mailing again in a minute, and a Google start recorded.
+  http.post('/api/v1/auth/step-up/link/request', () =>
+    ok(
+      { resendAvailableAt: new Date(Date.now() + 60_000).toISOString() },
+      'Check your inbox for a confirmation link.',
+      202
+    )
+  ),
+  http.post('/api/v1/auth/step-up/google/start', () => new HttpResponse(null, { status: 204 })),
   http.post('/api/v1/auth/sessions/revoke-others', () =>
     ok({ revoked: 2 }, 'Other sessions signed out.')
   ),

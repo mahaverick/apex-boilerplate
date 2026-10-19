@@ -30,7 +30,7 @@ import {
 } from '@/constants/roles'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
-import { useStepUp } from '@/hooks/use-step-up'
+import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
 import { codeFrom, fieldErrorsFrom, messageFrom } from '@/lib/api-error'
 import { toast } from '@/lib/toast'
 import { useInviteMember } from '@/queries/tenant-writes.queries'
@@ -71,6 +71,7 @@ export function InviteMemberForm({
 }) {
   const inviteMember = useInviteMember(slug, tenantId)
   const stepUp = useStepUp()
+  const waiting = useStepUpWaiting()
   const serverErrors = useServerErrors()
   const [toConfirm, setToConfirm] = useState<InviteMemberInput | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
@@ -190,9 +191,18 @@ export function InviteMemberForm({
 
         <div className="grid gap-2 sm:pt-6">
           <FormError />
-          <BusyButton busy={inviteMember.isPending} busyLabel="Sending…" type="submit">
-            Invite member
-          </BusyButton>
+          <form.Subscribe selector={(state) => state.isSubmitting}>
+            {(isSubmitting) => (
+              <BusyButton
+                // The refused send is not pending while its step-up waits; the submit still is.
+                busy={inviteMember.isPending || (waiting && isSubmitting)}
+                busyLabel={waiting && isSubmitting ? STEP_UP_WAITING_LABEL : 'Sending…'}
+                type="submit"
+              >
+                Invite member
+              </BusyButton>
+            )}
+          </form.Subscribe>
         </div>
       </Form>
       {asStaff && (

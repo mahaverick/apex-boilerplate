@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { StepUpDialog } from '@/components/features/step-up/step-up-dialog'
-import { StepUpContext, type StepUp } from '@/hooks/use-step-up'
-import { isReauthRequired, sentWithCurrentToken } from '@/lib/step-up'
+import { StepUpContext, StepUpWaitingContext, type StepUp } from '@/hooks/use-step-up'
+import { isReauthRequired, markRefusedAfterConfirm, sentWithCurrentToken } from '@/lib/step-up'
 
 /** An action refused for a stale sign-in: `resolve` retries it after a confirmation, `reject` surfaces its refusal after a dismissal. */
 interface Waiter {
@@ -13,6 +13,8 @@ interface Waiter {
  * Owns the one "Confirm it's you" dialog. Every request refused with
  * REAUTH_REQUIRED while it is open waits on the same confirmation, so two
  * refused actions never stack two dialogs, and one confirmation retries both.
+ * `useStepUpWaiting()` reads true for as long as the dialog is open, so the
+ * action's own dialog can say what it waits on.
  */
 export function StepUpProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
@@ -52,7 +54,12 @@ export function StepUpProvider({ children }: { children: ReactNode }) {
             throw error
           }
           // Once: a second REAUTH_REQUIRED rejects rather than reopening the dialog.
-          return action()
+          try {
+            return await action()
+          } catch (retryError) {
+            if (isReauthRequired(retryError)) markRefusedAfterConfirm(retryError)
+            throw retryError
+          }
         }
       },
     }),
@@ -61,7 +68,7 @@ export function StepUpProvider({ children }: { children: ReactNode }) {
 
   return (
     <StepUpContext value={value}>
-      {children}
+      <StepUpWaitingContext value={open}>{children}</StepUpWaitingContext>
       <StepUpDialog
         open={open}
         onConfirmed={() => finish(true)}

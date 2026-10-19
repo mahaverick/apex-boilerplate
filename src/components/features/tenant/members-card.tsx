@@ -8,11 +8,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { createColumnHelper } from '@tanstack/react-table'
 import { createContext, useContext, useRef, useState } from 'react'
 import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
-import {
-  ReasonDialog,
-  STEP_UP_DISMISSED,
-  type ReasonDialogProps,
-} from '@/components/features/reason-dialog'
+import { ReasonDialog, type ReasonDialogProps } from '@/components/features/reason-dialog'
 import { ROLE_FILTER } from '@/components/features/tenant/role-filter'
 import { DataTable } from '@/components/shared/data-table/data-table'
 import type { DataTableFeatures } from '@/components/shared/data-table/data-table-model'
@@ -55,10 +51,10 @@ import {
 } from '@/constants/roles'
 import { PLATFORM_TENANT_SLUG, ROUTES } from '@/constants/routes'
 import { useFocusAfter } from '@/hooks/use-focus-after'
-import { useStepUp } from '@/hooks/use-step-up'
+import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
 import { messageFrom, statusFrom } from '@/lib/api-error'
 import { fullName } from '@/lib/format'
-import { isReauthRequired } from '@/lib/step-up'
+import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { noteError } from '@/observability/errors'
 import { analyticsKey } from '@/observability/telemetry'
@@ -209,6 +205,7 @@ function RoleCell({
 }) {
   const updateRole = useUpdateMemberRole(slug)
   const stepUp = useStepUp()
+  const waiting = useStepUpWaiting()
   const [pendingRole, setPendingRole] = useState<MembershipRole | null>(null)
   const targetRole = member.membership.role
   const name = memberName(member)
@@ -233,7 +230,8 @@ function RoleCell({
     <div className="grid gap-1">
       <Select
         value={targetRole}
-        disabled={isLastOwner || ownersPending || updateRole.isPending}
+        // The refused change is not pending while its step-up waits; the select holds still all the same.
+        disabled={isLastOwner || ownersPending || updateRole.isPending || waiting}
         onValueChange={(value: string | null) => {
           if (value === null || value === targetRole) return
           if (asStaff) {
@@ -411,10 +409,11 @@ function RemoveMemberButton({
   const leaveTenant = useLeaveTenant(slug)
   const queryClient = useQueryClient()
   const stepUp = useStepUp()
+  const waiting = useStepUpWaiting()
   const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [stepUpDismissed, setStepUpDismissed] = useState(false)
+  const [stepUpRefused, setStepUpRefused] = useState<string | null>(null)
   const name = memberName(member)
   const isPending = isSelf ? leaveTenant.isPending : removeMember.isPending
 
@@ -459,7 +458,7 @@ function RemoveMemberButton({
       onOpenChange={(next) => {
         // While the removal runs, a step-up may be open over this dialog: Escape and the backdrop belong to it.
         if (!next && busy) return
-        setStepUpDismissed(false)
+        setStepUpRefused(null)
         setIsOpen(next)
       }}
     >
@@ -511,10 +510,10 @@ function RemoveMemberButton({
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {stepUpDismissed && (
+        {stepUpRefused !== null && (
           <Alert variant="destructive">
             <IconAlertCircle aria-hidden="true" />
-            <AlertTitle>{STEP_UP_DISMISSED}</AlertTitle>
+            <AlertTitle>{stepUpRefused}</AlertTitle>
           </Alert>
         )}
         <AlertDialogFooter>
@@ -524,7 +523,7 @@ function RemoveMemberButton({
             disabled={busy}
             onClick={() => {
               setBusy(true)
-              setStepUpDismissed(false)
+              setStepUpRefused(null)
               stepUp
                 .run(() =>
                   isSelf
@@ -549,7 +548,7 @@ function RemoveMemberButton({
                   (error: unknown) => {
                     setBusy(false)
                     if (isReauthRequired(error)) {
-                      setStepUpDismissed(true)
+                      setStepUpRefused(stepUpRefusal(error))
                       return
                     }
                     if (isSelf && statusFrom(error) === 404) {
@@ -563,7 +562,7 @@ function RemoveMemberButton({
                 )
             }}
           >
-            {isSelf ? 'Leave' : 'Remove'}
+            {busy && waiting ? STEP_UP_WAITING_LABEL : isSelf ? 'Leave' : 'Remove'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

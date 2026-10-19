@@ -143,11 +143,45 @@ export function useConfirmStepUpLink() {
   })
 }
 
-/** The sign-in methods linked to the caller's account, and whether it has a password. */
+/** The sign-in methods linked to the caller's account. */
 export function useAuthProviders() {
   return useQuery({
     queryKey: authKeys.providers,
     queryFn: async () => unwrap(await apiClient.get<ApiSuccess<AuthProviders>>('/auth/providers')),
+  })
+}
+
+/**
+ * Mails a "Confirm it's you" link for this session (express
+ * `POST /auth/step-up/link/request`, which takes `{}`). It answers 202 with
+ * when the next request may mail again; inside that wait, a 429
+ * `STEP_UP_LINK_COOLDOWN` with `Retry-After`.
+ */
+export function useRequestStepUpLink() {
+  return useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await apiClient.post<ApiSuccess<{ resendAvailableAt: string }>>(
+          '/auth/step-up/link/request',
+          {}
+        )
+      ),
+  })
+}
+
+/**
+ * Records a Google "Confirm it's you" for this session (express
+ * `POST /auth/step-up/google/start`, which takes `{}` and answers 204 with the
+ * OAuth session cookie). The popup's navigation to `GOOGLE_STEP_UP_PATH`
+ * carries that cookie and no bearer, which is why the start is its own call.
+ * A 409 `google_not_linked` means the account has no Google sign-in, and a
+ * 404 means Google sign-in is off on this API.
+ */
+export function useStartGoogleStepUp() {
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.post('/auth/step-up/google/start', {})
+    },
   })
 }
 
@@ -207,24 +241,5 @@ export function useLogout({ returnTo = ROUTES.login }: { returnTo?: string } = {
       }
       toast.error(LOGOUT_FAILED_MESSAGE)
     },
-  })
-}
-
-/**
- * Confirms the signed-in user's password for a step-up (express
- * `POST /auth/reauthenticate`) and swaps in the fresh access token it
- * returns, which carries a fresh `auth_time`. A wrong password is a 400, never
- * a 401, so the interceptor never reads it as a verdict on the session.
- */
-export function useReauthenticate() {
-  const setToken = useAuthStore((s) => s.setToken)
-  return useMutation({
-    mutationFn: async (password: string) =>
-      unwrap(
-        await apiClient.post<ApiSuccess<{ accessToken: string }>>('/auth/reauthenticate', {
-          password,
-        })
-      ),
-    onSuccess: (data) => setToken(data.accessToken),
   })
 }

@@ -18,6 +18,7 @@ import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import { confirmStepUp, dismissStepUp } from '@/tests/mocks/step-up'
 
 /**
  * A gate the members card's `navigate` waits on before navigating, so a test can hold a navigation
@@ -377,10 +378,7 @@ describe('/staff with the real sections', () => {
               { ...staff(USER_ID_2, MEMBERSHIP_ID_2, 'admin', 'Otto').membership },
               'Role updated.'
             )
-      }),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-      )
+      })
     )
     const success = vi.spyOn(toast, 'success')
     const user = userEvent.setup()
@@ -388,9 +386,7 @@ describe('/staff with the real sections', () => {
     await user.click(await screen.findByRole('combobox', { name: 'Role for Otto Staff' }))
     await user.click(await screen.findByRole('option', { name: 'Admin' }))
 
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+    await confirmStepUp(user)
 
     await waitFor(() => expect(success).toHaveBeenCalledTimes(1))
     const { container } = render(<>{success.mock.calls[0]![0]}</>)
@@ -408,10 +404,7 @@ describe('/staff with the real sections', () => {
         return calls === 1
           ? fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
           : ok(null, 'Member removed.')
-      }),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-      )
+      })
     )
     const success = vi.spyOn(toast, 'success')
     const user = userEvent.setup()
@@ -420,9 +413,7 @@ describe('/staff with the real sections', () => {
     const dialog = await screen.findByRole('alertdialog', { name: 'Remove Otto Staff?' })
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+    await confirmStepUp(user)
 
     await waitFor(() => expect(success).toHaveBeenCalledTimes(1))
     const { container } = render(<>{success.mock.calls[0]![0]}</>)
@@ -475,13 +466,7 @@ describe('/staff with the real sections', () => {
     await user.click(await enabledLeave())
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
-    await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-
-    await user.keyboard('{Escape}')
-
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Confirm it’s you' })).not.toBeInTheDocument()
-    )
+    await dismissStepUp(user)
     const still = screen.getByRole('alertdialog', { name: 'Leave this tenant?' })
     expect(await within(still).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
     expect(calls).toBe(1)
@@ -586,10 +571,7 @@ describe('/staff with the real sections', () => {
         return calls === 1
           ? fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
           : ok(null, 'You left the tenant.')
-      }),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-      )
+      })
     )
     const user = userEvent.setup()
     const router = renderAppAt('/settings/platform/staff')
@@ -597,9 +579,7 @@ describe('/staff with the real sections', () => {
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
 
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'zqS7-leave-staff')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+    await confirmStepUp(user)
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/overview'))
     expect(calls).toBe(2)

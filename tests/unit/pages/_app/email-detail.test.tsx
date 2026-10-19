@@ -19,6 +19,7 @@ import {
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { emailDetail, fail, ok, testEmailPreview, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import { confirmStepUp } from '@/tests/mocks/step-up'
 import { REAUTH_REQUIRED, type EmailMessageDetail } from '@/types/api.types'
 
 const PAGE = `/emails/${EMAIL_ID}`
@@ -476,10 +477,7 @@ describe('/emails/$emailId', () => {
         return bodies.length === 1
           ? fail('Recent sign-in required', 401, REAUTH_REQUIRED)
           : ok({}, 'Resend requested.', 202)
-      }),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-      )
+      })
     )
     const user = userEvent.setup()
     renderAppAt(PAGE)
@@ -489,9 +487,7 @@ describe('/emails/$emailId', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Staff invite lost')
     await user.click(within(dialog).getByRole('button', { name: 'Resend' }))
 
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+    const stepped = await confirmStepUp(user)
 
     expect(
       await screen.findByText('Resend requested — it appears in the timeline shortly')
@@ -499,7 +495,7 @@ describe('/emails/$emailId', () => {
     expect(bodies).toEqual([{ reason: 'Staff invite lost' }, { reason: 'Staff invite lost' }])
     expect(useAuthStore.getState()).toMatchObject({
       isAuthenticated: true,
-      accessToken: 'stepped-up-token',
+      accessToken: stepped,
     })
   })
 
@@ -515,10 +511,7 @@ describe('/emails/$emailId', () => {
         return bodies.length === 1
           ? fail('Confirm your identity to continue', 401, REAUTH_REQUIRED)
           : ok({}, 'Resend requested.', 202)
-      }),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-      )
+      })
     )
     const user = userEvent.setup()
     renderAppAt(PAGE)
@@ -529,9 +522,7 @@ describe('/emails/$emailId', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Customer lost the invite')
     await user.click(within(dialog).getByRole('button', { name: 'Resend' }))
 
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'zqS7-step-up-pass')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+    await confirmStepUp(user)
 
     expect(
       await screen.findByText('Resend requested — it appears in the timeline shortly')

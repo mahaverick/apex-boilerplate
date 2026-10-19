@@ -1,6 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { useState, type ComponentProps } from 'react'
-import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
+import { ROLE_DENIED_ACTION } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import {
@@ -24,9 +24,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
-import { useStepUp } from '@/hooks/use-step-up'
+import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
 import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
-import { isReauthRequired } from '@/lib/step-up'
+import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { useReissueOwnerInvitation } from '@/queries/tenant-admin.queries'
 import { ownerInvitationSchema } from '@/schemas/tenant.schemas'
@@ -95,6 +95,7 @@ function OwnerInvitationForm({
 }) {
   const reissue = useReissueOwnerInvitation(tenant.id)
   const stepUp = useStepUp()
+  const waiting = useStepUpWaiting()
   const serverErrors = useServerErrors()
   const form = useForm({
     defaultValues: { email: tenant.pendingOwnerInvitation?.email ?? '', reason: '' },
@@ -118,7 +119,7 @@ function OwnerInvitationForm({
       } catch (error) {
         onBusyChange(false)
         if (isReauthRequired(error)) {
-          serverErrors.setFormErrors([STEP_UP_DISMISSED])
+          serverErrors.setFormErrors([stepUpRefusal(error)])
           return
         }
         if (codeFrom(error) === INVITEE_DEACTIVATED) {
@@ -176,7 +177,12 @@ function OwnerInvitationForm({
       </FormField>
       <FormError />
       <DialogFooter>
-        <BusyButton busy={reissue.isPending} busyLabel="Sending…" type="submit">
+        <BusyButton
+          // The first send was refused, so it is not pending while the step-up waits.
+          busy={reissue.isPending || waiting}
+          busyLabel={waiting ? STEP_UP_WAITING_LABEL : 'Sending…'}
+          type="submit"
+        >
           Send invitation
         </BusyButton>
       </DialogFooter>

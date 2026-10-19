@@ -569,13 +569,20 @@ export const handlers = [
   http.post('/api/v1/auth/step-up/link/verify', () =>
     ok({ accessToken: 'stepped-up' }, 'Identity confirmed.')
   ),
-  // The step-up dialog reads `hasPassword`; the Security section ignores it and declares its own in its test.
+  // A "Confirm it's you" link mailed: the API will mail another one minute after this one.
+  http.post('/api/v1/auth/step-up/link/request', () =>
+    ok(
+      { resendAvailableAt: new Date(Date.now() + 60_000).toISOString() },
+      'Check your inbox for a confirmation link.',
+      202
+    )
+  ),
+  // A Google "Confirm it's you" recorded; the popup goes on to Google.
+  http.post('/api/v1/auth/step-up/google/start', () => new HttpResponse(null, { status: 204 })),
+  // Email only, so the step-up dialog offers no Google; a test that needs Google serves its own.
   http.get('/api/v1/auth/providers', () =>
     ok(
-      {
-        providers: [{ provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' }],
-        hasPassword: true,
-      },
+      { providers: [{ provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' }] },
       'Auth providers retrieved.'
     )
   ),

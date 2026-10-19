@@ -22,6 +22,7 @@ import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import { confirmStepUp } from '@/tests/mocks/step-up'
 import type { PlatformUserDetail } from '@/types/api.types'
 
 const DETAIL: PlatformUserDetail = {
@@ -227,10 +228,7 @@ describe('/users/$userId', () => {
         body = await request.json()
         if (calls === 1) return fail('Please confirm it is you.', 401, 'REAUTH_REQUIRED')
         return ok({ ...DETAIL, active: false }, 'User deactivated.')
-      }),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'fresh-token' }, 'Reauthenticated.')
-      )
+      })
     )
     const success = vi.spyOn(toast, 'success')
     const user = userEvent.setup()
@@ -241,9 +239,7 @@ describe('/users/$userId', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Chargeback fraud')
     await user.click(within(dialog).getByRole('button', { name: 'Deactivate' }))
 
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'my password')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+    await confirmStepUp(user)
 
     await waitFor(() => expect(success).toHaveBeenCalledWith('Account deactivated.'))
     expect(calls).toBe(2)
@@ -399,9 +395,6 @@ describe('/users/$userId', () => {
         purged = true
         return ok(null, 'User permanently deleted.')
       }),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-      ),
       http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.'))
     )
     const user = userEvent.setup()
@@ -422,9 +415,7 @@ describe('/users/$userId', () => {
       'cleo@example.com'
     )
     await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }))
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+    await confirmStepUp(user)
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/users'))
     expect(router.state.location.search).toEqual({ status: 'deleted' })

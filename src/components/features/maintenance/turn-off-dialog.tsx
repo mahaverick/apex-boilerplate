@@ -1,6 +1,6 @@
 import { IconAlertCircle } from '@tabler/icons-react'
 import { useState } from 'react'
-import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
+import { ROLE_DENIED_ACTION } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import { Alert, AlertTitle } from '@/components/ui/alert'
@@ -14,10 +14,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { MAINTENANCE_CONFLICT_UNREAD_TURN_OFF } from '@/constants/maintenance-mode.constants'
-import { useStepUp } from '@/hooks/use-step-up'
+import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
 import { messageFrom, statusFrom } from '@/lib/api-error'
 import { conflictSentence } from '@/lib/maintenance-mode'
-import { isReauthRequired } from '@/lib/step-up'
+import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import {
   isMaintenanceModeConflict,
@@ -42,6 +42,7 @@ export function TurnOffDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const stepUp = useStepUp()
+  const waiting = useStepUpWaiting()
   const change = useChangeMaintenanceMode()
   const [busy, setBusy] = useState(false)
   const [refusal, setRefusal] = useState<string | null>(null)
@@ -62,7 +63,7 @@ export function TurnOffDialog({
       onOpenChange(false)
     } catch (error) {
       setBusy(false)
-      if (isReauthRequired(error)) setRefusal(STEP_UP_DISMISSED)
+      if (isReauthRequired(error)) setRefusal(stepUpRefusal(error))
       else if (isMaintenanceModeConflict(error)) {
         // A failed re-read keeps the version: confirming again conflicts rather than overwriting an unseen change.
         if (error.fresh === null) setRefusal(MAINTENANCE_CONFLICT_UNREAD_TURN_OFF)
@@ -103,7 +104,12 @@ export function TurnOffDialog({
         )}
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <BusyButton busy={busy} busyLabel="Working…" type="button" onClick={() => void turnOff()}>
+          <BusyButton
+            busy={busy}
+            busyLabel={waiting ? STEP_UP_WAITING_LABEL : 'Working…'}
+            type="button"
+            onClick={() => void turnOff()}
+          >
             Turn off
           </BusyButton>
         </AlertDialogFooter>

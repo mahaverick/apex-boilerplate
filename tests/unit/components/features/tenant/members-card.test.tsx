@@ -37,6 +37,7 @@ import {
   testUser,
 } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import { confirmStepUp, dismissStepUp } from '@/tests/mocks/step-up'
 import {
   REAUTH_REQUIRED,
   type PlatformTenantDetail,
@@ -650,13 +651,8 @@ describe('removing and leaving', () => {
     await user.click(vic.getByRole('button', { name: 'Remove' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Remove Vic X?' })
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
-    await screen.findByLabelText('Password')
+    await dismissStepUp(user)
 
-    await user.keyboard('{Escape}')
-
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Confirm it’s you' })).not.toBeInTheDocument()
-    )
     const still = screen.getByRole('alertdialog', { name: 'Remove Vic X?' })
     expect(await within(still).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
     await waitFor(() => expect(still.contains(document.activeElement)).toBe(true))
@@ -1522,19 +1518,9 @@ describe('staff acting through platform access', () => {
           listPage([member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')]),
           'Members retrieved.'
         )
-      ),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
       )
     )
   })
-
-  /** Confirms the step-up dialog the API's first REAUTH_REQUIRED opened. */
-  async function confirmStepUp(user: ReturnType<typeof userEvent.setup>) {
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'zqS7-step-up-pass')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
-  }
 
   it('offers no Leave through platform access, which holds no membership to leave', async () => {
     // The API never lists the caller here; a listing that did must still not offer the members-only route.

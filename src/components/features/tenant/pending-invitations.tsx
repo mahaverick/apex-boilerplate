@@ -24,7 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
 import { canActorGrantRole, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
 import { useFocusAfter } from '@/hooks/use-focus-after'
-import { useStepUp } from '@/hooks/use-step-up'
+import { useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
 import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
 import { formatDate } from '@/lib/format'
 import { toast } from '@/lib/toast'
@@ -133,12 +133,14 @@ function ResendInvitationButton({
 }) {
   const resend = useResendInvitation(slug, tenantId)
   const stepUp = useStepUp()
+  const waiting = useStepUpWaiting()
 
   return (
     <Button
       variant="outline"
       size="sm"
-      disabled={resend.isPending}
+      // The refused resend is not pending while its step-up waits, so a second press would start another.
+      disabled={resend.isPending || waiting}
       aria-label={`Resend invitation to ${invitation.email}`}
       onClick={() => {
         stepUp
@@ -177,6 +179,7 @@ function RevokeInvitationButton({
 }) {
   const revoke = useRevokeInvitation(slug, tenantId)
   const stepUp = useStepUp()
+  const waiting = useStepUpWaiting()
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -206,7 +209,7 @@ function RevokeInvitationButton({
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
-            disabled={revoke.isPending}
+            disabled={revoke.isPending || waiting}
             onClick={() => {
               stepUp
                 .run(() => revoke.mutateAsync({ invitationId: invitation.id }))

@@ -8,11 +8,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { StepUpProvider } from '@/components/features/step-up/step-up-provider'
 import { Pii } from '@/components/shared/pii'
-import { useStepUp } from '@/hooks/use-step-up'
+import { StepUpWaitingContext, useStepUp } from '@/hooks/use-step-up'
 import { apiClient } from '@/http/client'
 import { useAuthStore } from '@/states/auth.store'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import { confirmStepUp, dismissStepUp } from '@/tests/mocks/step-up'
 import { REAUTH_REQUIRED } from '@/types/api.types'
 
 /** An Axios error carrying express's error envelope, as a rejected `onConfirm` would. */
@@ -236,10 +237,7 @@ describe('ReasonDialog', () => {
         return dangerCalls <= 2
           ? fail('Recent sign-in required', 401, REAUTH_REQUIRED)
           : ok(null, 'Done.')
-      }),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-      )
+      })
     )
     /**
      * The reason dialog whose confirm runs a guarded request, so the step-up dialog stacks over it.
@@ -265,13 +263,7 @@ describe('ReasonDialog', () => {
     )
     await user.type(await screen.findByLabelText('Reason'), 'unpaid')
     await user.click(screen.getByRole('button', { name: 'Suspend' }))
-    await user.type(await screen.findByLabelText('Password'), 'half-typed')
-
-    await user.keyboard('{Escape}')
-
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Confirm it’s you' })).not.toBeInTheDocument()
-    )
+    await dismissStepUp(user)
     const reason = screen.getByRole('alertdialog', { name: 'Suspend Acme?' })
     expect(within(reason).getByLabelText('Reason')).toHaveValue('unpaid')
     expect(await within(reason).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
@@ -281,16 +273,13 @@ describe('ReasonDialog', () => {
       isAuthenticated: true,
     })
 
-    // Trying again asks for the password afresh, and this time it is confirmed.
+    // Trying again asks afresh, from the choices, and this time it is confirmed.
     await user.click(within(reason).getByRole('button', { name: 'Suspend' }))
-    const password = await screen.findByLabelText('Password')
-    expect(password).toHaveValue('')
-    await user.type(password, 'correct horse')
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await confirmStepUp(user)
 
     await waitFor(() => expect(screen.getByText('open: false')).toBeInTheDocument())
     expect(dangerCalls).toBe(3)
-    expect(useAuthStore.getState().accessToken).toBe('stepped-up-token')
+    expect(useAuthStore.getState().accessToken).not.toBe('old-token')
   })
 
   it('Escape in the stacked step-up puts focus back inside the still-open reason dialog', async () => {
@@ -338,9 +327,7 @@ describe('ReasonDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Actions' }))
     await user.type(await screen.findByLabelText('Reason'), 'unpaid')
     await user.click(screen.getByRole('button', { name: 'Suspend' }))
-    await screen.findByLabelText('Password')
-
-    await user.keyboard('{Escape}')
+    await dismissStepUp(user)
 
     const reason = screen.getByRole('alertdialog', { name: 'Suspend Acme?' })
     expect(await within(reason).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
@@ -361,10 +348,7 @@ describe('ReasonDialog', () => {
         return dangerCalls === 1
           ? fail('Recent sign-in required', 401, REAUTH_REQUIRED)
           : ok(null, 'Done.')
-      }),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-      )
+      })
     )
     /**
      * The reason dialog whose confirm runs a guarded request, so the step-up dialog stacks over it.
@@ -391,12 +375,74 @@ describe('ReasonDialog', () => {
     await user.type(await screen.findByLabelText('Reason'), 'unpaid')
     await user.click(screen.getByRole('button', { name: 'Suspend' }))
 
-    // Focus and typing must reach the dialog stacked over the alert dialog.
-    await user.type(await screen.findByLabelText('Password'), 'correct horse')
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    // Clicks must reach the dialog stacked over the alert dialog.
+    await confirmStepUp(user)
 
     await waitFor(() => expect(screen.getByText('open: false')).toBeInTheDocument())
     expect(dangerCalls).toBe(2)
-    expect(useAuthStore.getState().accessToken).toBe('stepped-up-token')
+    expect(useAuthStore.getState().accessToken).not.toBe('old-token')
+  })
+
+  it('says it is waiting while the step-up waits', async () => {
+    const user = userEvent.setup()
+    render(
+      <StepUpWaitingContext value={true}>
+        <Harness onConfirm={() => new Promise<void>(() => {})} />
+      </StepUpWaitingContext>
+    )
+    await user.type(await screen.findByLabelText('Reason'), 'unpaid')
+    await user.click(screen.getByRole('button', { name: 'Suspend' }))
+    const busy = await screen.findByRole('button', { name: 'Waiting for you to confirm…' })
+    expect(busy).toBeDisabled()
+    expect(busy).toHaveAttribute('aria-busy', 'true')
+  })
+
+  it('says it is working while no step-up waits', async () => {
+    const user = userEvent.setup()
+    render(<Harness onConfirm={() => new Promise<void>(() => {})} />)
+    await user.type(await screen.findByLabelText('Reason'), 'unpaid')
+    await user.click(screen.getByRole('button', { name: 'Suspend' }))
+    expect(await screen.findByRole('button', { name: 'Working…' })).toBeDisabled()
+  })
+
+  it('says the confirmation did not take when the retry after it is refused again', async () => {
+    useAuthStore.setState({
+      accessToken: 'old-token',
+      user: testUser,
+      isAuthenticated: true,
+      isBootstrapped: true,
+    })
+    server.use(
+      http.post('/api/v1/danger', () => fail('Recent sign-in required', 401, REAUTH_REQUIRED))
+    )
+    /** The reason dialog whose confirm runs a guarded request that the API always refuses. */
+    function Stacked() {
+      const stepUp = useStepUp()
+      return (
+        <Harness
+          onConfirm={async () => {
+            await stepUp.run(() => apiClient.post('/danger', {}))
+          }}
+        />
+      )
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={client}>
+        <StepUpProvider>
+          <Stacked />
+        </StepUpProvider>
+      </QueryClientProvider>
+    )
+    await user.type(await screen.findByLabelText('Reason'), 'unpaid')
+    await user.click(screen.getByRole('button', { name: 'Suspend' }))
+    await confirmStepUp(user)
+
+    const reason = screen.getByRole('alertdialog', { name: 'Suspend Acme?' })
+    expect(
+      await within(reason).findByText('We couldn’t confirm it’s you. Try the action again.')
+    ).toBeInTheDocument()
+    expect(within(reason).queryByText('Confirm it’s you to continue.')).not.toBeInTheDocument()
   })
 })

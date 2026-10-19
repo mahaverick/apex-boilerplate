@@ -194,12 +194,12 @@ interface AuthProviderLink {
 }
 
 /**
- * `GET /auth/providers`. `hasPassword` is the only password signal: a Google
- * sign-up also has an `'email'` row, and cannot sign in with a password.
+ * `GET /auth/providers`: the methods that can sign this account in. Every
+ * account has its `'email'` row, since an emailed link always works; a
+ * `'google'` row means "Re-confirm with Google" can confirm it's them.
  */
 export interface AuthProviders {
   providers: AuthProviderLink[]
-  hasPassword: boolean
 }
 
 /** A window the staff Overview offers. Mirrors express's STATS_RANGES. */
