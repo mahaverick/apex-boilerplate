@@ -168,6 +168,22 @@ describe('page titles', () => {
     })
   })
 
+  it('names the invitation confirmation page', async () => {
+    useAuthStore.setState({
+      accessToken: null,
+      user: null,
+      isAuthenticated: false,
+      isBootstrapped: false,
+    })
+    server.use(http.post('/api/v1/auth/refresh', () => fail('Unauthorized', 401)))
+    renderAppAt('/invitations/confirm')
+
+    await screen.findByRole('heading', { name: 'This link is incomplete', level: 1 })
+    await waitFor(() => {
+      expect(document.title).toBe('Join your team · Apex')
+    })
+  })
+
   it('names the sign-in link page while it signs the visitor in', async () => {
     useAuthStore.setState({
       accessToken: null,

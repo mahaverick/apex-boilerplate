@@ -612,6 +612,19 @@ export const handlers = [
       'Invitation accepted.'
     )
   ),
+  // The mailed confirmation link: the staff invitee is signed in and joined, as express's confirm answers.
+  http.post('/api/v1/invitations/confirm', () =>
+    ok(
+      {
+        user: testUser,
+        accessToken: 'confirm-token',
+        isNewUser: false,
+        tenant: testInvitationPreview.tenant,
+        role: testInvitationPreview.role,
+      },
+      'Invitation accepted.'
+    )
+  ),
   // The staff shell's maintenance banner reads this on every page: off, so no banner shows.
   http.get('/api/v1/platform/maintenance-mode', () =>
     ok(maintenanceModeView(), 'Maintenance mode retrieved.')

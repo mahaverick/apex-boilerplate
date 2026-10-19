@@ -33,6 +33,7 @@ import { Route as AuthCallbackRouteImport } from './pages/auth/callback'
 import { Route as AuthConfirmRouteImport } from './pages/auth/confirm'
 import { Route as AuthLinkRouteImport } from './pages/auth/link'
 import { Route as InvitationsAcceptRouteImport } from './pages/invitations/accept'
+import { Route as InvitationsConfirmRouteImport } from './pages/invitations/confirm'
 import { Route as AppEmailsIndexRouteImport } from './pages/_app/emails/index'
 import { Route as AppEmailsEmailIdRouteImport } from './pages/_app/emails/$emailId'
 import { Route as AppSettingsIndexRouteImport } from './pages/_app/settings/index'
@@ -172,6 +173,11 @@ const AuthLinkRoute = AuthLinkRouteImport.update({
 const InvitationsAcceptRoute = InvitationsAcceptRouteImport.update({
   id: '/invitations/accept',
   path: '/invitations/accept',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InvitationsConfirmRoute = InvitationsConfirmRouteImport.update({
+  id: '/invitations/confirm',
+  path: '/invitations/confirm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppEmailsIndexRoute = AppEmailsIndexRouteImport.update({
@@ -319,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/link': typeof AuthLinkRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
+  '/invitations/confirm': typeof InvitationsConfirmRoute
   '/emails/$emailId': typeof AppEmailsEmailIdRoute
   '/tenants/$tenantId': typeof AppTenantsTenantIdRouteWithChildren
   '/users/$userId': typeof AppUsersUserIdRouteWithChildren
@@ -364,6 +371,7 @@ export interface FileRoutesByTo {
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/link': typeof AuthLinkRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
+  '/invitations/confirm': typeof InvitationsConfirmRoute
   '/emails/$emailId': typeof AppEmailsEmailIdRoute
   '/emails': typeof AppEmailsIndexRoute
   '/settings': typeof AppSettingsIndexRoute
@@ -411,6 +419,7 @@ export interface FileRoutesById {
   '/auth/confirm': typeof AuthConfirmRoute
   '/auth/link': typeof AuthLinkRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
+  '/invitations/confirm': typeof InvitationsConfirmRoute
   '/_app/emails/$emailId': typeof AppEmailsEmailIdRoute
   '/_app/tenants/$tenantId': typeof AppTenantsTenantIdRouteWithChildren
   '/_app/users/$userId': typeof AppUsersUserIdRouteWithChildren
@@ -459,6 +468,7 @@ export interface FileRouteTypes {
     | '/auth/confirm'
     | '/auth/link'
     | '/invitations/accept'
+    | '/invitations/confirm'
     | '/emails/$emailId'
     | '/tenants/$tenantId'
     | '/users/$userId'
@@ -504,6 +514,7 @@ export interface FileRouteTypes {
     | '/auth/confirm'
     | '/auth/link'
     | '/invitations/accept'
+    | '/invitations/confirm'
     | '/emails/$emailId'
     | '/emails'
     | '/settings'
@@ -550,6 +561,7 @@ export interface FileRouteTypes {
     | '/auth/confirm'
     | '/auth/link'
     | '/invitations/accept'
+    | '/invitations/confirm'
     | '/_app/emails/$emailId'
     | '/_app/tenants/$tenantId'
     | '/_app/users/$userId'
@@ -588,6 +600,7 @@ export interface RootRouteChildren {
   AuthConfirmRoute: typeof AuthConfirmRoute
   AuthLinkRoute: typeof AuthLinkRoute
   InvitationsAcceptRoute: typeof InvitationsAcceptRoute
+  InvitationsConfirmRoute: typeof InvitationsConfirmRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -758,6 +771,13 @@ declare module '@tanstack/react-router' {
       path: '/invitations/accept'
       fullPath: '/invitations/accept'
       preLoaderRoute: typeof InvitationsAcceptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invitations/confirm': {
+      id: '/invitations/confirm'
+      path: '/invitations/confirm'
+      fullPath: '/invitations/confirm'
+      preLoaderRoute: typeof InvitationsConfirmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/emails/': {
@@ -1042,6 +1062,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthConfirmRoute: AuthConfirmRoute,
   AuthLinkRoute: AuthLinkRoute,
   InvitationsAcceptRoute: InvitationsAcceptRoute,
+  InvitationsConfirmRoute: InvitationsConfirmRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

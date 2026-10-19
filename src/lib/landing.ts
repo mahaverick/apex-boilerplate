@@ -5,6 +5,7 @@ import { safeRedirect } from '@/lib/safe-redirect'
 const TOKEN_PAGES: ReadonlySet<string> = new Set([
   ROUTES.authLink,
   ROUTES.invitationAccept,
+  ROUTES.invitationConfirm,
   ROUTES.authConfirm,
 ])
 

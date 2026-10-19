@@ -1,5 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { MembershipRole } from '@/constants/roles'
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { switchIdentity } from '@/http/session'
 import { statusFrom } from '@/lib/api-error'
@@ -8,7 +7,13 @@ import { track } from '@/observability/telemetry'
 import { refreshProfile } from '@/queries/profile.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
 import { useAuthStore } from '@/states/auth.store'
-import type { AcceptedInvitation, ApiSuccess, InvitationPreview, User } from '@/types/api.types'
+import type {
+  AcceptedInvitation,
+  ApiSuccess,
+  InvitationPreview,
+  InvitationSignIn,
+  InvitationVerifyResult,
+} from '@/types/api.types'
 
 /** Query keys for invitation previews, one per token. */
 export const invitationKeys = {
@@ -69,42 +74,82 @@ export function useAcceptInvitation() {
   })
 }
 
-/** What `POST /invitations/verify` answers: the session, whether this click created the account, and the tenant joined. */
-interface InvitationSignIn {
-  accessToken: string
-  user: User
-  isNewUser: boolean
-  tenant: { name: string; slug: string }
-  role: MembershipRole
+/**
+ * Stores a session an invitation link signed in: a different signed-in user is
+ * switched out first (`switchIdentity`), and the store is signed in before
+ * `sign_in_completed` is tracked, so the event carries the new identity. The
+ * response's user already carries the role the join gave, so the profile needs
+ * no refresh. The tenant's member list is invalidated, since the caller is now
+ * on it.
+ */
+async function signInJoined(queryClient: QueryClient, joined: InvitationSignIn): Promise<void> {
+  switchIdentity(queryClient, joined.user.id)
+  useAuthStore.getState().login(joined.accessToken, joined.user)
+  track('sign_in_completed', { method: 'link' })
+  await queryClient.invalidateQueries({ queryKey: tenantKeys.members(joined.tenant.slug) })
+}
+
+/** True for the `202` "Check your inbox" answer of a verify, which carries no session. */
+export function isConfirmationSent(
+  result: InvitationVerifyResult
+): result is Extract<InvitationVerifyResult, { confirmationSent: true }> {
+  return 'confirmationSent' in result
 }
 
 /**
- * Accepts an invitation in one click, signed out: the API signs the invitee in
- * and joins them. Public like the preview, so a stale bearer token is never
- * sent. The response's user already carries the role the join gave, so the
- * profile needs no refresh. A different signed-in user is switched out first
- * (`switchIdentity`). A 404 is the dead invitation.
- *
- * On success the tenant's member list is invalidated, since the caller is now
- * on it.
+ * Opens an invitation signed out. Every staff invitation answers `202` "Check
+ * your inbox": the server mails a confirmation link, and the answer sets no
+ * session and switches no one out. The one-click `200`, which signs a new
+ * address in and joins it, stays handled because the API keeps it. Posting
+ * again with the same token is the resend. Public like the preview, so a stale
+ * bearer token is never sent. A 404 is the dead invitation.
  */
 export function useVerifyInvitation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (token: string) =>
       unwrap(
-        await apiClient.post<ApiSuccess<InvitationSignIn>>(
+        await apiClient.post<ApiSuccess<InvitationVerifyResult>>(
           '/invitations/verify',
           { token },
           { skipAuthRetry: true, headers: { Authorization: false } }
         )
       ),
-    onSuccess: async ({ accessToken, user, tenant }) => {
-      switchIdentity(queryClient, user.id)
-      useAuthStore.getState().login(accessToken, user)
-      track('sign_in_completed', { method: 'link' })
-      await queryClient.invalidateQueries({ queryKey: tenantKeys.members(tenant.slug) })
+    onSuccess: async (result) => {
+      if (isConfirmationSent(result)) return
+      await signInJoined(queryClient, result)
     },
+  })
+}
+
+/** What a confirm posts: the mailed link's token, and the address the link names. */
+interface ConfirmInvitationInput {
+  token: string
+  email?: string | undefined
+}
+
+/**
+ * Finishes joining from the emailed confirmation link: the server signs in the
+ * invited address, replacing any session this browser had, and joins it. The
+ * link's address goes with the token, so the server refuses a link whose
+ * address was swapped; a blank one is left out. Public like the verify. A 404
+ * is the dead link, whatever its cause.
+ */
+export function useConfirmInvitation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ token, email }: ConfirmInvitationInput) => {
+      // The API counts a blank address as a mismatch, so a link without one sends none.
+      const address = email?.trim()
+      return unwrap(
+        await apiClient.post<ApiSuccess<InvitationSignIn>>(
+          '/invitations/confirm',
+          address ? { token, email: address } : { token },
+          { skipAuthRetry: true, headers: { Authorization: false } }
+        )
+      )
+    },
+    onSuccess: (joined) => signInJoined(queryClient, joined),
   })
 }
 

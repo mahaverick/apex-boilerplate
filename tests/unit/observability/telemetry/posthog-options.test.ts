@@ -146,6 +146,72 @@ describe('buildPosthogOptions', () => {
     expect(sent?.properties.$current_url).toBe(`https://app.example.com/auth/link?${campaign}`)
   })
 
+  it('keeps the campaign keys of a mailed invitation and drops its token, email and a hand-edited value', () => {
+    const beforeSend = buildPosthogOptions(input({ urlAllowlist: ANALYTICS_URL_QUERY_ALLOWLIST }))
+      .before_send as (event: CaptureResult | null) => CaptureResult | null
+    const campaign =
+      'utm_source=email&utm_medium=email&utm_campaign=tenant_invitation&utm_content=primary_button'
+    const sent = beforeSend({
+      uuid: 'u',
+      event: '$pageview',
+      properties: {
+        $current_url: `https://app.example.com/invitations/accept?token=probe-token&email=a%40b.test&${campaign}&utm_term=a%40b.test`,
+      },
+    })
+    expect(sent?.properties.$current_url).toBe(
+      `https://app.example.com/invitations/accept?${campaign}`
+    )
+  })
+
+  it('keeps the campaign keys of a mailed invitation confirmation and drops its token and email', () => {
+    const beforeSend = buildPosthogOptions(input({ urlAllowlist: ANALYTICS_URL_QUERY_ALLOWLIST }))
+      .before_send as (event: CaptureResult | null) => CaptureResult | null
+    const campaign =
+      'utm_source=email&utm_medium=email&utm_campaign=invitation_confirm&utm_content=primary_button'
+    const sent = beforeSend({
+      uuid: 'u',
+      event: '$pageview',
+      properties: {
+        $current_url: `https://app.example.com/invitations/confirm?token=probe-token&email=a%40b.test&${campaign}`,
+        $referrer: `https://app.example.com/invitations/confirm?token=probe-token&email=a%40b.test&${campaign}`,
+      },
+    })
+    expect(sent?.properties.$current_url).toBe(
+      `https://app.example.com/invitations/confirm?${campaign}`
+    )
+    expect(sent?.properties.$referrer).toBe(
+      `https://app.example.com/invitations/confirm?${campaign}`
+    )
+  })
+
+  it('masks the token and email of a confirmation link in a replayed request name', () => {
+    const mask = buildPosthogOptions(input()).session_recording?.maskCapturedNetworkRequestFn as (
+      request: CapturedNetworkRequest
+    ) => CapturedNetworkRequest
+    const request = {
+      name: 'https://app.example.com/invitations/confirm?token=probe-token&email=a%40b.test',
+    }
+    expect(mask(request as CapturedNetworkRequest).name).toBe(
+      'https://app.example.com/invitations/confirm'
+    )
+  })
+
+  it('drops a utm value that is not one of the shapes the API sends', () => {
+    const beforeSend = buildPosthogOptions(input({ urlAllowlist: ANALYTICS_URL_QUERY_ALLOWLIST }))
+      .before_send as (event: CaptureResult | null) => CaptureResult | null
+    const sent = beforeSend({
+      uuid: 'u',
+      event: '$pageview',
+      properties: {
+        $current_url:
+          'https://app.example.com/invitations/accept?token=probe-token&utm_source=email&utm_content=a%40b.test',
+      },
+    })
+    expect(sent?.properties.$current_url).toBe(
+      'https://app.example.com/invitations/accept?utm_source=email'
+    )
+  })
+
   it('turns off the automatic pageview and keeps the pageleave', () => {
     expect(buildPosthogOptions(input())).toMatchObject({
       capture_pageview: false,

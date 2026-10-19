@@ -12,7 +12,13 @@ import { resetSessionForTests } from '@/http/session'
 import { bootstrapSession, queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
-import { fail, ok, TEST_INVITATION_TOKEN, testUser } from '@/tests/mocks/handlers'
+import {
+  fail,
+  ok,
+  TEST_INVITATION_TOKEN,
+  testInvitationPreview,
+  testUser,
+} from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
 describe('session bootstrap', () => {
@@ -286,12 +292,26 @@ describe('mailed-link paths and the auth guard', () => {
   }
 
   it('lets a signed-in visitor open an invitation link instead of bouncing them', async () => {
+    // Addressed to someone else, so the page holds on its switch prompt instead of joining.
+    server.use(
+      http.post('/api/v1/invitations/preview', () =>
+        ok({ ...testInvitationPreview, email: 'someone@else.com' }, 'Invitation retrieved.')
+      )
+    )
     const router = renderAt(`/invitations/accept?token=${TEST_INVITATION_TOKEN}`)
 
     expect(await screen.findByRole('heading', { name: /^Join / })).toBeInTheDocument()
     // Without this the test would pass for a visitor who was never signed in.
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
     expect(router.state.location.pathname).toBe('/invitations/accept')
+  })
+
+  it('lets a signed-in visitor open an invitation confirmation link instead of bouncing them', async () => {
+    const router = renderAt(`/invitations/confirm?token=${'t'.repeat(43)}&email=someone%40else.com`)
+
+    expect(await screen.findByRole('heading', { name: 'Join your team' })).toBeInTheDocument()
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+    expect(router.state.location.pathname).toBe('/invitations/confirm')
   })
 
   it('lets a signed-in visitor open a confirm link instead of bouncing them', async () => {

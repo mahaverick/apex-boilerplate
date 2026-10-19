@@ -1435,6 +1435,19 @@ const worker = setupWorker(
     )
   ),
   http.post('/api/v1/auth/step-up/google/start', () => new HttpResponse(null, { status: 204 })),
+  // A mailed invitation confirmation: the harness user is signed in and joined to the platform tenant.
+  http.post('/api/v1/invitations/confirm', () =>
+    ok(
+      {
+        user: testUser,
+        accessToken: 'harness-token',
+        isNewUser: false,
+        tenant: { name: 'Platform', slug: 'platform' },
+        role: testUser.platformRole ?? 'viewer',
+      },
+      'Invitation accepted.'
+    )
+  ),
   http.post('/api/v1/auth/sessions/revoke-others', () =>
     ok({ revoked: 2 }, 'Other sessions signed out.')
   ),

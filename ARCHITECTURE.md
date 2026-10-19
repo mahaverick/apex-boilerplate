@@ -148,14 +148,14 @@ Routes are files under `src/pages/`. Route files prefixed `__`, `_` or `$`
 (`__root.tsx`, `_app.tsx`, `$tenantId.members.tsx`) follow TanStack Router's
 naming, not the kebab-case rule the rest of `src/` follows.
 
-| Route group                                                                 | Guard                                                                                                                                                     |
-| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/_app` (every staff page)                                                  | Not signed in: redirect to `/login?redirect=<href>`. Signed in without a platform role: redirect to `/no-access`. Its loader reads the app's flags first. |
-| `/_auth` (login, register, forgot-password)                                 | Signed in: redirect to Overview. Register also sends a visitor without `?invitation=` to `/login`: there is no public sign-up.                            |
-| `/`                                                                         | Redirects in `beforeLoad`: signed in to Overview, anyone else to `/login`.                                                                                |
-| `/no-access`                                                                | Not signed in: redirect to `/login`. Staff: redirect to Overview.                                                                                         |
-| `/auth/callback`, `/reset-password`, `/verify-email`, `/invitations/accept` | None. The OAuth callback sits outside `_auth`, whose guard would bounce the visitor it has just signed in.                                                |
-| `/$`                                                                        | None. The splat route renders `RouteNotFound` inside its own `<main>`.                                                                                    |
+| Route group                                                                                         | Guard                                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/_app` (every staff page)                                                                          | Not signed in: redirect to `/login?redirect=<href>`. Signed in without a platform role: redirect to `/no-access`. Its loader reads the app's flags first. |
+| `/_auth` (login, register, forgot-password)                                                         | Signed in: redirect to Overview. Register also sends a visitor without `?invitation=` to `/login`: there is no public sign-up.                            |
+| `/`                                                                                                 | Redirects in `beforeLoad`: signed in to Overview, anyone else to `/login`.                                                                                |
+| `/no-access`                                                                                        | Not signed in: redirect to `/login`. Staff: redirect to Overview.                                                                                         |
+| `/auth/callback`, `/reset-password`, `/verify-email`, `/invitations/accept`, `/invitations/confirm` | None. The OAuth callback sits outside `_auth`, whose guard would bounce the visitor it has just signed in.                                                |
+| `/$`                                                                                                | None. The splat route renders `RouteNotFound` inside its own `<main>`.                                                                                    |
 
 The Settings area is `/settings` and its pages under `/_app`, so the staff
 guard covers them: `/settings` (a landing page listing every section),

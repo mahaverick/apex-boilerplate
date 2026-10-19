@@ -250,6 +250,10 @@ describe('/auth/link, signed out', () => {
     ['/auth/link', `/auth/link?token=${'y'.repeat(43)}`],
     ['/invitations/accept', '/invitations/accept?token=probe'],
     ['/auth/confirm', `/auth/confirm?token=${'y'.repeat(43)}`],
+    [
+      '/invitations/confirm',
+      `/invitations/confirm?token=${'y'.repeat(43)}&email=ada%40example.test`,
+    ],
     ['/auth/link, cased and slashed', `/Auth/Link/?token=${'y'.repeat(43)}`],
   ])('treats a redirect back to a token page (%s) as no redirect', async (_name, tokenPage) => {
     const verify = serveVerify(signedIn({ redirect: tokenPage }))
@@ -353,6 +357,7 @@ describe('/auth/link, signed out', () => {
     `/auth/link?token=${'y'.repeat(43)}`,
     '/invitations/accept?token=probe',
     `/auth/confirm?token=${'y'.repeat(43)}`,
+    `/invitations/confirm?token=${'y'.repeat(43)}&email=ada%40example.test`,
     '//evil.test',
   ])("does not carry %s into the new link's redirect", async (unsafe) => {
     serveVerify(DEAD)
@@ -508,6 +513,7 @@ describe('/auth/link, signed in', () => {
     `/auth/link?token=${'y'.repeat(43)}`,
     '/invitations/accept?token=probe',
     `/auth/confirm?token=${'y'.repeat(43)}`,
+    `/invitations/confirm?token=${'y'.repeat(43)}&email=ada%40example.test`,
   ])(
     'sends the same signed-in person past a token-page redirect (%s) to Overview',
     async (tokenPage) => {

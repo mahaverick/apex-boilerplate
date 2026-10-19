@@ -14,6 +14,8 @@ describe('safeLanding', () => {
     '/invitations/accept/',
     '/auth/confirm?token=ttt',
     '/AUTH/CONFIRM//',
+    '/invitations/confirm?token=ttt&email=a%40b.test',
+    '/Invitations/Confirm/',
   ])('refuses the token page %s', (value) => {
     expect(safeLanding(value)).toBeNull()
   })

@@ -475,11 +475,6 @@ describe('signed-out pages', () => {
       () => screen.findByText('Sign in with an email link or Google. Passwords no longer work.'),
     ],
     [
-      'invitation accept',
-      `/invitations/accept?token=${TEST_INVITATION_TOKEN}`,
-      () => screen.findByRole('link', { name: 'Log in' }),
-    ],
-    [
       'invitation accept without a token',
       '/invitations/accept',
       () => screen.findByRole('heading', { name: 'This link is incomplete' }),
@@ -608,11 +603,6 @@ describe('signed-in pages', () => {
         await screen.findByRole('heading', { name: 'Security', level: 1 })
         await screen.findByRole('button', { name: 'Sign out other sessions' })
       },
-    ],
-    [
-      'invitation accept',
-      `/invitations/accept?token=${TEST_INVITATION_TOKEN}`,
-      () => screen.findByRole('button', { name: 'Accept invitation' }),
     ],
   ])('%s has no axe violations', async (_name, path, ready) => {
     renderAppAt(path)
@@ -1167,14 +1157,21 @@ describe('auth link states', () => {
   })
 })
 
+/** The accept page's states, each its own render. "Already joined" is a toast and a navigation, with no steady state to grade. */
 describe('invitation accept states', () => {
   const acceptPath = `/invitations/accept?token=${TEST_INVITATION_TOKEN}`
 
-  beforeEach(() => {
+  it('invitation joining has no axe violations', async () => {
     signIn()
+    server.use(http.post('/api/v1/invitations/accept', () => new Promise<never>(() => {})))
+    renderAppAt(acceptPath)
+    await screen.findByRole('heading', { level: 1, name: 'Joining Acme Corp' })
+    await screen.findByRole('status')
+    await expectNoViolations()
   })
 
-  it('has no violations signed in as the wrong account', async () => {
+  it('invitation switch has no axe violations', async () => {
+    signIn()
     server.use(
       http.post('/api/v1/invitations/preview', () =>
         ok(
@@ -1189,43 +1186,93 @@ describe('invitation accept states', () => {
       )
     )
     renderAppAt(acceptPath)
-    await screen.findByRole('button', { name: 'Sign out' })
+    await screen.findByRole('button', { name: 'Continue as someone-else@example.com' })
     await expectNoViolations()
   })
 
-  it('has no violations for an invalid invitation', async () => {
+  it('invitation dead has no axe violations', async () => {
+    signOut()
     server.use(
       http.post('/api/v1/invitations/preview', () =>
         fail('This invitation is invalid or has expired.', 404, 'invitation_invalid')
       )
     )
     renderAppAt(acceptPath)
-    await screen.findByRole('heading', { name: 'This invitation can’t be used' })
+    await screen.findByRole('heading', { level: 1, name: 'This invitation can’t be used' })
+    await screen.findByRole('button', { name: 'Email me a sign-in link' })
+    await expectNoViolations()
+  })
+
+  it('invitation dead signed in has no axe violations', async () => {
+    signIn()
+    server.use(
+      http.post('/api/v1/invitations/preview', () =>
+        fail('This invitation is invalid or has expired.', 404, 'invitation_invalid')
+      ),
+      http.post('/api/v1/invitations/accept', () =>
+        fail('This invitation is invalid or has expired.', 404, 'invitation_invalid')
+      )
+    )
+    renderAppAt(acceptPath)
+    await screen.findByRole('link', { name: 'Go to Overview' })
+    await expectNoViolations()
+  })
+
+  it('invitation check inbox has no axe violations', async () => {
+    signOut()
+    server.use(
+      http.post('/api/v1/invitations/verify', () =>
+        ok(
+          { confirmationSent: true, email: 'invitee@acme.test' },
+          'Check your inbox to finish joining.',
+          202
+        )
+      )
+    )
+    renderAppAt(acceptPath)
+    await screen.findByRole('button', { name: /^Resend in / })
     await expectNoViolations()
   })
 
   it('has no violations when the preview request failed', async () => {
+    signIn()
     server.use(http.post('/api/v1/invitations/preview', () => fail('Something went wrong.', 500)))
     renderAppAt(acceptPath)
     // The preview query retries a non-404 once, so the alert appears after the retry.
     await screen.findByRole('alert')
     await expectNoViolations()
   })
+})
 
-  it('has no violations with the unverified-email refusal showing', async () => {
+/** The invitation confirmation page's states, each its own render. */
+describe('invitation confirm states', () => {
+  const confirmPath = `/invitations/confirm?token=${'c'.repeat(43)}&email=ada%40example.test`
+
+  it('invitation confirm joining has no axe violations', async () => {
+    signOut()
+    server.use(http.post('/api/v1/invitations/confirm', () => new Promise<never>(() => {})))
+    renderAppAt(confirmPath)
+    await screen.findByRole('heading', { level: 1, name: 'Joining your team' })
+    await expectNoViolations()
+  })
+
+  it('invitation confirm switch has no axe violations', async () => {
+    signIn()
+    renderAppAt(confirmPath)
+    await screen.findByRole('button', { name: 'Continue as ada@example.test' })
+    await expectNoViolations()
+  })
+
+  it('invitation confirm dead has no axe violations', async () => {
+    signOut()
     server.use(
-      http.post('/api/v1/invitations/accept', () =>
-        fail(
-          'Verify your email address before accepting this invitation.',
-          403,
-          'invitation_email_unverified'
-        )
+      http.post('/api/v1/invitations/confirm', () =>
+        fail('This invitation is invalid or has expired.', 404, 'invitation_invalid')
       )
     )
-    const user = userEvent.setup()
-    renderAppAt(acceptPath)
-    await user.click(await screen.findByRole('button', { name: 'Accept invitation' }))
-    await screen.findByRole('alert')
+    renderAppAt(confirmPath)
+    await screen.findByRole('heading', { level: 1, name: "This link can't be used" })
+    await screen.findByRole('button', { name: 'Email me a sign-in link' })
     await expectNoViolations()
   })
 })

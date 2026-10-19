@@ -106,6 +106,17 @@ describe('the URL allowlist, through the sanitizer', () => {
     ).toBe(`https://apex.test/auth/confirm?${CAMPAIGN}`)
   })
 
+  it('keeps utm_* and drops token and email from a mailed invitation confirmation link', () => {
+    const invitation =
+      'utm_source=email&utm_medium=email&utm_campaign=invitation_confirm&utm_content=primary_button'
+    expect(
+      sanitizeUrl(
+        `https://apex.test/invitations/confirm?token=ttt&email=a%40b.test&${invitation}`,
+        ANALYTICS_URL_QUERY_ALLOWLIST
+      )
+    ).toBe(`https://apex.test/invitations/confirm?${invitation}`)
+  })
+
   it('drops redirect, result and error', () => {
     expect(
       sanitizeUrl(

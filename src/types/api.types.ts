@@ -69,6 +69,31 @@ export interface InvitationPreview {
   email: string
 }
 
+/**
+ * The `200` of `POST /invitations/verify` and `POST /invitations/confirm`: the
+ * session, whether this click created the account, and the tenant joined.
+ */
+export interface InvitationSignIn {
+  accessToken: string
+  user: User
+  isNewUser: boolean
+  tenant: { name: string; slug: string }
+  role: MembershipRole
+}
+
+/**
+ * The `202` of `POST /invitations/verify`: no session, nothing spent. The
+ * server mailed a confirmation link to `email`, the invited address. Every
+ * staff invitation answers this.
+ */
+export interface InvitationConfirmationSent {
+  confirmationSent: true
+  email: string
+}
+
+/** What `POST /invitations/verify` answers: joined in one click, or "Check your inbox". */
+export type InvitationVerifyResult = InvitationSignIn | InvitationConfirmationSent
+
 /** `POST /invitations/accept`: the tenant the caller is now a member of. */
 export interface AcceptedInvitation {
   tenant: { name: string; slug: string }
@@ -110,9 +135,6 @@ export const MEMBER_NOT_FOUND = 'member_not_found'
  * access check's.
  */
 export const MEMBER_NOT_FOUND_MESSAGE = 'Member not found'
-
-/** 403 on accept: the signed-in account is the invited one, but its email is unverified. */
-export const INVITATION_EMAIL_UNVERIFIED = 'invitation_email_unverified'
 
 /** Mirrors express's TENANT_LIFECYCLE_STATES. */
 export const TENANT_LIFECYCLE_STATES = ['active', 'suspended', 'archived'] as const

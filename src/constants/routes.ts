@@ -36,6 +36,7 @@ export const ROUTES = {
   maintenance: '/settings/platform/maintenance',
   noAccess: '/no-access',
   invitationAccept: '/invitations/accept',
+  invitationConfirm: '/invitations/confirm',
   authLink: '/auth/link',
   authConfirm: '/auth/confirm',
 } as const
