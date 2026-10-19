@@ -6,7 +6,11 @@ import { STAFF_WRITES_NOTE } from '@/constants/maintenance-mode.constants'
 import { maintenanceModeKeys } from '@/queries/maintenance-mode.queries'
 import { queryClient } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
-import { fullMaintenanceView, maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
+import {
+  fullMaintenanceView,
+  maintenanceModeView,
+  PAUSED_QUEUES,
+} from '@/tests/fixtures/maintenance-mode'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -99,6 +103,19 @@ describe('/settings/platform/maintenance', () => {
       'maintenance: paused, 0 running',
       'analytics: paused, 1 running',
     ])
+  })
+
+  it('labels the auth-email queue as never paused in full maintenance', async () => {
+    serve(
+      fullMaintenanceView({
+        queues: [...PAUSED_QUEUES, { name: 'auth-email', paused: false, active: 0 }],
+      })
+    )
+    await openPage()
+    const queues = within(screen.getByRole('list', { name: 'Queues' })).getAllByRole('listitem')
+    expect(queues.at(-1)).toHaveTextContent(
+      'auth-email: never paused, 0 running. We still send sign-in and invitation emails during maintenance.'
+    )
   })
 
   it.each(['admin', 'viewer'] as const)('gives an %s the state but no controls', async (role) => {

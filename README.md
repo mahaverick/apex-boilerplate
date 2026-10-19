@@ -386,8 +386,9 @@ that happen in Apex:
 1. **Confirm staff can sign in before `full`.** In `full` customers cannot sign in
    and whoever will turn it off must be able to sign in to Apex.
 2. **Before database work, check that every queue says "0 running"** on the
-   Maintenance page. Full maintenance pauses every queue, but jobs already running
-   finish first.
+   Maintenance page. Full maintenance pauses every queue but `auth-email`, which
+   keeps sending sign-in and invitation emails, and jobs already running finish
+   first.
 3. **Staff pages keep working** during maintenance, so a staff change still lands
    while customers are shut out.
 4. **Turn it off from Apex**, as an owner, with the page's **Turn off…** button.

@@ -37,13 +37,15 @@ export function sinceLabel(iso: string, now: Date = new Date()): string {
 
 /**
  * The banner's sentence: the mode in capitals, since when and by whom.
+ * `now` is required: the banner renders it, so the clock must come from
+ * `useNow`, or a cached sentence keeps the time alone past midnight.
  * @param view - The state, whose mode is not `off`.
- * @param now - The clock, for tests.
- * @returns "Customers are in FULL maintenance since 10:42 AM, set by Ada."
+ * @param now - The current time, in milliseconds (`useNow`).
+ * @returns "Customers are in FULL maintenance since 10:42 AM, set by Ada.", with the date too once that day has passed.
  */
-export function bannerSentence(view: PlatformMaintenanceModeView, now?: Date): string {
+export function bannerSentence(view: PlatformMaintenanceModeView, now: number): string {
   const mode = MAINTENANCE_MODE_LABELS[view.mode].toUpperCase()
-  const since = view.since === null ? '' : ` since ${sinceLabel(view.since, now)}`
+  const since = view.since === null ? '' : ` since ${sinceLabel(view.since, new Date(now))}`
   const by = view.changedBy === null ? '' : `, set by ${view.changedBy.name}`
   return `Customers are in ${mode} maintenance${since}${by}.`
 }
@@ -62,6 +64,9 @@ export function conflictSentence(view: PlatformMaintenanceModeView, now?: Date):
   return `Someone changed maintenance mode while you were editing: it is now ${mode}${set}. Check the page and try again.`
 }
 
+/** The queue that carries sign-in and invitation mail, which maintenance never pauses (express `isPausableQueueName`). */
+const AUTH_EMAIL_QUEUE = 'auth-email'
+
 /** Whether a queue is paused, in words; null is a queue Redis did not answer for. */
 function pauseWords(paused: boolean | null): string {
   if (paused === null) return 'pause state unknown'
@@ -70,6 +75,8 @@ function pauseWords(paused: boolean | null): string {
 
 /**
  * One queue's line, as the Maintenance page and the status card list it.
+ * The auth-email queue reads "never paused" with the reason, unless Redis
+ * reports it paused, since that is a fact worth showing.
  * @param queue - The queue's state.
  * @returns "email: paused, 0 running", with "unknown" for what Redis did not answer.
  */
@@ -78,5 +85,8 @@ export function queueLine(queue: QueuePauseState): string {
     queue.active === null
       ? 'running count unknown'
       : `${queue.active.toLocaleString('en-US')} running`
+  if (queue.name === AUTH_EMAIL_QUEUE && queue.paused !== true) {
+    return `${queue.name}: never paused, ${running}. We still send sign-in and invitation emails during maintenance.`
+  }
   return `${queue.name}: ${pauseWords(queue.paused)}, ${running}`
 }
