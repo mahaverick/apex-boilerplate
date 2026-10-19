@@ -216,6 +216,9 @@ function serveTenant(state: TenantLifecycleState) {
   )
 }
 
+/** The "Confirm it's you" link's verify, which the confirm page posts on load. */
+const STEP_UP_VERIFY = '/api/v1/auth/step-up/link/verify'
+
 /** A signed-in session, already bootstrapped, so `_app`'s guard lets pages render. */
 function signIn() {
   useAuthStore.setState({
@@ -1060,6 +1063,66 @@ describe('signed-in pages', () => {
 })
 
 /** The accept page's other states, each its own render, because a default sweep only sees the invited account arriving at a valid link. */
+describe('confirm it’s you states', () => {
+  const confirmPath = `/auth/confirm?token=${'t'.repeat(43)}`
+
+  beforeEach(signIn)
+
+  it.each([
+    [
+      'confirming',
+      () => server.use(http.post(STEP_UP_VERIFY, () => new Promise<never>(() => {}))),
+      () => screen.findByRole('status'),
+    ],
+    [
+      'confirmed with no tab waiting',
+      () => {},
+      () => screen.findByRole('heading', { name: 'Confirmed' }),
+    ],
+    [
+      'a dead link',
+      () =>
+        server.use(
+          http.post(STEP_UP_VERIFY, () =>
+            fail('This link has expired or was already used.', 400, 'LINK_INVALID')
+          )
+        ),
+      () => screen.findByRole('heading', { name: 'This link didn’t confirm it’s you' }),
+    ],
+    [
+      'the session ended',
+      () =>
+        server.use(
+          http.post(STEP_UP_VERIFY, () => fail('Session ended', 401, 'ACCESS_TOKEN_EXPIRED'))
+        ),
+      () => screen.findByRole('link', { name: 'Sign in' }),
+    ],
+    [
+      'a failure with Try again',
+      () => server.use(http.post(STEP_UP_VERIFY, () => fail('Service Unavailable', 503))),
+      () => screen.findByRole('button', { name: 'Try again' }),
+    ],
+  ])('confirm it’s you, %s, has no axe violations', async (_name, serve, ready) => {
+    serve()
+    renderAppAt(confirmPath)
+    await ready()
+    await expectNoViolations()
+  })
+
+  it('confirm it’s you, signed out, has no axe violations', async () => {
+    signOut()
+    renderAppAt(confirmPath)
+    await screen.findByRole('heading', { name: 'Sign in to confirm' })
+    await expectNoViolations()
+  })
+
+  it('confirm it’s you, Google refused, has no axe violations', async () => {
+    renderAppAt('/auth/confirm?error=step_up_failed')
+    await screen.findByRole('heading', { name: 'We couldn’t confirm it’s you' })
+    await expectNoViolations()
+  })
+})
+
 describe('invitation accept states', () => {
   const acceptPath = `/invitations/accept?token=${TEST_INVITATION_TOKEN}`
 

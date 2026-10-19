@@ -1,7 +1,7 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ROUTES } from '@/constants/routes'
 import { apiClient, unwrap } from '@/http/client'
-import { broadcastLogout, switchIdentity } from '@/http/session'
+import { broadcastAuthMessage, broadcastLogout, switchIdentity } from '@/http/session'
 import { statusFrom } from '@/lib/api-error'
 import { toast } from '@/lib/toast'
 import { track } from '@/observability/telemetry'
@@ -62,6 +62,32 @@ export function useVerifySignInLink() {
       switchIdentity(queryClient, user.id)
       useAuthStore.getState().login(accessToken, user)
       track('sign_in_completed', { method: 'link' })
+    },
+  })
+}
+
+/**
+ * Confirms it's the signed-in person with the token from an emailed "Confirm
+ * it's you" link (express `POST /auth/step-up/link/verify`). It carries this
+ * session's bearer, because the API binds the link to the session that asked
+ * for it. `skipAuthRetry`, so a 401 reaches the page instead of becoming a
+ * refresh and a `/login?redirect=` that carries the token. On success it swaps
+ * in the new access token, whose `auth_time` is now, and tells the waiting
+ * tab, which refreshes and retries its action.
+ */
+export function useConfirmStepUpLink() {
+  return useMutation({
+    mutationFn: async (token: string) =>
+      unwrap(
+        await apiClient.post<ApiSuccess<{ accessToken: string }>>(
+          '/auth/step-up/link/verify',
+          { token },
+          { skipAuthRetry: true }
+        )
+      ),
+    onSuccess: ({ accessToken }) => {
+      useAuthStore.getState().setToken(accessToken)
+      broadcastAuthMessage('step_up_confirmed')
     },
   })
 }

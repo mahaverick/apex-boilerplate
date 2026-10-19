@@ -36,6 +36,7 @@ export const ROUTES = {
   maintenance: '/settings/platform/maintenance',
   noAccess: '/no-access',
   invitationAccept: '/invitations/accept',
+  authConfirm: '/auth/confirm',
 } as const
 
 /** The API path for the Google OAuth start. Same-origin, so a plain anchor; `app=apex` brings the callback back here. */

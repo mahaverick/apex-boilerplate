@@ -30,6 +30,7 @@ import { Route as AppStaffRouteImport } from './pages/_app/staff'
 import { Route as AppSuppressionsRouteImport } from './pages/_app/suppressions'
 import { Route as AuthLoginRouteImport } from './pages/_auth/login'
 import { Route as AuthCallbackRouteImport } from './pages/auth/callback'
+import { Route as AuthConfirmRouteImport } from './pages/auth/confirm'
 import { Route as InvitationsAcceptRouteImport } from './pages/invitations/accept'
 import { Route as AppEmailsIndexRouteImport } from './pages/_app/emails/index'
 import { Route as AppEmailsEmailIdRouteImport } from './pages/_app/emails/$emailId'
@@ -155,6 +156,11 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthConfirmRoute = AuthConfirmRouteImport.update({
+  id: '/auth/confirm',
+  path: '/auth/confirm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InvitationsAcceptRoute = InvitationsAcceptRouteImport.update({
@@ -304,6 +310,7 @@ export interface FileRoutesByFullPath {
   '/suppressions': typeof AppSuppressionsRoute
   '/login': typeof AuthLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/auth/confirm': typeof AuthConfirmRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
   '/emails/$emailId': typeof AppEmailsEmailIdRoute
   '/tenants/$tenantId': typeof AppTenantsTenantIdRouteWithChildren
@@ -347,6 +354,7 @@ export interface FileRoutesByTo {
   '/suppressions': typeof AppSuppressionsRoute
   '/login': typeof AuthLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/auth/confirm': typeof AuthConfirmRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
   '/emails/$emailId': typeof AppEmailsEmailIdRoute
   '/emails': typeof AppEmailsIndexRoute
@@ -392,6 +400,7 @@ export interface FileRoutesById {
   '/_app/suppressions': typeof AppSuppressionsRoute
   '/_auth/login': typeof AuthLoginRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/auth/confirm': typeof AuthConfirmRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
   '/_app/emails/$emailId': typeof AppEmailsEmailIdRoute
   '/_app/tenants/$tenantId': typeof AppTenantsTenantIdRouteWithChildren
@@ -438,6 +447,7 @@ export interface FileRouteTypes {
     | '/suppressions'
     | '/login'
     | '/auth/callback'
+    | '/auth/confirm'
     | '/invitations/accept'
     | '/emails/$emailId'
     | '/tenants/$tenantId'
@@ -481,6 +491,7 @@ export interface FileRouteTypes {
     | '/suppressions'
     | '/login'
     | '/auth/callback'
+    | '/auth/confirm'
     | '/invitations/accept'
     | '/emails/$emailId'
     | '/emails'
@@ -525,6 +536,7 @@ export interface FileRouteTypes {
     | '/_app/suppressions'
     | '/_auth/login'
     | '/auth/callback'
+    | '/auth/confirm'
     | '/invitations/accept'
     | '/_app/emails/$emailId'
     | '/_app/tenants/$tenantId'
@@ -561,6 +573,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  AuthConfirmRoute: typeof AuthConfirmRoute
   InvitationsAcceptRoute: typeof InvitationsAcceptRoute
 }
 
@@ -711,6 +724,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/callback'
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/confirm': {
+      id: '/auth/confirm'
+      path: '/auth/confirm'
+      fullPath: '/auth/confirm'
+      preLoaderRoute: typeof AuthConfirmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invitations/accept': {
@@ -999,6 +1019,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  AuthConfirmRoute: AuthConfirmRoute,
   InvitationsAcceptRoute: InvitationsAcceptRoute,
 }
 export const routeTree = rootRouteImport

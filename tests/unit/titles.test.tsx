@@ -153,6 +153,21 @@ describe('page titles', () => {
     })
   })
 
+  it('names the confirm page the same in every state, whatever its heading', async () => {
+    useAuthStore.setState({
+      accessToken: 'access-token',
+      user: testUser,
+      isAuthenticated: true,
+      isBootstrapped: true,
+    })
+    renderAppAt(`/auth/confirm?token=${'t'.repeat(43)}`)
+
+    await screen.findByRole('heading', { name: 'Confirmed', level: 1 })
+    await waitFor(() => {
+      expect(document.title).toBe('Confirm it’s you · Apex')
+    })
+  })
+
   it('gives every page a title: the root has a fallback and every leaf page its own', () => {
     const router = buildRouter('/')
     expect(router.routeTree.options.head).toBeTypeOf('function')

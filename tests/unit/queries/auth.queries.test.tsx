@@ -7,6 +7,7 @@ import { RECENT_KEY_PREFIX } from '@/components/shared/command-palette/recent-ke
 import { resetSessionForTests } from '@/http/session'
 import { track, yieldSharedIdentity } from '@/observability/telemetry'
 import {
+  useConfirmStepUpLink,
   useRequestSignInLink,
   useRevokeOtherSessions,
   useVerifySignInLink,
@@ -271,6 +272,83 @@ describe('sign-in link queries', () => {
       expect(received).toEqual([])
       expect(client.getQueryData(['tenants', 'mine'])).toEqual({ ok: true })
       expect(yieldSharedIdentity).not.toHaveBeenCalled()
+    })
+  })
+})
+
+describe('useConfirmStepUpLink', () => {
+  /** Opens a channel standing in for the tab that waits on the confirmation. */
+  function openWaitingTab() {
+    const tab = new BroadcastChannel('auth')
+    const received: unknown[] = []
+    tab.addEventListener('message', (event: MessageEvent<unknown>) => {
+      received.push(event.data)
+    })
+    return { tab, received }
+  }
+
+  beforeEach(() => {
+    resetSessionForTests()
+    useAuthStore.setState({
+      accessToken: 'access-token',
+      user: testUser,
+      isAuthenticated: true,
+      isBootstrapped: true,
+    })
+  })
+
+  it('posts the token with the session bearer, swaps the token in and tells the waiting tab', async () => {
+    let body: unknown
+    let authorization: string | null = null
+    server.use(
+      http.post('/api/v1/auth/step-up/link/verify', async ({ request }) => {
+        body = await request.json()
+        authorization = request.headers.get('authorization')
+        return ok({ accessToken: 'stepped-up' }, 'Identity confirmed.')
+      })
+    )
+    const { tab, received } = openWaitingTab()
+
+    const { result } = renderHook(() => useConfirmStepUpLink(), { wrapper })
+    const answer = await act(() => result.current.mutateAsync(LINK_TOKEN))
+
+    expect(answer).toEqual({ accessToken: 'stepped-up' })
+    expect(body).toEqual({ token: LINK_TOKEN })
+    expect(authorization).toBe('Bearer access-token')
+    expect(useAuthStore.getState().accessToken).toBe('stepped-up')
+    expect(useAuthStore.getState().user).toEqual(testUser)
+    await vi.waitFor(() => expect(received).toEqual([{ type: 'step_up_confirmed' }]))
+    tab.close()
+  })
+
+  // A refresh-and-retry would turn the session's end into /login?redirect=/auth/confirm?token=….
+  it('does not refresh or retry on a 401, and keeps the store as it was', async () => {
+    let calls = 0
+    let refreshes = 0
+    server.use(
+      http.post('/api/v1/auth/step-up/link/verify', () => {
+        calls += 1
+        return fail('Session ended', 401, 'ACCESS_TOKEN_EXPIRED')
+      }),
+      http.post('/api/v1/auth/refresh', () => {
+        refreshes += 1
+        return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
+      })
+    )
+    const { tab, received } = openWaitingTab()
+
+    const { result } = renderHook(() => useConfirmStepUpLink(), { wrapper })
+    result.current.mutate(LINK_TOKEN)
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    await settle(0, 'absence has no event: let any queued channel delivery run')
+    tab.close()
+    expect(calls).toBe(1)
+    expect(refreshes).toBe(0)
+    expect(received).toEqual([])
+    expect(useAuthStore.getState()).toMatchObject({
+      accessToken: 'access-token',
+      isAuthenticated: true,
     })
   })
 })

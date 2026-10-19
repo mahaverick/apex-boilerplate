@@ -560,6 +560,10 @@ export const handlers = [
       'Signed in.'
     )
   ),
+  // A "Confirm it's you" link confirmed for the calling session: a new access token with a fresh `auth_time`.
+  http.post('/api/v1/auth/step-up/link/verify', () =>
+    ok({ accessToken: 'stepped-up' }, 'Identity confirmed.')
+  ),
   // The step-up dialog reads `hasPassword`; the Security section ignores it and declares its own in its test.
   http.get('/api/v1/auth/providers', () =>
     ok(

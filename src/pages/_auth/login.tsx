@@ -53,9 +53,9 @@ const OAUTH_ERRORS: Record<string, string> = {
  */
 const TOKEN_PAGES: ReadonlySet<string> = new Set([
   ROUTES.invitationAccept,
-  // Literals until the link and confirm pages add their ROUTES keys.
+  ROUTES.authConfirm,
+  // A literal until the link page adds its ROUTES key.
   '/auth/link',
-  '/auth/confirm',
 ])
 
 /**
