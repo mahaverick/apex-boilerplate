@@ -294,16 +294,18 @@ describe('mailed-link paths and the auth guard', () => {
     expect(router.state.location.pathname).toBe('/invitations/accept')
   })
 
-  it.each(['/reset-password?token=ttt', '/verify-email?token=ttt'])(
-    'sends a signed-in visitor on a retired link %s to Overview',
-    async (path) => {
-      const router = renderAt(path)
+  it.each([
+    '/register?invitation=ttt',
+    '/forgot-password',
+    '/reset-password?token=ttt',
+    '/verify-email?token=ttt',
+  ])('sends a signed-in visitor on a retired link %s to Overview', async (path) => {
+    const router = renderAt(path)
 
-      await waitFor(() => {
-        expect(router.state.location.pathname).toBe('/overview')
-      })
-      expect(useAuthStore.getState().isAuthenticated).toBe(true)
-      expect(router.state.location.href).not.toContain('ttt')
-    }
-  )
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/overview')
+    })
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+    expect(router.state.location.href).not.toContain('ttt')
+  })
 })

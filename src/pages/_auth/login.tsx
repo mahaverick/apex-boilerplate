@@ -112,7 +112,9 @@ function LoginPage() {
         sentTo ? undefined : "Enter your staff email and we'll send you a link to sign in."
       }
     >
-      {notice && sentTo === null && <Note tone="passive">Sign-in now uses email links.</Note>}
+      {notice && sentTo === null && (
+        <Note tone="passive">Sign in with an email link or Google. Passwords no longer work.</Note>
+      )}
       <FieldGroup className="gap-6">
         <SignInLinkForm
           sentTo={sentTo}

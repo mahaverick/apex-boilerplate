@@ -466,7 +466,7 @@ describe('signed-out pages', () => {
     [
       'login with the note',
       '/login?notice=sign-in-link',
-      () => screen.findByText('Sign-in now uses email links.'),
+      () => screen.findByText('Sign in with an email link or Google. Passwords no longer work.'),
     ],
     [
       'invitation accept',

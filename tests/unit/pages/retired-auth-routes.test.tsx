@@ -22,7 +22,9 @@ describe('retired password paths', () => {
     await waitFor(() => {
       expect(router.state.location.href).toBe('/login?notice=sign-in-link')
     })
-    expect(await screen.findByText('Sign-in now uses email links.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Sign in with an email link or Google. Passwords no longer work.')
+    ).toBeInTheDocument()
     expect(router.state.location.href).not.toContain('ttt')
     // replace: Back does not return to the dead path.
     expect((router.history as RouterHistory).length).toBe(1)
