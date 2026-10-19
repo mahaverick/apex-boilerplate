@@ -246,14 +246,6 @@ export function invitationsListOptions(
   })
 }
 
-/** A tenant's first hundred members by name, for pickers such as the activity actor filter. */
-export function useMembers(slug: string, tenantId?: string) {
-  return useQuery({
-    ...membersListOptions(slug, tenantId, { limit: 100 }, { total: false }),
-    select: (page: ListPage<TenantMember>) => page.items,
-  })
-}
-
 /**
  * How many owners besides `userId` express counts toward the last-owner rule,
  * the last-owner guard's input: on a customer tenant every listed owner,

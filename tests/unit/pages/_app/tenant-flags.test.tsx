@@ -3,10 +3,16 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { flagRows, flagsEvaluation } from '@/tests/fixtures/flags'
-import { MEMBERSHIP_ID_2, TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
+import {
+  MEMBERSHIP_ID_2,
+  MEMBERSHIP_ID_3,
+  TENANT_ID,
+  USER_ID_2,
+  USER_ID_3,
+} from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
-import { fail, ok, tenantDetail, testUser } from '@/tests/mocks/handlers'
+import { fail, ok, tenantDetail, testUser, testUserDetail } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type { PlatformTenantDetail, TenantLifecycleState } from '@/types/api.types'
 
@@ -47,6 +53,15 @@ const MEMBERS = [
   },
 ]
 
+/** Ada, a member the first twenty miss: only a search finds her. */
+const ADA = {
+  membership: { ...MEMBERS[0]!.membership, id: MEMBERSHIP_ID_3, userId: USER_ID_3, role: 'viewer' },
+  user: { id: USER_ID_3, email: 'ada@example.com', firstName: 'Ada', lastName: 'Lovelace' },
+}
+
+/** The query string of each members read of the running test. */
+const memberReads: string[] = []
+
 /** The query string of each registry read of the running test. */
 const registryReads: string[] = []
 
@@ -60,9 +75,28 @@ function serve(lifecycleState: TenantLifecycleState = 'active') {
     http.get('/api/v1/tenants/acme', () =>
       ok(tenantDetail(platformDetail(), 'admin', 'platform'), 'Tenant retrieved.')
     ),
-    http.get('/api/v1/tenants/acme/members', () => {
+    http.get('/api/v1/tenants/acme/members', ({ request }) => {
+      const url = new URL(request.url)
       seen.push('members')
-      return ok(listPage(MEMBERS), 'Members retrieved.')
+      memberReads.push(url.search)
+      const search = url.searchParams.get('search')
+      const rows = search === null ? MEMBERS : search === 'ada' ? [ADA] : []
+      return ok(listPage(rows), 'Members retrieved.')
+    }),
+    http.get('/api/v1/platform/users/:userId', ({ params }) => {
+      seen.push(`user ${String(params.userId)}`)
+      return params.userId === USER_ID_3
+        ? ok(
+            {
+              ...testUserDetail,
+              id: USER_ID_3,
+              email: 'ada@example.com',
+              firstName: 'Ada',
+              lastName: 'Lovelace',
+            },
+            'User retrieved.'
+          )
+        : fail('User not found', 404)
     }),
     http.get('/api/v1/platform/flags', ({ request }) => {
       registryReads.push(new URL(request.url).search)
@@ -87,6 +121,7 @@ function tabLabels() {
 describe('/tenants/$tenantId/flags', () => {
   beforeEach(() => {
     registryReads.length = 0
+    memberReads.length = 0
     signIn({ ...testUser, platformRole: 'admin' })
   })
 
@@ -118,6 +153,48 @@ describe('/tenants/$tenantId/flags', () => {
       'true'
     )
     expect(seen).toEqual(['members', `?userId=${USER_ID_2}&tenantId=${TENANT_ID}&app=react`])
+  })
+
+  it('finds a member beyond the first page by search', async () => {
+    const seen = serve()
+    const user = userEvent.setup()
+    const router = renderAppAt(FLAGS)
+    const members = await screen.findByRole('list', { name: 'Members' })
+    expect(within(members).queryByRole('button', { name: /Ada Lovelace/ })).not.toBeInTheDocument()
+
+    await user.type(screen.getByRole('searchbox', { name: 'Find a member' }), 'ada')
+    await user.click(await within(members).findByRole('button', { name: /Ada Lovelace/ }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ userId: USER_ID_3 }))
+    expect(await screen.findByRole('table', { name: 'Evaluation' })).toBeInTheDocument()
+    expect(screen.getByText('Showing flags for', { exact: false })).toHaveTextContent(
+      'Showing flags for Ada Lovelace'
+    )
+    expect(screen.getByPlaceholderText('Search by name or email')).toBeInTheDocument()
+    // Twenty at a time, no total, and the debounced term sent once.
+    expect(memberReads).toEqual(['?limit=20', '?search=ada&limit=20'])
+    // A member in the results is named from them, with no read of their record.
+    expect(seen.filter((entry) => entry.startsWith('user '))).toEqual([])
+  })
+
+  it('evaluates and names a URL member outside the results', async () => {
+    const seen = serve()
+    renderAppAt(`${FLAGS}?userId=${USER_ID_3}`)
+    expect(await screen.findByRole('table', { name: 'Evaluation' })).toBeInTheDocument()
+    expect(
+      await screen.findByText((_, node) => node?.textContent === 'Showing flags for Ada Lovelace.')
+    ).toBeInTheDocument()
+    expect(seen).toContain(`?userId=${USER_ID_3}&tenantId=${TENANT_ID}&app=react`)
+    expect(seen).toContain(`user ${USER_ID_3}`)
+  })
+
+  it('says no member matches a search that finds nobody', async () => {
+    serve()
+    const user = userEvent.setup()
+    renderAppAt(FLAGS)
+    await screen.findByRole('list', { name: 'Members' })
+    await user.type(screen.getByRole('searchbox', { name: 'Find a member' }), 'zed')
+    expect(await screen.findByText('No members match.')).toBeInTheDocument()
   })
 
   it('reads the registry as rows, with no total, to mark what the app receives', async () => {
@@ -159,8 +236,8 @@ describe('/tenants/$tenantId/flags', () => {
     )
     renderAppAt(FLAGS)
     const region = await screen.findByRole('region', { name: 'Flags' })
-    // Three member bars and the hint line.
-    expect(region.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(4)
+    // The search box, three member bars and the hint line.
+    expect(region.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(5)
   })
 
   it('holds the evaluation’s table rows while it loads', async () => {

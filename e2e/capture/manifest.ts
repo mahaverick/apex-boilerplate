@@ -41,7 +41,7 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     url: '/activity',
     as: 'staff',
     sections: [
-      { name: 'Actors', endpoints: ['GET /tenants/platform/members'] },
+      { name: 'Actors', endpoints: ['GET /platform/users'] },
       { name: 'Activity', endpoints: ['GET /platform/audit-log'] },
     ],
     empty: {

@@ -30,6 +30,7 @@ import type {
   OnboardingStepDetail,
   OnboardingTenantRow,
   PlatformStats,
+  PlatformUserDetail,
   SystemStatus,
   TenantAccess,
   TenantInvitation,
@@ -46,6 +47,24 @@ export const testUser: User = {
   createdAt: '2026-01-01T00:00:00.000Z',
   platformRole: 'admin',
   analyticsOptOut: false,
+}
+
+/** `testUser` as `GET /platform/users/:userId` answers it: an active platform admin in no customer tenant. */
+export const testUserDetail: PlatformUserDetail = {
+  id: testUser.id,
+  email: testUser.email,
+  firstName: testUser.firstName,
+  lastName: testUser.lastName,
+  active: true,
+  emailVerifiedAt: '2026-01-01T00:00:00.000Z',
+  lastLoggedInAt: '2026-01-02T00:00:00.000Z',
+  createdAt: testUser.createdAt,
+  deletedAt: null,
+  platformRole: 'admin',
+  membershipCount: 0,
+  authProviders: ['email'],
+  memberships: [],
+  pendingInvitations: [],
 }
 
 /** 43 characters of base64url, the shape the server mints and validates. */
@@ -642,6 +661,9 @@ export const handlers = [
   ),
   // The platform audit log, empty.
   http.get('/api/v1/platform/audit-log', () => ok(listPage([]), 'Audit log retrieved.')),
+  // The users directory defaults to an empty page, and any one user reads as the test user; a page test serves its own.
+  http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.')),
+  http.get('/api/v1/platform/users/:userId', () => ok(testUserDetail, 'User retrieved.')),
   // A staff-sent sign-in link goes; a test that needs a refusal or a failed mail serves its own.
   http.post('/api/v1/platform/users/:userId/sign-in-link', () =>
     ok({ emailSent: true }, 'Sign-in link sent.')

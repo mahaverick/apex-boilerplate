@@ -759,10 +759,7 @@ describe('signed-in pages', () => {
       tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
     }))
     server.use(
-      http.get('/api/v1/platform/audit-log', () => ok(listPage(entries), 'Audit log retrieved.')),
-      http.get('/api/v1/tenants/platform/members', () =>
-        ok(listPage(MEMBERS), 'Members retrieved.')
-      )
+      http.get('/api/v1/platform/audit-log', () => ok(listPage(entries), 'Audit log retrieved.'))
     )
     renderAppAt('/activity')
     await screen.findByText('changed the settings (timezone)')

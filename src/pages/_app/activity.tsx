@@ -12,12 +12,13 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
-import { PLATFORM_TENANT_SLUG, ROUTES } from '@/constants/routes'
+import { ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { fullName } from '@/lib/format'
 import { isRoleDenied } from '@/lib/role-denied'
 import { platformActivityList, platformAuditListOptions } from '@/queries/audit.queries'
 import { tenantsListOptions } from '@/queries/tenant-admin.queries'
-import { memberName, useMembers } from '@/queries/tenant.queries'
+import { usersListOptions } from '@/queries/user-admin.queries'
 import { cleanSearch } from '@/schemas/list-request.schemas'
 import { useAuthStore } from '@/states/auth.store'
 import { LIST_SEARCH_DEBOUNCE_MS } from '@/types/list.types'
@@ -56,16 +57,22 @@ function PlatformNotFound() {
 
 /**
  * Every tenant's activity, filtered by tenant, action, actor and access path,
- * all in the URL. The Actor facet lists the first hundred staff by name; a URL
- * naming another actor still filters, and its chip resolves the name from the
- * user's record. A 404 from the log (the viewer was demoted since the profile
- * loaded) gets the role-denied state.
+ * all in the URL. The Actor and Tenant facets search the server as the reader
+ * types; a URL naming an actor outside the results still filters, and its chip
+ * resolves the name from the user's record. A 404 from the log (the viewer was
+ * demoted since the profile loaded) gets the role-denied state.
  */
 function PlatformActivity() {
   const list = useListSearch(platformActivityList)
   const log = useListQuery(list, platformAuditListOptions)
-  /** The platform tenant's members: the Actor facet's options. */
-  const staff = useMembers(PLATFORM_TENANT_SLUG)
+  /** What the reader typed in the Actor facet's search box. */
+  const [actorTerm, setActorTerm] = useState('')
+  /** The actor search term the request waits for, so a keystroke is not a request. */
+  const actorSearch = useDebouncedValue(cleanSearch(actorTerm), LIST_SEARCH_DEBOUNCE_MS)
+  /** The Actor facet's options: the users the search names, twenty at a time, with no total. */
+  const actors = useQuery(
+    usersListOptions({ search: actorSearch || undefined, limit: 20 }, { total: false })
+  )
   /** What the reader typed in the Tenant facet's search box. */
   const [tenantTerm, setTenantTerm] = useState('')
   /** The tenant search term the request waits for, so a keystroke is not a request. */
@@ -104,22 +111,23 @@ function PlatformActivity() {
       label: 'Actor',
       single: true,
       isPersonal: true,
-      options: (staff.data ?? []).map((member) => ({
-        value: member.user.id,
-        label: memberName(member),
+      options: (actors.data?.items ?? []).map((actor) => ({
+        value: actor.id,
+        label: fullName(actor) ?? actor.email,
       })),
-      // The staff list's own failure shows in the facet, with a retry.
+      // The users read's own failure shows in the facet, with a retry.
       optionsState: {
-        isPending: staff.isPending,
-        isError: staff.isError,
-        retry: () => void staff.refetch(),
+        isPending: actors.isPending,
+        isError: actors.isError,
+        retry: () => void actors.refetch(),
       },
+      onSearch: setActorTerm,
       renderChip: (value, onRemove) => {
-        const member = staff.data?.find((entry) => entry.user.id === value)
+        const actor = actors.data?.items.find((entry) => entry.id === value)
         return (
           <UserFilterChip
             userId={value}
-            knownName={member ? memberName(member) : undefined}
+            knownName={actor ? (fullName(actor) ?? actor.email) : undefined}
             prefix="Actor: "
             onRemove={onRemove}
           />

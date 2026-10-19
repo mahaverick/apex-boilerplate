@@ -21,7 +21,6 @@ import {
   membersListOptions,
   ownersBesides,
   tenantKeys,
-  useMembers,
   useUpdateTenant,
   type TenantMember,
 } from '@/queries/tenant.queries'
@@ -51,43 +50,7 @@ const member: TenantMember = {
   user: { id: USER_ID, email: 'ada@example.com', firstName: 'Ada', lastName: 'Lovelace' },
 }
 
-describe('useMembers', () => {
-  let client: QueryClient
-
-  /** A provider around the suite's `client`. */
-  function wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  }
-
-  beforeEach(() => {
-    client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    resetSessionForTests()
-    useAuthStore.setState({ accessToken: 'access-token', user: testUser, isAuthenticated: true })
-  })
-
-  it('reads the first hundred members without a total, and hands back their rows', async () => {
-    const seen: URL[] = []
-    server.use(
-      http.get('/api/v1/tenants/:slug/members', ({ request }) => {
-        seen.push(new URL(request.url))
-        return ok(listPage([member]), 'Members retrieved.')
-      })
-    )
-
-    const { result } = renderHook(() => useMembers('platform', TENANT_ID), { wrapper })
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(seen[0]?.pathname).toBe('/api/v1/tenants/platform/members')
-    expect(seen[0]?.searchParams.get('limit')).toBe('100')
-    expect(seen[0]?.searchParams.has('total')).toBe(false)
-    expect(result.current.data).toEqual([member])
-    expect(
-      client.getQueryData(
-        membersListOptions('platform', TENANT_ID, { limit: 100 }, { total: false }).queryKey
-      )
-    ).toEqual(listPage([member]))
-  })
-
+describe('membersListOptions', () => {
   it('keeps one tenant’s members apart from another that reuses the slug', () => {
     expect(tenantKeys.members('acme', TENANT_ID)).not.toEqual(tenantKeys.members('acme', USER_ID))
     expect(membersListOptions('acme', TENANT_ID, { limit: 100 }).queryKey.slice(0, 4)).toEqual([

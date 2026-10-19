@@ -14,7 +14,6 @@ import {
   AUDIT_ID_2,
   AUDIT_ID_4,
   AUDIT_ID_5,
-  MEMBERSHIP_ID,
   PLATFORM_AUDIT_ID,
   PLATFORM_TENANT_ID,
   STAFF_USER_ID,
@@ -25,7 +24,7 @@ import {
 import { listPage } from '@/tests/fixtures/list-page'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { PlatformAuditEntry, PlatformTenantRow } from '@/types/api.types'
+import type { PlatformAuditEntry, PlatformTenantRow, PlatformUserRow } from '@/types/api.types'
 
 const STAFF_VISIT: PlatformAuditEntry = {
   id: PLATFORM_AUDIT_ID,
@@ -49,7 +48,7 @@ function signInAs(platformRole: MembershipRole | null) {
 }
 
 /**
- * Serves the platform audit log through `respond`, and an empty platform member list.
+ * Serves the platform audit log through `respond`, and an empty users directory.
  * @returns Every audit-log URL requested, in order.
  */
 function mockLog(respond: (url: URL) => Response) {
@@ -60,7 +59,7 @@ function mockLog(respond: (url: URL) => Response) {
       seen.push(url)
       return respond(url)
     }),
-    http.get('/api/v1/tenants/platform/members', () => ok(listPage([]), 'Members retrieved.')),
+    http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.')),
     http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.'))
   )
   return seen
@@ -81,20 +80,45 @@ const GLOBEX_ROW: PlatformTenantRow = {
   slug: 'globex',
 }
 
-/** The staff member, as the platform tenant's member list holds them. */
-const STAFF = [
-  {
-    membership: {
-      id: MEMBERSHIP_ID,
-      userId: STAFF_USER_ID,
-      tenantId: PLATFORM_TENANT_ID,
-      role: 'admin',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    },
-    user: { id: STAFF_USER_ID, email: 'sam@platform.test', firstName: 'Sam', lastName: 'Staff' },
-  },
-]
+/** The staff member, as the users directory lists them. */
+const SAM: PlatformUserRow = {
+  id: STAFF_USER_ID,
+  email: 'sam@platform.test',
+  firstName: 'Sam',
+  lastName: 'Staff',
+  active: true,
+  emailVerifiedAt: '2026-01-01T00:00:00.000Z',
+  lastLoggedInAt: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  deletedAt: null,
+  platformRole: 'admin',
+  membershipCount: 0,
+}
+const STAFF = [SAM]
+
+/** Ada, a customer user the directory finds only by search, with no name on her account. */
+const ADA: PlatformUserRow = {
+  ...SAM,
+  id: USER_ID_2,
+  email: 'ada@example.com',
+  firstName: null,
+  lastName: null,
+  platformRole: null,
+  membershipCount: 1,
+}
+
+/** Answers the users directory, recording each request's query string in order. */
+function mockUserSearch(respond: (search: string | null) => Response | Promise<Response>) {
+  const queries: string[] = []
+  server.use(
+    http.get('/api/v1/platform/users', ({ request }) => {
+      const url = new URL(request.url)
+      queries.push(url.search)
+      return respond(url.searchParams.get('search'))
+    })
+  )
+  return queries
+}
 
 /** Answers the platform tenant search, recording each request's `search` in order (null when absent). */
 function mockTenantSearch(respond: (search: string | null) => Response | Promise<Response>) {
@@ -325,12 +349,10 @@ describe('platform activity page', () => {
     ).toBeInTheDocument()
   })
 
-  it('lists the platform staff in the Actor facet and filters by one, through ?actor=', async () => {
+  it('lists users in the Actor facet and filters by one, through ?actor=', async () => {
     signInAs('admin')
     const seen = mockLog(() => page([STAFF_VISIT]))
-    server.use(
-      http.get('/api/v1/tenants/platform/members', () => ok(listPage(STAFF), 'Members retrieved.'))
-    )
+    mockUserSearch(() => ok(listPage(STAFF), 'Users retrieved.'))
     const user = userEvent.setup()
     const router = renderPlatformActivity()
     await screen.findByText(/opened this tenant/)
@@ -345,18 +367,16 @@ describe('platform activity page', () => {
     ).toBeInTheDocument()
   })
 
-  it('says the staff list could not be loaded, in the actor facet, and retries it', async () => {
+  it('says the users could not be loaded, in the actor facet, and retries them', async () => {
     signInAs('admin')
     mockLog(() => page([STAFF_VISIT]))
     let attempts = 0
-    server.use(
-      http.get('/api/v1/tenants/platform/members', () => {
-        attempts += 1
-        return attempts <= 2
-          ? fail('Something went wrong', 500)
-          : ok(listPage(STAFF), 'Members retrieved.')
-      })
-    )
+    mockUserSearch(() => {
+      attempts += 1
+      return attempts <= 2
+        ? fail('Something went wrong', 500)
+        : ok(listPage(STAFF), 'Users retrieved.')
+    })
     const user = userEvent.setup()
     renderPlatformActivity()
     await screen.findByText(/opened this tenant/)
@@ -365,6 +385,47 @@ describe('platform activity page', () => {
     expect(await within(popup).findByText('Actor could not be loaded.')).toBeInTheDocument()
     await user.click(within(popup).getByRole('button', { name: 'Try again' }))
     expect(await within(popup).findByRole('checkbox', { name: 'Sam Staff' })).toBeInTheDocument()
+  })
+
+  it('searches actors on the server, twenty at a time', async () => {
+    signInAs('admin')
+    mockLog(() => page([STAFF_VISIT]))
+    const queries = mockUserSearch((search) =>
+      ok(listPage(search === 'ada' ? [ADA] : STAFF), 'Users retrieved.')
+    )
+    const user = userEvent.setup()
+    const router = renderPlatformActivity()
+    await screen.findByText(/opened this tenant/)
+
+    const popup = await openFacet(user, 'actor')
+    await within(popup).findByRole('checkbox', { name: 'Sam Staff' })
+    await user.type(within(popup).getByLabelText('Search actor'), 'ada')
+    await user.click(await within(popup).findByRole('checkbox', { name: 'ada@example.com' }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ actor: USER_ID_2 }))
+    // The debounce sends the finished term, once; no keystroke before it reaches the API.
+    expect(queries.filter((query) => query.includes('search='))).toEqual(['?search=ada&limit=20'])
+    expect(queries[0]).toBe('?limit=20')
+  })
+
+  it('names a selected actor who is not in the results', async () => {
+    signInAs('admin')
+    const seen = mockLog(() => page([STAFF_VISIT]))
+    mockUserSearch(() => ok(listPage(STAFF), 'Users retrieved.'))
+    server.use(
+      http.get(`/api/v1/platform/users/${USER_ID_2}`, () =>
+        ok(
+          { ...ADA, authProviders: [], memberships: [], pendingInvitations: [] },
+          'User retrieved.'
+        )
+      )
+    )
+    renderPlatformActivity(`/activity?actor=${USER_ID_2}`)
+
+    expect(
+      await screen.findByRole('button', { name: 'Remove filter: Actor: ada@example.com' })
+    ).toBeInTheDocument()
+    expect(seen.at(-1)?.searchParams.get('actor')).toBe(USER_ID_2)
   })
 
   it('says the tenant list could not be loaded, in the tenant facet', async () => {
