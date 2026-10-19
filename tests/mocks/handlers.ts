@@ -640,6 +640,10 @@ export const handlers = [
   ),
   // The platform audit log, empty.
   http.get('/api/v1/platform/audit-log', () => ok(listPage([]), 'Audit log retrieved.')),
+  // A staff-sent sign-in link goes; a test that needs a refusal or a failed mail serves its own.
+  http.post('/api/v1/platform/users/:userId/sign-in-link', () =>
+    ok({ emailSent: true }, 'Sign-in link sent.')
+  ),
   // A tenant's members and pending invitations default to empty pages; a page test serves its own rows.
   http.get('/api/v1/tenants/:slug/members', () => ok(listPage([]), 'Members retrieved.')),
   http.get('/api/v1/tenants/:slug/invitations', () => ok(listPage([]), 'Invitations retrieved.')),

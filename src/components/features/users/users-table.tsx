@@ -76,13 +76,14 @@ const FILTERS: readonly DataTableFilter[] = [
       { value: 'deleted', label: 'Deleted' },
     ],
   },
+  // The API's `verified` filter: an address is verified by its first sign-in.
   {
     name: 'verified',
-    label: 'Verified',
+    label: 'Signed in',
     single: true,
     options: [
-      { value: 'true', label: 'Verified' },
-      { value: 'false', label: 'Unverified' },
+      { value: 'true', label: 'Has signed in' },
+      { value: 'false', label: 'Never signed in' },
     ],
   },
   {

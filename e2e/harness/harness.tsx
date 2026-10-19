@@ -304,7 +304,6 @@ function userDetail(userId: string) {
           platformRole: null,
         }
       : { ...USER_ROWS[0]!, active: true }),
-    hasPassword: false,
     authProviders: ['email', 'google'],
     memberships: [
       {
@@ -331,6 +330,8 @@ function userDetail(userId: string) {
         tenantName: 'Gamma Inc',
         role: 'viewer',
         expiresAt: '2026-10-01T00:00:00.000Z',
+        lastSentAt: null,
+        resendAvailableAt: null,
       },
     ],
   }
@@ -1413,6 +1414,9 @@ const worker = setupWorker(
   http.post('/api/v1/platform/tenants/:tenantId/suspend', reauthRequired),
   http.post('/api/v1/platform/tenants/:tenantId/owner-invitation', reauthRequired),
   http.post('/api/v1/platform/users/:userId/deactivate', reauthRequired),
+  http.post('/api/v1/platform/users/:userId/sign-in-link', () =>
+    ok({ emailSent: true }, 'Sign-in link sent.')
+  ),
   http.get('/api/v1/profile', () => ok(testUser, 'Profile retrieved.')),
   // /profile's Security section. Unmocked, it would reach the real API, 401, and sign the harness user out.
   http.get('/api/v1/auth/providers', () =>

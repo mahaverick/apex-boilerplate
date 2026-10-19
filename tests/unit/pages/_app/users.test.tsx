@@ -67,7 +67,7 @@ describe('/users', () => {
     const rows = within(table).getAllByRole('row')
     expect(rows).toHaveLength(4)
     expect(within(rows[1]!).getByText('Inactive')).toBeInTheDocument()
-    expect(within(rows[2]!).getByText('Unverified')).toBeInTheDocument()
+    expect(within(rows[2]!).getByText('Never signed in')).toBeInTheDocument()
     expect(within(rows[2]!).getByText('Never')).toBeInTheDocument()
     expect(within(rows[3]!).getByText('Admin')).toBeInTheDocument()
     expect(within(rows[1]!).getByRole('link', { name: 'user01@example.com' })).toHaveAttribute(
@@ -181,15 +181,18 @@ describe('/users', () => {
     await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('-lastSignIn'))
   })
 
-  it('filters by verification through a yes/no facet', async () => {
+  it('labels never-verified users Never signed in, in the badge and the facet', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
     const user = userEvent.setup()
     const router = renderAppAt('/users')
-    await screen.findByText('user01@example.com')
-    await user.click(screen.getByRole('button', { name: 'Filter by verified, Users' }))
-    const popup = await screen.findByRole('dialog', { name: 'Filter by verified, Users' })
-    await user.click(within(popup).getByRole('checkbox', { name: 'Unverified' }))
+    const table = await screen.findByRole('table', { name: 'Users' })
+    expect(within(table).getByText('Never signed in')).toBeInTheDocument()
+    expect(within(table).queryByText('Unverified')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Filter by signed in, Users' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by signed in, Users' })
+    expect(within(popup).getByRole('checkbox', { name: 'Has signed in' })).toBeInTheDocument()
+    await user.click(within(popup).getByRole('checkbox', { name: 'Never signed in' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ verified: false }))
     await waitFor(() => expect(seen.at(-1)?.get('verified')).toBe('false'))
   })
@@ -268,6 +271,9 @@ describe('/users', () => {
       const router = renderAppAt('/users')
       await user.click(await screen.findByRole('button', { name: 'New user' }))
       const dialog = await screen.findByRole('dialog', { name: 'New user' })
+      expect(dialog).toHaveTextContent(
+        'We email them a sign-in link to the customer app. It expires in 15 minutes. You can send a new one from their page.'
+      )
       await user.type(within(dialog).getByLabelText('Email'), '  New@Example.com ')
       await user.type(within(dialog).getByLabelText('First name'), 'Nia')
       await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
@@ -277,21 +283,23 @@ describe('/users', () => {
       expect(success).toHaveBeenCalledTimes(1)
       expectMaskedToast(
         success.mock.calls[0]![0],
-        'Set-password email sent to new@example.com.',
+        'Welcome email sent to new@example.com.',
         'new@example.com'
       )
     })
 
-    it('warns when the email did not go, and its Resend posts password-setup', async () => {
+    it('warns when the welcome email did not go, and its Resend sends a sign-in link', async () => {
       pages([])
       let resent = false
+      let body: unknown
       server.use(
         http.post('/api/v1/platform/users', () =>
           ok({ user: row(9, { id: USER_ID_3 }), emailSent: false }, 'User created.', 201)
         ),
-        http.post(`/api/v1/platform/users/${USER_ID_3}/password-setup`, () => {
+        http.post(`/api/v1/platform/users/${USER_ID_3}/sign-in-link`, async ({ request }) => {
           resent = true
-          return ok({ emailSent: true }, 'Email sent.')
+          body = await request.json()
+          return ok({ emailSent: true }, 'Sign-in link sent.')
         }),
         http.get(`/api/v1/platform/users/${USER_ID_3}`, () => fail('Not found', 404))
       )
@@ -306,12 +314,18 @@ describe('/users', () => {
 
       await waitFor(() => expect(warning).toHaveBeenCalled())
       const notSent = await screen.findByRole('dialog', {
-        name: 'The user was created, but the set-password email could not be sent.',
+        name: 'The user was created, but the welcome email couldn’t be sent.',
       })
       await user.click(within(notSent).getByRole('button', { name: 'Resend' }))
       await waitFor(() => expect(resent).toBe(true))
+      expect(body).toEqual({})
       await waitFor(() => expect(notSent).not.toBeInTheDocument())
-      await waitFor(() => expect(success).toHaveBeenCalledWith('Set-password email sent.'))
+      await waitFor(() => expect(success).toHaveBeenCalledTimes(1))
+      expectMaskedToast(
+        success.mock.calls[0]![0],
+        `Sign-in link sent to ${row(9, { id: USER_ID_3 }).email}.`,
+        row(9, { id: USER_ID_3 }).email
+      )
     })
 
     it('starts blank after the dialog is closed without creating anyone', async () => {

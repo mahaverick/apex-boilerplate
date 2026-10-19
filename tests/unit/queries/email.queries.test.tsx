@@ -20,7 +20,7 @@ import { invalidateDirectory } from '@/queries/platform.queries'
 import { useCreatePlatformTenant } from '@/queries/tenant-admin.queries'
 import { useInviteMember, useResendInvitation } from '@/queries/tenant-writes.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
-import { userAdminKeys, useSendPasswordSetup } from '@/queries/user-admin.queries'
+import { userAdminKeys, useSendSignInLink } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { EMAIL_ID, INVITATION_ID, SUPPRESSION_ID, TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
@@ -207,14 +207,14 @@ describe('email queries go stale with the directory', () => {
     expectStale(client, EMAIL_KEYS)
   })
 
-  it('a set-password mail refreshes the email queries and the platform log', async () => {
+  it('a staff sign-in link refreshes the email queries and the platform log', async () => {
     server.use(
-      http.post(`/api/v1/platform/users/${USER_ID_2}/password-setup`, () =>
-        ok({ emailSent: true }, 'Password setup email sent.')
+      http.post(`/api/v1/platform/users/${USER_ID_2}/sign-in-link`, () =>
+        ok({ emailSent: true }, 'Sign-in link sent.')
       )
     )
     const client = seeded([...EMAIL_KEYS, platformAuditListOptions({ target: USER_ID_2 }).queryKey])
-    const { result } = renderHook(() => useSendPasswordSetup(), { wrapper: wrapperWith(client) })
+    const { result } = renderHook(() => useSendSignInLink(), { wrapper: wrapperWith(client) })
     result.current.mutate({ userId: USER_ID_2 })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expectStale(client, [...EMAIL_KEYS, platformAuditListOptions({ target: USER_ID_2 }).queryKey])
@@ -294,7 +294,7 @@ describe('emailsSearchSchema', () => {
     const search = {
       search: 'cleo',
       status: 'bounced',
-      template: 'password_reset',
+      template: 'sign_in_link',
       user: USER_ID_2,
       tenant: TENANT_ID,
       from: '2026-09-01',
@@ -310,7 +310,7 @@ describe('emailsSearchSchema', () => {
       emailsSearchSchema.parse({
         search: 2026,
         status: 'lost',
-        template: 'welcome',
+        template: 'welcome_v2',
         user: 'not-a-uuid',
         tenant: 42,
         from: '2026-02-30',

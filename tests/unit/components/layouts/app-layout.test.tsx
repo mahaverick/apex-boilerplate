@@ -36,7 +36,7 @@ const LOGOUT_FAILURES: [string, () => Response][] = [
   ['a 503 from a restarting upstream', () => fail('Service Unavailable', 503)],
   [
     'a 429 from the logout rate limiter',
-    () => fail('Too many attempts. Please try again later.', 429, 'RATE_LIMITED'),
+    () => fail('Too many attempts. Try again in 42 seconds.', 429, 'RATE_LIMITED'),
   ],
 ]
 
@@ -234,7 +234,6 @@ describe('AppLayout', () => {
             deletedAt: null,
             platformRole: null,
             membershipCount: 0,
-            hasPassword: true,
             authProviders: ['email'],
             memberships: [],
             pendingInvitations: [],

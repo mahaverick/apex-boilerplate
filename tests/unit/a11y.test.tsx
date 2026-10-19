@@ -517,7 +517,11 @@ describe('signed-out pages', () => {
   })
 })
 
-/** A customer account with a tenant, a pending invitation and no password: every card has content. */
+/** express's `invitation_invalid` message, which the invitation pages show as their own copy. */
+const INVITATION_INVALID_TEXT =
+  'This invitation link has expired or was already used. Ask the person who invited you for a new one.'
+
+/** A customer account with a tenant and a pending invitation: every card has content. */
 const USER_DETAIL: PlatformUserDetail = {
   id: USER_ID_2,
   email: 'cleo@example.com',
@@ -530,7 +534,6 @@ const USER_DETAIL: PlatformUserDetail = {
   deletedAt: null,
   platformRole: null,
   membershipCount: 1,
-  hasPassword: false,
   authProviders: ['email'],
   memberships: [
     {
@@ -549,6 +552,8 @@ const USER_DETAIL: PlatformUserDetail = {
       tenantName: 'Beta Ltd',
       role: 'viewer',
       expiresAt: '2026-10-01T00:00:00.000Z',
+      lastSentAt: null,
+      resendAvailableAt: null,
     },
   ],
 }
@@ -836,14 +841,16 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
-  it('users with the verified facet open has no axe violations', async () => {
+  it('users with the signed-in facet open has no axe violations', async () => {
     server.use(
       http.get('/api/v1/platform/users', () => ok(listPage([USER_DETAIL]), 'Users retrieved.'))
     )
     renderAppAt('/users')
     await screen.findByRole('table', { name: 'Users' })
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Filter by verified, Users' }))
-    await screen.findByRole('dialog', { name: 'Filter by verified, Users' })
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Filter by signed in, Users' }))
+    await screen.findByRole('dialog', { name: 'Filter by signed in, Users' })
     await expectNoViolations()
   })
 
@@ -1194,7 +1201,7 @@ describe('invitation accept states', () => {
     signOut()
     server.use(
       http.post('/api/v1/invitations/preview', () =>
-        fail('This invitation is invalid or has expired.', 404, 'invitation_invalid')
+        fail(INVITATION_INVALID_TEXT, 404, 'invitation_invalid')
       )
     )
     renderAppAt(acceptPath)
@@ -1207,10 +1214,10 @@ describe('invitation accept states', () => {
     signIn()
     server.use(
       http.post('/api/v1/invitations/preview', () =>
-        fail('This invitation is invalid or has expired.', 404, 'invitation_invalid')
+        fail(INVITATION_INVALID_TEXT, 404, 'invitation_invalid')
       ),
       http.post('/api/v1/invitations/accept', () =>
-        fail('This invitation is invalid or has expired.', 404, 'invitation_invalid')
+        fail(INVITATION_INVALID_TEXT, 404, 'invitation_invalid')
       )
     )
     renderAppAt(acceptPath)
@@ -1267,7 +1274,7 @@ describe('invitation confirm states', () => {
     signOut()
     server.use(
       http.post('/api/v1/invitations/confirm', () =>
-        fail('This invitation is invalid or has expired.', 404, 'invitation_invalid')
+        fail(INVITATION_INVALID_TEXT, 404, 'invitation_invalid')
       )
     )
     renderAppAt(confirmPath)
@@ -1709,6 +1716,17 @@ describe('open overlays', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Delete user' })
     expect(within(dialog).getByLabelText('Type cleo@example.com to confirm')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the Send sign-in link dialog open', async () => {
+    serveUser()
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions for cleo@example.com' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Send sign-in link' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
+    expect(within(dialog).getByRole('button', { name: 'Send link' })).toBeInTheDocument()
     await expectNoViolations()
   })
 

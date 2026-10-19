@@ -43,7 +43,6 @@ const CLEO_ROW: PlatformUserRow = {
 
 const CLEO: PlatformUserDetail = {
   ...CLEO_ROW,
-  hasPassword: true,
   authProviders: ['email'],
   memberships: [
     {

@@ -8,6 +8,7 @@ import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
 import { userAdminKeys } from '@/queries/user-admin.queries'
 import { queryClient } from '@/router'
+import { expectMaskedToast } from '@/tests/fixtures/content'
 import {
   AUDIT_ID_1,
   AUDIT_ID_2,
@@ -37,7 +38,6 @@ const DETAIL: PlatformUserDetail = {
   deletedAt: null,
   platformRole: null,
   membershipCount: 1,
-  hasPassword: false,
   authProviders: ['email'],
   memberships: [
     {
@@ -56,6 +56,8 @@ const DETAIL: PlatformUserDetail = {
       tenantName: 'Beta Ltd',
       role: 'viewer',
       expiresAt: '2026-10-01T00:00:00.000Z',
+      lastSentAt: null,
+      resendAvailableAt: null,
     },
   ],
 }
@@ -83,16 +85,14 @@ describe('/users/$userId', () => {
     answer()
     renderAppAt(`/users/${USER_ID_2}`)
     expect(await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })).toBeInTheDocument()
-    expect(screen.getByText('Unverified')).toBeInTheDocument()
+    expect(screen.getByText('Never signed in')).toBeInTheDocument()
     const tenants = screen.getByRole('region', { name: 'Tenants' })
     expect(within(tenants).getByRole('link', { name: 'Acme Corp' })).toHaveAttribute(
       'href',
       `/tenants/${TENANT_ID}`
     )
     expect(within(tenants).getByText('Editor')).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Sign-in methods' })).toHaveTextContent(
-      'No password set'
-    )
+    expect(screen.getByRole('region', { name: 'Sign-in methods' })).toHaveTextContent('Email link')
     expect(screen.getByRole('region', { name: 'Pending invitations' })).toHaveTextContent(
       'Beta Ltd'
     )
@@ -166,7 +166,7 @@ describe('/users/$userId', () => {
     expect(screen.queryByRole('button', { name: /^Actions for/ })).not.toBeInTheDocument()
   })
 
-  it('offers an admin soft delete, and no resend-verification to an account without a password', async () => {
+  it('offers an admin a sign-in link and soft delete on an unverified account', async () => {
     answer()
     const user = userEvent.setup()
     renderAppAt(`/users/${USER_ID_2}`)
@@ -176,24 +176,11 @@ describe('/users/$userId', () => {
       .map((item) => item.textContent)
     expect(items).toEqual([
       'Edit name',
-      'Send set-password link',
+      'Send sign-in link',
       'Sign out everywhere',
       'Deactivate',
       'Delete',
     ])
-  })
-
-  it('offers resend-verification to an unverified account that has a password', async () => {
-    answer({ ...DETAIL, hasPassword: true })
-    const user = userEvent.setup()
-    renderAppAt(`/users/${USER_ID_2}`)
-    const menu = await openActions(user)
-    expect(
-      within(menu).getByRole('menuitem', { name: 'Resend verification email' })
-    ).toBeInTheDocument()
-    expect(
-      within(menu).getByRole('menuitem', { name: 'Send password reset link' })
-    ).toBeInTheDocument()
   })
 
   it('hides the mail actions and sign-out on an inactive account', async () => {
@@ -210,7 +197,7 @@ describe('/users/$userId', () => {
 
   it('lets an owner act on another staff owner', async () => {
     signIn({ ...testUser, platformRole: 'owner' })
-    answer({ ...DETAIL, platformRole: 'owner', hasPassword: true })
+    answer({ ...DETAIL, platformRole: 'owner' })
     const user = userEvent.setup()
     renderAppAt(`/users/${USER_ID_2}`)
     const menu = await openActions(user)
@@ -250,7 +237,7 @@ describe('/users/$userId', () => {
 
   it('deactivating a staff owner marks the Staff members list and a tenant’s owners stale', async () => {
     signIn({ ...testUser, platformRole: 'owner' })
-    answer({ ...DETAIL, platformRole: 'owner', hasPassword: true })
+    answer({ ...DETAIL, platformRole: 'owner' })
     server.use(
       http.post(`/api/v1/platform/users/${USER_ID_2}/deactivate`, () =>
         ok({ ...DETAIL, active: false }, 'User deactivated.')
@@ -280,7 +267,7 @@ describe('/users/$userId', () => {
     answer({ ...DETAIL, active: false })
     server.use(
       http.post(`/api/v1/platform/users/${USER_ID_2}/reactivate`, () =>
-        fail('User is already active', 409)
+        fail('This user is already active. Refresh the page to see their status.', 409)
       )
     )
     const user = userEvent.setup()
@@ -291,7 +278,9 @@ describe('/users/$userId', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Appeal upheld')
     await user.click(within(dialog).getByRole('button', { name: 'Reactivate' }))
 
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('User is already active')
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'This user is already active. Refresh the page to see their status.'
+    )
   })
 
   it('lets an admin delete only after typing the email; the page then shows the deleted account', async () => {
@@ -428,21 +417,109 @@ describe('/users/$userId', () => {
     expect(screen.queryByRole('heading', { name: 'User not found' })).not.toBeInTheDocument()
   })
 
-  it('sends the set-password link from the menu and says whether it went', async () => {
+  it('sends a sign-in link from the confirm dialog and toasts', async () => {
+    answer()
+    const bodies: unknown[] = []
+    server.use(
+      http.post(`/api/v1/platform/users/${USER_ID_2}/sign-in-link`, async ({ request }) => {
+        bodies.push(await request.json())
+        return ok({ emailSent: true }, 'Sign-in link sent.')
+      })
+    )
+    const success = vi.spyOn(toast, 'success')
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Send sign-in link' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
+    // Nothing goes until the staff member confirms.
+    expect(bodies).toEqual([])
+    await user.click(within(dialog).getByRole('button', { name: 'Send link' }))
+
+    await waitFor(() => expect(success).toHaveBeenCalledTimes(1))
+    expectMaskedToast(
+      success.mock.calls[0]![0],
+      'Sign-in link sent to cleo@example.com.',
+      'cleo@example.com'
+    )
+    expect(bodies).toEqual([{}])
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+  })
+
+  it('warns with a wait when the sign-in link email did not go', async () => {
     answer()
     server.use(
-      http.post(`/api/v1/platform/users/${USER_ID_2}/password-setup`, () =>
-        ok({ emailSent: false }, 'Email queued.')
+      http.post(`/api/v1/platform/users/${USER_ID_2}/sign-in-link`, () =>
+        ok({ emailSent: false }, 'Sign-in link sent.')
       )
     )
     const warning = vi.spyOn(toast, 'warning')
     const user = userEvent.setup()
     renderAppAt(`/users/${USER_ID_2}`)
     const menu = await openActions(user)
-    await user.click(within(menu).getByRole('menuitem', { name: 'Send set-password link' }))
+    await user.click(within(menu).getByRole('menuitem', { name: 'Send sign-in link' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Send link' }))
     await waitFor(() =>
-      expect(warning).toHaveBeenCalledWith('The email could not be sent. Try again shortly.')
+      expect(warning).toHaveBeenCalledWith('The email couldn’t be sent. Try again in 1 minute.')
     )
+  })
+
+  it.each([
+    ['staff', 'admin' as const, 'Apex'],
+    ['others', null, 'the customer app'],
+  ])('names Apex for staff and the customer app for others (%s)', async (_who, role, target) => {
+    signIn({ ...testUser, platformRole: 'owner' })
+    answer({ ...DETAIL, platformRole: role })
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Send sign-in link' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
+    expect(dialog).toHaveTextContent(
+      `We email cleo@example.com a link that signs them in to ${target}. It works once and expires in 15 minutes.`
+    )
+    expect(within(dialog).getByText('cleo@example.com')).toHaveClass('ph-sensitive')
+  })
+
+  it('keeps the dialog open with the 409 message for a deactivated user', async () => {
+    // The page still shows the account active, but someone deactivated it meanwhile.
+    answer()
+    server.use(
+      http.post(`/api/v1/platform/users/${USER_ID_2}/sign-in-link`, () =>
+        fail('This account is deactivated. Reactivate it, then try again.', 409)
+      )
+    )
+    const success = vi.spyOn(toast, 'success')
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Send sign-in link' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Send link' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'This account is deactivated. Reactivate it, then try again.'
+    )
+    expect(dialog).toBeInTheDocument()
+    expect(success).not.toHaveBeenCalled()
+  })
+
+  it('lists Email link and Google, with no password wording', async () => {
+    answer({ ...DETAIL, authProviders: ['email', 'google'] })
+    renderAppAt(`/users/${USER_ID_2}`)
+    const card = await screen.findByRole('region', { name: 'Sign-in methods' })
+    expect(within(card).getByText('Email link')).toBeInTheDocument()
+    expect(within(card).getByText('Google')).toBeInTheDocument()
+    expect(card).not.toHaveTextContent(/password/i)
+  })
+
+  it('lists only Email link for an account without Google', async () => {
+    answer()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const card = await screen.findByRole('region', { name: 'Sign-in methods' })
+    expect(within(card).getByText('Email link')).toBeInTheDocument()
+    expect(within(card).queryByText('Google')).not.toBeInTheDocument()
   })
 
   it('saves only the name that changed', async () => {

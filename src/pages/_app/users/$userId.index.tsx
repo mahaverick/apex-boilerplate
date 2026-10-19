@@ -40,9 +40,6 @@ export const Route = createFileRoute('/_app/users/$userId/')({
   pendingComponent: DetailPending,
 })
 
-/** A sign-in provider's label; an unknown one renders as the API names it. */
-const PROVIDER_LABELS: Record<string, string> = { email: 'Email', google: 'Google' }
-
 /**
  * Loads one user and shows them, a not-found state for a 404, or a load error.
  * A failed read with no user to show, or a 404, replaces the page; a failed
@@ -219,12 +216,9 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-1 text-sm">
-            <p>{user.hasPassword ? 'Password set' : 'No password set'}</p>
-            {user.authProviders.length > 0 && (
-              <p className="text-muted-foreground">
-                Linked: {user.authProviders.map((p) => PROVIDER_LABELS[p] ?? p).join(', ')}
-              </p>
-            )}
+            {/* Every account can sign in by an emailed link; Google only once linked. */}
+            <p>Email link</p>
+            {user.authProviders.includes('google') && <p>Google</p>}
           </CardContent>
         </Card>
       </section>

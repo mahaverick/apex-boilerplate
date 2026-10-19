@@ -27,21 +27,22 @@ import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { messageFrom } from '@/lib/api-error'
 import { toast } from '@/lib/toast'
-import { useCreateUser, useSendPasswordSetup } from '@/queries/user-admin.queries'
+import { SIGN_IN_LINK_NOT_SENT } from '@/lib/user-actions'
+import { useCreateUser, useSendSignInLink } from '@/queries/user-admin.queries'
 import { createUserSchema } from '@/schemas/user-admin.schemas'
 
 /**
- * New user: email and optional names. The API creates the account without a
- * password and mails a set-password link; staff never see a password. When
- * the mail did not go, the toast offers a resend rather than hiding it, and
- * the resend's own outcome is toasted too. However the dialog closes, it
- * opens blank next time.
+ * New user: email and optional names. The API creates the account and mails
+ * a welcome email with a sign-in link to the customer app. When the mail did
+ * not go, the toast offers a resend, which sends a fresh sign-in link, and the
+ * resend's own outcome is toasted too. However the dialog closes, it opens
+ * blank next time.
  */
 export function CreateUserDialog() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   const create = useCreateUser()
-  const resend = useSendPasswordSetup()
+  const resend = useSendSignInLink()
   const serverErrors = useServerErrors()
 
   const form = useForm({
@@ -54,19 +55,24 @@ export function CreateUserDialog() {
         if (emailSent) {
           toast.success(
             <>
-              Set-password email sent to <Pii>{user.email}</Pii>.
+              Welcome email sent to <Pii>{user.email}</Pii>.
             </>
           )
         } else {
-          toast.warning('The user was created, but the set-password email could not be sent.', {
+          toast.warning('The user was created, but the welcome email couldn’t be sent.', {
             action: {
               label: 'Resend',
               // A promise, not mutate's callbacks: those never fire once this dialog has unmounted, and it has by now, on the new user's page.
               onClick: () =>
                 void resend.mutateAsync({ userId: user.id }).then(
                   ({ emailSent: sent }) => {
-                    if (sent) toast.success('Set-password email sent.')
-                    else toast.warning('The email could not be sent. Try again shortly.')
+                    if (sent) {
+                      toast.success(
+                        <>
+                          Sign-in link sent to <Pii>{user.email}</Pii>.
+                        </>
+                      )
+                    } else toast.warning(SIGN_IN_LINK_NOT_SENT)
                   },
                   (error: unknown) => toast.error(messageFrom(error))
                 ),
@@ -97,8 +103,8 @@ export function CreateUserDialog() {
           <DialogHeader>
             <DialogTitle>New user</DialogTitle>
             <DialogDescription>
-              They get an email with a link to set their own password. The link lasts 24 hours by
-              default.
+              We email them a sign-in link to the customer app. It expires in 15 minutes. You can
+              send a new one from their page.
             </DialogDescription>
           </DialogHeader>
           <Form form={form} serverErrors={serverErrors}>

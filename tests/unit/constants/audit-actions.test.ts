@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { RETIRED_AUDIT_ACTIONS, STORED_AUDIT_ACTIONS } from '@/constants/audit-action-names'
 import {
   actorName,
   AUDIT_ACTION_LABELS,
@@ -9,7 +10,7 @@ import {
 import { EMAIL_ID, EMAIL_ID_2, INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
 describe('AUDIT_ACTIONS', () => {
-  it('lists exactly the thirty-six actions the API writes', () => {
+  it('lists exactly the thirty-five actions the API writes', () => {
     expect([...AUDIT_ACTIONS].sort()).toEqual(
       [
         'invitation.accepted',
@@ -19,13 +20,13 @@ describe('AUDIT_ACTIONS', () => {
         'member.left',
         'member.removed',
         'member.role_changed',
-        'platform.member.auto_joined',
         'platform.member.granted',
         'tenant.accessed_by_platform',
         'tenant.created',
         'tenant.settings_updated',
         'tenant.updated',
-        'auth.reauthenticated',
+        'auth.step_up_confirmed',
+        'auth.step_up_refused',
         'email.resent',
         'email.suppression_lifted',
         'onboarding.dismissed',
@@ -40,17 +41,32 @@ describe('AUDIT_ACTIONS', () => {
         'user.created',
         'user.deactivated',
         'user.deleted',
-        'user.password_setup_sent',
         'user.purged',
         'user.reactivated',
         'user.signed_out',
+        'user.sign_in_link_sent',
         'user.updated',
-        'user.verification_resent',
         'user.flags_evaluated',
         'platform.maintenance_mode_changed',
       ].sort()
     )
-    for (const action of AUDIT_ACTIONS) expect(AUDIT_ACTION_LABELS[action]).not.toBe('')
+    for (const action of AUDIT_ACTIONS) {
+      expect(AUDIT_ACTION_LABELS[action]).not.toBe('')
+      expect(auditSentence({ action, metadata: {} })).not.toMatch(/^performed /)
+    }
+  })
+
+  it('keeps the four passwordless retirements stored and filterable, never offered', () => {
+    for (const action of [
+      'auth.reauthenticated',
+      'user.password_setup_sent',
+      'user.verification_resent',
+      'platform.member.auto_joined',
+    ]) {
+      expect(RETIRED_AUDIT_ACTIONS).toContain(action)
+      expect(STORED_AUDIT_ACTIONS).toContain(action)
+      expect(isAuditAction(action)).toBe(false)
+    }
   })
 
   it('recognises its own actions and nothing else', () => {
@@ -97,11 +113,6 @@ describe('auditSentence', () => {
       'accepted an invitation as Admin',
     ],
     [
-      'platform.member.auto_joined',
-      { userId: USER_ID_2, emailDomain: 'corp.test' },
-      'added someone at corp.test to the platform as Viewer (auto-join)',
-    ],
-    [
       'platform.member.granted',
       { userId: USER_ID_2, role: 'admin', via: 'script' },
       'granted a platform member the Admin role',
@@ -117,9 +128,8 @@ describe('auditSentence', () => {
     ['user.reactivated', { reason: 'rehired' }, 'reactivated a user: “rehired”'],
     ['user.signed_out', { reason: 'lost laptop' }, 'signed a user out everywhere: “lost laptop”'],
     ['user.deleted', { reason: 'GDPR request' }, 'deleted a user: “GDPR request”'],
-    ['user.password_setup_sent', { kind: 'setup' }, 'sent a user a set-password link'],
-    ['user.password_setup_sent', { kind: 'reset' }, 'sent a user a password reset link'],
-    ['user.verification_resent', {}, 'resent a user’s verification email'],
+    ['user.sign_in_link_sent', { app: 'apex' }, 'sent a staff member a sign-in link to Apex'],
+    ['user.sign_in_link_sent', { app: 'web' }, 'sent a user a sign-in link'],
     ['tenant.suspended', { reason: 'unpaid' }, 'suspended the tenant: “unpaid”'],
     ['tenant.reactivated', { reason: 'paid' }, 'reactivated the tenant: “paid”'],
     ['tenant.archived', { reason: 'closed' }, 'archived the tenant: “closed”'],
@@ -143,8 +153,10 @@ describe('auditSentence', () => {
       { reason: 'contract ended', name: 'Acme Corp', slug: 'acme', memberCount: 2 },
       'permanently deleted the tenant Acme Corp: “contract ended”',
     ],
-    ['auth.reauthenticated', { outcome: 'success' }, 'confirmed their identity'],
-    ['auth.reauthenticated', { outcome: 'failure' }, 'failed to confirm their identity'],
+    ['auth.step_up_confirmed', { method: 'link' }, 'confirmed it was them by email link'],
+    ['auth.step_up_confirmed', { method: 'google' }, 'confirmed it was them with Google'],
+    ['auth.step_up_refused', { method: 'link' }, 'failed an email-link identity check'],
+    ['auth.step_up_refused', { method: 'google' }, 'failed a Google identity check'],
     [
       'email.resent',
       { reason: 'lost in spam', emailDomain: 'acme.test', templateKey: 'tenant_invitation' },

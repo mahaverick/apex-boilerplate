@@ -16,25 +16,65 @@ describe('EMAIL_TEMPLATES', () => {
     for (const key of EMAIL_TEMPLATE_KEYS) expect(EMAIL_TEMPLATES[key].label).not.toBe('')
   })
 
-  it('offers a resend for the four token emails and none for the two security notices', () => {
+  it('matches express’s template keys, the seven it sends and the five it retired', () => {
+    expect([...EMAIL_TEMPLATE_KEYS].sort()).toEqual(
+      [
+        'tenant_invitation',
+        'onboarding_reminder',
+        'maintenance_mode_changed',
+        'sign_in_link',
+        'step_up_link',
+        'welcome',
+        'invitation_confirm',
+        'email_verification',
+        'password_reset',
+        'registration_attempt',
+        'password_changed',
+        'account_setup',
+      ].sort()
+    )
+  })
+
+  it('offers a resend for sign_in_link and welcome, and none for step_up_link or a retired key', () => {
     const resendable = EMAIL_TEMPLATE_KEYS.filter((key) => EMAIL_TEMPLATES[key].resendLabel)
     expect(resendable.sort()).toEqual(
-      ['account_setup', 'email_verification', 'password_reset', 'tenant_invitation'].sort()
+      ['invitation_confirm', 'sign_in_link', 'tenant_invitation', 'welcome'].sort()
     )
-    expect(EMAIL_TEMPLATES.email_verification.resendLabel).toBe('Issues a new verification link.')
-    expect(EMAIL_TEMPLATES.password_reset.resendLabel).toBe(
-      'Issues a new password link — account setup or reset, whichever applies now.'
-    )
-    expect(EMAIL_TEMPLATES.account_setup.resendLabel).toBe(
-      EMAIL_TEMPLATES.password_reset.resendLabel
-    )
+    expect(EMAIL_TEMPLATES.sign_in_link).toEqual({
+      label: 'Sign-in link',
+      resendLabel: 'Sends a new sign-in link.',
+    })
+    expect(EMAIL_TEMPLATES.welcome).toEqual({
+      label: 'Welcome',
+      resendLabel: 'Sends a new sign-in link.',
+    })
+    expect(EMAIL_TEMPLATES.step_up_link).toEqual({
+      label: 'Identity confirmation link',
+      resendLabel: null,
+    })
+    expect(EMAIL_TEMPLATES.invitation_confirm).toEqual({
+      label: 'Invitation confirmation',
+      resendLabel: 'Sends the invitation again.',
+    })
     expect(EMAIL_TEMPLATES.tenant_invitation.resendLabel).toBe('Sends the invitation again.')
+    for (const retired of [
+      'email_verification',
+      'password_reset',
+      'account_setup',
+      'password_changed',
+      'registration_attempt',
+    ] as const) {
+      expect(EMAIL_TEMPLATES[retired].resendLabel).toBeNull()
+      expect(EMAIL_TEMPLATES[retired].label).not.toBe('')
+    }
+    expect(EMAIL_TEMPLATES.password_reset.label).toBe('Password reset')
   })
 
   it('names a template this build does not know by its raw key', () => {
     expect(templateLabel('tenant_invitation')).toBe('Tenant invitation')
     expect(templateLabel('onboarding_reminder')).toBe('Onboarding reminder')
     expect(templateLabel('maintenance_mode_changed')).toBe('Maintenance mode changed')
+    expect(templateLabel('sign_in_link')).toBe('Sign-in link')
     expect(templateLabel('welcome_v2')).toBe('welcome_v2')
     expect(isEmailTemplateKey('toString')).toBe(false)
   })

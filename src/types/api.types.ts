@@ -322,11 +322,14 @@ interface PlatformUserPendingInvitation {
   tenantName: string
   role: MembershipRole
   expiresAt: string
+  /** When the invitation was last mailed, or null for a row never stamped. */
+  lastSentAt: string | null
+  /** When a resend is allowed again, or null once the cooldown is over. */
+  resendAvailableAt: string | null
 }
 
 /** `GET /platform/users/:id`. `authProviders` are provider ids (`'email'`, `'google'`). */
 export interface PlatformUserDetail extends PlatformUserRow {
-  hasPassword: boolean
   authProviders: string[]
   memberships: PlatformUserMembership[]
   pendingInvitations: PlatformUserPendingInvitation[]
@@ -378,16 +381,24 @@ export const EMAIL_MESSAGE_STATUSES = [
 /** One status a logical email can hold. */
 export type EmailMessageStatus = (typeof EMAIL_MESSAGE_STATUSES)[number]
 
-/** The templates express sends. A key the API adds later still renders, by its raw name. */
+/**
+ * The templates express knows: the seven it sends, then the five it retired,
+ * whose stored messages the list's `template` filter still finds. A key the
+ * API adds later still renders, by its raw name.
+ */
 export const EMAIL_TEMPLATE_KEYS = [
-  'email_verification',
-  'password_reset',
-  'account_setup',
   'tenant_invitation',
-  'password_changed',
-  'registration_attempt',
   'onboarding_reminder',
   'maintenance_mode_changed',
+  'sign_in_link',
+  'step_up_link',
+  'welcome',
+  'invitation_confirm',
+  'email_verification',
+  'password_reset',
+  'registration_attempt',
+  'password_changed',
+  'account_setup',
 ] as const
 /** A template key express knows; stored rows carry the wider `string`. */
 export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number]

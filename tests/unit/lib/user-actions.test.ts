@@ -5,7 +5,7 @@ import { availableUserActions, type UserAction, type UserActionTarget } from '@/
 const ME = '20000000-0000-4000-8000-000000000001'
 const THEM = '20000000-0000-4000-8000-000000000002'
 
-/** A user other than `ME`, active and verified with a password, unless `overrides` say otherwise. */
+/** A user other than `ME`, active and verified, unless `overrides` say otherwise. */
 function target(
   platformRole: MembershipRole | null,
   overrides: Partial<Omit<UserActionTarget, 'platformRole'>> = {}
@@ -14,7 +14,6 @@ function target(
     id: THEM,
     active: true,
     emailVerifiedAt: '2026-01-01T00:00:00.000Z',
-    hasPassword: true,
     deletedAt: null,
     platformRole,
     ...overrides,
@@ -26,7 +25,7 @@ function actions(actorRole: MembershipRole | null, t: UserActionTarget): Set<Use
   return availableUserActions({ id: ME, platformRole: actorRole }, t)
 }
 
-const EVERY_LIVE_WRITE: UserAction[] = ['edit', 'passwordSetup', 'signOut', 'deactivate', 'delete']
+const EVERY_LIVE_WRITE: UserAction[] = ['edit', 'signInLink', 'signOut', 'deactivate', 'delete']
 
 describe('availableUserActions', () => {
   it('offers a viewer nothing, as the API refuses every write below admin', () => {
@@ -51,14 +50,19 @@ describe('availableUserActions', () => {
     )
   })
 
-  it('offers resend-verification only to an unverified account that has a password', () => {
-    expect(actions('admin', target(null, { emailVerifiedAt: null }))).toContain(
-      'resendVerification'
+  it('offers Send sign-in link to an active user the actor may mail, verified or not', () => {
+    expect(actions('admin', target(null))).toContain('signInLink')
+    expect(actions('admin', target(null, { emailVerifiedAt: null }))).toContain('signInLink')
+    expect(actions('admin', target('admin', { emailVerifiedAt: null }))).toContain('signInLink')
+    expect(actions('owner', target('owner'))).toContain('signInLink')
+  })
+
+  it('offers no mail action to an inactive user or to a higher-ranked staff member', () => {
+    expect(actions('admin', target(null, { active: false }))).not.toContain('signInLink')
+    expect(actions('admin', target(null, { active: false, emailVerifiedAt: null }))).not.toContain(
+      'signInLink'
     )
-    expect(
-      actions('admin', target(null, { emailVerifiedAt: null, hasPassword: false }))
-    ).not.toContain('resendVerification')
-    expect(actions('admin', target(null))).not.toContain('resendVerification')
+    expect(actions('admin', target('owner'))).not.toContain('signInLink')
   })
 
   it('leaves a deleted account read-only, with Delete permanently for an owner only', () => {
@@ -70,7 +74,7 @@ describe('availableUserActions', () => {
   // The API applies canPlatformActorModifyTarget to staff targets; the menu must not offer what it refuses.
   it.each<[MembershipRole, MembershipRole, UserAction[]]>([
     ['admin', 'owner', []],
-    ['admin', 'admin', ['passwordSetup']],
+    ['admin', 'admin', ['signInLink']],
     ['admin', 'viewer', EVERY_LIVE_WRITE],
     ['owner', 'owner', EVERY_LIVE_WRITE],
     ['owner', 'admin', EVERY_LIVE_WRITE],
@@ -88,24 +92,18 @@ describe('availableUserActions', () => {
     )
   })
 
-  it('offers no resend-verification to an inactive account, even unverified with a password', () => {
-    expect(
-      actions('admin', target(null, { active: false, emailVerifiedAt: null, hasPassword: true }))
-    ).toEqual(new Set<UserAction>(['edit', 'reactivate', 'delete']))
-  })
-
   it('lets an owner permanently delete a deleted staff owner, and an admin never', () => {
     const deletedOwner = target('owner', { deletedAt: '2026-09-29T00:00:00.000Z' })
     expect(actions('owner', deletedOwner)).toEqual(new Set<UserAction>(['purge']))
     expect(actions('admin', deletedOwner)).toEqual(new Set())
   })
 
-  it('on yourself offers only your own reset link', () => {
+  it('on yourself offers only a sign-in link to your own address', () => {
     expect(actions('owner', target('owner', { id: ME }))).toEqual(
-      new Set<UserAction>(['passwordSetup'])
+      new Set<UserAction>(['signInLink'])
     )
     expect(actions('admin', target('admin', { id: ME }))).toEqual(
-      new Set<UserAction>(['passwordSetup'])
+      new Set<UserAction>(['signInLink'])
     )
   })
 })

@@ -79,7 +79,10 @@ function useInvalidateUsers() {
   return () => invalidateDirectory(queryClient)
 }
 
-/** Creates a passwordless user and mails them a set-password link (admin); `emailSent` says whether the mail was queued. */
+/**
+ * Creates a user and mails them the welcome email, whose sign-in link opens
+ * the customer app (admin); `emailSent` says whether the mail was queued.
+ */
 export function useCreateUser() {
   const invalidate = useInvalidateUsers()
   return useMutation({
@@ -141,29 +144,23 @@ export function useSignOutUser() {
   })
 }
 
-/** Sends a mail; the answer says whether it went, so the page can offer a resend. */
-function useMailAction(action: 'password-setup' | 'resend-verification') {
+/**
+ * Mails a user a sign-in link (admin): to Apex for staff, to the customer app
+ * for anyone else. The answer says whether the mail went, so the page can
+ * offer another try.
+ */
+export function useSendSignInLink() {
   const invalidate = useInvalidateUsers()
   return useMutation({
     mutationFn: async ({ userId }: { userId: string }) =>
       unwrap(
         await apiClient.post<ApiSuccess<{ emailSent: boolean }>>(
-          `/platform/users/${userId}/${action}`,
+          `/platform/users/${userId}/sign-in-link`,
           {}
         )
       ),
     onSuccess: () => invalidate(),
   })
-}
-
-/** Mails a user a password-setup link (admin). */
-export function useSendPasswordSetup() {
-  return useMailAction('password-setup')
-}
-
-/** Mails an unverified user a fresh verification link (admin). */
-export function useResendVerification() {
-  return useMailAction('resend-verification')
 }
 
 /** Soft delete (admin; behind step-up). The account stays readable but read-only, so its page refreshes. */

@@ -3,9 +3,9 @@ import { cn } from '@/lib/utils'
 import type { PlatformUserRow } from '@/types/api.types'
 
 /**
- * Account state and email verification, as badges. Tokens as on the tenants
- * table. A deleted account shows only "Deleted": whether it was active does
- * not matter.
+ * Account state, and "Never signed in" while the address is unverified (the
+ * first sign-in verifies it), as badges. Tokens as on the tenants table. A deleted account
+ * shows only "Deleted": whether it was active does not matter.
  */
 export function UserStatusBadges({
   user,
@@ -30,7 +30,9 @@ export function UserStatusBadges({
         {user.active ? 'Active' : 'Inactive'}
       </Badge>
       {user.emailVerifiedAt === null && (
-        <Badge className="border-transparent bg-warning text-warning-foreground">Unverified</Badge>
+        <Badge className="border-transparent bg-warning text-warning-foreground">
+          Never signed in
+        </Badge>
       )}
     </span>
   )

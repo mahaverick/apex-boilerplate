@@ -242,7 +242,11 @@ describe('/emails/$emailId', () => {
     serve()
     server.use(
       http.get(`/api/v1/platform/emails/${EMAIL_ID}/preview`, () =>
-        fail('This template is no longer available.', 409, 'template_unavailable')
+        fail(
+          'This email’s template is retired, so it can’t be shown. Check its status and delivery events on this page instead.',
+          409,
+          'template_unavailable'
+        )
       )
     )
     renderAppAt(`${PAGE}?tab=preview`)
@@ -303,12 +307,11 @@ describe('/emails/$emailId', () => {
   })
 
   it.each([
-    ['email_verification', 'Issues a new verification link.'],
-    [
-      'account_setup',
-      'Issues a new password link — account setup or reset, whichever applies now.',
-    ],
+    ['sign_in_link', 'Sends a new sign-in link.'],
+    ['welcome', 'Sends a new sign-in link.'],
     ['tenant_invitation', 'Sends the invitation again.'],
+    ['invitation_confirm', 'Sends the invitation again.'],
+    ['password_reset', 'Runs the action that sent it again.'],
   ])('says what a %s resend will do', async (templateKey, sentence) => {
     serve({ templateKey })
     const user = userEvent.setup()
@@ -509,7 +512,7 @@ describe('/emails/$emailId', () => {
       http.post(`/api/v1/platform/emails/${EMAIL_ID}/resend`, async ({ request }) => {
         bodies.push(await request.json())
         return bodies.length === 1
-          ? fail('Confirm your identity to continue', 401, REAUTH_REQUIRED)
+          ? fail('Confirm it’s you to continue.', 401, REAUTH_REQUIRED)
           : ok({}, 'Resend requested.', 202)
       })
     )
