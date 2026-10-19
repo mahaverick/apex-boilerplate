@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ROUTES } from '@/constants/routes'
+import { useLeavingFinalFocus } from '@/hooks/use-arrival-focus'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom } from '@/lib/api-error'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
@@ -93,9 +94,6 @@ export function UserActionsMenu({
   const reactivate = useReactivateUser()
   const signOut = useSignOutUser()
   const remove = useDeleteUser()
-  const purge = usePurgeUser({
-    onPurged: () => navigate({ to: ROUTES.users, search: { status: 'deleted' } }),
-  })
 
   const allowed = availableUserActions({ id: me?.id ?? '', platformRole: me?.platformRole }, user)
 
@@ -107,6 +105,13 @@ export function UserActionsMenu({
   }
 
   const finalFocus = allowed.size > 0 && !fromPalette ? undefined : fallbackFocus
+  const purgeFocus = useLeavingFinalFocus(finalFocus)
+  const purge = usePurgeUser({
+    onPurged: () => {
+      purgeFocus.leave()
+      return navigate({ to: ROUTES.users, search: { status: 'deleted' } })
+    },
+  })
 
   /** Opens an action's dialog from the menu, whose trigger takes focus back on close. */
   const openFromMenu = (which: Exclude<OpenDialog, null>) => {
@@ -309,7 +314,7 @@ export function UserActionsMenu({
       <ReasonDialog
         open={dialog === 'purge'}
         onOpenChange={close}
-        finalFocus={finalFocus}
+        finalFocus={purgeFocus.finalFocus}
         title="Permanently delete this account?"
         description={
           <>

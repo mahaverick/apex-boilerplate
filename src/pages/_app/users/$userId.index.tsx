@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast, ROLE_LABELS } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
+import { useArrivalFocus } from '@/hooks/use-arrival-focus'
 import { useRecordRecent } from '@/hooks/use-record-recent'
 import { statusFrom } from '@/lib/api-error'
 import { formatDate, fullName } from '@/lib/format'
@@ -111,11 +112,12 @@ function UserDetailPage() {
 /**
  * One account: who it is, its tenants, sign-in methods and pending
  * invitations, its emails and, for admins, its recorded history and a link
- * to its flag evaluation.
+ * to its flag evaluation. After New user, the heading takes focus.
  */
 function UserDetail({ user }: { user: PlatformUserDetail }) {
   const name = fullName(user)
   const heading = useRef<HTMLHeadingElement>(null)
+  useArrivalFocus(heading, true)
   const isAdmin = platformRoleAtLeast(
     useAuthStore((state) => state.user?.platformRole),
     'admin'

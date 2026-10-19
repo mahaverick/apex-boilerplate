@@ -120,7 +120,7 @@ function TenantFlagsTab() {
       ) : !data ? (
         <MemberPickerSkeleton />
       ) : data.lifecycleState !== 'active' ? (
-        <FrozenTenant state={data.lifecycleState} />
+        <FrozenTenant state={data.lifecycleState} canReactivate />
       ) : (
         <TenantFlagsPanel tenant={data} />
       )}

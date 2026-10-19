@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { ROUTES } from '@/constants/routes'
+import { useLeavingFinalFocus } from '@/hooks/use-arrival-focus'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { messageFrom } from '@/lib/api-error'
@@ -35,8 +36,9 @@ import { createUserSchema } from '@/schemas/user-admin.schemas'
  * New user: email and optional names. The API creates the account and mails
  * a welcome email with a sign-in link to the customer app. When the mail did
  * not go, the toast offers a resend, which sends a fresh sign-in link, and the
- * resend's own outcome is toasted too. However the dialog closes, it opens
- * blank next time.
+ * resend's own outcome is toasted too. A create opens the new user's page
+ * with focus on its heading. However the dialog closes, it opens blank next
+ * time.
  */
 export function CreateUserDialog() {
   const [open, setOpen] = useState(false)
@@ -44,6 +46,7 @@ export function CreateUserDialog() {
   const create = useCreateUser()
   const resend = useSendSignInLink()
   const serverErrors = useServerErrors()
+  const leaving = useLeavingFinalFocus(undefined)
 
   const form = useForm({
     defaultValues: { email: '', firstName: '', lastName: '' },
@@ -79,6 +82,7 @@ export function CreateUserDialog() {
             },
           })
         }
+        leaving.leave()
         close(false)
         void navigate({ to: ROUTES.user, params: { userId: user.id } })
       } catch (error) {
@@ -99,7 +103,7 @@ export function CreateUserDialog() {
     <>
       <Button onClick={() => setOpen(true)}>New user</Button>
       <Dialog open={open} onOpenChange={close}>
-        <DialogContent>
+        <DialogContent finalFocus={leaving.finalFocus}>
           <DialogHeader>
             <DialogTitle>New user</DialogTitle>
             <DialogDescription>

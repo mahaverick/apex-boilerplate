@@ -16,6 +16,7 @@ import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { TENANT_DETAIL_TABS } from '@/constants/tenant-tabs'
+import { useArrivalFocus } from '@/hooks/use-arrival-focus'
 import { useRecordRecent } from '@/hooks/use-record-recent'
 import { statusFrom } from '@/lib/api-error'
 import { formatDate } from '@/lib/format'
@@ -54,7 +55,8 @@ function TenantCrumb({ params }: { params: Record<string, string> }) {
  * button (`h-9`, its width a guess), under the real tabs. Overview, Flags,
  * Onboarding and Emails draw their own skeletons; Members, Invitations and
  * Activity stay blank until the tenant lands. A tab above the reader's platform
- * role (Flags, for admins) is left out of the nav.
+ * role (Flags, for admins) is left out of the nav. After New tenant, the
+ * heading takes focus once the tenant has loaded.
  */
 function TenantLayout() {
   const { tenantId } = Route.useParams()
@@ -62,6 +64,7 @@ function TenantLayout() {
   const heading = useRef<HTMLHeadingElement>(null)
   const platformRole = useAuthStore((state) => state.user?.platformRole)
   const navigate = useNavigate()
+  useArrivalFocus(heading, tenant.data !== undefined, tenantId)
   const tabs = TENANT_DETAIL_TABS.filter(
     (tab) => tab.minRole === undefined || platformRoleAtLeast(platformRole, tab.minRole)
   )

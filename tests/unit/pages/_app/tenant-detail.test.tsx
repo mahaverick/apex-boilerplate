@@ -547,6 +547,44 @@ describe('/tenants/$tenantId', () => {
       expect(readsAfterPurge).toBe(0)
     })
 
+    it('focuses the Tenants heading after Delete permanently', async () => {
+      signIn({ ...testUser, platformRole: 'owner' })
+      serve(detail({ lifecycleState: 'archived', deletedAt: '2026-09-01T00:00:00.000Z' }))
+      server.use(
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/purge`, () =>
+          ok(null, 'Tenant permanently deleted.')
+        ),
+        http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.'))
+      )
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Delete permanently' }))
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Permanently delete Acme Corp?',
+      })
+      await user.type(within(dialog).getByLabelText('Reason'), 'contract ended')
+      await user.type(within(dialog).getByLabelText('Type acme to confirm'), 'acme')
+      await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }))
+
+      const heading = await screen.findByRole('heading', { name: 'Tenants', level: 1 })
+      await waitFor(() => expect(heading).toHaveFocus())
+      await waitFor(() => expect(dialog).not.toBeInTheDocument())
+      expect(heading).toHaveFocus()
+    })
+
+    it('returns focus to Actions when Delete permanently is cancelled', async () => {
+      signIn({ ...testUser, platformRole: 'owner' })
+      serve(detail({ lifecycleState: 'archived', deletedAt: '2026-09-01T00:00:00.000Z' }))
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Delete permanently' }))
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Permanently delete Acme Corp?',
+      })
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Actions' })).toHaveFocus())
+    })
+
     it('never shows an archived tenant’s cached members under a new tenant that reuses its slug', async () => {
       const seen: string[] = []
       server.use(

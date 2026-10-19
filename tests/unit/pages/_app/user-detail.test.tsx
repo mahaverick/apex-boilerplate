@@ -417,6 +417,53 @@ describe('/users/$userId', () => {
     expect(screen.queryByRole('heading', { name: 'User not found' })).not.toBeInTheDocument()
   })
 
+  it('focuses the Users heading after Delete permanently', async () => {
+    signIn({ ...testUser, platformRole: 'owner' })
+    server.use(
+      http.get(`/api/v1/platform/users/${USER_ID_2}`, () =>
+        ok({ ...DETAIL, deletedAt: '2026-09-29T00:00:00.000Z', active: false }, 'ok')
+      ),
+      http.post(`/api/v1/platform/users/${USER_ID_2}/purge`, () =>
+        ok(null, 'User permanently deleted.')
+      ),
+      http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.'))
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Delete permanently' }))
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Permanently delete this account?',
+    })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Erasure request')
+    await user.type(
+      within(dialog).getByLabelText('Type cleo@example.com to confirm'),
+      'cleo@example.com'
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }))
+
+    const heading = await screen.findByRole('heading', { name: 'Users', level: 1 })
+    await waitFor(() => expect(heading).toHaveFocus())
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(heading).toHaveFocus()
+  })
+
+  it('returns focus to Actions when Delete permanently is cancelled', async () => {
+    signIn({ ...testUser, platformRole: 'owner' })
+    answer({ ...DETAIL, deletedAt: '2026-09-29T00:00:00.000Z', active: false })
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Delete permanently' }))
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Permanently delete this account?',
+    })
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Actions for cleo@example.com' })).toHaveFocus()
+    )
+  })
+
   it('sends a sign-in link from the confirm dialog and toasts', async () => {
     answer()
     const bodies: unknown[] = []

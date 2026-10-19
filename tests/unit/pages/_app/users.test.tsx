@@ -10,7 +10,7 @@ import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { PlatformUserRow } from '@/types/api.types'
+import type { PlatformUserDetail, PlatformUserRow } from '@/types/api.types'
 
 /** A user row numbered `index`, active and verified, with `overrides` applied. */
 function row(index: number, overrides: Partial<PlatformUserRow> = {}): PlatformUserRow {
@@ -294,6 +294,50 @@ describe('/users', () => {
         'Welcome email sent to new@example.com.',
         'new@example.com'
       )
+    })
+
+    it('focuses the new user’s heading after New user', async () => {
+      pages([])
+      const created = row(9, { id: USER_ID_2, email: 'new@example.com', firstName: 'Nia' })
+      server.use(
+        http.post('/api/v1/platform/users', () =>
+          ok({ user: created, emailSent: true }, 'User created.', 201)
+        ),
+        http.get(`/api/v1/platform/users/${USER_ID_2}`, () =>
+          ok(
+            {
+              ...created,
+              authProviders: ['email'],
+              memberships: [],
+              pendingInvitations: [],
+            } satisfies PlatformUserDetail,
+            'User retrieved.'
+          )
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt('/users')
+      await user.click(await screen.findByRole('button', { name: 'New user' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New user' })
+      await user.type(within(dialog).getByLabelText('Email'), 'new@example.com')
+      await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
+
+      const heading = await screen.findByRole('heading', { name: 'Nia Last', level: 1 })
+      await waitFor(() => expect(heading).toHaveFocus())
+      await waitFor(() => expect(dialog).not.toBeInTheDocument())
+      expect(heading).toHaveFocus()
+    })
+
+    it('returns focus to New user when the dialog is closed without creating', async () => {
+      pages([])
+      const user = userEvent.setup()
+      renderAppAt('/users')
+      const button = await screen.findByRole('button', { name: 'New user' })
+      await user.click(button)
+      const dialog = await screen.findByRole('dialog', { name: 'New user' })
+      await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(button).toHaveFocus())
     })
 
     it('warns when the welcome email did not go, and its Resend sends a sign-in link', async () => {

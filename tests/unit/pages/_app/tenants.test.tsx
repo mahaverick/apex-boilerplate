@@ -633,5 +633,42 @@ describe('/tenants', () => {
         await screen.findByRole('menuitem', { name: 'Resend owner invitation' })
       ).toBeInTheDocument()
     })
+
+    it('focuses the new tenant’s heading after New tenant', async () => {
+      twoPages([])
+      server.use(
+        http.get(`/api/v1/platform/tenants/${CREATED.id}`, () => ok(CREATED, 'Tenant retrieved.')),
+        http.post('/api/v1/platform/tenants', () =>
+          ok({ tenant: CREATED, emailSent: true }, 'Tenant created.', 201)
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt('/tenants')
+      await screen.findByText('Tenant 01')
+      await user.click(screen.getByRole('button', { name: 'New tenant' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+      await user.type(within(dialog).getByLabelText('Name'), 'Acme Corp')
+      await user.type(within(dialog).getByLabelText('Slug'), 'acme')
+      await user.type(within(dialog).getByLabelText('Owner email'), 'owner@acme.test')
+      await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
+
+      const heading = await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })
+      await waitFor(() => expect(heading).toHaveFocus())
+      await waitFor(() => expect(dialog).not.toBeInTheDocument())
+      expect(heading).toHaveFocus()
+    })
+
+    it('returns focus to New tenant when the dialog is closed without creating', async () => {
+      twoPages([])
+      const user = userEvent.setup()
+      renderAppAt('/tenants')
+      await screen.findByText('Tenant 01')
+      const button = screen.getByRole('button', { name: 'New tenant' })
+      await user.click(button)
+      const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
+      await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(button).toHaveFocus())
+    })
   })
 })

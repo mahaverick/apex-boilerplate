@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { useLeavingFinalFocus } from '@/hooks/use-arrival-focus'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { codeFrom, messageFrom } from '@/lib/api-error'
@@ -59,9 +60,10 @@ const FIELD_FOR_CODE: Partial<Record<string, 'slug' | 'ownerEmail'>> = {
  * with no members; the owner joins by accepting the emailed invitation. A 409
  * lands on the field its code names: a taken slug on Slug, a deactivated owner
  * account on Owner email; any other error on the form. `onCreated` lets the
- * page decide where to go next. The command palette opens it with
- * `trigger={false}`, its own `open` and a `finalFocus`, since no trigger is
- * there to take focus back.
+ * page decide where to go next: both callers open the new tenant, so a
+ * create asks that page's heading to take focus and the close restores
+ * none. The command palette opens it with `trigger={false}`, its own `open`
+ * and a `finalFocus`, since no trigger is there to take focus back.
  */
 export function CreateTenantDialog({
   onCreated,
@@ -76,10 +78,11 @@ export function CreateTenantDialog({
   onOpenChange?: (open: boolean) => void
   /** False renders no New tenant button: whoever controls `open` opens it. */
   trigger?: boolean
-  /** Where focus goes on close; unset returns it to whatever opened the dialog. */
+  /** Where focus goes on a close that creates nothing; unset returns it to whatever opened the dialog. */
   finalFocus?: ComponentProps<typeof DialogContent>['finalFocus']
 }) {
   const [ownOpen, setOwnOpen] = useState(false)
+  const leaving = useLeavingFinalFocus(finalFocus)
   const open = controlledOpen ?? ownOpen
   /** Sets whichever open state is in charge. */
   const setOpen = (next: boolean) => {
@@ -94,7 +97,7 @@ export function CreateTenantDialog({
           New tenant
         </DialogTrigger>
       )}
-      <DialogContent finalFocus={finalFocus}>
+      <DialogContent finalFocus={leaving.finalFocus}>
         <DialogHeader>
           <DialogTitle>New tenant</DialogTitle>
           <DialogDescription>
@@ -104,6 +107,7 @@ export function CreateTenantDialog({
         {open && (
           <CreateTenantForm
             onDone={(tenant) => {
+              leaving.leave()
               setOpen(false)
               onCreated?.(tenant)
             }}

@@ -380,11 +380,11 @@ describe('the This page sources', () => {
     })
 
     it.each([
-      ['the overview', '/overview', 'Overview', 'main'],
-      ['another tenant’s page', `/tenants/${TENANT_ID}`, 'Acme Corp', 'heading'],
+      ['the overview', '/overview', 'Overview'],
+      ['another tenant’s page', `/tenants/${TENANT_ID}`, 'Acme Corp'],
     ] as const)(
-      'opens the created tenant from the palette on %s, with focus on its %s, never on the body',
-      async (_from, path, startHeading, landing) => {
+      'focuses the new tenant’s heading after New tenant from the palette, on %s',
+      async (_from, path, startHeading) => {
         const created = tenant({ id: TENANT_ID_2, name: 'Beta Inc', slug: 'beta', owners: [] })
         serveTenant(tenant())
         server.use(
@@ -416,12 +416,7 @@ describe('the This page sources', () => {
           expect(screen.queryByRole('dialog', { name: 'New tenant' })).not.toBeInTheDocument()
         )
         const heading = await screen.findByRole('heading', { name: 'Beta Inc', level: 1 })
-        await waitFor(() =>
-          expect(document.activeElement).toBe(
-            landing === 'main' ? screen.getByRole('main') : heading
-          )
-        )
-        expect(document.activeElement).not.toBe(document.body)
+        await waitFor(() => expect(heading).toHaveFocus())
       }
     )
 

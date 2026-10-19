@@ -4,7 +4,7 @@ import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
-import { platformAuditListOptions } from '@/queries/audit.queries'
+import { platformAuditListOptions, tenantAuditListOptions } from '@/queries/audit.queries'
 import { tenantAdminKeys, tenantsListOptions } from '@/queries/tenant-admin.queries'
 import {
   dropTenantCache,
@@ -22,6 +22,7 @@ import {
   ownersBesides,
   tenantKeys,
   useMembers,
+  useUpdateTenant,
   type TenantMember,
 } from '@/queries/tenant.queries'
 import { userAdminKeys, usersListOptions } from '@/queries/user-admin.queries'
@@ -430,5 +431,39 @@ describe('memberName', () => {
     expect(
       memberName({ ...member, user: { ...member.user, firstName: null, lastName: null } })
     ).toBe('ada@example.com')
+  })
+})
+
+describe('useUpdateTenant', () => {
+  let client: QueryClient
+
+  /** A provider around the suite's `client`. */
+  function wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  }
+
+  beforeEach(() => {
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    resetSessionForTests()
+    useAuthStore.setState({ accessToken: 'access-token', user: testUser, isAuthenticated: true })
+  })
+
+  it('refreshes the staff activity after Edit details', async () => {
+    const keys = [
+      tenantKeys.detail('acme', TENANT_ID),
+      platformAuditListOptions({}).queryKey,
+      tenantAuditListOptions('acme', TENANT_ID, {}).queryKey,
+    ]
+    for (const key of keys) client.setQueryData(key, {})
+    const elsewhere = tenantAuditListOptions('other', undefined, {}).queryKey
+    client.setQueryData(elsewhere, listPage([]))
+    server.use(http.patch('/api/v1/tenants/acme', () => ok({ id: TENANT_ID }, 'Tenant updated.')))
+    const { result } = renderHook(() => useUpdateTenant('acme', TENANT_ID), { wrapper })
+    result.current.mutate({ name: 'Acme Ltd' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    for (const key of keys) {
+      expect(client.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(true)
+    }
+    expect(client.getQueryState(elsewhere)?.isInvalidated).toBe(false)
   })
 })

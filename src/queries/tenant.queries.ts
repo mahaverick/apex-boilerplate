@@ -4,6 +4,7 @@ import { apiClient, unwrap } from '@/http/client'
 import { statusFrom } from '@/lib/api-error'
 import { fullName } from '@/lib/format'
 import { analyticsKey } from '@/observability/telemetry'
+import { auditKeys } from '@/queries/audit.queries'
 import { listQueryOptions, retryList } from '@/queries/list.queries'
 import { defineList, listFilter } from '@/schemas/list.schemas'
 import type { UpdateTenantInput } from '@/schemas/tenant.schemas'
@@ -149,14 +150,22 @@ export function useMyRole(
   }
 }
 
-/** Updates the tenant, refreshing its detail. */
+/**
+ * Updates the tenant, refreshing its detail and the platform and tenant
+ * activity logs, where the edit's audit entry lands (the Overview's Staff
+ * actions card reads the platform log).
+ */
 export function useUpdateTenant(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: UpdateTenantInput) =>
       unwrap(await apiClient.patch<ApiSuccess<Tenant>>(`/tenants/${slug}`, input)),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: tenantKeys.detail(slug, tenantId) })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: tenantKeys.detail(slug, tenantId) }),
+        queryClient.invalidateQueries({ queryKey: auditKeys.platformAll }),
+        queryClient.invalidateQueries({ queryKey: auditKeys.tenantAll(slug) }),
+      ])
     },
   })
 }
