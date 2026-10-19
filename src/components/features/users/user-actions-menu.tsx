@@ -1,4 +1,4 @@
-import { IconAlertCircle, IconDots } from '@tabler/icons-react'
+import { IconAlertCircle, IconDots, IconInfoCircle } from '@tabler/icons-react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useState, type ComponentProps, type RefObject } from 'react'
 import { ReasonDialog } from '@/components/features/reason-dialog'
@@ -332,8 +332,9 @@ export function UserActionsMenu({
 /**
  * Confirms a staff-sent sign-in link: no reason and no step-up, as the API
  * takes neither. Staff get a link to Apex and anyone else one to the customer
- * app, as the API decides. A refusal shows inside the dialog, which stays
- * open; a taken request closes it and toasts whether the email went.
+ * app, as the API decides. A refusal, or an email that did not go, shows
+ * inside the dialog, which stays open so Send link can try again; a sent
+ * email closes it with a toast.
  */
 function SendSignInLinkDialog({
   user,
@@ -348,20 +349,24 @@ function SendSignInLinkDialog({
 }) {
   const send = useSendSignInLink()
   const [refusal, setRefusal] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const target = user.platformRole === null ? 'the customer app' : 'Apex'
 
   /** Posts the request and reports its outcome. */
   const confirm = async () => {
     setRefusal(null)
+    setNotice(null)
     try {
       const { emailSent } = await send.mutateAsync({ userId: user.id })
-      if (emailSent) {
-        toast.success(
-          <>
-            Sign-in link sent to <Pii>{user.email}</Pii>.
-          </>
-        )
-      } else toast.warning(SIGN_IN_LINK_NOT_SENT)
+      if (!emailSent) {
+        setNotice(SIGN_IN_LINK_NOT_SENT)
+        return
+      }
+      toast.success(
+        <>
+          Sign-in link sent to <Pii>{user.email}</Pii>.
+        </>
+      )
       onOpenChange(false)
     } catch (error) {
       setRefusal(messageFrom(error))
@@ -373,7 +378,10 @@ function SendSignInLinkDialog({
       open={open}
       onOpenChange={(next) => {
         if (!next && send.isPending) return
-        if (!next) setRefusal(null)
+        if (!next) {
+          setRefusal(null)
+          setNotice(null)
+        }
         onOpenChange(next)
       }}
     >
@@ -391,6 +399,12 @@ function SendSignInLinkDialog({
             <AlertTitle>
               <Pii>{refusal}</Pii>
             </AlertTitle>
+          </Alert>
+        )}
+        {notice !== null && (
+          <Alert>
+            <IconInfoCircle aria-hidden="true" />
+            <AlertTitle>{notice}</AlertTitle>
           </Alert>
         )}
         <AlertDialogFooter>

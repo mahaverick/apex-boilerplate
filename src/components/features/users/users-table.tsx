@@ -76,9 +76,9 @@ const FILTERS: readonly DataTableFilter[] = [
       { value: 'deleted', label: 'Deleted' },
     ],
   },
-  // The API's `verified` filter: an address is verified by its first sign-in.
+  // The API's `signedIn` filter, on the last sign-in, so it matches the Last sign-in column.
   {
-    name: 'verified',
+    name: 'signedIn',
     label: 'Signed in',
     single: true,
     options: [

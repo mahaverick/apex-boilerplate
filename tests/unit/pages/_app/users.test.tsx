@@ -34,6 +34,8 @@ const PAGE_ONE = [
   row(1, { active: false }),
   row(2, { emailVerifiedAt: null, lastLoggedInAt: null }),
   row(3, { platformRole: 'admin' }),
+  // Verified but never signed in: an older account verified by a link, or a join whose sign-in stamp failed.
+  row(4, { lastLoggedInAt: null }),
 ]
 
 /** Page one, then page two after `next`, answering `prev` from page two with page one. Records every query. */
@@ -65,7 +67,7 @@ describe('/users', () => {
     renderAppAt('/users')
     const table = await screen.findByRole('table', { name: 'Users' })
     const rows = within(table).getAllByRole('row')
-    expect(rows).toHaveLength(4)
+    expect(rows).toHaveLength(5)
     expect(within(rows[1]!).getByText('Inactive')).toBeInTheDocument()
     expect(within(rows[2]!).getByText('Never signed in')).toBeInTheDocument()
     expect(within(rows[2]!).getByText('Never')).toBeInTheDocument()
@@ -160,9 +162,9 @@ describe('/users', () => {
   it('reads boolean filters from the URL and sends them', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
-    renderAppAt('/users?verified=false&staff=true')
+    renderAppAt('/users?signedIn=false&staff=true')
     await screen.findByText('user01@example.com')
-    expect(seen.at(-1)?.get('verified')).toBe('false')
+    expect(seen.at(-1)?.get('signedIn')).toBe('false')
     expect(seen.at(-1)?.get('staff')).toBe('true')
   })
 
@@ -181,20 +183,26 @@ describe('/users', () => {
     await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('-lastSignIn'))
   })
 
-  it('labels never-verified users Never signed in, in the badge and the facet', async () => {
+  it('labels users with no sign-in Never signed in, by last sign-in, in the badge and the facet', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
     const user = userEvent.setup()
     const router = renderAppAt('/users')
     const table = await screen.findByRole('table', { name: 'Users' })
-    expect(within(table).getByText('Never signed in')).toBeInTheDocument()
+    const rows = within(table).getAllByRole('row')
+    // The badge follows the Last sign-in column, not verification: user04 is verified but has never signed in.
+    expect(within(rows[2]!).getByText('Never signed in')).toBeInTheDocument()
+    expect(within(rows[4]!).getByText('Never signed in')).toBeInTheDocument()
+    expect(within(rows[4]!).getByText('Never')).toBeInTheDocument()
+    expect(within(rows[1]!).queryByText('Never signed in')).not.toBeInTheDocument()
     expect(within(table).queryByText('Unverified')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Filter by signed in, Users' }))
     const popup = await screen.findByRole('dialog', { name: 'Filter by signed in, Users' })
     expect(within(popup).getByRole('checkbox', { name: 'Has signed in' })).toBeInTheDocument()
     await user.click(within(popup).getByRole('checkbox', { name: 'Never signed in' }))
-    await waitFor(() => expect(router.state.location.search).toEqual({ verified: false }))
-    await waitFor(() => expect(seen.at(-1)?.get('verified')).toBe('false'))
+    await waitFor(() => expect(router.state.location.search).toEqual({ signedIn: false }))
+    await waitFor(() => expect(seen.at(-1)?.get('signedIn')).toBe('false'))
+    expect(seen.at(-1)?.get('verified')).toBeNull()
   })
 
   it('says so when nothing matches', async () => {
@@ -325,6 +333,35 @@ describe('/users', () => {
         success.mock.calls[0]![0],
         `Sign-in link sent to ${row(9, { id: USER_ID_3 }).email}.`,
         row(9, { id: USER_ID_3 }).email
+      )
+    })
+
+    it('points to the user’s page when the welcome Resend also fails to send', async () => {
+      pages([])
+      server.use(
+        http.post('/api/v1/platform/users', () =>
+          ok({ user: row(9, { id: USER_ID_3 }), emailSent: false }, 'User created.', 201)
+        ),
+        http.post(`/api/v1/platform/users/${USER_ID_3}/sign-in-link`, () =>
+          ok({ emailSent: false }, 'Sign-in link sent.')
+        ),
+        http.get(`/api/v1/platform/users/${USER_ID_3}`, () => fail('Not found', 404))
+      )
+      const warning = vi.spyOn(toast, 'warning')
+      const user = userEvent.setup()
+      renderAppAt('/users')
+      await user.click(await screen.findByRole('button', { name: 'New user' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New user' })
+      await user.type(within(dialog).getByLabelText('Email'), 'x@example.com')
+      await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
+      const notSent = await screen.findByRole('dialog', {
+        name: 'The user was created, but the welcome email couldn’t be sent.',
+      })
+      await user.click(within(notSent).getByRole('button', { name: 'Resend' }))
+      await waitFor(() =>
+        expect(warning).toHaveBeenLastCalledWith(
+          'The email couldn’t be sent. Send a sign-in link from their page.'
+        )
       )
     })
 

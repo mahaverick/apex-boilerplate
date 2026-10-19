@@ -74,13 +74,13 @@ describe('the apex list definitions', () => {
     expect(
       requestFor(usersList, {
         status: 'deleted',
-        verified: false,
+        signedIn: false,
         staff: true,
         sort: '-lastSignIn',
       })
     ).toEqual({
       status: 'deleted',
-      verified: false,
+      signedIn: false,
       staff: true,
       sort: '-lastSignIn',
     })

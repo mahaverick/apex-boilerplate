@@ -3,14 +3,14 @@ import { cn } from '@/lib/utils'
 import type { PlatformUserRow } from '@/types/api.types'
 
 /**
- * Account state, and "Never signed in" while the address is unverified (the
- * first sign-in verifies it), as badges. Tokens as on the tenants table. A deleted account
+ * Account state, and "Never signed in" while the account has no last
+ * sign-in, as the Last sign-in column says, as badges. Tokens as on the tenants table. A deleted account
  * shows only "Deleted": whether it was active does not matter.
  */
 export function UserStatusBadges({
   user,
 }: {
-  user: Pick<PlatformUserRow, 'active' | 'emailVerifiedAt' | 'deletedAt'>
+  user: Pick<PlatformUserRow, 'active' | 'lastLoggedInAt' | 'deletedAt'>
 }) {
   if (user.deletedAt !== null) {
     return (
@@ -29,7 +29,7 @@ export function UserStatusBadges({
       >
         {user.active ? 'Active' : 'Inactive'}
       </Badge>
-      {user.emailVerifiedAt === null && (
+      {user.lastLoggedInAt === null && (
         <Badge className="border-transparent bg-warning text-warning-foreground">
           Never signed in
         </Badge>

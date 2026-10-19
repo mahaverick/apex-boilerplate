@@ -27,7 +27,7 @@ import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { messageFrom } from '@/lib/api-error'
 import { toast } from '@/lib/toast'
-import { SIGN_IN_LINK_NOT_SENT } from '@/lib/user-actions'
+import { WELCOME_RESEND_NOT_SENT } from '@/lib/user-actions'
 import { useCreateUser, useSendSignInLink } from '@/queries/user-admin.queries'
 import { createUserSchema } from '@/schemas/user-admin.schemas'
 
@@ -72,7 +72,7 @@ export function CreateUserDialog() {
                           Sign-in link sent to <Pii>{user.email}</Pii>.
                         </>
                       )
-                    } else toast.warning(SIGN_IN_LINK_NOT_SENT)
+                    } else toast.warning(WELCOME_RESEND_NOT_SENT)
                   },
                   (error: unknown) => toast.error(messageFrom(error))
                 ),

@@ -5,8 +5,12 @@ import {
 } from '@/constants/roles'
 import type { PlatformUserDetail } from '@/types/api.types'
 
-/** The warning when a staff-sent sign-in link was taken but its email did not go. */
-export const SIGN_IN_LINK_NOT_SENT = 'The email couldn’t be sent. Try again in 1 minute.'
+/** The Send sign-in link dialog's notice when the request was taken but its email did not go. */
+export const SIGN_IN_LINK_NOT_SENT = 'The email couldn’t be sent. Select Send link to try again.'
+
+/** The warning when the new user's welcome Resend also did not go; their page has Send sign-in link. */
+export const WELCOME_RESEND_NOT_SENT =
+  'The email couldn’t be sent. Send a sign-in link from their page.'
 
 /** One action the user detail's menu can offer. */
 export type UserAction =

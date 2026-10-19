@@ -1259,7 +1259,7 @@ const worker = setupWorker(
       searchIn: (row) => [row.email, row.firstName, row.lastName],
       filters: {
         status: (row, values) => values.includes(row.active ? 'active' : 'inactive'),
-        verified: (row, values) => values.includes(String(row.emailVerifiedAt !== null)),
+        signedIn: (row, values) => values.includes(String(row.lastLoggedInAt !== null)),
         staff: (row, values) => values.includes(String(row.platformRole !== null)),
       },
     })

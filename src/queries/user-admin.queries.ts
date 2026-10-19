@@ -27,12 +27,12 @@ export const userAdminKeys = {
   detail: (id: string) => ['platform', 'user', id] as const,
 }
 
-/** The Users list's URL contract: email order by default, filtered by account status, verification and staff. */
+/** The Users list's URL contract: email order by default, filtered by account status, whether they have signed in, and staff. */
 export const usersList = defineList({
   sorts: ['email', 'created', '-created', '-lastSignIn'],
   filters: {
     status: listFilter(USER_STATUSES),
-    verified: booleanFilter(),
+    signedIn: booleanFilter(),
     staff: booleanFilter(),
   },
   table: analyticsKey('users'),

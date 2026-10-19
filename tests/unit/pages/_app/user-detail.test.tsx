@@ -446,23 +446,66 @@ describe('/users/$userId', () => {
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
   })
 
-  it('warns with a wait when the sign-in link email did not go', async () => {
+  it('keeps the dialog open with a retry notice when the sign-in link email did not go', async () => {
     answer()
+    let sent = 0
     server.use(
-      http.post(`/api/v1/platform/users/${USER_ID_2}/sign-in-link`, () =>
-        ok({ emailSent: false }, 'Sign-in link sent.')
-      )
+      http.post(`/api/v1/platform/users/${USER_ID_2}/sign-in-link`, () => {
+        sent += 1
+        return ok({ emailSent: sent > 1 }, 'Sign-in link sent.')
+      })
     )
     const warning = vi.spyOn(toast, 'warning')
+    const success = vi.spyOn(toast, 'success')
     const user = userEvent.setup()
     renderAppAt(`/users/${USER_ID_2}`)
     const menu = await openActions(user)
     await user.click(within(menu).getByRole('menuitem', { name: 'Send sign-in link' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
     await user.click(within(dialog).getByRole('button', { name: 'Send link' }))
-    await waitFor(() =>
-      expect(warning).toHaveBeenCalledWith('The email couldn’t be sent. Try again in 1 minute.')
+
+    expect(
+      await within(dialog).findByText('The email couldn’t be sent. Select Send link to try again.')
+    ).toBeInTheDocument()
+    expect(dialog).toBeInTheDocument()
+    expect(warning).not.toHaveBeenCalled()
+    expect(success).not.toHaveBeenCalled()
+
+    // Send link again: this time the email goes, so the dialog closes with the success toast.
+    await user.click(within(dialog).getByRole('button', { name: 'Send link' }))
+    await waitFor(() => expect(success).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(sent).toBe(2)
+  })
+
+  it('stays open, still sending, when Escape is pressed mid-request', async () => {
+    answer()
+    const settle: { release?: () => void } = {}
+    const held = new Promise<void>((resolve) => {
+      settle.release = resolve
+    })
+    server.use(
+      http.post(`/api/v1/platform/users/${USER_ID_2}/sign-in-link`, async () => {
+        await held
+        return ok({ emailSent: true }, 'Sign-in link sent.')
+      })
     )
+    const success = vi.spyOn(toast, 'success')
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Send sign-in link' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Send link' }))
+    expect(await within(dialog).findByRole('button', { name: /Sending…/ })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('alertdialog', { name: 'Send a sign-in link?' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /Sending…/ })).toBeInTheDocument()
+
+    settle.release?.()
+    await waitFor(() => expect(success).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
   })
 
   it.each([
@@ -503,6 +546,15 @@ describe('/users/$userId', () => {
     )
     expect(dialog).toBeInTheDocument()
     expect(success).not.toHaveBeenCalled()
+
+    // Cancel, then open it again: the earlier refusal is gone.
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    await user.click(
+      within(await openActions(user)).getByRole('menuitem', { name: 'Send sign-in link' })
+    )
+    const reopened = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
+    expect(within(reopened).queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('lists Email link and Google, with no password wording', async () => {
