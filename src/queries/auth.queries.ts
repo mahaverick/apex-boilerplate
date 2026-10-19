@@ -1,12 +1,23 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ROUTES } from '@/constants/routes'
 import { apiClient, unwrap } from '@/http/client'
-import { broadcastAuthMessage, broadcastLogout, switchIdentity } from '@/http/session'
-import { statusFrom } from '@/lib/api-error'
+import {
+  broadcastAuthMessage,
+  broadcastLogout,
+  ensureSession,
+  isAuthVerdict,
+  switchIdentity,
+} from '@/http/session'
+import { codeFrom, statusFrom } from '@/lib/api-error'
 import { toast } from '@/lib/toast'
 import { track } from '@/observability/telemetry'
 import { useAuthStore } from '@/states/auth.store'
-import type { ApiSuccess, AuthProviders, User } from '@/types/api.types'
+import {
+  ACCESS_TOKEN_EXPIRED,
+  type ApiSuccess,
+  type AuthProviders,
+  type User,
+} from '@/types/api.types'
 
 /** Which frontend the API should link back to: this one. The API accepts only 'web' or 'apex'. */
 const APP = 'apex' as const
@@ -66,25 +77,49 @@ export function useVerifySignInLink() {
   })
 }
 
+/** Posts a step-up link's token with the current bearer, refusing the interceptor's refresh-and-retry. */
+async function postStepUpLink(token: string) {
+  return unwrap(
+    await apiClient.post<ApiSuccess<{ accessToken: string }>>(
+      '/auth/step-up/link/verify',
+      { token },
+      { skipAuthRetry: true }
+    )
+  )
+}
+
 /**
  * Confirms it's the signed-in person with the token from an emailed "Confirm
  * it's you" link (express `POST /auth/step-up/link/verify`). It carries this
  * session's bearer, because the API binds the link to the session that asked
- * for it. `skipAuthRetry`, so a 401 reaches the page instead of becoming a
- * refresh and a `/login?redirect=` that carries the token. On success it swaps
- * in the new access token, whose `auth_time` is now, and tells the waiting
- * tab, which refreshes and retries its action.
+ * for it.
+ *
+ * An expired access token (401 `ACCESS_TOKEN_EXPIRED`) is refreshed once
+ * through `ensureSession()` and the token posted again; the refresh keeps the
+ * session id, so the binding still holds. The interceptor's own retry is
+ * skipped because its verdict path calls `redirectToLogin()`, which would
+ * carry the token into `/login?redirect=`. A refresh verdict rejects with the
+ * original 401, which the page reads as the session's end; any other refresh
+ * failure rejects with that failure, which leaves the link usable.
+ *
+ * On success it swaps in the new access token, whose `auth_time` is now, and
+ * tells the waiting tab, which refreshes and retries its action.
  */
 export function useConfirmStepUpLink() {
   return useMutation({
-    mutationFn: async (token: string) =>
-      unwrap(
-        await apiClient.post<ApiSuccess<{ accessToken: string }>>(
-          '/auth/step-up/link/verify',
-          { token },
-          { skipAuthRetry: true }
-        )
-      ),
+    mutationFn: async (token: string) => {
+      try {
+        return await postStepUpLink(token)
+      } catch (error) {
+        if (statusFrom(error) !== 401 || codeFrom(error) !== ACCESS_TOKEN_EXPIRED) throw error
+        try {
+          await ensureSession()
+        } catch (refreshError) {
+          throw isAuthVerdict(refreshError) ? error : refreshError
+        }
+        return postStepUpLink(token)
+      }
+    },
     onSuccess: ({ accessToken }) => {
       useAuthStore.getState().setToken(accessToken)
       broadcastAuthMessage('step_up_confirmed')

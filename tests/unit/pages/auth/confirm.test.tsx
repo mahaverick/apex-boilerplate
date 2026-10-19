@@ -1,18 +1,20 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import {
+  createBrowserHistory,
   createMemoryHistory,
   createRouter,
   RouterProvider,
   type AnyRouter,
+  type RouterHistory,
 } from '@tanstack/react-router'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { pageTitle } from '@/constants/app'
 import { resetSessionForTests } from '@/http/session'
-import { STEP_UP_WAIT_LOCK } from '@/lib/step-up-presence'
+import { STEP_UP_WAIT_LOCK, STEP_UP_WAIT_QUERY_TIMEOUT_MS } from '@/lib/step-up-presence'
 import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
@@ -248,7 +250,7 @@ describe('/auth/confirm with an emailed link', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Open it in the browser where you asked for it, within 15 minutes. For a new link, try the action again.'
+        'Open the link in the browser where you asked for it, within 15 minutes. For a new link, try the action again.'
       )
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
@@ -285,7 +287,11 @@ describe('/auth/confirm with an emailed link', () => {
     expect(received).toEqual([])
   })
 
-  it('says the session ended on a 401 and does not redirect', async () => {
+  /**
+   * Swaps `location` for a stub whose `assign` is a spy, so a full-page redirect is seen, not run.
+   * @returns The spy.
+   */
+  function spyOnRedirects() {
     const assign = vi.fn()
     // jsdom's Location accessors live on the prototype, so a spread copies none of them.
     const { origin, protocol, host, hostname, port } = window.location
@@ -302,13 +308,24 @@ describe('/auth/confirm with an emailed link', () => {
       assign,
       replace: assign,
     })
-    let refreshes = 0
+    return assign
+  }
+
+  /** Counts refreshes, answering each with `respond`. */
+  function serveRefresh(respond: () => Response) {
+    const seen = { refreshes: 0 }
     server.use(
       http.post('/api/v1/auth/refresh', () => {
-        refreshes += 1
-        return fail('Unauthorized', 401)
+        seen.refreshes += 1
+        return respond()
       })
     )
+    return seen
+  }
+
+  it('says the session ended when the refresh after a 401 is refused, and does not redirect', async () => {
+    const assign = spyOnRedirects()
+    const seen = serveRefresh(() => fail('Unauthorized', 401))
     const calls = serveVerify(() => fail('Session ended', 401, 'ACCESS_TOKEN_EXPIRED'))
     try {
       const router = renderAt(LINK_PATH)
@@ -320,12 +337,79 @@ describe('/auth/confirm with an emailed link', () => {
       expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
       await letStragglersLand()
       expect(calls).toHaveLength(1)
-      expect(refreshes).toBe(0)
+      expect(seen.refreshes).toBe(1)
       expect(assign).not.toHaveBeenCalled()
       expect(router.state.location.pathname).toBe('/auth/confirm')
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+
+  it('confirms after refreshing an expired access token once', async () => {
+    const assign = spyOnRedirects()
+    const seen = serveRefresh(() => ok({ accessToken: 'fresh-token' }, 'Token refreshed.'))
+    const calls = serveVerify(() =>
+      calls.length === 1
+        ? fail('Access token expired', 401, 'ACCESS_TOKEN_EXPIRED')
+        : ok({ accessToken: 'stepped-up' })
+    )
+    const received = openWaitingTab()
+    try {
+      renderAt(LINK_PATH)
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'Confirmed' })
+      ).toBeInTheDocument()
+      expect(calls.map((call) => call.authorization)).toEqual([
+        'Bearer access-token',
+        'Bearer fresh-token',
+      ])
+      expect(seen.refreshes).toBe(1)
+      expect(useAuthStore.getState().accessToken).toBe('stepped-up')
+      expect(assign).not.toHaveBeenCalled()
+      await vi.waitFor(() => expect(received).toEqual([{ type: 'step_up_confirmed' }]))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('sends one request for two fast clicks on Try again, and keeps the success', async () => {
+    /** The verify's next answer: a 503 until the clicks. */
+    let answer: () => Response = () => fail('Service Unavailable', 503)
+    const calls = serveVerify(() => answer())
+    renderAt(LINK_PATH)
+    const retry = await screen.findByRole('button', { name: 'Try again' })
+
+    answer = () =>
+      calls.length === 2
+        ? ok({ accessToken: 'stepped-up' })
+        : fail('This link has expired or was already used.', 400, 'LINK_INVALID')
+    // One act batches both: React renders the busy button only after the second click.
+    act(() => {
+      retry.click()
+      retry.click()
+    })
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Confirmed' })).toBeInTheDocument()
+    await letStragglersLand()
+    expect(calls).toHaveLength(2)
+    expect(screen.getByRole('heading', { level: 1, name: 'Confirmed' })).toBeInTheDocument()
+  })
+
+  it('confirms with the cannot-tell copy when the lock query never answers', async () => {
+    stubWebLocks()
+    Object.assign(navigator.locks, { query: () => new Promise<never>(() => {}) })
+    serveVerify()
+    renderAt(LINK_PATH)
+
+    expect(
+      await screen.findByText(
+        'Return to the Apex tab where you started. If you closed it, try the action again.',
+        undefined,
+        // The page's own bound on the lock query is the claim under test.
+        { timeout: STEP_UP_WAIT_QUERY_TIMEOUT_MS * 3 }
+      )
+    ).toBeInTheDocument()
   })
 
   it.each([
@@ -419,5 +503,82 @@ describe('/auth/confirm reached signed in', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'Confirmed' })
     await waitFor(() => expect(router.state.location.pathname).toBe('/auth/confirm'))
+  })
+})
+
+describe('/auth/confirm and the address bar', () => {
+  let history: RouterHistory | undefined
+
+  /** Mounts the route tree on the real browser history at `path`, as the app runs. */
+  function renderInBrowserAt(path: string) {
+    window.history.replaceState(null, '', path)
+    history = createBrowserHistory()
+    const router = createRouter({
+      routeTree,
+      context: { queryClient },
+      ...ROUTER_DEFAULTS,
+      history,
+    })
+    render(
+      <StrictMode>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router as never} />
+        </QueryClientProvider>
+      </StrictMode>
+    )
+  }
+
+  afterEach(() => {
+    history?.destroy()
+    history = undefined
+    window.history.replaceState(null, '', '/')
+  })
+
+  it.each([
+    ['a confirmation', () => ok({ accessToken: 'stepped-up' }), 'Confirmed'],
+    [
+      'a dead link',
+      () => fail('This link has expired or was already used.', 400, 'LINK_INVALID'),
+      'This link didn’t confirm it’s you',
+    ],
+    ['a role refusal', () => fail('Route not found', 404), 'Your staff access changed'],
+  ])(
+    'drops the token from the URL after %s, keeping the outcome and the rest of the query',
+    async (_name, respond, heading) => {
+      serveVerify(respond)
+      renderInBrowserAt(`${LINK_PATH}&utm_source=email`)
+
+      expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
+      await waitFor(() => expect(window.location.search).toBe('?utm_source=email'))
+      expect(window.location.pathname).toBe('/auth/confirm')
+      expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
+    }
+  )
+
+  it('keeps the token while Try again can still use it', async () => {
+    serveVerify(() => fail('Service Unavailable', 503))
+    renderInBrowserAt(LINK_PATH)
+
+    await screen.findByRole('button', { name: 'Try again' })
+    await letStragglersLand()
+    expect(new URLSearchParams(window.location.search).get('token')).toBe(TOKEN)
+  })
+
+  it('posts nothing on a reload after a confirmation', async () => {
+    const calls = serveVerify()
+    renderInBrowserAt(LINK_PATH)
+    await screen.findByRole('heading', { level: 1, name: 'Confirmed' })
+    await waitFor(() => expect(window.location.search).toBe(''))
+    history?.destroy()
+    cleanup()
+
+    // A reload opens what the address bar now holds.
+    renderInBrowserAt(`${window.location.pathname}${window.location.search}`)
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'This link is incomplete' })
+    ).toBeInTheDocument()
+    await letStragglersLand()
+    expect(calls).toHaveLength(1)
   })
 })

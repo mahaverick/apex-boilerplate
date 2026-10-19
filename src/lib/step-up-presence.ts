@@ -32,16 +32,29 @@ export function holdStepUpWait(): () => void {
   return release
 }
 
+/** How long the confirm page waits for the browser's lock answer before it says it cannot tell. */
+export const STEP_UP_WAIT_QUERY_TIMEOUT_MS = 1_000
+
 /**
  * Whether any tab of this app holds the step-up wait lock now.
- * @returns null without Web Locks, or when the browser refuses the query.
+ * @returns null without Web Locks, when the browser refuses the query, or when
+ * it has not answered within `STEP_UP_WAIT_QUERY_TIMEOUT_MS`.
  */
 export async function isStepUpWaitHeld(): Promise<boolean | null> {
   if (!hasWebLocks()) return null
+  let timer: ReturnType<typeof setTimeout> | undefined
+  // A lock manager that never answers must not hold the confirm page on its verifying frame.
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), STEP_UP_WAIT_QUERY_TIMEOUT_MS)
+  })
   try {
-    const { held = [] } = await navigator.locks.query()
-    return held.some((lock) => lock.name === STEP_UP_WAIT_LOCK)
+    const answer = navigator.locks
+      .query()
+      .then(({ held = [] }) => held.some((lock) => lock.name === STEP_UP_WAIT_LOCK))
+    return await Promise.race([answer, timeout])
   } catch {
     return null
+  } finally {
+    clearTimeout(timer)
   }
 }

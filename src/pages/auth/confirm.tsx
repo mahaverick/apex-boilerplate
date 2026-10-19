@@ -71,10 +71,13 @@ function OverviewLink() {
 
 /**
  * Picks the state from the query: the Google popup's result first, then its
- * failure, then the emailed link.
+ * failure, then the emailed link. The query is read once, at mount: the link
+ * state drops `token` from the URL once it settles, and the outcome must stay
+ * on screen.
  */
 function ConfirmPage() {
-  const { token, result, error } = Route.useSearch()
+  const search = Route.useSearch()
+  const [{ token, result, error }] = useState(search)
   if (result === 'confirmed') return <GoogleConfirmed />
   if (error === 'step_up_failed') {
     return (
@@ -125,6 +128,22 @@ async function waitingTab(): Promise<boolean | null> {
   return isStepUpWaitHeld()
 }
 
+/** The failures a reload cannot change: the dead link, the role gate and the ended session. */
+const FINAL_FAILURES: ReadonlySet<number | undefined> = new Set([400, 401, 404])
+
+/**
+ * Drops `token` from the address bar and this history entry, keeping the rest
+ * of the URL, `utm_*` included. The router hears the replace and re-reads its
+ * location; the page keeps its outcome because it read the query at mount.
+ */
+function forgetToken() {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has('token')) return
+  url.searchParams.delete('token')
+  // The router's own state object (its key and index) rides along, so Back and Forward keep working.
+  window.history.replaceState(window.history.state, '', url.href)
+}
+
 /** A verify's settled answer; the page renders from this, never from the mutation's live state. */
 type Outcome = { confirmed: true } | { confirmed: false; error: unknown }
 
@@ -142,8 +161,13 @@ type Outcome = { confirmed: true } | { confirmed: false; error: unknown }
  * A 400 is the one dead link, whatever its cause (expired, used, or another
  * session's), and leaves the session as it was. A 404 is the role gate: the
  * caller is no longer staff enough, and the link stays unspent. A 401 is the
- * session's end; the verify skips the refresh-and-retry, so the token never
- * travels into `/login?redirect=`. Anything else leaves the link usable.
+ * session's end: the verify has already refreshed an expired access token
+ * once, without the interceptor, so the token never travels into
+ * `/login?redirect=`. Anything else leaves the link usable.
+ *
+ * Once an outcome is final, the token leaves the address bar, so a reload
+ * shows the incomplete-link card instead of posting a spent link. A failure
+ * that offers Try again keeps it, so a reload tries again.
  */
 function LinkConfirm({ token }: { token: string }) {
   const [signedIn] = useState(() => useAuthStore.getState().isAuthenticated)
@@ -152,14 +176,27 @@ function LinkConfirm({ token }: { token: string }) {
   const [waiting, setWaiting] = useState<boolean | null | undefined>(undefined)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const started = useRef(false)
+  // isPending re-renders a tick late, so a second fast Try again would post the token again.
+  const inFlight = useRef(false)
 
   /** Reads the wait lock, then posts the token; the outcome alone decides what shows next. */
   const post = () => {
+    if (inFlight.current) return
+    inFlight.current = true
     setWaiting(undefined)
     void waitingTab().then(setWaiting)
     confirm.mutate(token, {
-      onSuccess: () => setOutcome({ confirmed: true }),
-      onError: (error) => setOutcome({ confirmed: false, error }),
+      onSuccess: () => {
+        forgetToken()
+        setOutcome({ confirmed: true })
+      },
+      onError: (error) => {
+        if (FINAL_FAILURES.has(statusFrom(error))) forgetToken()
+        setOutcome({ confirmed: false, error })
+      },
+      onSettled: () => {
+        inFlight.current = false
+      },
     })
   }
 
@@ -194,7 +231,7 @@ function LinkConfirm({ token }: { token: string }) {
       return (
         <ConfirmCard
           title="This link didn’t confirm it’s you"
-          description="Open it in the browser where you asked for it, within 15 minutes. For a new link, try the action again."
+          description="Open the link in the browser where you asked for it, within 15 minutes. For a new link, try the action again."
         />
       )
     }
@@ -214,7 +251,7 @@ function LinkConfirm({ token }: { token: string }) {
           title="Your session ended"
           description="Sign in again, then repeat the action."
         >
-          {/* A full load, not a router link: the store still holds the ended session, and `_auth` would bounce it to Overview. */}
+          {/* A full load, not a router link: it re-runs the session restore, while a store still signed in would be bounced to Overview by `_auth`. */}
           <a href={ROUTES.login} className={linkButton()}>
             Sign in
           </a>

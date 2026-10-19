@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RECENT_KEY_PREFIX } from '@/components/shared/command-palette/recent-keys'
 import { resetSessionForTests } from '@/http/session'
+import { codeFrom, statusFrom } from '@/lib/api-error'
 import { track, yieldSharedIdentity } from '@/observability/telemetry'
 import {
   useConfirmStepUpLink,
@@ -321,34 +322,98 @@ describe('useConfirmStepUpLink', () => {
     tab.close()
   })
 
-  // A refresh-and-retry would turn the session's end into /login?redirect=/auth/confirm?token=….
-  it('does not refresh or retry on a 401, and keeps the store as it was', async () => {
-    let calls = 0
-    let refreshes = 0
+  /**
+   * Answers the verify with an expired-token 401 first, then `then`; and the refresh with `refresh`.
+   * @returns The bearer of each verify, and the refresh count.
+   */
+  function serveExpiredOnce(
+    refresh: () => Response,
+    then = () => ok({ accessToken: 'stepped-up' })
+  ) {
+    const seen = { bearers: [] as (string | null)[], refreshes: 0 }
     server.use(
-      http.post('/api/v1/auth/step-up/link/verify', () => {
-        calls += 1
-        return fail('Session ended', 401, 'ACCESS_TOKEN_EXPIRED')
+      http.post('/api/v1/auth/step-up/link/verify', ({ request }) => {
+        seen.bearers.push(request.headers.get('authorization'))
+        return seen.bearers.length === 1
+          ? fail('Access token expired', 401, 'ACCESS_TOKEN_EXPIRED')
+          : then()
       }),
       http.post('/api/v1/auth/refresh', () => {
-        refreshes += 1
-        return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
+        seen.refreshes += 1
+        return refresh()
       })
     )
+    return seen
+  }
+
+  // Access tokens and links both last 15 minutes: an expired bearer on a live session must not read as its end.
+  it('refreshes an expired access token once, then posts the token again', async () => {
+    const seen = serveExpiredOnce(() => ok({ accessToken: 'fresh-token' }, 'Token refreshed.'))
+    const { tab, received } = openWaitingTab()
+
+    const { result } = renderHook(() => useConfirmStepUpLink(), { wrapper })
+    const answer = await act(() => result.current.mutateAsync(LINK_TOKEN))
+
+    expect(answer).toEqual({ accessToken: 'stepped-up' })
+    expect(seen).toEqual({ bearers: ['Bearer access-token', 'Bearer fresh-token'], refreshes: 1 })
+    expect(useAuthStore.getState().accessToken).toBe('stepped-up')
+    await vi.waitFor(() => expect(received).toEqual([{ type: 'step_up_confirmed' }]))
+    tab.close()
+  })
+
+  it('rejects with the original 401 when the refresh is refused, and redirects nowhere', async () => {
+    const assign = vi.fn()
+    vi.stubGlobal('location', { ...window.location, assign })
+    const seen = serveExpiredOnce(() => fail('Unauthorized', 401))
     const { tab, received } = openWaitingTab()
 
     const { result } = renderHook(() => useConfirmStepUpLink(), { wrapper })
     result.current.mutate(LINK_TOKEN)
 
     await waitFor(() => expect(result.current.isError).toBe(true))
+    vi.unstubAllGlobals()
     await settle(0, 'absence has no event: let any queued channel delivery run')
     tab.close()
+    expect(statusFrom(result.current.error)).toBe(401)
+    expect(codeFrom(result.current.error)).toBe('ACCESS_TOKEN_EXPIRED')
+    expect(seen.bearers).toHaveLength(1)
+    expect(seen.refreshes).toBe(1)
+    expect(assign).not.toHaveBeenCalled()
+    expect(received).not.toContainEqual({ type: 'step_up_confirmed' })
+  })
+
+  it('rejects with the refresh failure when the refresh only failed to run', async () => {
+    const seen = serveExpiredOnce(() => fail('Service Unavailable', 503))
+
+    const { result } = renderHook(() => useConfirmStepUpLink(), { wrapper })
+    result.current.mutate(LINK_TOKEN)
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(statusFrom(result.current.error)).toBe(503)
+    expect(seen.bearers).toHaveLength(1)
+    expect(useAuthStore.getState().isAuthenticated).toBe(true)
+  })
+
+  it('does not refresh on a 401 that is not an expired token', async () => {
+    let calls = 0
+    let refreshes = 0
+    server.use(
+      http.post('/api/v1/auth/step-up/link/verify', () => {
+        calls += 1
+        return fail('Unauthorized', 401)
+      }),
+      http.post('/api/v1/auth/refresh', () => {
+        refreshes += 1
+        return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
+      })
+    )
+
+    const { result } = renderHook(() => useConfirmStepUpLink(), { wrapper })
+    result.current.mutate(LINK_TOKEN)
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
     expect(calls).toBe(1)
     expect(refreshes).toBe(0)
-    expect(received).toEqual([])
-    expect(useAuthStore.getState()).toMatchObject({
-      accessToken: 'access-token',
-      isAuthenticated: true,
-    })
+    expect(useAuthStore.getState().accessToken).toBe('access-token')
   })
 })
