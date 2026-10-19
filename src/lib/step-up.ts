@@ -38,6 +38,13 @@ export function sentWithCurrentToken(error: unknown): boolean {
 export const STEP_UP_LINK_TTL_MS = 15 * 60_000
 
 /**
+ * The shortest gap between two step-up link mails: 1 minute, mirroring
+ * express's `STEP_UP_LINK_COOLDOWN` default (`1m`). A cooldown's `Retry-After`
+ * subtracted from it says how long ago the waiting link went out.
+ */
+export const STEP_UP_LINK_COOLDOWN_MS = 60_000
+
+/**
  * How long the dialog waits on the Google popup: 5 minutes, mirroring
  * express's `OAUTH_SESSION_MAX_AGE_MS`, after which the API refuses the round
  * trip anyway.

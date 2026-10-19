@@ -37,7 +37,7 @@ import {
   testUser,
 } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import { confirmStepUp, dismissStepUp } from '@/tests/mocks/step-up'
+import { confirmStepUp, dismissStepUp, STEP_UP_EMAIL_WAIT } from '@/tests/mocks/step-up'
 import {
   REAUTH_REQUIRED,
   type PlatformTenantDetail,
@@ -1415,6 +1415,40 @@ describe('inviting, and the pending invitations', () => {
     expect(screen.getByText('invited@example.com')).toBeInTheDocument()
   })
 
+  it('keeps the Revoke dialog open on Escape and outside presses while its step-up waits on a link', async () => {
+    let deletes = 0
+    server.use(
+      http.get('/api/v1/tenants/acme/invitations', () =>
+        ok(listPage([testInvitation]), 'Invitations retrieved.')
+      ),
+      http.delete('/api/v1/tenants/acme/invitations/:id', () => {
+        deletes += 1
+        return fail('Recent sign-in required', 401, REAUTH_REQUIRED)
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await user.click(
+      await screen.findByRole('button', { name: `Revoke invitation to ${testInvitation.email}` })
+    )
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Revoke' }))
+    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+    await user.click(within(stepUp).getByRole('button', { name: 'Email me a link' }))
+    await within(stepUp).findByText(STEP_UP_EMAIL_WAIT)
+
+    await user.keyboard('{Escape}')
+    // A press on the Revoke dialog behind the step-up, then Escape with focus there.
+    await user.click(within(dialog).getByRole('heading', { hidden: true }))
+    await user.keyboard('{Escape}')
+    await settle(100, 'a dismissal has no event to wait on when it does not happen')
+
+    expect(within(stepUp).getByText(STEP_UP_EMAIL_WAIT)).toBeInTheDocument()
+    expect(dialog.isConnected).toBe(true)
+    expect(dialog).toHaveAttribute('data-open')
+    expect(deletes).toBe(1)
+  })
+
   it('revokes on confirm, says so, and drops the row', async () => {
     let revoked: unknown
     let body: string | undefined
@@ -2000,7 +2034,7 @@ describe('staff acting through platform access', () => {
 
     expect(await screen.findByText('That member is no longer in this tenant.')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
-    expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Your role no longer allows this action/)).not.toBeInTheDocument()
   })
 
   it('says a staff role change found the member already gone, in the member path’s words', async () => {
@@ -2018,7 +2052,7 @@ describe('staff acting through platform access', () => {
 
     expect(await screen.findByText('That member is no longer in this tenant.')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
-    expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Your role no longer allows this action/)).not.toBeInTheDocument()
   })
 
   it('says a staff resend lost its access in express’s words, though the refetch took the list', async () => {
@@ -2064,7 +2098,9 @@ describe('staff acting through platform access', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
-    expect(await within(dialog).findByText(/Your role can’t do this any more/)).toBeInTheDocument()
+    expect(
+      await within(dialog).findByText(/Your role no longer allows this action/)
+    ).toBeInTheDocument()
   })
 
   /** Opens the invite reason dialog for `email` and confirms it with a reason. */

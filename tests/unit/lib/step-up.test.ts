@@ -1,7 +1,13 @@
 import { AxiosError, AxiosHeaders } from 'axios'
 import { describe, expect, it } from 'vitest'
-import { isReauthRequired, sentWithCurrentToken } from '@/lib/step-up'
+import {
+  authTimeOf,
+  isNewConfirmation,
+  isReauthRequired,
+  sentWithCurrentToken,
+} from '@/lib/step-up'
 import { useAuthStore } from '@/states/auth.store'
+import { testJwt } from '@/tests/mocks/jwt'
 import { REAUTH_REQUIRED } from '@/types/api.types'
 
 /** An Axios error carrying express's error envelope with `status` and an optional `code`. */
@@ -45,5 +51,43 @@ describe('sentWithCurrentToken', () => {
 
   it('is true for anything it cannot compare', () => {
     expect(sentWithCurrentToken(new Error('boom'))).toBe(true)
+  })
+})
+
+/** A token whose payload segment is `payload`, base64url-encoded as is. */
+function withPayload(payload: string): string {
+  return `h.${btoa(payload).replace(/=+$/, '')}.s`
+}
+
+describe('authTimeOf', () => {
+  it.each([
+    ['no token', null],
+    ['a token that is not a JWT', 'old-token'],
+    ['a payload that is not base64', 'a.!!!.c'],
+    ['a null payload', withPayload('null')],
+    ['an array payload', withPayload('[]')],
+    ['a payload without the claim', withPayload('{}')],
+    ['a string claim', withPayload('{"auth_time":"1"}')],
+    ['a payload that is not JSON', withPayload('{auth_time:1')],
+  ])('is null for %s', (_, token) => {
+    expect(authTimeOf(token)).toBeNull()
+  })
+
+  it('reads the claim in seconds', () => {
+    expect(authTimeOf(testJwt({ auth_time: 1 }))).toBe(1)
+    expect(authTimeOf(testJwt({ sub: 'u', auth_time: 1_760_000_000 }))).toBe(1_760_000_000)
+  })
+})
+
+describe('isNewConfirmation', () => {
+  it.each([
+    [null, null, false],
+    [null, 5, true],
+    [5, null, false],
+    [5, 5, false],
+    [5, 4, false],
+    [5, 6, true],
+  ] as const)('before %s, after %s: %s', (before, after, expected) => {
+    expect(isNewConfirmation(before, after)).toBe(expected)
   })
 })

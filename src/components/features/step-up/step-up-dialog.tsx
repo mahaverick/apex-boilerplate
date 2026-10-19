@@ -31,6 +31,7 @@ import {
   authTimeOf,
   GOOGLE_STEP_UP_TIMEOUT_MS,
   isNewConfirmation,
+  STEP_UP_LINK_COOLDOWN_MS,
   STEP_UP_LINK_TTL_MS,
 } from '@/lib/step-up'
 import { holdStepUpWait } from '@/lib/step-up-presence'
@@ -234,20 +235,24 @@ function StepUpBody({
         const holdResend = (seconds: number) => {
           setResendAt((current) => Math.max(current ?? 0, Date.now() + seconds * 1_000))
         }
-        // A link is already out, so the wait stays: any refusal is a toast, and a 429 moves the resend out.
-        if (from === 'email') {
-          if (statusFrom(error) === 429 && wait !== null) holdResend(wait)
-          toast.error(messageFrom(error))
+        const cooldown = codeFrom(error) === STEP_UP_LINK_COOLDOWN && wait !== null
+        const message = statusFrom(error) === 404 ? ROLE_DENIED_ACTION : messageFrom(error)
+        // A link or the popup is already out, so the wait stays: the refusal is a toast, and a 429 moves the resend out.
+        if (from === 'email' || (from === 'google' && !cooldown)) {
+          if (from === 'email' && statusFrom(error) === 429 && wait !== null) holdResend(wait)
+          toast.error(message)
           return
         }
-        if (codeFrom(error) === STEP_UP_LINK_COOLDOWN && wait !== null) {
+        if (cooldown) {
           beginWait()
           holdResend(wait)
-          setLinkExpiresAt((current) => current ?? Date.now() + STEP_UP_LINK_TTL_MS)
+          // The link went out when the cooldown began, so its 15 minutes started then.
+          const sentAt = Date.now() - Math.max(0, STEP_UP_LINK_COOLDOWN_MS - wait * 1_000)
+          setLinkExpiresAt((current) => current ?? sentAt + STEP_UP_LINK_TTL_MS)
           showWait('email')
           return
         }
-        showChoices(statusFrom(error) === 404 ? ROLE_DENIED_ACTION : messageFrom(error))
+        showChoices(message)
       }
     )
   }
@@ -268,6 +273,11 @@ function StepUpBody({
       () => {
         if (!mounted.current) {
           popup.close()
+          return
+        }
+        // Closed before the start answered: one same-origin read while it is still on about:blank.
+        if (popup.closed) {
+          showChoices(POPUP_BLOCKED)
           return
         }
         // Absolute: a relative URL would resolve against the popup's about:blank.
@@ -295,7 +305,11 @@ function StepUpBody({
     resuming.current = true
     setView('resuming')
     try {
-      const token = await ensureSession()
+      let token = await ensureSession()
+      // A refresh already in flight when the confirmation landed carries the old auth_time; the next one is fresh.
+      if (mounted.current && !isNewConfirmation(baseline.current, authTimeOf(token))) {
+        token = await ensureSession()
+      }
       if (!mounted.current) return
       if (isNewConfirmation(baseline.current, authTimeOf(token))) {
         onConfirmed()

@@ -182,7 +182,7 @@ describe('ReasonDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Suspend' }))
     expect(
       await screen.findByText(
-        'Your role can’t do this any more. If your access just changed, reload the page.'
+        'Your role no longer allows this action. Ask a platform owner to check your role.'
       )
     ).toBeInTheDocument()
     expect(screen.getByText('open: true')).toBeInTheDocument()
@@ -219,7 +219,7 @@ describe('ReasonDialog', () => {
     await user.type(await screen.findByLabelText('Reason'), 'why')
     await user.click(screen.getByRole('button', { name: 'Suspend' }))
     expect(await screen.findByText('Invitation not found')).toBeInTheDocument()
-    expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Your role no longer allows this action/)).not.toBeInTheDocument()
     expect(screen.getByText('open: true')).toBeInTheDocument()
   })
 

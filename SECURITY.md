@@ -549,7 +549,7 @@ leaving, the platform tenant. Maintenance changes have their own dialogs
 - **Refusals stay in the dialog.** A 403 or 409 shows the API's sentence,
   or the page's own wording of it; a 404 that carries a code shows the API's
   sentence, and one without a code is the role gate, worded as "your role
-  can't do this any more". None of them signs anyone out.
+  no longer allows this action". None of them signs anyone out.
 
 ## Maintenance controls
 

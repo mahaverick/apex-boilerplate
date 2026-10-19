@@ -33,7 +33,7 @@ import { REASON_REQUIRED } from '@/types/api.types'
 
 /** A 404 from a staff route answers the caller's role: it changed after the page loaded. */
 export const ROLE_DENIED_ACTION =
-  'Your role can’t do this any more. If your access just changed, reload the page.'
+  'Your role no longer allows this action. Ask a platform owner to check your role.'
 
 /** What `ReasonDialog` shows and does: its wording, the action it confirms, and how its refusals read. */
 export interface ReasonDialogProps {

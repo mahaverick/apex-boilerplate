@@ -8,7 +8,7 @@ import { StepUpProvider } from '@/components/features/step-up/step-up-provider'
 import { GOOGLE_STEP_UP_PATH } from '@/constants/routes'
 import { useStepUp } from '@/hooks/use-step-up'
 import { apiClient } from '@/http/client'
-import { resetSessionForTests } from '@/http/session'
+import { ensureSession, resetSessionForTests } from '@/http/session'
 import { STEP_UP_WAIT_LOCK } from '@/lib/step-up-presence'
 import { toast } from '@/lib/toast'
 import { useAuthStore } from '@/states/auth.store'
@@ -21,6 +21,8 @@ import { removeWebLocks, stubWebLocks } from '@/tests/mocks/web-locks'
 import { REAUTH_REQUIRED } from '@/types/api.types'
 
 const DIALOG = 'Confirm it’s you'
+const ROLE_DENIED =
+  'Your role no longer allows this action. Ask a platform owner to check your role.'
 const CHOOSE_BODY =
   'This action needs you to confirm it’s you within the last 10 minutes. Choose how to confirm it’s you.'
 const GOOGLE_WAIT =
@@ -104,7 +106,9 @@ function linkRoute(answer?: () => Response) {
 }
 
 /** The refresh after a confirmation: a token minted by `mint`, recorded in `events`. */
-function refreshRoute(mint: () => Response = () => ok({ accessToken: freshlyConfirmedToken() })) {
+function refreshRoute(
+  mint: () => Response | Promise<Response> = () => ok({ accessToken: freshlyConfirmedToken() })
+) {
   server.use(
     http.post('/api/v1/auth/refresh', () => {
       events.push('refresh')
@@ -170,6 +174,13 @@ async function sendLink(user: ReturnType<typeof userEvent.setup>) {
   await user.click(within(dialog).getByRole('button', { name: 'Email me a link' }))
   await within(dialog).findByText(STEP_UP_EMAIL_WAIT)
   return dialog
+}
+
+/** The step-up dialog's own backdrop. */
+function backdrop(): HTMLElement {
+  const element = document.querySelector<HTMLElement>('[data-slot="dialog-overlay"]')
+  if (!element) throw new Error('no dialog backdrop')
+  return element
 }
 
 /** Whether the step-up wait lock is held on the stubbed lock manager. */
@@ -328,9 +339,7 @@ describe('StepUpDialog: choose', () => {
     renderHarness()
     const dialog = await openStepUp(user)
     await user.click(within(dialog).getByRole('button', { name: 'Email me a link' }))
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'Your role can’t do this any more. If your access just changed, reload the page.'
-    )
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(ROLE_DENIED)
     expect(within(dialog).getByText(CHOOSE_BODY)).toBeInTheDocument()
   })
 
@@ -428,6 +437,38 @@ describe('StepUpDialog: email', () => {
     )
     expect(within(dialog).getByText(STEP_UP_EMAIL_WAIT)).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Resend in 2:00' })).toBeInTheDocument()
+  })
+
+  it('says the role changed when a resend gets a 404, and stays in the wait', async () => {
+    dangerRoute(1)
+    let refuse = false
+    linkRoute(() =>
+      refuse
+        ? fail('Not found', 404)
+        : ok({ resendAvailableAt: new Date(Date.now() - 1_000).toISOString() }, 'Sent.', 202)
+    )
+    const error = vi.spyOn(toast, 'error')
+    const user = userEvent.setup()
+    renderHarness()
+    const dialog = await sendLink(user)
+    refuse = true
+    await user.click(within(dialog).getByRole('button', { name: 'Resend link' }))
+    await waitFor(() => expect(error).toHaveBeenCalledWith(ROLE_DENIED))
+    expect(within(dialog).getByText(STEP_UP_EMAIL_WAIT)).toBeInTheDocument()
+  })
+
+  it('counts the link’s 15 minutes from when the API sent it, after a cooldown', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+    dangerRoute(1)
+    // The cooldown has 42 of its 60 seconds left, so the link went out 18 seconds ago.
+    linkRoute(() => tooMany('Check your inbox.', 'STEP_UP_LINK_COOLDOWN', 42))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderHarness()
+    const dialog = await sendLink(user)
+    await act(() => vi.advanceTimersByTimeAsync(15 * 60_000 - 18_000 - 1_000))
+    expect(within(dialog).queryByText(EXPIRED)).not.toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(1_000))
+    expect(within(dialog).getByText(EXPIRED)).toBeInTheDocument()
   })
 
   it('says the link expired after 15 minutes', async () => {
@@ -528,13 +569,82 @@ describe('StepUpDialog: email', () => {
 
     confirmFromAnotherTab()
 
-    await waitFor(() => expect(events).toEqual(['action', 'link', 'refresh']))
+    // The joined refresh, then one fresh refresh; neither brings a newer auth_time.
+    await waitFor(() => expect(events).toEqual(['action', 'link', 'refresh', 'refresh']))
     expect(await within(dialog).findByText(STEP_UP_EMAIL_WAIT)).toBeInTheDocument()
     expect(screen.getByText('outcome: idle')).toBeInTheDocument()
 
     refreshRoute(() => ok({ accessToken: testJwt({ auth_time: signedInAt + 900 }) }))
     confirmFromAnotherTab()
     expect(await screen.findByText('outcome: done')).toBeInTheDocument()
+  })
+
+  it('refreshes once more when the confirmation joined a refresh that was already in flight', async () => {
+    const signedInAt = 1_760_000_000
+    useAuthStore.setState({ accessToken: testJwt({ auth_time: signedInAt }) })
+    dangerRoute(1)
+    linkRoute()
+    /** Lets the held refresh answer. */
+    let releaseHeld = () => {}
+    const held = new Promise<void>((resolve) => {
+      releaseHeld = resolve
+    })
+    let refreshes = 0
+    refreshRoute(async () => {
+      refreshes += 1
+      if (refreshes === 1) {
+        await held
+        return ok({ accessToken: testJwt({ auth_time: signedInAt }) })
+      }
+      return ok({ accessToken: testJwt({ auth_time: signedInAt + 900 }) })
+    })
+    const user = userEvent.setup()
+    renderHarness()
+    await sendLink(user)
+
+    // A refresh this tab started before the server recorded the confirmation.
+    const earlier = ensureSession().catch(() => {})
+    await waitFor(() => expect(refreshes).toBe(1))
+    confirmFromAnotherTab()
+    await settle(50, 'the message joins the held refresh; nothing observable until it lands')
+    releaseHeld()
+    await earlier
+
+    expect(await screen.findByText('outcome: done')).toBeInTheDocument()
+    expect(refreshes).toBe(2)
+  })
+
+  it('ignores step_up_confirmed on the choices and while resuming', async () => {
+    dangerRoute(1)
+    linkRoute()
+    /** Lets the held refresh answer. */
+    let releaseHeld = () => {}
+    const held = new Promise<void>((resolve) => {
+      releaseHeld = resolve
+    })
+    refreshRoute(async () => {
+      await held
+      return ok({ accessToken: freshlyConfirmedToken() })
+    })
+    const user = userEvent.setup()
+    renderHarness()
+    const dialog = await openStepUp(user)
+
+    confirmFromAnotherTab()
+    await settle(100, 'no subscription on the choices: absence has no event to wait on')
+    expect(events).toEqual(['action'])
+    expect(within(dialog).getByText(CHOOSE_BODY)).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Email me a link' }))
+    await within(dialog).findByText(STEP_UP_EMAIL_WAIT)
+    confirmFromAnotherTab()
+    await waitFor(() => expect(events).toEqual(['action', 'link', 'refresh']))
+    confirmFromAnotherTab()
+    await settle(100, 'a second message while resuming must start nothing')
+    releaseHeld()
+
+    expect(await screen.findByText('outcome: done')).toBeInTheDocument()
+    expect(events).toEqual(['action', 'link', 'refresh', 'action'])
   })
 
   it('keeps waiting when the confirm page posted nothing', async () => {
@@ -557,6 +667,11 @@ describe('StepUpDialog: email', () => {
     const dialog = await sendLink(user)
 
     await user.keyboard('{Escape}')
+    expect(within(dialog).getByText(STEP_UP_EMAIL_WAIT)).toBeInTheDocument()
+    expect(screen.getByText('outcome: idle')).toBeInTheDocument()
+
+    await user.click(backdrop())
+    await settle(50, 'a dismissal that does not happen has no event to wait on')
     expect(within(dialog).getByText(STEP_UP_EMAIL_WAIT)).toBeInTheDocument()
     expect(screen.getByText('outcome: idle')).toBeInTheDocument()
 
@@ -657,6 +772,54 @@ describe('StepUpDialog: Google', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Email me a link' }))
     expect(await within(dialog).findByText(STEP_UP_EMAIL_WAIT)).toBeInTheDocument()
     expect(bodies).toEqual([{}])
+  })
+
+  it('stays on the Google wait and toasts when the email fallback is refused', async () => {
+    const calls = dangerRoute(1)
+    withGoogle()
+    stubPopup()
+    linkRoute(() => tooMany('Too many attempts. Try again in 2 minutes.', 'RATE_LIMITED', 120))
+    refreshRoute()
+    server.use(
+      http.post('/api/v1/auth/step-up/google/start', () => new HttpResponse(null, { status: 204 }))
+    )
+    const error = vi.spyOn(toast, 'error')
+    const user = userEvent.setup()
+    renderHarness()
+    const dialog = await openStepUp(user)
+    await user.click(await within(dialog).findByRole('button', { name: 'Re-confirm with Google' }))
+    await within(dialog).findByText(GOOGLE_WAIT)
+
+    await user.click(within(dialog).getByRole('button', { name: 'Email me a link instead' }))
+    await waitFor(() =>
+      expect(error).toHaveBeenCalledWith('Too many attempts. Try again in 2 minutes.')
+    )
+    expect(within(dialog).getByText(GOOGLE_WAIT)).toBeInTheDocument()
+
+    confirmFromAnotherTab()
+    expect(await screen.findByText('outcome: done')).toBeInTheDocument()
+    expect(calls).toHaveLength(2)
+  })
+
+  it('says to allow pop-ups when the popup was closed before the start answered', async () => {
+    dangerRoute(1)
+    withGoogle()
+    const { popup } = stubPopup()
+    server.use(
+      http.post('/api/v1/auth/step-up/google/start', () => {
+        popup.closed = true
+        return new HttpResponse(null, { status: 204 })
+      })
+    )
+    const user = userEvent.setup()
+    renderHarness()
+    const dialog = await openStepUp(user)
+    await user.click(await within(dialog).findByRole('button', { name: 'Re-confirm with Google' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Allow pop-ups, or use the email link'
+    )
+    expect(popup.location.assign).not.toHaveBeenCalled()
+    expect(within(dialog).getByText(CHOOSE_BODY)).toBeInTheDocument()
   })
 
   it('returns to the choices after 5 minutes of waiting on Google', async () => {

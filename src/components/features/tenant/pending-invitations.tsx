@@ -183,7 +183,14 @@ function RevokeInvitationButton({
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
+    <AlertDialog
+      open={isOpen}
+      onOpenChange={(next) => {
+        // While the revoke waits on "Confirm it's you", Escape and outside presses belong to it.
+        if (!next && waiting) return
+        setIsOpen(next)
+      }}
+    >
       <AlertDialogTrigger
         render={
           <Button

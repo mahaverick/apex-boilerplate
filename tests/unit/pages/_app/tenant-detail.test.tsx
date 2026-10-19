@@ -851,7 +851,7 @@ describe('/tenants/$tenantId', () => {
       await user.type(within(dialog).getByLabelText('Reason'), 'new owner')
       await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
       expect(
-        await within(dialog).findByText(/Your role can’t do this any more/)
+        await within(dialog).findByText(/Your role no longer allows this action/)
       ).toBeInTheDocument()
       expect(useAuthStore.getState().isAuthenticated).toBe(true)
     })
