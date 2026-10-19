@@ -506,7 +506,7 @@ describe('signed-out pages', () => {
     renderAppAt('/login?error=google_auth_failed')
     const region = await screen.findByRole('region', { name: 'Status messages' })
     const item = await within(region).findByRole('dialog', {
-      name: "Google sign-in didn't work for this account. Use your staff Google account, or sign in with an email link.",
+      name: "Google sign-in didn't work for this account. Use your staff Google account, sign in with an email link, or ask an owner for an invitation.",
     })
     await expectNoViolations()
 
