@@ -98,7 +98,7 @@ describe('queueLine', () => {
 
   it('says the auth-email queue is never paused, and why', () => {
     const line =
-      'auth-email: never paused, 0 running. We still send sign-in and invitation emails during maintenance.'
+      'auth-email: never paused, 0 running. We still send sign-in, invitation and Confirm it’s you emails during maintenance.'
     expect(queueLine({ name: 'auth-email', paused: false, active: 0 })).toBe(line)
     // Maintenance never pauses it, so an unanswered pause state is still "never paused".
     expect(queueLine({ name: 'auth-email', paused: null, active: 0 })).toBe(line)

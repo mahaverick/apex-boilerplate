@@ -110,7 +110,7 @@ test.describe('sign-in link', () => {
     )
 
     await expect(
-      page.getByRole('heading', { level: 1, name: "We couldn't sign you in" })
+      page.getByRole('heading', { level: 1, name: 'We couldn’t sign you in' })
     ).toBeVisible()
     await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toHaveCount(0)

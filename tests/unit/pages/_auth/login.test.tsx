@@ -25,7 +25,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-const DESCRIPTION = "Enter your staff email and we'll send you a link to sign in."
+const DESCRIPTION = 'Enter your staff email and we’ll send you a link to sign in.'
 const NOTE = 'Sign in with an email link or Google. Passwords no longer work.'
 
 /**
@@ -288,7 +288,7 @@ describe('OAuth failure messages', () => {
     renderLoginAt('/login?error=google_auth_failed')
 
     const message =
-      "Google sign-in didn't work for this account. Use your staff Google account, sign in with an email link, or ask an owner for an invitation."
+      'Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask an owner for an invitation.'
     expect(await screen.findByText(message)).toBeInTheDocument()
     expect(toastError).toHaveBeenCalledWith(message)
     expect(screen.queryByText(/not (a )?staff/i)).not.toBeInTheDocument()
@@ -297,15 +297,15 @@ describe('OAuth failure messages', () => {
   it.each([
     [
       'email_not_verified',
-      "Google hasn't verified this email address. Verify it with Google, or sign in with an email link.",
+      'Google hasn’t verified this email address. Verify it with Google, or sign in with an email link.',
     ],
     [
       'google_email_missing',
-      "Your Google account didn't share an email address. Sign in with an email link.",
+      'Your Google account didn’t share an email address. Sign in with an email link.',
     ],
     [
       'processing_failed',
-      "We couldn't finish signing you in with Google. Try again, or sign in with an email link.",
+      'We couldn’t finish signing you in with Google. Try again, or sign in with an email link.',
     ],
   ])('explains ?error=%s', async (code, message) => {
     renderLoginAt(`/login?error=${code}`)
@@ -319,7 +319,7 @@ describe('OAuth failure messages', () => {
       renderLoginAt(`/login?error=${code}`)
 
       expect(
-        await screen.findByText("Sign-in didn't work. Try again, or sign in with an email link.")
+        await screen.findByText('Sign-in didn’t work. Try again, or sign in with an email link.')
       ).toBeInTheDocument()
     }
   )
@@ -328,7 +328,7 @@ describe('OAuth failure messages', () => {
     const toastError = vi.spyOn(toast, 'error')
     serveLinkRequests()
     renderLoginAt('/login?error=google_auth_failed')
-    await screen.findByText(/Google sign-in didn't work for this account/)
+    await screen.findByText(/Google sign-in didn’t work for this account/)
     // A re-render (the switch to Check your inbox) must not raise it again.
     await requestLink()
 

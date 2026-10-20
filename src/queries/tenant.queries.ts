@@ -6,6 +6,7 @@ import { fullName } from '@/lib/format'
 import { analyticsKey } from '@/observability/telemetry'
 import { auditKeys } from '@/queries/audit.queries'
 import { listQueryOptions, retryList } from '@/queries/list.queries'
+import { userAdminKeys } from '@/queries/user-admin.queries'
 import { defineList, listFilter } from '@/schemas/list.schemas'
 import type { UpdateTenantInput } from '@/schemas/tenant.schemas'
 import type { ApiSuccess, TenantAccess, TenantInvitation } from '@/types/api.types'
@@ -153,7 +154,8 @@ export function useMyRole(
 /**
  * Updates the tenant, refreshing its detail and the platform and tenant
  * activity logs, where the edit's audit entry lands (the Overview's Staff
- * actions card reads the platform log).
+ * actions card reads the platform log), and the users pages, whose details
+ * name each membership's tenant.
  */
 export function useUpdateTenant(slug: string, tenantId?: string) {
   const queryClient = useQueryClient()
@@ -165,6 +167,8 @@ export function useUpdateTenant(slug: string, tenantId?: string) {
         queryClient.invalidateQueries({ queryKey: tenantKeys.detail(slug, tenantId) }),
         queryClient.invalidateQueries({ queryKey: auditKeys.platformAll }),
         queryClient.invalidateQueries({ queryKey: auditKeys.tenantAll(slug) }),
+        queryClient.invalidateQueries({ queryKey: userAdminKeys.all }),
+        queryClient.invalidateQueries({ queryKey: userAdminKeys.details }),
       ])
     },
   })

@@ -1121,7 +1121,7 @@ describe('inviting, and the pending invitations', () => {
     const toastError = vi.spyOn(toast, 'error')
     server.use(
       http.post('/api/v1/tenants/acme/invitations', () =>
-        fail('Too many attempts. Please try again later.', 429, 'RATE_LIMITED')
+        fail('Too many attempts. Try again in 42 seconds.', 429, 'RATE_LIMITED')
       )
     )
     const user = userEvent.setup()
@@ -1131,9 +1131,9 @@ describe('inviting, and the pending invitations', () => {
     await user.type(email, 'new-member@example.com')
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
 
-    const message = await screen.findByText('Too many attempts. Please try again later.')
+    const message = await screen.findByText('Too many attempts. Try again in 42 seconds.')
     expect(message.closest('form')).not.toBeNull()
-    expect(screen.getAllByText('Too many attempts. Please try again later.')).toHaveLength(1)
+    expect(screen.getAllByText('Too many attempts. Try again in 42 seconds.')).toHaveLength(1)
     expect(toastError).not.toHaveBeenCalled()
     expect(email).toHaveAttribute('aria-invalid', 'false')
   })
@@ -1218,7 +1218,9 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/could not load the pending invitations/i)
+    expect(alert).toHaveTextContent(
+      'We couldn’t load the pending invitations. Select Try again to load them.'
+    )
     await user.click(within(alert).getByRole('button', { name: 'Try again' }))
 
     expect(await screen.findByText('invited@example.com')).toBeInTheDocument()
@@ -1590,7 +1592,7 @@ describe('staff acting through platform access', () => {
       http.patch(`/api/v1/tenants/acme/members/${USER_ID_3}`, async ({ request }) => {
         bodies.push(await request.json())
         return bodies.length === 1
-          ? fail('Confirm your identity to continue', 401, REAUTH_REQUIRED)
+          ? fail("Confirm it's you to continue.", 401, REAUTH_REQUIRED)
           : ok({ ...member(USER_ID_3, 'editor', 'Vic').membership }, 'Role updated.')
       })
     )
@@ -1944,7 +1946,7 @@ describe('staff acting through platform access', () => {
         http[method](url, async ({ request }) => {
           bodies.push(await request.json())
           return bodies.length === 1
-            ? fail('Confirm your identity to continue', 401, REAUTH_REQUIRED)
+            ? fail("Confirm it's you to continue.", 401, REAUTH_REQUIRED)
             : ok(null, 'Done.', method === 'post' ? 202 : 200)
         })
       )

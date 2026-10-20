@@ -59,10 +59,9 @@ const FIELD_FOR_CODE: Partial<Record<string, 'slug' | 'ownerEmail'>> = {
  * admin, so the page renders it only for admins and owners. The tenant starts
  * with no members; the owner joins by accepting the emailed invitation. A 409
  * lands on the field its code names: a taken slug on Slug, a deactivated owner
- * account on Owner email; any other error on the form. `onCreated` lets the
- * page decide where to go next: both callers open the new tenant, so a
- * create asks that page's heading to take focus and the close restores
- * none. The command palette opens it with `trigger={false}`, its own `open`
+ * account on Owner email; any other error on the form. `onCreated` decides
+ * where to go next, and must navigate: both callers open the new tenant, so a
+ * create asks that page's heading to take focus and the close restores none. The command palette opens it with `trigger={false}`, its own `open`
  * and a `finalFocus`, since no trigger is there to take focus back.
  */
 export function CreateTenantDialog({
@@ -72,7 +71,7 @@ export function CreateTenantDialog({
   trigger = true,
   finalFocus,
 }: {
-  onCreated?: (tenant: PlatformTenantDetail) => void
+  onCreated: (tenant: PlatformTenantDetail) => void
   /** Controls the dialog from outside, as the command palette does; it keeps its own state when unset. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -109,7 +108,7 @@ export function CreateTenantDialog({
             onDone={(tenant) => {
               leaving.leave()
               setOpen(false)
-              onCreated?.(tenant)
+              onCreated(tenant)
             }}
           />
         )}

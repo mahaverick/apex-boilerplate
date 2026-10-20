@@ -114,17 +114,32 @@ describe('/tenants/$tenantId', () => {
     expect(await screen.findByText('Olive Owner')).toBeInTheDocument()
   })
 
-  it.each<[TenantLifecycleState, string]>([
-    ['suspended', 'members'],
-    ['suspended', 'invitations'],
-    ['suspended', 'activity'],
-    ['archived', 'members'],
-  ])('a %s tenant’s %s tab is frozen and asks the tenant routes nothing', async (state, tab) => {
-    const internal = serve(detail({ lifecycleState: state }))
-    renderAppAt(`/tenants/${TENANT_ID}/${tab}`)
-    expect(await screen.findByText(new RegExp(`This tenant is ${state}`))).toBeInTheDocument()
-    expect(internal).toEqual([])
-  })
+  const REACTIVATE = 'Reactivate it from the Actions menu to manage them again.'
+  const ASK_AN_ADMIN = 'An admin can reactivate it to manage them again.'
+  it.each<[TenantLifecycleState, string, MembershipRole, string]>([
+    ['suspended', 'members', 'admin', REACTIVATE],
+    ['suspended', 'invitations', 'admin', REACTIVATE],
+    ['suspended', 'activity', 'admin', REACTIVATE],
+    ['suspended', 'members', 'viewer', ASK_AN_ADMIN],
+    ['suspended', 'invitations', 'viewer', ASK_AN_ADMIN],
+    ['suspended', 'activity', 'viewer', ASK_AN_ADMIN],
+    [
+      'archived',
+      'members',
+      'viewer',
+      'Archiving can’t be undone. The Overview tab shows what the tenant held.',
+    ],
+  ])(
+    'a %s tenant’s %s tab is frozen for a platform %s, names the next step and asks the tenant routes nothing',
+    async (state, tab, role, next) => {
+      signIn({ ...testUser, platformRole: role })
+      const internal = serve(detail({ lifecycleState: state }))
+      renderAppAt(`/tenants/${TENANT_ID}/${tab}`)
+      expect(await screen.findByText(new RegExp(`This tenant is ${state}`))).toBeInTheDocument()
+      expect(screen.getByText(next)).toBeInTheDocument()
+      expect(internal).toEqual([])
+    }
+  )
 
   it('gives the page its one h1 while the tenant is still loading', async () => {
     server.use(

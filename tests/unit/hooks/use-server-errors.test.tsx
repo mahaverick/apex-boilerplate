@@ -331,10 +331,10 @@ describe('capture', () => {
     const { result } = renderHook(() => useServerErrors())
 
     act(() => {
-      result.current.capture(plainFailure('Too many attempts. Please try again later.', 429))
+      result.current.capture(plainFailure('Too many attempts. Try again in 42 seconds.', 429))
     })
 
-    expect(result.current.formErrors).toEqual(['Too many attempts. Please try again later.'])
+    expect(result.current.formErrors).toEqual(['Too many attempts. Try again in 42 seconds.'])
     expect(result.current.fieldErrors).toEqual({})
   })
 

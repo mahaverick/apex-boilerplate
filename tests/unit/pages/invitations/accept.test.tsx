@@ -28,7 +28,8 @@ import {
 import { server } from '@/tests/mocks/server'
 
 const ACCEPT_PATH = `/invitations/accept?token=${TEST_INVITATION_TOKEN}`
-const INVALID = 'This invitation is invalid or has expired.'
+const INVALID =
+  'This invitation link has expired or was already used. Ask the person who invited you for a new one.'
 const DEAD_TITLE = 'This invitation can’t be used'
 const ASK_AN_ADMIN = 'Ask a platform admin for a new invite.'
 /** The toast names the account now signed in: the test user, unless a test says otherwise. */
@@ -418,7 +419,7 @@ describe('accept page, signed out', () => {
     [
       'a 429',
       () => {
-        const response = fail('Too many attempts. Please try again later.', 429)
+        const response = fail('Too many attempts. Try again in 42 seconds.', 429)
         response.headers.set('Retry-After', '42')
         return response
       },
@@ -487,7 +488,9 @@ function confirmationSent(email = MAILED) {
 /** A 429 that says to wait `seconds`. */
 function rateLimited(seconds: number) {
   return () => {
-    const response = fail('Too many attempts. Please try again later.', 429)
+    // Express words the wait as it rounds it: whole seconds under a minute, else whole minutes up.
+    const wait = seconds < 60 ? `${seconds} seconds` : `${Math.ceil(seconds / 60)} minutes`
+    const response = fail(`Too many attempts. Try again in ${wait}.`, 429)
     response.headers.set('Retry-After', String(seconds))
     return response
   }

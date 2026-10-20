@@ -179,7 +179,7 @@ const SURFACES = [
   {
     name: 'link failed',
     url: signedOut('/auth/link', `token=${TOKEN}&email=a.b@example.com&link=readonly`),
-    heading: "We couldn't sign you in",
+    heading: 'We couldn’t sign you in',
   },
   {
     name: 'link switch',
@@ -1249,7 +1249,7 @@ test.describe('toasts', () => {
       name: 'error toast',
       url: '/login?error=google_auth_failed',
       title:
-        "Google sign-in didn't work for this account. Use your staff Google account, sign in with an email link, or ask an owner for an invitation.",
+        'Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask an owner for an invitation.',
       raise: async () => {},
     },
     {

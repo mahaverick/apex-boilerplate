@@ -38,13 +38,13 @@ export const Route = createFileRoute('/_auth/login')({
  */
 const OAUTH_ERRORS: Record<string, string> = {
   google_auth_failed:
-    "Google sign-in didn't work for this account. Use your staff Google account, sign in with an email link, or ask an owner for an invitation.",
+    'Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask an owner for an invitation.',
   email_not_verified:
-    "Google hasn't verified this email address. Verify it with Google, or sign in with an email link.",
+    'Google hasn’t verified this email address. Verify it with Google, or sign in with an email link.',
   google_email_missing:
-    "Your Google account didn't share an email address. Sign in with an email link.",
+    'Your Google account didn’t share an email address. Sign in with an email link.',
   processing_failed:
-    "We couldn't finish signing you in with Google. Try again, or sign in with an email link.",
+    'We couldn’t finish signing you in with Google. Try again, or sign in with an email link.',
 }
 
 /**
@@ -71,7 +71,7 @@ function LoginPage() {
     if (!error || toastedError.current === error) return
     toastedError.current = error
     toast.error(
-      OAUTH_ERRORS[error] ?? "Sign-in didn't work. Try again, or sign in with an email link."
+      OAUTH_ERRORS[error] ?? 'Sign-in didn’t work. Try again, or sign in with an email link.'
     )
   }, [error])
 
@@ -86,7 +86,7 @@ function LoginPage() {
     <AuthCard
       title={sentTo ? CHECK_INBOX_TITLE : `Sign in to ${APP_NAME}`}
       description={
-        sentTo ? undefined : "Enter your staff email and we'll send you a link to sign in."
+        sentTo ? undefined : 'Enter your staff email and we’ll send you a link to sign in.'
       }
     >
       {notice && sentTo === null && (

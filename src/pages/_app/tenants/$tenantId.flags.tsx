@@ -123,7 +123,7 @@ function TenantFlagsPanel({ tenant }: { tenant: PlatformTenantDetail }) {
       />
       {searchFailed && (
         <LoadError
-          message="We could not search this tenant’s members."
+          message="We couldn’t search this tenant’s members. Select Try again to search again."
           onRetry={() => void members.refetch()}
         />
       )}

@@ -705,7 +705,12 @@ describe('the This page sources', () => {
           <button type="button" onClick={() => setOpen(true)}>
             Open from outside
           </button>
-          <CreateTenantDialog open={open} onOpenChange={setOpen} trigger={false} />
+          <CreateTenantDialog
+            open={open}
+            onOpenChange={setOpen}
+            trigger={false}
+            onCreated={() => undefined}
+          />
         </QueryClientProvider>
       )
     }

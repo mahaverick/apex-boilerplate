@@ -31,7 +31,8 @@ const DEAD_TITLE = CONFIRM_DEAD_TITLE
 const DEAD_BODY =
   'Open your invitation email and select Join again to get a new link, or ask the person who invited you for a new invite.'
 const INCOMPLETE_TITLE = 'This link is incomplete'
-const INVALID = 'This invitation is invalid or has expired.'
+const INVALID =
+  "We couldn't use this link. Open your invitation email and select Join again, or ask the person who invited you for a new invite."
 
 /** Mounts the real route tree at `path`, under StrictMode as dev runs it, and returns the router. */
 function renderAt(path: string): AnyRouter {
@@ -111,7 +112,9 @@ function held() {
 /** A 429 that says to wait `seconds`. */
 function rateLimited(seconds: number) {
   return () => {
-    const response = fail('Too many attempts. Please try again later.', 429)
+    // Express words the wait as it rounds it: whole seconds under a minute, else whole minutes up.
+    const wait = seconds < 60 ? `${seconds} seconds` : `${Math.ceil(seconds / 60)} minutes`
+    const response = fail(`Too many attempts. Try again in ${wait}.`, 429)
     response.headers.set('Retry-After', String(seconds))
     return response
   }

@@ -114,7 +114,7 @@ describe('/settings/platform/maintenance', () => {
     await openPage()
     const queues = within(screen.getByRole('list', { name: 'Queues' })).getAllByRole('listitem')
     expect(queues.at(-1)).toHaveTextContent(
-      'auth-email: never paused, 0 running. We still send sign-in and invitation emails during maintenance.'
+      'auth-email: never paused, 0 running. We still send sign-in, invitation and Confirm it’s you emails during maintenance.'
     )
   })
 

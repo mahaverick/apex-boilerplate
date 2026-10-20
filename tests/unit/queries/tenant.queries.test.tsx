@@ -429,4 +429,16 @@ describe('useUpdateTenant', () => {
     }
     expect(client.getQueryState(elsewhere)?.isInvalidated).toBe(false)
   })
+
+  it('refreshes the users pages and every user’s details, which show the tenant’s name', async () => {
+    const keys = [userAdminKeys.detail(USER_ID), usersListOptions({}).queryKey]
+    for (const key of keys) client.setQueryData(key, {})
+    server.use(http.patch('/api/v1/tenants/acme', () => ok({ id: TENANT_ID }, 'Tenant updated.')))
+    const { result } = renderHook(() => useUpdateTenant('acme', TENANT_ID), { wrapper })
+    result.current.mutate({ name: 'Acme Ltd' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    for (const key of keys) {
+      expect(client.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(true)
+    }
+  })
 })

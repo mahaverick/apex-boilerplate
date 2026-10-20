@@ -86,7 +86,7 @@ export function queueLine(queue: QueuePauseState): string {
       ? 'running count unknown'
       : `${queue.active.toLocaleString('en-US')} running`
   if (queue.name === AUTH_EMAIL_QUEUE && queue.paused !== true) {
-    return `${queue.name}: never paused, ${running}. We still send sign-in and invitation emails during maintenance.`
+    return `${queue.name}: never paused, ${running}. We still send sign-in, invitation and Confirm it’s you emails during maintenance.`
   }
   return `${queue.name}: ${pauseWords(queue.paused)}, ${running}`
 }

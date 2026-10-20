@@ -514,8 +514,8 @@ export interface EmailPreview {
 
 /**
  * `POST /platform/emails/:id/resend` (202). `emailSent` is present only when
- * the originating action reports it (password setup and resending a
- * verification email); an invitation resend answers an empty object.
+ * the originating action reports it (a sign-in link, for a `sign_in_link` or
+ * `welcome` message); an invitation resend answers an empty object.
  */
 export type EmailResendResult = { emailSent?: boolean } | null
 

@@ -302,7 +302,9 @@ describe('/tenants/$tenantId/flags', () => {
     await user.type(box, 'ada')
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('We could not search this tenant’s members.')
+    expect(alert).toHaveTextContent(
+      'We couldn’t search this tenant’s members. Select Try again to search again.'
+    )
     expect(screen.getByRole('searchbox', { name: 'Find a member' })).toHaveValue('ada')
     expect(screen.getByRole('heading', { name: 'Flags', level: 2 })).toBeInTheDocument()
 

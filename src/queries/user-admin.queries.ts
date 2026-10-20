@@ -24,6 +24,8 @@ import type { ListRequest } from '@/types/list.types'
 export const userAdminKeys = {
   /** Every users page; a write invalidates them all, since any row may move between filters. */
   all: ['platform', 'users'] as const,
+  /** Every user's details; a tenant rename invalidates them, since each lists its memberships by tenant name. */
+  details: ['platform', 'user'] as const,
   detail: (id: string) => ['platform', 'user', id] as const,
 }
 

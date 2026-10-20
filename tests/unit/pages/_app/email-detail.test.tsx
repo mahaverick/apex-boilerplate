@@ -363,7 +363,7 @@ describe('/emails/$emailId', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Resend' }))
     expect(
       await screen.findByText(
-        'The resend was recorded, but its email could not be sent. Try again shortly.'
+        'We recorded the resend, but its email couldn’t be sent. Select Resend to try again.'
       )
     ).toBeInTheDocument()
   })
@@ -512,7 +512,7 @@ describe('/emails/$emailId', () => {
       http.post(`/api/v1/platform/emails/${EMAIL_ID}/resend`, async ({ request }) => {
         bodies.push(await request.json())
         return bodies.length === 1
-          ? fail('Confirm it’s you to continue.', 401, REAUTH_REQUIRED)
+          ? fail("Confirm it's you to continue.", 401, REAUTH_REQUIRED)
           : ok({}, 'Resend requested.', 202)
       })
     )

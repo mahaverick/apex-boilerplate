@@ -51,7 +51,7 @@ test(
     expect(response?.headers()['content-security-policy']).toBe(CONTENT_SECURITY_POLICY)
     await expect(page.getByRole('heading', { name: 'Sign in', level: 1 })).toBeVisible()
     await expect(
-      page.getByText("Google sign-in didn't work for this account.", { exact: false })
+      page.getByText('Google sign-in didn’t work for this account.', { exact: false })
     ).toBeVisible()
     /**
      * The heading means the root beforeLoad's refresh has settled and the
