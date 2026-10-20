@@ -29,8 +29,11 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   the page renders `RoleDenied`. Never turn that 404 into a sign-out or a retry
   loop: it is not an auth verdict.
 - **A write that may need a recent sign-in runs through `useStepUp().run`.** The
-  API refuses a stale sign-in with `REAUTH_REQUIRED`, which is not a verdict, and
-  the step-up dialog retries the write once after the user confirms.
+  API refuses a stale sign-in with `REAUTH_REQUIRED`, which is not a verdict.
+  The "Confirm it's you" dialog confirms by an emailed link, opened in this
+  browser's session on `/auth/confirm`, or by a fresh Google sign-in in a
+  popup. Either way the confirm page posts `step_up_confirmed`, and the dialog
+  refreshes the session and retries the write once. There is no password.
 - **A member or invitation write through platform access carries a reason.** When
   `useMyRole` reports `access: 'platform'`, the write goes through `ReasonDialog`
   and sends `reason` in the body, DELETE included. A member of the tenant, the
@@ -139,7 +142,12 @@ Each rule's reason is in [Analytics privacy](SECURITY.md#analytics-privacy).
   fails if it reaches a first-visit chunk.
 - **Never widen the privacy guards**: the free-string ban in `event-registry.ts`, the
   browser's ban on person and group properties, `ANALYTICS_URL_QUERY_ALLOWLIST`
-  and `guardEvent`. What each one stops is in SECURITY.md.
+  and `guardEvent`. What each one stops is in SECURITY.md. The one exception is
+  the campaign keys `utm_source`, `utm_medium`, `utm_campaign` and `utm_content`
+  in the allowlist, which the standing rule on mailed links requires: express
+  puts them on every link it mails, with values from its own constants. The
+  sanitizer keeps a campaign value only when it matches `^[a-z0-9_-]{1,64}$`.
+  Nothing else may be added, and never `token`, `email` or `redirect`.
 - **Never call the SDK's `reset()` directly.** It drops the super properties and
   the consent answer. `resetKeepingConsent` restores both.
 - **Page views come from the router, not posthog-js.** The router captures
@@ -459,9 +467,25 @@ teardown it fails the test and names the endpoint. A test that fulfills an `/api
 route itself stamps the response with `FALLBACK_HEADER`, or teardown reports it as
 an escape. If a fixtures test lands on `/login`, look for an unmocked endpoint.
 
-**`live`** needs a real express and its services, and runs only with `E2E_LIVE=1`.
-Its accounts are registered and verified through mailpit. Each run registers a
-fresh address (`freshEmail`), because express rate-limits sign-in per address.
+**`live`** needs a real express and its services, Mailpit included, and runs only
+with `E2E_LIVE=1`. Sign-in is by emailed link, so the helpers in
+`e2e/live/helpers.ts` read each link from Mailpit (`mailedLink` in
+`e2e/capture/mailpit.ts`):
+
+- **`staffSession` grants first, then signs in.** `grantPlatformRole` creates
+  the account when there is none, and an Apex link request for an address with
+  no platform role answers 202 and mails nothing.
+- **`freshEmail` per run.** Express mails one address at most one sign-in link
+  a minute and ten a day, and answers 202 either way, so a reused address waits
+  on links that never arrive.
+- **`RATE_LIMIT_SCALE`.** Express allows ten link requests per IP per fifteen
+  minutes. A 429 from `/auth/link/request` fails with a message naming
+  `RATE_LIMIT_SCALE`; set it on the API under test to widen the limit.
+- **`logIn`** hands the kept session's refresh cookie to a page once, because
+  the cookie rotates on first use; after that staff sign in through the page and
+  a new link. Apex creates no account, so `createUser` makes a customer through
+  a customer-app link.
+
 Nothing is cleaned up: every run leaves its accounts, tenants, invitations and
 audit entries in that API's database. What the express under test needs is in
 the [README](README.md#testing). The helpers that run commands (`grantPlatformRole`,

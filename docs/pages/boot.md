@@ -22,6 +22,8 @@ The dev frames come from `vite dev` (`signed-…`). The production frames (`ngin
 
 ### Signed out, `/login`
 
+The auth shell paints the sign-in card as it renders: a title bar, a description bar, one labelled field bar, a button bar, a separator and a second button bar (`public/boot-variant.js` picks it, `index.html`'s `<style id="boot-shell">` draws it, and `AuthPending` matches it). The frames below were captured with the password-era card, a title bar and three field bars, and the password-era sign-in page; the final walk retakes them with `pnpm capture:pages`.
+
 Dev (`signed-out-login`, 16 frames kept of 140 distinct, 3345 ms):
 
 | Frame                                  | ms   | Moment        | What it shows                                                                                                                                                                                |
@@ -40,7 +42,7 @@ Dev (`signed-out-login`, 16 frames kept of 140 distinct, 3345 ms):
 | ![](img/boot/signed-out-login--11.jpg) | 2575 |               | The auth shell: a card with a title bar and three field bars on the muted background, styled. Only the shimmer differs.                                                                      |
 | ![](img/boot/signed-out-login--12.jpg) | 2824 |               | The auth shell: a card with a title bar and three field bars on the muted background, styled. Only the shimmer differs.                                                                      |
 | ![](img/boot/signed-out-login--13.jpg) | 2924 | first-content | The auth shell: a card with a title bar and three field bars on the muted background, styled. The first frame at or after the DOM change; the compositor has not yet drawn the mounted page. |
-| ![](img/boot/signed-out-login--14.jpg) | 3225 |               | The sign-in page: the app mark over the card with the Google button, the email and password fields and Sign in.                                                                              |
+| ![](img/boot/signed-out-login--14.jpg) | 3225 |               | The password-era sign-in page: the app mark over the card with the Google button, the email and password fields and Sign in.                                                                 |
 | ![](img/boot/signed-out-login--15.jpg) | 3345 | ready         | The sign-in page. The TanStack devtools button (dev only) is in the corner.                                                                                                                  |
 
 Production (`nginx-signed-out-login`, 3 frames kept of 3 distinct, 186 ms):

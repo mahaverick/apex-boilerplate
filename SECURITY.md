@@ -95,12 +95,15 @@ browser storage is readable by whoever runs the page, so:
     not a bad session; it rejects untouched for the caller to handle;
   - any other 401 on a request that carried a bearer token: sign this tab
     out, broadcast the logout and redirect to `/login`;
-  - a 401 on a request with no token (the sign-in form): a wrong password,
-    not a session verdict.
+  - a 401 on a request with no token (a link request or a token page's
+    verify): an answer about that request, not a session verdict.
 - **`skipAuthRetry` opts a request out of both paths.** It is set on the two
   requests a refresh makes (re-entering `ensureSession()` there would await
-  itself), on `POST /auth/logout`, and on the invitation preview, which is
-  asked as a stranger.
+  itself), on `POST /auth/logout`, on every request a signed-out visitor
+  makes with a mailed link (the link request, the link verify, and the
+  invitation preview, verify and confirm, each sent with no bearer), and on
+  the step-up link verify, which refreshes an expired access token once
+  itself so the token never travels into `/login?redirect=`.
 - **Every tab follows a sign-out.** A sign-out posts `logout` on the `auth`
   BroadcastChannel; a tab that hears it while signed in clears its store and
   loads `/login`. A tab that is not signed in ignores it, and a refresh that
@@ -117,22 +120,64 @@ browser storage is readable by whoever runs the page, so:
   analytics resets and every flag value and exposure mark is dropped, so the
   next person never sees or sends the last one's (`installAnalyticsIdentity`
   in `src/http/session.ts`).
-- **The post-login redirect cannot leave the origin.** `?redirect=` arrives
-  from the URL bar. `safeRedirect` (`src/pages/_auth/login.tsx`) accepts only
-  a value starting with `/` that the URL parser resolves to this origin and
-  whose path does not start with `//`, which refuses `/\t/evil.example` and
-  `/..//evil.example`.
-- **Passwords.** A password being set (registration, reset, change) needs at
-  least 15 code points and at most 72 UTF-8 bytes, bcrypt's limit
-  (`src/schemas/auth.schemas.ts`); sign-in and email verification check
-  none, as the API does. Changing the password keeps this session; the API
-  revokes every other one.
-- **An already-verified link.** When `POST /auth/verify-email` answers 409
-  with `email_already_verified`, the verify page
-  (`src/pages/verify-email.tsx`) treats it as done, not as a failure: it shows
-  the API's message and a **Sign in** link to `/login`, and offers no
-  resend. The resend form shows the same message whatever the API answers,
-  so it never reveals whether an address needs verifying.
+- **A sign-in in one tab reaches only a tab that waits for it.** The page
+  that spends a sign-in or invitation-confirm link posts `signed_in`, with no
+  data. Only a tab with a link out listens: the sign-in form's "Check your
+  inbox" step, and the accept page while its confirmation link is out (its
+  Try again panel after a failed Resend included). It acts only while it is
+  signed out; it restores the shared session through `ensureSession()`, the
+  same refresh as a reload, so the message itself grants nothing. A tab that
+  is already signed in ignores it.
+- **A link never signs in over another account.** When a sign-in or
+  invitation link opens in a tab signed in as someone else, the page asks
+  first. "Continue" signs the current account out through the API (every
+  tab hears the logout) and reloads the page signed out before it posts the
+  token, so the token never travels with the other account's bearer.
+- **The page names the address it signs in.** A link carries its address,
+  and the sign-in page sends it back with the token; express refuses a
+  mismatch without spending the link. While verifying, the page shows the
+  link's address, then the address the server signed in. The invitation
+  confirm page does the same with its link's address. The accept page names
+  only the address from the server's preview or answer, never one from the
+  URL. This is the mitigation for login CSRF, which any emailed link allows:
+  an attacker's own link would sign a victim into the attacker's account, so
+  the victim sees whose account it is.
+- **Choosing to sign out** (`useLogout` in `src/queries/auth.queries.ts`)
+  asks the API first. The local session ends when the API confirms, or
+  answers 401 because its session is already over; a network error, 5xx or
+  429 leaves the user signed in with an error toast, so a sign-out never
+  only looks done.
+- **A sign-out is a full page load.** `redirectToLogin()` and `useLogout`
+  use `window.location.assign`, which discards every in-memory cache.
+- **Identity follows the user.** When the store's user changes or clears,
+  analytics resets and every flag value and exposure mark is dropped, so the
+  next person never sees or sends the last one's (`installAnalyticsIdentity`
+  in `src/http/session.ts`).
+- **A landing cannot leave the origin.** `safeRedirect`
+  (`src/lib/safe-redirect.ts`) accepts only a value starting with `/` that the
+  URL parser resolves to this origin, whose path does not start with `//`,
+  and whose resolved path is at most 2048 characters, the API's limit. It
+  refuses `/\t/evil.example` and `/..//evil.example`. Every landing passes
+  through it: `/login`'s `?redirect=`, the link's `redirect` hint, the verify
+  response's `redirect` and the Google callback's `?redirect=`. `/login` drops
+  an unsafe hint rather than sending it. No landing and no carried redirect
+  is ever a token page (`safeLanding` in `src/lib/landing.ts`: `/auth/link`,
+  `/auth/confirm`, `/invitations/accept`, `/invitations/confirm`): carried,
+  its token would be mailed again inside the new link; landed on, the page
+  on screen would never act on it. `safeLanding` decodes the path before the
+  check, as the router does before it matches, so `/auth/%6Cink` counts as
+  `/auth/link`, and a path that does not decode is refused. Each landing
+  replaces the token page in history, so Back never returns to it.
+- **A token is posted once per page load.** `/auth/link`, `/auth/confirm`
+  and the invitation pages post their token from a mutation that a
+  ref-guarded effect fires, so StrictMode's second run and a re-render never
+  spend the link twice. A query would post it again on refocus or reconnect.
+  The invitation preview is a query because it spends nothing.
+- **No password anywhere.** Staff sign in by emailed link or Google, and
+  confirm it's them the same two ways. No page, form, schema or query takes
+  a password, and `/register`, `/forgot-password`, `/reset-password` and
+  `/verify-email` only redirect to `/login?notice=sign-in-link`, dropping
+  their `?token=` before anything renders.
 
 ## CSP and headers
 
@@ -201,8 +246,10 @@ The policy is enforced, not report-only:
   there, not in `nginx.conf`.
 - **The access log keeps no query string.** Its server-level format
   records `$uri`, not `$request`, because every SPA route falls back to
-  `index.html`, including `/reset-password?token=…` and
-  `/verify-email?token=…`, whose tokens are credentials mailed to users.
+  `index.html`, including the token pages: `/auth/link?token=…&email=…`,
+  `/auth/confirm?token=…`, `/invitations/accept?token=…` and
+  `/invitations/confirm?token=…&email=…`, whose tokens are credentials
+  mailed to users.
   `Referrer-Policy: no-referrer` keeps the page URL out of the logged
   referrer. The invitation preview posts its token in a request body, so it
   stays out of URLs and logs (`src/queries/invitation.queries.ts`).
@@ -466,10 +513,18 @@ people out of pages that would fail.
   rule changed here and not in express offers actions the API refuses, or
   hides ones it allows.
 - **Links into this app name it.** The Google sign-in link sends `app=apex`
-  (`GOOGLE_OAUTH_PATH` in `src/constants/routes.ts`), and registration,
-  forgot-password and resend-verification send `app: 'apex'`
-  (`src/queries/auth.queries.ts`), so the API returns the user, and the
-  links it mails, to this app.
+  (`GOOGLE_OAUTH_PATH` in `src/constants/routes.ts`), and the sign-in link
+  request sends `app: 'apex'` (`src/queries/auth.queries.ts`), so the API
+  returns the user, and the links it mails, to this app. Without it express
+  defaults to the customer app, and staff would get a customer-app link.
+- **A sign-in never makes staff.** Express mails an Apex sign-in link only to
+  existing staff, or to someone holding a valid staff invitation; any other
+  address gets the same "Check your inbox" answer and no mail, so the page
+  never says who is staff. An Apex link or Google sign-in never creates an
+  account, and a non-staff Google profile comes back as the one generic
+  `google_auth_failed` refusal on `/login`. There is no domain auto-join:
+  staff join only by invitation, which confirms by an emailed link, or by
+  `pnpm platform:grant` on the server.
 
 ## Step-up re-authentication
 
@@ -494,17 +549,50 @@ with a 401 whose code is `REAUTH_REQUIRED`.
   (`sentWithCurrentToken`). A dismissal rejects with the original refusal.
   After a dismissal, or a second refusal of the retry, the reason dialog
   asks the user to confirm it's them to continue.
-- **The confirmation is a password.** The dialog posts it to
-  `POST /auth/reauthenticate` and puts the access token it returns, which
-  carries a fresh `auth_time`, in the auth store (`useReauthenticate`). A
-  wrong password is a 400 shown on the field, never a 401, so it cannot be
-  read as a verdict on the session. The account's sign-in methods come
-  from the query cache when the dialog opens; an answer more than 30 seconds
-  old is shown at once and read again in the background.
-- **An account without a password cannot step up here.** The dialog says so
-  and links to the user's own page, where an admin or owner can mail
-  themselves a set-password link. Setting the password ends every session
-  the account has, so the action is repeated after signing in again.
+- **The confirmation is an emailed link or a fresh Google sign-in.** The
+  dialog ("Confirm it's you") offers Email me a link
+  (`POST /auth/step-up/link/request`) and, when `GET /auth/providers` lists
+  Google, Re-confirm with Google.
+  - **The link is bound to the session that asked.** It opens
+    `/auth/confirm`, which posts it with that browser's bearer
+    (`POST /auth/step-up/link/verify`). Signed out, the page posts nothing
+    and says where the link works; in another browser or session the API
+    answers the one 400 it gives an expired or used link, and nothing is
+    elevated. A 404 is the role gate: a caller demoted since the request is
+    refused and the link stays unspent. The link lasts 15 minutes from the
+    last send (`STEP_UP_LINK_TTL_MS`), and Resend waits out express's
+    one-minute cooldown.
+  - **Google runs in a popup.** The click opens the window synchronously
+    (a blocked popup falls back to the email link), then
+    `POST /auth/step-up/google/start` records the intent and the popup goes
+    to `GOOGLE_STEP_UP_PATH`, which asks Google for a fresh login
+    (`max_age=0`). The API refuses an `auth_time` more than 60 seconds before the start, and
+    the popup lands on `/auth/confirm?result=confirmed` or
+    `?error=step_up_failed`. COOP severs the opener, so the result comes only
+    from the `auth` channel; the wait ends after 5 minutes
+    (`GOOGLE_STEP_UP_TIMEOUT_MS`).
+  - **The waiting tab learns by message, then refreshes.** `/auth/confirm`
+    posts `step_up_confirmed`. The dialog then calls `ensureSession()`, whose
+    refresh carries the session's new `auth_time`, and retries the action
+    once; a refresh that fails is offered again, never resolved anyway, and
+    a verdict signs the tab out. A message is not proof: anyone can open
+    `/auth/confirm?result=confirmed`, so the dialog retries only when the
+    refreshed token's `auth_time` moved past the one it held when the wait
+    began, and otherwise keeps waiting.
+  - **A Web Lock says whether a tab is waiting.** The dialog holds the shared
+    `apex-step-up-wait` lock (`STEP_UP_WAIT_LOCK`) from the first send or
+    Google start until `confirm()` settles, and `/auth/confirm` reads
+    `navigator.locks.query()` before it posts, so it can say "You can close
+    this tab" or "try the action again". A session revoked on the server
+    while a tab waits leaves that tab waiting until Cancel or the link's 15
+    minutes; its next request is the verdict.
+  - **The sign-in stays recent for 10 minutes.** Express's window, so a
+    second write soon after needs no second confirmation.
+- **Only Cancel dismisses a waiting dialog.** While it waits on a link or the
+  popup, Escape and the backdrop do nothing, so the pending action stays
+  pending; Cancel rejects it, and the action's dialog shows "Confirm it's you
+  to continue." The action's own dialog reads "Waiting for you to confirm…"
+  meanwhile (`useStepUpWaiting`).
 - **A dialog waiting on step-up holds still.** The reason and maintenance
   dialogs ignore Escape and the backdrop while their action runs, so those
   keys reach the step-up dialog on top instead of closing the one beneath.
@@ -521,7 +609,7 @@ sending an onboarding reminder; and member and invitation writes through
 platform access. Reissuing a tenant's owner invitation asks in its own
 dialog, with the same `reasonSchema`. Other staff writes take no reason:
 creating a user or a tenant, renaming a user, editing a tenant's details,
-mailing a set-password or verification link, and removing a member of, or
+sending a user a sign-in link (a confirm dialog with no reason and no step-up), and removing a member of, or
 leaving, the platform tenant. Maintenance changes have their own dialogs
 ([Maintenance controls](#maintenance-controls)).
 
