@@ -60,7 +60,7 @@ export const Route = createFileRoute('/invitations/accept')({
   pendingComponent: AuthPagePending,
 })
 
-const PREVIEW_ERROR = 'We couldn’t check your invitation. Your link still works. Select Try again.'
+const PREVIEW_ERROR = 'Your invitation link still works. Select Try again.'
 
 /** The title of every invitation that cannot join anyone, whatever the reason. */
 const DEAD_TITLE = 'This invitation can’t be used'
