@@ -385,7 +385,7 @@ describe('the Overview’s system status card', () => {
     renderAppAt('/overview')
     const card = await screen.findByRole('region', { name: 'System status' })
     expect(await within(card).findByText('Needs attention')).toBeInTheDocument()
-    expect(within(card).getByText('PostHog answered HTTP 401')).toBeInTheDocument()
+    expect(within(card).getByText('PostHog answered with status 401')).toBeInTheDocument()
     expect(within(card).getByText('None in the last 24 hours')).toBeInTheDocument()
   })
 
@@ -500,7 +500,7 @@ describe('the system status card’s feature flags', () => {
     ).toHaveAttribute('dateTime', testFlagsStatus.snapshotAt)
     expect(
       section.getByText(
-        '2 registered: 1 active, 1 inactive, 0 missing, 0 unsupported, 3 unregistered in PostHog'
+        '2 flags registered: 1 active, 1 inactive, 0 missing, 0 unsupported, 3 unregistered in PostHog'
       )
     ).toBeInTheDocument()
     expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
@@ -545,7 +545,9 @@ describe('the system status card’s feature flags', () => {
     expect(section.getByText('unauthorized')).toBeInTheDocument()
     expect(section.getByText('(stale)')).toBeInTheDocument()
     expect(
-      section.getByText('PostHog property matching version 2; express is validated for version 1')
+      section.getByText(
+        'PostHog property matching version 2; the server is validated for version 1'
+      )
     ).toBeInTheDocument()
     expect(section.getByText('(4 unknown variants in 15 minutes)')).toBeInTheDocument()
   })
@@ -557,7 +559,7 @@ describe('the system status card’s feature flags', () => {
     expect(section.getByText('Matching')).toBeInTheDocument()
     expect(
       section.getByText(
-        'PostHog did not report a property matching version; express is validated for version 1'
+        'PostHog did not report a property matching version; the server is validated for version 1'
       )
     ).toBeInTheDocument()
   })
@@ -624,7 +626,7 @@ describe('the system status card’s maintenance mode', () => {
         .getAllByRole('listitem')
         .map((item) => item.textContent)
         .at(-1)
-    ).toBe('analytics: not paused, 2 running')
+    ).toBe('analytics: not paused, 2 jobs running')
   })
 
   it('shows full with every queue paused as expected, not as a warning', async () => {
@@ -633,7 +635,7 @@ describe('the system status card’s maintenance mode', () => {
     const section = await maintenanceSection()
     expect(section.getByText('Full')).toHaveAttribute('data-tone', 'destructive')
     expect(section.queryByText('Needs attention')).not.toBeInTheDocument()
-    expect(section.getByText('email: paused, 0 running')).toBeInTheDocument()
+    expect(section.getByText('email: paused, 0 jobs running')).toBeInTheDocument()
   })
 
   it('says unknown, and warns, when this API has not read the state', async () => {
@@ -644,7 +646,7 @@ describe('the system status card’s maintenance mode', () => {
     expect(section.getByText('Needs attention')).toBeInTheDocument()
     expect(
       section.getByText(
-        'This API has not read the maintenance state since it started, so it lets customers in.'
+        'This server hasn’t read the maintenance state since it started, so it lets customers in.'
       )
     ).toBeInTheDocument()
     expect(section.getByText('connect ECONNREFUSED 127.0.0.1:5432')).toBeInTheDocument()

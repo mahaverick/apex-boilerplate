@@ -274,7 +274,7 @@ function RevokeInvitationButton({
             Revoke the invitation to <Pii>{invitation.email}</Pii>?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            The link in their email stops working immediately. You can invite them again later.
+            The link in their email stops working immediately. You can invite them again.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -371,7 +371,8 @@ function StaffInvitationActions({
         title="Resend this invitation?"
         description={
           <>
-            A new link goes to <Pii>{invitation.email}</Pii>; the old one stops working.
+            A new link goes to <Pii>{invitation.email}</Pii>, and every earlier link for this
+            invitation stops working.
           </>
         }
         confirmLabel="Resend"
@@ -399,7 +400,7 @@ function StaffInvitationActions({
         description={
           <>
             The link sent to <Pii>{invitation.email}</Pii> stops working immediately. You can invite
-            them again later.
+            them again.
           </>
         }
         confirmLabel="Revoke"

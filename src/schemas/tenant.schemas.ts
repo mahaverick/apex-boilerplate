@@ -149,7 +149,7 @@ function boundedText(max: number, label: string, safe?: SafeTextMode) {
   if (!safe) return bounded
   const safeField = bounded.refine(safeText({ multiline }), notAllowedMessage(label))
   if (safe !== 'url') return safeField
-  const notHttpUrl = `${label} must be an http or https URL.`
+  const notHttpUrl = `${label} must be a web address that starts with http:// or https://.`
   return safeField.refine(hasNoUserinfoOrBackslash, notHttpUrl).pipe(httpUrlCheck(notHttpUrl))
 }
 

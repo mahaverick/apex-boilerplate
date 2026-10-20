@@ -790,11 +790,13 @@ export interface TenantOnboardingDetail {
 
 /**
  * `POST /platform/tenants/:id/onboarding/remind`: how many active owners it
- * addressed, and whether every one's email was queued.
+ * addressed, whether every one's email was queued, and (since express #140)
+ * how many were.
  */
 export interface OnboardingReminderResult {
   emailSent: boolean
   recipientCount: number
+  queuedCount?: number
 }
 
 /** Why the API dropped an error event instead of sending it to PostHog. */

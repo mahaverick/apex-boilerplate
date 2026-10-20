@@ -52,10 +52,10 @@ export const FUNNEL_COLORS = { completed: 'var(--chart-1)', staff: 'var(--chart-
 
 /** What the onboarding page says while no tenant is tracked at all. */
 export const ONBOARDING_NOT_STARTED =
-  'Onboarding tracking starts with tenants created after this release.'
+  'Onboarding is tracked for tenants created once the server runs release 1.4.0 (2 October 2026) or later.'
 
 /** A tenant created before tracking began. */
-export const NOT_TRACKED_NOTE = 'Not tracked — created before onboarding tracking.'
+export const NOT_TRACKED_NOTE = 'Not tracked: created before the server ran release 1.4.0.'
 
 /** A staff-created tenant whose clock has not started. */
 export const AWAITING_OWNER_NOTE = 'Waiting for the owner to accept their invitation.'

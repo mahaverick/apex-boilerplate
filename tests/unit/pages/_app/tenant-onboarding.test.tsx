@@ -152,7 +152,7 @@ describe('/tenants/$tenantId/onboarding', () => {
     })
 
     it.each([
-      ['not_tracked', 'Not tracked — created before onboarding tracking.'],
+      ['not_tracked', 'Not tracked: created before the server ran release 1.4.0.'],
       ['awaiting_owner', 'Waiting for the owner to accept their invitation.'],
     ] as const)('explains a %s tenant', async (state, note) => {
       serve({
@@ -469,7 +469,10 @@ describe('/tenants/$tenantId/onboarding', () => {
           `/api/v1/platform/tenants/${TENANT_ID}/onboarding/remind`,
           async ({ request }) => {
             body = await request.json()
-            return ok({ emailSent: true, recipientCount: 2 }, 'Reminder sent.')
+            return ok(
+              { emailSent: true, recipientCount: 2, queuedCount: 2 },
+              'Reminder sent to 2 owners.'
+            )
           }
         )
       )
@@ -516,7 +519,7 @@ describe('/tenants/$tenantId/onboarding', () => {
           )
         }),
         http.post(`/api/v1/platform/tenants/${TENANT_ID}/onboarding/remind`, () =>
-          ok({ emailSent: true, recipientCount: 1 }, 'Reminder sent.')
+          ok({ emailSent: true, recipientCount: 1, queuedCount: 1 }, 'Reminder sent to 1 owner.')
         )
       )
       const user = userEvent.setup()
@@ -600,7 +603,7 @@ describe('/tenants/$tenantId/onboarding', () => {
       serve()
       server.use(
         http.post(`/api/v1/platform/tenants/${TENANT_ID}/onboarding/remind`, () =>
-          ok({ emailSent: false, recipientCount: 1 }, 'The reminder could not be queued.')
+          ok({ emailSent: false, recipientCount: 1 }, 'Reminder recorded.')
         )
       )
       const warning = vi.spyOn(toast, 'warning')
@@ -617,6 +620,30 @@ describe('/tenants/$tenantId/onboarding', () => {
       )
     })
 
+    it('says how many owners’ emails were queued, when the API counts them', async () => {
+      serve()
+      server.use(
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/onboarding/remind`, () =>
+          ok(
+            { emailSent: false, recipientCount: 3, queuedCount: 1 },
+            'We queued the reminder for 1 of 3 owners. The rest show as failed on Emails.'
+          )
+        )
+      )
+      const warning = vi.spyOn(toast, 'warning')
+      const user = userEvent.setup()
+      renderAppAt(ONBOARDING)
+      await user.click(await screen.findByRole('button', { name: 'Send reminder' }))
+      const dialog = await screen.findByRole('alertdialog')
+      await user.type(within(dialog).getByLabelText('Reason'), 'Stalled')
+      await user.click(within(dialog).getByRole('button', { name: 'Send reminder' }))
+      await waitFor(() =>
+        expect(warning).toHaveBeenCalledWith(
+          'We queued the reminder for 1 of 3 owners. The rest show as failed on the tenant’s Emails tab.'
+        )
+      )
+    })
+
     it('words a reminded_recently refusal with its retry time, in the reader’s locale', async () => {
       serve()
       server.use(
@@ -625,7 +652,7 @@ describe('/tenants/$tenantId/onboarding', () => {
             {
               success: false,
               message:
-                'A reminder went less than 24 hours ago; the next can go after 2026-10-03T09:00:00.000Z.',
+                'This tenant got a reminder in the last 24 hours. You can send the next one after 09:00 UTC on 3 October 2026.',
               statusCode: 409,
               code: 'reminded_recently',
               errors: { retryAfter: '2026-10-03T09:00:00.000Z' },

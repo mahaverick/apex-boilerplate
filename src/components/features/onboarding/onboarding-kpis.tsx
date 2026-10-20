@@ -36,7 +36,7 @@ export function OnboardingKpis({ funnel }: { funnel: OnboardingFunnel }) {
     {
       label: 'Stuck now',
       value: count(totals.stuck),
-      note: 'No progress for a while. Of tenants started in this window.',
+      note: 'Started in this window, with no progress past the stuck limit (7 days by default).',
     },
     { label: 'Dismissed', value: count(totals.dismissed), note: 'Hid the checklist unfinished' },
   ]

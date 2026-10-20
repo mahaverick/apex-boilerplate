@@ -147,7 +147,7 @@ test('the Overview’s status card shows feature flags, warning on an unsupporte
   await expect(heading.locator('..').getByText('Needs attention')).toBeVisible()
   await expect(
     card.getByText(
-      '3 registered: 1 active, 1 inactive, 0 missing, 1 unsupported, 1 unregistered in PostHog'
+      '3 flags registered: 1 active, 1 inactive, 0 missing, 1 unsupported, 1 unregistered in PostHog'
     )
   ).toBeVisible()
 })

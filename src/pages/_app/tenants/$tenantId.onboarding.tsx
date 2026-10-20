@@ -295,9 +295,13 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
             toast.success(
               `Reminder sent to ${result.recipientCount} ${result.recipientCount === 1 ? 'owner' : 'owners'}.`
             )
-          } else {
+          } else if (result.queuedCount === undefined) {
             toast.warning(
               'The reminder was recorded, but its email wasn’t queued for every owner. See who got it on the tenant’s Emails tab.'
+            )
+          } else {
+            toast.warning(
+              `We queued the reminder for ${result.queuedCount} of ${result.recipientCount} ${result.recipientCount === 1 ? 'owner' : 'owners'}. The rest show as failed on the tenant’s Emails tab.`
             )
           }
         }}

@@ -16,7 +16,7 @@ interface RateTile {
 }
 
 const APPROXIMATE =
-  'Approximate: image blocking hides some opens, and mail privacy features open some emails on their own.'
+  'Approximate: image blocking hides opens, and mail privacy features open emails on their own.'
 
 const RATE_TILES: readonly RateTile[] = [
   {

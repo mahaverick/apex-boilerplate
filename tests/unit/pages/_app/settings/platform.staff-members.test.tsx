@@ -549,7 +549,7 @@ describe('/staff with the real sections', () => {
       await user.click(
         within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' })
       )
-      await screen.findByText('You left this tenant.')
+      await screen.findByText('You left the staff team.')
       // Absence has no event: the held navigation is what the drop must wait for.
       await act(() => settle(50, 'absence has no event: a drop while the navigation is held'))
       expect(dropped).toEqual([])

@@ -831,7 +831,7 @@ describe('removing and leaving', () => {
       http.delete('/api/v1/tenants/acme/membership', () => {
         ottoDemoted = true
         return fail(
-          'You are the last owner: make someone else an owner before you leave.',
+          "You're the last owner. Make someone else an owner before you leave.",
           409,
           'LAST_OWNER'
         )
@@ -858,7 +858,7 @@ describe('removing and leaving', () => {
     server.use(
       http.delete('/api/v1/tenants/acme/membership', () =>
         fail(
-          'You are the last owner: make someone else an owner before you leave.',
+          "You're the last owner. Make someone else an owner before you leave.",
           409,
           'LAST_OWNER'
         )
@@ -871,9 +871,7 @@ describe('removing and leaving', () => {
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
     expect(
-      await screen.findByText(
-        'You are the last owner: make someone else an owner before you leave.'
-      )
+      await screen.findByText("You're the last owner. Make someone else an owner before you leave.")
     ).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID}/members`)
@@ -895,9 +893,7 @@ describe('removing and leaving', () => {
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' })
     )
 
-    expect(
-      await screen.findByText('You are no longer a member of this tenant.')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('You’re no longer a member of this tenant.')).toBeInTheDocument()
     expect(screen.queryByText('Tenant not found')).not.toBeInTheDocument()
     await waitFor(() =>
       expect(screen.queryByRole('cell', { name: /Me X/ })).not.toBeInTheDocument()
@@ -921,7 +917,7 @@ describe('removing and leaving', () => {
     )
 
     expect(await screen.findByText('That member is no longer in this tenant.')).toBeInTheDocument()
-    expect(screen.queryByText('You are no longer a member of this tenant.')).not.toBeInTheDocument()
+    expect(screen.queryByText('You’re no longer a member of this tenant.')).not.toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(router.state.location.pathname).toBe(`/tenants/${TENANT_ID}/members`)
   })
@@ -979,7 +975,7 @@ describe('the invite form role select', () => {
         HttpResponse.json(
           {
             success: false,
-            message: 'Validation failed.',
+            message: 'Check the highlighted fields, then try again.',
             statusCode: 400,
             errors: { role: ['That role is not yours to grant.'] },
             requestId: 'test-request-id',
@@ -1110,7 +1106,7 @@ describe('inviting, and the pending invitations', () => {
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
 
     const raced = await screen.findByText(
-      'Someone just invited this address — refresh and try again.'
+      'Someone else invited this address first. Their invitation is under Pending invitations.'
     )
     expect(raced.closest('form')).not.toBeNull()
     expect(toastError).not.toHaveBeenCalled()
@@ -1124,7 +1120,11 @@ describe('inviting, and the pending invitations', () => {
     const toastError = vi.spyOn(toast, 'error')
     server.use(
       http.post('/api/v1/tenants/acme/invitations', () =>
-        fail('Too many attempts. Try again in 42 seconds.', 429, 'RATE_LIMITED')
+        fail(
+          "You've reached the limit of 10 attempts in 15 minutes. Try again in 42 seconds.",
+          429,
+          'RATE_LIMITED'
+        )
       )
     )
     const user = userEvent.setup()
@@ -1134,9 +1134,15 @@ describe('inviting, and the pending invitations', () => {
     await user.type(email, 'new-member@example.com')
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
 
-    const message = await screen.findByText('Too many attempts. Try again in 42 seconds.')
+    const message = await screen.findByText(
+      "You've reached the limit of 10 attempts in 15 minutes. Try again in 42 seconds."
+    )
     expect(message.closest('form')).not.toBeNull()
-    expect(screen.getAllByText('Too many attempts. Try again in 42 seconds.')).toHaveLength(1)
+    expect(
+      screen.getAllByText(
+        "You've reached the limit of 10 attempts in 15 minutes. Try again in 42 seconds."
+      )
+    ).toHaveLength(1)
     expect(toastError).not.toHaveBeenCalled()
     expect(email).toHaveAttribute('aria-invalid', 'false')
   })
@@ -1813,7 +1819,9 @@ describe('staff acting through platform access', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'x')
     await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
     expect(
-      await within(dialog).findByText('Someone just invited this address — refresh and try again.')
+      await within(dialog).findByText(
+        'Someone else invited this address first. Their invitation is under Pending invitations.'
+      )
     ).toBeInTheDocument()
   })
 
@@ -1845,7 +1853,7 @@ describe('staff acting through platform access', () => {
     )
     const resend = await screen.findByRole('alertdialog', { name: 'Resend this invitation?' })
     expect(resend).toHaveTextContent(
-      'A new link goes to invitee@example.com; the old one stops working.'
+      'A new link goes to invitee@example.com, and every earlier link for this invitation stops working.'
     )
     await user.type(within(resend).getByLabelText('Reason'), 'Lost the first mail')
     await user.click(within(resend).getByRole('button', { name: 'Resend' }))
@@ -1981,7 +1989,7 @@ describe('staff acting through platform access', () => {
     expect(
       await screen.findByRole('alertdialog', { name: 'Revoke this invitation?' })
     ).toHaveTextContent(
-      'The link sent to invitee@example.com stops working immediately. You can invite them again later.'
+      'The link sent to invitee@example.com stops working immediately. You can invite them again.'
     )
   })
 
@@ -2141,7 +2149,7 @@ describe('staff acting through platform access', () => {
         HttpResponse.json(
           {
             success: false,
-            message: 'Validation failed',
+            message: 'Check the highlighted fields, then try again.',
             statusCode: 400,
             errors: { email: ['Email address is not accepted.'] },
             requestId: 'test-request-id',
@@ -2212,7 +2220,7 @@ describe('staff acting through platform access', () => {
         HttpResponse.json(
           {
             success: false,
-            message: 'Validation failed',
+            message: 'Check the highlighted fields, then try again.',
             statusCode: 400,
             errors: { role: ['Invalid option: expected one of "owner"|"admin"|"editor"|"viewer"'] },
             requestId: 'test-request-id',

@@ -85,7 +85,7 @@ function EmailDetailPage() {
       <EmptyState
         icon={<IconSearchOff aria-hidden="true" />}
         title={<h1>Email not found</h1>}
-        description="It doesn’t exist, has passed its retention period, or your access changed. Reload if your role was just updated."
+        description="It doesn’t exist, was purged after the retention period (90 days by default), or your role changed. If your role changed, reload the page."
         action={
           <Link to={ROUTES.emails} className={buttonVariants({ variant: 'outline' })}>
             Back to emails

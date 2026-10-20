@@ -79,7 +79,7 @@ function onboardingColumns(state: OnboardingListState) {
       header: 'Next required step',
       meta: { className: 'whitespace-normal' },
     }),
-    column.accessor((row) => `${row.requiredDone} of ${row.requiredTotal}`, {
+    column.accessor((row) => `${row.requiredDone} of ${row.requiredTotal} steps`, {
       id: 'progress',
       header: 'Progress',
       meta: { className: 'text-right tabular-nums' },

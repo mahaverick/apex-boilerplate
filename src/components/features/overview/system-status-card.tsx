@@ -69,7 +69,7 @@ function flagsNeedAttention(flags: FlagsStatus): boolean {
 /** "4 registered: 3 active, 1 inactive, …" as one line, so each count reads in context. */
 function flagCounts(counts: FlagsStatus['counts']): string {
   return [
-    `${counts.registered} registered: ${counts.active} active`,
+    `${counts.registered} ${counts.registered === 1 ? 'flag' : 'flags'} registered: ${counts.active} active`,
     `${counts.inactive} inactive`,
     `${counts.missing} missing`,
     `${counts.unsupported} unsupported`,
@@ -131,7 +131,7 @@ function FlagsFacts({ flags }: { flags: FlagsStatus }) {
                     {flags.propertyMatchingVersion === null
                       ? 'PostHog did not report a property matching version'
                       : `PostHog property matching version ${flags.propertyMatchingVersion}`}
-                    ; express is validated for version {VALIDATED_MATCHING_VERSION}
+                    ; the server is validated for version {VALIDATED_MATCHING_VERSION}
                   </dd>
                 </>
               )}
@@ -234,7 +234,8 @@ function MaintenanceFacts({
           <>
             <dt className="text-muted-foreground">State</dt>
             <dd>
-              This API has not read the maintenance state since it started, so it lets customers in.
+              This server hasn’t read the maintenance state since it started, so it lets customers
+              in.
             </dd>
           </>
         )}
@@ -342,7 +343,7 @@ function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: n
         {tracking.lastSendError !== null && (
           <>
             <dt className="text-muted-foreground">Last failed send</dt>
-            <dd>PostHog answered HTTP {tracking.lastSendError}</dd>
+            <dd>PostHog answered with status {tracking.lastSendError}</dd>
           </>
         )}
       </dl>

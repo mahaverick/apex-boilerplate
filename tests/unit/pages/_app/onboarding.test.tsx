@@ -84,7 +84,11 @@ describe('/onboarding', () => {
         ['Started (30 days)', '40', 'Tenants whose onboarding began in the window'],
         ['Completed', '14', 'Every required step done'],
         ['Completion rate', '35.00%', '14 of 40 started tenants'],
-        ['Stuck now', '6', 'No progress for a while. Of tenants started in this window.'],
+        [
+          'Stuck now',
+          '6',
+          'Started in this window, with no progress past the stuck limit (7 days by default).',
+        ],
         ['Dismissed', '2', 'Hid the checklist unfinished'],
       ])
     })
@@ -178,7 +182,7 @@ describe('/onboarding', () => {
       renderAppAt('/onboarding')
       expect(
         await screen.findByText(
-          'Onboarding tracking starts with tenants created after this release.'
+          'Onboarding is tracked for tenants created once the server runs release 1.4.0 (2 October 2026) or later.'
         )
       ).toBeInTheDocument()
       expect(screen.queryByRole('region', { name: 'Onboarding figures' })).not.toBeInTheDocument()
@@ -260,10 +264,10 @@ describe('/onboarding', () => {
       expect(within(acme).getByText('Cleo Doe')).toBeInTheDocument()
       expect(within(acme).getByText('9')).toBeInTheDocument()
       expect(within(acme).getByText('Invite a teammate')).toBeInTheDocument()
-      expect(within(acme).getByText('1 of 2')).toBeInTheDocument()
+      expect(within(acme).getByText('1 of 2 steps')).toBeInTheDocument()
       const beta = within(table).getByRole('row', { name: /Beta Ltd/ })
       expect(within(beta).getByText('No active owner')).toBeInTheDocument()
-      expect(within(beta).getByText('0 of 2')).toBeInTheDocument()
+      expect(within(beta).getByText('0 of 2 steps')).toBeInTheDocument()
     })
 
     it('keeps the tab in the URL, and an awaiting-owner row says so instead of a start date', async () => {
@@ -308,7 +312,7 @@ describe('/onboarding', () => {
       const table = await screen.findByRole('table', { name: 'Onboarding tenants' })
       expect(screen.getByRole('tab', { name: 'Complete' })).toHaveAttribute('aria-selected', 'true')
       expect(within(table).getByText('All required steps done')).toBeInTheDocument()
-      expect(within(table).getByText('2 of 2')).toBeInTheDocument()
+      expect(within(table).getByText('2 of 2 steps')).toBeInTheDocument()
     })
 
     it('pages with the API’s cursors, and a new tab starts from the first page', async () => {
