@@ -9,7 +9,7 @@ import {
   type FakePosthogEvent,
 } from '../helpers/fake-posthog'
 import { settle } from '../timing'
-import { requireServedApp } from './csp'
+import { requireServedApp, routeSignInLinkChunk } from './csp'
 
 /**
  * Error tracking through the production image, started as CI starts it
@@ -315,11 +315,11 @@ test.describe('error tracking against a fake PostHog', () => {
     { tag: '@no-api' },
     async ({ page }) => {
       let isBlocked = false
-      await page.route(/\/assets\/forgot-password[^/]*\.js$/, async (route) => {
+      await routeSignInLinkChunk(page, async (route) => {
         isBlocked = true
         await route.abort('failed')
       })
-      await page.goto('/forgot-password')
+      await page.goto('/auth/link')
       await expect(
         page.getByRole('heading', { name: 'A new version is available', level: 1 })
       ).toBeVisible()

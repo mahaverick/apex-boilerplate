@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test'
+import { confirmInSecondTab } from '../helpers/step-up'
 import { expect, FALLBACK_HEADER, test } from '../hermetic'
 import { sidewaysOverflow } from '../layout'
 
@@ -6,8 +7,8 @@ import { sidewaysOverflow } from '../layout'
  * Maintenance mode in a real browser, through the harness: the red banner on
  * every staff page and the page's facts in full maintenance, nothing sideways
  * at 390px, and an owner switching customers to full through the typed
- * confirmation and the step-up, with the platform state, the change and the
- * password check answered by the test's own context routes (`?maintenance=route`
+ * confirmation and the step-up, its emailed link confirmed from a second tab,
+ * with the platform state and the change answered by the test's own context routes (`?maintenance=route`
  * lets the harness's GET through to them; a request the service worker passes
  * through is seen by `context.route`, never `page.route`).
  */
@@ -85,11 +86,6 @@ async function routeMaintenance(page: Page): Promise<unknown[]> {
     }
     return fulfillOk(route, state, 'Maintenance mode updated.')
   })
-  await page
-    .context()
-    .route('**/api/v1/auth/reauthenticate', (route) =>
-      fulfillOk(route, { accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-    )
   return bodies
 }
 
@@ -136,8 +132,10 @@ test('an owner switches customers to full through the typed confirmation and the
   await dialog.getByRole('button', { name: 'Switch to full' }).click()
 
   const stepUp = page.getByRole('dialog', { name: 'Confirm it’s you' })
-  await stepUp.getByLabel('Password').fill('current-password')
-  await stepUp.getByRole('button', { name: 'Confirm' }).click()
+  await stepUp.getByRole('button', { name: 'Email me a link' }).click()
+  await expect(stepUp.getByText('We sent the link to', { exact: false })).toBeVisible()
+  await confirmInSecondTab(page)
+  await expect(stepUp).toBeHidden()
 
   await expect(
     page.getByRole('status').filter({ hasText: 'Customers are in FULL maintenance' })

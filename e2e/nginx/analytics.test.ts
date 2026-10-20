@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { mailedLink } from '../capture/mailpit'
 import {
   clickUntilReplayed,
   FAKE_POSTHOG_PORT,
@@ -17,12 +18,13 @@ import {
   apiLogin,
   apiRequest,
   createTenant,
-  createVerifiedUser,
+  createUser,
   emailIdFor,
   freshSlug,
   grantPlatformRole,
   logIn,
-  mailedLink,
+  logInThroughPage,
+  staffSession,
   tenantIdOf,
 } from '../live/helpers'
 import {
@@ -56,9 +58,15 @@ import {
 const HANDOFF_ORIGIN = 'https://www.example.test'
 
 const PROBE_NAME = 'Pii Probe'
-/** A token of the shape the invitation, reset and verify pages accept. */
+/** A token of the shape the sign-in link, invitation and confirm pages accept. */
 const PROBE_TOKEN = 'pii-probe-token-'.padEnd(43, 'x')
 const PROBE_EMAIL = 'pii-probe@example.test'
+/**
+ * A campaign value of the shape the analytics sanitizer keeps
+ * (`/^[a-z0-9_-]{1,64}$/`): the walk's control that `utm_*` survives where
+ * `token` and `email` do not.
+ */
+const PROBE_CAMPAIGN = 'e2e_probe_campaign'
 
 /** A W3C traceparent's trace id. */
 function traceIdOf(traceparent: string | undefined): string | undefined {
@@ -129,11 +137,10 @@ function sawPageview(fake: FakePosthog, pathname: string): boolean {
     .some((event) => event.event === '$pageview' && event.properties.$pathname === pathname)
 }
 
-/** A verified platform admin named "Pii Probe" with a `pii-probe` address. */
+/** A staff admin named "Pii Probe" with a `pii-probe` address, signed in through the API. */
 async function probeStaff(suffix: string) {
   const email = `pii-probe-${suffix}-${Date.now()}-${Math.floor(Math.random() * 1e4)}@example.com`
-  await createVerifiedUser(email)
-  await grantPlatformRole(email, 'admin')
+  await staffSession(email, 'admin')
   const token = await apiLogin(email)
   const named = await apiRequest(token, 'PATCH', '/profile', {
     firstName: 'Pii',
@@ -219,7 +226,7 @@ test.describe('the /api/v1/collect/ location', () => {
     'leaves the rest of /api/ at nginx’s 1 MB default',
     { tag: '@no-api' },
     async ({ request }) => {
-      const response = await request.post('/api/v1/auth/login', {
+      const response = await request.post('/api/v1/auth/link/request', {
         data: Buffer.alloc(2_000_000, 1),
         headers: { 'Content-Type': 'text/plain' },
       })
@@ -272,16 +279,18 @@ test.describe('analytics against a fake PostHog', () => {
   )
 
   test(
-    'no token or address in a signed-out page’s URL or inputs reaches PostHog',
+    'no token or address in a signed-out page’s URL or inputs reaches PostHog, and a campaign does',
     { tag: '@no-api' },
     async ({ page }) => {
       test.setTimeout(90_000)
+      const email = encodeURIComponent(PROBE_EMAIL)
+      // The replay half of this walk is the only proof that a token in the page URL never reaches replay: the unit suite cannot run posthog-js's recorder.
       const walk = [
-        `/login?redirect=${encodeURIComponent(`/reset-password?token=${PROBE_TOKEN}`)}`,
-        `/reset-password?token=${PROBE_TOKEN}`,
-        `/verify-email?token=${PROBE_TOKEN}`,
+        `/auth/link?token=${PROBE_TOKEN}&email=${email}&utm_source=email&utm_medium=email&utm_campaign=${PROBE_CAMPAIGN}&utm_content=primary_button`,
         `/invitations/accept?token=${PROBE_TOKEN}`,
-        `/register?invitation=${PROBE_TOKEN}&email=${encodeURIComponent(PROBE_EMAIL)}`,
+        `/invitations/confirm?token=${PROBE_TOKEN}&email=${email}`,
+        `/auth/confirm?token=${PROBE_TOKEN}`,
+        `/login?redirect=${encodeURIComponent(`/auth/link?token=${PROBE_TOKEN}&email=${email}`)}`,
       ]
       for (const url of walk) {
         await page.goto(url)
@@ -296,12 +305,14 @@ test.describe('analytics against a fake PostHog', () => {
         await clickUntilReplayed(fake, heading, pathname)
       }
       // Page text from a full snapshot: replay's compressed DOM was decoded, so the search covers it.
-      await replayContains(fake, 'Choose a new password')
+      await replayContains(fake, 'This link works only in the browser')
 
       const egress = fake.bodies()
       for (const probe of [PROBE_TOKEN, 'pii-probe', encodeURIComponent(PROBE_EMAIL)]) {
         expect(egress, `"${probe}" reached PostHog`).not.toContain(probe)
       }
+      // The control: the link's campaign keys are kept, so the visit is still attributed.
+      expect(egress, 'the campaign reached PostHog').toContain(PROBE_CAMPAIGN)
     }
   )
 
@@ -477,13 +488,14 @@ test.describe('analytics end to end, through express', () => {
     const tenantName = `Analytics ${slug}`
     await createTenant(staff.token, { name: tenantName, slug })
     const tenantId = await tenantIdOf(staff.token, slug)
+    const invitedAt = Date.now()
     const invited = await apiRequest(staff.token, 'POST', `/tenants/${slug}/invitations`, {
       email: invitee,
       role: 'viewer',
     })
     expect(invited.status).toBe(202)
     const invitationToken =
-      new URL(await mailedLink(invitee, 'invitations/accept')).searchParams.get('token') ?? ''
+      (await mailedLink(invitee, '/invitations/accept', invitedAt)).searchParams.get('token') ?? ''
     expect(invitationToken).not.toBe('')
     const emailId = await emailIdFor(staff.token, invitee, 'tenant_invitation')
     // A customer account, which staff may sign out everywhere.
@@ -491,7 +503,7 @@ test.describe('analytics end to end, through express', () => {
       email: `pii-probe-target-${Date.now()}@example.com`,
       id: '',
     }
-    await createVerifiedUser(target.email)
+    await createUser(target.email)
     const found = await apiRequest(
       staff.token,
       'GET',
@@ -556,9 +568,9 @@ test.describe('analytics end to end, through express', () => {
       .click()
     await expect(page.getByRole('heading', { name: PROBE_NAME, level: 1 })).toBeVisible()
 
-    await signOut(page)
+    // Signed in as someone the invitation is not for, the page asks before switching: it names the inviter and both addresses, and spends nothing.
     await visit(page, `/invitations/accept?token=${invitationToken}`, `Join ${tenantName}`, needles)
-    await visit(page, `/register?invitation=${invitationToken}`, 'Create an account', needles)
+    await signOut(page)
 
     // The control: the walk was captured, replay and palette included, and decoded.
     await replayContains(fake, tenantName)
@@ -578,20 +590,28 @@ test.describe('analytics end to end, through express', () => {
 
   test('server events carry the browser’s trace and replay session', async ({ page }) => {
     test.setTimeout(120_000)
-    const staff = await probeStaff('trace')
+    // Granted but never signed in, so the page's own link sign-in is the account's first and waits out no cooldown.
+    const email = `pii-probe-trace-${Date.now()}-${Math.floor(Math.random() * 1e4)}@example.com`
+    await grantPlatformRole(email, 'admin')
     const traceparents: string[] = []
     page.on('request', (entry) => {
-      if (entry.url().endsWith('/api/v1/auth/login') && entry.method() === 'POST') {
+      if (entry.url().endsWith('/api/v1/auth/link/verify') && entry.method() === 'POST') {
         traceparents.push(entry.headers().traceparent ?? '')
       }
     })
+    const verified = page.waitForResponse(
+      (entry) => entry.url().endsWith('/api/v1/auth/link/verify') && entry.status() === 200
+    )
 
-    await logIn(page, staff.email)
+    // Through the page, so the browser itself posts the sign-in: a kept API session would restore with no sign-in request.
+    await logInThroughPage(page, email)
     await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
+    const { data } = (await (await verified).json()) as { data: { user: { id: string } } }
+    const staff = { id: data.user.id }
     const traceId = traceIdOf(traceparents[0])
     expect(traceId, 'the sign-in request carried a traceparent').toBeDefined()
 
-    // The account was set up with an API sign-in of its own, so the browser's is the one on its trace.
+    // Other runs share the fake, so the trace id picks out this browser's sign-in.
     let signedIn: FakePosthogEvent | undefined
     await expect
       .poll(

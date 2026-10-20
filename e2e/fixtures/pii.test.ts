@@ -158,3 +158,78 @@ test('the email preview’s frame is blocked from replay', async ({ page }) => {
   await page.goto(`/e2e/harness/?path=${DELIVERED}?tab=preview`)
   await expect(page.getByTitle('Email preview')).toHaveClass(/ph-no-capture/)
 })
+
+/** A token the link and invitation pages take: 43 characters, low-entropy so no scanner reads it as a secret. */
+const TOKEN = 't'.repeat(43)
+
+/**
+ * The signed-out and switch-account states of the link pages, the step-up
+ * wait and the staff sign-in link dialog. Each names an address, which is
+ * shown before the scan, so the scan cannot pass on a page that never
+ * rendered it.
+ */
+test('the sign-in page’s Check your inbox keeps the address inside Pii', async ({ page }) => {
+  await page.goto('/e2e/harness/?path=/login&session=none')
+  await page.getByRole('textbox', { name: 'Email', exact: true }).fill('ada@example.test')
+  await page.getByRole('button', { name: 'Email me a sign-in link' }).click()
+  await expect(page.getByRole('heading', { name: 'Check your inbox', level: 1 })).toBeVisible()
+  await expect(page.getByText('ada@example.test')).toBeVisible()
+  expect(await unmaskedPii(page, NAMES)).toEqual([])
+})
+
+for (const [name, path, ready, shown] of [
+  [
+    'a sign-in link for another account',
+    `/auth/link&token=${TOKEN}&email=new.staff@example.com`,
+    'Switch account?',
+    'new.staff@example.com',
+  ],
+  [
+    'a staff invitation for another account',
+    `/invitations/accept&token=${TOKEN}`,
+    'Join Platform',
+    'new.staff@example.com',
+  ],
+  [
+    'a staff invitation’s Check your inbox',
+    `/invitations/accept&session=none&token=${TOKEN}`,
+    'Check your inbox',
+    'new.staff@example.com',
+  ],
+  [
+    'a confirmation link for another account',
+    `/invitations/confirm&token=${TOKEN}&email=new.staff@example.com`,
+    'Join your team',
+    'new.staff@example.com',
+  ],
+] as const) {
+  test(`${name} keeps both addresses inside Pii`, async ({ page }) => {
+    await page.goto(`/e2e/harness/?path=${path}`)
+    await expect(page.getByRole('heading', { name: ready, level: 1 })).toBeVisible()
+    await expect(page.getByText(shown).first()).toBeVisible()
+    expect(await unmaskedPii(page, NAMES)).toEqual([])
+  })
+}
+
+test('the step-up’s email wait keeps the address it mailed inside Pii', async ({ page }) => {
+  await page.goto(`/e2e/harness/?path=${ACME}`)
+  await expect(page.getByRole('heading', { name: 'Acme Corp', level: 1 })).toBeVisible()
+  await page.getByRole('button', { name: 'Actions', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Suspend' }).click()
+  const reason = page.getByRole('alertdialog', { name: 'Suspend Acme Corp?' })
+  await reason.getByLabel('Reason').fill('pii check')
+  await reason.getByRole('button', { name: 'Suspend', exact: true }).click()
+  const stepUp = page.getByRole('dialog', { name: 'Confirm it’s you' })
+  await stepUp.getByRole('button', { name: 'Email me a link' }).click()
+  await expect(stepUp.getByText('a.b@example.com')).toBeVisible()
+  expect(await unmaskedPii(page, NAMES)).toEqual([])
+})
+
+test('the Send sign-in link dialog keeps the address it names inside Pii', async ({ page }) => {
+  await page.goto(`/e2e/harness/?path=${CLEO}`)
+  await page.getByRole('button', { name: 'Actions for cleo.d@example.com' }).click()
+  await page.getByRole('menuitem', { name: 'Send sign-in link' }).click()
+  const dialog = page.getByRole('alertdialog', { name: 'Send a sign-in link?' })
+  await expect(dialog.getByText('cleo.d@example.com')).toBeVisible()
+  expect(await unmaskedPii(page, NAMES)).toEqual([])
+})

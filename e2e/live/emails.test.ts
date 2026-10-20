@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { mailedLink } from '../capture/mailpit'
 import {
   APEX_ORIGIN,
   API_ORIGIN,
@@ -7,21 +8,20 @@ import {
   apiRequest,
   assertApiServesApex,
   assertFakeEmailWebhook,
-  createVerifiedUser,
+  createUser,
   emailIdFor,
   fireEmailEvent,
   freshEmail,
-  grantPlatformRole,
   logIn,
-  mailedLink,
+  staffSession,
 } from './helpers'
 
 /**
- * Message tracking against a real express (1.4.0 or newer, as `assertApiServesApex` requires; `APP_ENV=local`)
+ * Message tracking against a real express (6.0.0 or newer, as `assertApiServesApex` requires; `APP_ENV=local`)
  * with mailpit: a real email goes out through a staff action, provider events
  * reach it through express's fake webhook adapter (`pnpm email:fire-event`),
  * and the Apex pages follow. Resending an invitation needs a recent sign-in;
- * this flow resends a password reset, so none applies.
+ * this flow resends a staff-sent sign-in link, so none applies.
  */
 
 test.skip(process.env.E2E_LIVE !== '1', 'live backend required — run pnpm test:e2e:live')
@@ -38,8 +38,7 @@ test.beforeAll(async () => {
 /** A fresh staff admin, signed in through the UI; returns their API token for lookups. */
 async function signedInAdmin(page: Page): Promise<string> {
   const email = freshEmail()
-  await createVerifiedUser(email)
-  await grantPlatformRole(email, 'admin')
+  await staffSession(email, 'admin')
   const token = await apiLogin(email)
   await logIn(page, email)
   return token
@@ -62,21 +61,26 @@ test('a hard bounce suppresses the address; once lifted, a resend goes out and l
   test.setTimeout(180_000)
   const token = await signedInAdmin(page)
   const customer = freshEmail()
-  await createVerifiedUser(customer)
+  await createUser(customer)
   const customerId = await userIdOf(token, customer)
+  // The account's own first sign-in mailed it a sign-in link already; the staff one is told apart from it.
+  const own = await emailIdFor(token, customer, 'sign_in_link')
 
-  // The staff action sends a real email: the reset link reaches mailpit.
+  // The staff action sends a real email: the sign-in link reaches mailpit.
   await page.goto(`/users/${customerId}`)
+  const sentAt = Date.now()
   await page.getByRole('button', { name: `Actions for ${customer}` }).click()
-  await page.getByRole('menuitem', { name: 'Send password reset link' }).click()
-  await expect(page.getByText('Password reset email sent.')).toBeVisible()
-  await mailedLink(customer, 'reset-password')
-  const original = await emailIdFor(token, customer, 'password_reset')
+  await page.getByRole('menuitem', { name: 'Send sign-in link' }).click()
+  const send = page.getByRole('alertdialog', { name: 'Send a sign-in link?' })
+  await send.getByRole('button', { name: 'Send link' }).click()
+  await expect(page.getByText(`Sign-in link sent to ${customer}.`)).toBeVisible()
+  await mailedLink(customer, '/auth/link', sentAt)
+  const original = await emailIdFor(token, customer, 'sign_in_link', [own])
 
   // The user's Emails card lists it, and opens its page.
   await page.reload()
   const card = page.getByRole('region', { name: 'Emails' })
-  await card.getByRole('link', { name: /^Password reset · / }).click()
+  await card.locator(`a[href="/emails/${original}"]`).click()
   await expect(page).toHaveURL(new RegExp(`/emails/${original}$`))
   await expect(page.getByRole('heading', { name: customer, level: 1 })).toBeVisible()
 
@@ -121,7 +125,7 @@ test('a hard bounce suppresses the address; once lifted, a resend goes out and l
   ).toBeVisible()
 
   // The resend is a new email with a fresh token, filed as resent from the original.
-  const resent = await emailIdFor(token, customer, 'password_reset', [original])
+  const resent = await emailIdFor(token, customer, 'sign_in_link', [own, original])
   const detail = await apiRequest(token, 'GET', `/platform/emails/${resent}`)
   expect((detail.body as { data: { resentFromId: string | null } }).data.resentFromId).toBe(
     original

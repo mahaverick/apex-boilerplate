@@ -91,7 +91,7 @@ test('the tenant actions menu, the suspend reason dialog and the stacked step-up
   await reason.getByLabel('Reason').fill('layout check')
   await reason.getByRole('button', { name: 'Suspend' }).click()
   const stepUp = page.getByRole('dialog', { name: 'Confirm it’s you' })
-  await expect(stepUp.getByLabel('Password')).toBeVisible()
+  await expect(stepUp.getByRole('button', { name: 'Email me a link' })).toBeVisible()
   await afterAnimations(stepUp)
 
   // Fixed-position dialogs never widen the page, so measure their own boxes. The step-up leaves the reason dialog aria-hidden, which hides it from a role query.
@@ -148,9 +148,11 @@ for (const [name, path, trigger, item, role, dialogName, action] of [
     await reason.getByLabel('Reason').fill('focus check')
     await reason.getByRole('button', { name: action, exact: true }).click()
     const stepUp = page.getByRole('dialog', { name: 'Confirm it’s you' })
-    await expect(stepUp.getByLabel('Password')).toBeVisible()
-    await expect(stepUp.getByLabel('Password')).toBeFocused()
+    const emailChoice = stepUp.getByRole('button', { name: 'Email me a link' })
+    await expect(emailChoice).toBeVisible()
+    await expect(emailChoice).toBeFocused()
 
+    // Nothing is pending on the choices, so Escape dismisses the step-up there.
     await page.keyboard.press('Escape')
     await expect(stepUp).toBeHidden()
     await expect(reason.getByText('Confirm it’s you to continue.')).toBeVisible()
