@@ -124,8 +124,10 @@ function retryUnlessDenied(failureCount: number, error: Error): boolean {
 export function emailQueryOptions(id: string) {
   return queryOptions({
     queryKey: emailKeys.detail(id),
-    queryFn: async () =>
-      unwrap(await apiClient.get<ApiSuccess<EmailMessageDetail>>(`/platform/emails/${id}`)),
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await apiClient.get<ApiSuccess<EmailMessageDetail>>(`/platform/emails/${id}`, { signal })
+      ),
     retry: retryUnlessDenied,
   })
 }
@@ -138,8 +140,10 @@ export function emailQueryOptions(id: string) {
 export function emailPreviewQueryOptions(id: string) {
   return queryOptions({
     queryKey: emailKeys.preview(id),
-    queryFn: async () =>
-      unwrap(await apiClient.get<ApiSuccess<EmailPreview>>(`/platform/emails/${id}/preview`)),
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await apiClient.get<ApiSuccess<EmailPreview>>(`/platform/emails/${id}/preview`, { signal })
+      ),
     retry: (failureCount, error) => {
       const status = statusFrom(error)
       return status !== 404 && status !== 409 && failureCount < 1
@@ -151,10 +155,11 @@ export function emailPreviewQueryOptions(id: string) {
 export function emailHealthQueryOptions(range: StatsRange) {
   return queryOptions({
     queryKey: emailKeys.health(range),
-    queryFn: async () =>
+    queryFn: async ({ signal }) =>
       unwrap(
         await apiClient.get<ApiSuccess<EmailHealth>>('/platform/emails/health', {
           params: { range },
+          signal,
         })
       ),
     placeholderData: keepPreviousData,

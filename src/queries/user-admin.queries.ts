@@ -69,8 +69,10 @@ function retryUnlessDenied(failureCount: number, error: Error): boolean {
 export function platformUserQueryOptions(userId: string) {
   return queryOptions({
     queryKey: userAdminKeys.detail(userId),
-    queryFn: async () =>
-      unwrap(await apiClient.get<ApiSuccess<PlatformUserDetail>>(`/platform/users/${userId}`)),
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await apiClient.get<ApiSuccess<PlatformUserDetail>>(`/platform/users/${userId}`, { signal })
+      ),
     retry: retryUnlessDenied,
   })
 }

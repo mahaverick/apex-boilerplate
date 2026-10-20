@@ -94,8 +94,10 @@ export function unregisteredFlagsListOptions(request: ListRequest) {
 export function flagsMetaQueryOptions() {
   return queryOptions({
     queryKey: [...flagInspectorKeys.all, 'meta'] as const,
-    queryFn: async () =>
-      unwrap(await apiClient.get<ApiSuccess<FlagsMetaResponse>>('/platform/flags/meta')),
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await apiClient.get<ApiSuccess<FlagsMetaResponse>>('/platform/flags/meta', { signal })
+      ),
     /** A 404 answers who is asking, so a retry changes nothing. */
     retry: (failureCount, error) => !isRoleDenied(error) && failureCount < 1,
   })
@@ -123,9 +125,10 @@ export function useFlagRegistry() {
 export function flagsEvaluateQueryOptions(params: FlagEvaluateParams) {
   return queryOptions({
     queryKey: flagInspectorKeys.evaluate(params),
-    queryFn: async () =>
+    queryFn: async ({ signal }) =>
       unwrap(
         await apiClient.get<ApiSuccess<FlagsEvaluateResponse>>('/platform/flags/evaluate', {
+          signal,
           params: {
             userId: params.userId,
             ...(params.tenantId === undefined ? {} : { tenantId: params.tenantId }),

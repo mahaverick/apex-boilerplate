@@ -96,8 +96,10 @@ export function useCreatePlatformTenant() {
 export function platformTenantQueryOptions(id: string) {
   return queryOptions({
     queryKey: tenantAdminKeys.detail(id),
-    queryFn: async () =>
-      unwrap(await apiClient.get<ApiSuccess<PlatformTenantDetail>>(`/platform/tenants/${id}`)),
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await apiClient.get<ApiSuccess<PlatformTenantDetail>>(`/platform/tenants/${id}`, { signal })
+      ),
     retry: (failureCount, error) => statusFrom(error) !== 404 && failureCount < 1,
   })
 }

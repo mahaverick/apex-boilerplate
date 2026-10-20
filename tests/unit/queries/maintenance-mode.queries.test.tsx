@@ -103,6 +103,26 @@ describe('maintenanceModeQueryOptions', () => {
     const interval = maintenanceModeQueryOptions().refetchInterval
     expect(typeof interval === 'function' ? interval(query as never) : interval).toBe(false)
   })
+
+  it('aborts the read on the wire when the query is cancelled', async () => {
+    let started = false
+    server.use(
+      http.get('/api/v1/platform/maintenance-mode', () => {
+        started = true
+        return delay('infinite')
+      })
+    )
+    const abort = vi.spyOn(XMLHttpRequest.prototype, 'abort')
+    try {
+      void client.fetchQuery(maintenanceModeQueryOptions()).catch(() => undefined)
+      await waitFor(() => expect(started).toBe(true))
+      expect(abort).not.toHaveBeenCalled()
+      await client.cancelQueries({ queryKey: maintenanceModeKeys.view })
+      expect(abort).toHaveBeenCalledTimes(1)
+    } finally {
+      abort.mockRestore()
+    }
+  })
 })
 
 describe('useChangeMaintenanceMode', () => {
@@ -223,7 +243,7 @@ describe('useChangeMaintenanceMode', () => {
     server.use(
       http.get('/api/v1/platform/maintenance-mode', async () => {
         gets += 1
-        // The read never answers: the cancel cannot abort its XHR, and a timed answer could land after jsdom's teardown.
+        // The read never answers: a timed answer to the aborted XHR could still land after jsdom's teardown.
         if (gets === 1) return delay('infinite')
         return ok(fullMaintenanceView({ version: 9 }), 'Maintenance mode retrieved.')
       }),

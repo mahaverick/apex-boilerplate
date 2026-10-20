@@ -103,9 +103,9 @@ export const tenantKeys = {
 function tenantQueryOptions(slug: string, tenantId?: string) {
   return queryOptions({
     queryKey: tenantKeys.detail(slug, tenantId),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       try {
-        return unwrap(await apiClient.get<ApiSuccess<TenantDetail>>(`/tenants/${slug}`))
+        return unwrap(await apiClient.get<ApiSuccess<TenantDetail>>(`/tenants/${slug}`, { signal }))
       } catch (error) {
         if (statusFrom(error) === 404) return null
         throw error
@@ -222,10 +222,11 @@ export function ownersQueryOptions(slug: string, tenantId: string | undefined) {
   return queryOptions({
     queryKey: [...tenantKeys.members(slug, tenantId), 'owners'] as const,
     // Not `listQueryOptions`: it asks a first page for a total, which this read never shows.
-    queryFn: async () =>
+    queryFn: async ({ signal }) =>
       unwrap(
         await apiClient.get<ApiSuccess<ListPage<TenantMember>>>(`/tenants/${slug}/members`, {
           params: { role: 'owner', limit: 100 },
+          signal,
         })
       ),
     retry: retryList,
