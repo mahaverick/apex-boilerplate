@@ -27,6 +27,7 @@ import { useArrivalFocus } from '@/hooks/use-arrival-focus'
 import { useRecordRecent } from '@/hooks/use-record-recent'
 import { statusFrom } from '@/lib/api-error'
 import { formatDate, fullName } from '@/lib/format'
+import { tenantLabel } from '@/lib/staff-team'
 import { analyticsKey } from '@/observability/telemetry'
 import { historyList } from '@/queries/audit.queries'
 import { platformUserQueryOptions } from '@/queries/user-admin.queries'
@@ -247,7 +248,11 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
                   <Item key={invitation.id} size="xs" role="listitem" className="p-0">
                     <ItemContent>
                       <ItemTitle className="line-clamp-none font-normal">
-                        {invitation.tenantName} · {ROLE_LABELS[invitation.role]}
+                        {tenantLabel({
+                          name: invitation.tenantName,
+                          slug: invitation.tenantSlug ?? '',
+                        })}{' '}
+                        · {ROLE_LABELS[invitation.role]}
                       </ItemTitle>
                     </ItemContent>
                     <ItemActions className="text-sm text-muted-foreground">

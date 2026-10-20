@@ -98,6 +98,28 @@ describe('/users/$userId', () => {
     )
   })
 
+  it('labels a pending staff invitation Staff team, never the platform tenant’s name', async () => {
+    answer({
+      ...DETAIL,
+      pendingInvitations: [
+        {
+          id: INVITATION_ID,
+          tenantId: PLATFORM_TENANT_ID,
+          tenantName: 'Platform',
+          tenantSlug: 'platform',
+          role: 'admin',
+          expiresAt: '2026-10-01T00:00:00.000Z',
+          lastSentAt: null,
+          resendAvailableAt: null,
+        },
+      ],
+    })
+    renderAppAt(`/users/${USER_ID_2}`)
+    const pending = await screen.findByRole('region', { name: 'Pending invitations' })
+    expect(pending).toHaveTextContent('Staff team · Admin')
+    expect(pending).not.toHaveTextContent('Platform')
+  })
+
   it('holds the user page’s header and five cards while the user loads', async () => {
     server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => new Promise<never>(() => {})))
     renderAppAt(`/users/${USER_ID_2}`)

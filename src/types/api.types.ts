@@ -319,6 +319,8 @@ interface PlatformUserPendingInvitation {
   id: string
   tenantId: string
   tenantName: string
+  /** The tenant's slug; absent from an API before the 2026-10-20 follow-ups, so a label falls back to the name. */
+  tenantSlug?: string
   role: MembershipRole
   expiresAt: string
   /** When the invitation was last mailed, or null for a row never stamped. */
