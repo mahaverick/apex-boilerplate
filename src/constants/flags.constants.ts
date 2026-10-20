@@ -20,7 +20,7 @@ export const FLAGS_EVALUATE_ERROR =
 
 /** Shown beside a snapshot express has not refreshed for 10 minutes. */
 export const FLAGS_STALE_NOTE =
-  'PostHog has not been reached for over 10 minutes; flags use the last snapshot.'
+  'The server hasn’t reached PostHog for over 10 minutes, so flags use the last snapshot.'
 
 /** Each app as the inspector names it. */
 export const FLAG_APP_LABELS: Record<FlagApp, string> = {

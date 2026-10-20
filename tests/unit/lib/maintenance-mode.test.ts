@@ -90,29 +90,31 @@ describe('conflictSentence', () => {
 
 describe('queueLine', () => {
   it('says whether the queue is paused and how many jobs run on it', () => {
-    expect(queueLine({ name: 'email', paused: true, active: 0 })).toBe('email: paused, 0 running')
+    expect(queueLine({ name: 'email', paused: true, active: 0 })).toBe(
+      'email: paused, 0 jobs running'
+    )
     expect(queueLine({ name: 'analytics', paused: false, active: 1200 })).toBe(
-      'analytics: not paused, 1,200 running'
+      'analytics: not paused, 1,200 jobs running'
     )
   })
 
   it('says the auth-email queue is never paused, and why', () => {
     const line =
-      'auth-email: never paused, 0 running. We still send sign-in, invitation and Confirm it’s you emails during maintenance.'
+      'auth-email: never paused, 0 jobs running. We still send sign-in, invitation and Confirm it’s you emails during maintenance.'
     expect(queueLine({ name: 'auth-email', paused: false, active: 0 })).toBe(line)
     // Maintenance never pauses it, so an unanswered pause state is still "never paused".
     expect(queueLine({ name: 'auth-email', paused: null, active: 0 })).toBe(line)
     expect(queueLine({ name: 'auth-email', paused: true, active: 0 })).toBe(
-      'auth-email: paused, 0 running'
+      'auth-email: paused, 0 jobs running'
     )
   })
 
   it('says unknown for what Redis did not answer', () => {
     expect(queueLine({ name: 'email', paused: null, active: null })).toBe(
-      'email: pause state unknown, running count unknown'
+      'email: pause state unknown, running job count unknown'
     )
     expect(queueLine({ name: 'email', paused: true, active: null })).toBe(
-      'email: paused, running count unknown'
+      'email: paused, running job count unknown'
     )
   })
 })

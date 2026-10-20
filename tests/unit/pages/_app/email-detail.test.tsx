@@ -340,7 +340,9 @@ describe('/emails/$emailId', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Resend' }))
 
     expect(
-      await screen.findByText('Resend requested — it appears in the timeline shortly')
+      await screen.findByText(
+        'Resend requested. Reload the page to see the new email in the timeline.'
+      )
     ).toBeInTheDocument()
     expect(body).toEqual({ reason: 'Went to spam' })
     await waitFor(() => expect(calls.detail).toBe(2))
@@ -493,7 +495,9 @@ describe('/emails/$emailId', () => {
     const stepped = await confirmStepUp(user)
 
     expect(
-      await screen.findByText('Resend requested — it appears in the timeline shortly')
+      await screen.findByText(
+        'Resend requested. Reload the page to see the new email in the timeline.'
+      )
     ).toBeInTheDocument()
     expect(bodies).toEqual([{ reason: 'Staff invite lost' }, { reason: 'Staff invite lost' }])
     expect(useAuthStore.getState()).toMatchObject({
@@ -528,7 +532,9 @@ describe('/emails/$emailId', () => {
     await confirmStepUp(user)
 
     expect(
-      await screen.findByText('Resend requested — it appears in the timeline shortly')
+      await screen.findByText(
+        'Resend requested. Reload the page to see the new email in the timeline.'
+      )
     ).toBeInTheDocument()
     expect(bodies).toEqual([
       { reason: 'Customer lost the invite' },

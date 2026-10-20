@@ -1081,7 +1081,7 @@ describe('confirm it’s you states', () => {
       () =>
         server.use(
           http.post(STEP_UP_VERIFY, () =>
-            fail('This link has expired or was already used.', 400, 'LINK_INVALID')
+            fail('This link expired or was already used. Ask for a new link.', 400, 'LINK_INVALID')
           )
         ),
       () => screen.findByRole('heading', { name: 'This link didn’t confirm it’s you' }),
@@ -1090,7 +1090,9 @@ describe('confirm it’s you states', () => {
       'the session ended',
       () =>
         server.use(
-          http.post(STEP_UP_VERIFY, () => fail('Session ended', 401, 'ACCESS_TOKEN_EXPIRED'))
+          http.post(STEP_UP_VERIFY, () =>
+            fail('This session ended. Sign in again to continue.', 401, 'ACCESS_TOKEN_EXPIRED')
+          )
         ),
       () => screen.findByRole('link', { name: 'Sign in' }),
     ],
@@ -1129,7 +1131,7 @@ describe('auth link states', () => {
       () =>
         server.use(
           http.post(LINK_VERIFY, () =>
-            fail('This link has expired or was already used.', 400, 'LINK_INVALID')
+            fail('This link expired or was already used. Ask for a new link.', 400, 'LINK_INVALID')
           )
         ),
       () => screen.findByRole('button', { name: 'Email me a new link' }),
@@ -2004,7 +2006,9 @@ describe('onboarding', () => {
       )
     )
     renderAppAt('/onboarding')
-    await screen.findByText('Onboarding tracking starts with tenants created after this release.')
+    await screen.findByText(
+      'Onboarding is tracked for tenants created once the server runs release 1.4.0 (2 October 2026) or later.'
+    )
     await expectNoViolations()
   })
 
@@ -2039,7 +2043,7 @@ describe('onboarding', () => {
     [
       'not tracked',
       { state: 'not_tracked' as const },
-      'Not tracked — created before onboarding tracking.',
+      'Not tracked: created before the server ran release 1.4.0.',
     ],
     [
       'awaiting its owner',

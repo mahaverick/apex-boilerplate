@@ -110,8 +110,22 @@ const INVITATIONS_REVOKED_ON_LEAVE = 'Pending invitations you sent are revoked.'
 const PLATFORM_INVITATIONS_REVOKED_ON_LEAVE =
   'Pending invitations you sent here are revoked, and so are any you sent in other tenants for a role you can no longer grant there.'
 
-/** What a leave says when the API answers 404: the membership was already gone. */
-const NO_LONGER_A_MEMBER = 'You are no longer a member of this tenant.'
+/**
+ * What a leave says when it succeeds. Leaving the platform tenant lands on
+ * Overview, where "this tenant" names nothing, so it names the staff team.
+ * @param slug - The tenant left.
+ */
+const leftTenant = (slug: string) =>
+  slug === PLATFORM_TENANT_SLUG ? 'You left the staff team.' : 'You left this tenant.'
+
+/**
+ * What a leave says when the API answers 404: the membership was already gone.
+ * @param slug - The tenant left.
+ */
+const noLongerMember = (slug: string) =>
+  slug === PLATFORM_TENANT_SLUG
+    ? 'You’re no longer on the staff team.'
+    : 'You’re no longer a member of this tenant.'
 
 /** What a leave of the platform tenant says when the page could not move to Overview afterwards. */
 const LEFT_BUT_STUCK = 'You left, but this page didn’t move on. Reload the page to continue.'
@@ -537,7 +551,7 @@ function RemoveMemberButton({
                   () => {
                     setBusy(false)
                     if (isSelf) {
-                      void afterLeaving('You left this tenant.')
+                      void afterLeaving(leftTenant(slug))
                       return
                     }
                     setIsOpen(false)
@@ -555,7 +569,7 @@ function RemoveMemberButton({
                       return
                     }
                     if (isSelf && statusFrom(error) === 404) {
-                      void afterLeaving(NO_LONGER_A_MEMBER)
+                      void afterLeaving(noLongerMember(slug))
                       return
                     }
                     setIsOpen(false)

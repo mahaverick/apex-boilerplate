@@ -97,7 +97,8 @@ export function providerLabel(provider: string): string {
 }
 
 /** The toast once the API has taken a resend. */
-export const RESEND_REQUESTED = 'Resend requested — it appears in the timeline shortly'
+export const RESEND_REQUESTED =
+  'Resend requested. Reload the page to see the new email in the timeline.'
 
 /** The warning toast when the originating action ran but reports that its email did not go. */
 export const RESEND_NOT_SENT =

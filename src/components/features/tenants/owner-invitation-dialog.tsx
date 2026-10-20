@@ -68,7 +68,7 @@ export function OwnerInvitationDialog({
         <DialogHeader>
           <DialogTitle>Owner invitation</DialogTitle>
           <DialogDescription>
-            A new link is emailed; any earlier owner invitation stops working.
+            We email a new link, and any earlier owner invitation stops working.
           </DialogDescription>
         </DialogHeader>
         {open && (

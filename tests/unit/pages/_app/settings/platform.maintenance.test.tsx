@@ -98,10 +98,10 @@ describe('/settings/platform/maintenance', () => {
     expect(within(state).getByText(STAFF_WRITES_NOTE)).toBeInTheDocument()
     const queues = within(screen.getByRole('list', { name: 'Queues' })).getAllByRole('listitem')
     expect(queues.map((item) => item.textContent)).toEqual([
-      'email: paused, 0 running',
-      'notification: paused, 0 running',
-      'maintenance: paused, 0 running',
-      'analytics: paused, 1 running',
+      'email: paused, 0 jobs running',
+      'notification: paused, 0 jobs running',
+      'maintenance: paused, 0 jobs running',
+      'analytics: paused, 1 job running',
     ])
   })
 
@@ -114,7 +114,7 @@ describe('/settings/platform/maintenance', () => {
     await openPage()
     const queues = within(screen.getByRole('list', { name: 'Queues' })).getAllByRole('listitem')
     expect(queues.at(-1)).toHaveTextContent(
-      'auth-email: never paused, 0 running. We still send sign-in, invitation and Confirm it’s you emails during maintenance.'
+      'auth-email: never paused, 0 jobs running. We still send sign-in, invitation and Confirm it’s you emails during maintenance.'
     )
   })
 
@@ -442,7 +442,7 @@ describe('/settings/platform/maintenance', () => {
       HttpResponse.json(
         {
           success: false,
-          message: 'Validation failed',
+          message: 'Check the highlighted fields, then try again.',
           statusCode: 400,
           requestId: 'r',
           errors: {
@@ -472,7 +472,7 @@ describe('/settings/platform/maintenance', () => {
     )
     expect(within(dialog).getByLabelText('Reason')).toHaveAttribute('aria-invalid', 'true')
     // The generic message is for a failure with no field detail; this one has some.
-    expect(within(dialog).queryByText('Validation failed')).toBeNull()
+    expect(within(dialog).queryByText('Check the highlighted fields, then try again.')).toBeNull()
   })
 
   it('hides "Set by" while maintenance is off, though the API still names who switched it off', async () => {

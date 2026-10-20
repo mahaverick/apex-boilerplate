@@ -28,7 +28,8 @@ const LINK_PATH = `/auth/link?token=${TOKEN}&email=${encodeURIComponent(LINK_EMA
 /** The staff member the link signs in. */
 const ADA = { ...testUser, email: LINK_EMAIL }
 /** The API's one answer to every link that signs nobody in. */
-const DEAD = () => fail('This link has expired or was already used.', 400, 'LINK_INVALID')
+const DEAD = () =>
+  fail('This link expired or was already used. Ask for a new link.', 400, 'LINK_INVALID')
 
 /** Mounts the real route tree at `path`, under StrictMode as dev runs it, and returns the router. */
 function renderAt(path: string): AnyRouter {
@@ -56,7 +57,9 @@ function arriveSignedOut() {
 /** A refresh cookie for the test user (a.b@example.com): the root's bootstrap restores that session. */
 function arriveSignedIn() {
   server.use(
-    http.post('/api/v1/auth/refresh', () => ok({ accessToken: 'fresh-token' }, 'Token refreshed.')),
+    http.post('/api/v1/auth/refresh', () =>
+      ok({ accessToken: 'fresh-token' }, 'Session refreshed.')
+    ),
     http.get('/api/v1/profile', () => ok(testUser, 'Profile retrieved.'))
   )
 }
@@ -425,7 +428,7 @@ describe('/auth/link, signed out', () => {
     queryClient.clear()
     resetSessionForTests()
     useAuthStore.setState({ isBootstrapped: false })
-    serveVerify(() => fail('Validation failed', 400))
+    serveVerify(() => fail('Check the highlighted fields, then try again.', 400))
     renderAt(LINK_PATH)
     await screen.findByRole('heading', { level: 1, name: LINK_DEAD_TITLE })
 
@@ -437,7 +440,10 @@ describe('/auth/link, signed out', () => {
     [
       429,
       () => {
-        const response = fail('Too many attempts. Try again in 42 seconds.', 429)
+        const response = fail(
+          "You've reached the limit of 10 attempts in 15 minutes. Try again in 42 seconds.",
+          429
+        )
         response.headers.set('Retry-After', '42')
         return response
       },

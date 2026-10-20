@@ -60,7 +60,8 @@ export function EmailPreviewPanel({
           )}
           {partial && (
             <Note tone="warning">
-              Some of this email’s details were not stored, so placeholders stand in for them.
+              We didn’t store every detail of this email, so placeholders stand in for the missing
+              ones.
             </Note>
           )}
           <section aria-labelledby="preview-subject" className="grid gap-1">

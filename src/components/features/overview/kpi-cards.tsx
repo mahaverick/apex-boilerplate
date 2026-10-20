@@ -68,7 +68,7 @@ export function KpiCards({ stats }: { stats: PlatformStats }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground">
-          Onboarding with no recent progress.{' '}
+          No onboarding progress past the stuck limit (7 days by default).{' '}
           <Link
             to={ROUTES.onboarding}
             search={{ state: 'stuck' }}

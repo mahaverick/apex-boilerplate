@@ -78,13 +78,13 @@ function pauseWords(paused: boolean | null): string {
  * The auth-email queue reads "never paused" with the reason, unless Redis
  * reports it paused, since that is a fact worth showing.
  * @param queue - The queue's state.
- * @returns "email: paused, 0 running", with "unknown" for what Redis did not answer.
+ * @returns "email: paused, 0 jobs running", with "unknown" for what Redis did not answer.
  */
 export function queueLine(queue: QueuePauseState): string {
   const running =
     queue.active === null
-      ? 'running count unknown'
-      : `${queue.active.toLocaleString('en-US')} running`
+      ? 'running job count unknown'
+      : `${queue.active.toLocaleString('en-US')} ${queue.active === 1 ? 'job' : 'jobs'} running`
   if (queue.name === AUTH_EMAIL_QUEUE && queue.paused !== true) {
     return `${queue.name}: never paused, ${running}. We still send sign-in, invitation and Confirm it’s you emails during maintenance.`
   }

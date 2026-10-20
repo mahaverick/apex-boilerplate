@@ -28,7 +28,7 @@ export async function confirmStepUp(user: UserEvent, dialog?: HTMLElement): Prom
   const stepUp = dialog ?? (await screen.findByRole('dialog', { name: 'Confirm it’s you' }))
   const accessToken = freshlyConfirmedToken()
   server.use(
-    http.post('/api/v1/auth/refresh', () => ok({ accessToken }, 'Token refreshed.')),
+    http.post('/api/v1/auth/refresh', () => ok({ accessToken }, 'Session refreshed.')),
     http.get('/api/v1/profile', () =>
       ok(useAuthStore.getState().user ?? testUser, 'Profile retrieved.')
     )

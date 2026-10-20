@@ -442,7 +442,7 @@ describe('/users', () => {
       pages([])
       server.use(
         http.post('/api/v1/platform/users', () =>
-          fail('An account already uses that email address', 409)
+          fail('An account already uses that email address. Search Users to open it.', 409)
         )
       )
       const user = userEvent.setup()
@@ -452,7 +452,9 @@ describe('/users', () => {
       await user.type(within(dialog).getByLabelText('Email'), 'taken@example.com')
       await user.type(within(dialog).getByLabelText('First name'), 'Tia')
       await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
-      await within(dialog).findByText('An account already uses that email address')
+      await within(dialog).findByText(
+        'An account already uses that email address. Search Users to open it.'
+      )
 
       await user.keyboard('{Escape}')
       await waitFor(() =>
@@ -463,7 +465,9 @@ describe('/users', () => {
       expect(within(reopened).getByLabelText('Email')).toHaveValue('')
       expect(within(reopened).getByLabelText('First name')).toHaveValue('')
       expect(
-        within(reopened).queryByText('An account already uses that email address')
+        within(reopened).queryByText(
+          'An account already uses that email address. Search Users to open it.'
+        )
       ).not.toBeInTheDocument()
     })
 
@@ -471,7 +475,7 @@ describe('/users', () => {
       pages([])
       server.use(
         http.post('/api/v1/platform/users', () =>
-          fail('An account already uses that email address', 409)
+          fail('An account already uses that email address. Search Users to open it.', 409)
         )
       )
       const user = userEvent.setup()
@@ -482,7 +486,9 @@ describe('/users', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
 
       expect(
-        await within(dialog).findByText('An account already uses that email address')
+        await within(dialog).findByText(
+          'An account already uses that email address. Search Users to open it.'
+        )
       ).toBeInTheDocument()
     })
   })

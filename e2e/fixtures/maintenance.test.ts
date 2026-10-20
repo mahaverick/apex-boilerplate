@@ -100,7 +100,7 @@ test('full maintenance puts a red banner on every staff page, linking to the pag
   await expect(banner).toContainText('set by Sam Staff.')
   await banner.getByRole('link', { name: 'Manage' }).click()
   await expect(page.getByRole('heading', { name: 'Maintenance', level: 1 })).toBeVisible()
-  await expect(page.getByText('analytics: paused, 1 running')).toBeVisible()
+  await expect(page.getByText('analytics: paused, 1 job running')).toBeVisible()
   await expect(page.getByText('Postgres 18 upgrade, ticket OPS-1234')).toBeVisible()
 })
 
@@ -140,7 +140,7 @@ test('an owner switches customers to full through the typed confirmation and the
   await expect(
     page.getByRole('status').filter({ hasText: 'Customers are in FULL maintenance' })
   ).toBeVisible()
-  await expect(page.getByText('email: paused, 0 running')).toBeVisible()
+  await expect(page.getByText('email: paused, 0 jobs running')).toBeVisible()
   const sent = {
     mode: 'full',
     message: 'Back by 11:00 UTC.',

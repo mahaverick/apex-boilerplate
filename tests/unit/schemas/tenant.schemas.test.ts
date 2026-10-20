@@ -23,7 +23,9 @@ describe('tenant link fields', () => {
   ])('PATCH refuses %s', (_label, body) => {
     const result = updateTenantSchema.safeParse(body)
     expect(result.success).toBe(false)
-    expect(result.error?.issues[0]?.message).toMatch(/must be an http or https URL\.$/)
+    expect(result.error?.issues[0]?.message).toMatch(
+      /must be a web address that starts with http:\/\/ or https:\/\/\.$/
+    )
   })
 
   it('PATCH takes an http or https URL, trimmed, and a cleared field as null', () => {
@@ -63,7 +65,7 @@ describe('tenant link fields', () => {
     expect(
       createPlatformTenantSchema.safeParse({ ...CREATE, website: 'https://user:pw@acme.test' })
         .error?.issues[0]?.message
-    ).toBe('Website must be an http or https URL.')
+    ).toBe('Website must be a web address that starts with http:// or https://.')
   })
 })
 

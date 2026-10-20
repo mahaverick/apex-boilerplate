@@ -90,7 +90,7 @@ function HttpResponseOk() {
   return new Response(
     JSON.stringify({
       success: true,
-      message: 'Token refreshed.',
+      message: 'Session refreshed.',
       statusCode: 200,
       data: { accessToken: 'fresh-token' },
     }),
@@ -160,7 +160,7 @@ describe('route guards', () => {
     server.use(
       http.post('/api/v1/auth/refresh', async () => {
         await delay(20)
-        return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
+        return ok({ accessToken: 'fresh-token' }, 'Session refreshed.')
       }),
       http.get('/api/v1/profile', () => ok({ ...testUser, platformRole }, 'Profile retrieved.'))
     )
@@ -269,7 +269,7 @@ describe('mailed-link paths and the auth guard', () => {
     server.use(
       http.post('/api/v1/auth/refresh', async () => {
         await delay(20)
-        return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
+        return ok({ accessToken: 'fresh-token' }, 'Session refreshed.')
       }),
       http.get('/api/v1/profile', () => ok(testUser, 'Profile retrieved.'))
     )

@@ -71,8 +71,7 @@ export const testUserDetail: PlatformUserDetail = {
 export const TEST_INVITATION_TOKEN = 'inv-token-'.padEnd(43, 'x')
 
 /** express's one answer to an invite and to a resend, whether or not the address has an account. */
-export const INVITATION_SENT_MESSAGE =
-  'If that address can be invited, an invitation has been sent.'
+export const INVITATION_SENT_MESSAGE = 'If we can invite that address, we sent it an invitation.'
 
 /** One pending row, as `GET /tenants/:slug/invitations` lists it. */
 export const testInvitation: TenantInvitation = {
@@ -569,7 +568,7 @@ export function tenantDetail<T extends object>(
 
 /** The default answer to every API call a page makes, so a test overrides only the endpoint it is about. */
 export const handlers = [
-  http.post('/api/v1/auth/refresh', () => ok({ accessToken: 'fresh-token' }, 'Token refreshed.')),
+  http.post('/api/v1/auth/refresh', () => ok({ accessToken: 'fresh-token' }, 'Session refreshed.')),
   http.get('/api/v1/profile', () => ok(testUser, 'Profile retrieved.')),
   // Express answers every link request 202 with no data, whether or not the address has an account.
   http.post('/api/v1/auth/link/request', () =>
@@ -579,7 +578,7 @@ export const handlers = [
   http.post('/api/v1/auth/link/verify', async ({ request }) => {
     const { email } = (await request.json()) as { email?: string }
     if (email !== undefined && email.toLowerCase() !== testUser.email) {
-      return fail('This link has expired or was already used.', 400, 'LINK_INVALID')
+      return fail('This link expired or was already used. Ask for a new link.', 400, 'LINK_INVALID')
     }
     return ok(
       { user: testUser, accessToken: 'link-token', isNewUser: false, redirect: null },
@@ -715,6 +714,6 @@ export const handlers = [
     ok(tenantOnboardingAfterStaffCompletion(String(params.stepKey)), 'Onboarding step completed.')
   ),
   http.post('/api/v1/platform/tenants/:tenantId/onboarding/remind', () =>
-    ok({ emailSent: true, recipientCount: 1 }, 'Reminder sent.')
+    ok({ emailSent: true, recipientCount: 1, queuedCount: 1 }, 'Reminder sent to 1 owner.')
   ),
 ]

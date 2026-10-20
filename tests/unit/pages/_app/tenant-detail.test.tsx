@@ -666,7 +666,11 @@ describe('/tenants/$tenantId', () => {
       await user.clear(website)
       await user.type(website, 'javascript:alert(1)')
       await user.click(within(dialog).getByRole('button', { name: 'Save' }))
-      expect(await within(dialog).findByText('Website must be an http or https URL.')).toBeVisible()
+      expect(
+        await within(dialog).findByText(
+          'Website must be a web address that starts with http:// or https://.'
+        )
+      ).toBeVisible()
       expect(website).toHaveAttribute('aria-invalid', 'true')
       expect(patches).toBe(0)
     })
@@ -728,7 +732,9 @@ describe('/tenants/$tenantId', () => {
       await waitFor(() => {
         expect(state.bodies).toEqual([{ name: 'Acme Holdings' }])
       })
-      expect(screen.queryByText('Website must be an http or https URL.')).not.toBeInTheDocument()
+      expect(
+        screen.queryByText('Website must be a web address that starts with http:// or https://.')
+      ).not.toBeInTheDocument()
     })
 
     it("sends only the user's edit after a refetch brings another staff member's change", async () => {

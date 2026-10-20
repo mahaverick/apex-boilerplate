@@ -36,7 +36,12 @@ const LOGOUT_FAILURES: [string, () => Response][] = [
   ['a 503 from a restarting upstream', () => fail('Service Unavailable', 503)],
   [
     'a 429 from the logout rate limiter',
-    () => fail('Too many attempts. Try again in 42 seconds.', 429, 'RATE_LIMITED'),
+    () =>
+      fail(
+        "You've reached the limit of 10 attempts in 15 minutes. Try again in 42 seconds.",
+        429,
+        'RATE_LIMITED'
+      ),
   ],
 ]
 
@@ -378,7 +383,7 @@ describe('AppLayout', () => {
   })
 
   it('tells other tabs when signing out succeeds', async () => {
-    server.use(http.post('/api/v1/auth/logout', () => ok(undefined, 'Logged out.')))
+    server.use(http.post('/api/v1/auth/logout', () => ok(undefined, 'Signed out.')))
     stubAssign()
     const otherTab = new BroadcastChannel('auth')
     const received: unknown[] = []

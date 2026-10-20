@@ -99,7 +99,7 @@ function TenantLayout() {
       <EmptyState
         icon={<IconSearchOff aria-hidden="true" />}
         title={<h1>Tenant not found</h1>}
-        description="It doesn’t exist, or your access changed. Reload if your role was just updated."
+        description="It doesn’t exist, or your role changed. If your role changed, reload the page."
         action={
           <Link to={ROUTES.tenants} className={buttonVariants({ variant: 'outline' })}>
             Back to tenants

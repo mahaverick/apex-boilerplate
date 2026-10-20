@@ -1007,7 +1007,7 @@ const NOTE_SURFACES = [
     url: `/e2e/harness/?path=${DELIVERED_EMAIL}?tab=preview&preview=partial`,
     heading: 'cleo.d@example.com',
     role: 'status',
-    text: 'Some of this email’s details were not stored',
+    text: 'We didn’t store every detail of this email',
   },
   {
     name: 'warning note (stale flags snapshot)',

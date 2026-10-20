@@ -252,7 +252,7 @@ describe('/settings/platform/flags', () => {
     renderAppAt('/settings/platform/flags')
     expect(
       await screen.findByText(
-        'PostHog has not been reached for over 10 minutes; flags use the last snapshot.'
+        'The server hasn’t reached PostHog for over 10 minutes, so flags use the last snapshot.'
       )
     ).toBeInTheDocument()
     expect(screen.getByText(/Flag definitions last changed/).querySelector('time')).toHaveAttribute(
@@ -858,7 +858,7 @@ describe('/settings/platform/flags evaluate', () => {
     await within(panel).findByRole('table', { name: 'Evaluation' })
     expect(
       within(panel).getByText(
-        'PostHog has not been reached for over 10 minutes; flags use the last snapshot.'
+        'The server hasn’t reached PostHog for over 10 minutes, so flags use the last snapshot.'
       )
     ).toBeInTheDocument()
     expect(within(panel).getByText('Not set')).toBeInTheDocument()

@@ -182,7 +182,11 @@ describe('onboarding writes', () => {
     server.use(
       http.post(`/api/v1/platform/tenants/${TENANT_ID}/onboarding/remind`, async ({ request }) => {
         body = await request.json()
-        return ok({ emailSent: false, recipientCount: 2 }, 'Reminder sent.', 202)
+        return ok(
+          { emailSent: false, recipientCount: 2, queuedCount: 0 },
+          'We queued the reminder for 0 of 2 owners. The rest show as failed on Emails.',
+          202
+        )
       })
     )
     const emails = [emailsListOptions({ tenant: TENANT_ID }).queryKey, emailKeys.detail('x')]
@@ -193,14 +197,18 @@ describe('onboarding writes', () => {
     result.current.mutate('Stalled since the call')
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(body).toEqual({ reason: 'Stalled since the call' })
-    expect(result.current.data).toEqual({ emailSent: false, recipientCount: 2 })
+    expect(result.current.data).toEqual({ emailSent: false, recipientCount: 2, queuedCount: 0 })
     expectStale(client, [...ONBOARDING_KEYS, ...AROUND, ...emails])
   })
 
   it('a refused reminder refreshes everything a sent one would', async () => {
     server.use(
       http.post(`/api/v1/platform/tenants/${TENANT_ID}/onboarding/remind`, () =>
-        fail('A reminder went out less than 24 hours ago.', 409, 'reminded_recently')
+        fail(
+          'This tenant got a reminder in the last 24 hours. You can send the next one after 09:00 UTC on 3 October 2026.',
+          409,
+          'reminded_recently'
+        )
       )
     )
     const client = seeded([...ONBOARDING_KEYS, ...AROUND, emailsListOptions({}).queryKey])

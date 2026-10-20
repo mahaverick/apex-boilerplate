@@ -121,7 +121,7 @@ test('a hard bounce suppresses the address; once lifted, a resend goes out and l
   await again.getByLabel('Reason').fill('e2e: after the lift')
   await again.getByRole('button', { name: 'Resend' }).click()
   await expect(
-    page.getByText('Resend requested — it appears in the timeline shortly')
+    page.getByText('Resend requested. Reload the page to see the new email in the timeline.')
   ).toBeVisible()
 
   // The resend is a new email with a fresh token, filed as resent from the original.

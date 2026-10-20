@@ -302,13 +302,19 @@ describe('StepUpDialog: start', () => {
 
   it('shows a rate limit on the start with the server’s words', async () => {
     dangerRoute(1)
-    linkRoute(() => tooMany('Too many attempts. Try again in 5 minutes.', 'RATE_LIMITED', 300))
+    linkRoute(() =>
+      tooMany(
+        "You've reached the limit of 10 attempts in 15 minutes. Try again in 5 minutes.",
+        'RATE_LIMITED',
+        300
+      )
+    )
     const user = userEvent.setup()
     renderHarness()
     const dialog = await openStepUp(user)
     await user.click(within(dialog).getByRole('button', { name: 'Email me a link' }))
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'Too many attempts. Try again in 5 minutes.'
+      "You've reached the limit of 10 attempts in 15 minutes. Try again in 5 minutes."
     )
     expect(within(dialog).queryByText(STEP_UP_EMAIL_WAIT)).not.toBeInTheDocument()
   })
@@ -375,7 +381,11 @@ describe('StepUpDialog: email', () => {
     let refuse = false
     linkRoute(() =>
       refuse
-        ? tooMany('Too many attempts. Try again in 2 minutes.', 'RATE_LIMITED', 120)
+        ? tooMany(
+            "You've reached the limit of 10 attempts in 15 minutes. Try again in 2 minutes.",
+            'RATE_LIMITED',
+            120
+          )
         : ok(
             { resendAvailableAt: new Date(Date.now() + 60_000).toISOString() },
             'Check your inbox for a confirmation link.',
@@ -390,7 +400,9 @@ describe('StepUpDialog: email', () => {
     refuse = true
     await user.click(within(dialog).getByRole('button', { name: 'Resend link' }))
     await vi.waitFor(() =>
-      expect(error).toHaveBeenCalledWith('Too many attempts. Try again in 2 minutes.')
+      expect(error).toHaveBeenCalledWith(
+        "You've reached the limit of 10 attempts in 15 minutes. Try again in 2 minutes."
+      )
     )
     expect(within(dialog).getByText(STEP_UP_EMAIL_WAIT)).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Resend in 2:00' })).toBeInTheDocument()
@@ -487,7 +499,9 @@ describe('StepUpDialog: email', () => {
   it('sends a tab whose refresh is refused to /login', async () => {
     dangerRoute(1)
     linkRoute()
-    refreshRoute(() => fail('Session ended', 401, 'ACCESS_TOKEN_EXPIRED'))
+    refreshRoute(() =>
+      fail('This session ended. Sign in again to continue.', 401, 'ACCESS_TOKEN_EXPIRED')
+    )
     const assign = vi.fn()
     const { origin, protocol, host, hostname, port } = window.location
     const user = userEvent.setup()

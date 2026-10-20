@@ -6,6 +6,7 @@ import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
 import { resetSessionForTests } from '@/http/session'
+import { absoluteTime } from '@/lib/relative-time'
 import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
@@ -213,11 +214,25 @@ describe('platform activity page', () => {
     mockLog(() => page([STAFF_VISIT]))
     renderPlatformActivity()
 
-    expect(await screen.findByText('just now')).toBeInTheDocument()
+    expect(await screen.findByText(', just now')).toBeInTheDocument()
     act(() => {
       vi.advanceTimersByTime(2 * 60_000)
     })
-    expect(screen.getByText('2 minutes ago')).toBeInTheDocument()
+    expect(screen.getByText(', 2 minutes ago')).toBeInTheDocument()
+  })
+
+  it('shows each entry’s absolute date and time, since an audit line is read long after it happens', async () => {
+    signInAs('admin')
+    mockLog(() => page([STAFF_VISIT]))
+    renderPlatformActivity()
+
+    const time = await waitFor(() => {
+      const element = document.querySelector(`time[datetime="${STAFF_VISIT.occurredAt}"]`)
+      expect(element).not.toBeNull()
+      return element
+    })
+    expect(time).toHaveTextContent(absoluteTime(STAFF_VISIT.occurredAt))
+    expect(time).not.toHaveTextContent(/ago|just now|yesterday/)
   })
 
   it('sends someone who is not staff to /no-access and never asks the API', async () => {
