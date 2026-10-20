@@ -33,7 +33,7 @@ const DEAD_TITLE = 'This invitation can’t be used'
 const ASK_AN_ADMIN = 'Ask a platform admin for a new invite.'
 /** The toast names the account now signed in: the test user, unless a test says otherwise. */
 const JOINED = `You joined Acme Corp as ${testUser.email}.`
-const ALREADY_JOINED = `You've already joined Acme Corp as ${testUser.email}.`
+const ALREADY_JOINED = `You’ve already joined Acme Corp as ${testUser.email}.`
 const OTHER_EMAIL = 'someone@else.com'
 
 /** Mounts the real route tree at `path`, under StrictMode as dev runs it, and returns the router. */
@@ -198,6 +198,11 @@ describe('accept page: the link itself', () => {
     expect(
       await screen.findByRole('heading', { name: 'This link is incomplete' })
     ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Part of this link is missing. Open the most recent invitation email and select Join.'
+      )
+    ).toBeVisible()
     expect(previews.count).toBe(0)
   })
 
@@ -249,7 +254,12 @@ describe('accept page: the link itself', () => {
     renderAt(ACCEPT_PATH)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/could not load this invitation/i)
+    expect(alert).toHaveTextContent(
+      'The check failed, and your invitation link is unchanged. Select Try again.'
+    )
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'We couldn’t check this invitation' })
+    ).toBeVisible()
     expect(screen.queryByText(DEAD_TITLE)).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Go to the home page' })).toHaveAttribute('href', '/')
 
@@ -417,7 +427,7 @@ describe('accept page, signed out', () => {
     [
       'a network error',
       () => HttpResponse.error(),
-      "We couldn't reach the server. Check your connection, then try again.",
+      'We couldn’t reach the server. Check your connection, then try again.',
     ],
   ])('offers Try again on %s, and the retry joins', async (_name, failure, message) => {
     const verifies = serveVerify(failure, verified())
@@ -660,6 +670,29 @@ describe('accept page, Check your inbox, when another tab confirms', () => {
     expect(accepts).toHaveLength(0)
   })
 
+  it('still lands the waiting tab after a failed Resend', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const verifies = serveVerify(confirmationSent(), () => fail('Server error.', 500))
+    const router = renderAt(ACCEPT_PATH)
+    await screen.findByRole('button', { name: 'Resend in 1:00' })
+    await act(() => vi.advanceTimersByTimeAsync(60_000))
+    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'We couldn’t add you to Acme Corp' })
+    ).toBeVisible()
+    vi.useRealTimers()
+    const restored = shareSessionFor(MAILED)
+
+    // The mailed link still works, so a confirm in another tab must still bring this tab along.
+    confirmInAnotherTab()
+
+    await expectLandedOnOverview(router)
+    expect(await screen.findAllByText(`You joined Acme Corp as ${MAILED}.`)).toHaveLength(1)
+    expect(restored.refreshes).toBe(1)
+    expect(verifies).toHaveLength(2)
+  })
+
   it('ignores signed_in while signed in, and does not toast a different restored account', async () => {
     const verifies = serveVerify(confirmationSent())
     const accepts = serveAccept(accepted())
@@ -776,7 +809,7 @@ describe('accept page, signed in', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Join Acme Corp' })).toBeVisible()
     expect(screen.getByText(/This invitation is for/)).toHaveTextContent(
-      `This invitation is for ${OTHER_EMAIL}. You're signed in as ${testUser.email}.`
+      `This invitation is for ${OTHER_EMAIL}. You’re signed in as ${testUser.email}.`
     )
     expect(screen.getAllByText(OTHER_EMAIL)[0]).toHaveClass('ph-sensitive', 'ph-mask')
     expect(screen.getByText(/invited you to join/)).toHaveTextContent(

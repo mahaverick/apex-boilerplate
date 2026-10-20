@@ -224,7 +224,7 @@ const SURFACES = [
       '/invitations/confirm',
       `token=${TOKEN}&email=new.staff@example.com&inviteconfirm=dead`
     ),
-    heading: "This link can't be used",
+    heading: 'This link can’t be used',
   },
   {
     name: 'invitation confirm failed',

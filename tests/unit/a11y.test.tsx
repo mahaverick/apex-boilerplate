@@ -1275,7 +1275,7 @@ describe('invitation confirm states', () => {
       )
     )
     renderAppAt(confirmPath)
-    await screen.findByRole('heading', { level: 1, name: "This link can't be used" })
+    await screen.findByRole('heading', { level: 1, name: 'This link can’t be used' })
     await screen.findByRole('button', { name: 'Email me a sign-in link' })
     await expectNoViolations()
   })

@@ -459,7 +459,7 @@ describe('/auth/link, signed out', () => {
     [
       'network',
       () => HttpResponse.error(),
-      "We couldn't reach the server. Check your connection, then try again.",
+      'We couldn’t reach the server. Check your connection, then try again.',
     ],
   ])('offers Try again, not the dead link, on %s', async (_name, failure, message) => {
     const verify = serveVerify(failure, signedIn())
@@ -545,8 +545,8 @@ describe('/auth/link, signed in', () => {
     renderAt(LINK_PATH)
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Switch account?' })).toBeVisible()
-    expect(screen.getByText(/You're signed in as/)).toHaveTextContent(
-      `You're signed in as ${testUser.email}. This link is for ${LINK_EMAIL}.`
+    expect(screen.getByText(/You’re signed in as/)).toHaveTextContent(
+      `You’re signed in as ${testUser.email}. This link is for ${LINK_EMAIL}.`
     )
     expect(verify.calls()).toBe(0)
 

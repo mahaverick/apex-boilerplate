@@ -151,7 +151,7 @@ test.describe('staff invitation', () => {
     await page.goto(harness('/invitations/accept', `invite=joined&token=${TOKEN}`))
 
     await expect(
-      page.getByText(`You've already joined Platform as ${HARNESS_EMAIL}.`)
+      page.getByText(`You’ve already joined Platform as ${HARNESS_EMAIL}.`)
     ).toBeVisible()
     await expect(page).toHaveURL(/\/overview(\?|$)/)
     expect(accepts).toEqual([{ token: TOKEN }])
@@ -222,7 +222,7 @@ test.describe('staff invitation', () => {
     )
 
     await expect(
-      page.getByRole('heading', { level: 1, name: "This link can't be used" })
+      page.getByRole('heading', { level: 1, name: 'This link can’t be used' })
     ).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toHaveValue(
       INVITEE_EMAIL

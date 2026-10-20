@@ -26,6 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { ROLE_LABELS } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
+import { useSignedInElsewhere } from '@/hooks/use-signed-in-elsewhere'
 import { retryAfterSecondsFrom, statusFrom } from '@/lib/api-error'
 import { fullName } from '@/lib/format'
 import { retryableFailureMessage } from '@/lib/retry'
@@ -59,8 +60,7 @@ export const Route = createFileRoute('/invitations/accept')({
   pendingComponent: AuthPagePending,
 })
 
-const PREVIEW_ERROR =
-  'We could not load this invitation. The request failed, which is not the same as the invitation being invalid.'
+const PREVIEW_ERROR = 'The check failed, and your invitation link is unchanged. Select Try again.'
 
 /** The title of every invitation that cannot join anyone, whatever the reason. */
 const DEAD_TITLE = 'This invitation can’t be used'
@@ -359,6 +359,12 @@ function InvitationForToken({ token }: { token: string }) {
     start()
   }, [nextCall])
 
+  const waitingOn = inbox && joining?.invitation
+  // Listens through a failed Resend's Try again panel, since the mailed link still works; a dead invitation stops it.
+  useSignedInElsewhere(Boolean(waitingOn) && failure?.kind !== 'dead', () => {
+    if (inbox && waitingOn) confirmedElsewhere(waitingOn, inbox.email)
+  })
+
   if (joining) {
     if (failure?.kind === 'dead') return <DeadInvitation inviter={joining.invitation?.invitedBy} />
     if (failure) {
@@ -375,8 +381,7 @@ function InvitationForToken({ token }: { token: string }) {
         </InvitationCard>
       )
     }
-    if (inbox && joining.invitation) {
-      const waitingOn = joining.invitation
+    if (inbox && waitingOn) {
       return (
         <InvitationInbox
           email={inbox.email}
@@ -384,7 +389,6 @@ function InvitationForToken({ token }: { token: string }) {
           resendAt={inbox.resendAt}
           resending={verify.isPending}
           onResend={resend}
-          onSignedIn={() => confirmedElsewhere(waitingOn, inbox.email)}
         />
       )
     }
@@ -402,7 +406,7 @@ function InvitationForToken({ token }: { token: string }) {
 
   if (preview.isError) {
     return (
-      <InvitationCard title="We could not load this invitation">
+      <InvitationCard title="We couldn’t check this invitation">
         <div className="grid gap-3">
           <LoadError message={PREVIEW_ERROR} onRetry={() => void preview.refetch()} />
           <HomeLink />
@@ -431,7 +435,7 @@ function AcceptInvitationPage() {
     return (
       <InvitationCard
         title="This link is incomplete"
-        description="The invitation link is missing its token. Open the most recent invitation email and use its link."
+        description="Part of this link is missing. Open the most recent invitation email and select Join."
       >
         <HomeLink />
       </InvitationCard>

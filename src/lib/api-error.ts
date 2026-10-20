@@ -16,12 +16,12 @@ export const READ_ONLY_MODE_MESSAGE = 'Changes are paused during maintenance.'
 export function messageFrom(error: unknown): string {
   if (error instanceof AxiosError) {
     if (!error.response)
-      return "We couldn't reach the server. Check your connection, then try again."
+      return 'We couldn’t reach the server. Check your connection, then try again.'
     const body = error.response.data as ApiErrorBody | undefined
     if (body?.code === READ_ONLY_MODE) return READ_ONLY_MODE_MESSAGE
     if (body?.message) return body.message
   }
-  return 'Something went wrong. Try again.'
+  return 'We couldn’t complete that. Refresh the page, then try again.'
 }
 
 /**
@@ -51,8 +51,9 @@ const IMF_FIXDATE = /^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2}
 
 /**
  * How long a refused request says to wait, in whole seconds and at least 1,
- * from the `Retry-After` response header (a non-negative whole number of seconds, or an IMF-fixdate HTTP date).
- * `null` when there is no response or header, or the header cannot be read.
+ * from the `Retry-After` response header (a non-negative whole number of
+ * seconds, or an IMF-fixdate HTTP date). `null` when there is no response or
+ * header, or the header cannot be read.
  */
 export function retryAfterSecondsFrom(error: unknown): number | null {
   if (!(error instanceof AxiosError)) return null
