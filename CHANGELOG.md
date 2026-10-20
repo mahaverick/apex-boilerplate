@@ -1,5 +1,21 @@
 # Changelog
 
+## [6.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v5.0.0...v6.0.0) (2026-10-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **auth:** Apex no longer calls POST /auth/step-up/google/start or GET /auth/step-up/google, and /auth/confirm no longer handles ?result=confirmed or ?error=step_up_failed (both now show "This link is incomplete"). Removed exports: useStartGoogleStepUp (src/queries/auth.queries.ts), GOOGLE_STEP_UP_PATH (src/constants/routes.ts) and GOOGLE_STEP_UP_TIMEOUT_MS (src/lib/step-up.ts). A derived project that kept a Google step-up path must drop it; the step-up dialog confirms by emailed link only. It works with an express that has removed /auth/step-up/google*.
+
+### Features
+
+* **auth:** drop the Google step-up; confirm it's you by email link only ([69ad981](https://github.com/mahaverick/apex-boilerplate/commit/69ad981497a72d9581f6e18dc268ba7633d228ac))
+
+
+### Bug Fixes
+
+* **queries:** a cancelled read aborts its request; no request or timer outlives teardown ([#88](https://github.com/mahaverick/apex-boilerplate/issues/88)) ([48c1e4e](https://github.com/mahaverick/apex-boilerplate/commit/48c1e4edcbefeed2daf89b8c5de28b2cd29096e1))
+
 ## [5.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v4.3.0...v5.0.0) (2026-10-20)
 
 
