@@ -598,9 +598,7 @@ export const handlers = [
       202
     )
   ),
-  // A Google "Confirm it's you" recorded; the popup goes on to Google.
-  http.post('/api/v1/auth/step-up/google/start', () => new HttpResponse(null, { status: 204 })),
-  // Email only, so the step-up dialog offers no Google; a test that needs Google serves its own.
+  // The sign-in methods the profile's Security section lists: email only; a test that needs Google serves its own.
   http.get('/api/v1/auth/providers', () =>
     ok(
       { providers: [{ provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' }] },

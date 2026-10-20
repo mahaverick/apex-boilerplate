@@ -1,8 +1,8 @@
 /**
  * @file Step-up support outside React: recognising the API's `REAUTH_REQUIRED`
  * 401, telling whether a refusal is already out of date because a fresher
- * token has landed since the request went out, the dialog's two waits, and
- * reading whether a refresh brought a new confirmation.
+ * token has landed since the request went out, the emailed link's timings,
+ * and reading whether a refresh brought a new confirmation.
  */
 import axios from 'axios'
 import { codeFrom, statusFrom } from '@/lib/api-error'
@@ -43,13 +43,6 @@ export const STEP_UP_LINK_TTL_MS = 15 * 60_000
  * subtracted from it says how long ago the waiting link went out.
  */
 export const STEP_UP_LINK_COOLDOWN_MS = 60_000
-
-/**
- * How long the dialog waits on the Google popup: 5 minutes, mirroring
- * express's `OAUTH_SESSION_MAX_AGE_MS`, after which the API refuses the round
- * trip anyway.
- */
-export const GOOGLE_STEP_UP_TIMEOUT_MS = 5 * 60_000
 
 /**
  * The `auth_time` claim of an access token: when its session last

@@ -30,10 +30,11 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   loop: it is not an auth verdict.
 - **A write that may need a recent sign-in runs through `useStepUp().run`.** The
   API refuses a stale sign-in with `REAUTH_REQUIRED`, which is not a verdict.
-  The "Confirm it's you" dialog confirms by an emailed link, opened in this
-  browser's session on `/auth/confirm`, or by a fresh Google sign-in in a
-  popup. Either way the confirm page posts `step_up_confirmed`, and the dialog
-  refreshes the session and retries the write once. There is no password.
+  The "Confirm it's you" dialog confirms by an emailed link only, opened in
+  this browser's session on `/auth/confirm`. The confirm page posts
+  `step_up_confirmed`, and the dialog refreshes the session and retries the
+  write once. There is no password and no Google step-up: Google cannot prove
+  a fresh sign-in.
 - **A member or invitation write through platform access carries a reason.** When
   `useMyRole` reports `access: 'platform'`, the write goes through `ReasonDialog`
   and sends `reason` in the body, DELETE included. A member of the tenant, the

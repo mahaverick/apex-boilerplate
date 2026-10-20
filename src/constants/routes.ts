@@ -45,12 +45,6 @@ export const ROUTES = {
 export const GOOGLE_OAUTH_PATH = `${API_PREFIX}/auth/google?app=apex`
 
 /**
- * The API path the "Confirm it's you" popup opens after `POST /auth/step-up/google/start`.
- * Same-origin; the popup starts on `about:blank`, so it is made absolute there.
- */
-export const GOOGLE_STEP_UP_PATH = `${API_PREFIX}/auth/step-up/google`
-
-/**
  * The platform tenant's slug, seeded by express migration 0016 and reserved
  * there. Its members are the staff.
  */

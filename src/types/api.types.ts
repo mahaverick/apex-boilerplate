@@ -218,7 +218,7 @@ interface AuthProviderLink {
 /**
  * `GET /auth/providers`: the methods that can sign this account in. Every
  * account has its `'email'` row, since an emailed link always works; a
- * `'google'` row means "Re-confirm with Google" can confirm it's them.
+ * `'google'` row means Google sign-in is linked.
  */
 export interface AuthProviders {
   providers: AuthProviderLink[]

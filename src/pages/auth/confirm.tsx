@@ -9,7 +9,6 @@ import { AuthPagePending } from '@/components/shared/pending-templates'
 import { buttonVariants } from '@/components/ui/button'
 import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
-import { broadcastAuthMessage } from '@/http/session'
 import { messageFrom, statusFrom } from '@/lib/api-error'
 import { isStepUpWaitHeld } from '@/lib/step-up-presence'
 import { cn } from '@/lib/utils'
@@ -18,18 +17,14 @@ import { useAuthStore } from '@/states/auth.store'
 
 /**
  * Where "Confirm it's you" finishes: the emailed link
- * (`/auth/confirm?token=…`) and the Google popup's return
- * (`?result=confirmed` or `?error=step_up_failed`). Top level, under neither
- * `_auth` nor `_app`: the link must open signed in, and the popup may land
- * either way. It renders `AuthLayout` itself. `.catch` drops any other value,
- * since the router JSON-parses search values; enums, not literals, because the
- * entry chunk already carries Zod's enum class.
+ * (`/auth/confirm?token=…`). Top level, under neither `_auth` nor `_app`: the
+ * link must open signed in, and a signed-out browser must hear where it works.
+ * It renders `AuthLayout` itself. `.catch` drops any other value, since the
+ * router JSON-parses search values.
  */
 export const Route = createFileRoute('/auth/confirm')({
   validateSearch: z.object({
     token: z.string().optional().catch(undefined),
-    result: z.enum(['confirmed']).optional().catch(undefined),
-    error: z.enum(['step_up_failed']).optional().catch(undefined),
   }),
   head: () => ({ meta: [{ title: pageTitle('Confirm it’s you') }] }),
   component: ConfirmPage,
@@ -70,23 +65,13 @@ function OverviewLink() {
 }
 
 /**
- * Picks the state from the query: the Google popup's result first, then its
- * failure, then the emailed link. The query is read once, at mount: the link
- * state drops `token` from the URL once it settles, and the outcome must stay
- * on screen.
+ * Picks the state from the emailed link's token. The query is read once, at
+ * mount: the link state drops `token` from the URL once it settles, and the
+ * outcome must stay on screen.
  */
 function ConfirmPage() {
   const search = Route.useSearch()
-  const [{ token, result, error }] = useState(search)
-  if (result === 'confirmed') return <GoogleConfirmed />
-  if (error === 'step_up_failed') {
-    return (
-      <ConfirmCard
-        title="We couldn’t confirm it’s you"
-        description="Google didn’t confirm your sign-in. Close this window, then try again in Apex or use the email link."
-      />
-    )
-  }
+  const [{ token }] = useState(search)
   if (!token) {
     return (
       <ConfirmCard
@@ -96,26 +81,6 @@ function ConfirmPage() {
     )
   }
   return <LinkConfirm token={token} />
-}
-
-/**
- * The Google popup's landing after a confirmed sign-in. The API already moved
- * the session's `auth_time`, so the page only tells the waiting tab, which
- * refreshes and retries, then closes itself. The ref keeps StrictMode's second
- * effect run from telling it twice. A browser that refuses `window.close()`
- * leaves the card's own instruction.
- */
-function GoogleConfirmed() {
-  const reported = useRef(false)
-
-  useEffect(() => {
-    if (reported.current) return
-    reported.current = true
-    broadcastAuthMessage('step_up_confirmed')
-    window.close()
-  }, [])
-
-  return <ConfirmCard title="Confirmed" description="You can close this window." />
 }
 
 /**

@@ -39,8 +39,9 @@ shipping the app.
   `packageManager`. `pnpm install` refuses a Node older than 24.
 - **The API running on `:4040`, with `APEX_URL` set.** See
   [Getting started](#getting-started).
-- **express-boilerplate 6.1.0 or later.** 6.0.0 is passwordless: sign-in and
-  step-up by emailed link or Google (`/auth/link/*`, `/auth/step-up/*`), staff
+- **express-boilerplate 6.1.0 or later.** 6.0.0 is passwordless: sign-in by
+  emailed link or Google, step-up by emailed link (`/auth/link/*`,
+  `/auth/step-up/link/*`), staff
   invitations confirmed by a mailed link (`/invitations/verify`,
   `/invitations/confirm`) and `POST /platform/users/:id/sign-in-link`. 6.1.0
   adds the `signedIn` filter the Users page's Signed in facet sends. An older
@@ -72,7 +73,7 @@ the optional analytics settings in `.env.example`, which the dev server serves a
 `/runtime-config.js` (see [Run-time configuration](#run-time-configuration)).
 
 `APEX_URL` makes the sign-in, Confirm it's you (step-up) and invitation links
-express emails, and the Google sign-in and step-up callbacks, point at Apex
+express emails, and the Google sign-in callback, point at Apex
 instead of the customer app. Apex asks for that by sending `app: "apex"`, a fixed enum (`web` or `apex`):
 the API never accepts a URL from a client.
 

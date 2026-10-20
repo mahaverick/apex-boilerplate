@@ -551,10 +551,13 @@ with a 401 whose code is `REAUTH_REQUIRED`.
   (`sentWithCurrentToken`). A dismissal rejects with the original refusal.
   After a dismissal, or a second refusal of the retry, the reason dialog
   asks the user to confirm it's them to continue.
-- **The confirmation is an emailed link or a fresh Google sign-in.** The
-  dialog ("Confirm it's you") offers Email me a link
-  (`POST /auth/step-up/link/request`) and, when `GET /auth/providers` lists
-  Google, Re-confirm with Google.
+- **The confirmation is an emailed link, and only that.** The dialog
+  ("Confirm it's you") offers Email me a link
+  (`POST /auth/step-up/link/request`). There is no Google step-up: Google
+  honours neither `max_age` nor `prompt=login` and documents no account
+  reauth, so a Google round trip cannot prove a fresh sign-in, and a person
+  at an unattended signed-in device would pass it. Google sign-in is
+  unaffected.
   - **The link is bound to the session that asked.** It opens
     `/auth/confirm`, which posts it with that browser's bearer
     (`POST /auth/step-up/link/verify`). Signed out, the page posts nothing
@@ -564,34 +567,25 @@ with a 401 whose code is `REAUTH_REQUIRED`.
     refused and the link stays unspent. The link lasts 15 minutes from the
     last send (`STEP_UP_LINK_TTL_MS`), and Resend waits out express's
     one-minute cooldown.
-  - **Google runs in a popup.** The click opens the window synchronously
-    (a blocked popup falls back to the email link), then
-    `POST /auth/step-up/google/start` records the intent and the popup goes
-    to `GOOGLE_STEP_UP_PATH`, which asks Google for a fresh login
-    (`max_age=0`). The API refuses an `auth_time` more than 60 seconds before the start, and
-    the popup lands on `/auth/confirm?result=confirmed` or
-    `?error=step_up_failed`. COOP severs the opener, so the result comes only
-    from the `auth` channel; the wait ends after 5 minutes
-    (`GOOGLE_STEP_UP_TIMEOUT_MS`).
   - **The waiting tab learns by message, then refreshes.** `/auth/confirm`
     posts `step_up_confirmed`. The dialog then calls `ensureSession()`, whose
     refresh carries the session's new `auth_time`, and retries the action
     once; a refresh that fails is offered again, never resolved anyway, and
-    a verdict signs the tab out. A message is not proof: anyone can open
-    `/auth/confirm?result=confirmed`, so the dialog retries only when the
+    a verdict signs the tab out. A message is not proof: any same-origin
+    script can post `step_up_confirmed`, so the dialog retries only when the
     refreshed token's `auth_time` moved past the one it held when the wait
     began, and otherwise keeps waiting.
   - **A Web Lock says whether a tab is waiting.** The dialog holds the shared
-    `apex-step-up-wait` lock (`STEP_UP_WAIT_LOCK`) from the first send or
-    Google start until `confirm()` settles, and `/auth/confirm` reads
+    `apex-step-up-wait` lock (`STEP_UP_WAIT_LOCK`) from the first send
+    until `confirm()` settles, and `/auth/confirm` reads
     `navigator.locks.query()` before it posts, so it can say "You can close
     this tab" or "try the action again". A session revoked on the server
     while a tab waits leaves that tab waiting until Cancel or the link's 15
     minutes; its next request is the verdict.
   - **The sign-in stays recent for 10 minutes.** Express's window, so a
     second write soon after needs no second confirmation.
-- **Only Cancel dismisses a waiting dialog.** While it waits on a link or the
-  popup, Escape and the backdrop do nothing, so the pending action stays
+- **Only Cancel dismisses a waiting dialog.** While it waits on a link,
+  Escape and the backdrop do nothing, so the pending action stays
   pending; Cancel rejects it, and the action's dialog shows "Confirm it's you
   to continue." The action's own dialog reads "Waiting for you to confirm…"
   meanwhile (`useStepUpWaiting`).

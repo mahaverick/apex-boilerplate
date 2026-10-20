@@ -117,10 +117,10 @@ describe('the URL allowlist, through the sanitizer', () => {
     ).toBe(`https://apex.test/invitations/confirm?${invitation}`)
   })
 
-  it('drops redirect, result and error', () => {
+  it('drops redirect and error', () => {
     expect(
       sanitizeUrl(
-        `https://apex.test/auth/link?redirect=%2Fusers&result=confirmed&error=step_up_failed&${CAMPAIGN}`,
+        `https://apex.test/auth/link?redirect=%2Fusers&error=google_auth_failed&${CAMPAIGN}`,
         ANALYTICS_URL_QUERY_ALLOWLIST
       )
     ).toBe(`https://apex.test/auth/link?${CAMPAIGN}`)

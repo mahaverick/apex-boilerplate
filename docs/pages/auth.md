@@ -73,28 +73,26 @@ A Google failure the API detects itself never reaches this page: the API redirec
 
 No shot yet.
 
-|                     |                                                                                                                                                                                                                                                            |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Purpose             | Where "Confirm it’s you" finishes: the emailed step-up link (`/auth/confirm?token=…`) and the Google popup's return (`?result=confirmed` or `?error=step_up_failed`).                                                                                      |
-| File                | `src/pages/auth/confirm.tsx`                                                                                                                                                                                                                               |
-| Guard and redirects | none (top level). The query is read once, at mount. Once a link's outcome is final, `token` leaves the address bar, so a reload shows the incomplete-link card instead of posting a spent link.                                                            |
-| Layout              | `AuthLayout` + `AuthCard`, rendered by the page                                                                                                                                                                                                            |
-| Data                | started, signed in with `?token`: `POST /auth/step-up/link/verify` once per page load (`skipAuthRetry`; an expired access token is refreshed once and the post retried); `navigator.locks.query()` before each post. The popup's two results post nothing. |
-| Components          | `AuthCard`, `SigningInStatus`, `VerifyFailedPanel`                                                                                                                                                                                                         |
-| Transitions         | after a confirm the page posts `step_up_confirmed`, and the dialog waiting in the tab that asked refreshes the session and retries its action once                                                                                                         |
+|                     |                                                                                                                                                                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Purpose             | Where "Confirm it’s you" finishes: the emailed step-up link (`/auth/confirm?token=…`), its one method.                                                                                                                                                   |
+| File                | `src/pages/auth/confirm.tsx`                                                                                                                                                                                                                             |
+| Guard and redirects | none (top level). The query is read once, at mount. Once a link's outcome is final, `token` leaves the address bar, so a reload shows the incomplete-link card instead of posting a spent link.                                                          |
+| Layout              | `AuthLayout` + `AuthCard`, rendered by the page                                                                                                                                                                                                          |
+| Data                | started, signed in with `?token`: `POST /auth/step-up/link/verify` once per page load (`skipAuthRetry`; an expired access token is refreshed once and the post retried); `navigator.locks.query()` before each post. Without `?token` nothing is posted. |
+| Components          | `AuthCard`, `SigningInStatus`, `VerifyFailedPanel`                                                                                                                                                                                                       |
+| Transitions         | after a confirm the page posts `step_up_confirmed`, and the dialog waiting in the tab that asked refreshes the session and retries its action once                                                                                                       |
 
 The page has these states:
 
-1. **Google confirmed** (`?result=confirmed`): "Confirmed", "You can close this window."; the page posts `step_up_confirmed` and calls `window.close()`.
-2. **Google failed** (`?error=step_up_failed`): "We couldn’t confirm it’s you", "Google didn’t confirm your sign-in. Close this window, then try again in Apex or use the email link."
-3. **No `?token`:** "This link is incomplete", "Open the most recent confirmation email and use its link."
-4. **Signed out:** "Sign in to confirm", "This link works only in the browser and session that asked for it. If you signed out here, sign in and repeat the action.", and Sign in. Nothing is posted.
-5. **Confirming:** "Confirming it’s you", with "Confirming it’s you…".
-6. **Confirmed**, worded by the wait lock read before the post: a tab holds it, "You can close this tab."; none does, "Go back to Apex and try the action again." with Go to Overview; no Web Locks, "Return to the Apex tab where you started. If you closed it, try the action again."
-7. **400** (expired, used, or another session's link; the API answers all three alike): "This link didn’t confirm it’s you", "Open the link in the browser where you asked for it, within 15 minutes. For a new link, try the action again." Nothing is elevated.
-8. **404** (the role gate; the link stays unspent): "Your staff access changed", "Ask a platform owner to check your role, then go to Overview.", and Go to Overview.
-9. **401** after the one refresh: "Your session ended", "Sign in again, then repeat the action.", and Sign in (a full page load).
-10. **Anything else:** "We couldn’t confirm it’s you", the reason and Try again. The token stays in the URL, so a reload tries again.
+1. **No `?token`** (any other query included): "This link is incomplete", "Open the most recent confirmation email and use its link." Nothing is posted or broadcast.
+2. **Signed out:** "Sign in to confirm", "This link works only in the browser and session that asked for it. If you signed out here, sign in and repeat the action.", and Sign in. Nothing is posted.
+3. **Confirming:** "Confirming it’s you", with "Confirming it’s you…".
+4. **Confirmed**, worded by the wait lock read before the post: a tab holds it, "You can close this tab."; none does, "Go back to Apex and try the action again." with Go to Overview; no Web Locks, "Return to the Apex tab where you started. If you closed it, try the action again."
+5. **400** (expired, used, or another session's link; the API answers all three alike): "This link didn’t confirm it’s you", "Open the link in the browser where you asked for it, within 15 minutes. For a new link, try the action again." Nothing is elevated.
+6. **404** (the role gate; the link stays unspent): "Your staff access changed", "Ask a platform owner to check your role, then go to Overview.", and Go to Overview.
+7. **401** after the one refresh: "Your session ended", "Sign in again, then repeat the action.", and Sign in (a full page load).
+8. **Anything else:** "We couldn’t confirm it’s you", the reason and Try again. The token stays in the URL, so a reload tries again.
 
 ### `/register`, `/forgot-password`, `/reset-password`, `/verify-email` — retired
 
