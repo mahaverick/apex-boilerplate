@@ -555,7 +555,7 @@ test.describe('analytics end to end, through express', () => {
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     await expect(dialog).toBeHidden()
 
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('ControlOrMeta+k')
     // The whole local part: earlier runs left other pii-probe accounts, and the palette lists eight.
     await page
       .getByRole('combobox', { name: 'Search pages, tenants and users' })
