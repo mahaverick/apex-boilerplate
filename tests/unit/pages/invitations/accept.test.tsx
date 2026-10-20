@@ -879,7 +879,7 @@ describe('accept page, signed in', () => {
 })
 
 describe('posts the token exactly once under StrictMode', () => {
-  it('posts the token exactly once under StrictMode (signed out, verify)', async () => {
+  it('posts once when the preview settles after mount (signed out, verify)', async () => {
     arriveSignedOut()
     const verifies = serveVerify(confirmationSent())
     renderAt(ACCEPT_PATH)
@@ -889,7 +889,7 @@ describe('posts the token exactly once under StrictMode', () => {
     expect(verifies).toHaveLength(1)
   })
 
-  it('posts the token exactly once under StrictMode (signed in, accept)', async () => {
+  it('posts once when the preview settles after mount (signed in, accept)', async () => {
     signIn()
     const accepts = serveAccept(accepted())
     const router = renderAt(ACCEPT_PATH)
