@@ -211,7 +211,7 @@ test('shows the shortcut hint on the header button', async ({ page }) => {
 const CHUNK_URL = /\/src\/components\/features\/command-palette\.tsx(\?|$)/
 
 /** What the toast says when the palette's chunk cannot be fetched. */
-const LOAD_FAILED = 'Search could not be loaded. Reloading the page will fix it.'
+const LOAD_FAILED = 'Search didn’t load. Reload the page to use it.'
 
 /**
  * Aborts the palette's chunk until `held` is cleared, and counts the requests made.

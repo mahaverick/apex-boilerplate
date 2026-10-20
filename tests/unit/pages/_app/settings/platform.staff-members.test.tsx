@@ -264,7 +264,7 @@ describe('/staff with the real sections', () => {
     const user = userEvent.setup()
     renderAppAt('/settings/platform/staff')
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/could not load your role in this tenant/i)
+    expect(alert).toHaveTextContent(/couldn’t load your role in this tenant/i)
     // The invitations section waits silently: no second alert, no invite form.
     expect(screen.getAllByRole('alert')).toHaveLength(1)
     expect(screen.queryByRole('heading', { name: 'Invite staff' })).not.toBeInTheDocument()

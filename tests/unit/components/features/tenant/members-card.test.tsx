@@ -436,7 +436,7 @@ describe('members tab permissions', () => {
     })
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/could not load your role/i)
+    expect(alert).toHaveTextContent(/couldn’t load your role/i)
     expect(document.querySelector('[data-slot="skeleton"]')).toBeNull()
 
     const before = detailCalls
@@ -478,7 +478,7 @@ describe('members tab permissions', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/couldn’t load the members, so none are listed/i)
-    expect(screen.queryByText(/could not load your role/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/couldn’t load your role/i)).not.toBeInTheDocument()
 
     await waitFor(() => {
       expect(memberCalls).toBe(2)
@@ -520,7 +520,7 @@ describe('members tab permissions', () => {
 
     // Without a role the list's controls cannot be decided, so the role failure stands alone and its retry is the one that can fix the page.
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/could not load your role in this tenant/i)
+    expect(alert).toHaveTextContent(/couldn’t load your role in this tenant/i)
     expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Members' })).not.toBeInTheDocument()
   })
@@ -2532,7 +2532,7 @@ describe('the members list', () => {
     await waitFor(() => expect(me.getByRole('button', { name: 'Leave' })).toBeEnabled())
   })
 
-  it('says when the owners could not be loaded, and keeps the last owner locked', async () => {
+  it('says when the owners didn’t load, and keeps the last owner locked', async () => {
     mockTenant('owner', [OWNER_ROW])
     server.use(
       http.get('/api/v1/tenants/acme/members', ({ request }) =>

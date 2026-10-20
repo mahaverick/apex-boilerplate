@@ -367,7 +367,7 @@ describe('platform activity page', () => {
     ).toBeInTheDocument()
   })
 
-  it('says the users could not be loaded, in the actor facet, and retries them', async () => {
+  it('says the users didn’t load, in the actor facet, and retries them', async () => {
     signInAs('admin')
     mockLog(() => page([STAFF_VISIT]))
     let attempts = 0
@@ -382,7 +382,7 @@ describe('platform activity page', () => {
     await screen.findByText(/opened this tenant/)
 
     const popup = await openFacet(user, 'actor')
-    expect(await within(popup).findByText('Actor could not be loaded.')).toBeInTheDocument()
+    expect(await within(popup).findByText('Actor options didn’t load.')).toBeInTheDocument()
     await user.click(within(popup).getByRole('button', { name: 'Try again' }))
     expect(await within(popup).findByRole('checkbox', { name: 'Sam Staff' })).toBeInTheDocument()
   })
@@ -428,7 +428,7 @@ describe('platform activity page', () => {
     expect(seen.at(-1)?.searchParams.get('actor')).toBe(USER_ID_2)
   })
 
-  it('says the tenant list could not be loaded, in the tenant facet', async () => {
+  it('says the tenant list didn’t load, in the tenant facet', async () => {
     signInAs('admin')
     mockLog(() => page([STAFF_VISIT]))
     mockTenantSearch(() => fail('Something went wrong', 500))
@@ -437,7 +437,7 @@ describe('platform activity page', () => {
     await screen.findByText(/opened this tenant/)
 
     const popup = await openFacet(user, 'tenant')
-    expect(await within(popup).findByText('Tenant could not be loaded.')).toBeInTheDocument()
+    expect(await within(popup).findByText('Tenant options didn’t load.')).toBeInTheDocument()
   })
 
   it('asks the tenant picker for no total', async () => {
