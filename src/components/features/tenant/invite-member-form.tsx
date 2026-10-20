@@ -32,6 +32,7 @@ import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
 import { codeFrom, fieldErrorsFrom, messageFrom } from '@/lib/api-error'
+import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { useInviteMember } from '@/queries/tenant-writes.queries'
 import { inviteMemberSchema, type InviteMemberInput } from '@/schemas/tenant.schemas'
@@ -127,6 +128,10 @@ export function InviteMemberForm({
         if (showOnField(error)) return
         if (codeFrom(error) === INVITATION_CONFLICT) {
           serverErrors.setFormErrors([RACED])
+          return
+        }
+        if (isReauthRequired(error)) {
+          serverErrors.setFormErrors([stepUpRefusal(error)])
           return
         }
         serverErrors.capture(error)

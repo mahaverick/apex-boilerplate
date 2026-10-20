@@ -29,6 +29,7 @@ import { useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
 import { codeFrom, messageFrom, retryAfterSecondsFrom, statusFrom } from '@/lib/api-error'
 import { formatTimeLeft } from '@/lib/countdown'
 import { formatDate } from '@/lib/format'
+import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { analyticsKey } from '@/observability/telemetry'
 import { inviterName } from '@/queries/invitation.queries'
@@ -53,11 +54,13 @@ const NO_LONGER_PENDING = 'That invitation is no longer pending.'
 const RESEND_COOLDOWN = 'invitation_resend_cooldown'
 
 /**
- * What a failed resend or revoke tells the reader. Anything but the 404 is
- * the server's own message, a 403 for a role the actor can't grant included.
- * The list refetches either way (the hooks' `onSettled`).
+ * What a failed resend or revoke tells the reader. A step-up refusal says
+ * whether the confirmation was dismissed or did not take. Anything but that
+ * and the 404 is the server's own message, a 403 for a role the actor can't
+ * grant included. The list refetches either way (the hooks' `onSettled`).
  */
 function actionFailure(error: unknown): string {
+  if (isReauthRequired(error)) return stepUpRefusal(error)
   return codeFrom(error) === INVITATION_NOT_FOUND ? NO_LONGER_PENDING : messageFrom(error)
 }
 

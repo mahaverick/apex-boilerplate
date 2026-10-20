@@ -10,12 +10,13 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PendingInvitations } from '@/components/features/tenant/pending-invitations'
-import { StepUpContext } from '@/hooks/use-step-up'
+import { StepUpContext, type StepUp } from '@/hooks/use-step-up'
+import { markRefusedAfterConfirm } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { listPage } from '@/tests/fixtures/list-page'
 import { fail, INVITATION_SENT_MESSAGE, ok, testInvitation } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { TenantInvitation } from '@/types/api.types'
+import { REAUTH_REQUIRED, type TenantInvitation } from '@/types/api.types'
 
 const RESEND_URL = '/api/v1/tenants/acme/invitations/:id/resend'
 const EMAIL = testInvitation.email
@@ -67,13 +68,26 @@ function cooldown(seconds: number): Response {
   )
 }
 
+/** A step-up runner that passes the write straight through. */
+const PASS_THROUGH: StepUp['run'] = (action) => action()
+
+/** A step-up runner whose confirmed retry is refused again, as `useStepUp().run` marks it. */
+const REFUSED_AFTER_CONFIRM: StepUp['run'] = async (action) => {
+  try {
+    return await action()
+  } catch (error) {
+    markRefusedAfterConfirm(error)
+    throw error
+  }
+}
+
 /** Mounts the invitations panel for acme on a router of its own, as `myRole`; `asStaff` asks for a reason. */
-function renderPanel(myRole: 'owner' | 'admin' = 'owner', asStaff = false) {
+function renderPanel(myRole: 'owner' | 'admin' = 'owner', asStaff = false, run = PASS_THROUGH) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const router = createRouter({
     routeTree: createRootRoute({
       component: () => (
-        <StepUpContext.Provider value={{ run: (action) => action() }}>
+        <StepUpContext.Provider value={{ run }}>
           <PendingInvitations slug="acme" myRole={myRole} asStaff={asStaff} />
         </StepUpContext.Provider>
       ),
@@ -322,5 +336,33 @@ describe('PendingInvitations resend countdown on the staff row', () => {
     expect(
       await screen.findByRole('button', { name: `Resend in 5 min, invitation to ${EMAIL}` })
     ).toHaveAttribute('aria-disabled', 'true')
+  })
+})
+
+describe('PendingInvitations after a confirmed retry is refused again', () => {
+  const NOT_CONFIRMED = 'We couldn’t confirm it’s you. Try the action again.'
+  /** express's answer to a write whose sign-in is too old. */
+  const reauth = () => fail("Confirm it's you to continue.", 401, REAUTH_REQUIRED)
+
+  it('says the confirmation did not take on Resend', async () => {
+    const toastError = vi.spyOn(toast, 'error')
+    serveInvitation(null)
+    serveResend(reauth)
+    const user = userEvent.setup()
+    renderPanel('owner', false, REFUSED_AFTER_CONFIRM)
+    await user.click(await screen.findByRole('button', { name: READY }))
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith(NOT_CONFIRMED))
+  })
+
+  it('says the confirmation did not take on Revoke', async () => {
+    const toastError = vi.spyOn(toast, 'error')
+    serveInvitation(null)
+    server.use(http.delete('/api/v1/tenants/acme/invitations/:id', reauth))
+    const user = userEvent.setup()
+    renderPanel('owner', false, REFUSED_AFTER_CONFIRM)
+    await user.click(await screen.findByRole('button', { name: `Revoke invitation to ${EMAIL}` }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Revoke' }))
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith(NOT_CONFIRMED))
   })
 })
