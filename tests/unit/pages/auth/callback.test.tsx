@@ -142,6 +142,8 @@ describe('/auth/callback', () => {
     '/auth/confirm?token=abc',
     '/AUTH/Link/',
     '/invitations/confirm?token=abc&email=a%40b.test',
+    '/auth/%6Cink?token=abc',
+    '/invitations/%61ccept?token=abc',
   ])('does not land on a token page (%s); the user goes to Overview', async (tokenPage) => {
     arriveSignedIn()
     const router = renderAt(`/auth/callback?redirect=${encodeURIComponent(tokenPage)}`)

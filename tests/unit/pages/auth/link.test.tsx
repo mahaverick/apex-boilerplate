@@ -255,6 +255,8 @@ describe('/auth/link, signed out', () => {
       `/invitations/confirm?token=${'y'.repeat(43)}&email=ada%40example.test`,
     ],
     ['/auth/link, cased and slashed', `/Auth/Link/?token=${'y'.repeat(43)}`],
+    ['/auth/link, an escaped letter', `/auth/%6Cink?token=${'y'.repeat(43)}`],
+    ['/invitations/accept, an escaped letter', '/invitations/%61ccept?token=probe'],
   ])('treats a redirect back to a token page (%s) as no redirect', async (_name, tokenPage) => {
     const verify = serveVerify(signedIn({ redirect: tokenPage }))
     const router = renderAt(`${LINK_PATH}&redirect=${encodeURIComponent(tokenPage)}`)
@@ -435,7 +437,7 @@ describe('/auth/link, signed out', () => {
     [
       429,
       () => {
-        const response = fail('Too many attempts. Please try again later.', 429)
+        const response = fail('Too many attempts. Try again in 42 seconds.', 429)
         response.headers.set('Retry-After', '42')
         return response
       },
@@ -457,6 +459,12 @@ describe('/auth/link, signed out', () => {
       'The service is down for maintenance. Try again in 30 seconds.',
     ],
     [
+      // Only a customer-app link reaches this: express refuses a verify in read-only mode only when the click would create the account.
+      'a 503 READ_ONLY_MODE',
+      () => fail('The service is read-only for maintenance.', 503, 'READ_ONLY_MODE'),
+      'We can’t create new accounts during maintenance. Sign in to an account you already have, or try again when maintenance ends.',
+    ],
+    [
       'network',
       () => HttpResponse.error(),
       'We couldn’t reach the server. Check your connection, then try again.',
@@ -467,7 +475,7 @@ describe('/auth/link, signed out', () => {
     const router = renderAt(LINK_PATH)
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: "We couldn't sign you in" })
+      await screen.findByRole('heading', { level: 1, name: 'We couldn’t sign you in' })
     ).toBeVisible()
     expect(screen.queryByText(LINK_DEAD_TITLE)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Email me a new link' })).not.toBeInTheDocument()

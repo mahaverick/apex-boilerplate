@@ -1,5 +1,5 @@
 import '@/lib/zod-jitless'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useLocation, useNavigate } from '@tanstack/react-router'
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from 'react'
 import { z } from 'zod'
 import {
@@ -18,11 +18,12 @@ import { AuthPagePending } from '@/components/shared/pending-templates'
 import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
 import { broadcastAuthMessage } from '@/http/session'
-import { statusFrom } from '@/lib/api-error'
+import { codeFrom, statusFrom } from '@/lib/api-error'
 import { safeLanding } from '@/lib/landing'
 import { retryableFailureMessage } from '@/lib/retry'
 import { useLogout, useVerifySignInLink } from '@/queries/auth.queries'
 import { useAuthStore } from '@/states/auth.store'
+import { READ_ONLY_MODE } from '@/types/api.types'
 
 /**
  * Where a mailed sign-in link opens: `/auth/link?token=…&email=…[&redirect=…]`.
@@ -61,6 +62,14 @@ function LinkCard({
     </AuthLayout>
   )
 }
+
+/**
+ * What a read-only refusal of the verify says. Express refuses a link verify
+ * in read-only maintenance only when the click would create the account, which
+ * only a customer-app link opened here can do: an apex link never creates one.
+ */
+const CREATION_PAUSED_MESSAGE =
+  'We can’t create new accounts during maintenance. Sign in to an account you already have, or try again when maintenance ends.'
 
 /**
  * A link that cannot sign anyone in: it carried no token, or the server
@@ -126,7 +135,10 @@ function SignInLinkPage() {
   const email = rawEmail?.trim() || undefined
   const navigate = useNavigate()
   const verify = useVerifySignInLink()
-  const logout = useLogout({ returnTo: window.location.href })
+  const href = useLocation({ select: (location) => location.href })
+  // Fixed at mount: Continue reloads the link as it opened, token included.
+  const [returnTo] = useState(href)
+  const logout = useLogout({ returnTo })
   const [startedAs] = useState(() => useAuthStore.getState().user)
   /** The last verify's failure, kept while Try again runs so the panel and its focus stay. */
   const [failure, setFailure] = useState<{ error: unknown } | null>(null)
@@ -197,9 +209,13 @@ function SignInLinkPage() {
   if (failure) {
     if (statusFrom(failure.error) === 400) return <DeadLink email={email} redirect={redirect} />
     return (
-      <LinkCard title="We couldn't sign you in">
+      <LinkCard title="We couldn’t sign you in">
         <VerifyFailedPanel
-          message={retryableFailureMessage(failure.error, 'sign-in attempts')}
+          message={
+            codeFrom(failure.error) === READ_ONLY_MODE
+              ? CREATION_PAUSED_MESSAGE
+              : retryableFailureMessage(failure.error, 'sign-in attempts')
+          }
           retrying={verify.isPending}
           onRetry={() => post(token)}
         />
