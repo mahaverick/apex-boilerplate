@@ -129,3 +129,54 @@ test('the email wait counts its Resend down and opens it, then says the link exp
   // The action still waits: only Cancel ends it.
   await expect(stepUp).toBeVisible()
 })
+
+test('a stray confirmation with no newer sign-in leaves the dialog waiting', async ({ page }) => {
+  const suspends: number[] = []
+  page.on('response', (response) => {
+    if (new URL(response.url()).pathname.endsWith('/suspend')) suspends.push(response.status())
+  })
+  const { stepUp } = await openStepUpOverSuspend(page, '&stepup=once')
+  await stepUp.getByRole('button', { name: 'Email me a link' }).click()
+  await expect(stepUp.getByText('We sent the link to', { exact: false })).toBeVisible()
+  const refreshes: number[] = []
+  page.on('response', (response) => {
+    if (new URL(response.url()).pathname === '/api/v1/auth/refresh') {
+      refreshes.push(response.status())
+    }
+  })
+
+  // The Google popup's landing broadcasts, but nothing confirmed: the session's auth_time is unchanged.
+  const second = await page.context().newPage()
+  try {
+    await second.goto(`/e2e/harness/?path=${encodeURIComponent('/auth/confirm?result=confirmed')}`)
+
+    // A refresh that brings no newer auth_time is tried once more, for one already in flight, then the dialog goes back to waiting.
+    await expect.poll(() => refreshes.length).toBe(2)
+    await expect(stepUp.getByText('We sent the link to', { exact: false })).toBeVisible()
+    expect(suspends).toEqual([401])
+  } finally {
+    // Chromium ignores the page's own window.close() in a tab no script opened.
+    await second.close()
+  }
+})
+
+test('a retry refused after a confirmation says so and never reopens the dialog', async ({
+  page,
+}) => {
+  const suspends: number[] = []
+  page.on('response', (response) => {
+    if (new URL(response.url()).pathname.endsWith('/suspend')) suspends.push(response.status())
+  })
+  // Without `?stepup=once` every suspend is refused, the confirmed retry included.
+  const { reason, stepUp } = await openStepUpOverSuspend(page)
+  await stepUp.getByRole('button', { name: 'Email me a link' }).click()
+  await expect(stepUp.getByText('We sent the link to', { exact: false })).toBeVisible()
+
+  await confirmInSecondTab(page)
+
+  await expect(
+    reason.getByText('We couldn’t confirm it’s you. Try the action again.')
+  ).toBeVisible()
+  await expect(stepUp).toBeHidden()
+  expect(suspends).toEqual([401, 401])
+})

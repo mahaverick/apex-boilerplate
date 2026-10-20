@@ -14,6 +14,7 @@ import { setupWorker } from 'msw/browser'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@/styles/globals.css'
+import { authTimeOf } from '@/lib/step-up'
 import { profileKeys } from '@/queries/profile.queries'
 import { queryClient, router } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
@@ -271,13 +272,28 @@ function harnessToken(authTime = sessionAuthTime()): string {
 }
 
 /**
- * `?stepup=once` answers the first suspend with the step-up refusal and every
- * later one with the suspended tenant, which the tenant's page then reads, so
- * a confirmation's retry lands. Without it, every suspend is refused.
+ * `?stepup=once` refuses a suspend whose bearer has not confirmed in the last
+ * 10 minutes, as express's `requireRecentAuth` does, and answers any other
+ * with the suspended tenant, which the tenant's page then reads. So only a
+ * retry that carries the confirmed token lands. Without it, every suspend is
+ * refused.
  */
 const stepUpOnce = params.get('stepup') === 'once'
-/** The suspends the harness has answered in this page load, and whether Acme is suspended now. */
-const suspension = { calls: 0, suspended: false }
+/** Whether Acme is suspended now, in this page load. */
+const suspension = { suspended: false }
+
+/** express's `STEP_UP_MAX_AGE_MS`: how recent a confirmation the step-up routes accept. */
+const STEP_UP_MAX_AGE_MS = 10 * 60 * 1000
+
+/**
+ * express's `requireRecentAuth`: whether the request's bearer carries an
+ * `auth_time` within `STEP_UP_MAX_AGE_MS` of now.
+ */
+function hasRecentAuth(request: Request): boolean {
+  const bearer = request.headers.get('Authorization')?.replace(/^Bearer /, '') ?? null
+  const authTime = authTimeOf(bearer)
+  return authTime !== null && Date.now() - authTime * 1000 <= STEP_UP_MAX_AGE_MS
+}
 
 /** How a list handler reads a request: the params that narrow the rows, then the page. */
 interface ServeOptions<T> {
@@ -1177,18 +1193,9 @@ const MAINTENANCE_VIEW =
         environment: 'staging',
       }
 
-/** The API's step-up refusal, for the writes the fixtures drive into the stacked dialog. */
+/** express's step-up refusal (`requireRecentAuth`), for the writes the fixtures drive into the stacked dialog. */
 function reauthRequired() {
-  return Response.json(
-    {
-      success: false,
-      message: 'Recent sign-in required',
-      statusCode: 401,
-      code: 'REAUTH_REQUIRED',
-      requestId: 'harness',
-    },
-    { status: 401 }
-  )
+  return fail("Confirm it's you to continue.", 401, 'REAUTH_REQUIRED')
 }
 
 /**
@@ -1540,10 +1547,9 @@ const worker = setupWorker(
       'Emails retrieved.'
     )
   }),
-  // Suspending a tenant, inviting an owner and deactivating a user answer with the step-up refusal, so the fixtures can open the stacked step-up dialog; `?stepup=once` lets a suspend's retry through.
-  http.post('/api/v1/platform/tenants/:tenantId/suspend', ({ params: { tenantId } }) => {
-    suspension.calls += 1
-    if (!stepUpOnce || suspension.calls === 1) return reauthRequired()
+  // Suspending a tenant, inviting an owner and deactivating a user answer with the step-up refusal, so the fixtures can open the stacked step-up dialog; `?stepup=once` lets through a suspend whose bearer confirmed in the last 10 minutes.
+  http.post('/api/v1/platform/tenants/:tenantId/suspend', ({ request, params: { tenantId } }) => {
+    if (!stepUpOnce || !hasRecentAuth(request)) return reauthRequired()
     suspension.suspended = true
     return ok(tenantDetail(String(tenantId)), 'Tenant suspended.')
   }),
@@ -1650,7 +1656,7 @@ const worker = setupWorker(
   // A refresh is answered here so it never falls through to a real backend; its token carries the session's latest confirmation.
   http.post('/api/v1/auth/refresh', () =>
     hasRefreshCookie
-      ? ok({ accessToken: harnessToken(), user: testUser }, 'Session refreshed.')
+      ? ok({ accessToken: harnessToken() }, 'Token refreshed.')
       : fail('Missing refresh token', 401)
   )
 )
