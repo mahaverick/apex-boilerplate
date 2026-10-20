@@ -1,5 +1,22 @@
 # Changelog
 
+## [7.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v6.0.0...v7.0.0) (2026-10-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **errors:** map member and route 404s by code only
+* **staff:** apex needs an API that sends member_not_found on every member 404 and not_found on route and role-gate 404s; a codeless "Member not found" 404 is no longer read as a departed member.
+
+### Bug Fixes
+
+* **copy:** reword apex's legacy load errors and toasts to the copy rules ([afee6bc](https://github.com/mahaverick/apex-boilerplate/commit/afee6bc40c23f03ce4eb52129b8aeeb64bf71d25))
+* **errors:** map member and route 404s by code only ([afee6bc](https://github.com/mahaverick/apex-boilerplate/commit/afee6bc40c23f03ce4eb52129b8aeeb64bf71d25))
+* **errors:** never show express's not_found sentence to staff ([afee6bc](https://github.com/mahaverick/apex-boilerplate/commit/afee6bc40c23f03ce4eb52129b8aeeb64bf71d25))
+* **queries:** a cancelled auth providers read aborts its request ([afee6bc](https://github.com/mahaverick/apex-boilerplate/commit/afee6bc40c23f03ce4eb52129b8aeeb64bf71d25))
+* **staff:** name the platform tenant "the staff team" wherever staff see it ([afee6bc](https://github.com/mahaverick/apex-boilerplate/commit/afee6bc40c23f03ce4eb52129b8aeeb64bf71d25))
+* **users:** label a pending staff invitation "Staff team" ([afee6bc](https://github.com/mahaverick/apex-boilerplate/commit/afee6bc40c23f03ce4eb52129b8aeeb64bf71d25))
+
 ## [6.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v5.0.0...v6.0.0) (2026-10-20)
 
 
