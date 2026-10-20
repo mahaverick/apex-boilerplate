@@ -332,7 +332,7 @@ describe('confirm page, signed out', () => {
 
     await user.click(screen.getByRole('button', { name: 'Email me a sign-in link' }))
     expect(await screen.findByRole('heading', { level: 1, name: CHECK_INBOX_TITLE })).toBeVisible()
-    // An apex link, so a staff invitee's request mails the invitation again.
+    // An apex link, so a staff invitee's request mails the confirmation link, which joins in one click.
     expect(requests).toEqual([{ email: SERVER_EMAIL, app: 'apex' }])
   })
 

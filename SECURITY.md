@@ -519,8 +519,9 @@ people out of pages that would fail.
   defaults to the customer app, and staff would get a customer-app link.
 - **A sign-in never makes staff.** Express mails an Apex sign-in link only to
   existing, active staff. Outside `full` maintenance, an address with a
-  pending staff invitation is mailed that invitation again, which opens
-  `/invitations/accept`. Any other address gets no mail. Every address gets
+  pending staff invitation is mailed the invitation's confirmation link,
+  which opens `/invitations/confirm` and joins in one click. Any other
+  address gets no mail. Every address gets
   the same "Check your inbox" answer, so the page never says who is staff.
   An Apex link or Google sign-in never creates an account, and a non-staff
   Google profile comes back as the one generic `google_auth_failed` refusal
