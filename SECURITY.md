@@ -518,8 +518,9 @@ people out of pages that would fail.
   returns the user, and the links it mails, to this app. Without it express
   defaults to the customer app, and staff would get a customer-app link.
 - **A sign-in never makes staff.** Express mails an Apex sign-in link only to
-  existing staff, or to someone holding a valid staff invitation; any other
-  address gets the same "Check your inbox" answer and no mail, so the page
+  existing staff. An address with a pending staff invitation is mailed that
+  invitation again, which opens `/invitations/accept`. Any other address gets
+  no mail. Every address gets the same "Check your inbox" answer, so the page
   never says who is staff. An Apex link or Google sign-in never creates an
   account, and a non-staff Google profile comes back as the one generic
   `google_auth_failed` refusal on `/login`. There is no domain auto-join:
