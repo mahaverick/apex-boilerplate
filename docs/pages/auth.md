@@ -33,8 +33,6 @@ Staff sign in by emailed link or Google. There is no password, no registration, 
 
 On Apex every refused Google profile (unknown, a customer, a deactivated account) is the one `google_auth_failed`, in every maintenance mode, so no toast says which.
 
-Findings: [F-auth-5](findings.md#f-auth-5)
-
 ### `/auth/link` — Sign in by emailed link
 
 |                     |                                                                                                                                                                                                                         |
