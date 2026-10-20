@@ -627,7 +627,8 @@ async function linkStartingWith(email: string, prefix: string): Promise<string> 
     const message = await fetch(`${MAILPIT_ORIGIN}/api/v1/message/${ID}`)
     const body = (await message.json()) as { Text?: string }
     const match = pattern.exec(body.Text ?? '')
-    if (match) return match[0]
+    // The mailed text carries `&` as `&amp;`, so decode it before the link is parsed.
+    if (match) return match[0].replaceAll('&amp;', '&')
   }
   return ''
 }

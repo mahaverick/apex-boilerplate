@@ -83,10 +83,18 @@ test('a staff reminder is a tracked email to the owner, and a staff completion i
   await expect(page.getByText(/^Reminder sent .+; the next one can go after .+\.$/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Send reminder' })).toHaveCount(0)
 
-  // Its link opens the tenant in the customer app (express's WEB_URL), and carries no token.
+  // Its link opens the tenant in the customer app (express's WEB_URL), and carries UTM params and no token.
   const link = await mailedLinkStartingWith(owner, `${WEB_ORIGIN}/tenants/`)
-  expect(new URL(link).pathname).toBe(`/tenants/${slug}`)
-  expect(new URL(link).search).toBe('')
+  const url = new URL(link)
+  expect(url.pathname).toBe(`/tenants/${slug}`)
+  expect(Object.fromEntries(url.searchParams)).toEqual({
+    utm_source: 'email',
+    utm_medium: 'email',
+    utm_campaign: 'onboarding_reminder',
+    utm_content: 'primary_button',
+  })
+  expect(url.searchParams.has('token')).toBe(false)
+  expect(url.searchParams.has('email')).toBe(false)
 
   // The reminder is a tracked email, and the history links to it.
   const messageId = await emailIdFor(token, owner, 'onboarding_reminder')
