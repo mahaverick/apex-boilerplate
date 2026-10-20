@@ -31,7 +31,8 @@ export async function refreshProfile(queryClient: QueryClient): Promise<void> {
 export function useProfile() {
   return useQuery({
     queryKey: profileKeys.detail,
-    queryFn: async () => unwrap(await apiClient.get<ApiSuccess<User>>('/profile')),
+    queryFn: async ({ signal }) =>
+      unwrap(await apiClient.get<ApiSuccess<User>>('/profile', { signal })),
     /** Paints from the user the session bootstrap stored, not empty inputs. */
     initialData: () => useAuthStore.getState().user ?? undefined,
   })

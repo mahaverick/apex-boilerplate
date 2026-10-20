@@ -67,9 +67,11 @@ export function isMaintenanceModeConflict(error: unknown): error is MaintenanceM
 export function maintenanceModeQueryOptions() {
   return queryOptions({
     queryKey: maintenanceModeKeys.view,
-    queryFn: async () =>
+    queryFn: async ({ signal }) =>
       unwrap(
-        await apiClient.get<ApiSuccess<PlatformMaintenanceModeView>>('/platform/maintenance-mode')
+        await apiClient.get<ApiSuccess<PlatformMaintenanceModeView>>('/platform/maintenance-mode', {
+          signal,
+        })
       ),
     refetchInterval: (query) => {
       if (isRoleDenied(query.state.error)) return false

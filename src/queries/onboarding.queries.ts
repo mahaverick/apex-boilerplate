@@ -93,10 +93,11 @@ function retryUnlessDenied(failureCount: number, error: Error): boolean {
 export function onboardingFunnelQueryOptions(range: OnboardingRange) {
   return queryOptions({
     queryKey: onboardingKeys.funnel(range),
-    queryFn: async () =>
+    queryFn: async ({ signal }) =>
       unwrap(
         await apiClient.get<ApiSuccess<OnboardingFunnel>>('/platform/onboarding/funnel', {
           params: { range },
+          signal,
         })
       ),
     placeholderData: keepPreviousData,
@@ -108,10 +109,11 @@ export function onboardingFunnelQueryOptions(range: OnboardingRange) {
 export function tenantOnboardingQueryOptions(id: string) {
   return queryOptions({
     queryKey: onboardingKeys.tenant(id),
-    queryFn: async () =>
+    queryFn: async ({ signal }) =>
       unwrap(
         await apiClient.get<ApiSuccess<TenantOnboardingDetail>>(
-          `/platform/tenants/${id}/onboarding`
+          `/platform/tenants/${id}/onboarding`,
+          { signal }
         )
       ),
     retry: retryUnlessDenied,

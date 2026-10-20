@@ -29,9 +29,12 @@ export const STATS_RANGES = ['7d', '30d'] as const satisfies readonly StatsRange
 export function platformStatsQueryOptions(range: StatsRange) {
   return queryOptions({
     queryKey: platformKeys.stats(range),
-    queryFn: async () =>
+    queryFn: async ({ signal }) =>
       unwrap(
-        await apiClient.get<ApiSuccess<PlatformStats>>('/platform/stats', { params: { range } })
+        await apiClient.get<ApiSuccess<PlatformStats>>('/platform/stats', {
+          params: { range },
+          signal,
+        })
       ),
     /** Switching the window keeps the current figures up until the new ones land, rather than flashing skeletons. */
     placeholderData: keepPreviousData,
@@ -50,8 +53,8 @@ export function platformStatsQueryOptions(range: StatsRange) {
 export function systemStatusQueryOptions() {
   return queryOptions({
     queryKey: platformKeys.systemStatus,
-    queryFn: async () =>
-      unwrap(await apiClient.get<ApiSuccess<SystemStatus>>('/platform/system/status')),
+    queryFn: async ({ signal }) =>
+      unwrap(await apiClient.get<ApiSuccess<SystemStatus>>('/platform/system/status', { signal })),
     refetchInterval: (query) =>
       isRoleDenied(query.state.error) ? false : SYSTEM_STATUS_REFETCH_MS,
     /** A 404 answers who is asking, so a retry changes nothing. */

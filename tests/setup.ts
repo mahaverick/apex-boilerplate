@@ -131,4 +131,59 @@ afterEach(() => {
   resetListPositions()
   server.resetHandlers()
 })
-afterAll(() => server.close())
+/**
+ * The frame callbacks still queued, by the handle `requestAnimationFrame`
+ * returned. The wrappers below keep it, so `runQueuedFrames` can run them
+ * without jsdom's frame loop.
+ */
+const queuedFrames = new Map<number, FrameRequestCallback>()
+
+if (typeof window !== 'undefined' && window.requestAnimationFrame) {
+  const requestFrame = window.requestAnimationFrame.bind(window)
+  const cancelFrame = window.cancelAnimationFrame.bind(window)
+  window.requestAnimationFrame = (callback) => {
+    const handle = requestFrame((time) => {
+      queuedFrames.delete(handle)
+      callback(time)
+    })
+    queuedFrames.set(handle, callback)
+    return handle
+  }
+  window.cancelAnimationFrame = (handle) => {
+    queuedFrames.delete(handle)
+    cancelFrame(handle)
+  }
+}
+
+/**
+ * Runs every frame callback still queued, before jsdom is torn down.
+ * Recharts' Redux store batches its notifications on a `requestAnimationFrame`,
+ * with a 100 ms Node `setTimeout` as fallback, and the frame's callback clears
+ * that timer. If the teardown closes the window first, the frame never runs.
+ * The timer then fires in a window-less worker, calls the removed
+ * `cancelAnimationFrame`, and throws an uncaught ReferenceError.
+ *
+ * The callbacks run here, synchronously, rather than on jsdom's frame loop.
+ * That loop is a `setInterval`: a file that fakes `setInterval` while the loop
+ * starts leaves it dead, so waiting on a frame would hang. A callback that
+ * queues another frame gets up to three more rounds. Whatever is left after
+ * that is cancelled unrun. Every component is unmounted by now, and Redux
+ * Toolkit's callback runs in the first round and queues nothing.
+ */
+function runQueuedFrames(): void {
+  for (let round = 0; round < 4 && queuedFrames.size > 0; round += 1) {
+    for (const [handle, callback] of [...queuedFrames]) {
+      // A callback earlier in the round may have cancelled this one.
+      if (!queuedFrames.has(handle)) continue
+      window.cancelAnimationFrame(handle)
+      callback(performance.now())
+    }
+  }
+  for (const handle of [...queuedFrames.keys()]) window.cancelAnimationFrame(handle)
+}
+
+afterAll(() => {
+  vi.useRealTimers()
+  runQueuedFrames()
+  server.close()
+})

@@ -34,7 +34,7 @@ export const invitationKeys = {
 export function useInvitationPreview(token: string | undefined) {
   return useQuery({
     queryKey: invitationKeys.preview(token ?? ''),
-    queryFn: async () =>
+    queryFn: async ({ signal }) =>
       unwrap(
         await apiClient.post<ApiSuccess<InvitationPreview>>(
           '/invitations/preview',
@@ -42,6 +42,7 @@ export function useInvitationPreview(token: string | undefined) {
           {
             headers: { Authorization: false },
             skipAuthRetry: true,
+            signal,
           }
         )
       ),
