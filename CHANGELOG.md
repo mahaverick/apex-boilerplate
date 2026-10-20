@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.0.1](https://github.com/mahaverick/apex-boilerplate/compare/v7.0.0...v7.0.1) (2026-10-20)
+
+
+### Bug Fixes
+
+* **copy:** absolute dates, named references, units and no vague time in apex copy ([#92](https://github.com/mahaverick/apex-boilerplate/issues/92)) ([1d65bb3](https://github.com/mahaverick/apex-boilerplate/commit/1d65bb36bb839d2a75dbf5f2e167d93b0c333a87))
+
 ## [7.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v6.0.0...v7.0.0) (2026-10-20)
 
 
