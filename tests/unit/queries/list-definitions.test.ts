@@ -74,13 +74,13 @@ describe('the apex list definitions', () => {
     expect(
       requestFor(usersList, {
         status: 'deleted',
-        verified: false,
+        signedIn: false,
         staff: true,
         sort: '-lastSignIn',
       })
     ).toEqual({
       status: 'deleted',
-      verified: false,
+      signedIn: false,
       staff: true,
       sort: '-lastSignIn',
     })
@@ -197,9 +197,14 @@ describe('the apex list definitions', () => {
       'tenant.timeline_viewed',
       'user.errors_viewed',
       'tenant.errors_viewed',
+      'auth.reauthenticated',
+      'user.password_setup_sent',
     ]
     for (const name of retired) expect(AUDIT_ACTIONS).not.toContain(name)
-    expect(AUDIT_ACTIONS).toHaveLength(36)
+    expect(AUDIT_ACTIONS).toHaveLength(35)
+    expect(requestFor(platformActivityList, { action: 'auth.reauthenticated' })).toEqual({
+      action: 'auth.reauthenticated',
+    })
     expect(requestFor(platformActivityList, { action: 'user.errors_viewed,user.created' })).toEqual(
       {
         action: 'user.created,user.errors_viewed',

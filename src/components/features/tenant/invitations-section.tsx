@@ -7,8 +7,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { canManageTenant } from '@/constants/roles'
 import { useMyRole } from '@/queries/tenant.queries'
 
+/** A customer tenant's invite card: a new address joins on the click, an existing account confirms by a sign-in link. */
 const DEFAULT_INVITE_DESCRIPTION =
-  'We email them a link to join. Someone without an account can create one with that address, then open the link again.'
+  'We email them an invitation that expires in 3 days. Someone new joins in one click. Someone with an account gets a sign-in link to confirm.'
 
 /**
  * Invite form and pending invitations. The invitation routes are owner/admin
@@ -22,10 +23,13 @@ export function InvitationsSection({
   inviteDescription = DEFAULT_INVITE_DESCRIPTION,
   tenantId,
   showRoleError = true,
+  submitLabel,
 }: {
   slug: string
   inviteTitle?: string
   inviteDescription?: string
+  /** The invite button's text; the form's own default when unset. */
+  submitLabel?: string
   /** An Apex tenant page's id, scoping the cache; the Staff page passes none. */
   tenantId?: string
   /** False when a sibling section on the page reads the same role and reports its failure, so it shows once (the Staff page). Try again there retries this one too. */
@@ -54,7 +58,13 @@ export function InvitationsSection({
           <CardDescription>{inviteDescription}</CardDescription>
         </CardHeader>
         <CardContent>
-          <InviteMemberForm slug={slug} myRole={role} asStaff={asStaff} tenantId={tenantId} />
+          <InviteMemberForm
+            slug={slug}
+            myRole={role}
+            asStaff={asStaff}
+            tenantId={tenantId}
+            submitLabel={submitLabel}
+          />
         </CardContent>
       </Card>
       <PendingInvitations slug={slug} myRole={role} asStaff={asStaff} tenantId={tenantId} />

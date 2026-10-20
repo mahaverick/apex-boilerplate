@@ -1,87 +1,149 @@
-import { useIsMutating, useMutation, useQuery } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ROUTES } from '@/constants/routes'
 import { apiClient, unwrap } from '@/http/client'
-import { broadcastLogout } from '@/http/session'
-import { statusFrom } from '@/lib/api-error'
+import {
+  broadcastAuthMessage,
+  broadcastLogout,
+  ensureSession,
+  isAuthVerdict,
+  switchIdentity,
+} from '@/http/session'
+import { codeFrom, statusFrom } from '@/lib/api-error'
 import { toast } from '@/lib/toast'
-import type {
-  ChangePasswordInput,
-  ForgotPasswordInput,
-  LoginInput,
-  RegisterInput,
-  ResendVerificationInput,
-  ResetPasswordInput,
-  VerifyEmailInput,
-} from '@/schemas/auth.schemas'
+import { track } from '@/observability/telemetry'
 import { useAuthStore } from '@/states/auth.store'
-import type { ApiSuccess, AuthProviders, User } from '@/types/api.types'
-
-/** What `POST /auth/login` answers: the access token and the signed-in user. */
-interface AuthPayload {
-  accessToken: string
-  user: User
-}
+import {
+  ACCESS_TOKEN_EXPIRED,
+  type ApiSuccess,
+  type AuthProviders,
+  type User,
+} from '@/types/api.types'
 
 /** Which frontend the API should link back to: this one. The API accepts only 'web' or 'apex'. */
 const APP = 'apex' as const
 
+/** What `POST /auth/link/verify` answers: the session, whether this click created the account, and the path stored with the link. */
+interface LinkSignIn {
+  accessToken: string
+  user: User
+  isNewUser: boolean
+  redirect: string | null
+}
+
+/**
+ * What a sign-in link verify posts: the token, and the address the link names
+ * when it names one; a blank one is left out. The server refuses an address
+ * that is not the token's own, so a page can show it while verifying without
+ * trusting the URL.
+ */
+interface SignInLinkVerifyInput {
+  token: string
+  email?: string | undefined
+}
+
 /** The key of the caller's linked sign-in methods, `['auth', 'providers']`. */
 export const authKeys = { providers: ['auth', 'providers'] as const }
 
-/** Signs in with an email and password, and stores the access token and user. */
-export function useLogin() {
-  const login = useAuthStore((s) => s.login)
+/**
+ * Requests a sign-in link that opens this app. The API answers 202 whether or
+ * not the address has an account, so success says nothing about the address.
+ * `redirect` is the same-origin path to land on after signing in; it is left
+ * out when absent. No bearer token and no refresh retry: the request is public.
+ */
+export function useRequestSignInLink() {
   return useMutation({
-    mutationFn: async (input: LoginInput) =>
-      unwrap(await apiClient.post<ApiSuccess<AuthPayload>>('/auth/login', input)),
-    onSuccess: (data) => login(data.accessToken, data.user),
+    mutationFn: async (input: { email: string; redirect?: string }) => {
+      await apiClient.post<ApiSuccess<null>>(
+        '/auth/link/request',
+        { email: input.email, app: APP, redirect: input.redirect },
+        { skipAuthRetry: true, headers: { Authorization: false } }
+      )
+    },
+    onSuccess: () => track('sign_in_link_requested'),
   })
 }
 
-/** Registers an address; the API answers 202 with `data: null` whether or not it was free. */
-export function useRegister() {
+/**
+ * Signs in with the token from an emailed link. Public like the request, so a
+ * stale bearer token is never sent. The link's address goes with the token,
+ * so the server refuses a link whose address was swapped for someone else's.
+ * A different signed-in user is switched out first (`switchIdentity`). The
+ * store is signed in before `sign_in_completed` is tracked, so the event
+ * carries the new identity.
+ */
+export function useVerifySignInLink() {
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: RegisterInput) =>
-      unwrap(await apiClient.post<ApiSuccess<null>>('/auth/register', { ...input, app: APP })),
+    mutationFn: async ({ token, email }: SignInLinkVerifyInput) => {
+      // The API counts an empty or blank address as a mismatch, so a link without one sends none.
+      const address = email?.trim()
+      return unwrap(
+        await apiClient.post<ApiSuccess<LinkSignIn>>(
+          '/auth/link/verify',
+          address ? { token, email: address } : { token },
+          { skipAuthRetry: true, headers: { Authorization: false } }
+        )
+      )
+    },
+    onSuccess: ({ accessToken, user }) => {
+      switchIdentity(queryClient, user.id)
+      useAuthStore.getState().login(accessToken, user)
+      track('sign_in_completed', { method: 'link' })
+    },
   })
 }
 
-/** Asks the API to mail a reset link that opens this app; it answers alike whether or not the address has an account. */
-export function useForgotPassword() {
+/** Posts a step-up link's token with the current bearer, refusing the interceptor's refresh-and-retry. */
+async function postStepUpLink(token: string) {
+  return unwrap(
+    await apiClient.post<ApiSuccess<{ accessToken: string }>>(
+      '/auth/step-up/link/verify',
+      { token },
+      { skipAuthRetry: true }
+    )
+  )
+}
+
+/**
+ * Confirms it's the signed-in person with the token from an emailed "Confirm
+ * it's you" link (express `POST /auth/step-up/link/verify`). It carries this
+ * session's bearer, because the API binds the link to the session that asked
+ * for it.
+ *
+ * An expired access token (401 `ACCESS_TOKEN_EXPIRED`) is refreshed once
+ * through `ensureSession()` and the token posted again; the refresh keeps the
+ * session id, so the binding still holds. The interceptor's own retry is
+ * skipped because its verdict path calls `redirectToLogin()`, which would
+ * carry the token into `/login?redirect=`. A refresh verdict rejects with the
+ * original 401, which the page reads as the session's end; any other refresh
+ * failure rejects with that failure, which leaves the link usable.
+ *
+ * On success it swaps in the new access token, whose `auth_time` is now, and
+ * tells the waiting tab, which refreshes and retries its action.
+ */
+export function useConfirmStepUpLink() {
   return useMutation({
-    mutationFn: async (input: ForgotPasswordInput) =>
-      apiClient.post<ApiSuccess<unknown>>('/auth/forgot-password', { ...input, app: APP }),
+    mutationFn: async (token: string) => {
+      try {
+        return await postStepUpLink(token)
+      } catch (error) {
+        if (statusFrom(error) !== 401 || codeFrom(error) !== ACCESS_TOKEN_EXPIRED) throw error
+        try {
+          await ensureSession()
+        } catch (refreshError) {
+          throw isAuthVerdict(refreshError) ? error : refreshError
+        }
+        return postStepUpLink(token)
+      }
+    },
+    onSuccess: ({ accessToken }) => {
+      useAuthStore.getState().setToken(accessToken)
+      broadcastAuthMessage('step_up_confirmed')
+    },
   })
 }
 
-/** Resets the password with the emailed token; `confirmPassword` stays client-side. */
-export function useResetPassword() {
-  return useMutation({
-    mutationFn: async (input: ResetPasswordInput) =>
-      apiClient.post<ApiSuccess<unknown>>('/auth/reset-password', {
-        token: input.token,
-        password: input.password,
-      }),
-  })
-}
-
-/** Verifies an address with the emailed token and the account's password. */
-export function useVerifyEmail() {
-  return useMutation({
-    mutationFn: async (input: VerifyEmailInput) =>
-      apiClient.post<ApiSuccess<unknown>>('/auth/verify-email', input),
-  })
-}
-
-/** Asks the API to mail a fresh verification link; it answers alike whether or not the address needs one. */
-export function useResendVerification() {
-  return useMutation({
-    mutationFn: async (input: ResendVerificationInput) =>
-      apiClient.post<ApiSuccess<unknown>>('/auth/resend-verification', { ...input, app: APP }),
-  })
-}
-
-/** The sign-in methods linked to the caller's account, and whether it has a password. */
+/** The sign-in methods linked to the caller's account. */
 export function useAuthProviders() {
   return useQuery({
     queryKey: authKeys.providers,
@@ -90,16 +152,36 @@ export function useAuthProviders() {
 }
 
 /**
- * Changes the caller's password; `confirmPassword` stays client-side. The API
- * keeps this session and revokes every other one.
+ * Mails a "Confirm it's you" link for this session (express
+ * `POST /auth/step-up/link/request`, which takes `{}`). It answers 202 with
+ * when the next request may mail again; inside that wait, a 429
+ * `STEP_UP_LINK_COOLDOWN` with `Retry-After`.
  */
-export function useChangePassword() {
+export function useRequestStepUpLink() {
   return useMutation({
-    mutationFn: async (input: ChangePasswordInput) =>
-      apiClient.post<ApiSuccess<null>>('/auth/change-password', {
-        currentPassword: input.currentPassword,
-        newPassword: input.newPassword,
-      }),
+    mutationFn: async () =>
+      unwrap(
+        await apiClient.post<ApiSuccess<{ resendAvailableAt: string }>>(
+          '/auth/step-up/link/request',
+          {}
+        )
+      ),
+  })
+}
+
+/**
+ * Records a Google "Confirm it's you" for this session (express
+ * `POST /auth/step-up/google/start`, which takes `{}` and answers 204 with the
+ * OAuth session cookie). The popup's navigation to `GOOGLE_STEP_UP_PATH`
+ * carries that cookie and no bearer, which is why the start is its own call.
+ * A 409 `google_not_linked` means the account has no Google sign-in, and a
+ * 404 means Google sign-in is off on this API.
+ */
+export function useStartGoogleStepUp() {
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.post('/auth/step-up/google/start', {})
+    },
   })
 }
 
@@ -120,7 +202,7 @@ export function useRevokeOtherSessions() {
   })
 }
 
-const LOGOUT_FAILED_MESSAGE = "Couldn't sign out. Check your connection and try again."
+const LOGOUT_FAILED_MESSAGE = 'Couldn’t sign out. Check your connection and try again.'
 
 /** Names the sign-out mutation, so every sign-out control sees one in flight. */
 const LOGOUT_KEY = ['auth', 'logout'] as const
@@ -159,24 +241,5 @@ export function useLogout({ returnTo = ROUTES.login }: { returnTo?: string } = {
       }
       toast.error(LOGOUT_FAILED_MESSAGE)
     },
-  })
-}
-
-/**
- * Confirms the signed-in user's password for a step-up (express
- * `POST /auth/reauthenticate`) and swaps in the fresh access token it
- * returns, which carries a fresh `auth_time`. A wrong password is a 400, never
- * a 401, so the interceptor never reads it as a verdict on the session.
- */
-export function useReauthenticate() {
-  const setToken = useAuthStore((s) => s.setToken)
-  return useMutation({
-    mutationFn: async (password: string) =>
-      unwrap(
-        await apiClient.post<ApiSuccess<{ accessToken: string }>>('/auth/reauthenticate', {
-          password,
-        })
-      ),
-    onSuccess: (data) => setToken(data.accessToken),
   })
 }

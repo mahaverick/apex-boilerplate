@@ -24,7 +24,8 @@ export const Route = createFileRoute('/no-access')({
 
 /**
  * Signed in, but not platform staff. It names the account, since the fix is
- * often "you signed in with the wrong one", and lists the ways in.
+ * often "you signed in with the wrong one", and lists the ways in: staff join
+ * only by invitation.
  */
 function NoAccessPage() {
   const email = useAuthStore((state) => state.user?.email)
@@ -41,12 +42,8 @@ function NoAccessPage() {
         }
       >
         <ul className="grid list-disc gap-2 pl-5 text-sm text-muted-foreground">
-          <li>If you were invited, open the invitation link again while signed in.</li>
+          <li>If you were invited, open the invitation email and select Join.</li>
           <li>Otherwise, ask a platform admin to invite you.</li>
-          <li>
-            If your organisation uses an allow-listed email domain, verify that address, then sign
-            in again: access is granted at sign-in.
-          </li>
         </ul>
         <Button variant="outline" disabled={logout.isPending} onClick={() => logout.mutate()}>
           Sign out

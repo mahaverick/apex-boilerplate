@@ -20,7 +20,6 @@ const ME: PlatformUserDetail = {
   deletedAt: null,
   platformRole: 'admin',
   membershipCount: 0,
-  hasPassword: true,
   authProviders: ['email'],
   memberships: [],
   pendingInvitations: [],

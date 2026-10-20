@@ -30,6 +30,7 @@ import type {
   OnboardingStepDetail,
   OnboardingTenantRow,
   PlatformStats,
+  PlatformUserDetail,
   SystemStatus,
   TenantAccess,
   TenantInvitation,
@@ -48,6 +49,24 @@ export const testUser: User = {
   analyticsOptOut: false,
 }
 
+/** `testUser` as `GET /platform/users/:userId` answers it: an active platform admin in no customer tenant. */
+export const testUserDetail: PlatformUserDetail = {
+  id: testUser.id,
+  email: testUser.email,
+  firstName: testUser.firstName,
+  lastName: testUser.lastName,
+  active: true,
+  emailVerifiedAt: '2026-01-01T00:00:00.000Z',
+  lastLoggedInAt: '2026-01-02T00:00:00.000Z',
+  createdAt: testUser.createdAt,
+  deletedAt: null,
+  platformRole: 'admin',
+  membershipCount: 0,
+  authProviders: ['email'],
+  memberships: [],
+  pendingInvitations: [],
+}
+
 /** 43 characters of base64url, the shape the server mints and validates. */
 export const TEST_INVITATION_TOKEN = 'inv-token-'.padEnd(43, 'x')
 
@@ -63,6 +82,8 @@ export const testInvitation: TenantInvitation = {
   invitedBy: { id: USER_ID, firstName: 'A', lastName: 'B' },
   expiresAt: '2026-10-01T00:00:00.000Z',
   createdAt: '2026-09-24T00:00:00.000Z',
+  lastSentAt: null,
+  resendAvailableAt: null,
 }
 
 /** Sent to `testUser`'s own address, so a signed-in test user is the invitee. */
@@ -550,26 +571,78 @@ export function tenantDetail<T extends object>(
 export const handlers = [
   http.post('/api/v1/auth/refresh', () => ok({ accessToken: 'fresh-token' }, 'Token refreshed.')),
   http.get('/api/v1/profile', () => ok(testUser, 'Profile retrieved.')),
-  // express answers every registration the same way, address free or taken, so it never reveals an account.
-  http.post('/api/v1/auth/register', () =>
-    ok(null, 'If that address can be registered, a verification email has been sent.', 202)
+  // Express answers every link request 202 with no data, whether or not the address has an account.
+  http.post('/api/v1/auth/link/request', () =>
+    ok(null, 'Check your inbox for a sign-in link.', 202)
   ),
-  // The profile page's Security section fetches this on mount: a password account.
+  // The token signs in the test user; like the API, a different address in the body is refused and spends nothing.
+  http.post('/api/v1/auth/link/verify', async ({ request }) => {
+    const { email } = (await request.json()) as { email?: string }
+    if (email !== undefined && email.toLowerCase() !== testUser.email) {
+      return fail('This link has expired or was already used.', 400, 'LINK_INVALID')
+    }
+    return ok(
+      { user: testUser, accessToken: 'link-token', isNewUser: false, redirect: null },
+      'Signed in.'
+    )
+  }),
+  // A "Confirm it's you" link confirmed for the calling session: a new access token with a fresh `auth_time`.
+  http.post('/api/v1/auth/step-up/link/verify', () =>
+    ok({ accessToken: 'stepped-up' }, 'Identity confirmed.')
+  ),
+  // A "Confirm it's you" link mailed: the API will mail another one minute after this one.
+  http.post('/api/v1/auth/step-up/link/request', () =>
+    ok(
+      { resendAvailableAt: new Date(Date.now() + 60_000).toISOString() },
+      'Check your inbox for a confirmation link.',
+      202
+    )
+  ),
+  // A Google "Confirm it's you" recorded; the popup goes on to Google.
+  http.post('/api/v1/auth/step-up/google/start', () => new HttpResponse(null, { status: 204 })),
+  // Email only, so the step-up dialog offers no Google; a test that needs Google serves its own.
   http.get('/api/v1/auth/providers', () =>
     ok(
-      {
-        providers: [{ provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' }],
-        hasPassword: true,
-      },
+      { providers: [{ provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' }] },
       'Auth providers retrieved.'
     )
   ),
   http.post('/api/v1/invitations/preview', () =>
     ok(testInvitationPreview, 'Invitation retrieved.')
   ),
+  // Signed out, one click: the invitee is signed in and joined, as express's `verifyInvitation` answers.
+  http.post('/api/v1/invitations/verify', () =>
+    ok(
+      {
+        user: testUser,
+        accessToken: 'invitation-token',
+        isNewUser: false,
+        tenant: testInvitationPreview.tenant,
+        role: testInvitationPreview.role,
+      },
+      'Invitation accepted.'
+    )
+  ),
   http.post('/api/v1/invitations/accept', () =>
     ok(
-      { tenant: testInvitationPreview.tenant, role: testInvitationPreview.role },
+      {
+        tenant: testInvitationPreview.tenant,
+        role: testInvitationPreview.role,
+        alreadyMember: false,
+      },
+      'Invitation accepted.'
+    )
+  ),
+  // The mailed confirmation link: the staff invitee is signed in and joined, as express's confirm answers.
+  http.post('/api/v1/invitations/confirm', () =>
+    ok(
+      {
+        user: testUser,
+        accessToken: 'confirm-token',
+        isNewUser: false,
+        tenant: testInvitationPreview.tenant,
+        role: testInvitationPreview.role,
+      },
       'Invitation accepted.'
     )
   ),
@@ -588,6 +661,13 @@ export const handlers = [
   ),
   // The platform audit log, empty.
   http.get('/api/v1/platform/audit-log', () => ok(listPage([]), 'Audit log retrieved.')),
+  // The users directory defaults to an empty page, and any one user reads as the test user; a page test serves its own.
+  http.get('/api/v1/platform/users', () => ok(listPage([]), 'Users retrieved.')),
+  http.get('/api/v1/platform/users/:userId', () => ok(testUserDetail, 'User retrieved.')),
+  // A staff-sent sign-in link goes; a test that needs a refusal or a failed mail serves its own.
+  http.post('/api/v1/platform/users/:userId/sign-in-link', () =>
+    ok({ emailSent: true }, 'Sign-in link sent.')
+  ),
   // A tenant's members and pending invitations default to empty pages; a page test serves its own rows.
   http.get('/api/v1/tenants/:slug/members', () => ok(listPage([]), 'Members retrieved.')),
   http.get('/api/v1/tenants/:slug/invitations', () => ok(listPage([]), 'Invitations retrieved.')),

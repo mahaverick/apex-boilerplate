@@ -76,13 +76,14 @@ const FILTERS: readonly DataTableFilter[] = [
       { value: 'deleted', label: 'Deleted' },
     ],
   },
+  // The API's `signedIn` filter, on the last sign-in, so it matches the Last sign-in column.
   {
-    name: 'verified',
-    label: 'Verified',
+    name: 'signedIn',
+    label: 'Signed in',
     single: true,
     options: [
-      { value: 'true', label: 'Verified' },
-      { value: 'false', label: 'Unverified' },
+      { value: 'true', label: 'Has signed in' },
+      { value: 'false', label: 'Never signed in' },
     ],
   },
   {

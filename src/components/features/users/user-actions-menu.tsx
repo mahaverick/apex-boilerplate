@@ -1,11 +1,22 @@
-import { IconDots } from '@tabler/icons-react'
+import { IconAlertCircle, IconDots, IconInfoCircle } from '@tabler/icons-react'
 import { useNavigate } from '@tanstack/react-router'
-import { useMemo, useState, type RefObject } from 'react'
+import { useMemo, useState, type ComponentProps, type RefObject } from 'react'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { EditUserNameDialog } from '@/components/features/users/edit-user-name-dialog'
+import { BusyButton } from '@/components/shared/busy-button'
 import { usePaletteCommands } from '@/components/shared/command-palette/palette-registry'
 import type { PaletteCommand } from '@/components/shared/command-palette/palette-types'
 import { Pii } from '@/components/shared/pii'
+import { Alert, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -15,32 +26,32 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ROUTES } from '@/constants/routes'
+import { useLeavingFinalFocus } from '@/hooks/use-arrival-focus'
 import { useStepUp } from '@/hooks/use-step-up'
 import { messageFrom } from '@/lib/api-error'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
 import { toast } from '@/lib/toast'
-import { availableUserActions, type UserAction } from '@/lib/user-actions'
+import { availableUserActions, SIGN_IN_LINK_NOT_SENT, type UserAction } from '@/lib/user-actions'
 import { analyticsKey, type AnalyticsKey } from '@/observability/telemetry'
 import {
   useDeactivateUser,
   useDeleteUser,
   usePurgeUser,
   useReactivateUser,
-  useResendVerification,
-  useSendPasswordSetup,
+  useSendSignInLink,
   useSignOutUser,
 } from '@/queries/user-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import type { PlatformUserDetail } from '@/types/api.types'
 
 /** Which action's dialog is open, if any. */
-type OpenDialog = 'edit' | 'signOut' | 'deactivate' | 'reactivate' | 'delete' | 'purge' | null
+type OpenDialog =
+  'edit' | 'signInLink' | 'signOut' | 'deactivate' | 'reactivate' | 'delete' | 'purge' | null
 
 /** The menu's order, which the palette lists them in too. */
 const MENU_ORDER: readonly UserAction[] = [
   'edit',
-  'passwordSetup',
-  'resendVerification',
+  'signInLink',
   'signOut',
   'deactivate',
   'reactivate',
@@ -51,8 +62,7 @@ const MENU_ORDER: readonly UserAction[] = [
 /** The fixed key the palette sends for each action; mapped, never built from the camelCase name. */
 const PALETTE_ACTION_KEYS: Record<UserAction, AnalyticsKey> = {
   edit: analyticsKey('page_action_edit'),
-  passwordSetup: analyticsKey('page_action_password_setup'),
-  resendVerification: analyticsKey('page_action_resend_verification'),
+  signInLink: analyticsKey('page_action_send_sign_in_link'),
   signOut: analyticsKey('page_action_sign_out'),
   deactivate: analyticsKey('page_action_deactivate'),
   reactivate: analyticsKey('page_action_reactivate'),
@@ -84,11 +94,6 @@ export function UserActionsMenu({
   const reactivate = useReactivateUser()
   const signOut = useSignOutUser()
   const remove = useDeleteUser()
-  const purge = usePurgeUser({
-    onPurged: () => navigate({ to: ROUTES.users, search: { status: 'deleted' } }),
-  })
-  const passwordSetup = useSendPasswordSetup()
-  const resendVerification = useResendVerification()
 
   const allowed = availableUserActions({ id: me?.id ?? '', platformRole: me?.platformRole }, user)
 
@@ -99,21 +104,14 @@ export function UserActionsMenu({
     if (!open) setDialog(null)
   }
 
-  /** Sends a staff-triggered account email and toasts the outcome. */
-  function mail(send: typeof passwordSetup, sentMessage: string) {
-    send.mutate(
-      { userId: user.id },
-      {
-        onSuccess: ({ emailSent }) => {
-          if (emailSent) toast.success(sentMessage)
-          else toast.warning('The email could not be sent. Try again shortly.')
-        },
-        onError: (error) => toast.error(messageFrom(error)),
-      }
-    )
-  }
-
   const finalFocus = allowed.size > 0 && !fromPalette ? undefined : fallbackFocus
+  const purgeFocus = useLeavingFinalFocus(finalFocus)
+  const purge = usePurgeUser({
+    onPurged: () => {
+      purgeFocus.leave()
+      return navigate({ to: ROUTES.users, search: { status: 'deleted' } })
+    },
+  })
 
   /** Opens an action's dialog from the menu, whose trigger takes focus back on close. */
   const openFromMenu = (which: Exclude<OpenDialog, null>) => {
@@ -127,25 +125,13 @@ export function UserActionsMenu({
     setDialog(which)
   }
 
-  const passwordSetupLabel = user.hasPassword
-    ? 'Send password reset link'
-    : 'Send set-password link'
-  /** What each allowed action does from the palette: the same dialog, or the same email the menu sends. */
+  /** What each allowed action does from the palette: the same dialog the menu opens. */
   const paletteRuns: Record<UserAction, Pick<PaletteCommand, 'label' | 'timing' | 'run'>> = {
     edit: { label: 'Edit name', timing: 'afterClose', run: () => dialogFromPalette('edit') },
-    passwordSetup: {
-      label: passwordSetupLabel,
-      timing: 'immediate',
-      run: () =>
-        mail(
-          passwordSetup,
-          user.hasPassword ? 'Password reset email sent.' : 'Set-password email sent.'
-        ),
-    },
-    resendVerification: {
-      label: 'Resend verification email',
-      timing: 'immediate',
-      run: () => mail(resendVerification, 'Verification email sent.'),
+    signInLink: {
+      label: 'Send sign-in link',
+      timing: 'afterClose',
+      run: () => dialogFromPalette('signInLink'),
     },
     signOut: {
       label: 'Sign out everywhere',
@@ -203,23 +189,9 @@ export function UserActionsMenu({
             {allowed.has('edit') && (
               <DropdownMenuItem onClick={() => openFromMenu('edit')}>Edit name</DropdownMenuItem>
             )}
-            {allowed.has('passwordSetup') && (
-              <DropdownMenuItem
-                onClick={() =>
-                  mail(
-                    passwordSetup,
-                    user.hasPassword ? 'Password reset email sent.' : 'Set-password email sent.'
-                  )
-                }
-              >
-                {passwordSetupLabel}
-              </DropdownMenuItem>
-            )}
-            {allowed.has('resendVerification') && (
-              <DropdownMenuItem
-                onClick={() => mail(resendVerification, 'Verification email sent.')}
-              >
-                Resend verification email
+            {allowed.has('signInLink') && (
+              <DropdownMenuItem onClick={() => openFromMenu('signInLink')}>
+                Send sign-in link
               </DropdownMenuItem>
             )}
             {hasStateChange && <DropdownMenuSeparator />}
@@ -263,6 +235,12 @@ export function UserActionsMenu({
           finalFocus={fromPalette ? fallbackFocus : undefined}
         />
       )}
+      <SendSignInLinkDialog
+        user={user}
+        open={dialog === 'signInLink'}
+        onOpenChange={close}
+        finalFocus={finalFocus}
+      />
       <ReasonDialog
         open={dialog === 'signOut'}
         onOpenChange={close}
@@ -321,7 +299,7 @@ export function UserActionsMenu({
         description={
           <>
             This deletes <Pii>{user.email}</Pii>, ends their sessions, removes their Google sign-in
-            link and revokes invitations they sent. The address can register again. A platform owner
+            link and revokes invitations they sent. The address can sign up again. A platform owner
             can then delete the account permanently.
           </>
         }
@@ -336,7 +314,7 @@ export function UserActionsMenu({
       <ReasonDialog
         open={dialog === 'purge'}
         onOpenChange={close}
-        finalFocus={finalFocus}
+        finalFocus={purgeFocus.finalFocus}
         title="Permanently delete this account?"
         description={
           <>
@@ -353,5 +331,99 @@ export function UserActionsMenu({
         }}
       />
     </>
+  )
+}
+
+/**
+ * Confirms a staff-sent sign-in link: no reason and no step-up, as the API
+ * takes neither. Staff get a link to Apex and anyone else one to the customer
+ * app, as the API decides. A refusal, or an email that did not go, shows
+ * inside the dialog, which stays open so Send link can try again; a sent
+ * email closes it with a toast.
+ */
+function SendSignInLinkDialog({
+  user,
+  open,
+  onOpenChange,
+  finalFocus,
+}: {
+  user: PlatformUserDetail
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  finalFocus?: ComponentProps<typeof AlertDialogContent>['finalFocus']
+}) {
+  const send = useSendSignInLink()
+  const [refusal, setRefusal] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const target = user.platformRole === null ? 'the customer app' : 'Apex'
+
+  /** Posts the request and reports its outcome. */
+  const confirm = async () => {
+    setRefusal(null)
+    setNotice(null)
+    try {
+      const { emailSent } = await send.mutateAsync({ userId: user.id })
+      if (!emailSent) {
+        setNotice(SIGN_IN_LINK_NOT_SENT)
+        return
+      }
+      toast.success(
+        <>
+          Sign-in link sent to <Pii>{user.email}</Pii>.
+        </>
+      )
+      onOpenChange(false)
+    } catch (error) {
+      setRefusal(messageFrom(error))
+    }
+  }
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && send.isPending) return
+        if (!next) {
+          setRefusal(null)
+          setNotice(null)
+        }
+        onOpenChange(next)
+      }}
+    >
+      <AlertDialogContent finalFocus={finalFocus}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Send a sign-in link?</AlertDialogTitle>
+          <AlertDialogDescription>
+            We email <Pii>{user.email}</Pii> a link that signs them in to {target}. It works once
+            and expires in 15 minutes.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {refusal !== null && (
+          <Alert variant="destructive">
+            <IconAlertCircle aria-hidden="true" />
+            <AlertTitle>
+              <Pii>{refusal}</Pii>
+            </AlertTitle>
+          </Alert>
+        )}
+        {notice !== null && (
+          <Alert>
+            <IconInfoCircle aria-hidden="true" />
+            <AlertTitle>{notice}</AlertTitle>
+          </Alert>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <BusyButton
+            busy={send.isPending}
+            busyLabel="Sending…"
+            type="button"
+            onClick={() => void confirm()}
+          >
+            Send link
+          </BusyButton>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

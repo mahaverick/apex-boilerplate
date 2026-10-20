@@ -9,11 +9,12 @@
 import '@/lib/zod-jitless'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
-import { http, passthrough } from 'msw'
+import { http, HttpResponse, passthrough } from 'msw'
 import { setupWorker } from 'msw/browser'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@/styles/globals.css'
+import { authTimeOf } from '@/lib/step-up'
 import { profileKeys } from '@/queries/profile.queries'
 import { queryClient, router } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
@@ -71,8 +72,16 @@ const MEMBERS = [
   },
 ]
 
-/** The one current password the change-password handler below accepts. */
-const HARNESS_PASSWORD = 'current-password'
+/**
+ * The staff invitation the accept page previews: Sam Staff asks a new
+ * address to join the platform as a viewer.
+ */
+const STAFF_INVITATION = {
+  tenant: { name: 'Platform', slug: 'platform' },
+  role: 'viewer' as const,
+  invitedBy: { firstName: 'Sam', lastName: 'Staff' },
+  email: 'new.staff@example.com',
+}
 
 /**
  * `?role=none` is a signed-in user who is not staff, so /no-access renders
@@ -149,9 +158,141 @@ const STATS = {
   })),
 }
 
-/** The API's success envelope around `data`. */
+/** The API's success envelope around `data`, with `statusCode` as its HTTP status too. */
 function ok<T>(data: T, message = 'OK', statusCode = 200) {
-  return Response.json({ success: true, message, statusCode, data })
+  return Response.json({ success: true, message, statusCode, data }, { status: statusCode })
+}
+
+/** An express error envelope as a `Response`; `headers` carries a `Maintenance-Mode` answer. */
+function fail(
+  message: string,
+  statusCode: number,
+  code?: string,
+  headers?: HeadersInit,
+  extra: Record<string, unknown> = {}
+) {
+  return Response.json(
+    { success: false, message, statusCode, code, ...extra, requestId: 'harness-request-id' },
+    { status: statusCode, headers }
+  )
+}
+
+/** express's `LINK_INVALID_MESSAGE`: its one answer for a sign-in or step-up link that cannot be used. */
+const LINK_INVALID = 'This link has expired or was already used.'
+
+/** express's `INVITATION_INVALID_MESSAGE`, its one answer for every dead invitation. */
+const INVITATION_INVALID =
+  'This invitation link has expired or was already used. Ask the person who invited you for a new one.'
+
+/** express's `INVITATION_CONFIRM_INVALID_MESSAGE`, for a confirmation link that cannot join anyone. */
+const INVITATION_CONFIRM_INVALID =
+  "We couldn't use this link. Open your invitation email and select Join again, or ask the person who invited you for a new invite."
+
+/** express's 503 while maintenance is read-only: its `mode` and `since`, `Retry-After`, and the `Maintenance-Mode` header. */
+function readOnly() {
+  return fail(
+    'The service is read-only for maintenance.',
+    503,
+    'READ_ONLY_MODE',
+    { 'Maintenance-Mode': 'read_only', 'Retry-After': '30' },
+    { mode: 'read_only', since: null }
+  )
+}
+
+const params = new URLSearchParams(location.search)
+
+/**
+ * `?session=none` starts signed out: the store is settled with no user, so no
+ * bootstrap refresh runs, and a refresh answers 401 as express does without a
+ * cookie. Only the public routes (`/login`, `/auth/link`, `/auth/confirm` and
+ * the invitation pages) render under it; a staff route sends it to `/login`.
+ */
+const signedOut = params.get('session') === 'none'
+/** Whether the browser holds a refresh cookie: from the start when signed in, else once a link or an invitation signed it in. */
+let hasRefreshCookie = !signedOut
+
+/**
+ * `?link=` picks what `POST /auth/link/verify` answers: `ok` (the default)
+ * signs the harness user in, `dead` is the 400 `LINK_INVALID`, and `readonly`
+ * the 503 `READ_ONLY_MODE`.
+ */
+const linkMode = params.get('link') ?? 'ok'
+
+/**
+ * `?invite=` picks the staff invitation answers. With none, the preview is
+ * for another address, so a signed-in user is asked before switching. `ok`
+ * makes the preview the harness user's, so signed in, the page accepts.
+ * Signed out, the verify answers the `202` "Check your inbox" for the
+ * preview's address, as express does for every staff invitation. `dead` 404s
+ * the preview, the verify and the accept. `joined` 404s the preview, as for a
+ * used link, and the accept answers `alreadyMember`.
+ */
+const inviteMode = params.get('invite')
+
+/**
+ * `?inviteconfirm=` picks what `POST /invitations/confirm` answers: `ok` (the
+ * default) signs the harness user in and joins the platform, `dead` is the
+ * 404 `invitation_invalid`, and `readonly` the 503 `READ_ONLY_MODE`.
+ */
+const inviteConfirmMode = params.get('inviteconfirm') ?? 'ok'
+
+/**
+ * `?confirm=` picks what `POST /auth/step-up/link/verify` answers: `ok` (the
+ * default) and `gone` confirm the session, and `dead` is the 400
+ * `LINK_INVALID`. `gone` names the run with no tab waiting; the server answers
+ * it as `ok`, and the confirm page finds no wait lock held.
+ */
+const confirmMode = params.get('confirm') ?? 'ok'
+
+/**
+ * Where the harness keeps when this browser's session last confirmed it was
+ * the user: shared by every harness page in the context, as the server's
+ * session is, so a confirm in one tab elevates the next refresh in another.
+ */
+const STEPPED_UP_AT_KEY = 'e2e-harness:stepped-up-at'
+
+/** The session's sign-in, in epoch seconds: long enough ago that every step-up route refuses it. */
+const SIGNED_IN_AUTH_TIME = Math.floor(Date.parse('2026-01-01T00:00:00.000Z') / 1000)
+
+/** The session's current `auth_time`: its last confirmation in any tab, or the sign-in. */
+function sessionAuthTime(): number {
+  const steppedUp = Number(localStorage.getItem(STEPPED_UP_AT_KEY))
+  return Number.isFinite(steppedUp) && steppedUp > 0 ? steppedUp : SIGNED_IN_AUTH_TIME
+}
+
+/**
+ * An access token shaped as express's: a JWT whose payload carries
+ * `auth_time`, which the step-up dialog reads after a refresh to tell a real
+ * confirmation from a stray message. Unsigned, as nothing here checks it.
+ */
+function harnessToken(authTime = sessionAuthTime()): string {
+  return [btoa('{"alg":"none"}'), btoa(JSON.stringify({ auth_time: authTime })), 'harness'].join(
+    '.'
+  )
+}
+
+/**
+ * `?stepup=once` refuses a suspend whose bearer has not confirmed in the last
+ * 10 minutes, as express's `requireRecentAuth` does, and answers any other
+ * with the suspended tenant, which the tenant's page then reads. So only a
+ * retry that carries the confirmed token lands. Without it, every suspend is
+ * refused.
+ */
+const stepUpOnce = params.get('stepup') === 'once'
+/** Whether Acme is suspended now, in this page load. */
+const suspension = { suspended: false }
+
+/** express's `STEP_UP_MAX_AGE_MS`: how recent a confirmation the step-up routes accept. */
+const STEP_UP_MAX_AGE_MS = 10 * 60 * 1000
+
+/**
+ * express's `requireRecentAuth`: whether the request's bearer carries an
+ * `auth_time` within `STEP_UP_MAX_AGE_MS` of now.
+ */
+function hasRecentAuth(request: Request): boolean {
+  const bearer = request.headers.get('Authorization')?.replace(/^Bearer /, '') ?? null
+  const authTime = authTimeOf(bearer)
+  return authTime !== null && Date.now() - authTime * 1000 <= STEP_UP_MAX_AGE_MS
 }
 
 /** How a list handler reads a request: the params that narrow the rows, then the page. */
@@ -307,7 +448,6 @@ function userDetail(userId: string) {
           platformRole: null,
         }
       : { ...USER_ROWS[0]!, active: true }),
-    hasPassword: false,
     authProviders: ['email', 'google'],
     memberships: [
       {
@@ -334,6 +474,8 @@ function userDetail(userId: string) {
         tenantName: 'Gamma Inc',
         role: 'viewer',
         expiresAt: '2026-10-01T00:00:00.000Z',
+        lastSentAt: null,
+        resendAvailableAt: null,
       },
     ],
   }
@@ -395,7 +537,7 @@ function tenantDetail(tenantId: string) {
   return {
     ...TENANT_DETAIL_BASE,
     ...ACME,
-    lifecycleState: 'active',
+    lifecycleState: suspension.suspended ? 'suspended' : 'active',
     description:
       'A deliberately long description, so the overview card wraps at phone width rather than scrolling sideways.',
     website: 'https://acme.example-corp.co.uk',
@@ -416,14 +558,14 @@ function tenantDetail(tenantId: string) {
 
 /**
  * The emails list, a user's Emails card and a tenant's Emails tab, all
- * `GET /platform/emails`: a delivered reset to Cleo, and a bounced invitation
+ * `GET /platform/emails`: a delivered sign-in link to Cleo, and a bounced invitation
  * to a long address on Acme, so the badges and the widest row are measured.
  */
 const EMAIL_ROWS = [
   {
     id: EMAIL_ID,
     recipient: 'cleo.d@example.com',
-    templateKey: 'password_reset',
+    templateKey: 'sign_in_link',
     status: 'delivered',
     senderClass: 'transactional',
     createdAt: '2026-09-28T10:00:00.000Z',
@@ -447,7 +589,7 @@ const EMAIL_ROWS = [
 ]
 
 /**
- * An email's page. Cleo's reset was delivered and can be resent; the long
+ * An email's page. Cleo's sign-in link was delivered and can be resent; the long
  * address's invitation hard-bounced, so its address is suppressed, its page
  * shows the banner and offers no Resend.
  */
@@ -496,9 +638,9 @@ const previewParam = new URLSearchParams(location.search).get('preview')
 
 /** A preview as express renders it: inline styles only, the link masked, one long unbroken line to test the frame's own scroll. */
 const EMAIL_PREVIEW = {
-  subject: 'Reset your password',
-  html: '<div style="font-family:sans-serif;color:#111"><p>Hi Cleo,</p><p>Reset your password: <a href="http://localhost:5173/reset-password?token=••••••">http://localhost:5173/reset-password?token=••••••••••••••••••••••••••••••••••••••••</a></p></div>',
-  text: 'Hi Cleo,\n\nReset your password: http://localhost:5173/reset-password?token=••••••',
+  subject: 'Sign in to Boilerplate',
+  html: '<div style="font-family:sans-serif;color:#111"><p>Hi Cleo,</p><p>Sign in to Boilerplate: <a href="http://localhost:5173/auth/link?token=••••••">http://localhost:5173/auth/link?token=••••••••••••••••••••••••••••••••••••••••</a></p></div>',
+  text: 'Hi Cleo,\n\nSign in to Boilerplate: http://localhost:5173/auth/link?token=••••••',
   partial: false,
 }
 
@@ -536,7 +678,7 @@ function emailHealth(range: string) {
     },
     days: STATS.emailMessages,
     byTemplate: [
-      { key: 'password_reset', messages: 2100, undelivered: 1, complained: 6 },
+      { key: 'sign_in_link', messages: 2100, undelivered: 1, complained: 6 },
       { key: 'tenant_invitation', messages: 1611, undelivered: 0, complained: 4 },
     ],
     byDomain: [
@@ -1051,36 +1193,29 @@ const MAINTENANCE_VIEW =
         environment: 'staging',
       }
 
-/** The API's step-up refusal, for the writes the fixtures drive into the stacked dialog. */
+/** express's step-up refusal (`requireRecentAuth`), for the writes the fixtures drive into the stacked dialog. */
 function reauthRequired() {
-  return Response.json(
-    {
-      success: false,
-      message: 'Recent sign-in required',
-      statusCode: 401,
-      code: 'REAUTH_REQUIRED',
-      requestId: 'harness',
-    },
-    { status: 401 }
-  )
+  return fail("Confirm it's you to continue.", 401, 'REAUTH_REQUIRED')
 }
 
 /**
  * `?hold=` and `?fail=` each take comma-separated API paths
  * (`/api/v1/platform/stats`), matched exactly as MSW path patterns (a `:param`
- * segment matches any value; there is no prefix match). A held path never
- * answers and a failed one answers 500, so a fixture can show that one
- * section's request changes only that section. Only `/api/v1/` paths are
- * taken. These handlers come first, so they win over the defaults below.
+ * segment matches any value; there is no prefix match), for every method, so
+ * a held POST such as `/api/v1/auth/link/verify` or
+ * `/api/v1/invitations/verify` stays pending too. A held path never answers
+ * and a failed one answers 500, so a fixture can show that one section's
+ * request changes only that section. Only `/api/v1/` paths are taken. These
+ * handlers come first, so they win over the defaults below.
  */
 const sectionParams = new URLSearchParams(location.search)
 /** The `/api/v1/` paths listed under `key`. */
 const pathsOf = (key: string) =>
   (sectionParams.get(key) ?? '').split(',').filter((path) => path.startsWith('/api/v1/'))
 const sectionHandlers = [
-  ...pathsOf('hold').map((path) => http.get(path, () => new Promise<Response>(() => {}))),
+  ...pathsOf('hold').map((path) => http.all(path, () => new Promise<Response>(() => {}))),
   ...pathsOf('fail').map((path) =>
-    http.get(
+    http.all(
       path,
       () =>
         new Response(
@@ -1261,7 +1396,7 @@ const worker = setupWorker(
       searchIn: (row) => [row.email, row.firstName, row.lastName],
       filters: {
         status: (row, values) => values.includes(row.active ? 'active' : 'inactive'),
-        verified: (row, values) => values.includes(String(row.emailVerifiedAt !== null)),
+        signedIn: (row, values) => values.includes(String(row.lastLoggedInAt !== null)),
         staff: (row, values) => values.includes(String(row.platformRole !== null)),
       },
     })
@@ -1412,10 +1547,17 @@ const worker = setupWorker(
       'Emails retrieved.'
     )
   }),
-  // Suspending a tenant, inviting an owner and deactivating a user answer with the step-up refusal, so the fixtures can open the stacked step-up dialog.
-  http.post('/api/v1/platform/tenants/:tenantId/suspend', reauthRequired),
+  // Suspending a tenant, inviting an owner and deactivating a user answer with the step-up refusal, so the fixtures can open the stacked step-up dialog; `?stepup=once` lets through a suspend whose bearer confirmed in the last 10 minutes.
+  http.post('/api/v1/platform/tenants/:tenantId/suspend', ({ request, params: { tenantId } }) => {
+    if (!stepUpOnce || !hasRecentAuth(request)) return reauthRequired()
+    suspension.suspended = true
+    return ok(tenantDetail(String(tenantId)), 'Tenant suspended.')
+  }),
   http.post('/api/v1/platform/tenants/:tenantId/owner-invitation', reauthRequired),
   http.post('/api/v1/platform/users/:userId/deactivate', reauthRequired),
+  http.post('/api/v1/platform/users/:userId/sign-in-link', () =>
+    ok({ emailSent: true }, 'Sign-in link sent.')
+  ),
   http.get('/api/v1/profile', () => ok(testUser, 'Profile retrieved.')),
   // /profile's Security section. Unmocked, it would reach the real API, 401, and sign the harness user out.
   http.get('/api/v1/auth/providers', () =>
@@ -1425,43 +1567,108 @@ const worker = setupWorker(
           { provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' },
           { provider: 'google', linkedAt: '2026-01-02T00:00:00.000Z' },
         ],
-        hasPassword: true,
       },
       'Auth providers retrieved.'
     )
   ),
+  // "Confirm it's you": a link mailed, the API mailing again in a minute, the mailed link confirmed in any tab, and a Google start recorded.
+  http.post('/api/v1/auth/step-up/link/request', () =>
+    ok(
+      { resendAvailableAt: new Date(Date.now() + 60_000).toISOString() },
+      'Check your inbox for a confirmation link.',
+      202
+    )
+  ),
+  http.post('/api/v1/auth/step-up/link/verify', () => {
+    if (confirmMode === 'dead') return fail(LINK_INVALID, 400, 'LINK_INVALID')
+    const now = Math.floor(Date.now() / 1000)
+    localStorage.setItem(STEPPED_UP_AT_KEY, String(now))
+    return ok({ accessToken: harnessToken(now) }, 'Identity confirmed.')
+  }),
+  http.post('/api/v1/auth/step-up/google/start', () => new HttpResponse(null, { status: 204 })),
+  // Sign-in by emailed link: the request always answers 202, and the verify as `?link=` says.
+  http.post('/api/v1/auth/link/request', () =>
+    ok(null, 'Check your inbox for a sign-in link.', 202)
+  ),
+  http.post('/api/v1/auth/link/verify', () => {
+    if (linkMode === 'dead') return fail(LINK_INVALID, 400, 'LINK_INVALID')
+    if (linkMode === 'readonly') return readOnly()
+    hasRefreshCookie = true
+    return ok(
+      { user: testUser, accessToken: harnessToken(), isNewUser: false, redirect: null },
+      'Signed in.'
+    )
+  }),
+  // A staff invitation, as `?invite=` picks: the preview, the signed-out verify's 202 and the signed-in accept.
+  http.post('/api/v1/invitations/preview', () =>
+    inviteMode === 'dead' || inviteMode === 'joined'
+      ? fail(INVITATION_INVALID, 404, 'invitation_invalid')
+      : ok(
+          inviteMode === 'ok' ? { ...STAFF_INVITATION, email: testUser.email } : STAFF_INVITATION,
+          'Invitation retrieved.'
+        )
+  ),
+  http.post('/api/v1/invitations/verify', () =>
+    inviteMode === 'dead' || inviteMode === 'joined'
+      ? fail(INVITATION_INVALID, 404, 'invitation_invalid')
+      : ok(
+          {
+            confirmationSent: true,
+            email: inviteMode === 'ok' ? testUser.email : STAFF_INVITATION.email,
+          },
+          'Check your inbox to finish joining.',
+          202
+        )
+  ),
+  http.post('/api/v1/invitations/accept', () =>
+    inviteMode === 'dead'
+      ? fail(INVITATION_INVALID, 404, 'invitation_invalid')
+      : ok(
+          {
+            tenant: STAFF_INVITATION.tenant,
+            role: STAFF_INVITATION.role,
+            alreadyMember: inviteMode === 'joined',
+          },
+          'Invitation accepted.'
+        )
+  ),
+  // A mailed invitation confirmation, as `?inviteconfirm=` picks: the harness user is signed in and joined to the platform tenant.
+  http.post('/api/v1/invitations/confirm', () => {
+    if (inviteConfirmMode === 'dead') {
+      return fail(INVITATION_CONFIRM_INVALID, 404, 'invitation_invalid')
+    }
+    if (inviteConfirmMode === 'readonly') return readOnly()
+    hasRefreshCookie = true
+    return ok(
+      {
+        user: testUser,
+        accessToken: harnessToken(),
+        isNewUser: false,
+        tenant: STAFF_INVITATION.tenant,
+        role: STAFF_INVITATION.role,
+      },
+      'Invitation accepted.'
+    )
+  }),
   http.post('/api/v1/auth/sessions/revoke-others', () =>
     ok({ revoked: 2 }, 'Other sessions signed out.')
   ),
-  // Any other current password gets a 400.
-  http.post('/api/v1/auth/change-password', async ({ request }) => {
-    const body = (await request.json()) as { currentPassword?: unknown }
-    if (body.currentPassword === HARNESS_PASSWORD) return ok(null, 'Password has been changed.')
-    return Response.json(
-      {
-        success: false,
-        message: 'Current password is incorrect.',
-        statusCode: 400,
-        requestId: 'harness',
-      },
-      { status: 400 }
-    )
-  }),
-  // A refresh is answered here so it never falls through to a real backend.
+  // A refresh is answered here so it never falls through to a real backend; its token carries the session's latest confirmation.
   http.post('/api/v1/auth/refresh', () =>
-    ok({ accessToken: 'harness-token', user: testUser }, 'Session refreshed.')
+    hasRefreshCookie
+      ? ok({ accessToken: harnessToken() }, 'Token refreshed.')
+      : fail('Missing refresh token', 401)
   )
 )
 
 await worker.start({ onUnhandledRequest: 'bypass', quiet: true })
 
-// `isBootstrapped` skips the session refresh that the router would otherwise run before rendering.
-useAuthStore.setState({
-  accessToken: 'harness-token',
-  user: testUser,
-  isAuthenticated: true,
-  isBootstrapped: true,
-})
+// The real store state a signed-in (or, for `?session=none`, signed-out) user has. `isBootstrapped` skips the session refresh that the router would otherwise run before rendering.
+useAuthStore.setState(
+  signedOut
+    ? { accessToken: null, user: null, isAuthenticated: false, isBootstrapped: true }
+    : { accessToken: harnessToken(), user: testUser, isAuthenticated: true, isBootstrapped: true }
+)
 
 // `?profile=stale` seeds the profile cache as long out of date, so the page's `GET /profile` fires on mount and `?fail=/api/v1/profile` can fail it with the stored user on screen.
 if (new URLSearchParams(location.search).get('profile') === 'stale') {

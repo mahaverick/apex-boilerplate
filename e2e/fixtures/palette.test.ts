@@ -111,6 +111,40 @@ test('runs Suspend from ⌘K, and the reason dialog takes focus', async ({ page 
     .toBe(true)
 })
 
+/** Cleo's user page in the harness: a live account an admin may send a sign-in link to. */
+const CLEO_PAGE = '/users/20000000-0000-4000-8000-000000000002'
+
+test('Send sign-in link from ⌘K opens its confirm dialog and mails nothing until Send link', async ({
+  page,
+}) => {
+  const sends: string[] = []
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.endsWith('/sign-in-link')) sends.push(request.method())
+  })
+  await page.goto(`/e2e/harness/?path=${CLEO_PAGE}`)
+  await expect(page.getByRole('heading', { name: 'Cleo D', level: 1 })).toBeVisible()
+
+  await page.keyboard.press('ControlOrMeta+k')
+  const palette = page.getByRole('dialog', { name: 'Command palette', exact: true })
+  await expect(
+    palette
+      .getByRole('group', { name: 'This page' })
+      .getByRole('option', { name: 'Send sign-in link' })
+  ).toBeVisible({ timeout: COLD_TRANSFORM_BUDGET_MS })
+  await page.keyboard.type('sign-in link')
+  await page.keyboard.press('Enter')
+
+  const dialog = page.getByRole('alertdialog', { name: 'Send a sign-in link?' })
+  await expect(dialog).toBeVisible()
+  await expect(palette).toHaveCount(0)
+  expect(sends).toEqual([])
+
+  await dialog.getByRole('button', { name: 'Send link' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText('Sign-in link sent to cleo.d@example.com.')).toBeVisible()
+  expect(sends).toEqual(['POST'])
+})
+
 /**
  * Opens New tenant from the palette, checks the dialog has focus in Name, and
  * closes it with Escape.

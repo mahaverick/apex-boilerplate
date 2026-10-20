@@ -4,7 +4,7 @@ import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetSessionForTests } from '@/http/session'
-import { platformAuditListOptions } from '@/queries/audit.queries'
+import { platformAuditListOptions, tenantAuditListOptions } from '@/queries/audit.queries'
 import { tenantAdminKeys, tenantsListOptions } from '@/queries/tenant-admin.queries'
 import {
   dropTenantCache,
@@ -21,7 +21,7 @@ import {
   membersListOptions,
   ownersBesides,
   tenantKeys,
-  useMembers,
+  useUpdateTenant,
   type TenantMember,
 } from '@/queries/tenant.queries'
 import { userAdminKeys, usersListOptions } from '@/queries/user-admin.queries'
@@ -50,43 +50,7 @@ const member: TenantMember = {
   user: { id: USER_ID, email: 'ada@example.com', firstName: 'Ada', lastName: 'Lovelace' },
 }
 
-describe('useMembers', () => {
-  let client: QueryClient
-
-  /** A provider around the suite's `client`. */
-  function wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  }
-
-  beforeEach(() => {
-    client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    resetSessionForTests()
-    useAuthStore.setState({ accessToken: 'access-token', user: testUser, isAuthenticated: true })
-  })
-
-  it('reads the first hundred members without a total, and hands back their rows', async () => {
-    const seen: URL[] = []
-    server.use(
-      http.get('/api/v1/tenants/:slug/members', ({ request }) => {
-        seen.push(new URL(request.url))
-        return ok(listPage([member]), 'Members retrieved.')
-      })
-    )
-
-    const { result } = renderHook(() => useMembers('platform', TENANT_ID), { wrapper })
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(seen[0]?.pathname).toBe('/api/v1/tenants/platform/members')
-    expect(seen[0]?.searchParams.get('limit')).toBe('100')
-    expect(seen[0]?.searchParams.has('total')).toBe(false)
-    expect(result.current.data).toEqual([member])
-    expect(
-      client.getQueryData(
-        membersListOptions('platform', TENANT_ID, { limit: 100 }, { total: false }).queryKey
-      )
-    ).toEqual(listPage([member]))
-  })
-
+describe('membersListOptions', () => {
   it('keeps one tenant’s members apart from another that reuses the slug', () => {
     expect(tenantKeys.members('acme', TENANT_ID)).not.toEqual(tenantKeys.members('acme', USER_ID))
     expect(membersListOptions('acme', TENANT_ID, { limit: 100 }).queryKey.slice(0, 4)).toEqual([
@@ -430,5 +394,51 @@ describe('memberName', () => {
     expect(
       memberName({ ...member, user: { ...member.user, firstName: null, lastName: null } })
     ).toBe('ada@example.com')
+  })
+})
+
+describe('useUpdateTenant', () => {
+  let client: QueryClient
+
+  /** A provider around the suite's `client`. */
+  function wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  }
+
+  beforeEach(() => {
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    resetSessionForTests()
+    useAuthStore.setState({ accessToken: 'access-token', user: testUser, isAuthenticated: true })
+  })
+
+  it('refreshes the staff activity after Edit details', async () => {
+    const keys = [
+      tenantKeys.detail('acme', TENANT_ID),
+      platformAuditListOptions({}).queryKey,
+      tenantAuditListOptions('acme', TENANT_ID, {}).queryKey,
+    ]
+    for (const key of keys) client.setQueryData(key, {})
+    const elsewhere = tenantAuditListOptions('other', undefined, {}).queryKey
+    client.setQueryData(elsewhere, listPage([]))
+    server.use(http.patch('/api/v1/tenants/acme', () => ok({ id: TENANT_ID }, 'Tenant updated.')))
+    const { result } = renderHook(() => useUpdateTenant('acme', TENANT_ID), { wrapper })
+    result.current.mutate({ name: 'Acme Ltd' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    for (const key of keys) {
+      expect(client.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(true)
+    }
+    expect(client.getQueryState(elsewhere)?.isInvalidated).toBe(false)
+  })
+
+  it('refreshes the users pages and every user’s details, which show the tenant’s name', async () => {
+    const keys = [userAdminKeys.detail(USER_ID), usersListOptions({}).queryKey]
+    for (const key of keys) client.setQueryData(key, {})
+    server.use(http.patch('/api/v1/tenants/acme', () => ok({ id: TENANT_ID }, 'Tenant updated.')))
+    const { result } = renderHook(() => useUpdateTenant('acme', TENANT_ID), { wrapper })
+    result.current.mutate({ name: 'Acme Ltd' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    for (const key of keys) {
+      expect(client.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(true)
+    }
   })
 })

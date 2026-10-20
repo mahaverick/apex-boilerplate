@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module'
 import type { Page } from '@playwright/test'
-import { expect, FALLBACK_HEADER, test } from '../hermetic'
+import { expect, test } from '../hermetic'
 import { afterAnimations, afterFontsAndFrames } from '../timing'
 
 /**
@@ -46,30 +46,25 @@ const LEGEND_ITEM = '.recharts-legend-wrapper'
  * without it the harness mounts the overview.
  */
 const ACME_PAGE = '/tenants/10000000-0000-4000-8000-000000000001'
+
+/** A token the link, invitation and confirm pages take: 43 characters, low-entropy so no scanner reads it as a secret. */
+const TOKEN = 't'.repeat(43)
+
+/** The harness URL for a signed-out visit to `path`, with `query` appended. */
+function signedOut(path: string, query: string): string {
+  return `/e2e/harness/?session=none&path=${path}&${query}`
+}
+
+/** The harness URL of a mailed "Confirm it's you" link, its inner query encoded, with the harness's `query` after it. */
+function confirmLink(query: string): string {
+  return `/e2e/harness/?path=${encodeURIComponent(`/auth/confirm?token=${TOKEN}`)}&${query}`
+}
 const CLEO_PAGE = '/users/20000000-0000-4000-8000-000000000002'
 const FLAGS_PAGE = `/e2e/harness/?path=/settings/platform/flags?userId=20000000-0000-4000-8000-000000000002&tenantId=10000000-0000-4000-8000-000000000001`
 
 const SURFACES = [
   // Public: straight URLs, no harness.
-  { name: 'sign-in', url: '/login', heading: 'Sign in' },
-  // Invitation-only: without `?invitation=` the route redirects to /login, and the form waits on the invitation preview that `answerInvitationPreview` supplies.
-  {
-    name: 'register',
-    url: '/register?invitation=contrast-probe',
-    heading: 'Create an account',
-  },
-  { name: 'forgot-password', url: '/forgot-password', heading: 'Forgot your password?' },
-  // Both read `?token=`. Without one, reset-password renders its "This link is incomplete" branch, and the heading assertion keeps that swap from passing unnoticed.
-  {
-    name: 'reset-password',
-    url: '/reset-password?token=contrast-probe',
-    heading: 'Choose a new password',
-  },
-  {
-    name: 'verify-email',
-    url: '/verify-email?token=contrast-probe',
-    heading: 'Verify your email',
-  },
+  { name: 'sign-in', url: '/login', heading: 'Sign in to Apex' },
   // Authenticated, mounted through the harness. The overview is strict: any axe incomplete fails, except the chart legends, which 'chart legends' below proves instead.
   {
     name: 'overview',
@@ -167,6 +162,100 @@ const SURFACES = [
     url: '/e2e/harness/?path=/onboarding&hold=/api/v1/platform/onboarding/funnel',
     heading: { loading: 'section', heading: /^Onboarding$/ },
   },
+  // The sign-in link page: verifying (its verify held), dead, failed (read-only) and signed in as someone else.
+  {
+    name: 'link verifying',
+    url: signedOut(
+      '/auth/link',
+      `token=${TOKEN}&email=a.b@example.com&hold=/api/v1/auth/link/verify`
+    ),
+    heading: 'Signing you in',
+  },
+  {
+    name: 'link dead',
+    url: signedOut('/auth/link', `token=${TOKEN}&email=a.b@example.com&link=dead`),
+    heading: 'This link expired or was already used',
+  },
+  {
+    name: 'link failed',
+    url: signedOut('/auth/link', `token=${TOKEN}&email=a.b@example.com&link=readonly`),
+    heading: 'We couldn’t sign you in',
+  },
+  {
+    name: 'link switch',
+    url: `/e2e/harness/?path=/auth/link&token=${TOKEN}&email=new.staff@example.com`,
+    heading: 'Switch account?',
+  },
+  // The staff invitation: joining (its verify held), dead, signed in as someone else, and the 202's inbox.
+  {
+    name: 'invitation joining',
+    url: signedOut('/invitations/accept', `token=${TOKEN}&hold=/api/v1/invitations/verify`),
+    heading: 'Joining Platform',
+  },
+  {
+    name: 'invitation dead',
+    url: signedOut('/invitations/accept', `token=${TOKEN}&invite=dead`),
+    heading: 'This invitation can’t be used',
+  },
+  {
+    name: 'invitation switch',
+    url: `/e2e/harness/?path=/invitations/accept&token=${TOKEN}`,
+    heading: 'Join Platform',
+  },
+  {
+    name: 'invitation check inbox',
+    url: signedOut('/invitations/accept', `token=${TOKEN}`),
+    heading: 'Check your inbox',
+    // The sign-in form's inbox has the same heading; this line is the invitation's own.
+    text: 'Open it to join Platform.',
+  },
+  // The confirmation link an invitation mails: joining (its confirm held), dead, failed (read-only) and signed in as someone else.
+  {
+    name: 'invitation confirm joining',
+    url: signedOut(
+      '/invitations/confirm',
+      `token=${TOKEN}&email=new.staff@example.com&hold=/api/v1/invitations/confirm`
+    ),
+    heading: 'Joining your team',
+  },
+  {
+    name: 'invitation confirm dead',
+    url: signedOut(
+      '/invitations/confirm',
+      `token=${TOKEN}&email=new.staff@example.com&inviteconfirm=dead`
+    ),
+    heading: 'This link can’t be used',
+  },
+  {
+    name: 'invitation confirm failed',
+    url: signedOut(
+      '/invitations/confirm',
+      `token=${TOKEN}&email=new.staff@example.com&inviteconfirm=readonly`
+    ),
+    heading: 'We couldn’t add you to your team',
+  },
+  {
+    name: 'invitation confirm switch',
+    url: `/e2e/harness/?path=/invitations/confirm&token=${TOKEN}&email=new.staff@example.com`,
+    heading: 'Join your team',
+  },
+  // "Confirm it's you" finished in another tab: confirmed with no tab waiting, a dead link, and signed out.
+  {
+    name: 'confirm confirmed',
+    url: confirmLink('confirm=gone'),
+    heading: 'Confirmed',
+    text: 'Go back to Apex and try the action again.',
+  },
+  {
+    name: 'confirm dead',
+    url: confirmLink('confirm=dead'),
+    heading: 'This link didn’t confirm it’s you',
+  },
+  {
+    name: 'confirm signed out',
+    url: confirmLink('session=none'),
+    heading: 'Sign in to confirm',
+  },
 ] as const
 
 const THEMES = ['light', 'dark'] as const
@@ -205,27 +294,6 @@ function isFailedWait(wait: Wait): wait is FailedWait {
 type ContrastResult = {
   violations: { id: string; nodes: { target: string[]; failureSummary?: string }[] }[]
   incomplete: { id: string; nodes: { target: string[]; failureSummary?: string }[] }[]
-}
-
-/** Answer the invitation preview the register page waits on, stamped so the hermetic teardown counts it as answered here. */
-async function answerInvitationPreview(page: Page): Promise<void> {
-  await page.route('**/api/v1/invitations/preview', (route) =>
-    route.fulfill({
-      status: 200,
-      headers: { [FALLBACK_HEADER]: '1' },
-      json: {
-        success: true,
-        message: 'Invitation retrieved.',
-        statusCode: 200,
-        data: {
-          tenant: { name: 'Acme Corp', slug: 'acme' },
-          role: 'viewer',
-          invitedBy: null,
-          email: 'invitee@example.com',
-        },
-      },
-    })
-  )
 }
 
 /**
@@ -333,8 +401,8 @@ function report(surface: string, theme: string, result: ContrastResult): string 
 for (const theme of THEMES) {
   for (const surface of SURFACES) {
     test(`${surface.name} meets WCAG AA contrast in ${theme}`, async ({ page }) => {
-      if (surface.url.startsWith('/register')) await answerInvitationPreview(page)
       const result = await contrastOf(page, surface.url, theme, surface.heading)
+      if ('text' in surface) await expect(page.getByText(surface.text)).toBeVisible()
 
       /**
        * `incomplete` is not a pass: axe files a node there when it cannot
@@ -360,6 +428,48 @@ for (const theme of THEMES) {
     })
   }
 }
+
+/**
+ * The states a click reaches, which no URL opens: each is reached on its page,
+ * then graded as the page entries are, once its heading and a line only it
+ * renders have shown.
+ */
+test.describe('states a click reaches', () => {
+  const STATES = [
+    {
+      name: 'check inbox',
+      url: signedOut('/login', ''),
+      heading: 'Check your inbox',
+      // The invitation's inbox has the same heading; this line is the sign-in form's own.
+      text: 'We sent a sign-in link to ada@example.test.',
+      reach: async (page: Page) => {
+        await page
+          .getByRole('textbox', { name: 'Email', exact: true })
+          .fill('ada@example.test', { timeout: COLD_TRANSFORM_BUDGET_MS })
+        await page.getByRole('button', { name: 'Email me a sign-in link' }).click()
+      },
+    },
+  ] as const
+
+  for (const theme of THEMES) {
+    for (const state of STATES) {
+      test(`${state.name} meets WCAG AA contrast in ${theme}`, async ({ page }) => {
+        await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+        await page.goto(state.url)
+        await state.reach(page)
+        await expect(page.getByRole('heading', { level: 1, name: state.heading })).toBeVisible({
+          timeout: COLD_TRANSFORM_BUDGET_MS,
+        })
+        await expect(page.getByText(state.text)).toBeVisible()
+        await afterFontsAndFrames(page)
+        await page.addScriptTag({ path: AXE_PATH })
+
+        const result = await runAxe(page)
+        expect(report(state.name, theme, result), report(state.name, theme, result)).toBe('')
+      })
+    }
+  }
+})
 
 /**
  * Popup menus. They carry their own `--popover` / `--popover-foreground` pair,
@@ -467,6 +577,8 @@ test.describe('popups that are not menus', () => {
 
       await facet.getByRole('checkbox', { name: 'Active' }).click()
       await page.keyboard.press('Escape')
+      // The popover fades out; graded mid-fade, its half-transparent text reads as a contrast failure.
+      await expect(facet).toBeHidden()
       await expect(
         tenants.getByRole('button', { name: 'Remove filter: Status: Active' })
       ).toBeVisible()
@@ -599,7 +711,8 @@ test.describe('command palette', () => {
 
 /**
  * The tenant actions menu and the two dialogs a lifecycle action stacks: the
- * reason dialog, then the step-up the harness's suspend always asks for.
+ * reason dialog, then the step-up the harness's suspend always asks for, in
+ * its choices and its email wait.
  * Each carries its own token pairs (the destructive item, the alert dialog's
  * surface, the step-up over it), and none renders until driven open.
  */
@@ -640,7 +753,7 @@ test.describe('tenant actions and their dialogs', () => {
       await reason.getByLabel('Reason').fill('contrast check')
       await reason.getByRole('button', { name: 'Suspend' }).click()
       const stepUp = page.getByRole('dialog', { name: 'Confirm it’s you' })
-      await expect(stepUp.getByLabel('Password')).toBeVisible()
+      await expect(stepUp.getByRole('button', { name: 'Email me a link' })).toBeVisible()
       await afterAnimations(stepUp)
       const stepUpResult = await runAxe(page, '[role="dialog"]')
       expect(
@@ -648,8 +761,18 @@ test.describe('tenant actions and their dialogs', () => {
         report('step-up dialog', theme, stepUpResult)
       ).toBe('')
 
-      // Dismissed: the reason dialog now shows its form error, a token pair of its own.
-      await page.keyboard.press('Escape')
+      // The email wait: its sent line, and Resend disabled while it counts down.
+      await stepUp.getByRole('button', { name: 'Email me a link' }).click()
+      await expect(stepUp.getByText('We sent the link to', { exact: false })).toBeVisible()
+      await afterAnimations(stepUp)
+      const waitResult = await runAxe(page, '[role="dialog"]')
+      expect(
+        report('step-up email wait', theme, waitResult),
+        report('step-up email wait', theme, waitResult)
+      ).toBe('')
+
+      // Dismissed: only Cancel ends the wait, and the reason dialog then shows its form error, a token pair of its own.
+      await stepUp.getByRole('button', { name: 'Cancel' }).click()
       await expect(reason.getByText('Confirm it’s you to continue.')).toBeVisible()
       await afterAnimations(reason)
       const errorResult = await runAxe(page, '[role="alertdialog"]')
@@ -1125,7 +1248,8 @@ test.describe('toasts', () => {
     {
       name: 'error toast',
       url: '/login?error=google_auth_failed',
-      title: 'Google sign-in failed. Please try again.',
+      title:
+        'Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask a platform admin for an invitation.',
       raise: async () => {},
     },
     {

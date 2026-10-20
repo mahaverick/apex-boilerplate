@@ -22,6 +22,7 @@ import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import { confirmStepUp, dismissStepUp } from '@/tests/mocks/step-up'
 import {
   REAUTH_REQUIRED,
   type PlatformTenantDetail,
@@ -113,17 +114,32 @@ describe('/tenants/$tenantId', () => {
     expect(await screen.findByText('Olive Owner')).toBeInTheDocument()
   })
 
-  it.each<[TenantLifecycleState, string]>([
-    ['suspended', 'members'],
-    ['suspended', 'invitations'],
-    ['suspended', 'activity'],
-    ['archived', 'members'],
-  ])('a %s tenant’s %s tab is frozen and asks the tenant routes nothing', async (state, tab) => {
-    const internal = serve(detail({ lifecycleState: state }))
-    renderAppAt(`/tenants/${TENANT_ID}/${tab}`)
-    expect(await screen.findByText(new RegExp(`This tenant is ${state}`))).toBeInTheDocument()
-    expect(internal).toEqual([])
-  })
+  const REACTIVATE = 'Reactivate it from the Actions menu to manage them again.'
+  const ASK_AN_ADMIN = 'An admin can reactivate it to manage them again.'
+  it.each<[TenantLifecycleState, string, MembershipRole, string]>([
+    ['suspended', 'members', 'admin', REACTIVATE],
+    ['suspended', 'invitations', 'admin', REACTIVATE],
+    ['suspended', 'activity', 'admin', REACTIVATE],
+    ['suspended', 'members', 'viewer', ASK_AN_ADMIN],
+    ['suspended', 'invitations', 'viewer', ASK_AN_ADMIN],
+    ['suspended', 'activity', 'viewer', ASK_AN_ADMIN],
+    [
+      'archived',
+      'members',
+      'viewer',
+      'Archiving can’t be undone. The Overview tab shows what the tenant held.',
+    ],
+  ])(
+    'a %s tenant’s %s tab is frozen for a platform %s, names the next step and asks the tenant routes nothing',
+    async (state, tab, role, next) => {
+      signIn({ ...testUser, platformRole: role })
+      const internal = serve(detail({ lifecycleState: state }))
+      renderAppAt(`/tenants/${TENANT_ID}/${tab}`)
+      expect(await screen.findByText(new RegExp(`This tenant is ${state}`))).toBeInTheDocument()
+      expect(screen.getByText(next)).toBeInTheDocument()
+      expect(internal).toEqual([])
+    }
+  )
 
   it('gives the page its one h1 while the tenant is still loading', async () => {
     server.use(
@@ -291,10 +307,7 @@ describe('/tenants/$tenantId', () => {
           return bodies.length === 1
             ? fail('Recent sign-in required', 401, REAUTH_REQUIRED)
             : ok(detail({ lifecycleState: 'suspended' }), 'Tenant suspended.')
-        }),
-        http.post('/api/v1/auth/reauthenticate', () =>
-          ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-        )
+        })
       )
       renderAppAt(`/tenants/${TENANT_ID}`)
       const { user, menu } = await openMenu()
@@ -304,16 +317,14 @@ describe('/tenants/$tenantId', () => {
       await user.type(within(reasonDialog).getByLabelText('Reason'), 'unpaid invoices')
       await user.click(within(reasonDialog).getByRole('button', { name: 'Suspend' }))
 
-      const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-      await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
-      await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+      const stepped = await confirmStepUp(user)
 
       expect(await screen.findByText('Acme Corp suspended.')).toBeInTheDocument()
       expect(bodies).toEqual([{ reason: 'unpaid invoices' }, { reason: 'unpaid invoices' }])
       expect(await screen.findByText('Suspended')).toBeInTheDocument()
       expect(useAuthStore.getState()).toMatchObject({
         isAuthenticated: true,
-        accessToken: 'stepped-up-token',
+        accessToken: stepped,
       })
     })
 
@@ -460,17 +471,34 @@ describe('/tenants/$tenantId', () => {
       await user.type(within(dialog).getByLabelText('Owner email'), 'new@acme.test')
       await user.type(within(dialog).getByLabelText('Reason'), 'owner left')
       await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
-      await screen.findByLabelText('Password')
-
-      await user.keyboard('{Escape}')
-
-      await waitFor(() =>
-        expect(screen.queryByRole('dialog', { name: 'Confirm it’s you' })).not.toBeInTheDocument()
-      )
+      await dismissStepUp(user)
       const still = screen.getByRole('dialog', { name: 'Owner invitation' })
       expect(await within(still).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
       expect(within(still).getByLabelText('Reason')).toHaveValue('owner left')
       await waitFor(() => expect(still.contains(document.activeElement)).toBe(true))
+    })
+
+    it('says the owner invitation waits on the confirmation while the step-up waits', async () => {
+      serve(detail({ owners: [] }))
+      server.use(
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/owner-invitation`, () =>
+          fail('Recent sign-in required', 401, REAUTH_REQUIRED)
+        )
+      )
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Resend owner invitation' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Owner invitation' })
+      await user.type(within(dialog).getByLabelText('Owner email'), 'new@acme.test')
+      await user.type(within(dialog).getByLabelText('Reason'), 'owner left')
+      await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
+      await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+      // The owner dialog is inert behind the modal step-up, so its button is in the hidden tree.
+      const busy = within(dialog).getByRole('button', {
+        name: 'Waiting for you to confirm…',
+        hidden: true,
+      })
+      expect(busy).toBeDisabled()
     })
 
     it('shows a deactivated invitee’s 409 inside the owner-invitation dialog', async () => {
@@ -510,9 +538,6 @@ describe('/tenants/$tenantId', () => {
           purged = true
           return ok(null, 'Tenant permanently deleted.')
         }),
-        http.post('/api/v1/auth/reauthenticate', () =>
-          ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-        ),
         http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.'))
       )
       const router = renderAppAt(`/tenants/${TENANT_ID}`)
@@ -525,9 +550,7 @@ describe('/tenants/$tenantId', () => {
       await user.type(within(dialog).getByLabelText('Type acme to confirm'), 'acme')
       await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }))
 
-      const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-      await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
-      await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+      await confirmStepUp(user)
 
       await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
       expect(router.state.location.search).toEqual({ state: 'archived' })
@@ -537,6 +560,44 @@ describe('/tenants/$tenantId', () => {
         expect(queryClient.getQueryState(tenantAdminKeys.detail(TENANT_ID))).toBeUndefined()
       )
       expect(readsAfterPurge).toBe(0)
+    })
+
+    it('focuses the Tenants heading after Delete permanently', async () => {
+      signIn({ ...testUser, platformRole: 'owner' })
+      serve(detail({ lifecycleState: 'archived', deletedAt: '2026-09-01T00:00:00.000Z' }))
+      server.use(
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/purge`, () =>
+          ok(null, 'Tenant permanently deleted.')
+        ),
+        http.get('/api/v1/platform/tenants', () => ok(listPage([]), 'Tenants retrieved.'))
+      )
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Delete permanently' }))
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Permanently delete Acme Corp?',
+      })
+      await user.type(within(dialog).getByLabelText('Reason'), 'contract ended')
+      await user.type(within(dialog).getByLabelText('Type acme to confirm'), 'acme')
+      await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }))
+
+      const heading = await screen.findByRole('heading', { name: 'Tenants', level: 1 })
+      await waitFor(() => expect(heading).toHaveFocus())
+      await waitFor(() => expect(dialog).not.toBeInTheDocument())
+      expect(heading).toHaveFocus()
+    })
+
+    it('returns focus to Actions when Delete permanently is cancelled', async () => {
+      signIn({ ...testUser, platformRole: 'owner' })
+      serve(detail({ lifecycleState: 'archived', deletedAt: '2026-09-01T00:00:00.000Z' }))
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Delete permanently' }))
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Permanently delete Acme Corp?',
+      })
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Actions' })).toHaveFocus())
     })
 
     it('never shows an archived tenant’s cached members under a new tenant that reuses its slug', async () => {
@@ -843,7 +904,7 @@ describe('/tenants/$tenantId', () => {
       await user.type(within(dialog).getByLabelText('Reason'), 'new owner')
       await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
       expect(
-        await within(dialog).findByText(/Your role can’t do this any more/)
+        await within(dialog).findByText(/Your role no longer allows this action/)
       ).toBeInTheDocument()
       expect(useAuthStore.getState().isAuthenticated).toBe(true)
     })
@@ -1098,6 +1159,8 @@ describe('/tenants/$tenantId lists', () => {
       invitedBy: { id: USER_ID_2, firstName: 'Olive', lastName: 'Owner' },
       expiresAt: '2026-10-01T00:00:00.000Z',
       createdAt: '2026-09-24T00:00:00.000Z',
+      lastSentAt: null,
+      resendAvailableAt: null,
     },
     {
       id: INVITATION_ID_2,
@@ -1106,6 +1169,8 @@ describe('/tenants/$tenantId lists', () => {
       invitedBy: null,
       expiresAt: '2026-10-02T00:00:00.000Z',
       createdAt: '2026-09-25T00:00:00.000Z',
+      lastSentAt: null,
+      resendAvailableAt: null,
     },
   ]
 

@@ -49,7 +49,7 @@ describe('skip link', () => {
     })
     server.use(http.post('/api/v1/auth/refresh', () => fail('Unauthorized', 401)))
     renderAppAt('/login')
-    await screen.findByRole('heading', { name: 'Sign in', level: 1 })
+    await screen.findByRole('heading', { name: 'Sign in to Apex', level: 1 })
 
     await tabToSkipLinkAndActivate()
 

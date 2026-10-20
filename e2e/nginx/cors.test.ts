@@ -16,7 +16,7 @@ test.beforeAll(async () => {
 })
 
 test('withholds the grant header from an origin that is not allowed', async ({ request }) => {
-  const response = await request.fetch(`${APP_ORIGIN}/api/v1/auth/login`, {
+  const response = await request.fetch(`${APP_ORIGIN}/api/v1/auth/link/request`, {
     method: 'OPTIONS',
     headers: { Origin: 'https://evil.test', 'Access-Control-Request-Method': 'POST' },
   })

@@ -25,17 +25,15 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
+import { STEP_UP_WAITING_LABEL, useStepUpWaiting } from '@/hooks/use-step-up'
 import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
-import { isReauthRequired } from '@/lib/step-up'
+import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { reasonFormSchema } from '@/schemas/reason.schemas'
 import { REASON_REQUIRED } from '@/types/api.types'
 
-/** Step-up was dismissed, so the action never ran. */
-export const STEP_UP_DISMISSED = 'Confirm it’s you to continue.'
-
 /** A 404 from a staff route answers the caller's role: it changed after the page loaded. */
 export const ROLE_DENIED_ACTION =
-  'Your role can’t do this any more. If your access just changed, reload the page.'
+  'Your role no longer allows this action. Ask a platform owner to check your role.'
 
 /** What `ReasonDialog` shows and does: its wording, the action it confirms, and how its refusals read. */
 export interface ReasonDialogProps {
@@ -115,6 +113,7 @@ function ReasonForm({
   onBusyChange,
 }: ReasonDialogProps & { onBusyChange: (busy: boolean) => void }) {
   const serverErrors = useServerErrors()
+  const waiting = useStepUpWaiting()
   const schema = useMemo(() => reasonFormSchema(confirmText), [confirmText])
   const form = useForm({
     defaultValues: { reason: '', confirmation: '' },
@@ -129,7 +128,7 @@ function ReasonForm({
       } catch (error) {
         onBusyChange(false)
         if (isReauthRequired(error)) {
-          serverErrors.setFormErrors([STEP_UP_DISMISSED])
+          serverErrors.setFormErrors([stepUpRefusal(error)])
           return
         }
         if (codeFrom(error) === REASON_REQUIRED) {
@@ -206,7 +205,7 @@ function ReasonForm({
             {(isSubmitting) => (
               <BusyButton
                 busy={isSubmitting}
-                busyLabel="Working…"
+                busyLabel={waiting ? STEP_UP_WAITING_LABEL : 'Working…'}
                 type="submit"
                 variant={destructive ? 'destructive' : 'default'}
               >

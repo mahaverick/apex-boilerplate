@@ -23,7 +23,6 @@ const CLEO: PlatformUserDetail = {
   deletedAt: null,
   platformRole: null,
   membershipCount: 0,
-  hasPassword: true,
   authProviders: ['email'],
   memberships: [],
   pendingInvitations: [],

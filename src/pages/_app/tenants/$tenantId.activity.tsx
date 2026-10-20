@@ -11,10 +11,11 @@ import { Note } from '@/components/shared/note'
 import { DetailTabPending } from '@/components/shared/pending-templates'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
-import { canViewActivity } from '@/constants/roles'
+import { canViewActivity, platformRoleAtLeast } from '@/constants/roles'
 import { tenantActivityList, tenantAuditListOptions } from '@/queries/audit.queries'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { useMyRole } from '@/queries/tenant.queries'
+import { useAuthStore } from '@/states/auth.store'
 
 /** A tenant's Activity tab: its audit log. */
 export const Route = createFileRoute('/_app/tenants/$tenantId/activity')({
@@ -29,8 +30,14 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/activity')({
 function TenantActivityTab() {
   const { tenantId } = Route.useParams()
   const { data } = useQuery(platformTenantQueryOptions(tenantId))
+  const isAdmin = platformRoleAtLeast(
+    useAuthStore((state) => state.user?.platformRole),
+    'admin'
+  )
   if (!data) return null
-  if (data.lifecycleState !== 'active') return <FrozenTenant state={data.lifecycleState} />
+  if (data.lifecycleState !== 'active') {
+    return <FrozenTenant state={data.lifecycleState} canReactivate={isAdmin} />
+  }
   return <TenantActivity slug={data.slug} tenantId={data.id} />
 }
 

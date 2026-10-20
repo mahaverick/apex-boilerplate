@@ -63,7 +63,8 @@ const STATE_DETAIL: Partial<Record<TenantLifecycleState, string>> = {
 }
 
 /**
- * Where focus goes when the New tenant dialog closes. The palette opened it,
+ * Where focus goes when the New tenant dialog closes without creating (a
+ * create sends it to the new tenant's heading instead). The palette opened it,
  * and its close has already handed focus back, so no trigger is waiting: the
  * page's heading when it takes focus, else the main landmark.
  * @returns The heading for the dialog to focus, or false once the landmark has focus.

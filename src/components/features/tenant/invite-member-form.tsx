@@ -30,8 +30,9 @@ import {
 } from '@/constants/roles'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
-import { useStepUp } from '@/hooks/use-step-up'
+import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
 import { codeFrom, fieldErrorsFrom, messageFrom } from '@/lib/api-error'
+import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { useInviteMember } from '@/queries/tenant-writes.queries'
 import { inviteMemberSchema, type InviteMemberInput } from '@/schemas/tenant.schemas'
@@ -62,15 +63,19 @@ export function InviteMemberForm({
   myRole,
   asStaff = false,
   tenantId,
+  submitLabel = 'Invite member',
 }: {
   slug: string
   myRole: MembershipRole
   /** Acting through platform access: the send asks for a reason first. */
   asStaff?: boolean
   tenantId?: string
+  /** The submit button's text: "Invite staff" on the Staff page. */
+  submitLabel?: string
 }) {
   const inviteMember = useInviteMember(slug, tenantId)
   const stepUp = useStepUp()
+  const waiting = useStepUpWaiting()
   const serverErrors = useServerErrors()
   const [toConfirm, setToConfirm] = useState<InviteMemberInput | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
@@ -123,6 +128,10 @@ export function InviteMemberForm({
         if (showOnField(error)) return
         if (codeFrom(error) === INVITATION_CONFLICT) {
           serverErrors.setFormErrors([RACED])
+          return
+        }
+        if (isReauthRequired(error)) {
+          serverErrors.setFormErrors([stepUpRefusal(error)])
           return
         }
         serverErrors.capture(error)
@@ -190,9 +199,18 @@ export function InviteMemberForm({
 
         <div className="grid gap-2 sm:pt-6">
           <FormError />
-          <BusyButton busy={inviteMember.isPending} busyLabel="Sending…" type="submit">
-            Invite member
-          </BusyButton>
+          <form.Subscribe selector={(state) => state.isSubmitting}>
+            {(isSubmitting) => (
+              <BusyButton
+                // The refused send is not pending while its step-up waits; the submit still is.
+                busy={inviteMember.isPending || (waiting && isSubmitting)}
+                busyLabel={waiting && isSubmitting ? STEP_UP_WAITING_LABEL : 'Sending…'}
+                type="submit"
+              >
+                {submitLabel}
+              </BusyButton>
+            )}
+          </form.Subscribe>
         </div>
       </Form>
       {asStaff && (

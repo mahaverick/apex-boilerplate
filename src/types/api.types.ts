@@ -49,14 +49,10 @@ export const REAUTH_REQUIRED = 'REAUTH_REQUIRED'
 
 /**
  * 503 from a write while customers are in read-only maintenance. Apex's own
- * `/platform/*` routes are let through, but the blocked auth routes
- * (forgot-password, reset-password and verify-email, among others) answer it
- * to staff too.
+ * `/platform/*` routes are let through, but customer auth writes that express
+ * blocks answer it to staff too.
  */
 export const READ_ONLY_MODE = 'READ_ONLY_MODE'
-
-/** `code` on the 409 verify-email answers for a used link whose account is already verified. */
-export const EMAIL_ALREADY_VERIFIED = 'email_already_verified'
 
 /** A 409 for a slug a live tenant already uses: it belongs on the slug field. */
 export const SLUG_TAKEN = 'slug_taken'
@@ -73,11 +69,38 @@ export interface InvitationPreview {
   email: string
 }
 
+/**
+ * The `200` of `POST /invitations/verify` and `POST /invitations/confirm`: the
+ * session, whether this click created the account, and the tenant joined.
+ */
+export interface InvitationSignIn {
+  accessToken: string
+  user: User
+  isNewUser: boolean
+  tenant: { name: string; slug: string }
+  role: MembershipRole
+}
+
+/**
+ * The `202` of `POST /invitations/verify`: no session, nothing spent. The
+ * server mailed a confirmation link to `email`, the invited address. Every
+ * staff invitation answers this.
+ */
+export interface InvitationConfirmationSent {
+  confirmationSent: true
+  email: string
+}
+
+/** What `POST /invitations/verify` answers: joined in one click, or "Check your inbox". */
+export type InvitationVerifyResult = InvitationSignIn | InvitationConfirmationSent
+
 /** `POST /invitations/accept`: the tenant the caller is now a member of. */
 export interface AcceptedInvitation {
   tenant: { name: string; slug: string }
   /** The caller's current role there: an existing member keeps theirs, so not necessarily the invited one. */
   role: MembershipRole
+  /** True when the caller had joined already, as on a repeat accept of the same link. */
+  alreadyMember: boolean
 }
 
 /**
@@ -112,9 +135,6 @@ export const MEMBER_NOT_FOUND = 'member_not_found'
  * access check's.
  */
 export const MEMBER_NOT_FOUND_MESSAGE = 'Member not found'
-
-/** 403 on accept: the signed-in account is the invited one, but its email is unverified. */
-export const INVITATION_EMAIL_UNVERIFIED = 'invitation_email_unverified'
 
 /** Mirrors express's TENANT_LIFECYCLE_STATES. */
 export const TENANT_LIFECYCLE_STATES = ['active', 'suspended', 'archived'] as const
@@ -196,12 +216,12 @@ interface AuthProviderLink {
 }
 
 /**
- * `GET /auth/providers`. `hasPassword` is the only password signal: a Google
- * sign-up also has an `'email'` row, and cannot sign in with a password.
+ * `GET /auth/providers`: the methods that can sign this account in. Every
+ * account has its `'email'` row, since an emailed link always works; a
+ * `'google'` row means "Re-confirm with Google" can confirm it's them.
  */
 export interface AuthProviders {
   providers: AuthProviderLink[]
-  hasPassword: boolean
 }
 
 /** A window the staff Overview offers. Mirrors express's STATS_RANGES. */
@@ -302,11 +322,14 @@ interface PlatformUserPendingInvitation {
   tenantName: string
   role: MembershipRole
   expiresAt: string
+  /** When the invitation was last mailed, or null for a row never stamped. */
+  lastSentAt: string | null
+  /** When a resend is allowed again, or null once the cooldown is over. */
+  resendAvailableAt: string | null
 }
 
 /** `GET /platform/users/:id`. `authProviders` are provider ids (`'email'`, `'google'`). */
 export interface PlatformUserDetail extends PlatformUserRow {
-  hasPassword: boolean
   authProviders: string[]
   memberships: PlatformUserMembership[]
   pendingInvitations: PlatformUserPendingInvitation[]
@@ -342,6 +365,10 @@ export interface TenantInvitation {
   invitedBy: InvitationInviter | null
   expiresAt: string
   createdAt: string
+  /** When the invitation was last mailed, ISO; `null` if never. */
+  lastSentAt: string | null
+  /** When a resend is allowed again, ISO; `null` when it is allowed now. */
+  resendAvailableAt: string | null
 }
 
 /** A logical email's delivery state. Mirrors express's EMAIL_MESSAGE_STATUSES. */
@@ -358,16 +385,24 @@ export const EMAIL_MESSAGE_STATUSES = [
 /** One status a logical email can hold. */
 export type EmailMessageStatus = (typeof EMAIL_MESSAGE_STATUSES)[number]
 
-/** The templates express sends. A key the API adds later still renders, by its raw name. */
+/**
+ * The templates express knows: the seven it sends, then the five it retired,
+ * whose stored messages the list's `template` filter still finds. A key the
+ * API adds later still renders, by its raw name.
+ */
 export const EMAIL_TEMPLATE_KEYS = [
-  'email_verification',
-  'password_reset',
-  'account_setup',
   'tenant_invitation',
-  'password_changed',
-  'registration_attempt',
   'onboarding_reminder',
   'maintenance_mode_changed',
+  'sign_in_link',
+  'step_up_link',
+  'welcome',
+  'invitation_confirm',
+  'email_verification',
+  'password_reset',
+  'registration_attempt',
+  'password_changed',
+  'account_setup',
 ] as const
 /** A template key express knows; stored rows carry the wider `string`. */
 export type EmailTemplateKey = (typeof EMAIL_TEMPLATE_KEYS)[number]
@@ -479,8 +514,8 @@ export interface EmailPreview {
 
 /**
  * `POST /platform/emails/:id/resend` (202). `emailSent` is present only when
- * the originating action reports it (password setup and resending a
- * verification email); an invitation resend answers an empty object.
+ * the originating action reports it (a sign-in link, for a `sign_in_link` or
+ * `welcome` message); an invitation resend answers an empty object.
  */
 export type EmailResendResult = { emailSent?: boolean } | null
 

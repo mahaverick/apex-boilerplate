@@ -39,22 +39,12 @@ shipping the app.
   `packageManager`. `pnpm install` refuses a Node older than 24.
 - **The API running on `:4040`, with `APEX_URL` set.** See
   [Getting started](#getting-started).
-- **express-boilerplate 2.0.1 or later; 4.0.0 or later is recommended.** 2.0.1 is
-  the earliest tag that has every route and body Apex sends: Leave
-  (`DELETE /tenants/:slug/membership`), Sign out other sessions
-  (`POST /auth/sessions/revoke-others`) and the reason-gated staff writes arrive in
-  2.0.0, and clearing a maintenance reason sends `reason: null`, which the
-  maintenance validator accepts from 2.0.1. The platform routes (stats 1.1.0,
-  reauthenticate 1.2.0, emails 1.3.0, onboarding 1.4.0, system
-  status 1.7.0, flags 1.8.0, maintenance 1.9.0) are all older. From
-  2.1.0 the members page reads the `member_not_found` code and `user.active` on
-  the platform tenant's member list. Against 2.0.x it falls back to the 404's
-  `Member not found` message and treats every member as active
-  (`src/queries/tenant-writes.queries.ts`, `src/queries/tenant.queries.ts`). From
-  4.0.0 a second click on a used verification link answers 409
-  `email_already_verified`, which the verify page shows as done
-  (`src/pages/verify-email.tsx`); earlier versions answer 400, which it shows as a
-  failed link.
+- **express-boilerplate 6.1.0 or later.** 6.0.0 is passwordless: sign-in and
+  step-up by emailed link or Google (`/auth/link/*`, `/auth/step-up/*`), staff
+  invitations confirmed by a mailed link (`/invitations/verify`,
+  `/invitations/confirm`) and `POST /platform/users/:id/sign-in-link`. 6.1.0
+  adds the `signedIn` filter the Users page's Signed in facet sends. An older
+  express has none of these, and Apex no longer sends a password anywhere.
 - **Optional express settings** that switch features on. Without them the page
   says the feature is not set up:
   - `POSTHOG_FEATURE_FLAGS_KEY`: the Feature flags page's evaluation. Without it
@@ -81,9 +71,9 @@ react-boilerplate on :5173. No `.env` is required: the only `VITE_*` variables a
 the optional analytics settings in `.env.example`, which the dev server serves as
 `/runtime-config.js` (see [Run-time configuration](#run-time-configuration)).
 
-`APEX_URL` makes the invitation, verification and password-reset links express
-emails, and the Google sign-in callback, point at Apex instead of the customer
-app. Apex asks for that by sending `app: "apex"`, a fixed enum (`web` or `apex`):
+`APEX_URL` makes the sign-in, Confirm it's you (step-up) and invitation links
+express emails, and the Google sign-in and step-up callbacks, point at Apex
+instead of the customer app. Apex asks for that by sending `app: "apex"`, a fixed enum (`web` or `apex`):
 the API never accepts a URL from a client.
 
 ### Becoming staff locally
@@ -91,14 +81,15 @@ the API never accepts a URL from a client.
 Staff are the members of express's platform tenant. Two ways in:
 
 - **`pnpm platform:grant -- <email> <role>`**, run in `express-boilerplate`, gives
-  an existing, verified user a role in the platform tenant. It is how the first
-  platform owner is made, since nobody can invite before one exists.
-- **`PLATFORM_EMAIL_DOMAINS`** in express's `.env` (for example `example.com`)
-  joins every verified address on those domains as a **viewer**. It never changes
-  an existing member's role.
+  an address a role in the platform tenant, creating the account when there is
+  none. It is how the first platform owner is made, since nobody can invite
+  before one exists. Then sign in at `/login` with an emailed link; locally the
+  mail lands in Mailpit (<http://localhost:8025>).
+- **An invitation** from the Staff page. With `APEX_URL` set the invitation
+  email links to Apex's `/invitations/accept`, which mails a sign-in link that
+  adds the invitee as staff.
 
-Further staff are invited from the Staff page, and with `APEX_URL` set the
-invitation email links to Apex's `/invitations/accept`. How the roles gate the
+There is no domain auto-join, and a sign-in never makes anyone staff. How the roles gate the
 pages and the actions is in [Staff-only access](SECURITY.md#staff-only-access).
 
 ### The API must be running on :4040
@@ -286,9 +277,12 @@ The `live` and `nginx` projects read these variables (defaults in
   customer app's origin in mailed links.
 - `E2E_RELEASE` (default `dev`): the release the error reports carry.
 
-The `live` project needs the express under test to run with
+The `live` project needs express 6.1.0 or later under test, run with
 `APEX_URL=http://localhost:5174` and `WEB_URL=http://localhost:5173`, an email
-worker that delivers to mailpit, and `APP_ENV=local` for the emails suite. The
+worker that delivers to mailpit, and `APP_ENV=local` for the emails suite.
+Every sign-in is by emailed link, read from Mailpit, so the run sends many link
+requests from one IP: set `RATE_LIMIT_SCALE` on the API (the nightly uses 10),
+or a 429 from `/auth/link/request` stops the run with a message naming it. The
 harness's traps are in [CLAUDE.md](CLAUDE.md#end-to-end-tests).
 
 ### Nightly live and nginx run
@@ -386,8 +380,9 @@ that happen in Apex:
 1. **Confirm staff can sign in before `full`.** In `full` customers cannot sign in
    and whoever will turn it off must be able to sign in to Apex.
 2. **Before database work, check that every queue says "0 running"** on the
-   Maintenance page. Full maintenance pauses every queue, but jobs already running
-   finish first.
+   Maintenance page. Full maintenance pauses every queue but `auth-email`, which
+   keeps sending sign-in and invitation emails, and jobs already running finish
+   first.
 3. **Staff pages keep working** during maintenance, so a staff change still lands
    while customers are shut out.
 4. **Turn it off from Apex**, as an owner, with the page's **Turn off…** button.

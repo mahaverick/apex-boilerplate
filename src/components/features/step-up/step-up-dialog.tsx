@@ -1,12 +1,19 @@
-import '@/lib/zod-jitless'
-import { useForm } from '@tanstack/react-form'
-import { Link } from '@tanstack/react-router'
-import { useEffect, useRef } from 'react'
-import { z } from 'zod'
-import { LoadError } from '@/components/features/load-error'
+import { IconAlertCircle } from '@tabler/icons-react'
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react'
+import { SigningInStatus } from '@/components/features/auth/link-panels'
+import { ROLE_DENIED_ACTION } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
-import { FormFieldsSkeleton } from '@/components/shared/section-skeleton'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Pii } from '@/components/shared/pii'
+import { Alert, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -15,24 +22,52 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { GOOGLE_STEP_UP_PATH } from '@/constants/routes'
+import { useCountdown } from '@/hooks/use-countdown'
+import { ensureSession, isAuthVerdict, redirectToLogin, subscribeAuthMessage } from '@/http/session'
+import { codeFrom, messageFrom, retryAfterSecondsFrom, statusFrom } from '@/lib/api-error'
+import { formatClock } from '@/lib/countdown'
 import {
-  Form,
-  FormControl,
-  FormError,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { ROUTES } from '@/constants/routes'
-import { fieldValue } from '@/hooks/use-form-field'
-import { useServerErrors } from '@/hooks/use-server-errors'
-import { messageFrom, statusFrom } from '@/lib/api-error'
-import { useAuthProviders, useReauthenticate } from '@/queries/auth.queries'
+  authTimeOf,
+  GOOGLE_STEP_UP_TIMEOUT_MS,
+  isNewConfirmation,
+  STEP_UP_LINK_COOLDOWN_MS,
+  STEP_UP_LINK_TTL_MS,
+} from '@/lib/step-up'
+import { holdStepUpWait } from '@/lib/step-up-presence'
+import { toast } from '@/lib/toast'
+import {
+  useAuthProviders,
+  useRequestStepUpLink,
+  useStartGoogleStepUp,
+} from '@/queries/auth.queries'
 import { useAuthStore } from '@/states/auth.store'
 
-const passwordSchema = z.object({ password: z.string().min(1, 'Enter your password.') })
+/** Express's code for a link request inside the cooldown: a link was just sent. */
+const STEP_UP_LINK_COOLDOWN = 'STEP_UP_LINK_COOLDOWN'
+
+const POPUP_BLOCKED = 'Allow pop-ups for this site, or use the email link.'
+const GOOGLE_UNAVAILABLE =
+  'Google confirmation isn’t available for this account. Use the email link.'
+const GOOGLE_TIMED_OUT =
+  'The Google window expired after 5 minutes. Try again, or use the email link.'
+
+/** The window name and size of the Google popup; one name, so a second click reuses the window. */
+const POPUP_NAME = 'apex-step-up'
+const POPUP_FEATURES = 'popup,width=520,height=640'
+
+/**
+ * Where the dialog is:
+ * - `choose`: the two ways to confirm, with any notice;
+ * - `email`: waiting on an emailed link;
+ * - `google`: waiting on the Google popup;
+ * - `resuming`: confirmed elsewhere, refreshing the session;
+ * - `resume_failed`: that refresh failed, with Try again.
+ */
+type View = 'choose' | 'email' | 'google' | 'resuming' | 'resume_failed'
+
+/** The two views that wait on the user in another tab or window. */
+type WaitingView = 'email' | 'google'
 
 /**
  * Where focus goes when the step-up closes: into the dialog still open
@@ -59,10 +94,11 @@ function focusBeneath(self: HTMLElement | null): HTMLElement | true {
 }
 
 /**
- * "Confirm it's you". The body mounts only while open, so the sign-in
- * methods are read when a step-up happens and the form starts empty every
- * time. Closing it any way other than a successful confirmation
- * (Escape, the overlay, Cancel) is a dismissal.
+ * "Confirm it's you", by an emailed link or a fresh Google sign-in. The body
+ * mounts only while open, so every step-up starts on the choices. Escape and
+ * the backdrop dismiss only where nothing is pending (the choices, and a
+ * failed resume); while it waits on a link or the popup, only Cancel does.
+ * Any dismissal rejects the waiting action.
  */
 export function StepUpDialog({
   open,
@@ -74,157 +110,418 @@ export function StepUpDialog({
   onDismissed: () => void
 }) {
   const popup = useRef<HTMLDivElement>(null)
+  const firstChoiceRef = useRef<HTMLButtonElement>(null)
+  const dismissible = useRef(true)
+  const setDismissible = useCallback((value: boolean) => {
+    dismissible.current = value
+  }, [])
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) onDismissed()
+        if (!next && dismissible.current) onDismissed()
       }}
     >
       <DialogContent
         ref={popup}
         showCloseButton={false}
+        initialFocus={firstChoiceRef}
         finalFocus={() => focusBeneath(popup.current)}
       >
         <DialogHeader>
           <DialogTitle>Confirm it’s you</DialogTitle>
-          <DialogDescription>
-            This action needs a recent sign-in. Confirm who you are to continue.
-          </DialogDescription>
         </DialogHeader>
-        {open && <StepUpBody onConfirmed={onConfirmed} onDismissed={onDismissed} />}
+        {open && (
+          <StepUpBody
+            firstChoiceRef={firstChoiceRef}
+            onConfirmed={onConfirmed}
+            onDismissed={onDismissed}
+            onDismissibleChange={setDismissible}
+          />
+        )}
       </DialogContent>
     </Dialog>
   )
 }
 
-/** Picks the confirmation the account can give: the password form, or the way to get a password. */
+/**
+ * The views and what moves between them. It holds the step-up wait lock from
+ * the first link or Google start until it unmounts, which is when the
+ * provider settles the confirmation or itself unmounts, so the confirm page
+ * never reports a tab that stopped waiting.
+ */
 function StepUpBody({
+  firstChoiceRef,
   onConfirmed,
   onDismissed,
+  onDismissibleChange,
 }: {
+  firstChoiceRef: RefObject<HTMLButtonElement | null>
   onConfirmed: () => void
   onDismissed: () => void
+  onDismissibleChange: (dismissible: boolean) => void
 }) {
   const providers = useAuthProviders()
-  if (providers.isPending) return <FormFieldsSkeleton fields={1} />
-  if (providers.isError) {
+  const requestLink = useRequestStepUpLink()
+  const startGoogle = useStartGoogleStepUp()
+  const email = useAuthStore((state) => state.user?.email)
+  const [view, setView] = useState<View>('choose')
+  const [notice, setNotice] = useState<string | null>(null)
+  const [resendAt, setResendAt] = useState<number | null>(null)
+  const [linkExpiresAt, setLinkExpiresAt] = useState<number | null>(null)
+  const [googleUntil, setGoogleUntil] = useState<number | null>(null)
+  const linkLeft = useCountdown(view === 'email' ? linkExpiresAt : null)
+  const googleLeft = useCountdown(view === 'google' ? googleUntil : null)
+  const mounted = useRef(true)
+  const release = useRef<(() => void) | null>(null)
+  // The auth_time the session had when the wait began, from the API's clock.
+  const baseline = useRef<number | null>(null)
+  const waitingIn = useRef<WaitingView>('email')
+  const resuming = useRef(false)
+  // Read only where Google is linked; while the methods load or fail, the email link stands alone.
+  const hasGoogle = providers.data?.providers.some(({ provider }) => provider === 'google') ?? false
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      release.current?.()
+      release.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    onDismissibleChange(view === 'choose' || view === 'resume_failed')
+  }, [view, onDismissibleChange])
+  useEffect(() => () => onDismissibleChange(true), [onDismissibleChange])
+
+  /** Starts the wait the first time a link or the popup goes out: the lock, and the auth_time to beat. */
+  const beginWait = () => {
+    if (release.current) return
+    baseline.current = authTimeOf(useAuthStore.getState().accessToken)
+    release.current = holdStepUpWait()
+  }
+
+  /** Moves to a waiting view, remembering it for an ignored or failed resume. */
+  const showWait = (next: WaitingView) => {
+    waitingIn.current = next
+    setView(next)
+  }
+
+  /** Back to the choices, with a notice or none. */
+  const showChoices = (message: string | null) => {
+    setNotice(message)
+    setView('choose')
+  }
+
+  /**
+   * Mails a link. From the choices, a cooldown means one was just sent, so it
+   * waits on that one.
+   * @param from - The view the request was made in.
+   */
+  const sendLink = (from: View) => {
+    setNotice(null)
+    requestLink.mutateAsync().then(
+      ({ resendAvailableAt }) => {
+        if (!mounted.current) return
+        beginWait()
+        setResendAt(Date.parse(resendAvailableAt))
+        setLinkExpiresAt(Date.now() + STEP_UP_LINK_TTL_MS)
+        showWait('email')
+      },
+      (error: unknown) => {
+        if (!mounted.current) return
+        const wait = retryAfterSecondsFrom(error)
+        /** Pushes the resend out to `Retry-After`, never earlier than it already was. */
+        const holdResend = (seconds: number) => {
+          setResendAt((current) => Math.max(current ?? 0, Date.now() + seconds * 1_000))
+        }
+        const cooldown = codeFrom(error) === STEP_UP_LINK_COOLDOWN && wait !== null
+        const message = statusFrom(error) === 404 ? ROLE_DENIED_ACTION : messageFrom(error)
+        // A link or the popup is already out, so the wait stays: the refusal is a toast, and a 429 moves the resend out.
+        if (from === 'email' || (from === 'google' && !cooldown)) {
+          if (from === 'email' && statusFrom(error) === 429 && wait !== null) holdResend(wait)
+          toast.error(message)
+          return
+        }
+        if (cooldown) {
+          beginWait()
+          holdResend(wait)
+          // The link went out when the cooldown began, so its 15 minutes started then.
+          const sentAt = Date.now() - Math.max(0, STEP_UP_LINK_COOLDOWN_MS - wait * 1_000)
+          setLinkExpiresAt((current) => current ?? sentAt + STEP_UP_LINK_TTL_MS)
+          showWait('email')
+          return
+        }
+        showChoices(message)
+      }
+    )
+  }
+
+  /**
+   * Opens the popup inside the click, where the browser allows it, then
+   * records the start and points the popup at Google. The result comes only
+   * over the auth channel: COOP severs the opener, so the popup is never polled.
+   */
+  const confirmWithGoogle = () => {
+    setNotice(null)
+    const popup = window.open('about:blank', POPUP_NAME, POPUP_FEATURES)
+    if (!popup) {
+      showChoices(POPUP_BLOCKED)
+      return
+    }
+    startGoogle.mutateAsync().then(
+      () => {
+        if (!mounted.current) {
+          popup.close()
+          return
+        }
+        // Closed before the start answered: one same-origin read while it is still on about:blank.
+        if (popup.closed) {
+          showChoices(POPUP_BLOCKED)
+          return
+        }
+        // Absolute: a relative URL would resolve against the popup's about:blank.
+        popup.location.assign(new URL(GOOGLE_STEP_UP_PATH, window.location.origin).href)
+        beginWait()
+        setGoogleUntil(Date.now() + GOOGLE_STEP_UP_TIMEOUT_MS)
+        showWait('google')
+      },
+      (error: unknown) => {
+        popup.close()
+        if (!mounted.current) return
+        showChoices(statusFrom(error) === 404 ? GOOGLE_UNAVAILABLE : messageFrom(error))
+      }
+    )
+  }
+
+  /**
+   * Confirmed in another tab: refresh, and retry only if the new token says
+   * the session confirmed since the wait began. A stray or forged message
+   * brings no newer `auth_time`, so the wait goes on. A refused refresh has
+   * signed this tab out, so it leaves for /login.
+   */
+  const resume = async () => {
+    if (resuming.current) return
+    resuming.current = true
+    setView('resuming')
+    try {
+      let token = await ensureSession()
+      // A refresh already in flight when the confirmation landed carries the old auth_time; the next one is fresh.
+      if (mounted.current && !isNewConfirmation(baseline.current, authTimeOf(token))) {
+        token = await ensureSession()
+      }
+      if (!mounted.current) return
+      if (isNewConfirmation(baseline.current, authTimeOf(token))) {
+        onConfirmed()
+        return
+      }
+      setView(waitingIn.current)
+    } catch (error) {
+      if (!mounted.current) return
+      if (isAuthVerdict(error)) {
+        redirectToLogin()
+        return
+      }
+      setView('resume_failed')
+    } finally {
+      resuming.current = false
+    }
+  }
+
+  const onConfirmedElsewhere = useEffectEvent(() => void resume())
+  useEffect(() => {
+    if (view !== 'email' && view !== 'google') return
+    return subscribeAuthMessage('step_up_confirmed', onConfirmedElsewhere)
+  }, [view])
+
+  // The popup's time ran out: the API now refuses its round trip, so the choices come back.
+  if (view === 'google' && googleUntil !== null && googleLeft === 0) {
+    setGoogleUntil(null)
+    setNotice(GOOGLE_TIMED_OUT)
+    setView('choose')
+  }
+
+  /**
+   * Focuses a view's main control as it mounts, when the step that brought
+   * the person here took focus with it: the button they pressed has gone, so
+   * focus fell to the page body. Focus anywhere else stays put, including on
+   * open, where the dialog's own initial focus decides.
+   */
+  const arrive = useCallback((element: HTMLElement | null) => {
+    const active = document.activeElement
+    if (element && (active === null || active === document.body)) element.focus()
+  }, [])
+  /** The email choice's ref: the dialog's initial focus, and focused on a return to the choices. */
+  const emailChoiceRef = useCallback(
+    (element: HTMLButtonElement | null) => {
+      firstChoiceRef.current = element
+      arrive(element)
+    },
+    [firstChoiceRef, arrive]
+  )
+
+  /** "Email me a link", the first choice; focused on open by the dialog. */
+  const emailChoice = (
+    <BusyButton
+      ref={emailChoiceRef}
+      busy={requestLink.isPending}
+      busyLabel="Sending…"
+      onClick={() => sendLink(view)}
+    >
+      Email me a link
+    </BusyButton>
+  )
+  const cancel = (
+    <Button type="button" variant="outline" onClick={onDismissed}>
+      Cancel
+    </Button>
+  )
+
+  if (view === 'resuming') return <SigningInStatus label="Confirmed. Continuing…" />
+
+  if (view === 'resume_failed') {
     return (
-      <LoadError
-        message="We could not load your sign-in methods."
-        onRetry={() => void providers.refetch()}
+      <div className="grid gap-4">
+        <DialogDescription>
+          You confirmed, but we couldn’t reach the server. Check your connection, then select Try
+          again.
+        </DialogDescription>
+        <DialogFooter>
+          {cancel}
+          <Button ref={arrive} onClick={() => void resume()}>
+            Try again
+          </Button>
+        </DialogFooter>
+      </div>
+    )
+  }
+
+  if (view === 'email') {
+    return (
+      <EmailWait
+        email={email}
+        expired={linkExpiresAt !== null && linkLeft === 0}
+        resendAt={resendAt}
+        busy={requestLink.isPending}
+        resendRef={arrive}
+        onResend={() => sendLink('email')}
+        cancel={cancel}
       />
     )
   }
-  return providers.data.hasPassword ? (
-    <PasswordStepUp onConfirmed={onConfirmed} onDismissed={onDismissed} />
-  ) : (
-    <NoPasswordStepUp onDismissed={onDismissed} />
-  )
-}
 
-/**
- * The password form. It focuses its field on mount: the popup took focus when
- * it opened, while the sign-in methods were still loading, so without this a
- * keyboard user would have to Tab to the field first.
- */
-function PasswordStepUp({
-  onConfirmed,
-  onDismissed,
-}: {
-  onConfirmed: () => void
-  onDismissed: () => void
-}) {
-  const reauthenticate = useReauthenticate()
-  const serverErrors = useServerErrors()
-  const password = useRef<HTMLInputElement>(null)
-  useEffect(() => password.current?.focus(), [])
-  const form = useForm({
-    defaultValues: { password: '' },
-    validators: { onSubmit: passwordSchema },
-    onSubmit: async ({ value }) => {
-      serverErrors.reset()
-      try {
-        await reauthenticate.mutateAsync(value.password)
-        onConfirmed()
-      } catch (error) {
-        // A wrong password is a 400, not a 401, which would sign the session out; it belongs on the one field.
-        if (statusFrom(error) === 400) {
-          serverErrors.setFieldError('password', [messageFrom(error)])
-          return
-        }
-        serverErrors.capture(error)
-      }
-    },
-  })
+  if (view === 'google') {
+    return (
+      <div className="grid gap-4">
+        <DialogDescription>
+          Finish in the Google window. This dialog continues on its own when you’re done.
+        </DialogDescription>
+        <DialogFooter>
+          {cancel}
+          <BusyButton
+            type="button"
+            variant="outline"
+            busy={requestLink.isPending}
+            busyLabel="Sending…"
+            onClick={() => sendLink('google')}
+          >
+            Email me a link instead
+          </BusyButton>
+          <BusyButton
+            ref={arrive}
+            busy={startGoogle.isPending}
+            busyLabel="Opening Google…"
+            onClick={confirmWithGoogle}
+          >
+            Re-confirm with Google
+          </BusyButton>
+        </DialogFooter>
+      </div>
+    )
+  }
 
-  return (
-    <Form form={form} serverErrors={serverErrors} className="grid gap-4">
-      <FormField form={form} name="password">
-        {(field) => (
-          <FormItem>
-            <FormLabel>Password</FormLabel>
-            <FormControl>
-              <Input
-                ref={password}
-                type="password"
-                autoComplete="current-password"
-                value={fieldValue(field.state.value)}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      </FormField>
-      <FormError />
-      <DialogFooter>
-        <Button type="button" variant="outline" onClick={onDismissed}>
-          Cancel
-        </Button>
-        <BusyButton busy={reauthenticate.isPending} busyLabel="Confirming…" type="submit">
-          Confirm
-        </BusyButton>
-      </DialogFooter>
-    </Form>
-  )
-}
-
-/**
- * An account without a password can't confirm who it is here: the API
- * confirms by password only. An admin or owner may mail themselves a
- * set-password link from their own user page (the link opens Apex's reset
- * page, which works while signed in). A viewer reaches a step-up only by
- * leaving the platform tenant, and the API lets only admins and owners send
- * account mail, so a viewer has no such link. Setting the password ends every
- * session the account has, so its owner signs in again before repeating the
- * action. Forgot password is no route while signed in: the sign-in pages send
- * a signed-in user away.
- */
-function NoPasswordStepUp({ onDismissed }: { onDismissed: () => void }) {
-  const userId = useAuthStore((state) => state.user?.id)
   return (
     <div className="grid gap-4">
-      <p className="text-sm text-muted-foreground">
-        Your account has no password. Open your user page and use Send set-password link, then set a
-        password from the email. Setting it signs you out everywhere, so sign in again before you
-        repeat this action.
+      <DialogDescription>
+        This action needs a confirmation from the last 10 minutes. Choose how to confirm it’s you.
+      </DialogDescription>
+      {notice !== null && (
+        <Alert variant="destructive">
+          <IconAlertCircle aria-hidden="true" />
+          <AlertTitle>{notice}</AlertTitle>
+        </Alert>
+      )}
+      <DialogFooter>
+        {cancel}
+        {hasGoogle && (
+          <BusyButton
+            variant="outline"
+            busy={startGoogle.isPending}
+            busyLabel="Opening Google…"
+            onClick={confirmWithGoogle}
+          >
+            Re-confirm with Google
+          </BusyButton>
+        )}
+        {emailChoice}
+      </DialogFooter>
+    </div>
+  )
+}
+
+/**
+ * The wait on an emailed link: where it went, how long it works, and a
+ * Resend that counts down to when the API will mail again. The sent line is
+ * the live region; the clock sits outside it, so it is not announced every
+ * second.
+ */
+function EmailWait({
+  email,
+  expired,
+  resendAt,
+  busy,
+  resendRef,
+  onResend,
+  cancel,
+}: {
+  email: string | undefined
+  expired: boolean
+  resendAt: number | null
+  busy: boolean
+  resendRef: (element: HTMLElement | null) => void
+  onResend: () => void
+  cancel: ReactNode
+}) {
+  const left = useCountdown(resendAt)
+  return (
+    <div className="grid gap-4">
+      <DialogDescription>
+        Check your email. Open the link in this browser to continue.
+      </DialogDescription>
+      <p role="status" className="text-sm">
+        {expired ? (
+          'That link expired. Send a new link to continue.'
+        ) : (
+          <>
+            We sent the link to {email ? <Pii>{email}</Pii> : 'your email address'}. It expires in
+            15 minutes.
+          </>
+        )}
       </p>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onDismissed}>
-          Close
-        </Button>
-        {userId !== undefined && (
-          <Link
-            to={ROUTES.user}
-            params={{ userId }}
-            className={buttonVariants()}
-            onClick={onDismissed}
-          >
-            Open your user page
-          </Link>
-        )}
+        {cancel}
+        <BusyButton
+          ref={resendRef}
+          busy={busy}
+          busyLabel="Sending…"
+          variant={expired ? 'default' : 'outline'}
+          disabled={left > 0}
+          focusableWhenDisabled
+          onClick={onResend}
+        >
+          {left > 0 ? `Resend in ${formatClock(left)}` : 'Resend link'}
+        </BusyButton>
       </DialogFooter>
     </div>
   )

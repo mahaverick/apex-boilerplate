@@ -8,11 +8,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { createColumnHelper } from '@tanstack/react-table'
 import { createContext, useContext, useRef, useState } from 'react'
 import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
-import {
-  ReasonDialog,
-  STEP_UP_DISMISSED,
-  type ReasonDialogProps,
-} from '@/components/features/reason-dialog'
+import { ReasonDialog, type ReasonDialogProps } from '@/components/features/reason-dialog'
 import { ROLE_FILTER } from '@/components/features/tenant/role-filter'
 import { DataTable } from '@/components/shared/data-table/data-table'
 import type { DataTableFeatures } from '@/components/shared/data-table/data-table-model'
@@ -55,10 +51,10 @@ import {
 } from '@/constants/roles'
 import { PLATFORM_TENANT_SLUG, ROUTES } from '@/constants/routes'
 import { useFocusAfter } from '@/hooks/use-focus-after'
-import { useStepUp } from '@/hooks/use-step-up'
+import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
 import { messageFrom, statusFrom } from '@/lib/api-error'
 import { fullName } from '@/lib/format'
-import { isReauthRequired } from '@/lib/step-up'
+import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { noteError } from '@/observability/errors'
 import { analyticsKey } from '@/observability/telemetry'
@@ -101,11 +97,10 @@ const LEAVE_CUSTOMER = 'You stop being a member of this tenant. You keep your st
 
 /**
  * What the Leave dialog says on the Staff page. The platform role is the
- * platform-tenant membership, so leaving ends it; an auto-join domain brings
- * a verified address back as viewer at its next sign-in.
+ * platform-tenant membership, so leaving ends it, and only a new invitation
+ * brings it back.
  */
-const LEAVE_PLATFORM =
-  'You lose staff access immediately. An owner or admin will have to invite you back, unless your address is on an auto-join domain: then you rejoin as a viewer at your next sign-in.'
+const LEAVE_PLATFORM = 'You lose staff access immediately. An owner or admin must invite you back.'
 
 /** Added on a customer tenant for an owner or admin, the roles that can have sent invitations: leaving revokes them. */
 const INVITATIONS_REVOKED_ON_LEAVE = 'Pending invitations you sent are revoked.'
@@ -209,6 +204,7 @@ function RoleCell({
 }) {
   const updateRole = useUpdateMemberRole(slug)
   const stepUp = useStepUp()
+  const waiting = useStepUpWaiting()
   const [pendingRole, setPendingRole] = useState<MembershipRole | null>(null)
   const targetRole = member.membership.role
   const name = memberName(member)
@@ -233,7 +229,8 @@ function RoleCell({
     <div className="grid gap-1">
       <Select
         value={targetRole}
-        disabled={isLastOwner || ownersPending || updateRole.isPending}
+        // The refused change is not pending while its step-up waits; the select holds still all the same.
+        disabled={isLastOwner || ownersPending || updateRole.isPending || waiting}
         onValueChange={(value: string | null) => {
           if (value === null || value === targetRole) return
           if (asStaff) {
@@ -411,10 +408,11 @@ function RemoveMemberButton({
   const leaveTenant = useLeaveTenant(slug)
   const queryClient = useQueryClient()
   const stepUp = useStepUp()
+  const waiting = useStepUpWaiting()
   const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [stepUpDismissed, setStepUpDismissed] = useState(false)
+  const [stepUpRefused, setStepUpRefused] = useState<string | null>(null)
   const name = memberName(member)
   const isPending = isSelf ? leaveTenant.isPending : removeMember.isPending
 
@@ -459,7 +457,7 @@ function RemoveMemberButton({
       onOpenChange={(next) => {
         // While the removal runs, a step-up may be open over this dialog: Escape and the backdrop belong to it.
         if (!next && busy) return
-        setStepUpDismissed(false)
+        setStepUpRefused(null)
         setIsOpen(next)
       }}
     >
@@ -491,10 +489,10 @@ function RemoveMemberButton({
             ) : slug === PLATFORM_TENANT_SLUG ? (
               <>
                 <Pii>{name}</Pii> loses staff access immediately. Pending invitations they sent here
-                are revoked, and so are any they sent in other tenants for a role they can no longer
-                grant there. If their address is on an auto-join domain (PLATFORM_EMAIL_DOMAINS),
-                they rejoin as a viewer at their next sign-in: deactivate their account from Users
-                to offboard them.{' '}
+                are revoked. So are any they sent in other tenants for a role they can no longer
+                grant there. A new invitation gives them staff access again. An operator can grant
+                the role again on the server. To block their sign-in too, deactivate their account
+                in Users.{' '}
                 <Link
                   to={ROUTES.user}
                   params={{ userId: member.user.id }}
@@ -511,10 +509,10 @@ function RemoveMemberButton({
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {stepUpDismissed && (
+        {stepUpRefused !== null && (
           <Alert variant="destructive">
             <IconAlertCircle aria-hidden="true" />
-            <AlertTitle>{STEP_UP_DISMISSED}</AlertTitle>
+            <AlertTitle>{stepUpRefused}</AlertTitle>
           </Alert>
         )}
         <AlertDialogFooter>
@@ -524,7 +522,7 @@ function RemoveMemberButton({
             disabled={busy}
             onClick={() => {
               setBusy(true)
-              setStepUpDismissed(false)
+              setStepUpRefused(null)
               stepUp
                 .run(() =>
                   isSelf
@@ -549,7 +547,7 @@ function RemoveMemberButton({
                   (error: unknown) => {
                     setBusy(false)
                     if (isReauthRequired(error)) {
-                      setStepUpDismissed(true)
+                      setStepUpRefused(stepUpRefusal(error))
                       return
                     }
                     if (isSelf && statusFrom(error) === 404) {
@@ -563,7 +561,7 @@ function RemoveMemberButton({
                 )
             }}
           >
-            {isSelf ? 'Leave' : 'Remove'}
+            {busy && waiting ? STEP_UP_WAITING_LABEL : isSelf ? 'Leave' : 'Remove'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

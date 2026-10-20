@@ -40,13 +40,12 @@ function renderSignedOutLogin() {
 describe('login page with no social provider configured', () => {
   beforeEach(renderSignedOutLogin)
 
-  it('renders no social button and no divider, and keeps the email form', async () => {
-    await screen.findByRole('heading', { name: 'Sign in', level: 1 })
+  it('renders no social button and no divider, and keeps the email link form', async () => {
+    await screen.findByRole('heading', { name: 'Sign in to Apex', level: 1 })
 
     expect(screen.queryByRole('link', { name: /continue with/i })).not.toBeInTheDocument()
-    expect(screen.queryByText('Or continue with')).not.toBeInTheDocument()
+    expect(screen.queryByText('or')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Email me a sign-in link' })).toBeInTheDocument()
   })
 })

@@ -12,32 +12,31 @@ import type {
 } from '@/types/api.types'
 
 /**
- * Each template's label and, for the four that carry a token, the sentence
- * the Resend dialog shows: a resend re-runs the originating action, which
- * issues a fresh link. The two security notices, the onboarding reminder and
- * the maintenance-mode notice have no resend.
+ * Each template's label and, for the four a resend re-runs, the sentence the
+ * Resend dialog shows: a sign-in link or welcome message mails a fresh
+ * sign-in link, and an invitation or its confirmation sends the invitation
+ * again. The identity confirmation link, the onboarding reminder, the
+ * maintenance-mode notice and the five retired templates have no resend.
  */
 export const EMAIL_TEMPLATES: Record<
   EmailTemplateKey,
   { label: string; resendLabel: string | null }
 > = {
-  email_verification: {
-    label: 'Email verification',
-    resendLabel: 'Issues a new verification link.',
-  },
-  password_reset: {
-    label: 'Password reset',
-    resendLabel: 'Issues a new password link — account setup or reset, whichever applies now.',
-  },
-  account_setup: {
-    label: 'Account setup',
-    resendLabel: 'Issues a new password link — account setup or reset, whichever applies now.',
-  },
   tenant_invitation: { label: 'Tenant invitation', resendLabel: 'Sends the invitation again.' },
-  password_changed: { label: 'Password changed', resendLabel: null },
-  registration_attempt: { label: 'Registration attempt', resendLabel: null },
   onboarding_reminder: { label: 'Onboarding reminder', resendLabel: null },
   maintenance_mode_changed: { label: 'Maintenance mode changed', resendLabel: null },
+  sign_in_link: { label: 'Sign-in link', resendLabel: 'Sends a new sign-in link.' },
+  step_up_link: { label: 'Identity confirmation link', resendLabel: null },
+  welcome: { label: 'Welcome', resendLabel: 'Sends a new sign-in link.' },
+  invitation_confirm: {
+    label: 'Invitation confirmation',
+    resendLabel: 'Sends the invitation again.',
+  },
+  email_verification: { label: 'Email verification', resendLabel: null },
+  password_reset: { label: 'Password reset', resendLabel: null },
+  registration_attempt: { label: 'Registration attempt', resendLabel: null },
+  password_changed: { label: 'Password changed', resendLabel: null },
+  account_setup: { label: 'Account setup', resendLabel: null },
 }
 
 /** Whether `key` is a template this build knows. */
@@ -102,7 +101,7 @@ export const RESEND_REQUESTED = 'Resend requested — it appears in the timeline
 
 /** The warning toast when the originating action ran but reports that its email did not go. */
 export const RESEND_NOT_SENT =
-  'The resend was recorded, but its email could not be sent. Try again shortly.'
+  'We recorded the resend, but its email couldn’t be sent. Select Resend to try again.'
 
 /**
  * express's "Email tracking" section, in the README its repository page

@@ -63,7 +63,7 @@ test('the preview is a sandboxed frame at a fixed height, with its own scroll', 
   await expect(frame).toBeVisible()
   // `sandbox=""` grants nothing: no script, no same origin, no top navigation.
   await expect(frame).toHaveAttribute('sandbox', '')
-  await expect(frame).toHaveAttribute('srcdoc', /Reset your password/)
+  await expect(frame).toHaveAttribute('srcdoc', /Sign in to Boilerplate/)
   await expect.poll(async () => (await frame.boundingBox())?.height).toBe(640)
 })
 

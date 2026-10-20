@@ -18,6 +18,7 @@ import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import { confirmStepUp, dismissStepUp } from '@/tests/mocks/step-up'
 
 /**
  * A gate the members card's `navigate` waits on before navigating, so a test can hold a navigation
@@ -60,8 +61,7 @@ afterEach(() => {
 })
 
 /** What the Leave dialog says on the Staff page: leaving the platform tenant ends staff access. */
-const LEAVE_PLATFORM =
-  'You lose staff access immediately. An owner or admin will have to invite you back, unless your address is on an auto-join domain: then you rejoin as a viewer at your next sign-in.'
+const LEAVE_PLATFORM = 'You lose staff access immediately. An owner or admin must invite you back.'
 
 /** What the Leave dialog adds about invitations for a platform owner or admin. */
 const PLATFORM_INVITATIONS_REVOKED =
@@ -348,17 +348,40 @@ describe('/staff with the real sections', () => {
     expect(screen.queryAllByRole('button', { name: 'Remove' })).toEqual([])
   })
 
-  it('warns, when removing staff, that domain auto-join can bring them back', async () => {
+  it('says leaving staff needs a new invitation', async () => {
+    serveStaff('viewer', 'owner')
+    const user = userEvent.setup()
+    renderAppAt('/settings/platform/staff')
+    await user.click(await enabledLeave())
+    const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
+    expect(dialog).toHaveTextContent('An owner or admin must invite you back.')
+    expect(dialog).not.toHaveTextContent(/auto-join|domain/)
+  })
+
+  it('labels the Staff invite button Invite staff', async () => {
+    serveStaff('owner', 'viewer')
+    renderAppAt('/settings/platform/staff')
+    expect(await screen.findByRole('button', { name: 'Invite staff' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Invite member' })).not.toBeInTheDocument()
+  })
+
+  it('says removing staff needs a new invitation to return', async () => {
     serveStaff('owner', 'viewer')
     const user = userEvent.setup()
     renderAppAt('/settings/platform/staff')
     await user.click(await screen.findByRole('button', { name: 'Remove' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Remove Otto Staff?' })
-    expect(dialog).toHaveTextContent(/auto-join domain/)
+    expect(dialog).not.toHaveTextContent(/auto-join|PLATFORM_EMAIL_DOMAINS/)
     expect(dialog).toHaveTextContent(
-      'Pending invitations they sent here are revoked, and so are any they sent in other tenants for a role they can no longer grant there.'
+      'A new invitation gives them staff access again. An operator can grant the role again on the server.'
     )
-    expect(dialog).toHaveTextContent(/deactivate their account from Users/)
+    expect(dialog).not.toHaveTextContent(/pnpm|platform:grant/)
+    expect(dialog).toHaveTextContent(
+      'Pending invitations they sent here are revoked. So are any they sent in other tenants for a role they can no longer grant there.'
+    )
+    expect(dialog).toHaveTextContent(
+      /To block their sign-in too, deactivate their account in Users/
+    )
     expect(within(dialog).getByRole('link', { name: 'Open Otto Staff in Users' })).toHaveAttribute(
       'href',
       `/users/${USER_ID_2}`
@@ -377,10 +400,7 @@ describe('/staff with the real sections', () => {
               { ...staff(USER_ID_2, MEMBERSHIP_ID_2, 'admin', 'Otto').membership },
               'Role updated.'
             )
-      }),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-      )
+      })
     )
     const success = vi.spyOn(toast, 'success')
     const user = userEvent.setup()
@@ -388,9 +408,7 @@ describe('/staff with the real sections', () => {
     await user.click(await screen.findByRole('combobox', { name: 'Role for Otto Staff' }))
     await user.click(await screen.findByRole('option', { name: 'Admin' }))
 
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+    await confirmStepUp(user)
 
     await waitFor(() => expect(success).toHaveBeenCalledTimes(1))
     const { container } = render(<>{success.mock.calls[0]![0]}</>)
@@ -408,10 +426,7 @@ describe('/staff with the real sections', () => {
         return calls === 1
           ? fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
           : ok(null, 'Member removed.')
-      }),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-      )
+      })
     )
     const success = vi.spyOn(toast, 'success')
     const user = userEvent.setup()
@@ -420,9 +435,7 @@ describe('/staff with the real sections', () => {
     const dialog = await screen.findByRole('alertdialog', { name: 'Remove Otto Staff?' })
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+    await confirmStepUp(user)
 
     await waitFor(() => expect(success).toHaveBeenCalledTimes(1))
     const { container } = render(<>{success.mock.calls[0]![0]}</>)
@@ -475,13 +488,7 @@ describe('/staff with the real sections', () => {
     await user.click(await enabledLeave())
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
-    await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-
-    await user.keyboard('{Escape}')
-
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Confirm it’s you' })).not.toBeInTheDocument()
-    )
+    await dismissStepUp(user)
     const still = screen.getByRole('alertdialog', { name: 'Leave this tenant?' })
     expect(await within(still).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
     expect(calls).toBe(1)
@@ -586,10 +593,7 @@ describe('/staff with the real sections', () => {
         return calls === 1
           ? fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
           : ok(null, 'You left the tenant.')
-      }),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-      )
+      })
     )
     const user = userEvent.setup()
     const router = renderAppAt('/settings/platform/staff')
@@ -597,9 +601,7 @@ describe('/staff with the real sections', () => {
     const dialog = await screen.findByRole('alertdialog', { name: 'Leave this tenant?' })
     await user.click(within(dialog).getByRole('button', { name: 'Leave' }))
 
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'zqS7-leave-staff')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+    await confirmStepUp(user)
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/overview'))
     expect(calls).toBe(2)

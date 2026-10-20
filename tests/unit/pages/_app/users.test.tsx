@@ -10,7 +10,7 @@ import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
-import type { PlatformUserRow } from '@/types/api.types'
+import type { PlatformUserDetail, PlatformUserRow } from '@/types/api.types'
 
 /** A user row numbered `index`, active and verified, with `overrides` applied. */
 function row(index: number, overrides: Partial<PlatformUserRow> = {}): PlatformUserRow {
@@ -34,6 +34,8 @@ const PAGE_ONE = [
   row(1, { active: false }),
   row(2, { emailVerifiedAt: null, lastLoggedInAt: null }),
   row(3, { platformRole: 'admin' }),
+  // Verified but never signed in: an older account verified by a link, or a join whose sign-in stamp failed.
+  row(4, { lastLoggedInAt: null }),
 ]
 
 /** Page one, then page two after `next`, answering `prev` from page two with page one. Records every query. */
@@ -65,9 +67,9 @@ describe('/users', () => {
     renderAppAt('/users')
     const table = await screen.findByRole('table', { name: 'Users' })
     const rows = within(table).getAllByRole('row')
-    expect(rows).toHaveLength(4)
+    expect(rows).toHaveLength(5)
     expect(within(rows[1]!).getByText('Inactive')).toBeInTheDocument()
-    expect(within(rows[2]!).getByText('Unverified')).toBeInTheDocument()
+    expect(within(rows[2]!).getByText('Never signed in')).toBeInTheDocument()
     expect(within(rows[2]!).getByText('Never')).toBeInTheDocument()
     expect(within(rows[3]!).getByText('Admin')).toBeInTheDocument()
     expect(within(rows[1]!).getByRole('link', { name: 'user01@example.com' })).toHaveAttribute(
@@ -160,9 +162,9 @@ describe('/users', () => {
   it('reads boolean filters from the URL and sends them', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
-    renderAppAt('/users?verified=false&staff=true')
+    renderAppAt('/users?signedIn=false&staff=true')
     await screen.findByText('user01@example.com')
-    expect(seen.at(-1)?.get('verified')).toBe('false')
+    expect(seen.at(-1)?.get('signedIn')).toBe('false')
     expect(seen.at(-1)?.get('staff')).toBe('true')
   })
 
@@ -181,17 +183,26 @@ describe('/users', () => {
     await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('-lastSignIn'))
   })
 
-  it('filters by verification through a yes/no facet', async () => {
+  it('labels users with no sign-in Never signed in, by last sign-in, in the badge and the facet', async () => {
     const seen: URLSearchParams[] = []
     pages(seen)
     const user = userEvent.setup()
     const router = renderAppAt('/users')
-    await screen.findByText('user01@example.com')
-    await user.click(screen.getByRole('button', { name: 'Filter by verified, Users' }))
-    const popup = await screen.findByRole('dialog', { name: 'Filter by verified, Users' })
-    await user.click(within(popup).getByRole('checkbox', { name: 'Unverified' }))
-    await waitFor(() => expect(router.state.location.search).toEqual({ verified: false }))
-    await waitFor(() => expect(seen.at(-1)?.get('verified')).toBe('false'))
+    const table = await screen.findByRole('table', { name: 'Users' })
+    const rows = within(table).getAllByRole('row')
+    // The badge follows the Last sign-in column, not verification: user04 is verified but has never signed in.
+    expect(within(rows[2]!).getByText('Never signed in')).toBeInTheDocument()
+    expect(within(rows[4]!).getByText('Never signed in')).toBeInTheDocument()
+    expect(within(rows[4]!).getByText('Never')).toBeInTheDocument()
+    expect(within(rows[1]!).queryByText('Never signed in')).not.toBeInTheDocument()
+    expect(within(table).queryByText('Unverified')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Filter by signed in, Users' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by signed in, Users' })
+    expect(within(popup).getByRole('checkbox', { name: 'Has signed in' })).toBeInTheDocument()
+    await user.click(within(popup).getByRole('checkbox', { name: 'Never signed in' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ signedIn: false }))
+    await waitFor(() => expect(seen.at(-1)?.get('signedIn')).toBe('false'))
+    expect(seen.at(-1)?.get('verified')).toBeNull()
   })
 
   it('says so when nothing matches', async () => {
@@ -268,6 +279,9 @@ describe('/users', () => {
       const router = renderAppAt('/users')
       await user.click(await screen.findByRole('button', { name: 'New user' }))
       const dialog = await screen.findByRole('dialog', { name: 'New user' })
+      expect(dialog).toHaveTextContent(
+        'We email them a sign-in link to the customer app. It expires in 15 minutes. You can send a new one from their page.'
+      )
       await user.type(within(dialog).getByLabelText('Email'), '  New@Example.com ')
       await user.type(within(dialog).getByLabelText('First name'), 'Nia')
       await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
@@ -277,21 +291,67 @@ describe('/users', () => {
       expect(success).toHaveBeenCalledTimes(1)
       expectMaskedToast(
         success.mock.calls[0]![0],
-        'Set-password email sent to new@example.com.',
+        'Welcome email sent to new@example.com.',
         'new@example.com'
       )
     })
 
-    it('warns when the email did not go, and its Resend posts password-setup', async () => {
+    it('focuses the new user’s heading after New user', async () => {
+      pages([])
+      const created = row(9, { id: USER_ID_2, email: 'new@example.com', firstName: 'Nia' })
+      server.use(
+        http.post('/api/v1/platform/users', () =>
+          ok({ user: created, emailSent: true }, 'User created.', 201)
+        ),
+        http.get(`/api/v1/platform/users/${USER_ID_2}`, () =>
+          ok(
+            {
+              ...created,
+              authProviders: ['email'],
+              memberships: [],
+              pendingInvitations: [],
+            } satisfies PlatformUserDetail,
+            'User retrieved.'
+          )
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt('/users')
+      await user.click(await screen.findByRole('button', { name: 'New user' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New user' })
+      await user.type(within(dialog).getByLabelText('Email'), 'new@example.com')
+      await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
+
+      const heading = await screen.findByRole('heading', { name: 'Nia Last', level: 1 })
+      await waitFor(() => expect(heading).toHaveFocus())
+      await waitFor(() => expect(dialog).not.toBeInTheDocument())
+      expect(heading).toHaveFocus()
+    })
+
+    it('returns focus to New user when the dialog is closed without creating', async () => {
+      pages([])
+      const user = userEvent.setup()
+      renderAppAt('/users')
+      const button = await screen.findByRole('button', { name: 'New user' })
+      await user.click(button)
+      const dialog = await screen.findByRole('dialog', { name: 'New user' })
+      await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(button).toHaveFocus())
+    })
+
+    it('warns when the welcome email did not go, and its Resend sends a sign-in link', async () => {
       pages([])
       let resent = false
+      let body: unknown
       server.use(
         http.post('/api/v1/platform/users', () =>
           ok({ user: row(9, { id: USER_ID_3 }), emailSent: false }, 'User created.', 201)
         ),
-        http.post(`/api/v1/platform/users/${USER_ID_3}/password-setup`, () => {
+        http.post(`/api/v1/platform/users/${USER_ID_3}/sign-in-link`, async ({ request }) => {
           resent = true
-          return ok({ emailSent: true }, 'Email sent.')
+          body = await request.json()
+          return ok({ emailSent: true }, 'Sign-in link sent.')
         }),
         http.get(`/api/v1/platform/users/${USER_ID_3}`, () => fail('Not found', 404))
       )
@@ -306,12 +366,47 @@ describe('/users', () => {
 
       await waitFor(() => expect(warning).toHaveBeenCalled())
       const notSent = await screen.findByRole('dialog', {
-        name: 'The user was created, but the set-password email could not be sent.',
+        name: 'The user was created, but the welcome email couldn’t be sent.',
       })
       await user.click(within(notSent).getByRole('button', { name: 'Resend' }))
       await waitFor(() => expect(resent).toBe(true))
+      expect(body).toEqual({})
       await waitFor(() => expect(notSent).not.toBeInTheDocument())
-      await waitFor(() => expect(success).toHaveBeenCalledWith('Set-password email sent.'))
+      await waitFor(() => expect(success).toHaveBeenCalledTimes(1))
+      expectMaskedToast(
+        success.mock.calls[0]![0],
+        `Sign-in link sent to ${row(9, { id: USER_ID_3 }).email}.`,
+        row(9, { id: USER_ID_3 }).email
+      )
+    })
+
+    it('points to the user’s page when the welcome Resend also fails to send', async () => {
+      pages([])
+      server.use(
+        http.post('/api/v1/platform/users', () =>
+          ok({ user: row(9, { id: USER_ID_3 }), emailSent: false }, 'User created.', 201)
+        ),
+        http.post(`/api/v1/platform/users/${USER_ID_3}/sign-in-link`, () =>
+          ok({ emailSent: false }, 'Sign-in link sent.')
+        ),
+        http.get(`/api/v1/platform/users/${USER_ID_3}`, () => fail('Not found', 404))
+      )
+      const warning = vi.spyOn(toast, 'warning')
+      const user = userEvent.setup()
+      renderAppAt('/users')
+      await user.click(await screen.findByRole('button', { name: 'New user' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New user' })
+      await user.type(within(dialog).getByLabelText('Email'), 'x@example.com')
+      await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
+      const notSent = await screen.findByRole('dialog', {
+        name: 'The user was created, but the welcome email couldn’t be sent.',
+      })
+      await user.click(within(notSent).getByRole('button', { name: 'Resend' }))
+      await waitFor(() =>
+        expect(warning).toHaveBeenLastCalledWith(
+          'The email couldn’t be sent. Send a sign-in link from their page.'
+        )
+      )
     })
 
     it('starts blank after the dialog is closed without creating anyone', async () => {

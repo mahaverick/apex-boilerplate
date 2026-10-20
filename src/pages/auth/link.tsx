@@ -1,0 +1,236 @@
+import '@/lib/zod-jitless'
+import { createFileRoute, useLocation, useNavigate } from '@tanstack/react-router'
+import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from 'react'
+import { z } from 'zod'
+import {
+  SigningInStatus,
+  SwitchAccountPanel,
+  VerifyFailedPanel,
+} from '@/components/features/auth/link-panels'
+import {
+  CHECK_INBOX_TITLE,
+  LINK_DEAD_TITLE,
+  SignInLinkForm,
+} from '@/components/features/auth/sign-in-link-form'
+import { AuthCard } from '@/components/layouts/auth-card'
+import { AuthLayout } from '@/components/layouts/auth-layout'
+import { AuthPagePending } from '@/components/shared/pending-templates'
+import { pageTitle } from '@/constants/app'
+import { ROUTES } from '@/constants/routes'
+import { broadcastAuthMessage } from '@/http/session'
+import { codeFrom, statusFrom } from '@/lib/api-error'
+import { safeLanding } from '@/lib/landing'
+import { retryableFailureMessage } from '@/lib/retry'
+import { useLogout, useVerifySignInLink } from '@/queries/auth.queries'
+import { useAuthStore } from '@/states/auth.store'
+import { READ_ONLY_MODE } from '@/types/api.types'
+
+/**
+ * Where a mailed sign-in link opens: `/auth/link?token=…&email=…[&redirect=…]`.
+ * Top level, under neither `_auth` nor `_app`: the link is opened signed out
+ * and signed in alike, and each guard would bounce one of them. The API mails
+ * this fixed path. It renders `AuthLayout` itself, like the accept page.
+ * `.catch` treats a non-string value as none, since the router JSON-parses
+ * search values.
+ */
+export const Route = createFileRoute('/auth/link')({
+  validateSearch: z.object({
+    token: z.string().optional().catch(undefined),
+    email: z.string().optional().catch(undefined),
+    redirect: z.string().optional().catch(undefined),
+  }),
+  head: () => ({ meta: [{ title: pageTitle('Signing in') }] }),
+  component: SignInLinkPage,
+  pendingComponent: AuthPagePending,
+})
+
+/** Every state's frame: one `<main>` (AuthLayout) and one `<h1>`. */
+function LinkCard({
+  title,
+  description,
+  children,
+}: {
+  title: string
+  description?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <AuthLayout>
+      <AuthCard title={title} description={description}>
+        {children}
+      </AuthCard>
+    </AuthLayout>
+  )
+}
+
+/**
+ * What a read-only refusal of the verify says. Express refuses a link verify
+ * in read-only maintenance only when the click would create the account, which
+ * only a customer-app link opened here can do: an apex link never creates one.
+ */
+const CREATION_PAUSED_MESSAGE =
+  'We can’t create new accounts during maintenance. Sign in to an account you already have, or try again when maintenance ends.'
+
+/**
+ * A link that cannot sign anyone in: it carried no token, or the server
+ * refused it. A non-staff account's link is refused the same way, so the page
+ * never says which, and offers a new link to the address the old one named,
+ * landing where the old one would have. The form keeps its place in the tree
+ * when it switches to "Check your inbox", so its resend clock survives.
+ */
+function DeadLink({
+  email,
+  redirect,
+}: {
+  email: string | undefined
+  redirect: string | undefined
+}) {
+  const navigate = useNavigate()
+  const [sentTo, setSentTo] = useState<string | null>(null)
+  const landing = safeLanding(redirect) ?? undefined
+  return (
+    <LinkCard
+      title={sentTo ? CHECK_INBOX_TITLE : LINK_DEAD_TITLE}
+      description={sentTo ? undefined : 'The link works once and expires in 15 minutes.'}
+    >
+      <SignInLinkForm
+        sentTo={sentTo}
+        onSentToChange={setSentTo}
+        redirect={landing}
+        defaultEmail={email}
+        submitLabel="Email me a new link"
+        onSignedIn={() =>
+          void (landing
+            ? navigate({ href: landing, replace: true })
+            : navigate({ to: ROUTES.overview, replace: true }))
+        }
+      />
+    </LinkCard>
+  )
+}
+
+/**
+ * Verifies the link once per page load and lands the staff member signed in.
+ *
+ * Who was signed in is read once, at mount: the verify's own sign-in changes
+ * the store before the page navigates, and the signed-in rows must not take
+ * over then. Signed in as the link's address, the page goes straight on and
+ * spends nothing. Signed in as anyone else, it asks first; Continue signs out
+ * and reloads this URL signed out, so the token is never posted with another
+ * person's session. Signed out, it posts the token from a ref-guarded effect,
+ * so StrictMode's second run never spends the link twice; Try again posts
+ * again on purpose. The link's `email` goes with the token: the server refuses
+ * an address that is not the token's own, so the verifying frame can name it,
+ * and once signed in the frame names the address the server confirmed.
+ *
+ * A 400 is the dead link, whatever its cause. Anything else (a rate limit, a
+ * network or server error) leaves the link usable, so it gets Try again. An
+ * Apex link never creates an account, so every landing is the safe redirect
+ * or Overview, and each replaces this page in history, so Back never returns
+ * to the token.
+ */
+function SignInLinkPage() {
+  const { token, email: rawEmail, redirect } = Route.useSearch()
+  // A bare or blank `?email=` names no address: no switch target, no "This link is for", none posted.
+  const email = rawEmail?.trim() || undefined
+  const navigate = useNavigate()
+  const verify = useVerifySignInLink()
+  const href = useLocation({ select: (location) => location.href })
+  // Fixed at mount: Continue reloads the link as it opened, token included.
+  const [returnTo] = useState(href)
+  const logout = useLogout({ returnTo })
+  const [startedAs] = useState(() => useAuthStore.getState().user)
+  /** The last verify's failure, kept while Try again runs so the panel and its focus stay. */
+  const [failure, setFailure] = useState<{ error: unknown } | null>(null)
+  const started = useRef(false)
+
+  const samePerson =
+    startedAs !== null &&
+    email !== undefined &&
+    email.toLowerCase() === startedAs.email.toLowerCase()
+
+  /** Goes to `target`, or Overview without one, replacing this page in history. */
+  const goTo = (target: string | null) => {
+    void (target
+      ? navigate({ href: target, replace: true })
+      : navigate({ to: ROUTES.overview, replace: true }))
+  }
+
+  /** Posts the token; the outcome alone decides what the page shows next. */
+  const post = (linkToken: string) => {
+    verify.mutate(
+      { token: linkToken, email },
+      {
+        onSuccess: (link) => {
+          setFailure(null)
+          broadcastAuthMessage('signed_in')
+          goTo(safeLanding(link.redirect) ?? safeLanding(redirect))
+        },
+        onError: (error) => setFailure({ error }),
+      }
+    )
+  }
+
+  const start = useEffectEvent(() => {
+    if (startedAs) {
+      if (!token) goTo(null)
+      else if (samePerson) goTo(safeLanding(redirect))
+      return
+    }
+    if (token) post(token)
+  })
+
+  useEffect(() => {
+    if (started.current) return
+    started.current = true
+    start()
+  }, [])
+
+  if (!token) {
+    return startedAs ? <Verifying /> : <DeadLink email={email} redirect={redirect} />
+  }
+
+  if (startedAs) {
+    if (samePerson) return <Verifying />
+    return (
+      <LinkCard title="Switch account?">
+        <SwitchAccountPanel
+          kind="link"
+          currentEmail={startedAs.email}
+          targetEmail={email ?? null}
+          continuing={logout.isPending}
+          onContinue={() => logout.mutate()}
+          onStay={() => goTo(null)}
+        />
+      </LinkCard>
+    )
+  }
+
+  if (failure) {
+    if (statusFrom(failure.error) === 400) return <DeadLink email={email} redirect={redirect} />
+    return (
+      <LinkCard title="We couldn’t sign you in">
+        <VerifyFailedPanel
+          message={
+            codeFrom(failure.error) === READ_ONLY_MODE
+              ? CREATION_PAUSED_MESSAGE
+              : retryableFailureMessage(failure.error, 'sign-in attempts')
+          }
+          retrying={verify.isPending}
+          onRetry={() => post(token)}
+        />
+      </LinkCard>
+    )
+  }
+
+  return <Verifying email={verify.data?.user.email ?? email} />
+}
+
+/** The verifying frame, naming the account being signed in when the page knows it. */
+function Verifying({ email }: { email?: string | undefined }) {
+  return (
+    <LinkCard title="Signing you in">
+      <SigningInStatus label="Signing you in…" email={email} />
+    </LinkCard>
+  )
+}

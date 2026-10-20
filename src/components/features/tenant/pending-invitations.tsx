@@ -23,10 +23,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
 import { canActorGrantRole, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
+import { useCountdown } from '@/hooks/use-countdown'
 import { useFocusAfter } from '@/hooks/use-focus-after'
-import { useStepUp } from '@/hooks/use-step-up'
-import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
+import { useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
+import { codeFrom, messageFrom, retryAfterSecondsFrom, statusFrom } from '@/lib/api-error'
+import { formatTimeLeft } from '@/lib/countdown'
 import { formatDate } from '@/lib/format'
+import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { analyticsKey } from '@/observability/telemetry'
 import { inviterName } from '@/queries/invitation.queries'
@@ -35,8 +38,7 @@ import { invitationsList, invitationsListOptions } from '@/queries/tenant.querie
 import { INVITATION_NOT_FOUND, type TenantInvitation } from '@/types/api.types'
 
 /** Said of the request, not of the tenant: a failed load is not "none pending". */
-const INVITATIONS_ERROR =
-  'We could not load the pending invitations, so none are listed here. This is not a sign that there are none.'
+const INVITATIONS_ERROR = 'We couldn’t load the pending invitations. Select Try again to load them.'
 
 /**
  * Why Resend and Revoke are off: both re-check `canActorGrantRole` against
@@ -48,12 +50,17 @@ const GRANT_REASON = 'Only an owner can resend or revoke an invitation for this 
 /** Resend or revoke found the row accepted, revoked or expired meanwhile. */
 const NO_LONGER_PENDING = 'That invitation is no longer pending.'
 
+/** The code express answers a resend with while the cooldown from the last send is running. */
+const RESEND_COOLDOWN = 'invitation_resend_cooldown'
+
 /**
- * What a failed resend or revoke tells the reader. Anything but the 404 is
- * the server's own message, a 403 for a role the actor can't grant included.
- * The list refetches either way (the hooks' `onSettled`).
+ * What a failed resend or revoke tells the reader. A step-up refusal says
+ * whether the confirmation was dismissed or did not take. Anything but that
+ * and the 404 is the server's own message, a 403 for a role the actor can't
+ * grant included. The list refetches either way (the hooks' `onSettled`).
  */
 function actionFailure(error: unknown): string {
+  if (isReauthRequired(error)) return stepUpRefusal(error)
   return codeFrom(error) === INVITATION_NOT_FOUND ? NO_LONGER_PENDING : messageFrom(error)
 }
 
@@ -81,6 +88,50 @@ function expiresOn(expiresAt: string): string {
 }
 
 /**
+ * The seconds until Resend opens again for one invitation, and how to tell the
+ * hook a resend was refused. The deadline is the later of the row's
+ * `resendAvailableAt` and a local one a `429 invitation_resend_cooldown` sets
+ * from `Retry-After`, which is relative, so a skewed clock cannot move it. A
+ * `null` time counts as none, so it never poisons the other with `NaN`. It
+ * re-renders each second only while time is left, and it only runs for rows
+ * that show a Resend button (a row the actor may not grant renders
+ * `LockedInvitationActions` instead).
+ * @param invitation - The row.
+ * @returns The seconds left (0 once Resend is open), and `onRefused` for a failed resend's error.
+ */
+function useResendDeadline(invitation: TenantInvitation): {
+  left: number
+  onRefused: (error: unknown) => void
+} {
+  // Never cleared: max() takes the later deadline, so a newer server time wins and a past local one counts for nothing.
+  const [localUntil, setLocalUntil] = useState<number | null>(null)
+  const server = invitation.resendAvailableAt
+  const until = Math.max(server === null ? 0 : Date.parse(server), localUntil ?? 0) || null
+  const left = useCountdown(until)
+  /** A refused resend: a cooldown 429 holds Resend for its `Retry-After`; any other refusal starts nothing. */
+  const onRefused = (error: unknown) => {
+    if (codeFrom(error) !== RESEND_COOLDOWN) return
+    const wait = retryAfterSecondsFrom(error)
+    if (wait !== null) setLocalUntil(Date.now() + wait * 1_000)
+  }
+  return { left, onRefused }
+}
+
+/** The visible text of a Resend button: "Resend", or "Resend in 4 min" while the cooldown runs. */
+function resendText(left: number): string {
+  return left > 0 ? `Resend in ${formatTimeLeft(left)}` : 'Resend'
+}
+
+/**
+ * The accessible name of a Resend button. It starts with the visible text
+ * (WCAG 2.5.3 Label in Name), then names the invitee, since there is one
+ * button per row.
+ */
+function resendLabel(left: number, email: string): string {
+  return `${resendText(left)}, invitation to ${email}`
+}
+
+/**
  * Resend and Revoke for a row whose role the actor may not grant, both
  * disabled and described by the row's one reason, shown as visible text: a
  * disabled button has `pointer-events: none`, so a tooltip on it would never
@@ -95,7 +146,7 @@ function LockedInvitationActions({ invitation }: { invitation: TenantInvitation 
           variant="outline"
           size="sm"
           disabled
-          aria-label={`Resend invitation to ${invitation.email}`}
+          aria-label={resendLabel(0, invitation.email)}
           aria-describedby={reasonId}
         >
           Resend
@@ -121,6 +172,12 @@ function LockedInvitationActions({ invitation }: { invitation: TenantInvitation 
  * Resend for one row, named after the invitee since there is one per row. It
  * uses `mutateAsync`, because the list refetch can unmount this row first and
  * `mutate`'s callbacks skip an unmounted observer.
+ *
+ * While express's resend cooldown runs, the button reads "Resend in 4 min" and
+ * stays focusable (`aria-disabled`), so a keyboard user can still reach it. The
+ * text is not a live region, so it does not announce every tick. After a
+ * success it stays disabled until the list refetch lands (the mutation's
+ * `onSettled` awaits it), and that refetch brings the next deadline.
  */
 function ResendInvitationButton({
   slug,
@@ -133,14 +190,20 @@ function ResendInvitationButton({
 }) {
   const resend = useResendInvitation(slug, tenantId)
   const stepUp = useStepUp()
+  const stepping = useStepUpWaiting()
+  const { left, onRefused } = useResendDeadline(invitation)
+  const cooling = left > 0
 
   return (
     <Button
       variant="outline"
       size="sm"
-      disabled={resend.isPending}
-      aria-label={`Resend invitation to ${invitation.email}`}
+      // The refused resend is not pending while its step-up waits, so a second press would start another.
+      disabled={resend.isPending || stepping || cooling}
+      focusableWhenDisabled
+      aria-label={resendLabel(left, invitation.email)}
       onClick={() => {
+        if (cooling) return
         stepUp
           .run(() => resend.mutateAsync({ invitationId: invitation.id }))
           .then(
@@ -150,11 +213,14 @@ function ResendInvitationButton({
                   Invitation resent to <Pii>{invitation.email}</Pii>.
                 </>
               ),
-            (error: unknown) => toast.error(actionFailure(error))
+            (error: unknown) => {
+              onRefused(error)
+              toast.error(actionFailure(error))
+            }
           )
       }}
     >
-      Resend
+      {resendText(left)}
     </Button>
   )
 }
@@ -177,10 +243,18 @@ function RevokeInvitationButton({
 }) {
   const revoke = useRevokeInvitation(slug, tenantId)
   const stepUp = useStepUp()
+  const waiting = useStepUpWaiting()
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
+    <AlertDialog
+      open={isOpen}
+      onOpenChange={(next) => {
+        // While the revoke waits on "Confirm it's you", Escape and outside presses belong to it.
+        if (!next && waiting) return
+        setIsOpen(next)
+      }}
+    >
       <AlertDialogTrigger
         render={
           <Button
@@ -206,7 +280,7 @@ function RevokeInvitationButton({
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
-            disabled={revoke.isPending}
+            disabled={revoke.isPending || waiting}
             onClick={() => {
               stepUp
                 .run(() => revoke.mutateAsync({ invitationId: invitation.id }))
@@ -259,6 +333,8 @@ function StaffInvitationActions({
   const resend = useResendInvitation(slug, tenantId)
   const revoke = useRevokeInvitation(slug, tenantId)
   const stepUp = useStepUp()
+  const { left, onRefused } = useResendDeadline(invitation)
+  const cooling = left > 0
   const [open, setOpen] = useState<'resend' | 'revoke' | null>(null)
   /** The open state for one of the two dialogs. */
   const dialogProps = (which: 'resend' | 'revoke') => ({
@@ -271,11 +347,14 @@ function StaffInvitationActions({
       <Button
         variant="outline"
         size="sm"
-        disabled={resend.isPending}
-        aria-label={`Resend invitation to ${invitation.email}`}
-        onClick={() => setOpen('resend')}
+        disabled={resend.isPending || cooling}
+        focusableWhenDisabled
+        aria-label={resendLabel(left, invitation.email)}
+        onClick={() => {
+          if (!cooling) setOpen('resend')
+        }}
       >
-        Resend
+        {resendText(left)}
       </Button>
       <Button
         variant="outline"
@@ -299,7 +378,13 @@ function StaffInvitationActions({
           const write = stepUp.run(() =>
             resend.mutateAsync({ invitationId: invitation.id, reason })
           )
-          if (!(await landed(write))) return
+          try {
+            if (!(await landed(write))) return
+          } catch (error) {
+            // The dialog shows the refusal; a cooldown also starts the row's countdown.
+            onRefused(error)
+            throw error
+          }
           toast.success(
             <>
               Invitation resent to <Pii>{invitation.email}</Pii>.

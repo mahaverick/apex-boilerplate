@@ -212,7 +212,7 @@ describe('/emails', () => {
     const seen: URLSearchParams[] = []
     pages(seen)
     const router = renderAppAt(
-      '/emails?status=lost&template=welcome&user=not-a-uuid&from=2026-13-40&to=yesterday'
+      '/emails?status=lost&template=welcome_v2&user=not-a-uuid&from=2026-13-40&to=yesterday'
     )
     await screen.findByText('cleo@example.com')
     expect(router.state.location.search).toEqual({})

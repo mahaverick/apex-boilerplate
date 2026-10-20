@@ -6,11 +6,16 @@ import { STAFF_WRITES_NOTE } from '@/constants/maintenance-mode.constants'
 import { maintenanceModeKeys } from '@/queries/maintenance-mode.queries'
 import { queryClient } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
-import { fullMaintenanceView, maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
+import {
+  fullMaintenanceView,
+  maintenanceModeView,
+  PAUSED_QUEUES,
+} from '@/tests/fixtures/maintenance-mode'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import { confirmStepUp } from '@/tests/mocks/step-up'
 import { REAUTH_REQUIRED, type PlatformMaintenanceModeView } from '@/types/api.types'
 
 /**
@@ -32,10 +37,7 @@ function serve(
       const body = (await request.json()) as Record<string, unknown>
       state.bodies.push(body)
       return answer(body, state.bodies.length)
-    }),
-    http.post('/api/v1/auth/reauthenticate', () =>
-      ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
-    )
+    })
   )
   return state
 }
@@ -101,6 +103,19 @@ describe('/settings/platform/maintenance', () => {
       'maintenance: paused, 0 running',
       'analytics: paused, 1 running',
     ])
+  })
+
+  it('labels the auth-email queue as never paused in full maintenance', async () => {
+    serve(
+      fullMaintenanceView({
+        queues: [...PAUSED_QUEUES, { name: 'auth-email', paused: false, active: 0 }],
+      })
+    )
+    await openPage()
+    const queues = within(screen.getByRole('list', { name: 'Queues' })).getAllByRole('listitem')
+    expect(queues.at(-1)).toHaveTextContent(
+      'auth-email: never paused, 0 running. We still send sign-in, invitation and Confirm it’s you emails during maintenance.'
+    )
   })
 
   it.each(['admin', 'viewer'] as const)('gives an %s the state but no controls', async (role) => {
@@ -172,9 +187,7 @@ describe('/settings/platform/maintenance', () => {
     await user.type(within(dialog).getByLabelText('Type staging to confirm'), 'staging')
     await user.click(within(dialog).getByRole('button', { name: 'Switch to full' }))
 
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+    const stepped = await confirmStepUp(user)
 
     expect(await screen.findByText('Maintenance is now full.')).toBeInTheDocument()
     const sent = {
@@ -185,7 +198,7 @@ describe('/settings/platform/maintenance', () => {
       confirm: 'staging',
     }
     expect(state.bodies).toEqual([sent, sent])
-    expect(useAuthStore.getState().accessToken).toBe('stepped-up-token')
+    expect(useAuthStore.getState().accessToken).toBe(stepped)
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: 'Turn on maintenance' })).toBeNull()
     )
@@ -481,9 +494,7 @@ describe('/settings/platform/maintenance', () => {
     await user.click(screen.getByRole('button', { name: 'Turn off…' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Turn off maintenance?' })
     await user.click(within(dialog).getByRole('button', { name: 'Turn off' }))
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'hunter22')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
+    await confirmStepUp(user)
     expect(await screen.findByText('Maintenance is off.')).toBeInTheDocument()
     expect(state.bodies).toEqual([
       { mode: 'off', expectedVersion: 5 },

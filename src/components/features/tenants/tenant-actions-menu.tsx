@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
+import { useLeavingFinalFocus } from '@/hooks/use-arrival-focus'
 import { useStepUp } from '@/hooks/use-step-up'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
 import { toast } from '@/lib/toast'
@@ -66,9 +67,6 @@ export function TenantActionsMenu({
   const suspend = useSuspendTenant(tenant.id)
   const reactivate = useReactivateTenant(tenant.id)
   const archive = useArchiveTenant(tenant.id)
-  const purge = usePurgeTenant(tenant.id, {
-    onPurged: () => navigate({ to: ROUTES.tenants, search: { state: 'archived' } }),
-  })
   const [open, setOpen] = useState<Open>(null)
   /** Whether the open dialog came from the palette, whose close has already moved focus. */
   const [fromPalette, setFromPalette] = useState(false)
@@ -113,6 +111,13 @@ export function TenantActionsMenu({
     onOpenChange: (next: boolean) => setOpen(next ? which : null),
   })
   const finalFocus = hasActions && !fromPalette ? undefined : fallbackFocus
+  const purgeFocus = useLeavingFinalFocus(finalFocus)
+  const purge = usePurgeTenant(tenant.id, {
+    onPurged: () => {
+      purgeFocus.leave()
+      return navigate({ to: ROUTES.tenants, search: { state: 'archived' } })
+    },
+  })
   /** The form dialogs' return: the heading after a palette open, else the menu's trigger. */
   const paletteFocus = fromPalette ? fallbackFocus : undefined
 
@@ -203,7 +208,7 @@ export function TenantActionsMenu({
       />
       <ReasonDialog
         {...dialogProps('purge')}
-        finalFocus={finalFocus}
+        finalFocus={purgeFocus.finalFocus}
         title={`Permanently delete ${tenant.name}?`}
         description="This removes the tenant, its settings, memberships, invitations and its own activity log for good. Only a record of the deletion stays in the platform log. It can’t be undone."
         confirmLabel="Delete permanently"

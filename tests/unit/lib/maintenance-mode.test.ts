@@ -6,6 +6,7 @@ import {
   queueLine,
   sinceLabel,
 } from '@/lib/maintenance-mode'
+import { absoluteTime } from '@/lib/relative-time'
 import { fullMaintenanceView, maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
 
 /** The same local day as the fixtures' `since`, so the label is the time alone. */
@@ -45,18 +46,34 @@ describe('sinceLabel', () => {
 
 describe('bannerSentence', () => {
   it('names the mode in capitals, when it began and who set it', () => {
-    expect(bannerSentence(fullMaintenanceView(), SAME_DAY)).toBe(
+    expect(bannerSentence(fullMaintenanceView(), SAME_DAY.getTime())).toBe(
       `Customers are in FULL maintenance since ${START}, set by Sam Staff.`
     )
-    expect(bannerSentence(fullMaintenanceView({ mode: 'read_only' }), SAME_DAY)).toBe(
+    expect(bannerSentence(fullMaintenanceView({ mode: 'read_only' }), SAME_DAY.getTime())).toBe(
       `Customers are in READ-ONLY maintenance since ${START}, set by Sam Staff.`
     )
   })
 
+  it('says the time alone while it is still the day maintenance began', () => {
+    // Local times, so the day boundary is the reader's midnight wherever the runner is.
+    const since = new Date(2026, 9, 19, 22, 42).toISOString()
+    const time = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(since))
+    expect(
+      bannerSentence(fullMaintenanceView({ since }), new Date(2026, 9, 19, 23, 59).getTime())
+    ).toBe(`Customers are in FULL maintenance since ${time}, set by Sam Staff.`)
+  })
+
+  it('adds the date once the day maintenance began has passed', () => {
+    const since = new Date(2026, 9, 19, 22, 42).toISOString()
+    expect(
+      bannerSentence(fullMaintenanceView({ since }), new Date(2026, 9, 20, 0, 10).getTime())
+    ).toBe(`Customers are in FULL maintenance since ${absoluteTime(since)}, set by Sam Staff.`)
+  })
+
   it('leaves out what it does not know', () => {
-    expect(bannerSentence(fullMaintenanceView({ since: null, changedBy: null }), SAME_DAY)).toBe(
-      'Customers are in FULL maintenance.'
-    )
+    expect(
+      bannerSentence(fullMaintenanceView({ since: null, changedBy: null }), SAME_DAY.getTime())
+    ).toBe('Customers are in FULL maintenance.')
   })
 })
 
@@ -76,6 +93,17 @@ describe('queueLine', () => {
     expect(queueLine({ name: 'email', paused: true, active: 0 })).toBe('email: paused, 0 running')
     expect(queueLine({ name: 'analytics', paused: false, active: 1200 })).toBe(
       'analytics: not paused, 1,200 running'
+    )
+  })
+
+  it('says the auth-email queue is never paused, and why', () => {
+    const line =
+      'auth-email: never paused, 0 running. We still send sign-in, invitation and Confirm it’s you emails during maintenance.'
+    expect(queueLine({ name: 'auth-email', paused: false, active: 0 })).toBe(line)
+    // Maintenance never pauses it, so an unanswered pause state is still "never paused".
+    expect(queueLine({ name: 'auth-email', paused: null, active: 0 })).toBe(line)
+    expect(queueLine({ name: 'auth-email', paused: true, active: 0 })).toBe(
+      'auth-email: paused, 0 running'
     )
   })
 

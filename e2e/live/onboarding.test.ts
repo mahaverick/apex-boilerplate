@@ -7,19 +7,19 @@ import {
   apiRequest,
   assertApiServesApex,
   createTenant,
-  createVerifiedUser,
+  createUser,
   emailIdFor,
   freshEmail,
   freshSlug,
-  grantPlatformRole,
   logIn,
   mailedLinkStartingWith,
+  staffSession,
   tenantIdOf,
   WEB_ORIGIN,
 } from './helpers'
 
 /**
- * Onboarding against a real express (1.4.0 or newer) with mailpit: a
+ * Onboarding against a real express (6.1.0 or newer) with mailpit: a
  * customer creates a tenant, which starts tracked and in progress; a staff
  * admin sends its owner a reminder, a tracked email whose link opens the
  * customer app, then marks a step complete; both land in the tenant's own
@@ -29,7 +29,7 @@ import {
 test.skip(process.env.E2E_LIVE !== '1', 'live backend required — run pnpm test:e2e:live')
 
 test.beforeAll(async () => {
-  // Two mailed registrations, then a staff viewer for the 1.3.0 and 1.4.0 probes.
+  // Two mailed sign-in links, one for a granted staff viewer, who then answers the 1.3.0 and 1.4.0 probes.
   test.setTimeout(90_000)
   if (!(await apiIsReady())) {
     throw new Error(`No API at ${API_ORIGIN}. Start express with APEX_URL=${APEX_ORIGIN}.`)
@@ -50,14 +50,13 @@ test('a staff reminder is a tracked email to the owner, and a staff completion i
 }) => {
   test.setTimeout(180_000)
   const owner = freshEmail()
-  await createVerifiedUser(owner)
+  await createUser(owner)
   const slug = freshSlug()
   const name = `Onboarding ${slug}`
   await createTenant(await apiLogin(owner), { name, slug })
 
   const admin = freshEmail()
-  await createVerifiedUser(admin)
-  await grantPlatformRole(admin, 'admin')
+  await staffSession(admin, 'admin')
   const token = await apiLogin(admin)
   const tenantId = await tenantIdOf(token, slug)
   const onboarding = await apiRequest(token, 'GET', `/platform/tenants/${tenantId}/onboarding`)

@@ -55,7 +55,7 @@ function tenant(overrides: Partial<PlatformTenantDetail> = {}): PlatformTenantDe
   }
 }
 
-/** Cleo's account, active, no password set. */
+/** Cleo's account, active and not staff. */
 const CLEO: PlatformUserDetail = {
   id: USER_ID_2,
   email: 'cleo@example.com',
@@ -68,7 +68,6 @@ const CLEO: PlatformUserDetail = {
   deletedAt: null,
   platformRole: null,
   membershipCount: 0,
-  hasPassword: false,
   authProviders: ['email'],
   memberships: [],
   pendingInvitations: [],
@@ -381,11 +380,11 @@ describe('the This page sources', () => {
     })
 
     it.each([
-      ['the overview', '/overview', 'Overview', 'main'],
-      ['another tenant’s page', `/tenants/${TENANT_ID}`, 'Acme Corp', 'heading'],
+      ['the overview', '/overview', 'Overview'],
+      ['another tenant’s page', `/tenants/${TENANT_ID}`, 'Acme Corp'],
     ] as const)(
-      'opens the created tenant from the palette on %s, with focus on its %s, never on the body',
-      async (_from, path, startHeading, landing) => {
+      'focuses the new tenant’s heading after New tenant from the palette, on %s',
+      async (_from, path, startHeading) => {
         const created = tenant({ id: TENANT_ID_2, name: 'Beta Inc', slug: 'beta', owners: [] })
         serveTenant(tenant())
         server.use(
@@ -417,12 +416,7 @@ describe('the This page sources', () => {
           expect(screen.queryByRole('dialog', { name: 'New tenant' })).not.toBeInTheDocument()
         )
         const heading = await screen.findByRole('heading', { name: 'Beta Inc', level: 1 })
-        await waitFor(() =>
-          expect(document.activeElement).toBe(
-            landing === 'main' ? screen.getByRole('main') : heading
-          )
-        )
-        expect(document.activeElement).not.toBe(document.body)
+        await waitFor(() => expect(heading).toHaveFocus())
       }
     )
 
@@ -471,7 +465,7 @@ describe('the This page sources', () => {
     it.each<[MembershipRole, Partial<PlatformUserDetail>]>([
       ['viewer', {}],
       ['admin', {}],
-      ['admin', { hasPassword: true }],
+      ['admin', { platformRole: 'admin' }],
       ['admin', { active: false }],
       ['owner', { deletedAt: '2026-05-01T00:00:00.000Z' }],
     ])('registers exactly the menu’s actions for a %s (%j)', async (role, overrides) => {
@@ -483,40 +477,30 @@ describe('the This page sources', () => {
       await waitFor(() => expect(registered('user-actions')).toEqual(items))
     })
 
-    it('sends fixed keys, mails at once and opens dialogs after the close, actions before Copy', async () => {
+    it('sends fixed keys and opens every action’s dialog after the close, actions before Copy', async () => {
       serveUser()
       renderAppAt(`/users/${USER_ID_2}`)
       await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })
       await waitFor(() =>
         expect(triples('user-actions')).toEqual([
           ['Edit name', 'page_action_edit', 'afterClose'],
-          ['Send set-password link', 'page_action_password_setup', 'immediate'],
+          ['Send sign-in link', 'page_action_send_sign_in_link', 'afterClose'],
           ['Sign out everywhere', 'page_action_sign_out', 'afterClose'],
           ['Deactivate', 'page_action_deactivate', 'afterClose'],
           ['Delete', 'page_action_delete', 'afterClose'],
         ])
       )
+      // Only the page's own Copy user ID runs at once; no user action does.
+      expect(triples('user-actions').filter(([, , timing]) => timing === 'immediate')).toEqual([])
       expect(triples('user-page')).toEqual([['Copy user ID', 'copy_id', 'immediate']])
       expect(pageLabels()).toEqual([
         'Edit name',
-        'Send set-password link',
+        'Send sign-in link',
         'Sign out everywhere',
         'Deactivate',
         'Delete',
         'Copy user ID',
       ])
-    })
-
-    it('lists Resend verification email with its own key for an account with a password', async () => {
-      serveUser({ ...CLEO, hasPassword: true })
-      renderAppAt(`/users/${USER_ID_2}`)
-      await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })
-      await waitFor(() =>
-        expect(triples('user-actions').slice(1, 3)).toEqual([
-          ['Send password reset link', 'page_action_password_setup', 'immediate'],
-          ['Resend verification email', 'page_action_resend_verification', 'immediate'],
-        ])
-      )
     })
 
     it('returns focus to the heading when Edit name, run from the palette, closes', async () => {
@@ -575,24 +559,38 @@ describe('the This page sources', () => {
       expect(pageLabels()[0]).toBe('Edit name')
     })
 
-    it('sends the set-password email from the palette as the menu does', async () => {
+    it('opens the Send sign-in link dialog from the palette, which sends one link on confirm', async () => {
       let sent = 0
       serveUser()
       server.use(
-        http.post(`/api/v1/platform/users/${USER_ID_2}/password-setup`, () => {
+        http.post(`/api/v1/platform/users/${USER_ID_2}/sign-in-link`, () => {
           sent += 1
-          return ok({ emailSent: true }, 'Sent.')
+          return ok({ emailSent: true }, 'Sign-in link sent.')
         })
       )
       const user = userEvent.setup()
       renderAppAt(`/users/${USER_ID_2}`)
       await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })
       const palette = await openPalette(user)
-      await user.click(
-        await within(palette).findByRole('option', { name: 'Send set-password link' })
-      )
-      expect(await screen.findByText('Set-password email sent.')).toBeInTheDocument()
+      await user.click(await within(palette).findByRole('option', { name: 'Send sign-in link' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
+      expect(sent).toBe(0)
+      await user.click(within(dialog).getByRole('button', { name: 'Send link' }))
+      expect(await screen.findByText(/^Sign-in link sent to/)).toBeInTheDocument()
       expect(sent).toBe(1)
+    })
+
+    it('returns focus to the heading when Send sign-in link, run from the palette, is cancelled', async () => {
+      serveUser()
+      const user = userEvent.setup()
+      renderAppAt(`/users/${USER_ID_2}`)
+      const heading = await screen.findByRole('heading', { name: 'Cleo Doe', level: 1 })
+      await waitFor(() => expect(registered('user-actions')).toContain('Send sign-in link'))
+      runFromPalette('user-actions', 'Send sign-in link')
+      const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
+      await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(heading).toHaveFocus())
     })
 
     it('copies the user’s ID and records them in Recent under their email', async () => {
@@ -707,7 +705,12 @@ describe('the This page sources', () => {
           <button type="button" onClick={() => setOpen(true)}>
             Open from outside
           </button>
-          <CreateTenantDialog open={open} onOpenChange={setOpen} trigger={false} />
+          <CreateTenantDialog
+            open={open}
+            onOpenChange={setOpen}
+            trigger={false}
+            onCreated={() => undefined}
+          />
         </QueryClientProvider>
       )
     }

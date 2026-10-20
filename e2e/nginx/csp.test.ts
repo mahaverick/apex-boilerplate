@@ -4,6 +4,7 @@ import {
   CONTENT_SECURITY_POLICY,
   flushCspReports,
   requireServedApp,
+  routeSignInLinkChunk,
   watchCspViolations,
 } from './csp'
 
@@ -49,7 +50,9 @@ test(
     const response = await page.goto('/login?error=google_auth_failed')
     expect(response?.headers()['content-security-policy']).toBe(CONTENT_SECURITY_POLICY)
     await expect(page.getByRole('heading', { name: 'Sign in', level: 1 })).toBeVisible()
-    await expect(page.getByText('Google sign-in failed. Please try again.')).toBeVisible()
+    await expect(
+      page.getByText('Google sign-in didn’t work for this account.', { exact: false })
+    ).toBeVisible()
     /**
      * The heading means the root beforeLoad's refresh has settled and the
      * route's lazy chunk has run. A late violation can still come from the
@@ -70,14 +73,31 @@ test(
     const onDemand = await recordOnDemandChunks(page, request)
     const violations = await watchCspViolations(page)
 
+    // With nothing behind /api the request is answered here, so "Check your inbox" renders as it would after a real send.
+    await page.route('**/api/v1/auth/link/request', (route) =>
+      route.fulfill({
+        status: 202,
+        json: {
+          success: true,
+          message: 'Check your inbox for a sign-in link.',
+          statusCode: 202,
+          data: null,
+        },
+      })
+    )
     await page.goto('/login')
     await expect(page.getByRole('heading', { name: 'Sign in', level: 1 })).toBeVisible()
-    await page.getByRole('link', { name: 'Forgot password?' }).click()
+    await page.getByRole('textbox', { name: 'Email', exact: true }).fill('csp@example.test')
+    await page.getByRole('button', { name: 'Email me a sign-in link' }).click()
+    await expect(page.getByRole('heading', { name: 'Check your inbox', level: 1 })).toBeVisible()
+
+    // A route whose chunk loads on demand: a link with no token, signed out, is the dead-link page whatever the API.
+    await page.goto('/auth/link')
     await expect(
-      page.getByRole('heading', { name: 'Forgot your password?', level: 1 })
+      page.getByRole('heading', { name: 'This link expired or was already used', level: 1 })
     ).toBeVisible()
 
-    expect(onDemand).not.toEqual([])
+    expect(onDemand.some((chunk) => chunk.startsWith('/assets/link-'))).toBe(true)
     await flushCspReports(page)
     expect(violations).toEqual([])
   }
@@ -87,15 +107,12 @@ test(
   'a missing route chunk after a deploy offers a reload',
   { tag: '@no-api' },
   async ({ page }) => {
-    await page.goto('/login')
     let chunk404s = 0
-    await page.route(/\/assets\/.*\.js$/, (route) => {
-      if (!route.request().url().includes('forgot-password')) return route.continue()
+    await routeSignInLinkChunk(page, (route) => {
       chunk404s += 1
       return route.fulfill({ status: 404, body: '' })
     })
-    // The sign-in page's one link to another lazily loaded route: registration is invitation-only, so it links to no sign-up page.
-    await page.getByRole('link', { name: 'Forgot password?' }).click()
+    await page.goto('/auth/link')
     await expect(page.getByText('A new version is available')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
     // The reload screen came from the 404 this route served, not from some other failure.

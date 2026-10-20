@@ -2,7 +2,7 @@ import { IconAlertCircle } from '@tabler/icons-react'
 import { useForm } from '@tanstack/react-form'
 import { useMemo, useState } from 'react'
 import { MaintenancePreview } from '@/components/features/maintenance/maintenance-preview'
-import { ROLE_DENIED_ACTION, STEP_UP_DISMISSED } from '@/components/features/reason-dialog'
+import { ROLE_DENIED_ACTION } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import { Alert, AlertTitle } from '@/components/ui/alert'
@@ -36,10 +36,10 @@ import {
 } from '@/constants/maintenance-mode.constants'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
-import { useStepUp } from '@/hooks/use-step-up'
+import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
 import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
 import { conflictSentence, isSwitchOn } from '@/lib/maintenance-mode'
-import { isReauthRequired } from '@/lib/step-up'
+import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import {
   isMaintenanceModeConflict,
@@ -133,6 +133,7 @@ function ChangeModeForm({
   onBusyChange,
 }: ChangeModeDialogProps & { busy: boolean; onBusyChange: (busy: boolean) => void }) {
   const stepUp = useStepUp()
+  const waiting = useStepUpWaiting()
   const change = useChangeMaintenanceMode()
   const serverErrors = useServerErrors()
   const [conflict, setConflict] = useState<string | null>(null)
@@ -194,7 +195,7 @@ function ChangeModeForm({
       } catch (error) {
         onBusyChange(false)
         if (isReauthRequired(error)) {
-          serverErrors.setFormErrors([STEP_UP_DISMISSED])
+          serverErrors.setFormErrors([stepUpRefusal(error)])
           return
         }
         if (isMaintenanceModeConflict(error)) {
@@ -370,7 +371,7 @@ function ChangeModeForm({
             {([isSubmitting, mode]) => (
               <BusyButton
                 busy={isSubmitting}
-                busyLabel="Working…"
+                busyLabel={waiting ? STEP_UP_WAITING_LABEL : 'Working…'}
                 type="submit"
                 variant={isSwitchOn(base.mode, mode) ? 'destructive' : 'default'}
               >

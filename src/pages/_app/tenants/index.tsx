@@ -1,5 +1,6 @@
 import { IconBuilding } from '@tabler/icons-react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useRef } from 'react'
 import { CreateTenantDialog } from '@/components/features/tenants/create-tenant-dialog'
 import { TenantsTable } from '@/components/features/tenants/tenants-table'
 import { useListQuery } from '@/components/shared/data-table/use-list-query'
@@ -8,6 +9,7 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
+import { useArrivalFocus } from '@/hooks/use-arrival-focus'
 import { tenantsList, tenantsListOptions } from '@/queries/tenant-admin.queries'
 import { listRequest, listValues } from '@/schemas/list-request.schemas'
 import { useAuthStore } from '@/states/auth.store'
@@ -28,10 +30,13 @@ export const Route = createFileRoute('/_app/tenants/')({
 /**
  * Every customer tenant. The view is the URL's (`?search`, `?state`, `?sort`,
  * and the page as `?cursor`), so it can be shared and Back walks through it.
- * The table owns the loading, error and empty states.
+ * The table owns the loading, error and empty states. The heading takes
+ * focus on arrival after a tenant is deleted for good.
  */
 function TenantsPage() {
   const navigate = useNavigate()
+  const heading = useRef<HTMLHeadingElement>(null)
+  useArrivalFocus(heading, true)
   const canCreate = platformRoleAtLeast(
     useAuthStore((s) => s.user?.platformRole),
     'admin'
@@ -41,7 +46,9 @@ function TenantsPage() {
 
   return (
     <div className="grid grid-cols-1 gap-4">
-      <h1 className="text-2xl font-semibold">Tenants</h1>
+      <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
+        Tenants
+      </h1>
       <TenantsTable
         query={query}
         errorMessage="We could not load the tenants."

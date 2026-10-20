@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast, ROLE_LABELS } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
+import { useArrivalFocus } from '@/hooks/use-arrival-focus'
 import { useRecordRecent } from '@/hooks/use-record-recent'
 import { statusFrom } from '@/lib/api-error'
 import { formatDate, fullName } from '@/lib/format'
@@ -39,9 +40,6 @@ export const Route = createFileRoute('/_app/users/$userId/')({
   component: UserDetailPage,
   pendingComponent: DetailPending,
 })
-
-/** A sign-in provider's label; an unknown one renders as the API names it. */
-const PROVIDER_LABELS: Record<string, string> = { email: 'Email', google: 'Google' }
 
 /**
  * Loads one user and shows them, a not-found state for a 404, or a load error.
@@ -114,11 +112,12 @@ function UserDetailPage() {
 /**
  * One account: who it is, its tenants, sign-in methods and pending
  * invitations, its emails and, for admins, its recorded history and a link
- * to its flag evaluation.
+ * to its flag evaluation. After New user, the heading takes focus.
  */
 function UserDetail({ user }: { user: PlatformUserDetail }) {
   const name = fullName(user)
   const heading = useRef<HTMLHeadingElement>(null)
+  useArrivalFocus(heading, true)
   const isAdmin = platformRoleAtLeast(
     useAuthStore((state) => state.user?.platformRole),
     'admin'
@@ -219,12 +218,9 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-1 text-sm">
-            <p>{user.hasPassword ? 'Password set' : 'No password set'}</p>
-            {user.authProviders.length > 0 && (
-              <p className="text-muted-foreground">
-                Linked: {user.authProviders.map((p) => PROVIDER_LABELS[p] ?? p).join(', ')}
-              </p>
-            )}
+            {/* Every account can sign in by an emailed link; Google only once linked. */}
+            <p>Email link</p>
+            {user.authProviders.includes('google') && <p>Google</p>}
           </CardContent>
         </Card>
       </section>

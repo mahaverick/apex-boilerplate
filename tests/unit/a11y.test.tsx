@@ -9,7 +9,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axeCore from 'axe-core'
 import { http } from 'msw'
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ThemeToggle } from '@/components/features/theme-toggle'
 import { recordRecent } from '@/components/shared/command-palette/recent-items'
 import { PageSkeleton, type PageVariant } from '@/components/shared/page-skeleton'
@@ -215,6 +215,12 @@ function serveTenant(state: TenantLifecycleState) {
     )
   )
 }
+
+/** The "Confirm it's you" link's verify, which the confirm page posts on load. */
+const STEP_UP_VERIFY = '/api/v1/auth/step-up/link/verify'
+
+/** The sign-in link's verify, which the link page posts on load when signed out. */
+const LINK_VERIFY = '/api/v1/auth/link/verify'
 
 /** A signed-in session, already bootstrapped, so `_app`'s guard lets pages render. */
 function signIn() {
@@ -422,7 +428,7 @@ describe('the axe gate itself', () => {
   it('reports a violation when there is one, so a green run means something', async () => {
     signOut()
     renderAppAt('/login')
-    await screen.findByRole('button', { name: 'Sign in' })
+    await screen.findByRole('button', { name: 'Email me a sign-in link' })
 
     const stray = document.createElement('p')
     stray.textContent = 'Not in any landmark.'
@@ -462,31 +468,11 @@ describe('signed-out pages', () => {
   beforeEach(signOut)
 
   it.each([
-    ['login', '/login', () => screen.findByRole('button', { name: 'Sign in' })],
+    ['login', '/login', () => screen.findByRole('button', { name: 'Email me a sign-in link' })],
     [
-      'register, from an invitation',
-      `/register?invitation=${TEST_INVITATION_TOKEN}`,
-      () => screen.findByRole('button', { name: 'Create account' }),
-    ],
-    [
-      'forgot-password',
-      '/forgot-password',
-      () => screen.findByRole('button', { name: 'Send reset link' }),
-    ],
-    [
-      'reset-password',
-      '/reset-password?token=a-token',
-      () => screen.findByRole('button', { name: 'Reset password' }),
-    ],
-    [
-      'verify-email',
-      '/verify-email?token=a-token',
-      () => screen.findByRole('button', { name: 'Verify email' }),
-    ],
-    [
-      'invitation accept',
-      `/invitations/accept?token=${TEST_INVITATION_TOKEN}`,
-      () => screen.findByRole('link', { name: 'Log in' }),
+      'login with the note',
+      '/login?notice=sign-in-link',
+      () => screen.findByText('Sign in with an email link or Google. Passwords no longer work.'),
     ],
     [
       'invitation accept without a token',
@@ -499,14 +485,13 @@ describe('signed-out pages', () => {
     await expectNoViolations()
   })
 
-  it('register with an unusable invitation has no axe violations', async () => {
-    server.use(
-      http.post('/api/v1/invitations/preview', () =>
-        fail('Invalid invitation', 404, 'invitation_invalid')
-      )
-    )
-    renderAppAt(`/register?invitation=${TEST_INVITATION_TOKEN}`)
-    await screen.findByRole('heading', { name: 'This invitation can’t be used', level: 1 })
+  it('login after sending has no axe violations', async () => {
+    const user = userEvent.setup()
+    renderAppAt('/login')
+    await user.type(await screen.findByLabelText('Email'), 'ada@example.test')
+    await user.click(screen.getByRole('button', { name: 'Email me a sign-in link' }))
+    await screen.findByRole('heading', { level: 1, name: 'Check your inbox' })
+    await screen.findByRole('button', { name: /^Resend in/ })
     await expectNoViolations()
   })
 
@@ -522,7 +507,7 @@ describe('signed-out pages', () => {
     renderAppAt('/login?error=google_auth_failed')
     const region = await screen.findByRole('region', { name: 'Status messages' })
     const item = await within(region).findByRole('dialog', {
-      name: 'Google sign-in failed. Please try again.',
+      name: 'Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask a platform admin for an invitation.',
     })
     await expectNoViolations()
 
@@ -532,7 +517,11 @@ describe('signed-out pages', () => {
   })
 })
 
-/** A customer account with a tenant, a pending invitation and no password: every card has content. */
+/** express's `invitation_invalid` message, which the invitation pages show as their own copy. */
+const INVITATION_INVALID_TEXT =
+  'This invitation link has expired or was already used. Ask the person who invited you for a new one.'
+
+/** A customer account with a tenant and a pending invitation: every card has content. */
 const USER_DETAIL: PlatformUserDetail = {
   id: USER_ID_2,
   email: 'cleo@example.com',
@@ -545,7 +534,6 @@ const USER_DETAIL: PlatformUserDetail = {
   deletedAt: null,
   platformRole: null,
   membershipCount: 1,
-  hasPassword: false,
   authProviders: ['email'],
   memberships: [
     {
@@ -564,6 +552,8 @@ const USER_DETAIL: PlatformUserDetail = {
       tenantName: 'Beta Ltd',
       role: 'viewer',
       expiresAt: '2026-10-01T00:00:00.000Z',
+      lastSentAt: null,
+      resendAvailableAt: null,
     },
   ],
 }
@@ -616,13 +606,8 @@ describe('signed-in pages', () => {
       '/settings/account/security',
       async () => {
         await screen.findByRole('heading', { name: 'Security', level: 1 })
-        await screen.findByRole('button', { name: 'Change password' })
+        await screen.findByRole('button', { name: 'Sign out other sessions' })
       },
-    ],
-    [
-      'invitation accept',
-      `/invitations/accept?token=${TEST_INVITATION_TOKEN}`,
-      () => screen.findByRole('button', { name: 'Accept invitation' }),
     ],
   ])('%s has no axe violations', async (_name, path, ready) => {
     renderAppAt(path)
@@ -774,10 +759,7 @@ describe('signed-in pages', () => {
       tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
     }))
     server.use(
-      http.get('/api/v1/platform/audit-log', () => ok(listPage(entries), 'Audit log retrieved.')),
-      http.get('/api/v1/tenants/platform/members', () =>
-        ok(listPage(MEMBERS), 'Members retrieved.')
-      )
+      http.get('/api/v1/platform/audit-log', () => ok(listPage(entries), 'Audit log retrieved.'))
     )
     renderAppAt('/activity')
     await screen.findByText('changed the settings (timezone)')
@@ -856,14 +838,16 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
-  it('users with the verified facet open has no axe violations', async () => {
+  it('users with the signed-in facet open has no axe violations', async () => {
     server.use(
       http.get('/api/v1/platform/users', () => ok(listPage([USER_DETAIL]), 'Users retrieved.'))
     )
     renderAppAt('/users')
     await screen.findByRole('table', { name: 'Users' })
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Filter by verified, Users' }))
-    await screen.findByRole('dialog', { name: 'Filter by verified, Users' })
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Filter by signed in, Users' }))
+    await screen.findByRole('dialog', { name: 'Filter by signed in, Users' })
     await expectNoViolations()
   })
 
@@ -1076,14 +1060,122 @@ describe('signed-in pages', () => {
 })
 
 /** The accept page's other states, each its own render, because a default sweep only sees the invited account arriving at a valid link. */
+describe('confirm it’s you states', () => {
+  const confirmPath = `/auth/confirm?token=${'t'.repeat(43)}`
+
+  beforeEach(signIn)
+
+  it.each([
+    [
+      'confirming',
+      () => server.use(http.post(STEP_UP_VERIFY, () => new Promise<never>(() => {}))),
+      () => screen.findByRole('status'),
+    ],
+    [
+      'confirmed with no tab waiting',
+      () => {},
+      () => screen.findByRole('heading', { name: 'Confirmed' }),
+    ],
+    [
+      'a dead link',
+      () =>
+        server.use(
+          http.post(STEP_UP_VERIFY, () =>
+            fail('This link has expired or was already used.', 400, 'LINK_INVALID')
+          )
+        ),
+      () => screen.findByRole('heading', { name: 'This link didn’t confirm it’s you' }),
+    ],
+    [
+      'the session ended',
+      () =>
+        server.use(
+          http.post(STEP_UP_VERIFY, () => fail('Session ended', 401, 'ACCESS_TOKEN_EXPIRED'))
+        ),
+      () => screen.findByRole('link', { name: 'Sign in' }),
+    ],
+    [
+      'a failure with Try again',
+      () => server.use(http.post(STEP_UP_VERIFY, () => fail('Service Unavailable', 503))),
+      () => screen.findByRole('button', { name: 'Try again' }),
+    ],
+  ])('confirm it’s you, %s, has no axe violations', async (_name, serve, ready) => {
+    serve()
+    renderAppAt(confirmPath)
+    await ready()
+    await expectNoViolations()
+  })
+
+  it('confirm it’s you, signed out, has no axe violations', async () => {
+    signOut()
+    renderAppAt(confirmPath)
+    await screen.findByRole('heading', { name: 'Sign in to confirm' })
+    await expectNoViolations()
+  })
+
+  it('confirm it’s you, Google refused, has no axe violations', async () => {
+    renderAppAt('/auth/confirm?error=step_up_failed')
+    await screen.findByRole('heading', { name: 'We couldn’t confirm it’s you' })
+    await expectNoViolations()
+  })
+})
+
+/** The sign-in link page's states, each its own render. */
+describe('auth link states', () => {
+  const linkPath = `/auth/link?token=${'t'.repeat(43)}&email=ada%40example.test`
+
+  it.each([
+    [
+      'verifying',
+      () => server.use(http.post(LINK_VERIFY, () => new Promise<never>(() => {}))),
+      () => screen.findByRole('heading', { level: 1, name: 'Signing you in' }),
+    ],
+    [
+      'dead',
+      () =>
+        server.use(
+          http.post(LINK_VERIFY, () =>
+            fail('This link has expired or was already used.', 400, 'LINK_INVALID')
+          )
+        ),
+      () => screen.findByRole('button', { name: 'Email me a new link' }),
+    ],
+    [
+      'failed',
+      () => server.use(http.post(LINK_VERIFY, () => fail('Service Unavailable', 503))),
+      () => screen.findByRole('button', { name: 'Try again' }),
+    ],
+  ])('auth link %s has no axe violations', async (_name, serve, ready) => {
+    signOut()
+    serve()
+    renderAppAt(linkPath)
+    await ready()
+    await expectNoViolations()
+  })
+
+  it('auth link switch account has no axe violations', async () => {
+    signIn()
+    renderAppAt(linkPath)
+    await screen.findByRole('heading', { level: 1, name: 'Switch account?' })
+    await expectNoViolations()
+  })
+})
+
+/** The accept page's states, each its own render. "Already joined" is a toast and a navigation, with no steady state to grade. */
 describe('invitation accept states', () => {
   const acceptPath = `/invitations/accept?token=${TEST_INVITATION_TOKEN}`
 
-  beforeEach(() => {
+  it('invitation joining has no axe violations', async () => {
     signIn()
+    server.use(http.post('/api/v1/invitations/accept', () => new Promise<never>(() => {})))
+    renderAppAt(acceptPath)
+    await screen.findByRole('heading', { level: 1, name: 'Joining Acme Corp' })
+    await screen.findByRole('status')
+    await expectNoViolations()
   })
 
-  it('has no violations signed in as the wrong account', async () => {
+  it('invitation switch has no axe violations', async () => {
+    signIn()
     server.use(
       http.post('/api/v1/invitations/preview', () =>
         ok(
@@ -1098,43 +1190,93 @@ describe('invitation accept states', () => {
       )
     )
     renderAppAt(acceptPath)
-    await screen.findByRole('button', { name: 'Sign out' })
+    await screen.findByRole('button', { name: 'Continue as someone-else@example.com' })
     await expectNoViolations()
   })
 
-  it('has no violations for an invalid invitation', async () => {
+  it('invitation dead has no axe violations', async () => {
+    signOut()
     server.use(
       http.post('/api/v1/invitations/preview', () =>
-        fail('This invitation is invalid or has expired.', 404, 'invitation_invalid')
+        fail(INVITATION_INVALID_TEXT, 404, 'invitation_invalid')
       )
     )
     renderAppAt(acceptPath)
-    await screen.findByRole('heading', { name: 'This invitation can’t be used' })
+    await screen.findByRole('heading', { level: 1, name: 'This invitation can’t be used' })
+    await screen.findByRole('button', { name: 'Email me a sign-in link' })
+    await expectNoViolations()
+  })
+
+  it('invitation dead signed in has no axe violations', async () => {
+    signIn()
+    server.use(
+      http.post('/api/v1/invitations/preview', () =>
+        fail(INVITATION_INVALID_TEXT, 404, 'invitation_invalid')
+      ),
+      http.post('/api/v1/invitations/accept', () =>
+        fail(INVITATION_INVALID_TEXT, 404, 'invitation_invalid')
+      )
+    )
+    renderAppAt(acceptPath)
+    await screen.findByRole('link', { name: 'Go to Overview' })
+    await expectNoViolations()
+  })
+
+  it('invitation check inbox has no axe violations', async () => {
+    signOut()
+    server.use(
+      http.post('/api/v1/invitations/verify', () =>
+        ok(
+          { confirmationSent: true, email: 'invitee@acme.test' },
+          'Check your inbox to finish joining.',
+          202
+        )
+      )
+    )
+    renderAppAt(acceptPath)
+    await screen.findByRole('button', { name: /^Resend in / })
     await expectNoViolations()
   })
 
   it('has no violations when the preview request failed', async () => {
+    signIn()
     server.use(http.post('/api/v1/invitations/preview', () => fail('Something went wrong.', 500)))
     renderAppAt(acceptPath)
     // The preview query retries a non-404 once, so the alert appears after the retry.
     await screen.findByRole('alert')
     await expectNoViolations()
   })
+})
 
-  it('has no violations with the unverified-email refusal showing', async () => {
+/** The invitation confirmation page's states, each its own render. */
+describe('invitation confirm states', () => {
+  const confirmPath = `/invitations/confirm?token=${'c'.repeat(43)}&email=ada%40example.test`
+
+  it('invitation confirm joining has no axe violations', async () => {
+    signOut()
+    server.use(http.post('/api/v1/invitations/confirm', () => new Promise<never>(() => {})))
+    renderAppAt(confirmPath)
+    await screen.findByRole('heading', { level: 1, name: 'Joining your team' })
+    await expectNoViolations()
+  })
+
+  it('invitation confirm switch has no axe violations', async () => {
+    signIn()
+    renderAppAt(confirmPath)
+    await screen.findByRole('button', { name: 'Continue as ada@example.test' })
+    await expectNoViolations()
+  })
+
+  it('invitation confirm dead has no axe violations', async () => {
+    signOut()
     server.use(
-      http.post('/api/v1/invitations/accept', () =>
-        fail(
-          'Verify your email address before accepting this invitation.',
-          403,
-          'invitation_email_unverified'
-        )
+      http.post('/api/v1/invitations/confirm', () =>
+        fail(INVITATION_INVALID_TEXT, 404, 'invitation_invalid')
       )
     )
-    const user = userEvent.setup()
-    renderAppAt(acceptPath)
-    await user.click(await screen.findByRole('button', { name: 'Accept invitation' }))
-    await screen.findByRole('alert')
+    renderAppAt(confirmPath)
+    await screen.findByRole('heading', { level: 1, name: 'This link can’t be used' })
+    await screen.findByRole('button', { name: 'Email me a sign-in link' })
     await expectNoViolations()
   })
 })
@@ -1424,23 +1566,97 @@ describe('open overlays', () => {
     await expectNoViolations()
   })
 
-  it('has no violations with the step-up dialog open', async () => {
+  /**
+   * Suspends Acme through the reason dialog into a REAUTH_REQUIRED, so
+   * "Confirm it's you" stacks over that dialog, and returns it.
+   */
+  async function openStepUpOverReason(user: ReturnType<typeof userEvent.setup>) {
     serveTenant('active')
     server.use(
       http.post(`/api/v1/platform/tenants/${TENANT_ID}/suspend`, () =>
         fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
       )
     )
-    const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}`)
     await user.click(await screen.findByRole('button', { name: 'Actions' }))
     await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }))
     const reason = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
     await user.type(within(reason).getByLabelText('Reason'), 'x')
     await user.click(within(reason).getByRole('button', { name: 'Suspend' }))
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    expect(await within(stepUp).findByLabelText('Password')).toBeInTheDocument()
+    return screen.findByRole('dialog', { name: 'Confirm it’s you' })
+  }
+
+  it('has no violations with the step-up dialog open on its choices (step-up choose)', async () => {
+    server.use(
+      http.get('/api/v1/auth/providers', () =>
+        ok(
+          {
+            providers: [
+              { provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' },
+              { provider: 'google', linkedAt: '2026-01-02T00:00:00.000Z' },
+            ],
+          },
+          'Auth providers retrieved.'
+        )
+      )
+    )
+    const user = userEvent.setup()
+    const stepUp = await openStepUpOverReason(user)
+    expect(
+      await within(stepUp).findByRole('button', { name: 'Re-confirm with Google' })
+    ).toBeInTheDocument()
     await expectNoViolations()
+  })
+
+  it('has no violations with the step-up dialog waiting on a link (step-up email sent)', async () => {
+    const user = userEvent.setup()
+    const stepUp = await openStepUpOverReason(user)
+    await user.click(within(stepUp).getByRole('button', { name: 'Email me a link' }))
+    expect(
+      await within(stepUp).findByText(
+        'Check your email. Open the link in this browser to continue.'
+      )
+    ).toBeInTheDocument()
+    // The reason dialog beneath is inert behind the modal step-up, so its button is in the hidden tree.
+    expect(
+      screen.getByRole('button', { name: 'Waiting for you to confirm…', hidden: true })
+    ).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the step-up dialog waiting on Google (step-up waiting on Google)', async () => {
+    server.use(
+      http.get('/api/v1/auth/providers', () =>
+        ok(
+          {
+            providers: [
+              { provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' },
+              { provider: 'google', linkedAt: '2026-01-02T00:00:00.000Z' },
+            ],
+          },
+          'Auth providers retrieved.'
+        )
+      )
+    )
+    // jsdom has no window.open; a stand-in popup takes the Google URL.
+    const open = vi
+      .spyOn(window, 'open')
+      .mockReturnValue({ location: { assign: vi.fn() }, close: vi.fn() } as unknown as Window)
+    try {
+      const user = userEvent.setup()
+      const stepUp = await openStepUpOverReason(user)
+      await user.click(
+        await within(stepUp).findByRole('button', { name: 'Re-confirm with Google' })
+      )
+      expect(
+        await within(stepUp).findByText(
+          'Finish in the Google window. This dialog continues on its own when you’re done.'
+        )
+      ).toBeInTheDocument()
+      await expectNoViolations()
+    } finally {
+      open.mockRestore()
+    }
   })
 
   it('has no violations with the Edit details dialog open', async () => {
@@ -1500,6 +1716,17 @@ describe('open overlays', () => {
     await expectNoViolations()
   })
 
+  it('has no violations with the Send sign-in link dialog open', async () => {
+    serveUser()
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    await user.click(await screen.findByRole('button', { name: 'Actions for cleo@example.com' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Send sign-in link' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
+    expect(within(dialog).getByRole('button', { name: 'Send link' })).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
   it('has no violations with the Deactivate account dialog open', async () => {
     serveUser()
     const user = userEvent.setup()
@@ -1522,36 +1749,6 @@ describe('open overlays', () => {
       name: 'Permanently delete this account?',
     })
     expect(within(dialog).getByLabelText('Type cleo@example.com to confirm')).toBeInTheDocument()
-    await expectNoViolations()
-  })
-
-  it('has no violations with the step-up dialog open for an account without a password', async () => {
-    serveTenant('active')
-    server.use(
-      http.post(`/api/v1/platform/tenants/${TENANT_ID}/suspend`, () =>
-        fail('Recent sign-in required', 401, 'REAUTH_REQUIRED')
-      ),
-      http.get('/api/v1/auth/providers', () =>
-        ok(
-          {
-            providers: [{ provider: 'google', linkedAt: '2026-01-01T00:00:00.000Z' }],
-            hasPassword: false,
-          },
-          'Auth providers retrieved.'
-        )
-      )
-    )
-    const user = userEvent.setup()
-    renderAppAt(`/tenants/${TENANT_ID}`)
-    await user.click(await screen.findByRole('button', { name: 'Actions' }))
-    await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }))
-    const reason = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
-    await user.type(within(reason).getByLabelText('Reason'), 'x')
-    await user.click(within(reason).getByRole('button', { name: 'Suspend' }))
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    expect(
-      await within(stepUp).findByRole('link', { name: 'Open your user page' })
-    ).toBeInTheDocument()
     await expectNoViolations()
   })
 
@@ -1630,18 +1827,15 @@ describe('keyboard', () => {
     signOut()
     const user = userEvent.setup()
     renderAppAt('/login')
-    await screen.findByRole('button', { name: 'Sign in' })
+    await screen.findByRole('button', { name: 'Email me a sign-in link' })
 
     const expected = [
       // The skip link is every layout's first Tab stop.
       screen.getByRole('link', { name: 'Skip to content' }),
-      // login-03 puts the social buttons above the form. A plain anchor to a same-origin API route, so it is in the tab order without a handler.
-      screen.getByRole('link', { name: 'Continue with Google' }),
       screen.getByLabelText('Email'),
-      // The reset link sits in the password label's row, so it reads, and tabs, before the field.
-      screen.getByRole('link', { name: 'Forgot password?' }),
-      screen.getByLabelText('Password'),
-      screen.getByRole('button', { name: 'Sign in' }),
+      screen.getByRole('button', { name: 'Email me a sign-in link' }),
+      // Google follows the form. A plain anchor to a same-origin API route, so it is in the tab order without a handler.
+      screen.getByRole('link', { name: 'Continue with Google' }),
     ]
     expect(screen.getByRole('link', { name: 'Continue with Google' })).toHaveAttribute(
       'href',

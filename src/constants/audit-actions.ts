@@ -1,4 +1,8 @@
-import { AUDIT_ACTIONS, type AuditAction } from '@/constants/audit-action-names'
+import {
+  AUDIT_ACTIONS,
+  type AuditAction,
+  type RetiredAuditAction,
+} from '@/constants/audit-action-names'
 import { templateLabel } from '@/constants/email.constants'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
 
@@ -21,7 +25,6 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'invitation.resent': 'Invitation resent',
   'invitation.revoked': 'Invitation revoked',
   'invitation.accepted': 'Invitation accepted',
-  'platform.member.auto_joined': 'Staff auto-joined',
   'platform.member.granted': 'Staff role granted',
   'tenant.accessed_by_platform': 'Staff visit',
   'tenant.suspended': 'Tenant suspended',
@@ -33,12 +36,12 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'user.deactivated': 'User deactivated',
   'user.reactivated': 'User reactivated',
   'user.signed_out': 'User signed out',
-  'user.password_setup_sent': 'Password link sent',
-  'user.verification_resent': 'Verification resent',
+  'user.sign_in_link_sent': 'Sign-in link sent',
   'user.deleted': 'User deleted',
   'user.purged': 'User permanently deleted',
   'tenant.purged': 'Tenant permanently deleted',
-  'auth.reauthenticated': 'Identity confirmed',
+  'auth.step_up_confirmed': 'Identity confirmed',
+  'auth.step_up_refused': 'Identity check refused',
   'email.resent': 'Email resent',
   'email.suppression_lifted': 'Suppression lifted',
   'onboarding.dismissed': 'Getting started dismissed',
@@ -158,8 +161,6 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
   'invitation.resent': (m) => `resent the invitation to someone at ${domain(m)}`,
   'invitation.revoked': (m) => `revoked the invitation to someone at ${domain(m)}`,
   'invitation.accepted': (m) => `accepted an invitation as ${roleLabel(m, 'role')}`,
-  'platform.member.auto_joined': (m) =>
-    `added someone at ${domain(m)} to the platform as Viewer (auto-join)`,
   'platform.member.granted': (m) => `granted a platform member the ${roleLabel(m, 'role')} role`,
   'tenant.accessed_by_platform': (m) =>
     `opened this tenant as platform staff (${roleLabel(m, 'platformRole')})`,
@@ -172,21 +173,22 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
   'user.deactivated': (m) => `deactivated a user${because(m)}`,
   'user.reactivated': (m) => `reactivated a user${because(m)}`,
   'user.signed_out': (m) => `signed a user out everywhere${because(m)}`,
-  'user.password_setup_sent': (m) =>
-    text(m, 'kind') === 'reset'
-      ? 'sent a user a password reset link'
-      : 'sent a user a set-password link',
-  'user.verification_resent': () => 'resent a user’s verification email',
+  'user.sign_in_link_sent': (m) =>
+    m.app === 'apex' ? 'sent a staff member a sign-in link to Apex' : 'sent a user a sign-in link',
   'user.deleted': (m) => `deleted a user${because(m)}`,
   'user.purged': (m) => `permanently deleted a user${because(m)}`,
   'tenant.purged': (m) => {
     const name = text(m, 'name')
     return `permanently deleted ${name ? `the tenant ${name}` : 'a tenant'}${because(m)}`
   },
-  'auth.reauthenticated': (m) =>
-    text(m, 'outcome') === 'failure'
-      ? 'failed to confirm their identity'
-      : 'confirmed their identity',
+  'auth.step_up_confirmed': (m) =>
+    m.method === 'google'
+      ? 'confirmed it was them with Google'
+      : 'confirmed it was them by email link',
+  'auth.step_up_refused': (m) =>
+    m.method === 'google'
+      ? 'failed a Google identity check'
+      : 'failed an email-link identity check',
   'email.resent': (m) => {
     const template = text(m, 'templateKey')
     const which = template === undefined ? '' : ` (${templateLabel(template)})`
@@ -208,6 +210,23 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
 }
 
 /**
+ * Sentences for the retired password-era actions, whose rows stay in the log
+ * though nothing writes them any more. The retired view actions keep the
+ * fallback sentence.
+ */
+const RETIRED_SENTENCES = {
+  'auth.reauthenticated': 'confirmed it was them with a password',
+  'user.password_setup_sent': 'sent a user a password setup email',
+  'user.verification_resent': 'resent a user a verification email',
+  'platform.member.auto_joined': 'joined staff by email domain',
+} as const satisfies Partial<Record<RetiredAuditAction, string>>
+
+/** Whether `value` is a retired action that still has its own sentence. */
+function hasRetiredSentence(value: string): value is keyof typeof RETIRED_SENTENCES {
+  return Object.hasOwn(RETIRED_SENTENCES, value)
+}
+
+/**
  * An action name as words ("tenant errors viewed"), for a stored action this
  * build has no sentence for.
  * @param action - The stored action name, such as `tenant.errors_viewed`.
@@ -221,10 +240,9 @@ export function readableAction(action: string): string {
  * metadata defensively, so a row whose fields are missing or mistyped still renders.
  */
 export function auditSentence(entry: { action: string; metadata: Metadata }): string {
-  const build: ((metadata: Metadata) => string) | undefined = isAuditAction(entry.action)
-    ? SENTENCES[entry.action]
-    : undefined
-  return build ? build(entry.metadata) : `performed ${readableAction(entry.action)}`
+  if (isAuditAction(entry.action)) return SENTENCES[entry.action](entry.metadata)
+  if (hasRetiredSentence(entry.action)) return RETIRED_SENTENCES[entry.action]
+  return `performed ${readableAction(entry.action)}`
 }
 
 /**

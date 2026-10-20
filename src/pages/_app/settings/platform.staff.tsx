@@ -45,23 +45,20 @@ function StaffPage() {
         slug={PLATFORM_TENANT_SLUG}
         showRoleError={false}
         inviteTitle="Invite staff"
-        inviteDescription="We email them a link to join as staff. The link opens Apex; someone without an account creates one with that address."
+        inviteDescription="We email them an invitation that expires in 3 days. When they open it, we email a sign-in link that adds them to Apex as staff."
+        submitLabel="Invite staff"
       />
       <Card>
         <CardHeader>
           <CardTitle>
-            <h2>Other ways in</h2>
+            <h2>Another way in</h2>
           </CardTitle>
           <CardDescription>Invitations are not the only way someone becomes staff.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-2 text-sm">
           <p>
-            Verified addresses on the domains in <code>PLATFORM_EMAIL_DOMAINS</code> join as viewers
-            automatically when they sign in.
-          </p>
-          <p>
-            On the server, <code>pnpm platform:grant</code> gives an existing, verified account any
-            platform role; it is how the first owner is made.
+            On the server, <code>pnpm platform:grant</code> gives an account any platform role. It
+            creates the account if none exists. Use it to create the first owner.
           </p>
         </CardContent>
       </Card>

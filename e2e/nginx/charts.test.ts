@@ -1,11 +1,5 @@
 import { expect, test } from '@playwright/test'
-import {
-  apiIsReady,
-  createVerifiedUser,
-  freshEmail,
-  grantPlatformRole,
-  logIn,
-} from '../live/helpers'
+import { apiIsReady, freshEmail, logIn, staffSession } from '../live/helpers'
 import { flushCspReports, requireServedApp, watchCspViolations } from './csp'
 
 /**
@@ -24,11 +18,10 @@ test.beforeAll(async () => {
 })
 
 test('the overview charts draw under the production CSP', async ({ page }) => {
-  // Registering and verifying through mailpit (a poll of up to 15s), the grant script, then a cold production bundle.
+  // The grant script, a sign-in link read from mailpit (a poll of up to 15s), then a cold production bundle.
   test.setTimeout(90_000)
   const email = freshEmail()
-  await createVerifiedUser(email)
-  await grantPlatformRole(email, 'viewer')
+  await staffSession(email, 'viewer')
 
   const violations = await watchCspViolations(page)
   await logIn(page, email)

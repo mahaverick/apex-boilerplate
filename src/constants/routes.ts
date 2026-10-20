@@ -11,8 +11,6 @@ export const API_PREFIX = '/api/v1'
 export const ROUTES = {
   home: '/',
   login: '/login',
-  register: '/register',
-  forgotPassword: '/forgot-password',
   overview: '/overview',
   tenants: '/tenants',
   activity: '/activity',
@@ -38,10 +36,19 @@ export const ROUTES = {
   maintenance: '/settings/platform/maintenance',
   noAccess: '/no-access',
   invitationAccept: '/invitations/accept',
+  invitationConfirm: '/invitations/confirm',
+  authLink: '/auth/link',
+  authConfirm: '/auth/confirm',
 } as const
 
 /** The API path for the Google OAuth start. Same-origin, so a plain anchor; `app=apex` brings the callback back here. */
 export const GOOGLE_OAUTH_PATH = `${API_PREFIX}/auth/google?app=apex`
+
+/**
+ * The API path the "Confirm it's you" popup opens after `POST /auth/step-up/google/start`.
+ * Same-origin; the popup starts on `about:blank`, so it is made absolute there.
+ */
+export const GOOGLE_STEP_UP_PATH = `${API_PREFIX}/auth/step-up/google`
 
 /**
  * The platform tenant's slug, seeded by express migration 0016 and reserved

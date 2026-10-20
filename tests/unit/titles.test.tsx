@@ -147,9 +147,59 @@ describe('page titles', () => {
     server.use(http.post('/api/v1/auth/refresh', () => fail('Unauthorized', 401)))
     renderAppAt('/login')
 
-    await screen.findByRole('heading', { name: 'Sign in', level: 1 })
+    await screen.findByRole('heading', { name: 'Sign in to Apex', level: 1 })
     await waitFor(() => {
       expect(document.title).toBe('Sign in · Apex')
+    })
+  })
+
+  it('names the confirm page the same in every state, whatever its heading', async () => {
+    useAuthStore.setState({
+      accessToken: 'access-token',
+      user: testUser,
+      isAuthenticated: true,
+      isBootstrapped: true,
+    })
+    renderAppAt(`/auth/confirm?token=${'t'.repeat(43)}`)
+
+    await screen.findByRole('heading', { name: 'Confirmed', level: 1 })
+    await waitFor(() => {
+      expect(document.title).toBe('Confirm it’s you · Apex')
+    })
+  })
+
+  it('names the invitation confirmation page', async () => {
+    useAuthStore.setState({
+      accessToken: null,
+      user: null,
+      isAuthenticated: false,
+      isBootstrapped: false,
+    })
+    server.use(http.post('/api/v1/auth/refresh', () => fail('Unauthorized', 401)))
+    renderAppAt('/invitations/confirm')
+
+    await screen.findByRole('heading', { name: 'This link is incomplete', level: 1 })
+    await waitFor(() => {
+      expect(document.title).toBe('Join your team · Apex')
+    })
+  })
+
+  it('names the sign-in link page while it signs the visitor in', async () => {
+    useAuthStore.setState({
+      accessToken: null,
+      user: null,
+      isAuthenticated: false,
+      isBootstrapped: false,
+    })
+    server.use(
+      http.post('/api/v1/auth/refresh', () => fail('Unauthorized', 401)),
+      http.post('/api/v1/auth/link/verify', () => new Promise<never>(() => {}))
+    )
+    renderAppAt(`/auth/link?token=${'t'.repeat(43)}&email=ada%40example.test`)
+
+    await screen.findByRole('heading', { name: 'Signing you in', level: 1 })
+    await waitFor(() => {
+      expect(document.title).toBe('Signing in · Apex')
     })
   })
 

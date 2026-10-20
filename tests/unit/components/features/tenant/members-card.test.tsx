@@ -37,6 +37,7 @@ import {
   testUser,
 } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
+import { confirmStepUp, dismissStepUp, STEP_UP_EMAIL_WAIT } from '@/tests/mocks/step-up'
 import {
   REAUTH_REQUIRED,
   type PlatformTenantDetail,
@@ -650,13 +651,8 @@ describe('removing and leaving', () => {
     await user.click(vic.getByRole('button', { name: 'Remove' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Remove Vic X?' })
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
-    await screen.findByLabelText('Password')
+    await dismissStepUp(user)
 
-    await user.keyboard('{Escape}')
-
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Confirm it’s you' })).not.toBeInTheDocument()
-    )
     const still = screen.getByRole('alertdialog', { name: 'Remove Vic X?' })
     expect(await within(still).findByText('Confirm it’s you to continue.')).toBeInTheDocument()
     await waitFor(() => expect(still.contains(document.activeElement)).toBe(true))
@@ -952,6 +948,17 @@ describe('the invite form role select', () => {
     mockTenant('owner', [member(ME, 'owner', 'Me'), member(USER_ID_4, 'owner', 'Otto')])
   })
 
+  it('describes the invitation as it works now: one click for someone new, a sign-in link otherwise', async () => {
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    const heading = await screen.findByRole('heading', { name: 'Invite a member', level: 2 })
+    const card = heading.closest('[data-slot="card"]')
+    expect(card).toHaveTextContent(
+      'We email them an invitation that expires in 3 days. Someone new joins in one click. Someone with an account gets a sign-in link to confirm.'
+    )
+    expect(card).not.toHaveTextContent(/open the link again/)
+    expect(screen.getByRole('button', { name: 'Invite member' })).toBeInTheDocument()
+  })
+
   it('points its label at the VISIBLE control, not at a hidden input', async () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
@@ -1114,7 +1121,7 @@ describe('inviting, and the pending invitations', () => {
     const toastError = vi.spyOn(toast, 'error')
     server.use(
       http.post('/api/v1/tenants/acme/invitations', () =>
-        fail('Too many attempts. Please try again later.', 429, 'RATE_LIMITED')
+        fail('Too many attempts. Try again in 42 seconds.', 429, 'RATE_LIMITED')
       )
     )
     const user = userEvent.setup()
@@ -1124,9 +1131,9 @@ describe('inviting, and the pending invitations', () => {
     await user.type(email, 'new-member@example.com')
     await user.click(screen.getByRole('button', { name: 'Invite member' }))
 
-    const message = await screen.findByText('Too many attempts. Please try again later.')
+    const message = await screen.findByText('Too many attempts. Try again in 42 seconds.')
     expect(message.closest('form')).not.toBeNull()
-    expect(screen.getAllByText('Too many attempts. Please try again later.')).toHaveLength(1)
+    expect(screen.getAllByText('Too many attempts. Try again in 42 seconds.')).toHaveLength(1)
     expect(toastError).not.toHaveBeenCalled()
     expect(email).toHaveAttribute('aria-invalid', 'false')
   })
@@ -1211,7 +1218,9 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/could not load the pending invitations/i)
+    expect(alert).toHaveTextContent(
+      'We couldn’t load the pending invitations. Select Try again to load them.'
+    )
     await user.click(within(alert).getByRole('button', { name: 'Try again' }))
 
     expect(await screen.findByText('invited@example.com')).toBeInTheDocument()
@@ -1243,7 +1252,7 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invited@example.com' })
+      await screen.findByRole('button', { name: 'Resend, invitation to invited@example.com' })
     )
 
     await findToast('Invitation resent to invited@example.com.')
@@ -1272,7 +1281,7 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invited@example.com' })
+      await screen.findByRole('button', { name: 'Resend, invitation to invited@example.com' })
     )
 
     expect(
@@ -1297,14 +1306,14 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     for (const email of ['owner@example.com', 'admin@example.com']) {
-      const resend = await screen.findByRole('button', { name: `Resend invitation to ${email}` })
+      const resend = await screen.findByRole('button', { name: `Resend, invitation to ${email}` })
       expect(resend).toBeDisabled()
       expect(resend).toHaveAccessibleDescription(
         'Only an owner can resend or revoke an invitation for this role.'
       )
     }
     const editorResend = screen.getByRole('button', {
-      name: 'Resend invitation to editor@example.com',
+      name: 'Resend, invitation to editor@example.com',
     })
     expect(editorResend).toBeEnabled()
     expect(editorResend).not.toHaveAttribute('aria-describedby')
@@ -1357,7 +1366,7 @@ describe('inviting, and the pending invitations', () => {
 
     for (const email of ['owner@example.com', 'admin@example.com', 'editor@example.com']) {
       expect(
-        await screen.findByRole('button', { name: `Resend invitation to ${email}` })
+        await screen.findByRole('button', { name: `Resend, invitation to ${email}` })
       ).toBeEnabled()
       expect(screen.getByRole('button', { name: `Revoke invitation to ${email}` })).toBeEnabled()
     }
@@ -1381,7 +1390,7 @@ describe('inviting, and the pending invitations', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invited@example.com' })
+      await screen.findByRole('button', { name: 'Resend, invitation to invited@example.com' })
     )
 
     expect(await screen.findByText('That invitation is no longer pending.')).toBeInTheDocument()
@@ -1417,6 +1426,40 @@ describe('inviting, and the pending invitations', () => {
     })
     expect(deletes).toBe(0)
     expect(screen.getByText('invited@example.com')).toBeInTheDocument()
+  })
+
+  it('keeps the Revoke dialog open on Escape and outside presses while its step-up waits on a link', async () => {
+    let deletes = 0
+    server.use(
+      http.get('/api/v1/tenants/acme/invitations', () =>
+        ok(listPage([testInvitation]), 'Invitations retrieved.')
+      ),
+      http.delete('/api/v1/tenants/acme/invitations/:id', () => {
+        deletes += 1
+        return fail('Recent sign-in required', 401, REAUTH_REQUIRED)
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await user.click(
+      await screen.findByRole('button', { name: `Revoke invitation to ${testInvitation.email}` })
+    )
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Revoke' }))
+    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+    await user.click(within(stepUp).getByRole('button', { name: 'Email me a link' }))
+    await within(stepUp).findByText(STEP_UP_EMAIL_WAIT)
+
+    await user.keyboard('{Escape}')
+    // A press on the Revoke dialog behind the step-up, then Escape with focus there.
+    await user.click(within(dialog).getByRole('heading', { hidden: true }))
+    await user.keyboard('{Escape}')
+    await settle(100, 'a dismissal has no event to wait on when it does not happen')
+
+    expect(within(stepUp).getByText(STEP_UP_EMAIL_WAIT)).toBeInTheDocument()
+    expect(dialog.isConnected).toBe(true)
+    expect(dialog).toHaveAttribute('data-open')
+    expect(deletes).toBe(1)
   })
 
   it('revokes on confirm, says so, and drops the row', async () => {
@@ -1522,19 +1565,9 @@ describe('staff acting through platform access', () => {
           listPage([member(USER_ID_4, 'owner', 'Otto'), member(USER_ID_3, 'viewer', 'Vic')]),
           'Members retrieved.'
         )
-      ),
-      http.post('/api/v1/auth/reauthenticate', () =>
-        ok({ accessToken: 'stepped-up-token' }, 'Reauthenticated.')
       )
     )
   })
-
-  /** Confirms the step-up dialog the API's first REAUTH_REQUIRED opened. */
-  async function confirmStepUp(user: ReturnType<typeof userEvent.setup>) {
-    const stepUp = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
-    await user.type(within(stepUp).getByLabelText('Password'), 'zqS7-step-up-pass')
-    await user.click(within(stepUp).getByRole('button', { name: 'Confirm' }))
-  }
 
   it('offers no Leave through platform access, which holds no membership to leave', async () => {
     // The API never lists the caller here; a listing that did must still not offer the members-only route.
@@ -1559,7 +1592,7 @@ describe('staff acting through platform access', () => {
       http.patch(`/api/v1/tenants/acme/members/${USER_ID_3}`, async ({ request }) => {
         bodies.push(await request.json())
         return bodies.length === 1
-          ? fail('Confirm your identity to continue', 401, REAUTH_REQUIRED)
+          ? fail("Confirm it's you to continue.", 401, REAUTH_REQUIRED)
           : ok({ ...member(USER_ID_3, 'editor', 'Vic').membership }, 'Role updated.')
       })
     )
@@ -1805,7 +1838,7 @@ describe('staff acting through platform access', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invitee@example.com' })
+      await screen.findByRole('button', { name: 'Resend, invitation to invitee@example.com' })
     )
     const resend = await screen.findByRole('alertdialog', { name: 'Resend this invitation?' })
     expect(resend).toHaveTextContent(
@@ -1877,7 +1910,7 @@ describe('staff acting through platform access', () => {
       page: 'invitations',
       open: async (user) => {
         await user.click(
-          await screen.findByRole('button', { name: 'Resend invitation to invitee@example.com' })
+          await screen.findByRole('button', { name: 'Resend, invitation to invitee@example.com' })
         )
       },
       title: 'Resend this invitation?',
@@ -1913,7 +1946,7 @@ describe('staff acting through platform access', () => {
         http[method](url, async ({ request }) => {
           bodies.push(await request.json())
           return bodies.length === 1
-            ? fail('Confirm your identity to continue', 401, REAUTH_REQUIRED)
+            ? fail("Confirm it's you to continue.", 401, REAUTH_REQUIRED)
             : ok(null, 'Done.', method === 'post' ? 202 : 200)
         })
       )
@@ -1983,7 +2016,9 @@ describe('staff acting through platform access', () => {
       renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
       await user.click(
-        await screen.findByRole('button', { name: `${label} invitation to invitee@example.com` })
+        await screen.findByRole('button', {
+          name: `${label}${label === 'Resend' ? ',' : ''} invitation to invitee@example.com`,
+        })
       )
       const dialog = await screen.findByRole('alertdialog', { name: title })
       await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
@@ -2014,7 +2049,7 @@ describe('staff acting through platform access', () => {
 
     expect(await screen.findByText('That member is no longer in this tenant.')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
-    expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Your role no longer allows this action/)).not.toBeInTheDocument()
   })
 
   it('says a staff role change found the member already gone, in the member path’s words', async () => {
@@ -2032,7 +2067,7 @@ describe('staff acting through platform access', () => {
 
     expect(await screen.findByText('That member is no longer in this tenant.')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
-    expect(screen.queryByText(/Your role can’t do this any more/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Your role no longer allows this action/)).not.toBeInTheDocument()
   })
 
   it('says a staff resend lost its access in express’s words, though the refetch took the list', async () => {
@@ -2056,7 +2091,7 @@ describe('staff acting through platform access', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
 
     await user.click(
-      await screen.findByRole('button', { name: 'Resend invitation to invitee@example.com' })
+      await screen.findByRole('button', { name: 'Resend, invitation to invitee@example.com' })
     )
     const dialog = await screen.findByRole('alertdialog', { name: 'Resend this invitation?' })
     await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
@@ -2078,7 +2113,9 @@ describe('staff acting through platform access', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Ticket 4411')
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
-    expect(await within(dialog).findByText(/Your role can’t do this any more/)).toBeInTheDocument()
+    expect(
+      await within(dialog).findByText(/Your role no longer allows this action/)
+    ).toBeInTheDocument()
   })
 
   /** Opens the invite reason dialog for `email` and confirms it with a reason. */
