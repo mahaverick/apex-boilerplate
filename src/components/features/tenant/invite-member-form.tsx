@@ -31,7 +31,8 @@ import {
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
-import { codeFrom, fieldErrorsFrom, messageFrom } from '@/lib/api-error'
+import { codeFrom, fieldErrorsFrom } from '@/lib/api-error'
+import { staffMessageFrom } from '@/lib/staff-message'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { useInviteMember } from '@/queries/tenant-writes.queries'
@@ -89,7 +90,7 @@ export function InviteMemberForm({
    */
   function showOnField(error: unknown): boolean {
     if (codeFrom(error) === ALREADY_MEMBER) {
-      serverErrors.setFieldError('email', [messageFrom(error)])
+      serverErrors.setFieldError('email', [staffMessageFrom(error)])
       return true
     }
     const fields = fieldErrorsFrom(error)

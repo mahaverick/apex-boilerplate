@@ -9,7 +9,6 @@ import {
   type RefObject,
 } from 'react'
 import { SigningInStatus } from '@/components/features/auth/link-panels'
-import { ROLE_DENIED_ACTION } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import { Alert, AlertTitle } from '@/components/ui/alert'
@@ -24,8 +23,9 @@ import {
 } from '@/components/ui/dialog'
 import { useCountdown } from '@/hooks/use-countdown'
 import { ensureSession, isAuthVerdict, redirectToLogin, subscribeAuthMessage } from '@/http/session'
-import { codeFrom, messageFrom, retryAfterSecondsFrom, statusFrom } from '@/lib/api-error'
+import { codeFrom, retryAfterSecondsFrom, statusFrom } from '@/lib/api-error'
 import { formatClock } from '@/lib/countdown'
+import { ROLE_DENIED_ACTION, staffMessageFrom } from '@/lib/staff-message'
 import {
   authTimeOf,
   isNewConfirmation,
@@ -203,7 +203,7 @@ function StepUpBody({
           setResendAt((current) => Math.max(current ?? 0, Date.now() + seconds * 1_000))
         }
         const cooldown = codeFrom(error) === STEP_UP_LINK_COOLDOWN && wait !== null
-        const message = statusFrom(error) === 404 ? ROLE_DENIED_ACTION : messageFrom(error)
+        const message = statusFrom(error) === 404 ? ROLE_DENIED_ACTION : staffMessageFrom(error)
         // A link is already out, so the wait stays: the refusal is a toast, and a 429 moves the resend out.
         if (from === 'email') {
           if (statusFrom(error) === 429 && wait !== null) holdResend(wait)

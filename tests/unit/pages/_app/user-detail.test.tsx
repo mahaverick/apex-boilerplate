@@ -574,6 +574,26 @@ describe('/users/$userId', () => {
     expect(within(dialog).getByText('cleo@example.com')).toHaveClass('ph-sensitive')
   })
 
+  it('words a role-gate 404 on the send as staff copy, not the route sentence', async () => {
+    answer()
+    server.use(
+      http.post(`/api/v1/platform/users/${USER_ID_2}/sign-in-link`, () =>
+        fail('No route matches this method and path. Check both, then try again.', 404, 'not_found')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Send sign-in link' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Send link' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Your role no longer allows this action. Ask a platform owner to check your role.'
+    )
+    expect(within(dialog).queryByText(/No route matches/)).not.toBeInTheDocument()
+  })
+
   it('keeps the dialog open with the 409 message for a deactivated user', async () => {
     // The page still shows the account active, but someone deactivated it meanwhile.
     answer()

@@ -52,8 +52,9 @@ import {
 import { PLATFORM_TENANT_SLUG, ROUTES } from '@/constants/routes'
 import { useFocusAfter } from '@/hooks/use-focus-after'
 import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
-import { messageFrom, statusFrom } from '@/lib/api-error'
+import { statusFrom } from '@/lib/api-error'
 import { fullName } from '@/lib/format'
+import { staffMessageFrom } from '@/lib/staff-message'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { noteError } from '@/observability/errors'
@@ -241,7 +242,7 @@ function RoleCell({
             return
           }
           changeRole(value as MembershipRole).catch((error: unknown) => {
-            if (!sayMemberGone(error, slug, onGone)) toast.error(messageFrom(error))
+            if (!sayMemberGone(error, slug, onGone)) toast.error(staffMessageFrom(error))
           })
         }}
       >
@@ -559,7 +560,7 @@ function RemoveMemberButton({
                     }
                     setIsOpen(false)
                     if (sayMemberGone(error, slug, onRemoved)) return
-                    toast.error(messageFrom(error))
+                    toast.error(staffMessageFrom(error))
                   }
                 )
             }}

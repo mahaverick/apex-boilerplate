@@ -24,7 +24,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { useChangedFields } from '@/hooks/use-changed-fields'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
-import { messageFrom, statusFrom } from '@/lib/api-error'
+import { statusFrom } from '@/lib/api-error'
+import { staffMessageFrom } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import { useUpdateTenant } from '@/queries/tenant.queries'
@@ -103,7 +104,7 @@ function EditTenantForm({ tenant, onDone }: { tenant: PlatformTenantDetail; onDo
         onDone()
       } catch (error) {
         if (statusFrom(error) === 403) {
-          serverErrors.setFormErrors([messageFrom(error)])
+          serverErrors.setFormErrors([staffMessageFrom(error)])
           return
         }
         serverErrors.capture(error)

@@ -26,14 +26,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { STEP_UP_WAITING_LABEL, useStepUpWaiting } from '@/hooks/use-step-up'
-import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
+import { codeFrom, statusFrom } from '@/lib/api-error'
+import { ROLE_DENIED_ACTION, staffMessageFrom } from '@/lib/staff-message'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { reasonFormSchema } from '@/schemas/reason.schemas'
 import { REASON_REQUIRED, ROUTE_NOT_FOUND } from '@/types/api.types'
-
-/** A 404 from a staff route answers the caller's role: it changed after the page loaded. */
-export const ROLE_DENIED_ACTION =
-  'Your role no longer allows this action. Ask a platform owner to check your role.'
 
 /** What `ReasonDialog` shows and does: its wording, the action it confirms, and how its refusals read. */
 export interface ReasonDialogProps {
@@ -132,7 +129,7 @@ function ReasonForm({
           return
         }
         if (codeFrom(error) === REASON_REQUIRED) {
-          serverErrors.setFieldError('reason', [messageFrom(error)])
+          serverErrors.setFieldError('reason', [staffMessageFrom(error)])
           return
         }
         const status = statusFrom(error)
@@ -142,12 +139,12 @@ function ReasonForm({
           serverErrors.setFormErrors([
             code === undefined || code === ROUTE_NOT_FOUND
               ? ROLE_DENIED_ACTION
-              : messageFrom(error),
+              : staffMessageFrom(error),
           ])
           return
         }
         if (status === 403 || status === 409) {
-          serverErrors.setFormErrors([refusalMessage?.(error) ?? messageFrom(error)])
+          serverErrors.setFormErrors([refusalMessage?.(error) ?? staffMessageFrom(error)])
           return
         }
         serverErrors.capture(error)

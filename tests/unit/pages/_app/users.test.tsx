@@ -411,6 +411,33 @@ describe('/users', () => {
       )
     })
 
+    it('words a role-gate 404 as staff copy, not the route sentence', async () => {
+      pages([])
+      server.use(
+        http.post('/api/v1/platform/users', () =>
+          fail(
+            'No route matches this method and path. Check both, then try again.',
+            404,
+            'not_found'
+          )
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt('/users')
+      await user.click(await screen.findByRole('button', { name: 'New user' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New user' })
+      await user.type(within(dialog).getByLabelText('Email'), 'new@example.com')
+      await user.type(within(dialog).getByLabelText('First name'), 'Tia')
+      await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
+
+      expect(
+        await within(dialog).findByText(
+          'Your role no longer allows this action. Ask a platform owner to check your role.'
+        )
+      ).toBeInTheDocument()
+      expect(within(dialog).queryByText(/No route matches/)).not.toBeInTheDocument()
+    })
+
     it('starts blank after the dialog is closed without creating anyone', async () => {
       pages([])
       server.use(

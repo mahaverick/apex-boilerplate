@@ -2,9 +2,9 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ROLE_DENIED_ACTION } from '@/components/features/reason-dialog'
 import type { MembershipRole } from '@/constants/roles'
 import { formatDate } from '@/lib/format'
+import { ROLE_DENIED_ACTION } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
 import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
@@ -2452,14 +2452,14 @@ describe('a write that finds the member already gone', () => {
 
       await writeToVic(user, action, asStaff)
 
+      // `not_found` is express's route and role-gate 404, so both paths say the role changed.
       if (asStaff) {
-        // `not_found` is express's route and role-gate 404, so the reason dialog says the role changed.
         const dialog = screen.getByRole('alertdialog')
         expect(await within(dialog).findByText(ROLE_DENIED_ACTION)).toBeInTheDocument()
-        expect(within(dialog).queryByText('Member not found')).not.toBeInTheDocument()
       } else {
-        expect(await screen.findByText('Member not found')).toBeInTheDocument()
+        expect(await screen.findByText(ROLE_DENIED_ACTION)).toBeInTheDocument()
       }
+      expect(screen.queryByText('Member not found')).not.toBeInTheDocument()
       await settle(100, 'absence has no event: no member list refetch follows')
       expect(state.listReads).toBe(1)
       // Hidden from the accessibility tree while the staff dialog is open, but still rendered.
