@@ -258,3 +258,39 @@ test.describe('staff invitation', () => {
     await expectNoOverflow(page)
   })
 })
+
+/** The states that only show while a request is held, or that need a signed-in visitor, at phone width. */
+for (const [name, url, heading] of [
+  [
+    'a held link verify',
+    harness(
+      '/auth/link',
+      `session=none&token=${TOKEN}&email=${HARNESS_EMAIL}&hold=/api/v1/auth/link/verify`
+    ),
+    'Signing you in',
+  ],
+  [
+    'a held invitation verify',
+    harness('/invitations/accept', `session=none&token=${TOKEN}&hold=/api/v1/invitations/verify`),
+    'Joining Platform',
+  ],
+  [
+    'a staff invitation for another account',
+    harness('/invitations/accept', `token=${TOKEN}`),
+    'Join Platform',
+  ],
+  [
+    'a held confirmation',
+    harness(
+      '/invitations/confirm',
+      `session=none&token=${TOKEN}&email=${INVITEE_EMAIL}&hold=/api/v1/invitations/confirm`
+    ),
+    'Joining your team',
+  ],
+] as const) {
+  test(`${name} fits 390 px`, async ({ page }) => {
+    await page.goto(url)
+    await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible()
+    await expectNoOverflow(page)
+  })
+}
