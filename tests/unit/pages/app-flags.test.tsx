@@ -34,7 +34,12 @@ describe('the staff shell’s flags', () => {
   })
 
   it('keeps the user signed in when the flags read fails', async () => {
-    const seen = serveFlags(() => fail('Internal server error', 500))
+    const seen = serveFlags(() =>
+      fail(
+        'Our server hit an error. Try again, and contact support with the error ID if it happens again.',
+        500
+      )
+    )
     renderAppAt('/overview')
     expect(await screen.findByRole('heading', { name: 'Overview', level: 1 })).toBeInTheDocument()
     expect(seen.length).toBeGreaterThan(0)

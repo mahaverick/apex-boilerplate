@@ -196,7 +196,7 @@ describe('useLeaveTenant', () => {
 
   /** A cache the staff directory refresh reaches, outside the tenant left. */
   const DIRECTORY_KEY = userAdminKeys.detail(USER_ID_2)
-  const LAST_OWNER = 'You are the last owner: make someone else an owner before you leave.'
+  const LAST_OWNER = "You're the last owner. Make someone else an owner before you leave."
 
   beforeEach(() => {
     client = new QueryClient({ defaultOptions: { queries: { retry: false } } })

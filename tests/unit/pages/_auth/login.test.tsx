@@ -90,7 +90,9 @@ async function requestLink(email?: string) {
 /** The other tab used the link, so the shared refresh cookie now restores a session here. */
 function signInFromAnotherTab(): BroadcastChannel {
   server.use(
-    http.post('/api/v1/auth/refresh', () => ok({ accessToken: 'fresh-token' }, 'Token refreshed.')),
+    http.post('/api/v1/auth/refresh', () =>
+      ok({ accessToken: 'fresh-token' }, 'Session refreshed.')
+    ),
     http.get('/api/v1/profile', () => ok(testUser, 'Profile retrieved.'))
   )
   const otherTab = new BroadcastChannel('auth')

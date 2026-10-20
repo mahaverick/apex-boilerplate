@@ -36,7 +36,7 @@ describe('/no-access', () => {
     server.use(
       http.post('/api/v1/auth/logout', () => {
         loggedOut = true
-        return ok(null, 'Logged out.')
+        return ok(null, 'Signed out.')
       })
     )
     const user = userEvent.setup()

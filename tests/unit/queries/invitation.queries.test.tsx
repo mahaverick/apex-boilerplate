@@ -305,7 +305,7 @@ describe('invitation queries', () => {
         }),
         http.post('/api/v1/auth/refresh', () => {
           refreshes += 1
-          return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
+          return ok({ accessToken: 'fresh-token' }, 'Session refreshed.')
         })
       )
 
@@ -488,7 +488,7 @@ describe('invitation queries', () => {
       server.use(
         http.post('/api/v1/auth/refresh', () => {
           refreshes += 1
-          return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
+          return ok({ accessToken: 'fresh-token' }, 'Session refreshed.')
         })
       )
 

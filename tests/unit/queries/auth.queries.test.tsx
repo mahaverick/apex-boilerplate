@@ -174,7 +174,7 @@ describe('sign-in link queries', () => {
         }),
         http.post('/api/v1/auth/refresh', () => {
           refreshes += 1
-          return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
+          return ok({ accessToken: 'fresh-token' }, 'Session refreshed.')
         })
       )
 
@@ -187,7 +187,11 @@ describe('sign-in link queries', () => {
     })
 
     it('tracks nothing when the request fails', async () => {
-      server.use(http.post('/api/v1/auth/link/request', () => fail('Too many requests.', 429)))
+      server.use(
+        http.post('/api/v1/auth/link/request', () =>
+          fail("You've reached the limit of 20 requests in 1 minute. Try again in 1 minute.", 429)
+        )
+      )
 
       const { result } = renderHook(() => useRequestSignInLink(), { wrapper: linkWrapper })
       result.current.mutate({ email: 'a@b.test' })
@@ -244,7 +248,7 @@ describe('sign-in link queries', () => {
         }),
         http.post('/api/v1/auth/refresh', () => {
           refreshes += 1
-          return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
+          return ok({ accessToken: 'fresh-token' }, 'Session refreshed.')
         })
       )
 
@@ -297,7 +301,7 @@ describe('sign-in link queries', () => {
     it('leaves the store signed out on a 400 LINK_INVALID', async () => {
       server.use(
         http.post('/api/v1/auth/link/verify', () =>
-          fail('This link has expired or was already used.', 400, 'LINK_INVALID')
+          fail('This link expired or was already used. Ask for a new link.', 400, 'LINK_INVALID')
         )
       )
 
@@ -405,7 +409,7 @@ describe('useConfirmStepUpLink', () => {
       http.post('/api/v1/auth/step-up/link/verify', ({ request }) => {
         seen.bearers.push(request.headers.get('authorization'))
         return seen.bearers.length === 1
-          ? fail('Access token expired', 401, 'ACCESS_TOKEN_EXPIRED')
+          ? fail('Your sign-in expired. Sign in again to continue.', 401, 'ACCESS_TOKEN_EXPIRED')
           : then()
       }),
       http.post('/api/v1/auth/refresh', () => {
@@ -418,7 +422,7 @@ describe('useConfirmStepUpLink', () => {
 
   // Access tokens and links both last 15 minutes: an expired bearer on a live session must not read as its end.
   it('refreshes an expired access token once, then posts the token again', async () => {
-    const seen = serveExpiredOnce(() => ok({ accessToken: 'fresh-token' }, 'Token refreshed.'))
+    const seen = serveExpiredOnce(() => ok({ accessToken: 'fresh-token' }, 'Session refreshed.'))
     const { tab, received } = openWaitingTab()
 
     const { result } = renderHook(() => useConfirmStepUpLink(), { wrapper })
@@ -474,7 +478,7 @@ describe('useConfirmStepUpLink', () => {
       }),
       http.post('/api/v1/auth/refresh', () => {
         refreshes += 1
-        return ok({ accessToken: 'fresh-token' }, 'Token refreshed.')
+        return ok({ accessToken: 'fresh-token' }, 'Session refreshed.')
       })
     )
 

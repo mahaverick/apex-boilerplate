@@ -241,7 +241,9 @@ describe('/auth/confirm with an emailed link', () => {
   })
 
   it('shows the one dead-link message on a 400 and broadcasts nothing', async () => {
-    serveVerify(() => fail('This link has expired or was already used.', 400, 'LINK_INVALID'))
+    serveVerify(() =>
+      fail('This link expired or was already used. Ask for a new link.', 400, 'LINK_INVALID')
+    )
     const received = openWaitingTab()
     renderAt(LINK_PATH)
 
@@ -260,7 +262,7 @@ describe('/auth/confirm with an emailed link', () => {
   })
 
   it('treats the validation 400 as the same dead link', async () => {
-    serveVerify(() => fail('Validation failed', 400))
+    serveVerify(() => fail('Check the highlighted fields, then try again.', 400))
     renderAt(LINK_PATH)
 
     expect(
@@ -326,7 +328,9 @@ describe('/auth/confirm with an emailed link', () => {
   it('says the session ended when the refresh after a 401 is refused, and does not redirect', async () => {
     const assign = spyOnRedirects()
     const seen = serveRefresh(() => fail('Unauthorized', 401))
-    const calls = serveVerify(() => fail('Session ended', 401, 'ACCESS_TOKEN_EXPIRED'))
+    const calls = serveVerify(() =>
+      fail('This session ended. Sign in again to continue.', 401, 'ACCESS_TOKEN_EXPIRED')
+    )
     try {
       const router = renderAt(LINK_PATH)
 
@@ -347,10 +351,10 @@ describe('/auth/confirm with an emailed link', () => {
 
   it('confirms after refreshing an expired access token once', async () => {
     const assign = spyOnRedirects()
-    const seen = serveRefresh(() => ok({ accessToken: 'fresh-token' }, 'Token refreshed.'))
+    const seen = serveRefresh(() => ok({ accessToken: 'fresh-token' }, 'Session refreshed.'))
     const calls = serveVerify(() =>
       calls.length === 1
-        ? fail('Access token expired', 401, 'ACCESS_TOKEN_EXPIRED')
+        ? fail('Your sign-in expired. Sign in again to continue.', 401, 'ACCESS_TOKEN_EXPIRED')
         : ok({ accessToken: 'stepped-up' })
     )
     const received = openWaitingTab()
@@ -383,7 +387,7 @@ describe('/auth/confirm with an emailed link', () => {
     answer = () =>
       calls.length === 2
         ? ok({ accessToken: 'stepped-up' })
-        : fail('This link has expired or was already used.', 400, 'LINK_INVALID')
+        : fail('This link expired or was already used. Ask for a new link.', 400, 'LINK_INVALID')
     // One act batches both: React renders the busy button only after the second click.
     act(() => {
       retry.click()
@@ -413,7 +417,11 @@ describe('/auth/confirm with an emailed link', () => {
   })
 
   it.each([
-    [429, () => fail('Too many requests. Try again in 60 seconds.', 429)],
+    [
+      429,
+      () =>
+        fail("You've reached the limit of 20 requests in 1 minute. Try again in 60 seconds.", 429),
+    ],
     [503, () => fail('Service Unavailable', 503)],
     ['network', () => HttpResponse.error()],
   ] as const)('offers Try again on %s', async (_label, failure) => {
@@ -501,7 +509,7 @@ describe('/auth/confirm and the address bar', () => {
     ['a confirmation', () => ok({ accessToken: 'stepped-up' }), 'Confirmed'],
     [
       'a dead link',
-      () => fail('This link has expired or was already used.', 400, 'LINK_INVALID'),
+      () => fail('This link expired or was already used. Ask for a new link.', 400, 'LINK_INVALID'),
       'This link didn’t confirm it’s you',
     ],
     ['a role refusal', () => fail('Route not found', 404), 'Your staff access changed'],

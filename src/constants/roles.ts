@@ -69,10 +69,12 @@ export function canManageTenant(actorRole: MembershipRole): boolean {
 
 /**
  * Would this action leave the tenant with no owner? Not a permission: the API
- * answers 409 ("Cannot remove the last owner" / "Cannot change role: you are
- * the last owner") when an owner acts on their own membership and no other
- * owner counts (`otherOwnerCount`: on the platform tenant, no other active
- * one), and the UI disables that control and says why instead.
+ * answers 409 ("This member is the last owner. Make someone else an owner
+ * before you remove them." / "You're the last owner. Make someone else an
+ * owner before you change your role.") when an owner acts on their own
+ * membership and no other owner counts (`otherOwnerCount`: on the platform
+ * tenant, no other active one), and the UI disables that control and says why
+ * instead.
  *
  * Not parameterised by the role being set: the API exempts an owner re-submitting
  * `{ role: 'owner' }`, but a control whose only option changes nothing is not

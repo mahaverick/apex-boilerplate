@@ -178,7 +178,7 @@ function fail(
 }
 
 /** express's `LINK_INVALID_MESSAGE`: its one answer for a sign-in or step-up link that cannot be used. */
-const LINK_INVALID = 'This link has expired or was already used.'
+const LINK_INVALID = 'This link expired or was already used. Ask for a new link.'
 
 /** express's `INVITATION_INVALID_MESSAGE`, its one answer for every dead invitation. */
 const INVITATION_INVALID =
@@ -1655,8 +1655,8 @@ const worker = setupWorker(
   // A refresh is answered here so it never falls through to a real backend; its token carries the session's latest confirmation.
   http.post('/api/v1/auth/refresh', () =>
     hasRefreshCookie
-      ? ok({ accessToken: harnessToken() }, 'Token refreshed.')
-      : fail('Missing refresh token', 401)
+      ? ok({ accessToken: harnessToken() }, 'Session refreshed.')
+      : fail("You're signed out. Sign in to continue.", 401)
   )
 )
 

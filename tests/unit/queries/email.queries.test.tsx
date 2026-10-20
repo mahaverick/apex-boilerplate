@@ -223,7 +223,7 @@ describe('email queries go stale with the directory', () => {
   it('an invitation resend refreshes the email queries and both audit logs', async () => {
     server.use(
       http.post(`/api/v1/tenants/acme/invitations/${INVITATION_ID}/resend`, () =>
-        ok(null, 'If that address can be invited, an invitation has been sent.', 202)
+        ok(null, 'If we can invite that address, we sent it an invitation.', 202)
       )
     )
     const logs = [
@@ -247,7 +247,7 @@ describe('email queries go stale with the directory', () => {
         const { email } = (await request.json()) as { email: string }
         return email === 'taken@acme.test'
           ? fail('Already a member.', 409, 'already_member')
-          : ok(null, 'If that address can be invited, an invitation has been sent.', 202)
+          : ok(null, 'If we can invite that address, we sent it an invitation.', 202)
       })
     )
     const refused = seeded(EMAIL_KEYS)
