@@ -29,7 +29,7 @@ import { STEP_UP_WAITING_LABEL, useStepUpWaiting } from '@/hooks/use-step-up'
 import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { reasonFormSchema } from '@/schemas/reason.schemas'
-import { REASON_REQUIRED } from '@/types/api.types'
+import { REASON_REQUIRED, ROUTE_NOT_FOUND } from '@/types/api.types'
 
 /** A 404 from a staff route answers the caller's role: it changed after the page loaded. */
 export const ROLE_DENIED_ACTION =
@@ -72,15 +72,15 @@ export interface ReasonDialogProps {
  *
  * A refusal shows inside the dialog, which stays open. A 403 or 409 is the
  * server's own sentence (staff-on-staff refusal, invalid transition, last
- * owner) unless `refusalMessage` returns a sentence to replace it; a 404 that
- * carries a code is the server's sentence as is, and one without a code is the
- * role gate's. A 400 `REASON_REQUIRED` goes on the Reason field.
+ * owner) unless `refusalMessage` returns a sentence to replace it; a 404 with
+ * the route code `not_found`, or no code, is the role gate's, and one with any
+ * other code is the server's sentence as is. A 400 `REASON_REQUIRED` goes on
+ * the Reason field.
  *
  * A refusal that means the row is gone is the caller's to catch and resolve: a
  * dialog inside a list its write refetches on settle is unmounted with the row
  * before the refusal arrives (an invitation that is not pending, a member already
- * gone), and an API older than 2.1.0 sends a member's `Member not found` with
- * no code.
+ * gone).
  */
 export function ReasonDialog(props: ReasonDialogProps) {
   const [busy, setBusy] = useState(false)
@@ -136,10 +136,13 @@ function ReasonForm({
           return
         }
         const status = statusFrom(error)
-        // A role gate's 404 carries no code; one with a code is the action's own verdict.
+        // A role gate's 404 carries the route code (or none); any other code is the action's own verdict.
         if (status === 404) {
+          const code = codeFrom(error)
           serverErrors.setFormErrors([
-            codeFrom(error) === undefined ? ROLE_DENIED_ACTION : messageFrom(error),
+            code === undefined || code === ROUTE_NOT_FOUND
+              ? ROLE_DENIED_ACTION
+              : messageFrom(error),
           ])
           return
         }

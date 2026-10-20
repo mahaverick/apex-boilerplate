@@ -124,17 +124,16 @@ export const INVITATION_NOT_FOUND = 'invitation_not_found'
 
 /**
  * 404 on a member's role change or removal: the target is not a member of
- * the tenant (stopped being one meanwhile), from express 2.1.0. Older APIs
- * answer the same 404 with no code and `MEMBER_NOT_FOUND_MESSAGE`.
+ * the tenant (stopped being one meanwhile). The code alone decides, whatever
+ * the message says.
  */
 export const MEMBER_NOT_FOUND = 'member_not_found'
 
 /**
- * That 404's message, used only to recognise it: from an API older than
- * 2.1.0, which sends no code, it is the only mark that tells the 404 from the
- * access check's.
+ * The code of express's unknown-route 404, which every role-gate refusal also
+ * answers with so that it looks like one: never "this record is missing".
  */
-export const MEMBER_NOT_FOUND_MESSAGE = 'Member not found'
+export const ROUTE_NOT_FOUND = 'not_found'
 
 /** Mirrors express's TENANT_LIFECYCLE_STATES. */
 export const TENANT_LIFECYCLE_STATES = ['active', 'suspended', 'archived'] as const

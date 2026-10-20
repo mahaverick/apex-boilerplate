@@ -152,8 +152,7 @@ function sayMemberGone(error: unknown, slug: string, onGone: () => void): boolea
 /**
  * Rethrows a staff write's refusal for the reason dialog to show, except a
  * member already gone, which is said as the member path says it, in a toast,
- * and the dialog closes (`sayMemberGone`). An API older than 2.1.0 sends that
- * 404 with no code, so the dialog would take it for the access check's.
+ * and the dialog closes (`sayMemberGone`).
  * @param error - The write's failure.
  * @param slug - The tenant's slug.
  * @param onGone - The row's `onRemoved`.

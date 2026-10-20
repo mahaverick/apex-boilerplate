@@ -631,9 +631,11 @@ leaving, the platform tenant. Maintenance changes have their own dialogs
   and the staff controls, which ask for a reason, replace them
   (`src/queries/tenant-writes.queries.ts`).
 - **Refusals stay in the dialog.** A 403 or 409 shows the API's sentence,
-  or the page's own wording of it; a 404 that carries a code shows the API's
-  sentence, and one without a code is the role gate, worded as "your role
-  no longer allows this action". None of them signs anyone out.
+  or the page's own wording of it. A 404 with the route code `not_found`, or
+  no code, is the role gate, worded as "your role no longer allows this
+  action"; one with any other code shows the API's sentence. A member
+  already gone (`member_not_found`) is said in a toast and the dialog
+  closes. None of them signs anyone out.
 
 ## Maintenance controls
 

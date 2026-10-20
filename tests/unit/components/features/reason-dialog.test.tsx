@@ -188,6 +188,28 @@ describe('ReasonDialog', () => {
     expect(screen.getByText('open: true')).toBeInTheDocument()
   })
 
+  it('reads express’s route code not_found as the role gate, never its developer sentence', async () => {
+    const onConfirm = vi.fn(() =>
+      Promise.reject(
+        apiFailure(
+          404,
+          'No route matches this method and path. Check both, then try again.',
+          'not_found'
+        )
+      )
+    )
+    const user = userEvent.setup()
+    render(<Harness onConfirm={onConfirm} />)
+    await user.type(await screen.findByLabelText('Reason'), 'why')
+    await user.click(screen.getByRole('button', { name: 'Suspend' }))
+    expect(
+      await screen.findByText(
+        'Your role no longer allows this action. Ask a platform owner to check your role.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/No route matches/)).not.toBeInTheDocument()
+  })
+
   it('words a 409 its own way when asked, and keeps the server’s sentence otherwise', async () => {
     const onConfirm = vi
       .fn<(reason: string) => Promise<void>>()
