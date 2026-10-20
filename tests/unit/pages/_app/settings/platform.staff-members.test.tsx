@@ -417,6 +417,26 @@ describe('/staff with the real sections', () => {
     expect(bodies).toEqual([{ role: 'admin' }, { role: 'admin' }])
   })
 
+  it('says the person left the staff team when a removal finds them already gone', async () => {
+    serveStaff('owner', 'viewer')
+    server.use(
+      http.delete(`/api/v1/tenants/platform/members/${USER_ID_2}`, () =>
+        fail('That person is not a member here.', 404, 'member_not_found')
+      )
+    )
+    const error = vi.spyOn(toast, 'error')
+    const user = userEvent.setup()
+    renderAppAt('/settings/platform/staff')
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove Otto Staff?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    await waitFor(() =>
+      expect(error).toHaveBeenCalledWith('That person is no longer on the staff team.')
+    )
+    expect(error).not.toHaveBeenCalledWith(expect.stringMatching(/tenant/))
+  })
+
   it('asks who you are before a stale removal, then removes', async () => {
     serveStaff('owner', 'viewer')
     let calls = 0

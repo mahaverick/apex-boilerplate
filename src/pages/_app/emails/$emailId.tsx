@@ -3,11 +3,11 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { EmailPreviewPanel } from '@/components/features/emails/email-preview'
 import { EmailStatusBadge } from '@/components/features/emails/email-status-badge'
-import { EmailTenantLink } from '@/components/features/emails/email-tenant-link'
 import { EmailTimeline } from '@/components/features/emails/email-timeline'
 import { ResendEmailButton } from '@/components/features/emails/resend-email-button'
 import { LoadError } from '@/components/features/load-error'
 import { PagePaletteCommands } from '@/components/features/page-palette-commands'
+import { TenantLink } from '@/components/features/tenants/tenant-link'
 import { copyId } from '@/components/shared/command-palette/copy-id'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
@@ -174,7 +174,7 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
             {message.tenant !== null && (
               <span>
                 Tenant{' '}
-                <EmailTenantLink tenant={message.tenant} className="underline underline-offset-4" />
+                <TenantLink tenant={message.tenant} className="underline underline-offset-4" />
               </span>
             )}
           </p>

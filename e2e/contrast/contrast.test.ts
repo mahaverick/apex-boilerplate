@@ -190,7 +190,7 @@ const SURFACES = [
   {
     name: 'invitation joining',
     url: signedOut('/invitations/accept', `token=${TOKEN}&hold=/api/v1/invitations/verify`),
-    heading: 'Joining Platform',
+    heading: 'Joining the staff team',
   },
   {
     name: 'invitation dead',
@@ -200,14 +200,14 @@ const SURFACES = [
   {
     name: 'invitation switch',
     url: `/e2e/harness/?path=/invitations/accept&token=${TOKEN}`,
-    heading: 'Join Platform',
+    heading: 'Join the staff team',
   },
   {
     name: 'invitation check inbox',
     url: signedOut('/invitations/accept', `token=${TOKEN}`),
     heading: 'Check your inbox',
     // The sign-in form's inbox has the same heading; this line is the invitation's own.
-    text: 'Open it to join Platform.',
+    text: 'Open it to join the staff team.',
   },
   // The confirmation link an invitation mails: joining (its confirm held), dead, failed (read-only) and signed in as someone else.
   {

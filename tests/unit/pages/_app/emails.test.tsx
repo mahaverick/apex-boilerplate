@@ -83,7 +83,7 @@ describe('/emails', () => {
     expect(within(second!).getAllByText('—')).toHaveLength(2)
   })
 
-  it('links the platform tenant to Staff', async () => {
+  it('labels the platform tenant Staff team and links it to Staff', async () => {
     server.use(
       http.get('/api/v1/platform/emails', () =>
         ok(
@@ -95,7 +95,7 @@ describe('/emails', () => {
       )
     )
     renderAppAt('/emails')
-    expect(await screen.findByRole('link', { name: 'Platform' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'Staff team' })).toHaveAttribute(
       'href',
       '/settings/platform/staff'
     )
@@ -298,6 +298,23 @@ describe('/emails', () => {
     await user.click(screen.getByRole('button', { name: 'Remove filter: Tenant: Acme Corp' }))
     await waitFor(() => expect(router.state.location.search).toEqual({ status: 'delivered' }))
     await waitFor(() => expect(seen.at(-1)?.get('tenant')).toBeNull())
+  })
+
+  it('names a ?tenant chip for the platform tenant Staff team, from the listed rows', async () => {
+    server.use(
+      http.get('/api/v1/platform/emails', () =>
+        ok(
+          listPage([
+            emailSummary({ tenant: { id: TENANT_ID, name: 'Platform', slug: 'platform' } }),
+          ]),
+          'Emails retrieved.'
+        )
+      )
+    )
+    renderAppAt(`/emails?tenant=${TENANT_ID}`)
+    expect(
+      await screen.findByRole('button', { name: 'Remove filter: Tenant: Staff team' })
+    ).toBeVisible()
   })
 
   it('masks the user chip’s name for session replay, and not the tenant’s', async () => {

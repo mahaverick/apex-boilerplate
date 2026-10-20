@@ -140,7 +140,9 @@ test.describe('staff invitation', () => {
     const accepts = postsTo(page, '/api/v1/invitations/accept')
     await page.goto(harness('/invitations/accept', `invite=ok&token=${TOKEN}`))
 
-    await expect(page.getByText(`You joined Platform as ${HARNESS_EMAIL}.`)).toBeVisible()
+    await expect(
+      page.getByText(`You’re now on the staff team. Signed in as ${HARNESS_EMAIL}.`)
+    ).toBeVisible()
     await expect(page).toHaveURL(/\/overview(\?|$)/)
     expect(accepts).toEqual([{ token: TOKEN }])
     await expectNoOverflow(page)
@@ -151,7 +153,7 @@ test.describe('staff invitation', () => {
     await page.goto(harness('/invitations/accept', `invite=joined&token=${TOKEN}`))
 
     await expect(
-      page.getByText(`You’ve already joined Platform as ${HARNESS_EMAIL}.`)
+      page.getByText(`You’re already on the staff team. Signed in as ${HARNESS_EMAIL}.`)
     ).toBeVisible()
     await expect(page).toHaveURL(/\/overview(\?|$)/)
     expect(accepts).toEqual([{ token: TOKEN }])
@@ -168,7 +170,7 @@ test.describe('staff invitation', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: 'Check your inbox' })).toBeVisible()
     await expect(page.getByText(`We sent a link to ${INVITEE_EMAIL}.`)).toBeVisible()
-    await expect(page.getByText('Open it to join Platform.', { exact: false })).toBeVisible()
+    await expect(page.getByText('Open it to join the staff team.', { exact: false })).toBeVisible()
     await expect(page.getByRole('button', { name: /^Resend in \d:\d\d/ })).toBeDisabled()
     await expectNoOverflow(page)
 
@@ -205,7 +207,9 @@ test.describe('staff invitation', () => {
       )
     )
 
-    await expect(page.getByText(`You joined Platform as ${HARNESS_EMAIL}.`)).toBeVisible()
+    await expect(
+      page.getByText(`You’re now on the staff team. Signed in as ${HARNESS_EMAIL}.`)
+    ).toBeVisible()
     await expect(page).toHaveURL(/\/overview(\?|$)/)
     expect(confirms).toEqual([{ token: TOKEN, email: INVITEE_EMAIL }])
     await expectNoOverflow(page)
@@ -272,12 +276,12 @@ for (const [name, url, heading] of [
   [
     'a held invitation verify',
     harness('/invitations/accept', `session=none&token=${TOKEN}&hold=/api/v1/invitations/verify`),
-    'Joining Platform',
+    'Joining the staff team',
   ],
   [
     'a staff invitation for another account',
     harness('/invitations/accept', `token=${TOKEN}`),
-    'Join Platform',
+    'Join the staff team',
   ],
   [
     'a held confirmation',

@@ -9,6 +9,7 @@ import { Link } from '@tanstack/react-router'
 import { createColumnHelper } from '@tanstack/react-table'
 import { createContext, useContext, type ReactNode } from 'react'
 import { auditTargetLabel } from '@/components/features/activity/activity-filters'
+import { TenantLink } from '@/components/features/tenants/tenant-link'
 import { DataTable } from '@/components/shared/data-table/data-table'
 import type {
   DataTableColumns,
@@ -147,13 +148,7 @@ const tenant = column.display({
   cell: ({ row }) => {
     const entryTenant = tenantOf(row.original)
     return entryTenant ? (
-      <Link
-        to={ROUTES.tenant}
-        params={{ tenantId: entryTenant.id }}
-        className="font-medium underline-offset-4 hover:underline"
-      >
-        {entryTenant.name}
-      </Link>
+      <TenantLink tenant={entryTenant} className="font-medium underline-offset-4 hover:underline" />
     ) : (
       <span className="text-muted-foreground">—</span>
     )

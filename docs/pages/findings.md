@@ -152,7 +152,7 @@ When the preview answers 404, `/register` shows "This invitation can’t be used
 
 ### F-auth-7
 
-Status: open for the accept page, which still reads "Joining Platform" and "{inviter} invited you to join Platform as {role}."; the registration card is gone with `/register`.
+Status: fixed. For the platform tenant the accept page reads "Join the staff team", "{inviter} invited you to join the staff team as {role}." and "Joining the staff team as {address}…", and the join toast reads "You’re now on the staff team. Signed in as {address}." (`src/lib/staff-team.ts`, `land-team-joined.ts`); the registration card is gone with `/register`. `tests/unit/pages/invitations/accept.test.tsx` ("a staff invitation names the staff team…") and `confirm.test.tsx` cover it.
 
 A staff invitation is an invitation to the platform tenant, so the accept page reads "Join Platform" and "A teammate invited you to join Platform as Viewer.", and the registration card "Create an account with {address} to join Platform.". For a new staff member, "Platform" reads as an unexplained product or team name; the console calls itself "Apex" and "Staff console". Fix: when the invitation's tenant is the platform tenant, word the title and sentence for joining the staff console.
 

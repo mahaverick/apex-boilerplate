@@ -620,5 +620,11 @@ describe('platform activity page', () => {
       'href',
       `/users/${USER_ID_2}`
     )
+    // The platform tenant has no tenant page; its people are on Staff.
+    expect(screen.getByRole('link', { name: 'Staff team' })).toHaveAttribute(
+      'href',
+      '/settings/platform/staff'
+    )
+    expect(screen.queryByRole('link', { name: 'Platform' })).not.toBeInTheDocument()
   })
 })

@@ -118,6 +118,9 @@ const LEFT_BUT_STUCK = 'You left, but this page could not move on. Reload it to 
 /** What a role change or removal says when its member is already gone, in the customer app's words. */
 const MEMBER_GONE = 'That member is no longer in this tenant.'
 
+/** `MEMBER_GONE` on the Staff page, whose tenant staff know as the staff team. */
+const STAFF_MEMBER_GONE = 'That person is no longer on the staff team.'
+
 /** The reason the last owner's own controls are switched off. */
 const LAST_OWNER_REASON = 'A tenant must always have an owner. Add another owner first.'
 
@@ -136,12 +139,13 @@ const MEMBERS_ERROR =
  * list's refetch, so the row, and the control that started the write, have
  * gone, and the card moves focus as after a removal.
  * @param error - The write's failure.
+ * @param slug - The tenant's slug, which picks the Staff page's wording.
  * @param onGone - The row's `onRemoved`.
  * @returns True when the member was gone and it was said; false for any other failure.
  */
-function sayMemberGone(error: unknown, onGone: () => void): boolean {
+function sayMemberGone(error: unknown, slug: string, onGone: () => void): boolean {
   if (!isMemberNotFound(error)) return false
-  toast.error(MEMBER_GONE)
+  toast.error(slug === PLATFORM_TENANT_SLUG ? STAFF_MEMBER_GONE : MEMBER_GONE)
   onGone()
   return true
 }
@@ -152,10 +156,11 @@ function sayMemberGone(error: unknown, onGone: () => void): boolean {
  * and the dialog closes (`sayMemberGone`). An API older than 2.1.0 sends that
  * 404 with no code, so the dialog would take it for the access check's.
  * @param error - The write's failure.
+ * @param slug - The tenant's slug.
  * @param onGone - The row's `onRemoved`.
  */
-function unlessMemberGone(error: unknown, onGone: () => void): void {
-  if (!sayMemberGone(error, onGone)) throw error
+function unlessMemberGone(error: unknown, slug: string, onGone: () => void): void {
+  if (!sayMemberGone(error, slug, onGone)) throw error
 }
 
 /**
@@ -238,7 +243,7 @@ function RoleCell({
             return
           }
           changeRole(value as MembershipRole).catch((error: unknown) => {
-            if (!sayMemberGone(error, onGone)) toast.error(messageFrom(error))
+            if (!sayMemberGone(error, slug, onGone)) toast.error(messageFrom(error))
           })
         }}
       >
@@ -280,7 +285,7 @@ function RoleCell({
           confirmLabel="Change role"
           onConfirm={(reason) =>
             changeRole(pendingRole ?? targetRole, reason).catch((error: unknown) =>
-              unlessMemberGone(error, onGone)
+              unlessMemberGone(error, slug, onGone)
             )
           }
         />
@@ -347,7 +352,7 @@ function StaffRemoveMemberButton({
           try {
             await stepUp.run(() => removeMember.mutateAsync({ userId: member.user.id, reason }))
           } catch (error) {
-            unlessMemberGone(error, removed)
+            unlessMemberGone(error, slug, removed)
             return
           }
           toast.success(
@@ -555,7 +560,7 @@ function RemoveMemberButton({
                       return
                     }
                     setIsOpen(false)
-                    if (sayMemberGone(error, onRemoved)) return
+                    if (sayMemberGone(error, slug, onRemoved)) return
                     toast.error(messageFrom(error))
                   }
                 )

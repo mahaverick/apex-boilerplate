@@ -6,7 +6,7 @@ import {
   type AnyRouter,
   type RouterHistory,
 } from '@tanstack/react-router'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { StrictMode } from 'react'
@@ -1014,5 +1014,104 @@ describe('a used link', () => {
     expect(screen.queryByText(/@/)).not.toBeInTheDocument()
     expect(accepts).toHaveLength(0)
     expect(verifies).toHaveLength(0)
+  })
+})
+
+describe('a staff invitation names the staff team, never the platform tenant’s name', () => {
+  const STAFF_PREVIEW = { ...testInvitationPreview, tenant: { name: 'Platform', slug: 'platform' } }
+
+  /** The preview of an invitation to the platform tenant. */
+  function serveStaffPreview() {
+    return servePreview(() => ok(STAFF_PREVIEW, 'Invitation retrieved.'))
+  }
+
+  it('says “Check your inbox” to join the staff team when a signed-out verify answers 202', async () => {
+    arriveSignedOut()
+    serveStaffPreview()
+    serveVerify(confirmationSent())
+    renderAt(ACCEPT_PATH)
+
+    expect(await screen.findByRole('heading', { level: 1, name: CHECK_INBOX_TITLE })).toBeVisible()
+    expect(
+      screen.getByText(
+        'Open it to join the staff team. The link works once and expires in 15 minutes.'
+      )
+    ).toBeVisible()
+    expect(screen.queryByText(/Platform/)).not.toBeInTheDocument()
+  })
+
+  it('shows the joining frame for the staff team while a signed-in accept runs', async () => {
+    signIn()
+    serveStaffPreview()
+    serveAccept(held())
+    renderAt(ACCEPT_PATH)
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Joining the staff team' })
+    ).toBeVisible()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      `Joining the staff team as ${testUser.email}…`
+    )
+    expect(screen.getByText(/invited you to join the staff team as Editor\./)).toBeVisible()
+    expect(screen.queryByText(/Platform/)).not.toBeInTheDocument()
+  })
+
+  it('toasts staff wording with the account when a signed-in accept joins', async () => {
+    signIn()
+    serveStaffPreview()
+    serveAccept(() =>
+      ok(
+        { tenant: STAFF_PREVIEW.tenant, role: 'editor', alreadyMember: false },
+        'Invitation accepted.'
+      )
+    )
+    const router = renderAt(ACCEPT_PATH)
+
+    await expectLandedOnOverview(router)
+    expect(
+      await screen.findAllByText(`You’re now on the staff team. Signed in as ${testUser.email}.`)
+    ).toHaveLength(1)
+    expect(screen.queryByText(/You joined Platform/)).not.toBeInTheDocument()
+  })
+
+  it('tells someone already on the staff team so, with the account', async () => {
+    signIn()
+    serveStaffPreview()
+    serveAccept(() =>
+      ok(
+        { tenant: STAFF_PREVIEW.tenant, role: 'editor', alreadyMember: true },
+        'Invitation accepted.'
+      )
+    )
+    const router = renderAt(ACCEPT_PATH)
+
+    await expectLandedOnOverview(router)
+    expect(
+      await screen.findAllByText(
+        `You’re already on the staff team. Signed in as ${testUser.email}.`
+      )
+    ).toHaveLength(1)
+  })
+
+  it('titles a switch of account and a failed join with the staff team', async () => {
+    signIn()
+    servePreview(() => ok({ ...STAFF_PREVIEW, email: OTHER_EMAIL }, 'Invitation retrieved.'))
+    renderAt(ACCEPT_PATH)
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Join the staff team' })
+    ).toBeVisible()
+    cleanup()
+    queryClient.clear()
+    serveStaffPreview()
+    serveAccept(() => fail('Server error.', 500))
+    renderAt(ACCEPT_PATH)
+
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'We couldn’t add you to the staff team',
+      })
+    ).toBeVisible()
   })
 })

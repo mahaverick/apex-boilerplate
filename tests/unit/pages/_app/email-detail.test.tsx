@@ -221,7 +221,7 @@ describe('/emails/$emailId', () => {
     serve({ tenant: { id: TENANT_ID, name: 'Platform', slug: 'platform' } })
     renderAppAt(PAGE)
     await heading()
-    expect(screen.getByRole('link', { name: 'Platform' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Staff team' })).toHaveAttribute(
       'href',
       '/settings/platform/staff'
     )

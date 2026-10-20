@@ -833,7 +833,10 @@ describe('/users/$userId', () => {
     expect(params?.get('target')).toBe(USER_ID_2)
     expect(params?.get('tenant')).toBeNull()
     expect(within(card).queryByRole('link', { name: 'View user' })).not.toBeInTheDocument()
-    expect(within(card).getByRole('link', { name: 'Platform' })).toBeVisible()
+    expect(within(card).getByRole('link', { name: 'Staff team' })).toHaveAttribute(
+      'href',
+      '/settings/platform/staff'
+    )
   })
 
   it('pages the history with Next page, keeping the card’s cursor in the URL', async () => {
