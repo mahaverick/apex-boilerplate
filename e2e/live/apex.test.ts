@@ -15,7 +15,7 @@ import {
 } from './helpers'
 
 /**
- * Apex against a real express ≥ 6.0.0 on :4040 started with
+ * Apex against a real express ≥ 6.1.0 on :4040 started with
  * `APEX_URL=http://localhost:5174`, so links it mails point back here.
  * Skipped unless `E2E_LIVE=1`.
  */

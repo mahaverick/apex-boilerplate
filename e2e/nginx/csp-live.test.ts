@@ -19,7 +19,7 @@ import {
  * The enforced policy over the parts of the app that need a live API: the
  * signed-in shell, the staff activity page, with its log, filters and
  * selects rendered from real data, and an email's preview tab, whose srcdoc
- * frame inherits the policy. Needs the container and express 6.0.0 or newer
+ * frame inherits the policy. Needs the container and express 6.1.0 or newer
  * on :4040; `pnpm test:e2e:nginx` runs it.
  */
 

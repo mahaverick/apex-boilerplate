@@ -17,7 +17,7 @@ import {
 } from './helpers'
 
 /**
- * Message tracking against a real express (6.0.0 or newer, as `assertApiServesApex` requires; `APP_ENV=local`)
+ * Message tracking against a real express (6.1.0 or newer, as `assertApiServesApex` requires; `APP_ENV=local`)
  * with mailpit: a real email goes out through a staff action, provider events
  * reach it through express's fake webhook adapter (`pnpm email:fire-event`),
  * and the Apex pages follow. Resending an invitation needs a recent sign-in;

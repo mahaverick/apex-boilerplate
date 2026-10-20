@@ -314,7 +314,9 @@ export async function logInThroughPage(page: Page, email: string): Promise<void>
       new URL(response.url()).pathname === '/api/v1/auth/link/request'
   )
   await page.getByRole('button', { name: 'Email me a sign-in link' }).click()
-  if ((await requested).status() === 429) throw new Error(RATE_LIMITED)
+  const status = (await requested).status()
+  if (status === 429) throw new Error(RATE_LIMITED)
+  if (status !== 202) throw new Error(`link request failed: ${status}`)
   linkRequested(email)
   await expect(page.getByRole('heading', { name: 'Check your inbox', level: 1 })).toBeVisible()
   const link = await mailedLink(email, '/auth/link', since)
@@ -513,7 +515,9 @@ export async function confirmStepUpByLink(page: Page, email: string): Promise<vo
  * - `APEX_URL` or `WEB_URL` pointing somewhere other than `APEX_ORIGIN` and
  *   `WEB_ORIGIN`, read from the sign-in links mailed for each `app`;
  * - express older than 1.3.0 (no `GET /platform/emails`) or 1.4.0 (no
- *   `GET /platform/onboarding/funnel`), asked with the Apex leg's staff viewer.
+ *   `GET /platform/onboarding/funnel`), asked with the Apex leg's staff viewer;
+ * - express older than 6.1.0, whose user list drops the `signedIn` filter
+ *   unread: the viewer has just signed in, so `signedIn=false` must not list it.
  */
 export async function assertApiServesApex(): Promise<void> {
   const stepUp = await json(`${API_ORIGIN}/api/v1/auth/step-up/link/request`, {
@@ -576,6 +580,17 @@ export async function assertApiServesApex(): Promise<void> {
   if (funnel.status !== 200) {
     throw new Error(
       `GET /platform/onboarding/funnel answered ${funnel.status} for a staff viewer: ${JSON.stringify(funnel.body)}`
+    )
+  }
+  const neverSignedIn = await apiRequest(
+    viewerToken,
+    'GET',
+    `/platform/users?signedIn=false&search=${encodeURIComponent(viewer)}`
+  )
+  const rows = (neverSignedIn.body as { data?: { items?: unknown[] } } | null)?.data?.items
+  if (neverSignedIn.status !== 200 || rows === undefined || rows.length !== 0) {
+    throw new Error(
+      `The API at ${API_ORIGIN} ignores GET /platform/users?signedIn: it is older than express 6.1.0, which the Users page's "Signed in" filter needs.`
     )
   }
 }

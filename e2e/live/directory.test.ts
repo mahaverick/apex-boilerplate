@@ -21,7 +21,7 @@ import {
 } from './helpers'
 
 /**
- * The staff directory against a real express (6.0.0 or newer, which
+ * The staff directory against a real express (6.1.0 or newer, which
  * `assertApiServesApex` requires) with mailpit and its docker services,
  * started with `APEX_URL=http://localhost:5174`.
  * Every account is fresh, so reruns never wait out an address's mail

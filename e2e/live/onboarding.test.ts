@@ -19,7 +19,7 @@ import {
 } from './helpers'
 
 /**
- * Onboarding against a real express (6.0.0 or newer) with mailpit: a
+ * Onboarding against a real express (6.1.0 or newer) with mailpit: a
  * customer creates a tenant, which starts tracked and in progress; a staff
  * admin sends its owner a reminder, a tracked email whose link opens the
  * customer app, then marks a step complete; both land in the tenant's own
