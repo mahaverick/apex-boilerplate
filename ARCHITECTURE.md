@@ -485,6 +485,12 @@ The auth store's user is the profile the session restore or the sign-in
 loaded, and its `platformRole` is what the staff guard, the navigation and
 the tenant tabs read.
 
+Every `queryFn` hands TanStack Query's `signal` to `apiClient`, so a cancelled
+query (`cancelQueries`, or a read no observer wants any more) aborts its
+request on the wire. `maintenance-mode.queries.test.tsx` and
+`auth.queries.test.tsx` pin it for their reads, and `list.queries.test.ts`
+for the list pages.
+
 ## The HTTP layer and session
 
 Every REST call goes through `apiClient` (`src/http/client.ts`): an axios

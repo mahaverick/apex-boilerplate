@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { http } from 'msw'
+import { delay, http } from 'msw'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RECENT_KEY_PREFIX } from '@/components/shared/command-palette/recent-keys'
@@ -8,6 +8,8 @@ import { resetSessionForTests } from '@/http/session'
 import { codeFrom, statusFrom } from '@/lib/api-error'
 import { track, yieldSharedIdentity } from '@/observability/telemetry'
 import {
+  authKeys,
+  useAuthProviders,
   useConfirmStepUpLink,
   useRequestSignInLink,
   useRevokeOtherSessions,
@@ -26,6 +28,13 @@ vi.mock('@/observability/telemetry', async (importOriginal) => ({
 
 const LINK_TOKEN = 't'.repeat(43)
 
+/** A provider around `client`, for a test that needs to reach the cache. */
+function wrapperFor(client: QueryClient) {
+  return function ClientWrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  }
+}
+
 /** A provider around a fresh client that does not retry mutations. */
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -36,6 +45,29 @@ function wrapper({ children }: { children: ReactNode }) {
     </QueryClientProvider>
   )
 }
+
+describe('useAuthProviders', () => {
+  it('aborts the read on the wire when the query is cancelled', async () => {
+    let started = false
+    server.use(
+      http.get('/api/v1/auth/providers', () => {
+        started = true
+        return delay('infinite')
+      })
+    )
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const abort = vi.spyOn(XMLHttpRequest.prototype, 'abort')
+    try {
+      renderHook(() => useAuthProviders(), { wrapper: wrapperFor(client) })
+      await waitFor(() => expect(started).toBe(true))
+      expect(abort).not.toHaveBeenCalled()
+      await client.cancelQueries({ queryKey: authKeys.providers })
+      expect(abort).toHaveBeenCalledTimes(1)
+    } finally {
+      abort.mockRestore()
+    }
+  })
+})
 
 describe('useRevokeOtherSessions', () => {
   // With the refresh cookie the API spares only the chain it names; without it, the whole calling session is kept, sibling chains included.
