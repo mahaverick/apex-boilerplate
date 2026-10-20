@@ -22,52 +22,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { GOOGLE_STEP_UP_PATH } from '@/constants/routes'
 import { useCountdown } from '@/hooks/use-countdown'
 import { ensureSession, isAuthVerdict, redirectToLogin, subscribeAuthMessage } from '@/http/session'
 import { codeFrom, messageFrom, retryAfterSecondsFrom, statusFrom } from '@/lib/api-error'
 import { formatClock } from '@/lib/countdown'
 import {
   authTimeOf,
-  GOOGLE_STEP_UP_TIMEOUT_MS,
   isNewConfirmation,
   STEP_UP_LINK_COOLDOWN_MS,
   STEP_UP_LINK_TTL_MS,
 } from '@/lib/step-up'
 import { holdStepUpWait } from '@/lib/step-up-presence'
 import { toast } from '@/lib/toast'
-import {
-  useAuthProviders,
-  useRequestStepUpLink,
-  useStartGoogleStepUp,
-} from '@/queries/auth.queries'
+import { useRequestStepUpLink } from '@/queries/auth.queries'
 import { useAuthStore } from '@/states/auth.store'
 
 /** Express's code for a link request inside the cooldown: a link was just sent. */
 const STEP_UP_LINK_COOLDOWN = 'STEP_UP_LINK_COOLDOWN'
 
-const POPUP_BLOCKED = 'Allow pop-ups for this site, or use the email link.'
-const GOOGLE_UNAVAILABLE =
-  'Google confirmation isn’t available for this account. Use the email link.'
-const GOOGLE_TIMED_OUT =
-  'The Google window expired after 5 minutes. Try again, or use the email link.'
-
-/** The window name and size of the Google popup; one name, so a second click reuses the window. */
-const POPUP_NAME = 'apex-step-up'
-const POPUP_FEATURES = 'popup,width=520,height=640'
-
 /**
  * Where the dialog is:
- * - `choose`: the two ways to confirm, with any notice;
+ * - `start`: why it asks, Email me a link, and any notice;
  * - `email`: waiting on an emailed link;
- * - `google`: waiting on the Google popup;
  * - `resuming`: confirmed elsewhere, refreshing the session;
  * - `resume_failed`: that refresh failed, with Try again.
  */
-type View = 'choose' | 'email' | 'google' | 'resuming' | 'resume_failed'
-
-/** The two views that wait on the user in another tab or window. */
-type WaitingView = 'email' | 'google'
+type View = 'start' | 'email' | 'resuming' | 'resume_failed'
 
 /**
  * Where focus goes when the step-up closes: into the dialog still open
@@ -94,11 +74,10 @@ function focusBeneath(self: HTMLElement | null): HTMLElement | true {
 }
 
 /**
- * "Confirm it's you", by an emailed link or a fresh Google sign-in. The body
- * mounts only while open, so every step-up starts on the choices. Escape and
- * the backdrop dismiss only where nothing is pending (the choices, and a
- * failed resume); while it waits on a link or the popup, only Cancel does.
- * Any dismissal rejects the waiting action.
+ * "Confirm it's you", by an emailed link. The body mounts only while open, so
+ * every step-up starts on Email me a link. Escape and the backdrop dismiss
+ * only where nothing is pending (the start, and a failed resume); while it
+ * waits on a link, only Cancel does. Any dismissal rejects the waiting action.
  */
 export function StepUpDialog({
   open,
@@ -110,7 +89,7 @@ export function StepUpDialog({
   onDismissed: () => void
 }) {
   const popup = useRef<HTMLDivElement>(null)
-  const firstChoiceRef = useRef<HTMLButtonElement>(null)
+  const sendRef = useRef<HTMLButtonElement>(null)
   const dismissible = useRef(true)
   const setDismissible = useCallback((value: boolean) => {
     dismissible.current = value
@@ -125,7 +104,7 @@ export function StepUpDialog({
       <DialogContent
         ref={popup}
         showCloseButton={false}
-        initialFocus={firstChoiceRef}
+        initialFocus={sendRef}
         finalFocus={() => focusBeneath(popup.current)}
       >
         <DialogHeader>
@@ -133,7 +112,7 @@ export function StepUpDialog({
         </DialogHeader>
         {open && (
           <StepUpBody
-            firstChoiceRef={firstChoiceRef}
+            sendRef={sendRef}
             onConfirmed={onConfirmed}
             onDismissed={onDismissed}
             onDismissibleChange={setDismissible}
@@ -146,40 +125,33 @@ export function StepUpDialog({
 
 /**
  * The views and what moves between them. It holds the step-up wait lock from
- * the first link or Google start until it unmounts, which is when the
+ * the first link sent until it unmounts, which is when the
  * provider settles the confirmation or itself unmounts, so the confirm page
  * never reports a tab that stopped waiting.
  */
 function StepUpBody({
-  firstChoiceRef,
+  sendRef,
   onConfirmed,
   onDismissed,
   onDismissibleChange,
 }: {
-  firstChoiceRef: RefObject<HTMLButtonElement | null>
+  sendRef: RefObject<HTMLButtonElement | null>
   onConfirmed: () => void
   onDismissed: () => void
   onDismissibleChange: (dismissible: boolean) => void
 }) {
-  const providers = useAuthProviders()
   const requestLink = useRequestStepUpLink()
-  const startGoogle = useStartGoogleStepUp()
   const email = useAuthStore((state) => state.user?.email)
-  const [view, setView] = useState<View>('choose')
+  const [view, setView] = useState<View>('start')
   const [notice, setNotice] = useState<string | null>(null)
   const [resendAt, setResendAt] = useState<number | null>(null)
   const [linkExpiresAt, setLinkExpiresAt] = useState<number | null>(null)
-  const [googleUntil, setGoogleUntil] = useState<number | null>(null)
   const linkLeft = useCountdown(view === 'email' ? linkExpiresAt : null)
-  const googleLeft = useCountdown(view === 'google' ? googleUntil : null)
   const mounted = useRef(true)
   const release = useRef<(() => void) | null>(null)
   // The auth_time the session had when the wait began, from the API's clock.
   const baseline = useRef<number | null>(null)
-  const waitingIn = useRef<WaitingView>('email')
   const resuming = useRef(false)
-  // Read only where Google is linked; while the methods load or fail, the email link stands alone.
-  const hasGoogle = providers.data?.providers.some(({ provider }) => provider === 'google') ?? false
 
   useEffect(() => {
     mounted.current = true
@@ -191,31 +163,25 @@ function StepUpBody({
   }, [])
 
   useEffect(() => {
-    onDismissibleChange(view === 'choose' || view === 'resume_failed')
+    onDismissibleChange(view === 'start' || view === 'resume_failed')
   }, [view, onDismissibleChange])
   useEffect(() => () => onDismissibleChange(true), [onDismissibleChange])
 
-  /** Starts the wait the first time a link or the popup goes out: the lock, and the auth_time to beat. */
+  /** Starts the wait the first time a link goes out: the lock, and the auth_time to beat. */
   const beginWait = () => {
     if (release.current) return
     baseline.current = authTimeOf(useAuthStore.getState().accessToken)
     release.current = holdStepUpWait()
   }
 
-  /** Moves to a waiting view, remembering it for an ignored or failed resume. */
-  const showWait = (next: WaitingView) => {
-    waitingIn.current = next
-    setView(next)
-  }
-
-  /** Back to the choices, with a notice or none. */
-  const showChoices = (message: string | null) => {
+  /** Back to the start, with a notice or none. */
+  const showStart = (message: string | null) => {
     setNotice(message)
-    setView('choose')
+    setView('start')
   }
 
   /**
-   * Mails a link. From the choices, a cooldown means one was just sent, so it
+   * Mails a link. From the start, a cooldown means one was just sent, so it
    * waits on that one.
    * @param from - The view the request was made in.
    */
@@ -227,7 +193,7 @@ function StepUpBody({
         beginWait()
         setResendAt(Date.parse(resendAvailableAt))
         setLinkExpiresAt(Date.now() + STEP_UP_LINK_TTL_MS)
-        showWait('email')
+        setView('email')
       },
       (error: unknown) => {
         if (!mounted.current) return
@@ -238,9 +204,9 @@ function StepUpBody({
         }
         const cooldown = codeFrom(error) === STEP_UP_LINK_COOLDOWN && wait !== null
         const message = statusFrom(error) === 404 ? ROLE_DENIED_ACTION : messageFrom(error)
-        // A link or the popup is already out, so the wait stays: the refusal is a toast, and a 429 moves the resend out.
-        if (from === 'email' || (from === 'google' && !cooldown)) {
-          if (from === 'email' && statusFrom(error) === 429 && wait !== null) holdResend(wait)
+        // A link is already out, so the wait stays: the refusal is a toast, and a 429 moves the resend out.
+        if (from === 'email') {
+          if (statusFrom(error) === 429 && wait !== null) holdResend(wait)
           toast.error(message)
           return
         }
@@ -250,47 +216,10 @@ function StepUpBody({
           // The link went out when the cooldown began, so its 15 minutes started then.
           const sentAt = Date.now() - Math.max(0, STEP_UP_LINK_COOLDOWN_MS - wait * 1_000)
           setLinkExpiresAt((current) => current ?? sentAt + STEP_UP_LINK_TTL_MS)
-          showWait('email')
+          setView('email')
           return
         }
-        showChoices(message)
-      }
-    )
-  }
-
-  /**
-   * Opens the popup inside the click, where the browser allows it, then
-   * records the start and points the popup at Google. The result comes only
-   * over the auth channel: COOP severs the opener, so the popup is never polled.
-   */
-  const confirmWithGoogle = () => {
-    setNotice(null)
-    const popup = window.open('about:blank', POPUP_NAME, POPUP_FEATURES)
-    if (!popup) {
-      showChoices(POPUP_BLOCKED)
-      return
-    }
-    startGoogle.mutateAsync().then(
-      () => {
-        if (!mounted.current) {
-          popup.close()
-          return
-        }
-        // Closed before the start answered: one same-origin read while it is still on about:blank.
-        if (popup.closed) {
-          showChoices(POPUP_BLOCKED)
-          return
-        }
-        // Absolute: a relative URL would resolve against the popup's about:blank.
-        popup.location.assign(new URL(GOOGLE_STEP_UP_PATH, window.location.origin).href)
-        beginWait()
-        setGoogleUntil(Date.now() + GOOGLE_STEP_UP_TIMEOUT_MS)
-        showWait('google')
-      },
-      (error: unknown) => {
-        popup.close()
-        if (!mounted.current) return
-        showChoices(statusFrom(error) === 404 ? GOOGLE_UNAVAILABLE : messageFrom(error))
+        showStart(message)
       }
     )
   }
@@ -316,7 +245,7 @@ function StepUpBody({
         onConfirmed()
         return
       }
-      setView(waitingIn.current)
+      setView('email')
     } catch (error) {
       if (!mounted.current) return
       if (isAuthVerdict(error)) {
@@ -331,16 +260,9 @@ function StepUpBody({
 
   const onConfirmedElsewhere = useEffectEvent(() => void resume())
   useEffect(() => {
-    if (view !== 'email' && view !== 'google') return
+    if (view !== 'email') return
     return subscribeAuthMessage('step_up_confirmed', onConfirmedElsewhere)
   }, [view])
-
-  // The popup's time ran out: the API now refuses its round trip, so the choices come back.
-  if (view === 'google' && googleUntil !== null && googleLeft === 0) {
-    setGoogleUntil(null)
-    setNotice(GOOGLE_TIMED_OUT)
-    setView('choose')
-  }
 
   /**
    * Focuses a view's main control as it mounts, when the step that brought
@@ -352,26 +274,15 @@ function StepUpBody({
     const active = document.activeElement
     if (element && (active === null || active === document.body)) element.focus()
   }, [])
-  /** The email choice's ref: the dialog's initial focus, and focused on a return to the choices. */
-  const emailChoiceRef = useCallback(
+  /** Email me a link's ref: the dialog's initial focus, and focused on a return to the start. */
+  const sendButtonRef = useCallback(
     (element: HTMLButtonElement | null) => {
-      firstChoiceRef.current = element
+      sendRef.current = element
       arrive(element)
     },
-    [firstChoiceRef, arrive]
+    [sendRef, arrive]
   )
 
-  /** "Email me a link", the first choice; focused on open by the dialog. */
-  const emailChoice = (
-    <BusyButton
-      ref={emailChoiceRef}
-      busy={requestLink.isPending}
-      busyLabel="Sending…"
-      onClick={() => sendLink(view)}
-    >
-      Email me a link
-    </BusyButton>
-  )
   const cancel = (
     <Button type="button" variant="outline" onClick={onDismissed}>
       Cancel
@@ -411,40 +322,11 @@ function StepUpBody({
     )
   }
 
-  if (view === 'google') {
-    return (
-      <div className="grid gap-4">
-        <DialogDescription>
-          Finish in the Google window. This dialog continues on its own when you’re done.
-        </DialogDescription>
-        <DialogFooter>
-          {cancel}
-          <BusyButton
-            type="button"
-            variant="outline"
-            busy={requestLink.isPending}
-            busyLabel="Sending…"
-            onClick={() => sendLink('google')}
-          >
-            Email me a link instead
-          </BusyButton>
-          <BusyButton
-            ref={arrive}
-            busy={startGoogle.isPending}
-            busyLabel="Opening Google…"
-            onClick={confirmWithGoogle}
-          >
-            Re-confirm with Google
-          </BusyButton>
-        </DialogFooter>
-      </div>
-    )
-  }
-
   return (
     <div className="grid gap-4">
       <DialogDescription>
-        This action needs a confirmation from the last 10 minutes. Choose how to confirm it’s you.
+        This action needs a confirmation from the last 10 minutes. We’ll email you a link to open in
+        this browser.
       </DialogDescription>
       {notice !== null && (
         <Alert variant="destructive">
@@ -454,17 +336,14 @@ function StepUpBody({
       )}
       <DialogFooter>
         {cancel}
-        {hasGoogle && (
-          <BusyButton
-            variant="outline"
-            busy={startGoogle.isPending}
-            busyLabel="Opening Google…"
-            onClick={confirmWithGoogle}
-          >
-            Re-confirm with Google
-          </BusyButton>
-        )}
-        {emailChoice}
+        <BusyButton
+          ref={sendButtonRef}
+          busy={requestLink.isPending}
+          busyLabel="Sending…"
+          onClick={() => sendLink('start')}
+        >
+          Email me a link
+        </BusyButton>
       </DialogFooter>
     </div>
   )

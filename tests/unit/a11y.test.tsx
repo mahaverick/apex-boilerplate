@@ -9,7 +9,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axeCore from 'axe-core'
 import { http } from 'msw'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { ThemeToggle } from '@/components/features/theme-toggle'
 import { recordRecent } from '@/components/shared/command-palette/recent-items'
 import { PageSkeleton, type PageVariant } from '@/components/shared/page-skeleton'
@@ -1112,12 +1112,6 @@ describe('confirm it’s you states', () => {
     await screen.findByRole('heading', { name: 'Sign in to confirm' })
     await expectNoViolations()
   })
-
-  it('confirm it’s you, Google refused, has no axe violations', async () => {
-    renderAppAt('/auth/confirm?error=step_up_failed')
-    await screen.findByRole('heading', { name: 'We couldn’t confirm it’s you' })
-    await expectNoViolations()
-  })
 })
 
 /** The sign-in link page's states, each its own render. */
@@ -1586,25 +1580,10 @@ describe('open overlays', () => {
     return screen.findByRole('dialog', { name: 'Confirm it’s you' })
   }
 
-  it('has no violations with the step-up dialog open on its choices (step-up choose)', async () => {
-    server.use(
-      http.get('/api/v1/auth/providers', () =>
-        ok(
-          {
-            providers: [
-              { provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' },
-              { provider: 'google', linkedAt: '2026-01-02T00:00:00.000Z' },
-            ],
-          },
-          'Auth providers retrieved.'
-        )
-      )
-    )
+  it('has no violations with the step-up dialog open on its start (step-up start)', async () => {
     const user = userEvent.setup()
     const stepUp = await openStepUpOverReason(user)
-    expect(
-      await within(stepUp).findByRole('button', { name: 'Re-confirm with Google' })
-    ).toBeInTheDocument()
+    expect(within(stepUp).getByRole('button', { name: 'Email me a link' })).toBeInTheDocument()
     await expectNoViolations()
   })
 
@@ -1622,41 +1601,6 @@ describe('open overlays', () => {
       screen.getByRole('button', { name: 'Waiting for you to confirm…', hidden: true })
     ).toBeInTheDocument()
     await expectNoViolations()
-  })
-
-  it('has no violations with the step-up dialog waiting on Google (step-up waiting on Google)', async () => {
-    server.use(
-      http.get('/api/v1/auth/providers', () =>
-        ok(
-          {
-            providers: [
-              { provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' },
-              { provider: 'google', linkedAt: '2026-01-02T00:00:00.000Z' },
-            ],
-          },
-          'Auth providers retrieved.'
-        )
-      )
-    )
-    // jsdom has no window.open; a stand-in popup takes the Google URL.
-    const open = vi
-      .spyOn(window, 'open')
-      .mockReturnValue({ location: { assign: vi.fn() }, close: vi.fn() } as unknown as Window)
-    try {
-      const user = userEvent.setup()
-      const stepUp = await openStepUpOverReason(user)
-      await user.click(
-        await within(stepUp).findByRole('button', { name: 'Re-confirm with Google' })
-      )
-      expect(
-        await within(stepUp).findByText(
-          'Finish in the Google window. This dialog continues on its own when you’re done.'
-        )
-      ).toBeInTheDocument()
-      await expectNoViolations()
-    } finally {
-      open.mockRestore()
-    }
   })
 
   it('has no violations with the Edit details dialog open', async () => {

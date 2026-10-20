@@ -9,7 +9,7 @@
 import '@/lib/zod-jitless'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
-import { http, HttpResponse, passthrough } from 'msw'
+import { http, passthrough } from 'msw'
 import { setupWorker } from 'msw/browser'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -1571,7 +1571,7 @@ const worker = setupWorker(
       'Auth providers retrieved.'
     )
   ),
-  // "Confirm it's you": a link mailed, the API mailing again in a minute, the mailed link confirmed in any tab, and a Google start recorded.
+  // "Confirm it's you": a link mailed, the API mailing again in a minute, and the mailed link confirmed in any tab.
   http.post('/api/v1/auth/step-up/link/request', () =>
     ok(
       { resendAvailableAt: new Date(Date.now() + 60_000).toISOString() },
@@ -1585,7 +1585,6 @@ const worker = setupWorker(
     localStorage.setItem(STEPPED_UP_AT_KEY, String(now))
     return ok({ accessToken: harnessToken(now) }, 'Identity confirmed.')
   }),
-  http.post('/api/v1/auth/step-up/google/start', () => new HttpResponse(null, { status: 204 })),
   // Sign-in by emailed link: the request always answers 202, and the verify as `?link=` says.
   http.post('/api/v1/auth/link/request', () =>
     ok(null, 'Check your inbox for a sign-in link.', 202)

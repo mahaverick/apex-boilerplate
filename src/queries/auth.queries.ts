@@ -169,22 +169,6 @@ export function useRequestStepUpLink() {
   })
 }
 
-/**
- * Records a Google "Confirm it's you" for this session (express
- * `POST /auth/step-up/google/start`, which takes `{}` and answers 204 with the
- * OAuth session cookie). The popup's navigation to `GOOGLE_STEP_UP_PATH`
- * carries that cookie and no bearer, which is why the start is its own call.
- * A 409 `google_not_linked` means the account has no Google sign-in, and a
- * 404 means Google sign-in is off on this API.
- */
-export function useStartGoogleStepUp() {
-  return useMutation({
-    mutationFn: async () => {
-      await apiClient.post('/auth/step-up/google/start', {})
-    },
-  })
-}
-
 /** What `POST /auth/sessions/revoke-others` answers: how many other sessions it ended. */
 export interface RevokedSessions {
   revoked: number

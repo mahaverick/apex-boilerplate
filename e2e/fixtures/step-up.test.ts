@@ -145,17 +145,24 @@ test('a stray confirmation with no newer sign-in leaves the dialog waiting', asy
     }
   })
 
-  // The Google popup's landing broadcasts, but nothing confirmed: the session's auth_time is unchanged.
+  // A forged step_up_confirmed from another tab, with nothing confirmed: the session's auth_time is unchanged.
   const second = await page.context().newPage()
   try {
-    await second.goto(`/e2e/harness/?path=${encodeURIComponent('/auth/confirm?result=confirmed')}`)
+    await second.goto(`/e2e/harness/?path=${encodeURIComponent('/auth/confirm')}`)
+    await expect(
+      second.getByRole('heading', { level: 1, name: 'This link is incomplete' })
+    ).toBeVisible()
+    await second.evaluate(() => {
+      const channel = new BroadcastChannel('auth')
+      channel.postMessage({ type: 'step_up_confirmed' })
+      channel.close()
+    })
 
     // A refresh that brings no newer auth_time is tried once more, for one already in flight, then the dialog goes back to waiting.
     await expect.poll(() => refreshes.length).toBe(2)
     await expect(stepUp.getByText('We sent the link to', { exact: false })).toBeVisible()
     expect(suspends).toEqual([401])
   } finally {
-    // Chromium ignores the page's own window.close() in a tab no script opened.
     await second.close()
   }
 })

@@ -5,7 +5,6 @@ import { http, HttpResponse } from 'msw'
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StepUpProvider } from '@/components/features/step-up/step-up-provider'
-import { GOOGLE_STEP_UP_PATH } from '@/constants/routes'
 import { useStepUp } from '@/hooks/use-step-up'
 import { apiClient } from '@/http/client'
 import { ensureSession, resetSessionForTests } from '@/http/session'
@@ -23,15 +22,13 @@ import { REAUTH_REQUIRED } from '@/types/api.types'
 const DIALOG = 'Confirm it’s you'
 const ROLE_DENIED =
   'Your role no longer allows this action. Ask a platform owner to check your role.'
-const CHOOSE_BODY =
-  'This action needs a confirmation from the last 10 minutes. Choose how to confirm it’s you.'
-const GOOGLE_WAIT =
-  'Finish in the Google window. This dialog continues on its own when you’re done.'
+const START_BODY =
+  'This action needs a confirmation from the last 10 minutes. We’ll email you a link to open in this browser.'
 const EXPIRED = 'That link expired. Send a new link to continue.'
 const RESUME_FAILED =
   'You confirmed, but we couldn’t reach the server. Check your connection, then select Try again.'
 
-/** Every event the server and the popup saw, in order, so a test can assert what ran first. */
+/** Every event the server saw, in order, so a test can assert what ran first. */
 let events: string[] = []
 
 /** Runs one guarded request through `useStepUp` and prints how it ended. */
@@ -125,11 +122,13 @@ function tooMany(message: string, code: string, seconds: number) {
   )
 }
 
-/** Serves the caller's sign-in methods with Google linked. */
+/** Serves the caller's sign-in methods with Google linked; returns how many reads it answered. */
 function withGoogle() {
+  let reads = 0
   server.use(
-    http.get('/api/v1/auth/providers', () =>
-      ok(
+    http.get('/api/v1/auth/providers', () => {
+      reads += 1
+      return ok(
         {
           providers: [
             { provider: 'email', linkedAt: '2026-01-01T00:00:00.000Z' },
@@ -138,18 +137,9 @@ function withGoogle() {
         },
         'Auth providers retrieved.'
       )
-    )
+    })
   )
-}
-
-/** A stand-in popup: jsdom's `window.open` is not implemented. */
-function stubPopup(blocked = false) {
-  const popup = { location: { assign: vi.fn() }, close: vi.fn(), closed: false }
-  const open = vi.spyOn(window, 'open').mockImplementation(() => {
-    events.push('open')
-    return blocked ? null : (popup as unknown as Window)
-  })
-  return { popup, open }
+  return () => reads
 }
 
 /** Channels standing in for the confirm tab; closed after each test. */
@@ -268,60 +258,27 @@ describe('useStepUp', () => {
   })
 })
 
-describe('StepUpDialog: choose', () => {
-  it('opens Confirm it’s you on REAUTH_REQUIRED with the email option, and Google only when linked', async () => {
+describe('StepUpDialog: start', () => {
+  it('opens Confirm it’s you on REAUTH_REQUIRED with the email link only, Google linked or not', async () => {
     dangerRoute(1)
+    const providerReads = withGoogle()
     const user = userEvent.setup()
-    const { unmount } = renderHarness()
+    renderHarness()
     const dialog = await openStepUp(user)
-    expect(within(dialog).getByText(CHOOSE_BODY)).toBeInTheDocument()
+    expect(within(dialog).getByText(START_BODY)).toBeInTheDocument()
     const email = within(dialog).getByRole('button', { name: 'Email me a link' })
     await waitFor(() => expect(email).toHaveFocus())
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
-    // The default providers list only email: wait for them, then look for Google.
-    await settle(50, 'the providers read settles with no element to wait on')
-    expect(
-      within(dialog).queryByRole('button', { name: 'Re-confirm with Google' })
-    ).not.toBeInTheDocument()
-    unmount()
-
-    dangerRoute(1)
-    withGoogle()
-    renderHarness()
-    const linked = await openStepUp(user)
-    expect(
-      await within(linked).findByRole('button', { name: 'Re-confirm with Google' })
-    ).toBeInTheDocument()
-  })
-
-  it('shows the email choice at once while the sign-in methods load, and no error when they fail', async () => {
-    dangerRoute(1)
-    server.use(http.get('/api/v1/auth/providers', () => new Promise<Response>(() => {})))
-    const user = userEvent.setup()
-    const { unmount } = renderHarness()
-    const loading = await openStepUp(user)
-    expect(within(loading).getByRole('button', { name: 'Email me a link' })).toBeInTheDocument()
-    expect(within(loading).queryByRole('button', { name: /Google/ })).not.toBeInTheDocument()
-    unmount()
-
-    dangerRoute(1)
-    let reads = 0
-    server.use(
-      http.get('/api/v1/auth/providers', () => {
-        reads += 1
-        return fail('Server error', 500)
-      })
+    await settle(
+      50,
+      'a Google button would need the providers read; absence has no event to wait on'
     )
-    renderHarness()
-    const failed = await openStepUp(user)
-    await waitFor(() => expect(reads).toBeGreaterThan(0))
-    await settle(50, 'the failed providers read renders nothing to wait on')
-    expect(within(failed).getByRole('button', { name: 'Email me a link' })).toBeInTheDocument()
-    expect(within(failed).queryByRole('button', { name: /Google/ })).not.toBeInTheDocument()
-    expect(within(failed).queryByRole('alert')).not.toBeInTheDocument()
+    expect(within(dialog).getAllByRole('button')).toHaveLength(2)
+    expect(within(dialog).queryByRole('button', { name: /Google/ })).not.toBeInTheDocument()
+    expect(providerReads()).toBe(0)
   })
 
-  it('with no dialog open beneath, Escape in the choices dismisses and focus goes back to what asked', async () => {
+  it('with no dialog open beneath, Escape on the start dismisses and focus goes back to what asked', async () => {
     dangerRoute(1)
     const user = userEvent.setup()
     renderHarness()
@@ -332,7 +289,7 @@ describe('StepUpDialog: choose', () => {
     await waitFor(() => expect(trigger).toHaveFocus())
   })
 
-  it('says the role changed on a 404 from the link request, and stays on the choices', async () => {
+  it('says the role changed on a 404 from the link request, and stays on the start', async () => {
     dangerRoute(1)
     linkRoute(() => fail('Not found', 404))
     const user = userEvent.setup()
@@ -340,10 +297,10 @@ describe('StepUpDialog: choose', () => {
     const dialog = await openStepUp(user)
     await user.click(within(dialog).getByRole('button', { name: 'Email me a link' }))
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(ROLE_DENIED)
-    expect(within(dialog).getByText(CHOOSE_BODY)).toBeInTheDocument()
+    expect(within(dialog).getByText(START_BODY)).toBeInTheDocument()
   })
 
-  it('shows a rate limit on the choices with the server’s words', async () => {
+  it('shows a rate limit on the start with the server’s words', async () => {
     dangerRoute(1)
     linkRoute(() => tooMany('Too many attempts. Try again in 5 minutes.', 'RATE_LIMITED', 300))
     const user = userEvent.setup()
@@ -614,7 +571,7 @@ describe('StepUpDialog: email', () => {
     expect(refreshes).toBe(2)
   })
 
-  it('ignores step_up_confirmed on the choices and while resuming', async () => {
+  it('ignores step_up_confirmed on the start and while resuming', async () => {
     dangerRoute(1)
     linkRoute()
     /** Lets the held refresh answer. */
@@ -631,9 +588,9 @@ describe('StepUpDialog: email', () => {
     const dialog = await openStepUp(user)
 
     confirmFromAnotherTab()
-    await settle(100, 'no subscription on the choices: absence has no event to wait on')
+    await settle(100, 'no subscription on the start: absence has no event to wait on')
     expect(events).toEqual(['action'])
-    expect(within(dialog).getByText(CHOOSE_BODY)).toBeInTheDocument()
+    expect(within(dialog).getByText(START_BODY)).toBeInTheDocument()
 
     await user.click(within(dialog).getByRole('button', { name: 'Email me a link' }))
     await within(dialog).findByText(STEP_UP_EMAIL_WAIT)
@@ -692,178 +649,6 @@ describe('StepUpDialog: email', () => {
     expect(calls).toHaveLength(2)
     await waitFor(() => expect(dialog).not.toBeInTheDocument())
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-})
-
-describe('StepUpDialog: Google', () => {
-  it('opens the popup in the click, then points it at the Google step-up after the start', async () => {
-    dangerRoute(1)
-    withGoogle()
-    const { popup, open } = stubPopup()
-    let body: unknown
-    server.use(
-      http.post('/api/v1/auth/step-up/google/start', async ({ request }) => {
-        body = await request.json()
-        events.push('start')
-        return new HttpResponse(null, { status: 204 })
-      })
-    )
-    const user = userEvent.setup()
-    renderHarness()
-    const dialog = await openStepUp(user)
-    await user.click(await within(dialog).findByRole('button', { name: 'Re-confirm with Google' }))
-
-    expect(await within(dialog).findByText(GOOGLE_WAIT)).toBeInTheDocument()
-    expect(open).toHaveBeenCalledWith('about:blank', 'apex-step-up', 'popup,width=520,height=640')
-    expect(events).toEqual(['action', 'open', 'start'])
-    expect(body).toEqual({})
-    expect(popup.location.assign).toHaveBeenCalledWith(
-      `${window.location.origin}/api/v1/auth/step-up/google`
-    )
-    expect(popup.location.assign).toHaveBeenCalledWith(
-      new URL(GOOGLE_STEP_UP_PATH, window.location.origin).href
-    )
-    expect(
-      within(dialog).getByRole('button', { name: 'Re-confirm with Google' })
-    ).toBeInTheDocument()
-    expect(
-      within(dialog).getByRole('button', { name: 'Email me a link instead' })
-    ).toBeInTheDocument()
-    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
-
-    await user.keyboard('{Escape}')
-    expect(within(dialog).getByText(GOOGLE_WAIT)).toBeInTheDocument()
-  })
-
-  it.each([
-    ['blocked', 'Allow pop-ups for this site, or use the email link.'],
-    [409, 'Your account has no linked Google account. Confirm by email instead.'],
-    [404, 'Google confirmation isn’t available for this account. Use the email link.'],
-  ] as const)('falls back to the email link when Google is %s', async (refusal, notice) => {
-    dangerRoute(1)
-    withGoogle()
-    const bodies = linkRoute()
-    const { popup, open } = stubPopup(refusal === 'blocked')
-    let starts = 0
-    server.use(
-      http.post('/api/v1/auth/step-up/google/start', () => {
-        starts += 1
-        return refusal === 409
-          ? fail(notice, 409, 'google_not_linked')
-          : fail('Route not found', 404)
-      })
-    )
-    const user = userEvent.setup()
-    renderHarness()
-    const dialog = await openStepUp(user)
-    await user.click(await within(dialog).findByRole('button', { name: 'Re-confirm with Google' }))
-
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(notice)
-    expect(open).toHaveBeenCalledTimes(1)
-    if (refusal === 'blocked') {
-      expect(starts).toBe(0)
-    } else {
-      expect(starts).toBe(1)
-      expect(popup.close).toHaveBeenCalled()
-      expect(popup.location.assign).not.toHaveBeenCalled()
-    }
-    expect(within(dialog).getByText(CHOOSE_BODY)).toBeInTheDocument()
-
-    await user.click(within(dialog).getByRole('button', { name: 'Email me a link' }))
-    expect(await within(dialog).findByText(STEP_UP_EMAIL_WAIT)).toBeInTheDocument()
-    expect(bodies).toEqual([{}])
-  })
-
-  it('stays on the Google wait and toasts when the email fallback is refused', async () => {
-    const calls = dangerRoute(1)
-    withGoogle()
-    stubPopup()
-    linkRoute(() => tooMany('Too many attempts. Try again in 2 minutes.', 'RATE_LIMITED', 120))
-    refreshRoute()
-    server.use(
-      http.post('/api/v1/auth/step-up/google/start', () => new HttpResponse(null, { status: 204 }))
-    )
-    const error = vi.spyOn(toast, 'error')
-    const user = userEvent.setup()
-    renderHarness()
-    const dialog = await openStepUp(user)
-    await user.click(await within(dialog).findByRole('button', { name: 'Re-confirm with Google' }))
-    await within(dialog).findByText(GOOGLE_WAIT)
-
-    await user.click(within(dialog).getByRole('button', { name: 'Email me a link instead' }))
-    await waitFor(() =>
-      expect(error).toHaveBeenCalledWith('Too many attempts. Try again in 2 minutes.')
-    )
-    expect(within(dialog).getByText(GOOGLE_WAIT)).toBeInTheDocument()
-
-    confirmFromAnotherTab()
-    expect(await screen.findByText('outcome: done')).toBeInTheDocument()
-    expect(calls).toHaveLength(2)
-  })
-
-  it('says to allow pop-ups when the popup was closed before the start answered', async () => {
-    dangerRoute(1)
-    withGoogle()
-    const { popup } = stubPopup()
-    server.use(
-      http.post('/api/v1/auth/step-up/google/start', () => {
-        popup.closed = true
-        return new HttpResponse(null, { status: 204 })
-      })
-    )
-    const user = userEvent.setup()
-    renderHarness()
-    const dialog = await openStepUp(user)
-    await user.click(await within(dialog).findByRole('button', { name: 'Re-confirm with Google' }))
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'Allow pop-ups for this site, or use the email link.'
-    )
-    expect(popup.location.assign).not.toHaveBeenCalled()
-    expect(within(dialog).getByText(CHOOSE_BODY)).toBeInTheDocument()
-  })
-
-  it('returns to the choices after 5 minutes of waiting on Google', async () => {
-    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
-    dangerRoute(1)
-    withGoogle()
-    stubPopup()
-    server.use(
-      http.post('/api/v1/auth/step-up/google/start', () => new HttpResponse(null, { status: 204 }))
-    )
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    renderHarness()
-    const dialog = await openStepUp(user)
-    await user.click(await within(dialog).findByRole('button', { name: 'Re-confirm with Google' }))
-    await within(dialog).findByText(GOOGLE_WAIT)
-
-    await act(() => vi.advanceTimersByTimeAsync(5 * 60_000 - 1_000))
-    expect(within(dialog).getByText(GOOGLE_WAIT)).toBeInTheDocument()
-    await act(() => vi.advanceTimersByTimeAsync(1_000))
-    expect(within(dialog).getByRole('alert')).toHaveTextContent(
-      'The Google window expired after 5 minutes. Try again, or use the email link.'
-    )
-    expect(within(dialog).getByText(CHOOSE_BODY)).toBeInTheDocument()
-    expect(screen.getByText('outcome: idle')).toBeInTheDocument()
-  })
-
-  it('confirms through Google the same way: refresh, then the retry', async () => {
-    const calls = dangerRoute(1)
-    withGoogle()
-    stubPopup()
-    refreshRoute()
-    server.use(
-      http.post('/api/v1/auth/step-up/google/start', () => new HttpResponse(null, { status: 204 }))
-    )
-    const user = userEvent.setup()
-    renderHarness()
-    const dialog = await openStepUp(user)
-    await user.click(await within(dialog).findByRole('button', { name: 'Re-confirm with Google' }))
-    await within(dialog).findByText(GOOGLE_WAIT)
-
-    confirmFromAnotherTab()
-
-    expect(await screen.findByText('outcome: done')).toBeInTheDocument()
-    expect(calls).toHaveLength(2)
   })
 })
 

@@ -439,61 +439,24 @@ describe('/auth/confirm with an emailed link', () => {
   })
 })
 
-describe('/auth/confirm as the Google popup lands', () => {
-  it('reports a Google confirmation to the opener and closes the window', async () => {
-    const close = vi.spyOn(window, 'close').mockImplementation(() => {})
-    const calls = serveVerify()
-    const received = openWaitingTab()
-    renderAt('/auth/confirm?result=confirmed')
+describe('/auth/confirm without a token', () => {
+  it.each(['result=confirmed', 'error=step_up_failed', 'result=maybe&error=other'])(
+    'treats ?%s as an incomplete link: no broadcast, no post, no close',
+    async (query) => {
+      const close = vi.spyOn(window, 'close').mockImplementation(() => {})
+      const calls = serveVerify()
+      const received = openWaitingTab()
+      renderAt(`/auth/confirm?${query}`)
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Confirmed' })).toBeInTheDocument()
-    expect(screen.getByText('You can close this window.')).toBeInTheDocument()
-    await vi.waitFor(() => expect(received).toEqual([{ type: 'step_up_confirmed' }]))
-    await letStragglersLand()
-    expect(received).toEqual([{ type: 'step_up_confirmed' }])
-    expect(close).toHaveBeenCalledOnce()
-    expect(calls).toEqual([])
-  })
-
-  it('reports it signed out too, since the waiting tab refreshes its own session', async () => {
-    signOut()
-    vi.spyOn(window, 'close').mockImplementation(() => {})
-    const received = openWaitingTab()
-    renderAt('/auth/confirm?result=confirmed')
-
-    await vi.waitFor(() => expect(received).toEqual([{ type: 'step_up_confirmed' }]))
-  })
-
-  it('reports a Google failure without broadcasting', async () => {
-    const close = vi.spyOn(window, 'close').mockImplementation(() => {})
-    const calls = serveVerify()
-    const received = openWaitingTab()
-    renderAt('/auth/confirm?error=step_up_failed')
-
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'We couldn’t confirm it’s you' })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        'Google didn’t confirm your sign-in. Close this window, then try again in Apex or use the email link.'
-      )
-    ).toBeInTheDocument()
-    await letStragglersLand()
-    expect(received).toEqual([])
-    expect(close).not.toHaveBeenCalled()
-    expect(calls).toEqual([])
-  })
-
-  it('drops an unknown result or error, leaving the incomplete-link message', async () => {
-    const received = openWaitingTab()
-    renderAt('/auth/confirm?result=maybe&error=other')
-
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'This link is incomplete' })
-    ).toBeInTheDocument()
-    await letStragglersLand()
-    expect(received).toEqual([])
-  })
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'This link is incomplete' })
+      ).toBeInTheDocument()
+      await letStragglersLand()
+      expect(received).toEqual([])
+      expect(calls).toEqual([])
+      expect(close).not.toHaveBeenCalled()
+    }
+  )
 })
 
 describe('/auth/confirm reached signed in', () => {

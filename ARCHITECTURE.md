@@ -542,7 +542,7 @@ browser; the header only lets the API's span join a trace the browser chose.
   your inbox", or the accept page while its confirmation link is out)
   restores the shared session with `ensureSession()` and moves on, and a tab
   that is already signed in ignores it. `step_up_confirmed` is posted by
-  `/auth/confirm` after a confirmed link or the Google popup's return; the
+  `/auth/confirm` after a confirmed link; the
   "Confirm it's you" dialog waiting in another tab refreshes the session,
   which carries the new `auth_time`, and retries its action once.
 - `installAnalyticsIdentity()` subscribes to the auth store: a change of
@@ -636,10 +636,9 @@ breadcrumbs, the ⌘K search and, from `md` up, the theme toggle. It holds:
 - **One step-up dialog.** `StepUpProvider` wraps the shell, so every staff
   page's writes share it. A write that may need a recent sign-in runs
   through `useStepUp().run` (`src/hooks/use-step-up.ts`), which retries it
-  once after the user confirms. "Confirm it's you" offers Email me a link
-  (`POST /auth/step-up/link/request`, opened on `/auth/confirm`) and, when
-  `GET /auth/providers` lists Google, Re-confirm with Google in a popup
-  (`POST /auth/step-up/google/start`, then `GOOGLE_STEP_UP_PATH`). While it
+  once after the user confirms. "Confirm it's you" offers one method, Email
+  me a link (`POST /auth/step-up/link/request`, opened on `/auth/confirm`).
+  While it
   waits, the action's own dialog reads "Waiting for you to confirm…"
   (`useStepUpWaiting`), and the dialog holds the `apex-step-up-wait` Web Lock so
   the confirm page can tell whether a tab is waiting. The rules are in

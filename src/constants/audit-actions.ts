@@ -181,6 +181,7 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
     const name = text(m, 'name')
     return `permanently deleted ${name ? `the tenant ${name}` : 'a tenant'}${because(m)}`
   },
+  // Apex confirms by email link only; the `'google'` arms label rows written before Google step-up was dropped.
   'auth.step_up_confirmed': (m) =>
     m.method === 'google'
       ? 'confirmed it was them with Google'
