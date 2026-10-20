@@ -45,7 +45,7 @@ export function UserEmailsCard({ userId }: { userId: string }) {
           <QueryState
             query={emails}
             name="Emails"
-            errorMessage="We could not load this account’s emails."
+            errorMessage="We couldn’t load this account’s emails. Select Try again."
             skeleton={<CardRowsSkeleton rows={3} rowHeight="2.25rem" />}
             isEmpty={(page) => page.items.length === 0}
             empty={<EmptyState size="compact" title="No emails sent to this account yet." />}

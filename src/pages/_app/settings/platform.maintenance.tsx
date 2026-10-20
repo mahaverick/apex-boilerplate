@@ -262,7 +262,7 @@ function MaintenancePage() {
     <QueryState
       query={state}
       name="Maintenance state"
-      errorMessage="We could not load the maintenance state."
+      errorMessage="We couldn’t load the maintenance state. Select Try again."
       className="gap-6"
       skeleton={<MaintenanceSkeleton />}
     >

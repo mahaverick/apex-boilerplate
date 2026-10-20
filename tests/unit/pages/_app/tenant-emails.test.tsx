@@ -191,7 +191,9 @@ describe('/tenants/$tenantId/emails', () => {
     )
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/emails`)
-    expect(await screen.findByText('We could not load this tenant’s emails.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('We couldn’t load this tenant’s emails. Select Try again.')
+    ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText(/Your role can’t see this any more/)).toBeInTheDocument()
   })

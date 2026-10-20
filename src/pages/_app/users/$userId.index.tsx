@@ -61,7 +61,10 @@ function UserDetailPage() {
     return statusFrom(detail.error) === 404 ? (
       <UserNotFound />
     ) : (
-      <LoadError message="We could not load this user." onRetry={() => void detail.refetch()} />
+      <LoadError
+        message="We couldn’t load this user. Select Try again."
+        onRetry={() => void detail.refetch()}
+      />
     )
   }
   if (detail.data === undefined) {
@@ -89,7 +92,10 @@ function UserDetailPage() {
   return (
     <div className="grid gap-4">
       {detail.isError && (
-        <LoadError message="We could not load this user." onRetry={() => void detail.refetch()} />
+        <LoadError
+          message="We couldn’t load this user. Select Try again."
+          onRetry={() => void detail.refetch()}
+        />
       )}
       <UserDetail user={detail.data} />
       <PagePaletteCommands

@@ -64,7 +64,7 @@ function SuppressionsPage() {
       </h1>
       <SuppressionsTable
         query={query}
-        errorMessage="We could not load the suppressions."
+        errorMessage="We couldn’t load the suppressions. Select Try again."
         onLift={canLift ? openLift : undefined}
         rowTarget={(id) => focus.target(`suppression:${id}`)}
         empty={

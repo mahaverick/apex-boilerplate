@@ -476,7 +476,7 @@ describe('members tab permissions', () => {
     renderAppAt(`/tenants/${TENANT_ID}/members`)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/could not load this tenant’s members/i)
+    expect(alert).toHaveTextContent(/couldn’t load the members, so none are listed/i)
     expect(screen.queryByText(/could not load your role/i)).not.toBeInTheDocument()
 
     await waitFor(() => {
@@ -506,7 +506,7 @@ describe('members tab permissions', () => {
     renderAppAt(`/tenants/${TENANT_ID}/members`)
     const members = await screen.findByRole('region', { name: 'Members' })
     expect(await within(members).findByRole('alert')).toHaveTextContent(
-      /could not load this tenant’s members/i
+      /couldn’t load the members, so none are listed/i
     )
 
     detailFails = true
@@ -2523,7 +2523,9 @@ describe('the members list', () => {
       )
     )
     renderAppAt(`/tenants/${TENANT_ID}/members`)
-    expect(await screen.findByText('Owners could not be loaded.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('We couldn’t load the owners. Select Try again.')
+    ).toBeInTheDocument()
     const me = await rowFor('Me')
     expect(me.getByRole('button', { name: 'Leave' })).toBeDisabled()
     // Failed is not the same as one owner: the page does not claim the tenant has only one.

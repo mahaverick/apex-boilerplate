@@ -62,7 +62,7 @@ export function CreateUserDialog() {
             </>
           )
         } else {
-          toast.warning('The user was created, but the welcome email couldn’t be sent.', {
+          toast.warning('The user was created, but the welcome email wasn’t sent. Select Resend.', {
             action: {
               label: 'Resend',
               // A promise, not mutate's callbacks: those never fire once this dialog has unmounted, and it has by now, on the new user's page.

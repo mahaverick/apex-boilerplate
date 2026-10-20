@@ -385,13 +385,13 @@ export function SystemStatusCard() {
             <>
               <StatusFacts status={status.data} fetchedAt={status.dataUpdatedAt} />
               <p className="mt-3 text-xs text-muted-foreground">
-                Could not refresh; showing the status loaded{' '}
+                We couldn’t refresh, so this is the status from{' '}
                 {relativeTime(new Date(status.dataUpdatedAt).toISOString(), now)}.
               </p>
             </>
           ) : status.isError ? (
             <LoadError
-              message="We could not load the system status."
+              message="We couldn’t load the system status. Select Try again."
               onRetry={() => void status.refetch()}
             />
           ) : status.data === undefined ? (

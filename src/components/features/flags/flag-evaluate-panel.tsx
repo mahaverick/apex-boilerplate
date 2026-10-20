@@ -173,7 +173,10 @@ export function FlagEvaluatePanel({ search, onSearchChange, registry }: FlagEval
         </AlertAction>
       </Alert>
     ) : (
-      <LoadError message="We could not load this user." onRetry={() => void user.refetch()} />
+      <LoadError
+        message="We couldn’t load this user. Select Try again."
+        onRetry={() => void user.refetch()}
+      />
     )
   }
   if (user.data === undefined) return <CardRowsSkeleton rows={2} />

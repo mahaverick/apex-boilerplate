@@ -215,7 +215,7 @@ describe('/onboarding', () => {
       serveTenants([onboardingTenantRow()])
       renderAppAt('/onboarding')
       expect(
-        await screen.findByText('We could not load the onboarding figures.')
+        await screen.findByText('We couldn’t load the onboarding figures. Select Try again.')
       ).toBeInTheDocument()
       expect(await screen.findByRole('table', { name: 'Onboarding tenants' })).toBeInTheDocument()
     })
@@ -487,7 +487,9 @@ describe('/onboarding', () => {
       )
       const user = userEvent.setup()
       renderAppAt('/onboarding')
-      expect(await screen.findByText('We could not load these tenants.')).toBeInTheDocument()
+      expect(
+        await screen.findByText('We couldn’t load these tenants. Select Try again.')
+      ).toBeInTheDocument()
       expect(screen.getByRole('region', { name: 'Onboarding figures' })).toBeInTheDocument()
       failing = false
       await user.click(screen.getByRole('button', { name: 'Try again' }))

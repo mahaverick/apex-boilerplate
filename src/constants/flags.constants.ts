@@ -11,11 +11,12 @@ export const FLAGS_NOT_CONFIGURED =
   'Feature flags are not set up for this environment, so every flag serves its fallback.'
 
 /** The list failed: said of the request, not of the flags. */
-export const FLAGS_LIST_ERROR = 'We could not load the flags. This is not a sign they are off.'
+export const FLAGS_LIST_ERROR =
+  'We couldn’t load the flags, so their states are unknown. Select Try again.'
 
 /** The evaluation failed: said of the request, not of the person's flags. */
 export const FLAGS_EVALUATE_ERROR =
-  'We could not evaluate the flags. This is not a sign they are off.'
+  'We couldn’t evaluate the flags, so their values are unknown. Select Try again.'
 
 /** Shown beside a snapshot express has not refreshed for 10 minutes. */
 export const FLAGS_STALE_NOTE =

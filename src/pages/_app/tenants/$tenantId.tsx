@@ -107,14 +107,20 @@ function TenantLayout() {
         }
       />
     ) : (
-      <LoadError message="We could not load this tenant." onRetry={() => void tenant.refetch()} />
+      <LoadError
+        message="We couldn’t load this tenant. Select Try again."
+        onRetry={() => void tenant.refetch()}
+      />
     )
   }
   const loaded = tenant.data
   return (
     <div aria-busy={loaded === undefined ? true : undefined} className="grid gap-6">
       {tenant.isError && (
-        <LoadError message="We could not load this tenant." onRetry={() => void tenant.refetch()} />
+        <LoadError
+          message="We couldn’t load this tenant. Select Try again."
+          onRetry={() => void tenant.refetch()}
+        />
       )}
       <div className="flex flex-wrap items-start justify-between gap-4">
         {loaded === undefined ? (

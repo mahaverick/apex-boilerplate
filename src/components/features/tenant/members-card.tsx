@@ -113,7 +113,7 @@ const PLATFORM_INVITATIONS_REVOKED_ON_LEAVE =
 const NO_LONGER_A_MEMBER = 'You are no longer a member of this tenant.'
 
 /** What a leave of the platform tenant says when the page could not move to Overview afterwards. */
-const LEFT_BUT_STUCK = 'You left, but this page could not move on. Reload it to continue.'
+const LEFT_BUT_STUCK = 'You left, but this page didn’t move on. Reload the page to continue.'
 
 /** What a role change or removal says when its member is already gone, in the customer app's words. */
 const MEMBER_GONE = 'That member is no longer in this tenant.'
@@ -130,8 +130,7 @@ const LAST_OWNER_REASON = 'A tenant must always have an owner. Add another owner
  * lookup are separate requests: each error names its own request, and each Try
  * again retries that request.
  */
-const MEMBERS_ERROR =
-  'We could not load this tenant’s members, so none are listed here. This is not a sign that it has none.'
+const MEMBERS_ERROR = 'We couldn’t load the members, so none are listed. Select Try again.'
 
 /**
  * Says so when a role change or removal found its member already gone
@@ -875,7 +874,7 @@ export function MembersCard({
           <>
             {owners.isError && (
               <LoadError
-                message="Owners could not be loaded."
+                message="We couldn’t load the owners. Select Try again."
                 onRetry={() => void owners.refetch()}
               />
             )}

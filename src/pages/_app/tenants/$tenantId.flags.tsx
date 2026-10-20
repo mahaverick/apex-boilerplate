@@ -94,7 +94,11 @@ function TenantFlagsPanel({ tenant }: { tenant: PlatformTenantDetail }) {
   if (flags.isError || (members.isError && !searchFailed)) {
     return (
       <LoadError
-        message={flags.isError ? FLAGS_LIST_ERROR : 'We could not load this tenant’s members.'}
+        message={
+          flags.isError
+            ? FLAGS_LIST_ERROR
+            : 'We couldn’t load this tenant’s members. Select Try again.'
+        }
         onRetry={() => void (flags.isError ? flags.refetch() : members.refetch())}
       />
     )

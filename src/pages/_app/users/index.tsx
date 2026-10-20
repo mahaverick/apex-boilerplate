@@ -46,7 +46,7 @@ function UsersPage() {
       </h1>
       <UsersTable
         query={query}
-        errorMessage="We could not load the users."
+        errorMessage="We couldn’t load the users. Select Try again."
         empty={
           <EmptyState
             icon={<IconUsers aria-hidden="true" />}

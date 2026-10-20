@@ -21,10 +21,10 @@ Email health over a time window (`/deliverability`). Back to the [route map](REA
 
 One request feeds every widget, through `QueryState`: one skeleton, one `LoadError` or `RoleDenied`, and a failed refetch keeps the figures up under its `LoadError`. `DeliverabilitySkeleton` has seven `KpiCardSkeleton` cards at the loaded cards' 9rem, an `h-80` block (the chart card's height) and two `h-62` blocks (a breakdown card with three rows); a breakdown card moves by about 37 px for each row more or fewer, and the skeleton has no slot for the provider note.
 
-| Loading                                             | Error                                                               |
-| --------------------------------------------------- | ------------------------------------------------------------------- |
-| ![](img/deliverability/deliverability--loading.jpg) | ![](img/deliverability/deliverability--error.jpg)                   |
-| skeleton · 7× 9rem KPI cards, `h-80`, 2× `h-62`     | alert · `LoadError` "We could not load the deliverability figures." |
+| Loading                                             | Error                                                                                |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| ![](img/deliverability/deliverability--loading.jpg) | ![](img/deliverability/deliverability--error.jpg)                                    |
+| skeleton · 7× 9rem KPI cards, `h-80`, 2× `h-62`     | alert · `LoadError` "We couldn’t load the deliverability figures. Select Try again." |
 
 | Dark                                             | Mobile                                                                               |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------ |

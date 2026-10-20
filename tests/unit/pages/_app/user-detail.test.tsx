@@ -128,7 +128,9 @@ describe('/users/$userId', () => {
     server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => fail('Boom', 500)))
     await act(() => queryClient.refetchQueries({ queryKey: userAdminKeys.detail(USER_ID_2) }))
     expect(await screen.findAllByRole('alert')).toHaveLength(1)
-    expect(screen.getByRole('alert')).toHaveTextContent('We could not load this user.')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'We couldn’t load this user. Select Try again.'
+    )
     expect(screen.getByRole('heading', { name: 'Cleo Doe', level: 1 })).toBeInTheDocument()
   })
 

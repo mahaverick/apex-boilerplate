@@ -39,7 +39,7 @@ function EmailsPage() {
       <h1 className="text-2xl font-semibold">Emails</h1>
       <EmailsTable
         query={query}
-        errorMessage="We could not load the emails."
+        errorMessage="We couldn’t load the emails. Select Try again."
         filters={emailFilters(query.items)}
         empty={
           <EmptyState

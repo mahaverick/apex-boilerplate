@@ -114,7 +114,9 @@ function OwnerInvitationForm({
             </>
           )
         else
-          toast.warning('The invitation was created, but its email could not be sent. Try again.')
+          toast.warning(
+            'The invitation was created, but its email wasn’t sent. Resend it from the tenant’s Invitations tab.'
+          )
         onDone()
       } catch (error) {
         onBusyChange(false)

@@ -172,9 +172,8 @@ const COLUMNS = {
   platform: column.columns([when, actor, tenant, action, target]),
 }
 
-/** We could not load the activity; the reader must not read an empty table as "nothing happened". */
-const ACTIVITY_ERROR =
-  'We could not load the activity, so none is listed here. This is not a sign that there is none.'
+/** The activity failed to load; the reader must not read an empty table as "nothing happened". */
+const ACTIVITY_ERROR = 'We couldn’t load the activity, so none is listed. Select Try again.'
 
 /**
  * An audit log through the shared list table: the platform page's, a tenant's

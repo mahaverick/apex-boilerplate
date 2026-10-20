@@ -393,7 +393,9 @@ describe('/emails', () => {
     )
     const user = userEvent.setup()
     renderAppAt('/emails')
-    expect(await screen.findByText('We could not load the emails.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('We couldn’t load the emails. Select Try again.')
+    ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('cleo@example.com')).toBeInTheDocument()
   })

@@ -593,7 +593,7 @@ describe('/staff with the real sections', () => {
       )
       await waitFor(() =>
         expect(error).toHaveBeenCalledWith(
-          'You left, but this page could not move on. Reload it to continue.'
+          'You left, but this page didn’t move on. Reload the page to continue.'
         )
       )
       await waitFor(() => expect(dropped).toBeGreaterThan(0))

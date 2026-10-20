@@ -138,7 +138,7 @@ function CreateTenantForm({ onDone }: { onDone: (tenant: PlatformTenantDetail) =
           )
         } else {
           toast.warning(
-            'Tenant created, but the owner invitation email could not be sent. Resend it from the tenant’s Actions menu.'
+            'Tenant created, but the owner invitation email wasn’t sent. Resend it from the tenant’s Actions menu.'
           )
         }
         onDone(tenant)

@@ -297,7 +297,7 @@ describe('/overview', () => {
     signIn()
     renderAppAt('/overview')
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'We could not load the platform figures.'
+      'We couldn’t load the platform figures. Select Try again.'
     )
     expect(screen.getByRole('heading', { level: 2, name: 'System status' })).toBeVisible()
   })
@@ -406,7 +406,7 @@ describe('the Overview’s system status card', () => {
     renderAppAt('/overview')
     const card = await screen.findByRole('region', { name: 'System status' })
     expect(
-      await within(card).findByText('We could not load the system status.')
+      await within(card).findByText('We couldn’t load the system status. Select Try again.')
     ).toBeInTheDocument()
     expect(await screen.findByRole('region', { name: 'Key figures' })).toBeInTheDocument()
     await user.click(within(card).getByRole('button', { name: 'Try again' }))
@@ -428,13 +428,16 @@ describe('the Overview’s system status card', () => {
       vi.advanceTimersByTime(60_000)
       // The failed refresh retries once after TanStack's default 1000 ms delay, in real time. The test takes about 1.4 s (three local runs), so 4000 ms is the wait budget.
       await vi.waitFor(
-        () => expect(within(card).getByText(/Could not refresh/)).toBeInTheDocument(),
+        () =>
+          expect(
+            within(card).getByText(/We couldn’t refresh, so this is the status from/)
+          ).toBeInTheDocument(),
         { timeout: 4000 }
       )
       expect(calls).toBe(3)
       expect(within(card).getByText(testSystemStatus.release)).toBeInTheDocument()
       expect(
-        within(card).queryByText('We could not load the system status.')
+        within(card).queryByText('We couldn’t load the system status. Select Try again.')
       ).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()

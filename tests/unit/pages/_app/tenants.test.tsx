@@ -274,7 +274,7 @@ describe('/tenants', () => {
     server.use(http.get('/api/v1/platform/tenants', () => fail('Boom', 500)))
     renderAppAt('/tenants')
     await screen.findByRole('button', { name: 'Try again' })
-    expect(screen.getByText('We could not load the tenants.')).toBeInTheDocument()
+    expect(screen.getByText('We couldn’t load the tenants. Select Try again.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'First page' })).not.toBeInTheDocument()
   })
 
@@ -623,7 +623,7 @@ describe('/tenants', () => {
 
       expect(
         await screen.findByText(
-          'Tenant created, but the owner invitation email could not be sent. Resend it from the tenant’s Actions menu.'
+          'Tenant created, but the owner invitation email wasn’t sent. Resend it from the tenant’s Actions menu.'
         )
       ).toBeInTheDocument()
       await waitFor(() => expect(dialog).not.toBeInTheDocument())

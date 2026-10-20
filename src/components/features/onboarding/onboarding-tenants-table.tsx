@@ -115,7 +115,7 @@ export function OnboardingTenantsTable({
       columns={COLUMNS[state]}
       query={query}
       label="Onboarding tenants"
-      errorMessage="We could not load these tenants."
+      errorMessage="We couldn’t load these tenants. Select Try again."
       getRowId={(row) => row.id}
       empty={empty}
       search={{ label: 'Search tenants', placeholder: 'Search by tenant name' }}

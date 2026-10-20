@@ -48,7 +48,7 @@ export function EmailPreviewPanel({
     <QueryState
       query={preview}
       name="Preview"
-      errorMessage="We could not load the preview."
+      errorMessage="We couldn’t load the preview. Select Try again."
       skeleton={<Skeleton className="h-160 w-full" />}
     >
       {({ subject, html, text, partial }) => (

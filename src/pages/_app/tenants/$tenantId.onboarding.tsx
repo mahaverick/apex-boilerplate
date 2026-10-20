@@ -85,7 +85,7 @@ function TenantOnboardingTab() {
     <QueryState
       query={detail}
       name="Onboarding"
-      errorMessage="We could not load this tenant’s onboarding."
+      errorMessage="We couldn’t load this tenant’s onboarding. Select Try again."
       skeleton={<OnboardingSkeleton />}
     >
       {(data) => <TenantOnboarding detail={data} />}
@@ -297,7 +297,7 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
             )
           } else {
             toast.warning(
-              'The reminder was recorded, but its email could not be queued for every owner.'
+              'The reminder was recorded, but its email wasn’t queued for every owner. See who got it on the tenant’s Emails tab.'
             )
           }
         }}

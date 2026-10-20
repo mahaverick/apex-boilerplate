@@ -51,7 +51,7 @@ function TenantsPage() {
       </h1>
       <TenantsTable
         query={query}
-        errorMessage="We could not load the tenants."
+        errorMessage="We couldn’t load the tenants. Select Try again."
         empty={
           <EmptyState
             icon={<IconBuilding aria-hidden="true" />}

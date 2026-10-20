@@ -231,7 +231,9 @@ describe('/users', () => {
   it('names the failure and offers a retry when the first load fails', async () => {
     server.use(http.get('/api/v1/platform/users', () => fail('Boom', 500)))
     renderAppAt('/users')
-    expect(await screen.findByText('We could not load the users.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('We couldn’t load the users. Select Try again.')
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
@@ -366,7 +368,7 @@ describe('/users', () => {
 
       await waitFor(() => expect(warning).toHaveBeenCalled())
       const notSent = await screen.findByRole('dialog', {
-        name: 'The user was created, but the welcome email couldn’t be sent.',
+        name: 'The user was created, but the welcome email wasn’t sent. Select Resend.',
       })
       await user.click(within(notSent).getByRole('button', { name: 'Resend' }))
       await waitFor(() => expect(resent).toBe(true))
@@ -399,7 +401,7 @@ describe('/users', () => {
       await user.type(within(dialog).getByLabelText('Email'), 'x@example.com')
       await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
       const notSent = await screen.findByRole('dialog', {
-        name: 'The user was created, but the welcome email couldn’t be sent.',
+        name: 'The user was created, but the welcome email wasn’t sent. Select Resend.',
       })
       await user.click(within(notSent).getByRole('button', { name: 'Resend' }))
       await waitFor(() =>

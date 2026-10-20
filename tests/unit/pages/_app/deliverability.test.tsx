@@ -226,7 +226,7 @@ describe('/deliverability', () => {
     const user = userEvent.setup()
     renderAppAt('/deliverability')
     expect(
-      await screen.findByText('We could not load the deliverability figures.')
+      await screen.findByText('We couldn’t load the deliverability figures. Select Try again.')
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(
