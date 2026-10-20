@@ -27,6 +27,7 @@ import { useArrivalFocus } from '@/hooks/use-arrival-focus'
 import { useRecordRecent } from '@/hooks/use-record-recent'
 import { statusFrom } from '@/lib/api-error'
 import { formatDate, fullName } from '@/lib/format'
+import { tenantLabel } from '@/lib/staff-team'
 import { analyticsKey } from '@/observability/telemetry'
 import { historyList } from '@/queries/audit.queries'
 import { platformUserQueryOptions } from '@/queries/user-admin.queries'
@@ -61,7 +62,10 @@ function UserDetailPage() {
     return statusFrom(detail.error) === 404 ? (
       <UserNotFound />
     ) : (
-      <LoadError message="We could not load this user." onRetry={() => void detail.refetch()} />
+      <LoadError
+        message="We couldn’t load this user. Select Try again."
+        onRetry={() => void detail.refetch()}
+      />
     )
   }
   if (detail.data === undefined) {
@@ -89,7 +93,10 @@ function UserDetailPage() {
   return (
     <div className="grid gap-4">
       {detail.isError && (
-        <LoadError message="We could not load this user." onRetry={() => void detail.refetch()} />
+        <LoadError
+          message="We couldn’t load this user. Select Try again."
+          onRetry={() => void detail.refetch()}
+        />
       )}
       <UserDetail user={detail.data} />
       <PagePaletteCommands
@@ -241,7 +248,11 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
                   <Item key={invitation.id} size="xs" role="listitem" className="p-0">
                     <ItemContent>
                       <ItemTitle className="line-clamp-none font-normal">
-                        {invitation.tenantName} · {ROLE_LABELS[invitation.role]}
+                        {tenantLabel({
+                          name: invitation.tenantName,
+                          slug: invitation.tenantSlug ?? '',
+                        })}{' '}
+                        · {ROLE_LABELS[invitation.role]}
                       </ItemTitle>
                     </ItemContent>
                     <ItemActions className="text-sm text-muted-foreground">

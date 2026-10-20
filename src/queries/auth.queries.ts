@@ -147,7 +147,8 @@ export function useConfirmStepUpLink() {
 export function useAuthProviders() {
   return useQuery({
     queryKey: authKeys.providers,
-    queryFn: async () => unwrap(await apiClient.get<ApiSuccess<AuthProviders>>('/auth/providers')),
+    queryFn: async ({ signal }) =>
+      unwrap(await apiClient.get<ApiSuccess<AuthProviders>>('/auth/providers', { signal })),
   })
 }
 

@@ -26,9 +26,10 @@ import { canActorGrantRole, ROLE_LABELS, type MembershipRole } from '@/constants
 import { useCountdown } from '@/hooks/use-countdown'
 import { useFocusAfter } from '@/hooks/use-focus-after'
 import { useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
-import { codeFrom, messageFrom, retryAfterSecondsFrom, statusFrom } from '@/lib/api-error'
+import { codeFrom, retryAfterSecondsFrom, statusFrom } from '@/lib/api-error'
 import { formatTimeLeft } from '@/lib/countdown'
 import { formatDate } from '@/lib/format'
+import { staffMessageFrom } from '@/lib/staff-message'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { analyticsKey } from '@/observability/telemetry'
@@ -61,7 +62,7 @@ const RESEND_COOLDOWN = 'invitation_resend_cooldown'
  */
 function actionFailure(error: unknown): string {
   if (isReauthRequired(error)) return stepUpRefusal(error)
-  return codeFrom(error) === INVITATION_NOT_FOUND ? NO_LONGER_PENDING : messageFrom(error)
+  return codeFrom(error) === INVITATION_NOT_FOUND ? NO_LONGER_PENDING : staffMessageFrom(error)
 }
 
 /**

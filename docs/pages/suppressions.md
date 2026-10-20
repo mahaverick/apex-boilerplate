@@ -21,10 +21,10 @@ Addresses no email is sent to after a hard bounce or a spam complaint (`/suppres
 
 The empty first page with nothing picked says "No suppressed addresses."; with a search or a state picked, "Nothing matches these filters." with Reset. Each row (or card, on a phone) is a focus landmark: after Lift the focus lands on it. The dev database has no suppressed address, so the default shot is the empty state.
 
-| Loading                                         | Error                                                        | Empty                                         |
-| ----------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------- |
-| ![](img/suppressions/suppressions--loading.jpg) | ![](img/suppressions/suppressions--error.jpg)                | ![](img/suppressions/suppressions--empty.jpg) |
-| skeleton · table-shaped rows                    | alert · "We could not load the suppressions." with Try again | "Nothing matches these filters." with Reset   |
+| Loading                                         | Error                                                                         | Empty                                         |
+| ----------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
+| ![](img/suppressions/suppressions--loading.jpg) | ![](img/suppressions/suppressions--error.jpg)                                 | ![](img/suppressions/suppressions--empty.jpg) |
+| skeleton · table-shaped rows                    | alert · "We couldn’t load the suppressions. Select Try again." with Try again | "Nothing matches these filters." with Reset   |
 
 | Role-denied                                                                                                                  |
 | ---------------------------------------------------------------------------------------------------------------------------- |

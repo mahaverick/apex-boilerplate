@@ -1,6 +1,7 @@
 import { TenantFilterChip, UserFilterChip } from '@/components/features/emails/email-filter-chips'
 import type { DataTableFilter } from '@/components/shared/data-table/data-table-model'
 import { EMAIL_STATUS_BADGE, EMAIL_TEMPLATES } from '@/constants/email.constants'
+import { tenantLabel } from '@/lib/staff-team'
 import {
   EMAIL_MESSAGE_STATUSES,
   EMAIL_TEMPLATE_KEYS,
@@ -23,6 +24,20 @@ export const EMAIL_FACETS: readonly DataTableFilter[] = [
     options: EMAIL_TEMPLATE_KEYS.map((key) => ({ value: key, label: EMAIL_TEMPLATES[key].label })),
   },
 ]
+
+/**
+ * The label of the tenant a chip filters on, from the first listed row that
+ * carries it ("Staff team" for the platform tenant), or undefined.
+ * @param items - The page's rows.
+ * @param tenantId - The filtered tenant's id.
+ */
+function knownTenantLabel(
+  items: readonly EmailMessageSummary[],
+  tenantId: string
+): string | undefined {
+  const tenant = items.find((row) => row.tenant?.id === tenantId)?.tenant
+  return tenant ? tenantLabel(tenant) : undefined
+}
 
 /**
  * The facets of the Emails page: Status and Template, and the user and tenant
@@ -55,7 +70,7 @@ export function emailFilters(items: readonly EmailMessageSummary[]): readonly Da
       renderChip: (value, onRemove) => (
         <TenantFilterChip
           tenantId={value}
-          knownName={items.find((row) => row.tenant?.id === value)?.tenant?.name}
+          knownName={knownTenantLabel(items, value)}
           onRemove={onRemove}
         />
       ),

@@ -180,7 +180,7 @@ function clearableText(max: number, label: string, safe?: SafeTextMode) {
 const nameSchema = z
   .string()
   .trim()
-  .min(1, 'Name is required.')
+  .min(1, 'Enter a name.')
   .max(MAX_TENANT_NAME_LENGTH, `Name must be at most ${MAX_TENANT_NAME_LENGTH} characters.`)
   .refine(safeText(), notAllowedMessage('Name'))
 

@@ -7,7 +7,7 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import type { MembershipRole } from '@/constants/roles'
 import { PLATFORM_TENANT_SLUG } from '@/constants/routes'
 import { apiClient, unwrap } from '@/http/client'
-import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
+import { codeFrom, statusFrom } from '@/lib/api-error'
 import { auditKeys } from '@/queries/audit.queries'
 import { invalidateEmails } from '@/queries/email.queries'
 import { invalidateDirectory } from '@/queries/platform.queries'
@@ -18,7 +18,6 @@ import { useAuthStore } from '@/states/auth.store'
 import {
   INVITATION_CONFLICT,
   MEMBER_NOT_FOUND,
-  MEMBER_NOT_FOUND_MESSAGE,
   REASON_REQUIRED,
   type ApiSuccess,
 } from '@/types/api.types'
@@ -45,16 +44,13 @@ function reasonBody(reason: string | undefined): { data: { reason: string } } | 
 
 /**
  * Whether a role change or removal found its target no longer a member: the
- * `member_not_found` code when the API sends a code (express 2.1.0 or later),
- * otherwise a 404 with the bare `Member not found` message. A 404 with any
- * other code is not this, whatever its message.
+ * `member_not_found` code. A 404 with any other code, or none, is not this,
+ * whatever its message.
  * @param error - The write's failure.
  * @returns True when the member is gone.
  */
 export function isMemberNotFound(error: unknown): boolean {
-  const code = codeFrom(error)
-  if (code !== undefined) return code === MEMBER_NOT_FOUND
-  return statusFrom(error) === 404 && messageFrom(error) === MEMBER_NOT_FOUND_MESSAGE
+  return codeFrom(error) === MEMBER_NOT_FOUND
 }
 
 /**

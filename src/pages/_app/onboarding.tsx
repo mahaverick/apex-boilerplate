@@ -136,7 +136,7 @@ function OnboardingPage() {
       <QueryState
         query={funnel}
         name="Onboarding"
-        errorMessage="We could not load the onboarding figures."
+        errorMessage="We couldn’t load the onboarding figures. Select Try again."
         skeleton={<FunnelSkeleton />}
         isEmpty={(data) => data.trackedTenants === 0}
         empty={

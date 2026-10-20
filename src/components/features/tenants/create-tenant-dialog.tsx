@@ -28,7 +28,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { useLeavingFinalFocus } from '@/hooks/use-arrival-focus'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
-import { codeFrom, messageFrom } from '@/lib/api-error'
+import { codeFrom } from '@/lib/api-error'
+import { staffMessageFrom } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
 import { useCreatePlatformTenant } from '@/queries/tenant-admin.queries'
 import { createPlatformTenantSchema } from '@/schemas/tenant.schemas'
@@ -138,14 +139,14 @@ function CreateTenantForm({ onDone }: { onDone: (tenant: PlatformTenantDetail) =
           )
         } else {
           toast.warning(
-            'Tenant created, but the owner invitation email could not be sent. Resend it from the tenant’s Actions menu.'
+            'Tenant created, but the owner invitation email wasn’t sent. Resend it from the tenant’s Actions menu.'
           )
         }
         onDone(tenant)
       } catch (error) {
         const field = FIELD_FOR_CODE[codeFrom(error) ?? '']
         if (field) {
-          serverErrors.setFieldError(field, [messageFrom(error)])
+          serverErrors.setFieldError(field, [staffMessageFrom(error)])
           return
         }
         serverErrors.capture(error)

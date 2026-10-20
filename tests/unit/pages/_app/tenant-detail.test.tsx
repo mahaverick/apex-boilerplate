@@ -190,7 +190,9 @@ describe('/tenants/$tenantId', () => {
     server.use(http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => fail('Boom', 500)))
     await act(() => queryClient.refetchQueries({ queryKey: tenantAdminKeys.detail(TENANT_ID) }))
     expect(await screen.findAllByRole('alert')).toHaveLength(1)
-    expect(screen.getByRole('alert')).toHaveTextContent('We could not load this tenant.')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'We couldn’t load this tenant. Select Try again.'
+    )
     expect(screen.getByRole('heading', { name: 'Acme Corp', level: 1 })).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Tenant sections' })).toBeVisible()
   })
@@ -923,7 +925,11 @@ describe('/tenants/$tenantId', () => {
       await user.type(within(dialog).getByLabelText('Owner email'), 'new@acme.test')
       await user.type(within(dialog).getByLabelText('Reason'), 'new owner')
       await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
-      expect(await screen.findByText(/its email could not be sent/)).toBeInTheDocument()
+      expect(
+        await screen.findByText(
+          /its email wasn’t sent\. Resend it from the tenant’s Invitations tab\./
+        )
+      ).toBeInTheDocument()
       await waitFor(() => expect(dialog).not.toBeInTheDocument())
     })
   })
@@ -979,7 +985,7 @@ describe('/tenants/$tenantId', () => {
       const user = userEvent.setup()
       renderAppAt(`/tenants/${TENANT_ID}`)
       const alert = await screen.findByRole('alert')
-      expect(alert).toHaveTextContent('We could not load this tenant.')
+      expect(alert).toHaveTextContent('We couldn’t load this tenant. Select Try again.')
       await user.click(within(alert).getByRole('button', { name: 'Try again' }))
       expect(
         await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })

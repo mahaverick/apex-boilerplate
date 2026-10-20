@@ -2,7 +2,6 @@ import { IconAlertCircle } from '@tabler/icons-react'
 import { useForm } from '@tanstack/react-form'
 import { useMemo, useState } from 'react'
 import { MaintenancePreview } from '@/components/features/maintenance/maintenance-preview'
-import { ROLE_DENIED_ACTION } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import { Alert, AlertTitle } from '@/components/ui/alert'
@@ -37,8 +36,9 @@ import {
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
-import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
+import { codeFrom, statusFrom } from '@/lib/api-error'
 import { conflictSentence, isSwitchOn } from '@/lib/maintenance-mode'
+import { ROLE_DENIED_ACTION, staffMessageFrom } from '@/lib/staff-message'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import {
@@ -233,7 +233,7 @@ function ChangeModeForm({
           return
         }
         if (codeFrom(error) === CONFIRMATION_MISMATCH) {
-          serverErrors.setFieldError('confirmation', [messageFrom(error)])
+          serverErrors.setFieldError('confirmation', [staffMessageFrom(error)])
           return
         }
         if (statusFrom(error) === 404) {

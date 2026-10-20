@@ -1,6 +1,5 @@
 import { useForm } from '@tanstack/react-form'
 import { useState, type ComponentProps } from 'react'
-import { ROLE_DENIED_ACTION } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import {
@@ -25,7 +24,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
-import { codeFrom, messageFrom, statusFrom } from '@/lib/api-error'
+import { codeFrom, statusFrom } from '@/lib/api-error'
+import { ROLE_DENIED_ACTION, staffMessageFrom } from '@/lib/staff-message'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { useReissueOwnerInvitation } from '@/queries/tenant-admin.queries'
@@ -114,7 +114,9 @@ function OwnerInvitationForm({
             </>
           )
         else
-          toast.warning('The invitation was created, but its email could not be sent. Try again.')
+          toast.warning(
+            'The invitation was created, but its email wasn’t sent. Resend it from the tenant’s Invitations tab.'
+          )
         onDone()
       } catch (error) {
         onBusyChange(false)
@@ -123,7 +125,7 @@ function OwnerInvitationForm({
           return
         }
         if (codeFrom(error) === INVITEE_DEACTIVATED) {
-          serverErrors.setFieldError('email', [messageFrom(error)])
+          serverErrors.setFieldError('email', [staffMessageFrom(error)])
           return
         }
         const status = statusFrom(error)
@@ -132,7 +134,7 @@ function OwnerInvitationForm({
           return
         }
         if (status === 403 || status === 409) {
-          serverErrors.setFormErrors([messageFrom(error)])
+          serverErrors.setFormErrors([staffMessageFrom(error)])
           return
         }
         serverErrors.capture(error)

@@ -612,7 +612,7 @@ describe('/tenants/$tenantId/onboarding', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Send reminder' }))
       await waitFor(() =>
         expect(warning).toHaveBeenCalledWith(
-          'The reminder was recorded, but its email could not be queued for every owner.'
+          'The reminder was recorded, but its email wasn’t queued for every owner. See who got it on the tenant’s Emails tab.'
         )
       )
     })

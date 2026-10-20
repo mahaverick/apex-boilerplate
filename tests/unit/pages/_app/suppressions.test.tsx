@@ -408,7 +408,9 @@ describe('/suppressions', () => {
     )
     const user = userEvent.setup()
     renderAppAt('/suppressions')
-    expect(await screen.findByText('We could not load the suppressions.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('We couldn’t load the suppressions. Select Try again.')
+    ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByRole('table', { name: 'Suppressions' })).toBeInTheDocument()
   })

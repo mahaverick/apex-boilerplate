@@ -49,11 +49,11 @@ function signInAs(platformRole: 'owner' | 'admin' | 'viewer') {
 
 /** What the change dialog says when the state could not be read again after a 409. */
 const UNREAD =
-  'Someone changed maintenance mode, and the current state could not be loaded. Try again; what you typed is kept.'
+  'Someone else changed maintenance mode, and we couldn’t load the new state. Submit again to reload it; what you typed is kept.'
 
 /** What the switch-off dialog says in the same case. */
 const UNREAD_TURN_OFF =
-  'Someone changed maintenance mode, and the current state could not be loaded. Try again.'
+  'Someone else changed maintenance mode, and we couldn’t load the new state. Select Turn off again.'
 
 /**
  * Adds to the pre-filled customer message, so a save changes something.

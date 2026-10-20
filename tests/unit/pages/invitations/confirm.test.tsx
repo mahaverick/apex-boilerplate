@@ -26,7 +26,7 @@ const TOKEN = 'c'.repeat(43)
 const LINK_EMAIL = 'ADA@example.com'
 const SERVER_EMAIL = 'ada@example.com'
 const CONFIRM_PATH = `/invitations/confirm?token=${TOKEN}&email=${encodeURIComponent(LINK_EMAIL)}`
-const JOINED = `You joined Platform as ${SERVER_EMAIL}.`
+const JOINED = `You’re now on the staff team. Signed in as ${SERVER_EMAIL}.`
 const DEAD_TITLE = CONFIRM_DEAD_TITLE
 const DEAD_BODY =
   'Open your invitation email and select Join again to get a new link, or ask the person who invited you for a new invite.'
@@ -332,7 +332,7 @@ describe('confirm page, signed out', () => {
 
     await user.click(screen.getByRole('button', { name: 'Email me a sign-in link' }))
     expect(await screen.findByRole('heading', { level: 1, name: CHECK_INBOX_TITLE })).toBeVisible()
-    // An apex link, so a staff invitee's request mails the invitation again.
+    // An apex link, so a staff invitee's request mails the confirmation link, which joins in one click.
     expect(requests).toEqual([{ email: SERVER_EMAIL, app: 'apex' }])
   })
 

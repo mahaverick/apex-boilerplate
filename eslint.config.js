@@ -291,6 +291,41 @@ export default tseslint.config(
     },
   },
   {
+    /**
+     * A refusal's text goes through `staffMessageFrom`, which words express's
+     * `not_found` role-gate 404 as staff copy. The files shared with react keep
+     * the shared `messageFrom`; this restates the ban above, since a later
+     * block replaces the rule's options.
+     */
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: [
+      'src/lib/utils.ts',
+      'src/components/ui/!(form|command).tsx',
+      'src/lib/api-error.ts',
+      'src/lib/retry.ts',
+      'src/lib/staff-message.ts',
+      'src/components/features/auth/sign-in-link-form.tsx',
+      'src/components/features/profile/security-section.tsx',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'cn', message: "Import `cn` from '@/lib/utils'." },
+            { name: 'cmdk', message: CMDK_MESSAGE },
+            {
+              name: '@/lib/api-error',
+              importNames: ['messageFrom'],
+              message: "Use staffMessageFrom from '@/lib/staff-message'.",
+            },
+          ],
+          patterns: [{ group: ['@radix-ui/*'], message: RADIX_MESSAGE }],
+        },
+      ],
+    },
+  },
+  {
     /** Vendored shadcn files import `cn` from the package, so they are exempt from the `cn` ban only. */
     files: ['src/components/ui/!(form|command).tsx'],
     rules: {

@@ -26,11 +26,11 @@ export const NOTHING_CHANGED = 'Nothing changed.'
  * was typed.
  */
 export const MAINTENANCE_CONFLICT_UNREAD =
-  'Someone changed maintenance mode, and the current state could not be loaded. Try again; what you typed is kept.'
+  'Someone else changed maintenance mode, and we couldn’t load the new state. Submit again to reload it; what you typed is kept.'
 
 /** The same, in the switch-off dialog, which has nothing typed to keep. */
 export const MAINTENANCE_CONFLICT_UNREAD_TURN_OFF =
-  'Someone changed maintenance mode, and the current state could not be loaded. Try again.'
+  'Someone else changed maintenance mode, and we couldn’t load the new state. Select Turn off again.'
 
 /** A same-mode save whose message and reason are what is saved. */
 export const MAINTENANCE_UNCHANGED_SAVE = 'Change the message or reason before saving.'

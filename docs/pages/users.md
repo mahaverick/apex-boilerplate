@@ -29,10 +29,10 @@ Findings: [F-users-5](findings.md#f-users-5)
 
 Every search, filter or sort change drops the cursor. The API orders the rows; nothing sorts client-side. The stale-cursor and failed-page states are the same as the tenant list's, and on a phone the rows stack as cards.
 
-| Loading                           | Error                                                 | Empty                                                                                 |
-| --------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| ![](img/users/users--loading.jpg) | ![](img/users/users--error.jpg)                       | ![](img/users/users--empty.jpg)                                                       |
-| skeleton · table-shaped rows      | alert · "We could not load the users." with Try again | "No users yet." unfiltered; "Nothing matches these filters." with Reset when filtered |
+| Loading                           | Error                                                                  | Empty                                                                                 |
+| --------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| ![](img/users/users--loading.jpg) | ![](img/users/users--error.jpg)                                        | ![](img/users/users--empty.jpg)                                                       |
+| skeleton · table-shaped rows      | alert · "We couldn’t load the users. Select Try again." with Try again | "No users yet." unfiltered; "Nothing matches these filters." with Reset when filtered |
 
 | Dark                           | Mobile                                                                       |
 | ------------------------------ | ---------------------------------------------------------------------------- |
@@ -63,10 +63,10 @@ Findings: [F-users-1](findings.md#f-users-1), [F-users-2](findings.md#f-users-2)
 
 While the user loads, the page is a visually hidden `h1` "User", a header of three bars in a `grid gap-1` (`h-8 w-64`, then `h-5 w-48` and `h-5 w-80` for the email and the badges line) and five cards, each a title bar over two rows; the card count is the five an admin sees (a viewer sees fewer once loaded), and the sizes are not measured against the loaded cards. A 404 keeps `UserNotFound` and a failed read with no user keeps its own `LoadError`; a failed refetch with the user on screen keeps the page with that `LoadError` above it. The Actions menu (`UserActionsMenu`) holds, as `availableUserActions` allows: Edit name, Send sign-in link (admins and up, for an active account that is not staff or whose staff role is at or below the actor's, the actor's own included), Sign out everywhere, Deactivate or Reactivate, Delete, and Delete permanently. **Send sign-in link** opens a confirm dialog, "Send a sign-in link?", "We email {address} a link that signs them in to {Apex or the customer app}. It works once and expires in 15 minutes.", with Send link (`POST /platform/users/:id/sign-in-link`, no reason and no step-up). A sent link toasts "Sign-in link sent to {address}."; an email that did not go keeps the dialog open with "The email couldn’t be sent. Select Send link to try again." The status badges read Active or Inactive (or Deleted), and "Never signed in" while the account has no last sign-in, the same rule the list's Signed in facet uses. The Emails card has its own states (an `h-24` skeleton, `LoadError`, `RoleDenied`), as does the History card (`DataTable`’s table-shaped skeleton).
 
-| Loading                                                                                                                                 | Error                                              |
-| --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| ![](img/users/user-overview--loading.jpg)                                                                                               | ![](img/users/user-overview--error.jpg)            |
-| skeleton · three header bars over five cards (a title bar over two rows each), four of them in the viewport; the wrapper is `aria-busy` | alert · `LoadError` "We could not load this user." |
+| Loading                                                                                                                                 | Error                                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| ![](img/users/user-overview--loading.jpg)                                                                                               | ![](img/users/user-overview--error.jpg)                             |
+| skeleton · three header bars over five cards (a title bar over two rows each), four of them in the viewport; the wrapper is `aria-busy` | alert · `LoadError` "We couldn’t load this user. Select Try again." |
 
 | Dark                                   | Mobile                                                      |
 | -------------------------------------- | ----------------------------------------------------------- |

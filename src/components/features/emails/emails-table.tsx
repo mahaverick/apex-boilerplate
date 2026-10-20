@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { createColumnHelper } from '@tanstack/react-table'
 import type { ReactNode } from 'react'
 import { EmailStatusBadge } from '@/components/features/emails/email-status-badge'
-import { EmailTenantLink } from '@/components/features/emails/email-tenant-link'
+import { TenantLink } from '@/components/features/tenants/tenant-link'
 import { DataTable } from '@/components/shared/data-table/data-table'
 import type {
   DataTableFeatures,
@@ -70,7 +70,7 @@ const columns = column.columns([
       return tenant === null ? (
         none
       ) : (
-        <EmailTenantLink tenant={tenant} className="underline-offset-4 hover:underline" />
+        <TenantLink tenant={tenant} className="underline-offset-4 hover:underline" />
       )
     },
   }),

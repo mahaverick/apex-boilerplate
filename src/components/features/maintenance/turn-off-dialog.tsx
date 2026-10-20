@@ -1,6 +1,5 @@
 import { IconAlertCircle } from '@tabler/icons-react'
 import { useState } from 'react'
-import { ROLE_DENIED_ACTION } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import { Alert, AlertTitle } from '@/components/ui/alert'
@@ -15,8 +14,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { MAINTENANCE_CONFLICT_UNREAD_TURN_OFF } from '@/constants/maintenance-mode.constants'
 import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
-import { messageFrom, statusFrom } from '@/lib/api-error'
+import { statusFrom } from '@/lib/api-error'
 import { conflictSentence } from '@/lib/maintenance-mode'
+import { ROLE_DENIED_ACTION, staffMessageFrom } from '@/lib/staff-message'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import {
@@ -72,7 +72,7 @@ export function TurnOffDialog({
           setOpenedOn(error.fresh.version)
         }
       } else if (statusFrom(error) === 404) setRefusal(ROLE_DENIED_ACTION)
-      else setRefusal(messageFrom(error))
+      else setRefusal(staffMessageFrom(error))
     }
   }
 

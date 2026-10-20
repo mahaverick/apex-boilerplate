@@ -88,7 +88,7 @@ function OverviewPage() {
       <QueryState
         query={stats}
         name="Platform figures"
-        errorMessage="We could not load the platform figures."
+        errorMessage="We couldn’t load the platform figures. Select Try again."
         skeleton={<OverviewSkeleton />}
         className="gap-6"
       >

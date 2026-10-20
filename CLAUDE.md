@@ -28,6 +28,10 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   non-staff and to staff below a route's role. `isRoleDenied` recognises it and
   the page renders `RoleDenied`. Never turn that 404 into a sign-out or a retry
   loop: it is not an auth verdict.
+- **A refusal's text goes through `staffMessageFrom`** (`src/lib/staff-message.ts`),
+  never the shared `messageFrom` directly. It words express's route code
+  `not_found`, which every role-gate 404 carries, as staff copy instead of the
+  API's developer sentence.
 - **A write that may need a recent sign-in runs through `useStepUp().run`.** The
   API refuses a stale sign-in with `REAUTH_REQUIRED`, which is not a verdict.
   The "Confirm it's you" dialog confirms by an emailed link only, opened in

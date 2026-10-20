@@ -17,7 +17,8 @@ import {
   InvitationCard,
   InvitationInbox,
 } from '@/components/features/invitations/invitation-parts'
-import { landJoined, type JoinedTenant } from '@/components/features/invitations/land-joined'
+import { type JoinedTenant } from '@/components/features/invitations/land-joined'
+import { landTeamJoined } from '@/components/features/invitations/land-team-joined'
 import { LoadError } from '@/components/features/load-error'
 import { AuthPagePending } from '@/components/shared/pending-templates'
 import { Pii } from '@/components/shared/pii'
@@ -30,6 +31,7 @@ import { useSignedInElsewhere } from '@/hooks/use-signed-in-elsewhere'
 import { retryAfterSecondsFrom, statusFrom } from '@/lib/api-error'
 import { fullName } from '@/lib/format'
 import { retryableFailureMessage } from '@/lib/retry'
+import { teamName } from '@/lib/staff-team'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import { ANALYTICS_URL_QUERY_ALLOWLIST } from '@/observability/telemetry/config'
@@ -93,12 +95,12 @@ function acceptHref(token: string, searchStr = ''): string {
   return `${ROUTES.invitationAccept}?token=${encodeURIComponent(token)}${campaign ? `&${campaign}` : ''}`
 }
 
-/** "{inviter} invited you to join {tenant} as {role}.", the inviter's name masked for analytics. */
+/** "{inviter} invited you to join {team} as {role}.", the inviter's name masked for analytics. */
 function invitationSentence(invitation: InvitationPreview): ReactNode {
   return (
     <>
-      <Pii>{inviterName(invitation.invitedBy)}</Pii> invited you to join {invitation.tenant.name} as{' '}
-      {ROLE_LABELS[invitation.role]}.
+      <Pii>{inviterName(invitation.invitedBy)}</Pii> invited you to join{' '}
+      {teamName(invitation.tenant)} as {ROLE_LABELS[invitation.role]}.
     </>
   )
 }
@@ -171,7 +173,7 @@ function SwitchInvitation({
   const logout = useLogout({ returnTo: acceptHref(token, searchStr) })
   return (
     <InvitationCard
-      title={`Join ${invitation.tenant.name}`}
+      title={`Join ${teamName(invitation.tenant)}`}
       description={invitationSentence(invitation)}
     >
       <SwitchAccountPanel
@@ -201,7 +203,7 @@ function JoiningFrame({ invitation }: { invitation: InvitationPreview | null }) 
       </InvitationCard>
     )
   }
-  const name = invitation.tenant.name
+  const name = teamName(invitation.tenant)
   return (
     <InvitationCard title={`Joining ${name}`} description={invitationSentence(invitation)}>
       <SigningInStatus
@@ -268,7 +270,7 @@ function InvitationForToken({ token }: { token: string }) {
   /** Toasts the join and opens Overview in place of this page. */
   const land = (tenant: JoinedTenant, account: string, alreadyMember: boolean) => {
     setFailure(null)
-    landJoined(tenant, account, alreadyMember, () => {
+    landTeamJoined(tenant, account, alreadyMember, () => {
       void navigate({ to: ROUTES.overview, replace: true })
     })
   }
@@ -369,7 +371,7 @@ function InvitationForToken({ token }: { token: string }) {
     if (failure?.kind === 'dead') return <DeadInvitation inviter={joining.invitation?.invitedBy} />
     if (failure) {
       const title = joining.invitation
-        ? `We couldn’t add you to ${joining.invitation.tenant.name}`
+        ? `We couldn’t add you to ${teamName(joining.invitation.tenant)}`
         : 'We couldn’t open this invitation'
       return (
         <InvitationCard title={title}>
@@ -385,7 +387,7 @@ function InvitationForToken({ token }: { token: string }) {
       return (
         <InvitationInbox
           email={inbox.email}
-          tenantName={waitingOn.tenant.name}
+          tenantName={teamName(waitingOn.tenant)}
           resendAt={inbox.resendAt}
           resending={verify.isPending}
           onResend={resend}

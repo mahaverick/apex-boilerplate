@@ -88,7 +88,7 @@ function DeliverabilityPage() {
       <QueryState
         query={health}
         name="Deliverability"
-        errorMessage="We could not load the deliverability figures."
+        errorMessage="We couldn’t load the deliverability figures. Select Try again."
         skeleton={<DeliverabilitySkeleton />}
         className="gap-6"
       >

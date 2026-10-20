@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { flushSync } from 'react-dom'
-import { fieldErrorsFrom, formErrorsFrom, messageFrom } from '@/lib/api-error'
+import { fieldErrorsFrom, formErrorsFrom } from '@/lib/api-error'
+import { staffMessageFrom } from '@/lib/staff-message'
 
 /**
  * The backend's validator detail, held for as long as it is still true: inline
@@ -49,7 +50,7 @@ export function useServerErrors(): ServerErrors {
     const hasDetail = Object.keys(fields).length > 0 || formLevel.length > 0
     flushSync(() => {
       setFieldErrors(fields)
-      setFormErrorsState(hasDetail ? formLevel : [messageFrom(error)])
+      setFormErrorsState(hasDetail ? formLevel : [staffMessageFrom(error)])
     })
   }, [])
 

@@ -9,6 +9,7 @@ import { Link } from '@tanstack/react-router'
 import { createColumnHelper } from '@tanstack/react-table'
 import { createContext, useContext, type ReactNode } from 'react'
 import { auditTargetLabel } from '@/components/features/activity/activity-filters'
+import { TenantLink } from '@/components/features/tenants/tenant-link'
 import { DataTable } from '@/components/shared/data-table/data-table'
 import type {
   DataTableColumns,
@@ -147,13 +148,7 @@ const tenant = column.display({
   cell: ({ row }) => {
     const entryTenant = tenantOf(row.original)
     return entryTenant ? (
-      <Link
-        to={ROUTES.tenant}
-        params={{ tenantId: entryTenant.id }}
-        className="font-medium underline-offset-4 hover:underline"
-      >
-        {entryTenant.name}
-      </Link>
+      <TenantLink tenant={entryTenant} className="font-medium underline-offset-4 hover:underline" />
     ) : (
       <span className="text-muted-foreground">—</span>
     )
@@ -177,9 +172,8 @@ const COLUMNS = {
   platform: column.columns([when, actor, tenant, action, target]),
 }
 
-/** We could not load the activity; the reader must not read an empty table as "nothing happened". */
-const ACTIVITY_ERROR =
-  'We could not load the activity, so none is listed here. This is not a sign that there is none.'
+/** The activity failed to load; the reader must not read an empty table as "nothing happened". */
+const ACTIVITY_ERROR = 'We couldn’t load the activity, so none is listed. Select Try again.'
 
 /**
  * An audit log through the shared list table: the platform page's, a tenant's

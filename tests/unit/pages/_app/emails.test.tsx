@@ -83,7 +83,7 @@ describe('/emails', () => {
     expect(within(second!).getAllByText('—')).toHaveLength(2)
   })
 
-  it('links the platform tenant to Staff', async () => {
+  it('labels the platform tenant Staff team and links it to Staff', async () => {
     server.use(
       http.get('/api/v1/platform/emails', () =>
         ok(
@@ -95,7 +95,7 @@ describe('/emails', () => {
       )
     )
     renderAppAt('/emails')
-    expect(await screen.findByRole('link', { name: 'Platform' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'Staff team' })).toHaveAttribute(
       'href',
       '/settings/platform/staff'
     )
@@ -300,6 +300,23 @@ describe('/emails', () => {
     await waitFor(() => expect(seen.at(-1)?.get('tenant')).toBeNull())
   })
 
+  it('names a ?tenant chip for the platform tenant Staff team, from the listed rows', async () => {
+    server.use(
+      http.get('/api/v1/platform/emails', () =>
+        ok(
+          listPage([
+            emailSummary({ tenant: { id: TENANT_ID, name: 'Platform', slug: 'platform' } }),
+          ]),
+          'Emails retrieved.'
+        )
+      )
+    )
+    renderAppAt(`/emails?tenant=${TENANT_ID}`)
+    expect(
+      await screen.findByRole('button', { name: 'Remove filter: Tenant: Staff team' })
+    ).toBeVisible()
+  })
+
   it('masks the user chip’s name for session replay, and not the tenant’s', async () => {
     pages([])
     renderAppAt(`/emails?user=${USER_ID_2}&tenant=${TENANT_ID}`)
@@ -376,7 +393,9 @@ describe('/emails', () => {
     )
     const user = userEvent.setup()
     renderAppAt('/emails')
-    expect(await screen.findByText('We could not load the emails.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('We couldn’t load the emails. Select Try again.')
+    ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('cleo@example.com')).toBeInTheDocument()
   })

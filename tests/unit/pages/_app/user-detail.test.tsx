@@ -98,6 +98,28 @@ describe('/users/$userId', () => {
     )
   })
 
+  it('labels a pending staff invitation Staff team, never the platform tenant’s name', async () => {
+    answer({
+      ...DETAIL,
+      pendingInvitations: [
+        {
+          id: INVITATION_ID,
+          tenantId: PLATFORM_TENANT_ID,
+          tenantName: 'Platform',
+          tenantSlug: 'platform',
+          role: 'admin',
+          expiresAt: '2026-10-01T00:00:00.000Z',
+          lastSentAt: null,
+          resendAvailableAt: null,
+        },
+      ],
+    })
+    renderAppAt(`/users/${USER_ID_2}`)
+    const pending = await screen.findByRole('region', { name: 'Pending invitations' })
+    expect(pending).toHaveTextContent('Staff team · Admin')
+    expect(pending).not.toHaveTextContent('Platform')
+  })
+
   it('holds the user page’s header and five cards while the user loads', async () => {
     server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => new Promise<never>(() => {})))
     renderAppAt(`/users/${USER_ID_2}`)
@@ -128,7 +150,9 @@ describe('/users/$userId', () => {
     server.use(http.get(`/api/v1/platform/users/${USER_ID_2}`, () => fail('Boom', 500)))
     await act(() => queryClient.refetchQueries({ queryKey: userAdminKeys.detail(USER_ID_2) }))
     expect(await screen.findAllByRole('alert')).toHaveLength(1)
-    expect(screen.getByRole('alert')).toHaveTextContent('We could not load this user.')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'We couldn’t load this user. Select Try again.'
+    )
     expect(screen.getByRole('heading', { name: 'Cleo Doe', level: 1 })).toBeInTheDocument()
   })
 
@@ -572,6 +596,26 @@ describe('/users/$userId', () => {
     expect(within(dialog).getByText('cleo@example.com')).toHaveClass('ph-sensitive')
   })
 
+  it('words a role-gate 404 on the send as staff copy, not the route sentence', async () => {
+    answer()
+    server.use(
+      http.post(`/api/v1/platform/users/${USER_ID_2}/sign-in-link`, () =>
+        fail('No route matches this method and path. Check both, then try again.', 404, 'not_found')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/users/${USER_ID_2}`)
+    const menu = await openActions(user)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Send sign-in link' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Send link' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Your role no longer allows this action. Ask a platform owner to check your role.'
+    )
+    expect(within(dialog).queryByText(/No route matches/)).not.toBeInTheDocument()
+  })
+
   it('keeps the dialog open with the 409 message for a deactivated user', async () => {
     // The page still shows the account active, but someone deactivated it meanwhile.
     answer()
@@ -833,7 +877,10 @@ describe('/users/$userId', () => {
     expect(params?.get('target')).toBe(USER_ID_2)
     expect(params?.get('tenant')).toBeNull()
     expect(within(card).queryByRole('link', { name: 'View user' })).not.toBeInTheDocument()
-    expect(within(card).getByRole('link', { name: 'Platform' })).toBeVisible()
+    expect(within(card).getByRole('link', { name: 'Staff team' })).toHaveAttribute(
+      'href',
+      '/settings/platform/staff'
+    )
   })
 
   it('pages the history with Next page, keeping the card’s cursor in the URL', async () => {

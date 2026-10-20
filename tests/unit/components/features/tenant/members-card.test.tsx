@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MembershipRole } from '@/constants/roles'
 import { formatDate } from '@/lib/format'
+import { ROLE_DENIED_ACTION } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
 import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
@@ -435,7 +436,7 @@ describe('members tab permissions', () => {
     })
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/could not load your role/i)
+    expect(alert).toHaveTextContent(/couldn’t load your role/i)
     expect(document.querySelector('[data-slot="skeleton"]')).toBeNull()
 
     const before = detailCalls
@@ -476,8 +477,8 @@ describe('members tab permissions', () => {
     renderAppAt(`/tenants/${TENANT_ID}/members`)
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/could not load this tenant’s members/i)
-    expect(screen.queryByText(/could not load your role/i)).not.toBeInTheDocument()
+    expect(alert).toHaveTextContent(/couldn’t load the members, so none are listed/i)
+    expect(screen.queryByText(/couldn’t load your role/i)).not.toBeInTheDocument()
 
     await waitFor(() => {
       expect(memberCalls).toBe(2)
@@ -506,7 +507,7 @@ describe('members tab permissions', () => {
     renderAppAt(`/tenants/${TENANT_ID}/members`)
     const members = await screen.findByRole('region', { name: 'Members' })
     expect(await within(members).findByRole('alert')).toHaveTextContent(
-      /could not load this tenant’s members/i
+      /couldn’t load the members, so none are listed/i
     )
 
     detailFails = true
@@ -519,7 +520,7 @@ describe('members tab permissions', () => {
 
     // Without a role the list's controls cannot be decided, so the role failure stands alone and its retry is the one that can fix the page.
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/could not load your role in this tenant/i)
+    expect(alert).toHaveTextContent(/couldn’t load your role in this tenant/i)
     expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Members' })).not.toBeInTheDocument()
   })
@@ -907,7 +908,9 @@ describe('removing and leaving', () => {
   it('says the member is gone, and stays, when removing someone else answers Member not found', async () => {
     mockTenant('owner', [member(ME, 'owner', 'Me'), member(USER_ID_3, 'viewer', 'Vic')])
     server.use(
-      http.delete('/api/v1/tenants/acme/members/:userId', () => fail('Member not found', 404))
+      http.delete('/api/v1/tenants/acme/members/:userId', () =>
+        fail('Member not found', 404, 'member_not_found')
+      )
     )
     const user = userEvent.setup()
     const router = renderAppAt(`/tenants/${TENANT_ID}/members`)
@@ -2037,7 +2040,9 @@ describe('staff acting through platform access', () => {
 
   it('says a staff removal found the member already gone, in the member path’s words', async () => {
     server.use(
-      http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => fail('Member not found', 404))
+      http.delete(`/api/v1/tenants/acme/members/${USER_ID_3}`, () =>
+        fail('Member not found', 404, 'member_not_found')
+      )
     )
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/members`)
@@ -2054,7 +2059,9 @@ describe('staff acting through platform access', () => {
 
   it('says a staff role change found the member already gone, in the member path’s words', async () => {
     server.use(
-      http.patch(`/api/v1/tenants/acme/members/${USER_ID_3}`, () => fail('Member not found', 404))
+      http.patch(`/api/v1/tenants/acme/members/${USER_ID_3}`, () =>
+        fail('Member not found', 404, 'member_not_found')
+      )
     )
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/members`)
@@ -2296,20 +2303,21 @@ describe('staff acting through platform access', () => {
 })
 
 describe('a write that finds the member already gone', () => {
-  /**
-   * How express says the target is not a member: the `member_not_found` code from 2.1.0 (worded
-   * differently here, so the code alone decides), and the bare `Member not found` message before it.
-   */
+  /** How express says the target is not a member: the `member_not_found` code, which alone decides. */
   const GONE_REPLIES = {
-    code: () => fail('That user is not in this tenant.', 404, 'member_not_found'),
-    message: () => fail('Member not found', 404),
+    code: () =>
+      fail(
+        "This person is no longer a member. Refresh the member list to see who's on the team.",
+        404,
+        'member_not_found'
+      ),
   } as const
 
   /**
    * Serves Vic until the first write lands; after it, the list lacks them.
    * @returns A counter whose `listReads` is how many member lists were read.
    */
-  function serveDeparture(asStaff: boolean, reply: () => Response = GONE_REPLIES.message) {
+  function serveDeparture(asStaff: boolean, reply: () => Response = GONE_REPLIES.code) {
     const state = { gone: false, listReads: 0 }
     signIn(asStaff ? { ...testUser, platformRole: 'owner' } : undefined)
     mockPlatformDetail()
@@ -2374,15 +2382,10 @@ describe('a write that finds the member already gone', () => {
     { path: 'staff', action: 'role change', asStaff: true },
   ] as const
 
-  it.each(
-    CASES.flatMap((write) => [
-      { ...write, reply: 'code' as const },
-      { ...write, reply: 'message' as const },
-    ])
-  )(
-    'drops the departed row and focuses Members after a $path $action meets the $reply',
-    async ({ action, asStaff, reply }) => {
-      serveDeparture(asStaff, GONE_REPLIES[reply])
+  it.each(CASES)(
+    'drops the departed row and focuses Members after a $path $action meets member_not_found',
+    async ({ action, asStaff }) => {
+      serveDeparture(asStaff, GONE_REPLIES.code)
       const user = userEvent.setup()
       renderAppAt(`/tenants/${TENANT_ID}/members`)
 
@@ -2441,7 +2444,7 @@ describe('a write that finds the member already gone', () => {
   )
 
   it.each(CASES)(
-    'reads another code with the old message as no departure, on a $path $action',
+    'reads the route code not_found as no departure, on a $path $action',
     async ({ action, asStaff }) => {
       const state = serveDeparture(asStaff, () => fail('Member not found', 404, 'not_found'))
       const user = userEvent.setup()
@@ -2449,16 +2452,32 @@ describe('a write that finds the member already gone', () => {
 
       await writeToVic(user, action, asStaff)
 
+      // `not_found` is express's route and role-gate 404, so both paths say the role changed.
       if (asStaff) {
-        // A 404 with a code is the action's own verdict, so the reason dialog keeps it.
         const dialog = screen.getByRole('alertdialog')
-        expect(await within(dialog).findByText('Member not found')).toBeInTheDocument()
+        expect(await within(dialog).findByText(ROLE_DENIED_ACTION)).toBeInTheDocument()
       } else {
-        expect(await screen.findByText('Member not found')).toBeInTheDocument()
+        expect(await screen.findByText(ROLE_DENIED_ACTION)).toBeInTheDocument()
       }
+      expect(screen.queryByText('Member not found')).not.toBeInTheDocument()
       await settle(100, 'absence has no event: no member list refetch follows')
       expect(state.listReads).toBe(1)
       // Hidden from the accessibility tree while the staff dialog is open, but still rendered.
+      expect(screen.getByRole('cell', { name: /Vic/, hidden: true })).toBeInTheDocument()
+    }
+  )
+  it.each(CASES)(
+    'reads a 404 without the member_not_found code as no departure, on a $path $action',
+    async ({ action, asStaff }) => {
+      const state = serveDeparture(asStaff, () => fail('Member not found', 404))
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}/members`)
+
+      await writeToVic(user, action, asStaff)
+
+      await settle(100, 'absence has no event: no member list refetch follows')
+      expect(screen.queryByText('That member is no longer in this tenant.')).not.toBeInTheDocument()
+      expect(state.listReads).toBe(1)
       expect(screen.getByRole('cell', { name: /Vic/, hidden: true })).toBeInTheDocument()
     }
   )
@@ -2513,7 +2532,7 @@ describe('the members list', () => {
     await waitFor(() => expect(me.getByRole('button', { name: 'Leave' })).toBeEnabled())
   })
 
-  it('says when the owners could not be loaded, and keeps the last owner locked', async () => {
+  it('says when the owners didn’t load, and keeps the last owner locked', async () => {
     mockTenant('owner', [OWNER_ROW])
     server.use(
       http.get('/api/v1/tenants/acme/members', ({ request }) =>
@@ -2523,7 +2542,9 @@ describe('the members list', () => {
       )
     )
     renderAppAt(`/tenants/${TENANT_ID}/members`)
-    expect(await screen.findByText('Owners could not be loaded.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('We couldn’t load the owners. Select Try again.')
+    ).toBeInTheDocument()
     const me = await rowFor('Me')
     expect(me.getByRole('button', { name: 'Leave' })).toBeDisabled()
     // Failed is not the same as one owner: the page does not claim the tenant has only one.

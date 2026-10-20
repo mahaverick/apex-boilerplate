@@ -28,8 +28,8 @@ import {
 import { ROUTES } from '@/constants/routes'
 import { useLeavingFinalFocus } from '@/hooks/use-arrival-focus'
 import { useStepUp } from '@/hooks/use-step-up'
-import { messageFrom } from '@/lib/api-error'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
+import { staffMessageFrom } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
 import { availableUserActions, SIGN_IN_LINK_NOT_SENT, type UserAction } from '@/lib/user-actions'
 import { analyticsKey, type AnalyticsKey } from '@/observability/telemetry'
@@ -374,7 +374,7 @@ function SendSignInLinkDialog({
       )
       onOpenChange(false)
     } catch (error) {
-      setRefusal(messageFrom(error))
+      setRefusal(staffMessageFrom(error))
     }
   }
 

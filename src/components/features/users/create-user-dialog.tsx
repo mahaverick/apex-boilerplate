@@ -26,7 +26,7 @@ import { ROUTES } from '@/constants/routes'
 import { useLeavingFinalFocus } from '@/hooks/use-arrival-focus'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
-import { messageFrom } from '@/lib/api-error'
+import { staffMessageFrom } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
 import { WELCOME_RESEND_NOT_SENT } from '@/lib/user-actions'
 import { useCreateUser, useSendSignInLink } from '@/queries/user-admin.queries'
@@ -62,7 +62,7 @@ export function CreateUserDialog() {
             </>
           )
         } else {
-          toast.warning('The user was created, but the welcome email couldn’t be sent.', {
+          toast.warning('The user was created, but the welcome email wasn’t sent. Select Resend.', {
             action: {
               label: 'Resend',
               // A promise, not mutate's callbacks: those never fire once this dialog has unmounted, and it has by now, on the new user's page.
@@ -77,7 +77,7 @@ export function CreateUserDialog() {
                       )
                     } else toast.warning(WELCOME_RESEND_NOT_SENT)
                   },
-                  (error: unknown) => toast.error(messageFrom(error))
+                  (error: unknown) => toast.error(staffMessageFrom(error))
                 ),
             },
           })

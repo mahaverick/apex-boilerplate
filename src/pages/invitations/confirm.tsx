@@ -12,7 +12,7 @@ import {
   ConfirmLinkIncomplete,
   InvitationCard,
 } from '@/components/features/invitations/invitation-parts'
-import { landJoined } from '@/components/features/invitations/land-joined'
+import { landTeamJoined } from '@/components/features/invitations/land-team-joined'
 import { AuthPagePending } from '@/components/shared/pending-templates'
 import { buttonVariants } from '@/components/ui/button'
 import { pageTitle } from '@/constants/app'
@@ -107,7 +107,7 @@ function ConfirmForToken({ token, email }: { token: string; email: string }) {
           // After the hook stored the session, so a waiting tab restores this one.
           broadcastAuthMessage('signed_in')
           setFailure(null)
-          landJoined(tenant, user.email, false, () => {
+          landTeamJoined(tenant, user.email, false, () => {
             void navigate({ to: ROUTES.overview, replace: true })
           })
         },

@@ -264,7 +264,7 @@ describe('/staff with the real sections', () => {
     const user = userEvent.setup()
     renderAppAt('/settings/platform/staff')
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/could not load your role in this tenant/i)
+    expect(alert).toHaveTextContent(/couldn’t load your role in this tenant/i)
     // The invitations section waits silently: no second alert, no invite form.
     expect(screen.getAllByRole('alert')).toHaveLength(1)
     expect(screen.queryByRole('heading', { name: 'Invite staff' })).not.toBeInTheDocument()
@@ -415,6 +415,26 @@ describe('/staff with the real sections', () => {
     expect(container).toHaveTextContent('Otto Staff is now Admin.')
     expect(container.querySelector('.ph-sensitive.ph-mask')).toHaveTextContent(/^Otto Staff$/)
     expect(bodies).toEqual([{ role: 'admin' }, { role: 'admin' }])
+  })
+
+  it('says the person left the staff team when a removal finds them already gone', async () => {
+    serveStaff('owner', 'viewer')
+    server.use(
+      http.delete(`/api/v1/tenants/platform/members/${USER_ID_2}`, () =>
+        fail('That person is not a member here.', 404, 'member_not_found')
+      )
+    )
+    const error = vi.spyOn(toast, 'error')
+    const user = userEvent.setup()
+    renderAppAt('/settings/platform/staff')
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove Otto Staff?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
+
+    await waitFor(() =>
+      expect(error).toHaveBeenCalledWith('That person is no longer on the staff team.')
+    )
+    expect(error).not.toHaveBeenCalledWith(expect.stringMatching(/tenant/))
   })
 
   it('asks who you are before a stale removal, then removes', async () => {
@@ -573,7 +593,7 @@ describe('/staff with the real sections', () => {
       )
       await waitFor(() =>
         expect(error).toHaveBeenCalledWith(
-          'You left, but this page could not move on. Reload it to continue.'
+          'You left, but this page didn’t move on. Reload the page to continue.'
         )
       )
       await waitFor(() => expect(dropped).toBeGreaterThan(0))

@@ -231,7 +231,9 @@ describe('/users', () => {
   it('names the failure and offers a retry when the first load fails', async () => {
     server.use(http.get('/api/v1/platform/users', () => fail('Boom', 500)))
     renderAppAt('/users')
-    expect(await screen.findByText('We could not load the users.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('We couldn’t load the users. Select Try again.')
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
@@ -366,7 +368,7 @@ describe('/users', () => {
 
       await waitFor(() => expect(warning).toHaveBeenCalled())
       const notSent = await screen.findByRole('dialog', {
-        name: 'The user was created, but the welcome email couldn’t be sent.',
+        name: 'The user was created, but the welcome email wasn’t sent. Select Resend.',
       })
       await user.click(within(notSent).getByRole('button', { name: 'Resend' }))
       await waitFor(() => expect(resent).toBe(true))
@@ -399,7 +401,7 @@ describe('/users', () => {
       await user.type(within(dialog).getByLabelText('Email'), 'x@example.com')
       await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
       const notSent = await screen.findByRole('dialog', {
-        name: 'The user was created, but the welcome email couldn’t be sent.',
+        name: 'The user was created, but the welcome email wasn’t sent. Select Resend.',
       })
       await user.click(within(notSent).getByRole('button', { name: 'Resend' }))
       await waitFor(() =>
@@ -407,6 +409,33 @@ describe('/users', () => {
           'The email couldn’t be sent. Send a sign-in link from their page.'
         )
       )
+    })
+
+    it('words a role-gate 404 as staff copy, not the route sentence', async () => {
+      pages([])
+      server.use(
+        http.post('/api/v1/platform/users', () =>
+          fail(
+            'No route matches this method and path. Check both, then try again.',
+            404,
+            'not_found'
+          )
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt('/users')
+      await user.click(await screen.findByRole('button', { name: 'New user' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New user' })
+      await user.type(within(dialog).getByLabelText('Email'), 'new@example.com')
+      await user.type(within(dialog).getByLabelText('First name'), 'Tia')
+      await user.click(within(dialog).getByRole('button', { name: 'Create user' }))
+
+      expect(
+        await within(dialog).findByText(
+          'Your role no longer allows this action. Ask a platform owner to check your role.'
+        )
+      ).toBeInTheDocument()
+      expect(within(dialog).queryByText(/No route matches/)).not.toBeInTheDocument()
     })
 
     it('starts blank after the dialog is closed without creating anyone', async () => {

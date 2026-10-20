@@ -187,7 +187,7 @@ for (const [name, path, ready, shown] of [
   [
     'a staff invitation for another account',
     `/invitations/accept&token=${TOKEN}`,
-    'Join Platform',
+    'Join the staff team',
     'new.staff@example.com',
   ],
   [

@@ -20,7 +20,9 @@ test('a held system status leaves the Overview’s figures and charts', async ({
 test('failed figures show one error, and the system status still renders', async ({ page }) => {
   await page.goto('/e2e/harness/?path=/overview&fail=/api/v1/platform/stats')
   await expect(page.getByRole('alert')).toHaveCount(1)
-  await expect(page.getByRole('alert')).toContainText('We could not load the platform figures.')
+  await expect(page.getByRole('alert')).toContainText(
+    'We couldn’t load the platform figures. Select Try again.'
+  )
   await expect(page.getByRole('heading', { level: 2, name: 'System status' })).toBeVisible()
 })
 

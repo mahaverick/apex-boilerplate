@@ -21,7 +21,7 @@ async function copyTrait(name: string): Promise<void> {
     await navigator.clipboard.writeText(name)
     toast.success(`Copied ${name}`)
   } catch {
-    toast.error(`Could not copy ${name}`)
+    toast.error(`We couldn’t copy ${name}. Select it and copy it by hand.`)
   }
 }
 

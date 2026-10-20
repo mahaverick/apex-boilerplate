@@ -293,7 +293,9 @@ describe('/settings/platform/flags', () => {
     renderAppAt('/settings/platform/flags')
     const traits = await screen.findByRole('region', { name: 'Traits reference' })
     await user.click(within(traits).getByRole('button', { name: 'Copy app_env' }))
-    await waitFor(() => expect(error).toHaveBeenCalledWith('Could not copy app_env'))
+    await waitFor(() =>
+      expect(error).toHaveBeenCalledWith('We couldn’t copy app_env. Select it and copy it by hand.')
+    )
   })
 
   it('offers a viewer no evaluation, and never asks for one', async () => {
@@ -329,7 +331,9 @@ describe('/settings/platform/flags', () => {
     const user = userEvent.setup()
     renderAppAt('/settings/platform/flags')
     expect(
-      await screen.findByText('We could not load the flags. This is not a sign they are off.')
+      await screen.findByText(
+        'We couldn’t load the flags, so their states are unknown. Select Try again.'
+      )
     ).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     await user.click(screen.getByRole('button', { name: 'Try again' }))
@@ -368,7 +372,7 @@ describe('/settings/platform/flags', () => {
     const registered = await screen.findByRole('region', { name: 'Registered flags' })
     expect(
       await within(registered).findByText(
-        'We could not load the flags. This is not a sign they are off.'
+        'We couldn’t load the flags, so their states are unknown. Select Try again.'
       )
     ).toBeInTheDocument()
     const unregistered = screen.getByRole('region', { name: 'In PostHog, not registered' })
@@ -607,7 +611,7 @@ describe('/settings/platform/flags evaluate', () => {
     const panel = await screen.findByRole('region', { name: 'Evaluate' })
     expect(
       await within(panel).findByText(
-        'We could not load the flags. This is not a sign they are off.'
+        'We couldn’t load the flags, so their states are unknown. Select Try again.'
       )
     ).toBeInTheDocument()
     expect(within(panel).getByRole('button', { name: 'Change user' })).toBeVisible()
@@ -815,7 +819,9 @@ describe('/settings/platform/flags evaluate', () => {
     const user = userEvent.setup()
     renderAppAt(`/settings/platform/flags?userId=${USER_ID_2}`)
     expect(
-      await screen.findByText('We could not evaluate the flags. This is not a sign they are off.')
+      await screen.findByText(
+        'We couldn’t evaluate the flags, so their values are unknown. Select Try again.'
+      )
     ).toBeInTheDocument()
     expect(calls).toBe(1)
     await user.click(screen.getByRole('button', { name: 'Try again' }))

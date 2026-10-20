@@ -221,7 +221,7 @@ describe('/emails/$emailId', () => {
     serve({ tenant: { id: TENANT_ID, name: 'Platform', slug: 'platform' } })
     renderAppAt(PAGE)
     await heading()
-    expect(screen.getByRole('link', { name: 'Platform' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Staff team' })).toHaveAttribute(
       'href',
       '/settings/platform/staff'
     )
@@ -296,7 +296,7 @@ describe('/emails/$emailId', () => {
     serve({ status: 'failed', failureOrigin: 'enqueue', attempts: [], events: [] })
     renderAppAt(PAGE)
     await heading()
-    expect(screen.getByText('The email could not be queued, so it was never sent.')).toBeVisible()
+    expect(screen.getByText('The email wasn’t queued, so it was never sent.')).toBeVisible()
   })
 
   it('offers no Resend when the API says this staff member may not', async () => {
@@ -550,7 +550,7 @@ describe('/emails/$emailId', () => {
     renderAppAt(`${PAGE}?tab=preview`)
     const alerts = await screen.findAllByRole('alert')
     expect(alerts).toHaveLength(1)
-    expect(alerts[0]).toHaveTextContent('We could not load the preview.')
+    expect(alerts[0]).toHaveTextContent('We couldn’t load the preview. Select Try again.')
     expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible()
   })
 
@@ -572,7 +572,9 @@ describe('/emails/$emailId', () => {
     server.use(http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => fail('Boom', 500)))
     await act(() => queryClient.refetchQueries({ queryKey: emailKeys.detail(EMAIL_ID) }))
     expect(await screen.findAllByRole('alert')).toHaveLength(1)
-    expect(screen.getByRole('alert')).toHaveTextContent('We could not load this email.')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'We couldn’t load this email. Select Try again.'
+    )
     expect(await heading()).toBeVisible()
   })
 
@@ -605,7 +607,9 @@ describe('/emails/$emailId', () => {
     )
     const user = userEvent.setup()
     renderAppAt(PAGE)
-    expect(await screen.findByText('We could not load this email.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('We couldn’t load this email. Select Try again.')
+    ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await heading()).toBeVisible()
   })

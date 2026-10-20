@@ -343,7 +343,9 @@ describe('/tenants/$tenantId/flags', () => {
     const user = userEvent.setup()
     renderAppAt(`${FLAGS}?userId=${USER_ID_2}`)
     expect(
-      await screen.findByText('We could not load the flags. This is not a sign they are off.')
+      await screen.findByText(
+        'We couldn’t load the flags, so their states are unknown. Select Try again.'
+      )
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByRole('table', { name: 'Evaluation' })).toBeInTheDocument()
@@ -413,7 +415,9 @@ describe('/tenants/$tenantId/flags', () => {
     serve()
     server.use(http.get('/api/v1/tenants/acme/members', () => fail('Boom', 500)))
     renderAppAt(FLAGS)
-    expect(await screen.findByText('We could not load this tenant’s members.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('We couldn’t load this tenant’s members. Select Try again.')
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 })

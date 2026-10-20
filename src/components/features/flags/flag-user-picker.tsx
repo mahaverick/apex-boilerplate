@@ -45,7 +45,7 @@ export function FlagUserPicker({ onPick }: { onPick: (userId: string) => void })
       {users.isError && term !== '' && (
         <Alert variant="destructive">
           <IconAlertCircle aria-hidden="true" />
-          <AlertTitle>We could not search the directory.</AlertTitle>
+          <AlertTitle>We couldn’t search the users. Change the search to try again.</AlertTitle>
         </Alert>
       )}
       {term !== '' && users.isSuccess && matches.length === 0 && (

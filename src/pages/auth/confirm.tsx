@@ -9,7 +9,8 @@ import { AuthPagePending } from '@/components/shared/pending-templates'
 import { buttonVariants } from '@/components/ui/button'
 import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
-import { messageFrom, statusFrom } from '@/lib/api-error'
+import { statusFrom } from '@/lib/api-error'
+import { staffMessageFrom } from '@/lib/staff-message'
 import { isStepUpWaitHeld } from '@/lib/step-up-presence'
 import { cn } from '@/lib/utils'
 import { useConfirmStepUpLink } from '@/queries/auth.queries'
@@ -226,7 +227,7 @@ function LinkConfirm({ token }: { token: string }) {
     return (
       <ConfirmCard title="We couldn’t confirm it’s you">
         <VerifyFailedPanel
-          message={messageFrom(outcome.error)}
+          message={staffMessageFrom(outcome.error)}
           retrying={confirm.isPending}
           onRetry={post}
         />

@@ -103,7 +103,7 @@ describe('the Emails card on a user’s page', () => {
     renderAppAt(`/users/${USER_ID_2}`)
     const card = await screen.findByRole('region', { name: 'Emails' })
     expect(
-      await within(card).findByText('We could not load this account’s emails.')
+      await within(card).findByText('We couldn’t load this account’s emails. Select Try again.')
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Cleo Doe', level: 1 })).toBeInTheDocument()
     await user.click(within(card).getByRole('button', { name: 'Try again' }))

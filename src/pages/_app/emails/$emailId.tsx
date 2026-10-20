@@ -3,11 +3,11 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { EmailPreviewPanel } from '@/components/features/emails/email-preview'
 import { EmailStatusBadge } from '@/components/features/emails/email-status-badge'
-import { EmailTenantLink } from '@/components/features/emails/email-tenant-link'
 import { EmailTimeline } from '@/components/features/emails/email-timeline'
 import { ResendEmailButton } from '@/components/features/emails/resend-email-button'
 import { LoadError } from '@/components/features/load-error'
 import { PagePaletteCommands } from '@/components/features/page-palette-commands'
+import { TenantLink } from '@/components/features/tenants/tenant-link'
 import { copyId } from '@/components/shared/command-palette/copy-id'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
@@ -56,8 +56,8 @@ const SENDER_LABELS = { transactional: 'Transactional sender', general: 'General
 /** Who set a message `failed`, as the header says it. */
 const FAILURE_LABELS: Record<EmailFailureOrigin, string> = {
   send: 'Every send attempt failed.',
-  provider: 'The provider reported that it could not deliver this email.',
-  enqueue: 'The email could not be queued, so it was never sent.',
+  provider: 'The provider couldn’t deliver this email.',
+  enqueue: 'The email wasn’t queued, so it was never sent.',
 }
 
 const TAB_LABELS: Record<EmailDetailTab, string> = { timeline: 'Timeline', preview: 'Preview' }
@@ -93,7 +93,10 @@ function EmailDetailPage() {
         }
       />
     ) : (
-      <LoadError message="We could not load this email." onRetry={() => void detail.refetch()} />
+      <LoadError
+        message="We couldn’t load this email. Select Try again."
+        onRetry={() => void detail.refetch()}
+      />
     )
   }
   if (detail.data === undefined) {
@@ -113,7 +116,10 @@ function EmailDetailPage() {
   return (
     <div className="grid gap-6">
       {detail.isError && (
-        <LoadError message="We could not load this email." onRetry={() => void detail.refetch()} />
+        <LoadError
+          message="We couldn’t load this email. Select Try again."
+          onRetry={() => void detail.refetch()}
+        />
       )}
       <EmailDetail message={detail.data} />
       <PagePaletteCommands
@@ -174,7 +180,7 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
             {message.tenant !== null && (
               <span>
                 Tenant{' '}
-                <EmailTenantLink tenant={message.tenant} className="underline underline-offset-4" />
+                <TenantLink tenant={message.tenant} className="underline underline-offset-4" />
               </span>
             )}
           </p>
