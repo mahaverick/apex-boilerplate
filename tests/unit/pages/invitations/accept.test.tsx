@@ -256,7 +256,7 @@ describe('accept page: the link itself', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      'The check failed, and your invitation link is unchanged. Select Try again.'
+      'We couldn’t check your invitation. Your link still works. Select Try again.'
     )
     expect(
       screen.getByRole('heading', { level: 1, name: 'We couldn’t check this invitation' })

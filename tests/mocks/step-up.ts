@@ -13,7 +13,7 @@ import { freshlyConfirmedToken } from '@/tests/mocks/jwt'
 import { server } from '@/tests/mocks/server'
 
 /** The wait view's body, which says the link went out. */
-export const STEP_UP_EMAIL_WAIT = 'Check your email. Click the link in this browser to continue.'
+export const STEP_UP_EMAIL_WAIT = 'Check your email. Open the link in this browser to continue.'
 
 /**
  * Asks for a link in the open step-up dialog and confirms it from another

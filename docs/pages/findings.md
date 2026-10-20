@@ -134,7 +134,7 @@ While the preview loads, the card is titled "Checking your invitation" and holds
 
 ### F-auth-4
 
-Status: fixed. The title reads "We couldn’t check this invitation" and the box "The check failed, and your invitation link is unchanged. Select Try again.", so the two no longer repeat each other. `tests/unit/pages/invitations/accept.test.tsx` ("does not call a failed request "invalid", and its retry asks again") pins both.
+Status: fixed. The title reads "We couldn’t check this invitation" and the box "We couldn’t check your invitation. Your link still works. Select Try again.", so the two no longer repeat each other. `tests/unit/pages/invitations/accept.test.tsx` ("does not call a failed request "invalid", and its retry asks again") pins both.
 
 The preview-failure state has the title "We could not load this invitation" and, inside the card, a bordered `LoadError` box whose message starts with the same sentence. Fix: shorten the box's message to the part the title does not say, or drop the box's border inside a card.
 

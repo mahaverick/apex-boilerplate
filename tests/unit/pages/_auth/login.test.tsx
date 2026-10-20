@@ -288,7 +288,7 @@ describe('OAuth failure messages', () => {
     renderLoginAt('/login?error=google_auth_failed')
 
     const message =
-      'Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask an owner for an invitation.'
+      'Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask a platform admin for an invitation.'
     expect(await screen.findByText(message)).toBeInTheDocument()
     expect(toastError).toHaveBeenCalledWith(message)
     expect(screen.queryByText(/not (a )?staff/i)).not.toBeInTheDocument()

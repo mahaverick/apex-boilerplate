@@ -24,12 +24,12 @@ const DIALOG = 'Confirm it’s you'
 const ROLE_DENIED =
   'Your role no longer allows this action. Ask a platform owner to check your role.'
 const CHOOSE_BODY =
-  'This action needs you to confirm it’s you within the last 10 minutes. Choose how to confirm it’s you.'
+  'This action needs a confirmation from the last 10 minutes. Choose how to confirm it’s you.'
 const GOOGLE_WAIT =
   'Finish in the Google window. This dialog continues on its own when you’re done.'
 const EXPIRED = 'That link expired. Send a new link to continue.'
 const RESUME_FAILED =
-  'You confirmed, but we couldn’t reach Apex. Check your connection, then select Try again.'
+  'You confirmed, but we couldn’t reach the server. Check your connection, then select Try again.'
 
 /** Every event the server and the popup saw, in order, so a test can assert what ran first. */
 let events: string[] = []
@@ -736,9 +736,9 @@ describe('StepUpDialog: Google', () => {
   })
 
   it.each([
-    ['blocked', 'Allow pop-ups, or use the email link'],
+    ['blocked', 'Allow pop-ups for this site, or use the email link.'],
     [409, 'Your account has no linked Google account. Confirm by email instead.'],
-    [404, 'Google confirmation isn’t available. Use the email link.'],
+    [404, 'Google confirmation isn’t available for this account. Use the email link.'],
   ] as const)('falls back to the email link when Google is %s', async (refusal, notice) => {
     dangerRoute(1)
     withGoogle()
@@ -816,7 +816,7 @@ describe('StepUpDialog: Google', () => {
     const dialog = await openStepUp(user)
     await user.click(await within(dialog).findByRole('button', { name: 'Re-confirm with Google' }))
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'Allow pop-ups, or use the email link'
+      'Allow pop-ups for this site, or use the email link.'
     )
     expect(popup.location.assign).not.toHaveBeenCalled()
     expect(within(dialog).getByText(CHOOSE_BODY)).toBeInTheDocument()

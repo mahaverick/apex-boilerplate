@@ -46,8 +46,9 @@ import { useAuthStore } from '@/states/auth.store'
 /** Express's code for a link request inside the cooldown: a link was just sent. */
 const STEP_UP_LINK_COOLDOWN = 'STEP_UP_LINK_COOLDOWN'
 
-const POPUP_BLOCKED = 'Allow pop-ups, or use the email link'
-const GOOGLE_UNAVAILABLE = 'Google confirmation isn’t available. Use the email link.'
+const POPUP_BLOCKED = 'Allow pop-ups for this site, or use the email link.'
+const GOOGLE_UNAVAILABLE =
+  'Google confirmation isn’t available for this account. Use the email link.'
 const GOOGLE_TIMED_OUT =
   'The Google window expired after 5 minutes. Try again, or use the email link.'
 
@@ -383,7 +384,8 @@ function StepUpBody({
     return (
       <div className="grid gap-4">
         <DialogDescription>
-          You confirmed, but we couldn’t reach Apex. Check your connection, then select Try again.
+          You confirmed, but we couldn’t reach the server. Check your connection, then select Try
+          again.
         </DialogDescription>
         <DialogFooter>
           {cancel}
@@ -442,8 +444,7 @@ function StepUpBody({
   return (
     <div className="grid gap-4">
       <DialogDescription>
-        This action needs you to confirm it’s you within the last 10 minutes. Choose how to confirm
-        it’s you.
+        This action needs a confirmation from the last 10 minutes. Choose how to confirm it’s you.
       </DialogDescription>
       {notice !== null && (
         <Alert variant="destructive">
@@ -496,7 +497,7 @@ function EmailWait({
   return (
     <div className="grid gap-4">
       <DialogDescription>
-        Check your email. Click the link in this browser to continue.
+        Check your email. Open the link in this browser to continue.
       </DialogDescription>
       <p role="status" className="text-sm">
         {expired ? (

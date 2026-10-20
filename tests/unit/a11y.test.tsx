@@ -507,7 +507,7 @@ describe('signed-out pages', () => {
     renderAppAt('/login?error=google_auth_failed')
     const region = await screen.findByRole('region', { name: 'Status messages' })
     const item = await within(region).findByRole('dialog', {
-      name: 'Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask an owner for an invitation.',
+      name: 'Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask a platform admin for an invitation.',
     })
     await expectNoViolations()
 
@@ -1614,7 +1614,7 @@ describe('open overlays', () => {
     await user.click(within(stepUp).getByRole('button', { name: 'Email me a link' }))
     expect(
       await within(stepUp).findByText(
-        'Check your email. Click the link in this browser to continue.'
+        'Check your email. Open the link in this browser to continue.'
       )
     ).toBeInTheDocument()
     // The reason dialog beneath is inert behind the modal step-up, so its button is in the hidden tree.

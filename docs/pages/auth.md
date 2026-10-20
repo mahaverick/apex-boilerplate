@@ -23,13 +23,13 @@ Staff sign in by emailed link or Google. There is no password, no registration, 
 
 **`?error=` codes** (from the API's Google callback):
 
-| Code                   | Toast                                                                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `google_auth_failed`   | Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask an owner for an invitation. |
-| `email_not_verified`   | Google hasn’t verified this email address. Verify it with Google, or sign in with an email link.                                           |
-| `google_email_missing` | Your Google account didn’t share an email address. Sign in with an email link.                                                             |
-| `processing_failed`    | We couldn’t finish signing you in with Google. Try again, or sign in with an email link.                                                   |
-| anything else          | Sign-in didn’t work. Try again, or sign in with an email link.                                                                             |
+| Code                   | Toast                                                                                                                                              |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `google_auth_failed`   | Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask a platform admin for an invitation. |
+| `email_not_verified`   | Google hasn’t verified this email address. Verify it with Google, or sign in with an email link.                                                   |
+| `google_email_missing` | Your Google account didn’t share an email address. Sign in with an email link.                                                                     |
+| `processing_failed`    | We couldn’t finish signing you in with Google. Try again, or sign in with an email link.                                                           |
+| anything else          | Sign-in didn’t work. Try again, or sign in with an email link.                                                                                     |
 
 On Apex every refused Google profile (unknown, a customer, a deactivated account) is the one `google_auth_failed`, in every maintenance mode, so no toast says which.
 
@@ -118,7 +118,7 @@ The page has these states (`AcceptInvitationPage` and `InvitationForToken`):
 1. **No `?token`:** "This link is incomplete", "Part of this link is missing. Open the most recent invitation email and select Join.", and "Go to the home page".
 2. **Malformed token, or a 404** (revoked, expired or used): "This invitation can’t be used", described "Ask {inviter} for a new invite." when a live preview named one, else "Ask a platform admin for a new invite." Signed in, "Go to Overview"; signed out, "Or sign in:" and the sign-in form, with no address and no redirect.
 3. **Preview pending:** "Checking your invitation" over skeleton bars: a sentence, two buttons and a hint.
-4. **Preview failed otherwise:** "We couldn’t check this invitation", a `LoadError` reading "The check failed, and your invitation link is unchanged. Select Try again.", and "Go to the home page".
+4. **Preview failed otherwise:** "We couldn’t check this invitation", a `LoadError` reading "We couldn’t check your invitation. Your link still works. Select Try again.", and "Go to the home page".
 5. **Joining** (signed out, or signed in as the invited address): "Joining {tenant}", "{inviter} invited you to join {tenant} as {role}.", and "Joining {tenant} as {invited address}…". The address is the preview's, never a URL parameter.
 6. **Check your inbox** (signed out; a staff invitation's verify always answers `202`): "We sent a link to {address}.", "Open it to join {tenant}. The link works once and expires in 15 minutes.", Resend (waits 60 seconds; a 429 extends it), and "Go to the home page". The page listens for another tab's `signed_in` from the confirmation link, including after a failed Resend, and then lands on Overview, with the join toast only when the restored account is the mailed address.
 7. **Retryable failure:** "We couldn’t add you to {tenant}", the reason and Try again.

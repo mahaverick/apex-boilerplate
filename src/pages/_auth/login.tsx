@@ -38,7 +38,7 @@ export const Route = createFileRoute('/_auth/login')({
  */
 const OAUTH_ERRORS: Record<string, string> = {
   google_auth_failed:
-    'Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask an owner for an invitation.',
+    'Google sign-in didn’t work for this account. Use your staff Google account, sign in with an email link, or ask a platform admin for an invitation.',
   email_not_verified:
     'Google hasn’t verified this email address. Verify it with Google, or sign in with an email link.',
   google_email_missing:
