@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { http } from 'msw'
+import { delay, http } from 'msw'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -20,7 +20,6 @@ import { platformKeys } from '@/queries/platform.queries'
 import { useAuthStore } from '@/states/auth.store'
 import { listPage } from '@/tests/fixtures/list-page'
 import { fullMaintenanceView, maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
-import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type { ChangeMaintenanceModeBody } from '@/types/api.types'
@@ -224,10 +223,8 @@ describe('useChangeMaintenanceMode', () => {
     server.use(
       http.get('/api/v1/platform/maintenance-mode', async () => {
         gets += 1
-        if (gets === 1) {
-          await settle(200, 'injected latency: a read still on its way when the 409 lands')
-          return ok(maintenanceModeView({ version: 4 }), 'Maintenance mode retrieved.')
-        }
+        // The read never answers: the cancel cannot abort its XHR, and a timed answer could land after jsdom's teardown.
+        if (gets === 1) return delay('infinite')
         return ok(fullMaintenanceView({ version: 9 }), 'Maintenance mode retrieved.')
       }),
       http.put('/api/v1/platform/maintenance-mode', () =>
