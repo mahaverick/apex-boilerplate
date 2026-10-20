@@ -44,7 +44,7 @@ export interface TenantMembership {
 
 /**
  * One row of `GET /tenants/:slug/members`. `user` is a narrow projection on
- * the server, never the whole users row, so no `passwordHash`.
+ * the server, never the whole users row.
  */
 export interface TenantMember {
   membership: TenantMembership

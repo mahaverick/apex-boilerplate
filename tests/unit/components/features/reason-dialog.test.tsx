@@ -334,7 +334,7 @@ describe('ReasonDialog', () => {
     await waitFor(() => expect(within(reason).getByLabelText('Reason')).toHaveFocus())
   })
 
-  it('the stacked step-up dialog takes the password, confirms, retries, and the reason dialog closes', async () => {
+  it('the stacked step-up dialog confirms by link, retries, and the reason dialog closes', async () => {
     useAuthStore.setState({
       accessToken: 'old-token',
       user: testUser,

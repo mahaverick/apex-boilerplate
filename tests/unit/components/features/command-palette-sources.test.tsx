@@ -55,7 +55,7 @@ function tenant(overrides: Partial<PlatformTenantDetail> = {}): PlatformTenantDe
   }
 }
 
-/** Cleo's account, active, no password set. */
+/** Cleo's account, active and not staff. */
 const CLEO: PlatformUserDetail = {
   id: USER_ID_2,
   email: 'cleo@example.com',

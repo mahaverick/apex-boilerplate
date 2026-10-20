@@ -299,7 +299,7 @@ export function UserActionsMenu({
         description={
           <>
             This deletes <Pii>{user.email}</Pii>, ends their sessions, removes their Google sign-in
-            link and revokes invitations they sent. The address can register again. A platform owner
+            link and revokes invitations they sent. The address can sign up again. A platform owner
             can then delete the account permanently.
           </>
         }
