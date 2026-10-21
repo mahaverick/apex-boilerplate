@@ -1269,6 +1269,9 @@ const passkeyHandlers = [
   http.get('/api/v1/auth/passkeys/config', () =>
     ok({ mode: passkeyMode, rpId: 'localhost' }, 'Passkey config retrieved.')
   ),
+  http.get('/api/v1/auth/passkeys', () =>
+    ok({ passkeys: [], userHandle: 'harness-user-handle' }, 'Passkeys retrieved.')
+  ),
   http.post('/api/v1/auth/passkeys/sign-in/options', () =>
     passkeyMode === 'off'
       ? fail('Route not found', 404, 'not_found')

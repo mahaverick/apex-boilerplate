@@ -20,6 +20,7 @@ import { requestPasskey } from '@/lib/webauthn'
 import { queryClient } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
+import { usePasskeySetupStore } from '@/states/passkey-setup.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
 import { byContent } from '@/tests/fixtures/content'
@@ -667,6 +668,40 @@ describe('signed-in pages', () => {
     renderAppAt('/settings/account/security')
     await screen.findByRole('region', { name: 'Security' })
     expect(document.querySelector('[data-slot="query-state"][aria-busy="true"]')).not.toBeNull()
+    await expectNoViolations()
+  })
+
+  /** Serves two passkeys on the security page. */
+  function servePasskeys() {
+    /** One passkey row as the API lists it. */
+    const passkey = (index: number) => ({
+      id: `pk-${String(index)}`,
+      name: `Passkey ${String(index)}`,
+      provider: { name: 'iCloud Keychain', iconLight: null, iconDark: null },
+      synced: true,
+      createdAt: '2026-10-01T10:00:00.000Z',
+      lastUsedAt: null,
+      credentialId: `cred-${String(index)}`,
+    })
+    server.use(
+      http.get('/api/v1/auth/passkeys', () =>
+        ok({ passkeys: [passkey(1), passkey(2)], userHandle: 'HANDLE' }, 'Passkeys retrieved.')
+      )
+    )
+  }
+
+  it('the security page with two passkeys has no axe violations', async () => {
+    servePasskeys()
+    renderAppAt('/settings/account/security')
+    await screen.findByText('Passkey 2')
+    await expectNoViolations()
+  })
+
+  it('the open delete-passkey dialog has no axe violations', async () => {
+    servePasskeys()
+    renderAppAt('/settings/account/security')
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Delete Passkey 1' }))
+    await screen.findByRole('alertdialog')
     await expectNoViolations()
   })
 
@@ -2118,6 +2153,23 @@ describe('onboarding', () => {
     await user.click(await screen.findByRole('button', { name: 'Send reminder' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Send an onboarding reminder?' })
     expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+})
+
+describe('required-mode passkey setup', () => {
+  afterEach(() => {
+    usePasskeySetupStore.setState({ required: false, message: null })
+  })
+
+  it('the Create your passkey screen has no axe violations', async () => {
+    signIn()
+    usePasskeySetupStore.setState({
+      required: true,
+      message: 'Create a passkey to continue. Every account here needs one.',
+    })
+    renderAppAt('/overview')
+    await screen.findByRole('heading', { name: 'Create your passkey', level: 1 })
     await expectNoViolations()
   })
 })
