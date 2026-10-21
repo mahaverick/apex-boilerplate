@@ -8,7 +8,14 @@
  */
 import { expect, test } from '@playwright/test'
 import { addVirtualAuthenticator } from '../helpers/virtual-authenticator'
-import { API_ORIGIN, apiIsReady, freshEmail, logIn, staffSession } from './helpers'
+import {
+  API_ORIGIN,
+  apiIsReady,
+  assertApiServesApex,
+  freshEmail,
+  logIn,
+  staffSession,
+} from './helpers'
 
 test.skip(process.env.E2E_LIVE !== '1', 'live backend required — run pnpm test:e2e:live')
 
@@ -18,12 +25,7 @@ test.beforeAll(async () => {
       `No API at ${API_ORIGIN}. Start express 8.0.1 or later first: pnpm db:migrate && pnpm dev`
     )
   }
-  const response = await fetch(`${API_ORIGIN}/api/v1/auth/passkeys/config`)
-  if (response.status === 404) {
-    throw new Error(
-      `The API at ${API_ORIGIN} has no GET /auth/passkeys/config: it is older than express 8.0.0, the release with passkeys.`
-    )
-  }
+  await assertApiServesApex()
 })
 
 test('a staff member creates a passkey, signs out and signs back in with it', async ({ page }) => {
@@ -31,23 +33,26 @@ test('a staff member creates a passkey, signs out and signs back in with it', as
   await staffSession(email, 'viewer')
   const auth = await addVirtualAuthenticator(page)
 
-  await logIn(page, email)
-  await page.goto('/settings/account/security')
-  await expect(page.getByRole('heading', { name: 'Passkeys' })).toBeVisible()
+  try {
+    await logIn(page, email)
+    await page.goto('/settings/account/security')
+    await expect(page.getByRole('heading', { name: 'Passkeys' })).toBeVisible()
 
-  // The link sign-in is recent, so creating needs no confirmation dialog.
-  await page.getByRole('button', { name: 'Create a passkey' }).click()
-  await expect(page.getByText('Passkey created.')).toBeVisible()
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  expect(await auth.credentials()).toHaveLength(1)
+    // The link sign-in is recent, so creating needs no confirmation dialog.
+    await page.getByRole('button', { name: 'Create a passkey' }).click()
+    await expect(page.getByText('Passkey created.')).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    expect(await auth.credentials()).toHaveLength(1)
 
-  await page.getByRole('button', { name: /Account menu for/ }).click()
-  await page.getByRole('menuitem', { name: 'Sign out' }).click()
-  await expect(page).toHaveURL(/\/login/)
+    await page.getByRole('button', { name: /Account menu for/ }).click()
+    await page.getByRole('menuitem', { name: 'Sign out' }).click()
+    await expect(page).toHaveURL(/\/login/)
 
-  await page.getByRole('button', { name: 'Sign in with a passkey' }).click()
-  await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible({
-    timeout: 15_000,
-  })
-  await auth.remove()
+    await page.getByRole('button', { name: 'Sign in with a passkey' }).click()
+    await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible({
+      timeout: 15_000,
+    })
+  } finally {
+    await auth.remove()
+  }
 })

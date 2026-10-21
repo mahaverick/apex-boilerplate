@@ -750,6 +750,46 @@ test.describe('passkey dialogs', () => {
       )
     })
 
+    test(`the Confirm it’s you passkey view meets WCAG AA contrast in ${theme}`, async ({
+      page,
+    }) => {
+      await contrastOf(page, SECURITY, theme, /^Passkeys$/)
+      await page.getByRole('button', { name: 'Create a passkey' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Confirm it’s you' })
+      await expect(dialog.getByRole('button', { name: 'Use another method' })).toBeVisible()
+      await afterAnimations(dialog)
+      await afterFontsAndFrames(page)
+      const result = await runAxe(page, '[role="dialog"]')
+      expect(
+        report('passkey confirm', theme, result),
+        report('passkey confirm', theme, result)
+      ).toBe('')
+    })
+
+    test(`the last-passkey refusal in required mode meets WCAG AA contrast in ${theme}`, async ({
+      page,
+    }) => {
+      await contrastOf(
+        page,
+        '/e2e/harness/?path=/settings/account/security&passkeys=required&passkeylist=one',
+        theme,
+        /^Passkeys$/
+      )
+      await page.getByRole('button', { name: 'Delete MacBook Touch ID' }).click()
+      const dialog = page.getByRole('alertdialog', { name: 'Delete “MacBook Touch ID”?' })
+      await expect(
+        dialog.getByText('Create another passkey before you delete this one.')
+      ).toBeVisible()
+      await expect(dialog.getByRole('button', { name: 'Delete passkey' })).toHaveCount(0)
+      await afterAnimations(dialog)
+      await afterFontsAndFrames(page)
+      const result = await runAxe(page, '[role="alertdialog"]')
+      expect(
+        report('last-passkey refusal', theme, result),
+        report('last-passkey refusal', theme, result)
+      ).toBe('')
+    })
+
     test(`the Confirm it’s you dialog meets WCAG AA contrast in ${theme}`, async ({ page }) => {
       await contrastOf(page, '/e2e/harness/?path=/settings/account/security', theme, /^Passkeys$/)
       await page.getByRole('button', { name: 'Create a passkey' }).click()

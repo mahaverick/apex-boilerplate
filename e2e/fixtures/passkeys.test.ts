@@ -86,7 +86,9 @@ test('refuses a non-staff passkey and the authenticator keeps it', async ({ page
   })
   await page.goto(harness('/login', 'session=none&passkeyuser=customer'))
 
+  const verify = page.waitForRequest('**/auth/passkeys/sign-in/verify')
   await page.getByRole('button', { name: 'Sign in with a passkey' }).click()
+  await verify
 
   // express #144's apex message; the regex accepts either apostrophe.
   await expect(page.getByText(/This account doesn.t have staff access/)).toBeVisible()

@@ -1350,8 +1350,6 @@ function passkeyList() {
  * express's 403 `PASSKEY_NO_ACCESS` for a non-staff account.
  */
 const passkeyHandlers = [
-  // Under `?setup=1` every platform read is refused until the first passkey exists; it falls through once it does.
-  http.all('/api/v1/platform/*', () => setupRefusal() ?? undefined),
   http.get('/api/v1/auth/passkeys/config', () =>
     ok({ mode: passkeyMode, rpId: 'localhost' }, 'Passkey config retrieved.')
   ),
@@ -1470,6 +1468,8 @@ const passkeyHandlers = [
 ]
 
 const worker = setupWorker(
+  // Under `?setup=1` every platform call is refused until the first passkey exists, `?hold=` and `?fail=` included; it falls through once it does.
+  http.all('/api/v1/platform/*', () => setupRefusal() ?? undefined),
   ...sectionHandlers,
   ...passkeyHandlers,
   // The Overview, the default route: its KPI cards and both charts.
