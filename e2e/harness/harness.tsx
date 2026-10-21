@@ -1572,13 +1572,18 @@ const worker = setupWorker(
     )
   ),
   // "Confirm it's you": a link mailed, the API mailing again in a minute, and the mailed link confirmed in any tab.
-  http.post('/api/v1/auth/step-up/link/request', () =>
-    ok(
+  http.post('/api/v1/auth/step-up/link/request', async ({ request }) => {
+    // express's strict body schema: `{ app: 'apex' }` and nothing else, or 400.
+    const body = await request.json().catch(() => null)
+    if (JSON.stringify(body) !== JSON.stringify({ app: 'apex' })) {
+      return fail('Invalid request body.', 400, 'VALIDATION_ERROR')
+    }
+    return ok(
       { resendAvailableAt: new Date(Date.now() + 60_000).toISOString() },
       'Check your inbox for a confirmation link.',
       202
     )
-  ),
+  }),
   http.post('/api/v1/auth/step-up/link/verify', () => {
     if (confirmMode === 'dead') return fail(LINK_INVALID, 400, 'LINK_INVALID')
     const now = Math.floor(Date.now() / 1000)

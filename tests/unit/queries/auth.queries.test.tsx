@@ -12,6 +12,7 @@ import {
   useAuthProviders,
   useConfirmStepUpLink,
   useRequestSignInLink,
+  useRequestStepUpLink,
   useRevokeOtherSessions,
   useVerifySignInLink,
 } from '@/queries/auth.queries'
@@ -89,6 +90,21 @@ describe('useRevokeOtherSessions', () => {
       contentType: 'application/json',
       credentials: 'include',
     })
+  })
+})
+
+describe('useRequestStepUpLink', () => {
+  it('posts { app: "apex" }', async () => {
+    let body: unknown
+    server.use(
+      http.post('/api/v1/auth/step-up/link/request', async ({ request }) => {
+        body = await request.json()
+        return ok({ resendAvailableAt: new Date().toISOString() }, 'Check your inbox.', 202)
+      })
+    )
+    const { result } = renderHook(() => useRequestStepUpLink(), { wrapper })
+    await act(() => result.current.mutateAsync())
+    expect(body).toEqual({ app: 'apex' })
   })
 })
 

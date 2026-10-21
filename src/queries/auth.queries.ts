@@ -1,4 +1,5 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { FRONTEND_APP } from '@/constants/frontend-app'
 import { ROUTES } from '@/constants/routes'
 import { apiClient, unwrap } from '@/http/client'
 import {
@@ -18,9 +19,6 @@ import {
   type AuthProviders,
   type User,
 } from '@/types/api.types'
-
-/** Which frontend the API should link back to: this one. The API accepts only 'web' or 'apex'. */
-const APP = 'apex' as const
 
 /** What `POST /auth/link/verify` answers: the session, whether this click created the account, and the path stored with the link. */
 interface LinkSignIn {
@@ -55,7 +53,7 @@ export function useRequestSignInLink() {
     mutationFn: async (input: { email: string; redirect?: string }) => {
       await apiClient.post<ApiSuccess<null>>(
         '/auth/link/request',
-        { email: input.email, app: APP, redirect: input.redirect },
+        { email: input.email, app: FRONTEND_APP, redirect: input.redirect },
         { skipAuthRetry: true, headers: { Authorization: false } }
       )
     },
@@ -154,7 +152,7 @@ export function useAuthProviders() {
 
 /**
  * Mails a "Confirm it's you" link for this session (express
- * `POST /auth/step-up/link/request`, which takes `{}`). It answers 202 with
+ * `POST /auth/step-up/link/request`, which takes `{ app }`). It answers 202 with
  * when the next request may mail again; inside that wait, a 429
  * `STEP_UP_LINK_COOLDOWN` with `Retry-After`.
  */
@@ -164,7 +162,7 @@ export function useRequestStepUpLink() {
       unwrap(
         await apiClient.post<ApiSuccess<{ resendAvailableAt: string }>>(
           '/auth/step-up/link/request',
-          {}
+          { app: FRONTEND_APP }
         )
       ),
   })

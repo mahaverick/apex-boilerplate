@@ -329,7 +329,7 @@ describe('StepUpDialog: email', () => {
     renderHarness()
     const dialog = await sendLink(user)
 
-    expect(bodies).toEqual([{}])
+    expect(bodies).toEqual([{ app: 'apex' }])
     expect(within(dialog).getByRole('status')).toHaveTextContent(
       `We sent the link to ${testUser.email}. It expires in 15 minutes.`
     )

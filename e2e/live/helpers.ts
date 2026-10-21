@@ -523,7 +523,7 @@ export async function assertApiServesApex(): Promise<void> {
   const stepUp = await json(`${API_ORIGIN}/api/v1/auth/step-up/link/request`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: '{}',
+    body: '{"app":"apex"}',
   })
   if (stepUp.status === 404) {
     throw new Error(
