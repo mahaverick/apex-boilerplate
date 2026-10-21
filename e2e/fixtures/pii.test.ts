@@ -1,3 +1,4 @@
+import { maskReplayAttribute } from '../../src/observability/telemetry/mask-attribute'
 import { unmaskedPii } from '../helpers/pii-guard'
 import { expect, test } from '../hermetic'
 
@@ -10,7 +11,15 @@ import { expect, test } from '../hermetic'
  * suite's (e2e/nginx/analytics.test.ts).
  */
 
-const NAMES = ['A B', 'Cleo D', 'Cleo', 'Sam Staff', 'Evangeline', 'Featherstonehaugh']
+const NAMES = [
+  'A B',
+  'Cleo D',
+  'Cleo',
+  'Sam Staff',
+  'Evangeline',
+  'Featherstonehaugh',
+  'Pii Probe’s phone',
+]
 
 const ACME = '/tenants/10000000-0000-4000-8000-000000000001'
 const DELTA = '/tenants/10000000-0000-4000-8000-000000000004'
@@ -231,5 +240,34 @@ test('the Send sign-in link dialog keeps the address it names inside Pii', async
   await page.getByRole('menuitem', { name: 'Send sign-in link' }).click()
   const dialog = page.getByRole('alertdialog', { name: 'Send a sign-in link?' })
   await expect(dialog.getByText('cleo.d@example.com')).toBeVisible()
+  expect(await unmaskedPii(page, NAMES)).toEqual([])
+})
+
+/**
+ * The Security page's passkey list and both dialogs: a passkey's name is typed
+ * by the user and can name a person, so every place it renders sits inside `Pii`,
+ * and the buttons' labels, which carry it, are masked by replay's attribute rule.
+ */
+test('the passkeys list and both dialogs keep a passkey’s name inside Pii', async ({ page }) => {
+  await page.goto('/e2e/harness/?path=/settings/account/security&passkeylist=two&pii=probe')
+  const row = page.getByRole('listitem').filter({ hasText: 'Pii Probe’s phone' })
+  await expect(row).toBeVisible()
+  expect(await unmaskedPii(page, NAMES)).toEqual([])
+
+  for (const action of ['Rename', 'Delete']) {
+    const label = await row.getByRole('button', { name: action }).getAttribute('aria-label')
+    expect(label).toBe(`${action} Pii Probe’s phone`)
+    expect(maskReplayAttribute('aria-label', label!)).toBe('***')
+  }
+
+  await row.getByRole('button', { name: 'Rename' }).click()
+  await expect(page.getByRole('dialog', { name: 'Rename passkey' })).toBeVisible()
+  expect(await unmaskedPii(page, NAMES)).toEqual([])
+  await page.getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.getByRole('dialog', { name: 'Rename passkey' })).toHaveCount(0)
+
+  await row.getByRole('button', { name: 'Delete' }).click()
+  const remove = page.getByRole('alertdialog')
+  await expect(remove.getByText('Pii Probe’s phone')).toBeVisible()
   expect(await unmaskedPii(page, NAMES)).toEqual([])
 })

@@ -85,3 +85,10 @@ export const EMAIL_EVENT_ID_2 = '80000000-0000-4000-8000-000000000002'
 export const SUPPRESSION_ID = '90000000-0000-4000-8000-000000000001'
 /** A second, lifted suppression in the suppressions list tests. */
 export const SUPPRESSION_ID_2 = '90000000-0000-4000-8000-000000000002'
+
+/** The harness user's first passkey ('a' names the kind: a passkey). */
+export const PASSKEY_ID = 'a0000000-0000-4000-8000-000000000001'
+/** The harness user's second passkey. */
+export const PASSKEY_ID_2 = 'a0000000-0000-4000-8000-000000000002'
+/** The passkey a harness registration creates. */
+export const PASSKEY_ID_3 = 'a0000000-0000-4000-8000-000000000003'
