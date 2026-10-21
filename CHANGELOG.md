@@ -1,5 +1,16 @@
 # Changelog
 
+## [8.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v7.0.1...v8.0.0) (2026-10-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **auth:** Apex now needs express 8.0.1 or later. The step-up link request sends { app: 'apex' }, which older express refuses with 400.
+
+### Features
+
+* **auth:** passkeys for staff sign-in, confirm it's you and account security ([1d54c52](https://github.com/mahaverick/apex-boilerplate/commit/1d54c5276e5a27a1c10bba842dbfbfc2fa99d3e2))
+
 ## [7.0.1](https://github.com/mahaverick/apex-boilerplate/compare/v7.0.0...v7.0.1) (2026-10-20)
 
 
