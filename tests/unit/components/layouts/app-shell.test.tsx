@@ -79,7 +79,8 @@ describe('AppShell in required mode (apex)', () => {
     expect(
       await screen.findByRole('heading', { name: 'Create your passkey', level: 1 })
     ).toBeVisible()
-    expect(screen.queryByText(/staff role|role denied|can’t open/i)).not.toBeInTheDocument()
+    // RoleDenied's real title, so this fails if the setup refusal ever renders it.
+    expect(screen.queryByText(/Your role can.t see this any more/)).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
     expect(usePasskeySetupStore.getState().required).toBe(true)
   })
