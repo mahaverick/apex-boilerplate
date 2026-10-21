@@ -1100,9 +1100,13 @@ request, and the description says what happened there.
 Every passkey and step-up file above is a byte-for-byte copy of react's
 (`cmp` clean), apart from the three per-app seam files. Change a shared file in
 react first, then copy it here. `src/lib/write-failure.ts` stays react-only.
-The shared passkey files use `messageFrom`, not `staffMessageFrom`, for passkey
-errors: `staffMessageFrom` would word a deleted passkey's 404 as a role refusal,
-so eslint's `messageFrom` ban exempts those files.
+The shared passkey files keep react's `messageFrom`, so they stay
+byte-identical; react has no `staffMessageFrom`. Express's passkey errors carry
+their own codes (a missing passkey is `passkey_not_found`), so the staff wording
+would not change them anyway. Eslint's `messageFrom` ban exempts those files.
+`tests/unit/queries/step-up.queries.test.tsx` and
+`tests/unit/components/features/step-up-staff.test.tsx` are apex's own tests,
+not copies.
 
 The error scrubber is also held in step with express-boilerplate; see
 [The scrubber](SECURITY.md#the-scrubber).
