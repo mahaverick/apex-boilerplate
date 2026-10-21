@@ -39,9 +39,12 @@ shipping the app.
   `packageManager`. `pnpm install` refuses a Node older than 24.
 - **The API running on `:4040`, with `APEX_URL` set.** See
   [Getting started](#getting-started).
-- **express-boilerplate 6.1.0 or later.** 6.0.0 is passwordless: sign-in by
-  emailed link or Google, step-up by emailed link (`/auth/link/*`,
-  `/auth/step-up/link/*`), staff
+- **express-boilerplate 8.0.1 or later.** Passkeys need 8.0.0, and the staff
+  no-access copy and the claim audit row need 8.0.1. Apex's step-up link request
+  sends `{ app: 'apex' }`, which an older express refuses with 400. 6.0.0 is
+  passwordless: sign-in by emailed link, Google or (when the API turns passkeys
+  on) a passkey, step-up by a passkey or an emailed link (`/auth/link/*`,
+  `/auth/step-up/link/*`, `/auth/passkeys/*`), staff
   invitations confirmed by a mailed link (`/invitations/verify`,
   `/invitations/confirm`) and `POST /platform/users/:id/sign-in-link`. 6.1.0
   adds the `signedIn` filter the Users page's Signed in facet sends. An older
@@ -250,6 +253,15 @@ Unit tests live under `tests/unit/`, mirroring `src/`
 
 `tests/unit/a11y.test.tsx` is an **accessibility gate** over every routed page; its
 rules are in [CLAUDE.md](CLAUDE.md#accessibility).
+
+The `fixtures` project covers passkeys in Chrome with a virtual authenticator
+(`e2e/helpers/virtual-authenticator.ts`, over CDP): the harness answers the
+contract's calls (`?passkeys=off|optional|required`, `?passkeylist=none|one|two`,
+`?stepup=once`, `?setup=1`), while the browser builds and signs the credential.
+The private keys are generated at run time. `E2E_BASE_URL` points a run at a dev
+server on another port, such as one started with `pnpm exec vite --port 5197
+--strictPort`. `e2e/live/passkeys.test.ts` runs the same flows against an express
+8.0.1 or later with passkeys on.
 
 Playwright has five projects in `e2e/`:
 
