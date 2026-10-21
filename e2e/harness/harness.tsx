@@ -1278,7 +1278,7 @@ const passkeyHandlers = [
     if (passkeyMode === 'off') return fail('Route not found', 404, 'not_found')
     if (params.get('passkeyRefuse') === 'no-access') {
       return fail(
-        'This account doesn’t have staff access. Ask a staff owner to invite you.',
+        "This account doesn't have staff access. Ask a staff owner to invite you.",
         403,
         'PASSKEY_NO_ACCESS'
       )

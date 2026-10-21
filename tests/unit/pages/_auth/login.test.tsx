@@ -521,7 +521,7 @@ describe('login page passkeys', () => {
 
   it('PASSKEY_NO_ACCESS on apex toasts, stays on /login and sends no signal', async () => {
     const toastError = vi.spyOn(toast, 'error')
-    const message = 'This account doesn’t have staff access. Ask a staff owner to invite you.'
+    const message = "This account doesn't have staff access. Ask a staff owner to invite you."
     serveVerify({ message, status: 403, code: 'PASSKEY_NO_ACCESS' })
     pendingAutofill(() => Promise.resolve(RESPONSE))
     const router = renderLoginAt('/login')

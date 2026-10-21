@@ -47,7 +47,7 @@ test('a non-staff passkey is refused with the staff-access message and stays on 
   await page.getByRole('button', { name: 'Sign in with a passkey' }).click()
 
   await expect(
-    page.getByText('This account doesn’t have staff access. Ask a staff owner to invite you.')
+    page.getByText("This account doesn't have staff access. Ask a staff owner to invite you.")
   ).toBeVisible()
   await expect(page).toHaveURL(/\/login/)
   // The passkey stays on the authenticator.
@@ -59,6 +59,8 @@ test('mode off shows no passkey button on sign-in', async ({ page }) => {
   await page.goto('/e2e/harness/?session=none&passkeys=off&path=/login')
   await config
   await expect(page.getByRole('heading', { level: 1, name: 'Sign in to Apex' })).toBeVisible()
+  // The email field is rendered with its final autocomplete once the config response is applied.
+  await expect(page.getByLabel('Email')).toHaveAttribute('autocomplete', 'email')
   await expect(page.getByRole('link', { name: 'Continue with Google' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toHaveCount(0)
 })
