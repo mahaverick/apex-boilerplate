@@ -1,6 +1,6 @@
 /**
  * @file Drives the "Confirm it's you" dialog through an emailed link, the way
- * a staff member does: "Email me a link", then the link opened in another tab,
+ * a signed-in person does: "Email me a link", then the link opened in another tab,
  * which posts `step_up_confirmed` on the shared auth channel.
  */
 import { screen, waitFor, within } from '@testing-library/react'
@@ -33,7 +33,7 @@ export async function confirmStepUp(user: UserEvent, dialog?: HTMLElement): Prom
       ok(useAuthStore.getState().user ?? testUser, 'Profile retrieved.')
     )
   )
-  await user.click(within(stepUp).getByRole('button', { name: 'Email me a link' }))
+  await user.click(await within(stepUp).findByRole('button', { name: 'Email me a link' }))
   await within(stepUp).findByText(STEP_UP_EMAIL_WAIT)
   const otherTab = new BroadcastChannel('auth')
   try {

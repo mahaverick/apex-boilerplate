@@ -17,6 +17,7 @@ import {
 } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
+import { USER_HANDLE } from '@/tests/fixtures/user-handle'
 import type {
   EmailHealth,
   EmailMessageDay,
@@ -601,6 +602,17 @@ export const handlers = [
       202
     )
   }),
+  // Passkeys default to optional with none created; a test for another mode or a list overrides these.
+  http.get('/api/v1/auth/passkeys/config', () =>
+    ok({ mode: 'optional', rpId: 'localhost' }, 'Passkey settings retrieved.')
+  ),
+  // Step-up by passkey: the account has none, so the "Confirm it's you" dialog opens on the email link. A passkey test overrides this.
+  http.post('/api/v1/auth/passkeys/step-up/options', () =>
+    fail('You have no passkey.', 409, 'NO_PASSKEY')
+  ),
+  http.get('/api/v1/auth/passkeys', () =>
+    ok({ passkeys: [], userHandle: USER_HANDLE }, 'Passkeys retrieved.')
+  ),
   // The sign-in methods the profile's Security section lists: email only; a test that needs Google serves its own.
   http.get('/api/v1/auth/providers', () =>
     ok(

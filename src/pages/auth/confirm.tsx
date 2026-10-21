@@ -13,7 +13,7 @@ import { statusFrom } from '@/lib/api-error'
 import { staffMessageFrom } from '@/lib/staff-message'
 import { isStepUpWaitHeld } from '@/lib/step-up-presence'
 import { cn } from '@/lib/utils'
-import { useConfirmStepUpLink } from '@/queries/auth.queries'
+import { useConfirmStepUpLink } from '@/queries/step-up.queries'
 import { useAuthStore } from '@/states/auth.store'
 
 /**

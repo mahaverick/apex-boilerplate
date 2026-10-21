@@ -1,5 +1,5 @@
 /**
- * @file A JWT-shaped access token for tests that read its claims. Apex only
+ * @file A JWT-shaped access token for tests that read its claims. This app only
  * decodes the payload (the API verifies the signature), so the signature here
  * is a placeholder.
  */

@@ -9,13 +9,14 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axeCore from 'axe-core'
 import { http } from 'msw'
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ThemeToggle } from '@/components/features/theme-toggle'
 import { recordRecent } from '@/components/shared/command-palette/recent-items'
 import { PageSkeleton, type PageVariant } from '@/components/shared/page-skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GOOGLE_OAUTH_PATH } from '@/constants/routes'
 import { resetSessionForTests } from '@/http/session'
+import { requestPasskey } from '@/lib/webauthn'
 import { queryClient } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
 import { useCommandPaletteStore } from '@/states/command-palette.store'
@@ -85,6 +86,12 @@ import {
   type PlatformUserRow,
   type TenantLifecycleState,
 } from '@/types/api.types'
+
+// The browser prompt is not under test: it stays open, so the step-up dialog holds its passkey view.
+vi.mock('@/lib/webauthn', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/webauthn')>()),
+  requestPasskey: vi.fn(),
+}))
 
 /** `testUser.id` is `USER_ID`, so the first row is always "me". */
 const MEMBERS = [
@@ -1586,6 +1593,22 @@ describe('open overlays', () => {
     const user = userEvent.setup()
     const stepUp = await openStepUpOverReason(user)
     expect(within(stepUp).getByRole('button', { name: 'Email me a link' })).toBeInTheDocument()
+    await expectNoViolations()
+  })
+
+  it('has no violations with the step-up dialog open on its passkey view (step-up passkey)', async () => {
+    server.use(
+      http.post('/api/v1/auth/passkeys/step-up/options', () =>
+        ok(
+          { challengeId: 'C1', options: { challenge: 'CHALLENGE', rpId: 'localhost' } },
+          'Options.'
+        )
+      )
+    )
+    vi.mocked(requestPasskey).mockReturnValue(new Promise(() => {}))
+    const user = userEvent.setup()
+    const stepUp = await openStepUpOverReason(user)
+    expect(await within(stepUp).findByRole('button', { name: 'Use another method' })).toBeVisible()
     await expectNoViolations()
   })
 
