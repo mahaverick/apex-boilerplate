@@ -511,6 +511,7 @@ export async function confirmStepUpByLink(page: Page, email: string): Promise<vo
  * run the staff suites:
  * - express older than 6.0.0, which has no `POST /auth/step-up/link/request`
  *   (401 without a bearer from 6.0.0, the unknown path's 404 before it);
+ * - express older than 8.0.0, which has no `GET /auth/passkeys/config`;
  * - an email worker that delivers nothing to Mailpit;
  * - `APEX_URL` or `WEB_URL` pointing somewhere other than `APEX_ORIGIN` and
  *   `WEB_ORIGIN`, read from the sign-in links mailed for each `app`;
@@ -523,11 +524,18 @@ export async function assertApiServesApex(): Promise<void> {
   const stepUp = await json(`${API_ORIGIN}/api/v1/auth/step-up/link/request`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: '{}',
+    body: '{"app":"apex"}',
   })
   if (stepUp.status === 404) {
     throw new Error(
       `The API at ${API_ORIGIN} has no POST /auth/step-up/link/request: it is older than express 6.0.0, which link sign-in and "Confirm it's you" need.`
+    )
+  }
+
+  const passkeys = await json(`${API_ORIGIN}/api/v1/auth/passkeys/config`)
+  if (passkeys.status === 404) {
+    throw new Error(
+      `The API at ${API_ORIGIN} has no GET /auth/passkeys/config: it is older than express 8.0.0, the release with passkeys.`
     )
   }
 

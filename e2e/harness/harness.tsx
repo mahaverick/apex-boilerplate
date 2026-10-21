@@ -27,6 +27,9 @@ import {
   EMAIL_ID_2,
   MEMBERSHIP_ID,
   MEMBERSHIP_ID_2,
+  PASSKEY_ID,
+  PASSKEY_ID_2,
+  PASSKEY_ID_3,
   PLATFORM_TENANT_ID,
   STAFF_USER_ID,
   SUPPRESSION_ID,
@@ -40,6 +43,7 @@ import {
   USER_ID_3,
 } from '../../tests/fixtures/ids'
 import { listPage } from '../../tests/fixtures/list-page'
+import { USER_HANDLE } from '../../tests/fixtures/user-handle'
 
 /** The one tenant the activity rows and the tenant filter name. */
 /** The Activity page's third entry: a suspension whose reason names a person. */
@@ -251,8 +255,11 @@ const confirmMode = params.get('confirm') ?? 'ok'
  */
 const STEPPED_UP_AT_KEY = 'e2e-harness:stepped-up-at'
 
-/** The session's sign-in, in epoch seconds: long enough ago that every step-up route refuses it. */
-const SIGNED_IN_AUTH_TIME = Math.floor(Date.parse('2026-01-01T00:00:00.000Z') / 1000)
+/** The session's sign-in, in epoch seconds: long enough ago that every step-up route refuses it, except under `?setup=1`, whose session just signed in. */
+const SIGNED_IN_AUTH_TIME =
+  params.get('setup') === '1'
+    ? Math.floor(Date.now() / 1000)
+    : Math.floor(Date.parse('2026-01-01T00:00:00.000Z') / 1000)
 
 /** The session's current `auth_time`: its last confirmation in any tab, or the sign-in. */
 function sessionAuthTime(): number {
@@ -1243,8 +1250,228 @@ const PLATFORM_TENANT_ROWS = [
   createdAt: `2026-01-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
 }))
 
+/**
+ * `?passkeys=off|optional|required` sets the passkey config mode (default `optional`).
+ * In `off` every passkey route but the config answers express's unknown-route 404.
+ */
+const passkeyMode = (params.get('passkeys') ?? 'optional') as 'off' | 'optional' | 'required'
+
+/**
+ * `?setup=1` is required mode for an account with no passkey yet: every
+ * `/platform/*` call and `POST /auth/passkeys/step-up/options` answer 403
+ * `PASSKEY_SETUP_REQUIRED` until a registration verify succeeds, as express's
+ * allowlist does. The session it starts is a fresh sign-in, so the first
+ * registration needs no "Confirm it's you".
+ */
+const setupMode = params.get('setup') === '1'
+let setupDone = !setupMode
+
+/** `?passkeylist=none|one|two` (default `none`, which keeps every step-up fixture on the email-link view). */
+const passkeyListMode = params.get('passkeylist') ?? 'none'
+
+/** The probe's passkey name, for `?pii=probe`: the first row carries it. */
+const PROBE_PASSKEY_NAME = 'Pii Probe’s phone'
+
+/** The harness user's passkeys, oldest first; a registration appends, a delete removes. */
+const passkeys = [
+  {
+    id: PASSKEY_ID,
+    name: params.get('pii') === 'probe' ? PROBE_PASSKEY_NAME : 'MacBook Touch ID',
+    provider: { name: 'iCloud Keychain', iconLight: null, iconDark: null },
+    synced: true,
+    createdAt: '2026-09-01T10:00:00.000Z',
+    lastUsedAt: '2026-10-01T10:00:00.000Z',
+    credentialId: 'Y3JlZGVudGlhbC0x',
+  },
+  {
+    id: PASSKEY_ID_2,
+    name: 'Work security key',
+    provider: { name: 'YubiKey 5', iconLight: null, iconDark: null },
+    synced: false,
+    createdAt: '2026-09-15T10:00:00.000Z',
+    lastUsedAt: null,
+    credentialId: 'Y3JlZGVudGlhbC0y',
+  },
+].slice(0, passkeyListMode === 'none' ? 0 : passkeyListMode === 'one' ? 1 : 2)
+
+/** express's unknown-route 404, which every passkey route but the config answers in `off` mode. */
+function unknownRoute() {
+  return fail('Route not found', 404, 'not_found')
+}
+
+/** The 403 that required mode answers while the account has no passkey, or null once it has one. */
+function setupRefusal() {
+  return setupDone
+    ? null
+    : fail(
+        'Create a passkey to continue. Every account here needs one.',
+        403,
+        'PASSKEY_SETUP_REQUIRED'
+      )
+}
+
+/** The 401 a stale session gets for a write that needs a recent confirmation, or null when it is recent. */
+function reauthRefusal(request: Request) {
+  return hasRecentAuth(request) ? null : reauthRequired()
+}
+
+/** A request challenge for `rpId` `localhost`, the harness's origin. */
+function passkeyRequestOptions() {
+  return {
+    challenge: 'aGFybmVzcy1jaGFsbGVuZ2U',
+    rpId: 'localhost',
+    timeout: 60000,
+    userVerification: 'required',
+  }
+}
+
+/**
+ * A 400 when the request body is not exactly `expected` (the contract's strict
+ * bodies), else `null`, so a wrong wire shape cannot pass through the harness unseen.
+ */
+async function wrongBody(request: Request, expected: Record<string, unknown>) {
+  const body = (await request
+    .clone()
+    .json()
+    .catch(() => null)) as unknown
+  return JSON.stringify(body) === JSON.stringify(expected)
+    ? null
+    : fail('Request body does not match the contract.', 400, 'VALIDATION_ERROR')
+}
+
+/** The list answer: the passkeys and the user handle. */
+function passkeyList() {
+  return { passkeys, userHandle: USER_HANDLE }
+}
+
+/**
+ * Handlers for the passkey and step-up calls of the contract. The harness does
+ * not check a signature. `?passkeyuser=customer` makes the sign-in verify answer
+ * express's 403 `PASSKEY_NO_ACCESS` for a non-staff account.
+ */
+const passkeyHandlers = [
+  http.get('/api/v1/auth/passkeys/config', () =>
+    ok({ mode: passkeyMode, rpId: 'localhost' }, 'Passkey config retrieved.')
+  ),
+  http.post('/api/v1/auth/passkeys/sign-in/options', async ({ request }) =>
+    passkeyMode === 'off'
+      ? unknownRoute()
+      : ((await wrongBody(request, {})) ??
+        ok({ challengeId: 'harness-sign-in', options: passkeyRequestOptions() }, 'Options.'))
+  ),
+  http.post('/api/v1/auth/passkeys/sign-in/verify', () => {
+    if (passkeyMode === 'off') return unknownRoute()
+    if (params.get('passkeyuser') === 'customer') {
+      return fail(
+        "This account doesn't have staff access. Ask a staff owner to invite you.",
+        403,
+        'PASSKEY_NO_ACCESS'
+      )
+    }
+    hasRefreshCookie = true
+    return ok(
+      { user: testUser, accessToken: harnessToken(), isNewUser: false, redirect: null },
+      'Signed in.'
+    )
+  }),
+  http.post('/api/v1/auth/passkeys/step-up/options', async ({ request }) => {
+    if (passkeyMode === 'off') return unknownRoute()
+    const malformed = await wrongBody(request, {})
+    if (malformed) return malformed
+    const refusal = setupRefusal()
+    if (refusal) return refusal
+    if (passkeys.length === 0)
+      return fail('You have no passkey to confirm with.', 409, 'NO_PASSKEY')
+    return ok({ challengeId: 'harness-step-up', options: passkeyRequestOptions() }, 'Options.')
+  }),
+  http.post('/api/v1/auth/passkeys/step-up/verify', async ({ request }) => {
+    if (passkeyMode === 'off') return unknownRoute()
+    // Strict body: `app` is not accepted here.
+    const body = (await request
+      .clone()
+      .json()
+      .catch(() => ({}))) as object
+    if ('app' in body)
+      return fail('Request body does not match the contract.', 400, 'VALIDATION_ERROR')
+    const now = Math.floor(Date.now() / 1000)
+    localStorage.setItem(STEPPED_UP_AT_KEY, String(now))
+    return ok({ accessToken: harnessToken(now) }, 'Identity confirmed.')
+  }),
+  http.get('/api/v1/auth/passkeys', () =>
+    passkeyMode === 'off' ? unknownRoute() : ok(passkeyList(), 'Passkeys retrieved.')
+  ),
+  http.post('/api/v1/auth/passkeys/registration/options', async ({ request }) => {
+    if (passkeyMode === 'off') return unknownRoute()
+    const malformed = await wrongBody(request, { app: 'apex' })
+    if (malformed) return malformed
+    const stale = reauthRefusal(request)
+    if (stale) return stale
+    return ok(
+      {
+        challengeId: 'harness-registration',
+        options: {
+          challenge: 'aGFybmVzcy1jaGFsbGVuZ2U',
+          rp: { id: 'localhost', name: 'Harness' },
+          user: { id: USER_HANDLE, name: testUser.email, displayName: 'A B' },
+          pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
+          timeout: 60000,
+          attestation: 'none',
+          authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
+        },
+      },
+      'Options.'
+    )
+  }),
+  http.post('/api/v1/auth/passkeys/registration/verify', ({ request }) => {
+    if (passkeyMode === 'off') return unknownRoute()
+    const stale = reauthRefusal(request)
+    if (stale) return stale
+    const passkey = {
+      id: PASSKEY_ID_3,
+      name: 'Passkey 3',
+      provider: { name: 'Chrome on Mac', iconLight: null, iconDark: null },
+      synced: false,
+      createdAt: '2026-10-21T10:00:00.000Z',
+      lastUsedAt: null,
+      credentialId: 'Y3JlZGVudGlhbC0z',
+    }
+    passkeys.push(passkey)
+    setupDone = true
+    return ok({ passkey }, 'Passkey created.', 201)
+  }),
+  http.patch('/api/v1/auth/passkeys/:id', async ({ params: route, request }) => {
+    if (passkeyMode === 'off') return unknownRoute()
+    const passkey = passkeys.find((row) => row.id === route.id)
+    if (!passkey) return fail('Passkey not found', 404, 'passkey_not_found')
+    passkey.name = ((await request.json()) as { name: string }).name
+    return ok({ passkey }, 'Passkey renamed.')
+  }),
+  http.delete('/api/v1/auth/passkeys/:id', ({ params: route, request }) => {
+    if (passkeyMode === 'off') return unknownRoute()
+    if (new URL(request.url).searchParams.get('app') !== 'apex') {
+      return fail('Query does not match the contract.', 400, 'VALIDATION_ERROR')
+    }
+    const stale = reauthRefusal(request)
+    if (stale) return stale
+    const index = passkeys.findIndex((row) => row.id === route.id)
+    if (index === -1) return fail('Passkey not found', 404, 'passkey_not_found')
+    if (passkeys.length === 1 && passkeyMode === 'required') {
+      return fail(
+        'Your account needs at least one passkey. Create another before you delete this one.',
+        409,
+        'LAST_PASSKEY'
+      )
+    }
+    passkeys.splice(index, 1)
+    return ok(passkeyList(), 'Passkey deleted.')
+  }),
+]
+
 const worker = setupWorker(
+  // Under `?setup=1` every platform call is refused until the first passkey exists, `?hold=` and `?fail=` included; it falls through once it does.
+  http.all('/api/v1/platform/*', () => setupRefusal() ?? undefined),
   ...sectionHandlers,
+  ...passkeyHandlers,
   // The Overview, the default route: its KPI cards and both charts.
   http.get('/api/v1/platform/stats', ({ request }) =>
     ok(
@@ -1572,13 +1799,18 @@ const worker = setupWorker(
     )
   ),
   // "Confirm it's you": a link mailed, the API mailing again in a minute, and the mailed link confirmed in any tab.
-  http.post('/api/v1/auth/step-up/link/request', () =>
-    ok(
+  http.post('/api/v1/auth/step-up/link/request', async ({ request }) => {
+    // express's strict body schema: `{ app: 'apex' }` and nothing else, or 400.
+    const body = await request.json().catch(() => null)
+    if (JSON.stringify(body) !== JSON.stringify({ app: 'apex' })) {
+      return fail('Invalid request body.', 400, 'VALIDATION_ERROR')
+    }
+    return ok(
       { resendAvailableAt: new Date(Date.now() + 60_000).toISOString() },
       'Check your inbox for a confirmation link.',
       202
     )
-  ),
+  }),
   http.post('/api/v1/auth/step-up/link/verify', () => {
     if (confirmMode === 'dead') return fail(LINK_INVALID, 400, 'LINK_INVALID')
     const now = Math.floor(Date.now() / 1000)
@@ -1659,6 +1891,9 @@ const worker = setupWorker(
       : fail("You're signed out. Sign in to continue.", 401)
   )
 )
+
+// The page's query client, so a test can wait on a query's status instead of a sleep.
+;(window as unknown as { __queryClient: typeof queryClient }).__queryClient = queryClient
 
 await worker.start({ onUnhandledRequest: 'bypass', quiet: true })
 

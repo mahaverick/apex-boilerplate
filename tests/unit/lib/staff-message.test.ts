@@ -21,6 +21,13 @@ describe('staffMessageFrom', () => {
     expect(staffMessageFrom(failure(404, ROUTE_SENTENCE, 'not_found'))).toBe(ROLE_DENIED_ACTION)
   })
 
+  it('keeps required mode’s setup refusal out of the role-denied copy', () => {
+    const message = 'Create a passkey to continue. Every account here needs one.'
+    const result = staffMessageFrom(failure(403, message, 'PASSKEY_SETUP_REQUIRED'))
+    expect(result).not.toBe(ROLE_DENIED_ACTION)
+    expect(result).toBe(message)
+  })
+
   it('keeps the server’s sentence for any other code', () => {
     const message = 'We couldn’t find this user. They may have been purged.'
     expect(staffMessageFrom(failure(404, message, 'user_not_found'))).toBe(message)

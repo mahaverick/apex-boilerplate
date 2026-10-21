@@ -11,6 +11,9 @@ minimumReleaseAge: 4320
 # clears; remove it once every parent's own range excludes the vulnerable
 # versions (`pnpm why <name>`).
 overrides:
+  # GHSA-q3jh-wrc6-jgq8, GHSA-8r9p-f939-6h3c: follow-redirects 1.16.0 leaks credential
+  # headers across origins. Via axios. Production.
+  follow-redirects@<1.16.1: ^1.16.1
   # GHSA-68fv-2mgg-jv7q: via vite > postcss (also shadcn, eslint-plugin-tailwindcss),
   # @tailwindcss/node, jsdom > css-tree and @vitest/coverage-v8 > magicast. Dev only.
   source-map-js@<1.2.2: ^1.2.2

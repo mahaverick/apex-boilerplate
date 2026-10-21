@@ -306,6 +306,9 @@ export default tseslint.config(
       'src/lib/staff-message.ts',
       'src/components/features/auth/sign-in-link-form.tsx',
       'src/components/features/profile/security-section.tsx',
+      'src/components/features/profile/passkey-dialogs.tsx',
+      'src/lib/passkey-create-failure.ts',
+      'src/lib/passkey-setup.ts',
     ],
     rules: {
       'no-restricted-imports': [

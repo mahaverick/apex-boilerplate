@@ -387,7 +387,7 @@ export const EMAIL_MESSAGE_STATUSES = [
 export type EmailMessageStatus = (typeof EMAIL_MESSAGE_STATUSES)[number]
 
 /**
- * The templates express knows: the seven it sends, then the five it retired,
+ * The templates express knows: the nine it sends, then the five it retired,
  * whose stored messages the list's `template` filter still finds. A key the
  * API adds later still renders, by its raw name.
  */
@@ -399,6 +399,8 @@ export const EMAIL_TEMPLATE_KEYS = [
   'step_up_link',
   'welcome',
   'invitation_confirm',
+  'passkey_created',
+  'passkey_deleted',
   'email_verification',
   'password_reset',
   'registration_attempt',

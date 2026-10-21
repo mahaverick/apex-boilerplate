@@ -17,6 +17,7 @@ import {
 } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
+import { USER_HANDLE } from '@/tests/fixtures/user-handle'
 import type {
   EmailHealth,
   EmailMessageDay,
@@ -589,13 +590,28 @@ export const handlers = [
   http.post('/api/v1/auth/step-up/link/verify', () =>
     ok({ accessToken: 'stepped-up' }, 'Identity confirmed.')
   ),
-  // A "Confirm it's you" link mailed: the API will mail another one minute after this one.
-  http.post('/api/v1/auth/step-up/link/request', () =>
-    ok(
+  // A link mailed, the next one a minute out; express's strict body is `{ app: 'apex' }` and nothing else, or 400.
+  http.post('/api/v1/auth/step-up/link/request', async ({ request }) => {
+    const body = await request.json().catch(() => null)
+    if (JSON.stringify(body) !== JSON.stringify({ app: 'apex' })) {
+      return fail('Invalid request body.', 400, 'VALIDATION_ERROR')
+    }
+    return ok(
       { resendAvailableAt: new Date(Date.now() + 60_000).toISOString() },
       'Check your inbox for a confirmation link.',
       202
     )
+  }),
+  // Passkeys default to optional with none created; a test for another mode or a list overrides these.
+  http.get('/api/v1/auth/passkeys/config', () =>
+    ok({ mode: 'optional', rpId: 'localhost' }, 'Passkey settings retrieved.')
+  ),
+  // Step-up by passkey: the account has none, so the "Confirm it's you" dialog opens on the email link. A passkey test overrides this.
+  http.post('/api/v1/auth/passkeys/step-up/options', () =>
+    fail('You have no passkey.', 409, 'NO_PASSKEY')
+  ),
+  http.get('/api/v1/auth/passkeys', () =>
+    ok({ passkeys: [], userHandle: USER_HANDLE }, 'Passkeys retrieved.')
   ),
   // The sign-in methods the profile's Security section lists: email only; a test that needs Google serves its own.
   http.get('/api/v1/auth/providers', () =>

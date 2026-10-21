@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test'
+import { test as base, expect, type Page, type Request } from '@playwright/test'
 
 /**
  * Stamped on every fallback answer: an `/api` response without it came from
@@ -8,6 +8,17 @@ export const FALLBACK_HEADER = 'x-e2e-api-fallback'
 
 /** A signed-out page's session bootstrap. The one call the fallback is there to answer. */
 const BOOTSTRAP_REFRESH = 'POST /api/v1/auth/refresh'
+
+/** The sign-in page's public passkey config read, made by every signed-out page that shows sign-in. */
+const PASSKEY_CONFIG = 'GET /api/v1/auth/passkeys/config'
+
+/** The config answer for an API with passkeys off, so a page outside the harness shows no passkey UI. */
+const PASSKEYS_OFF = {
+  success: true,
+  message: 'Passkey config retrieved.',
+  statusCode: 200,
+  data: { mode: 'off', rpId: '' },
+}
 
 /** Whether `url` is an API call, whose path starts with `/api/`. */
 function isApi(url: URL): boolean {
@@ -31,6 +42,8 @@ function unauthorized(pathname: string) {
 type ApiFallback = {
   /** `METHOD /path` of every request the fallback answered, in order. */
   answered: string[]
+  /** `METHOD /path` of every call aborted during a navigation while another page was open. */
+  swallowed: string[]
 }
 
 /**
@@ -52,10 +65,48 @@ export const test = base.extend<{ apiFallback: ApiFallback }>({
     async ({ context }, use) => {
       const answered: string[] = []
       const escaped: string[] = []
+      /** Each page's main-frame navigation in flight: its request, from the request to its commit, failure or end. The old document is outside the service worker, and a 401 would sign it out and redirect over the navigation, so the calls of a navigating page are aborted. */
+      const navigating = new Map<Page, Request>()
+      /** Calls aborted while another page, not navigating, could have made them. The routed requests are the service worker's pass-throughs, which carry no frame, so the caller cannot be told; such a call is an unmocked endpoint swallowed, and teardown fails on it. */
+      const swallowed: string[] = []
+      /** Tracks `page`'s main-frame navigations in `navigating`. */
+      const watch = (page: Page) => {
+        page.on('request', (request) => {
+          if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+            navigating.set(page, request)
+          }
+        })
+        page.on('framenavigated', (frame) => {
+          if (frame === page.mainFrame()) navigating.delete(page)
+        })
+        /** Ends `page`'s tracked navigation when its own request fails or finishes without a commit. */
+        const end = (request: Request) => {
+          if (navigating.get(page) === request) navigating.delete(page)
+        }
+        page.on('requestfailed', end)
+        page.on('requestfinished', end)
+      }
+      context.pages().forEach(watch)
+      context.on('page', watch)
       await context.route(isApi, async (route) => {
         const request = route.request()
         const { pathname } = new URL(request.url())
-        answered.push(`${request.method()} ${pathname}`)
+        const call = `${request.method()} ${pathname}`
+        if (navigating.size > 0) {
+          const others = context.pages().filter((page) => !navigating.has(page))
+          if (others.some((page) => page.url() !== 'about:blank')) swallowed.push(call)
+          await route.abort('aborted')
+          return
+        }
+        answered.push(call)
+        if (call === PASSKEY_CONFIG) {
+          await route.fulfill({
+            status: 200,
+            headers: { [FALLBACK_HEADER]: '1' },
+            json: PASSKEYS_OFF,
+          })
+          return
+        }
         await route.fulfill({
           status: 401,
           headers: { [FALLBACK_HEADER]: '1' },
@@ -69,11 +120,15 @@ export const test = base.extend<{ apiFallback: ApiFallback }>({
         escaped.push(`${response.request().method()} ${url.pathname} → ${response.status()}`)
       })
 
-      await use({ answered })
+      await use({ answered, swallowed })
 
+      expect(
+        swallowed,
+        'calls aborted during a navigation that another open page could have made'
+      ).toEqual([])
       expect(escaped, '/api responses that came from the dev server proxy').toEqual([])
       expect(
-        answered.filter((call) => call !== BOOTSTRAP_REFRESH),
+        answered.filter((call) => call !== BOOTSTRAP_REFRESH && call !== PASSKEY_CONFIG),
         'endpoints nothing mocked, answered by the fallback'
       ).toEqual([])
     },

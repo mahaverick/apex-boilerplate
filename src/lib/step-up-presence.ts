@@ -7,7 +7,7 @@
  */
 
 /** The Web Lock a tab holds, shared, while its "Confirm it's you" dialog waits. */
-export const STEP_UP_WAIT_LOCK = 'apex-step-up-wait'
+export const STEP_UP_WAIT_LOCK = 'step-up-wait'
 
 /** Whether this browser has Web Locks; jsdom and some embedded browsers do not. */
 function hasWebLocks(): boolean {

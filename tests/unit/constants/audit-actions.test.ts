@@ -10,7 +10,7 @@ import {
 import { EMAIL_ID, EMAIL_ID_2, INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
 describe('AUDIT_ACTIONS', () => {
-  it('lists exactly the thirty-five actions the API writes', () => {
+  it('lists exactly the thirty-eight actions the API writes', () => {
     expect([...AUDIT_ACTIONS].sort()).toEqual(
       [
         'invitation.accepted',
@@ -45,6 +45,9 @@ describe('AUDIT_ACTIONS', () => {
         'user.reactivated',
         'user.signed_out',
         'user.sign_in_link_sent',
+        'user.passkey_created',
+        'user.passkey_deleted',
+        'user.passkeys_cleared_on_claim',
         'user.updated',
         'user.flags_evaluated',
         'platform.maintenance_mode_changed',
@@ -153,6 +156,34 @@ describe('auditSentence', () => {
       { reason: 'contract ended', name: 'Acme Corp', slug: 'acme', memberCount: 2 },
       'permanently deleted the tenant Acme Corp: “contract ended”',
     ],
+    [
+      'user.passkey_created',
+      { passkeyId: USER_ID, provider: 'Apple Passwords', app: 'apex' },
+      'created a passkey (Apple Passwords) in Apex',
+    ],
+    ['user.passkey_created', { app: 'web' }, 'created a passkey in the customer app'],
+    [
+      'user.passkey_deleted',
+      { provider: 'Google Password Manager', app: 'web' },
+      'deleted a passkey (Google Password Manager) in the customer app',
+    ],
+    ['user.passkey_deleted', {}, 'deleted a passkey'],
+    [
+      'user.passkeys_cleared_on_claim',
+      { count: 2 },
+      'deleted 2 passkeys from an unverified account when its owner claimed it',
+    ],
+    [
+      'user.passkeys_cleared_on_claim',
+      { count: 1 },
+      'deleted 1 passkey from an unverified account when its owner claimed it',
+    ],
+    [
+      'user.passkeys_cleared_on_claim',
+      {},
+      'deleted the passkeys on an unverified account when its owner claimed it',
+    ],
+    ['auth.step_up_confirmed', { method: 'passkey' }, 'confirmed it was them with a passkey'],
     ['auth.step_up_confirmed', { method: 'link' }, 'confirmed it was them by email link'],
     ['auth.step_up_confirmed', { method: 'google' }, 'confirmed it was them with Google'],
     ['auth.step_up_refused', { method: 'link' }, 'failed an email-link identity check'],

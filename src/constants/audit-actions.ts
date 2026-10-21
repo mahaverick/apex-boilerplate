@@ -37,6 +37,9 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'user.reactivated': 'User reactivated',
   'user.signed_out': 'User signed out',
   'user.sign_in_link_sent': 'Sign-in link sent',
+  'user.passkey_created': 'Passkey created',
+  'user.passkey_deleted': 'Passkey deleted',
+  'user.passkeys_cleared_on_claim': 'Passkeys cleared on claim',
   'user.deleted': 'User deleted',
   'user.purged': 'User permanently deleted',
   'tenant.purged': 'Tenant permanently deleted',
@@ -54,6 +57,20 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
 
 /** An audit entry's free-form metadata, whose fields are checked before use. */
 type Metadata = Record<string, unknown>
+
+/** Where a passkey changed, from the `app` that made the request: Apex, the customer app, or nowhere named. */
+function where(metadata: Metadata): string {
+  const app = text(metadata, 'app')
+  if (app === 'apex') return ' in Apex'
+  if (app === 'web') return ' in the customer app'
+  return ''
+}
+
+/** The authenticator's listed name in parentheses, or nothing when the row has none. */
+function providerNote(metadata: Metadata): string {
+  const provider = text(metadata, 'provider')
+  return provider === undefined ? '' : ` (${provider})`
+}
 
 /** A string field of the metadata, or undefined when it is missing or not a string. */
 function text(metadata: Metadata, key: string): string | undefined {
@@ -175,17 +192,25 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
   'user.signed_out': (m) => `signed a user out everywhere${because(m)}`,
   'user.sign_in_link_sent': (m) =>
     m.app === 'apex' ? 'sent a staff member a sign-in link to Apex' : 'sent a user a sign-in link',
+  'user.passkey_created': (m) => `created a passkey${providerNote(m)}${where(m)}`,
+  'user.passkey_deleted': (m) => `deleted a passkey${providerNote(m)}${where(m)}`,
+  'user.passkeys_cleared_on_claim': (m) =>
+    typeof m.count === 'number'
+      ? `deleted ${m.count} ${m.count === 1 ? 'passkey' : 'passkeys'} from an unverified account when its owner claimed it`
+      : 'deleted the passkeys on an unverified account when its owner claimed it',
   'user.deleted': (m) => `deleted a user${because(m)}`,
   'user.purged': (m) => `permanently deleted a user${because(m)}`,
   'tenant.purged': (m) => {
     const name = text(m, 'name')
     return `permanently deleted ${name ? `the tenant ${name}` : 'a tenant'}${because(m)}`
   },
-  // Apex confirms by email link only; the `'google'` arms label rows written before Google step-up was dropped.
+  // Apex confirms by passkey or email link; the `'google'` arms label rows written before Google step-up was dropped.
   'auth.step_up_confirmed': (m) =>
     m.method === 'google'
       ? 'confirmed it was them with Google'
-      : 'confirmed it was them by email link',
+      : m.method === 'passkey'
+        ? 'confirmed it was them with a passkey'
+        : 'confirmed it was them by email link',
   'auth.step_up_refused': (m) =>
     m.method === 'google'
       ? 'failed a Google identity check'

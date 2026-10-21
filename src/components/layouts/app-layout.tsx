@@ -3,7 +3,6 @@ import { Link, Outlet, useLocation, useMatches, type LinkProps } from '@tanstack
 import { Fragment, useEffect, type ReactNode } from 'react'
 import { MaintenanceBanner } from '@/components/features/maintenance/maintenance-banner'
 import { MAIN_CONTENT_ID, SkipLink } from '@/components/features/skip-link'
-import { StepUpProvider } from '@/components/features/step-up/step-up-provider'
 import { ThemeToggle } from '@/components/features/theme-toggle'
 import { UserMenu } from '@/components/features/user-menu'
 import { NavMain } from '@/components/layouts/nav-main'
@@ -128,8 +127,7 @@ function SidebarBrand() {
  * beside a full breadcrumb trail; it is never an item in the account menu,
  * which unmounts its content whenever the menu closes. `SidebarInset` is the
  * `main` element, so its own `header` is not a second banner.
- * `StepUpProvider` wraps the shell once, so every staff page's destructive
- * action shares one step-up dialog. `MaintenanceBanner` sits under the
+ * `MaintenanceBanner` sits under the
  * header, so every staff page says when customers are in maintenance.
  */
 export function AppLayout() {
@@ -156,84 +154,82 @@ export function AppLayout() {
   }, [theme, setTheme])
 
   return (
-    <StepUpProvider>
-      <SidebarProvider open={!isCollapsed} onOpenChange={(open) => setCollapsed(!open)}>
-        <SkipLink />
-        <Sidebar collapsible="icon">
-          <SidebarHeader>
-            <SidebarBrand />
-          </SidebarHeader>
-          <SidebarContent>
-            {isSettingsPath(pathname) ? (
-              <NavSettings pathname={pathname} />
-            ) : (
-              <>
-                <NavMain sections={groups} pathname={pathname} />
-                <NavSecondary className="mt-auto" />
-              </>
-            )}
-          </SidebarContent>
-          <SidebarFooter>
-            <UserMenu user={user} />
-            {isMobile && (
-              <div className="flex justify-center">
-                <ThemeToggle />
-              </div>
-            )}
-          </SidebarFooter>
-          <SidebarRail />
-        </Sidebar>
-        <SidebarInset id={MAIN_CONTENT_ID} tabIndex={-1} className="outline-none">
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-            <SidebarTrigger aria-label="Toggle sidebar" className="-ml-1" />
-            <Separator
-              orientation="vertical"
-              className="mr-2 data-vertical:h-4 data-vertical:self-auto"
-            />
-            <Breadcrumb className="min-w-0">
-              <BreadcrumbList className="flex-nowrap">
-                {crumbs.map((crumb, index) => (
-                  <Fragment key={crumb.key}>
-                    {index > 0 && <BreadcrumbSeparator />}
-                    <BreadcrumbItem className="min-w-0">
-                      {index === crumbs.length - 1 ? (
-                        <BreadcrumbPage className="truncate">{crumb.label}</BreadcrumbPage>
-                      ) : (
-                        <BreadcrumbLink className="truncate" render={<Link to={crumb.to} />}>
-                          {crumb.label}
-                        </BreadcrumbLink>
-                      )}
-                    </BreadcrumbItem>
-                  </Fragment>
-                ))}
-              </BreadcrumbList>
-            </Breadcrumb>
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto shrink-0 justify-between font-normal text-muted-foreground sm:w-56"
-              aria-keyshortcuts={isApplePlatform() ? 'Meta+K' : 'Control+K'}
-              onClick={() => openPalette(true)}
-              onPointerEnter={prefetchPalette}
-              onFocus={prefetchPalette}
-            >
-              <span className="flex items-center gap-2">
-                <IconSearch aria-hidden="true" className="size-4" />
-                <span className="max-sm:sr-only">Search…</span>
-              </span>
-              <Kbd aria-hidden="true" className="max-sm:hidden">
-                {paletteShortcutHint()}
-              </Kbd>
-            </Button>
-            {!isMobile && <ThemeToggle />}
-          </header>
-          <MaintenanceBanner />
-          <div className="flex-1 overflow-auto p-4 md:p-6">
-            <Outlet />
-          </div>
-        </SidebarInset>
-        <CommandPaletteHost />
-      </SidebarProvider>
-    </StepUpProvider>
+    <SidebarProvider open={!isCollapsed} onOpenChange={(open) => setCollapsed(!open)}>
+      <SkipLink />
+      <Sidebar collapsible="icon">
+        <SidebarHeader>
+          <SidebarBrand />
+        </SidebarHeader>
+        <SidebarContent>
+          {isSettingsPath(pathname) ? (
+            <NavSettings pathname={pathname} />
+          ) : (
+            <>
+              <NavMain sections={groups} pathname={pathname} />
+              <NavSecondary className="mt-auto" />
+            </>
+          )}
+        </SidebarContent>
+        <SidebarFooter>
+          <UserMenu user={user} />
+          {isMobile && (
+            <div className="flex justify-center">
+              <ThemeToggle />
+            </div>
+          )}
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+      <SidebarInset id={MAIN_CONTENT_ID} tabIndex={-1} className="outline-none">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+          <SidebarTrigger aria-label="Toggle sidebar" className="-ml-1" />
+          <Separator
+            orientation="vertical"
+            className="mr-2 data-vertical:h-4 data-vertical:self-auto"
+          />
+          <Breadcrumb className="min-w-0">
+            <BreadcrumbList className="flex-nowrap">
+              {crumbs.map((crumb, index) => (
+                <Fragment key={crumb.key}>
+                  {index > 0 && <BreadcrumbSeparator />}
+                  <BreadcrumbItem className="min-w-0">
+                    {index === crumbs.length - 1 ? (
+                      <BreadcrumbPage className="truncate">{crumb.label}</BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink className="truncate" render={<Link to={crumb.to} />}>
+                        {crumb.label}
+                      </BreadcrumbLink>
+                    )}
+                  </BreadcrumbItem>
+                </Fragment>
+              ))}
+            </BreadcrumbList>
+          </Breadcrumb>
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto shrink-0 justify-between font-normal text-muted-foreground sm:w-56"
+            aria-keyshortcuts={isApplePlatform() ? 'Meta+K' : 'Control+K'}
+            onClick={() => openPalette(true)}
+            onPointerEnter={prefetchPalette}
+            onFocus={prefetchPalette}
+          >
+            <span className="flex items-center gap-2">
+              <IconSearch aria-hidden="true" className="size-4" />
+              <span className="max-sm:sr-only">Search…</span>
+            </span>
+            <Kbd aria-hidden="true" className="max-sm:hidden">
+              {paletteShortcutHint()}
+            </Kbd>
+          </Button>
+          {!isMobile && <ThemeToggle />}
+        </header>
+        <MaintenanceBanner />
+        <div className="flex-1 overflow-auto p-4 md:p-6">
+          <Outlet />
+        </div>
+      </SidebarInset>
+      <CommandPaletteHost />
+    </SidebarProvider>
   )
 }

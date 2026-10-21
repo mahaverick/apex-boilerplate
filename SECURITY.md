@@ -514,9 +514,15 @@ people out of pages that would fail.
   hides ones it allows.
 - **Links into this app name it.** The Google sign-in link sends `app=apex`
   (`GOOGLE_OAUTH_PATH` in `src/constants/routes.ts`), and the sign-in link
-  request sends `app: 'apex'` (`src/queries/auth.queries.ts`), so the API
+  request, the passkey calls and the step-up link request send `app: 'apex'`
+  (`FRONTEND_APP` in `src/constants/frontend-app.ts`), so the API
   returns the user, and the links it mails, to this app. Without it express
   defaults to the customer app, and staff would get a customer-app link.
+- **A non-staff passkey is refused, and no session starts.** The API answers
+  a passkey sign-in from an account with no platform role with 403
+  `PASSKEY_NO_ACCESS`. The page toasts express's message, stays on `/login`,
+  and sends no `signalUnknownCredential`: the passkey is valid for the
+  customer app, so the browser keeps it.
 - **A sign-in never makes staff.** Express mails an Apex sign-in link only to
   existing, active staff. Outside `full` maintenance, an address with a
   pending staff invitation is mailed the invitation's confirmation link,
@@ -552,9 +558,14 @@ with a 401 whose code is `REAUTH_REQUIRED`.
   (`sentWithCurrentToken`). A dismissal rejects with the original refusal.
   After a dismissal, or a second refusal of the retry, the reason dialog
   asks the user to confirm it's them to continue.
-- **The confirmation is an emailed link, and only that.** The dialog
-  ("Confirm it's you") offers Email me a link
-  (`POST /auth/step-up/link/request`). There is no Google step-up: Google
+- **The confirmation is a passkey or an emailed link.** The dialog
+  ("Confirm it's you") asks for a passkey first when the account has one
+  (`/auth/passkeys/step-up/*`, with `userVerification: 'required'` set and
+  checked by the server) and offers "Use another method", Email me a link
+  (`POST /auth/step-up/link/request`, which sends `{ app: 'apex' }`). From the
+  link view, "Use your passkey instead" returns. An account with no passkey
+  goes straight to the link (`NO_PASSKEY`). Either way the result swaps the
+  access token and nothing else (`setToken` keeps the user). There is no Google step-up: Google
   honours neither `max_age` nor `prompt=login` and documents no account
   reauth, so a Google round trip cannot prove a fresh sign-in, and a person
   at an unattended signed-in device would pass it. Google sign-in is
@@ -577,7 +588,7 @@ with a 401 whose code is `REAUTH_REQUIRED`.
     refreshed token's `auth_time` moved past the one it held when the wait
     began, and otherwise keeps waiting.
   - **A Web Lock says whether a tab is waiting.** The dialog holds the shared
-    `apex-step-up-wait` lock (`STEP_UP_WAIT_LOCK`) from the first send
+    `step-up-wait` lock (`STEP_UP_WAIT_LOCK`) from the first send
     until `confirm()` settles, and `/auth/confirm` reads
     `navigator.locks.query()` before it posts, so it can say "You can close
     this tab" or "try the action again". A session revoked on the server
@@ -593,6 +604,46 @@ with a 401 whose code is `REAUTH_REQUIRED`.
 - **A dialog waiting on step-up holds still.** The reason and maintenance
   dialogs ignore Escape and the backdrop while their action runs, so those
   keys reach the step-up dialog on top instead of closing the one beneath.
+
+## Passkeys
+
+Express is the relying party; this app runs the browser half. Why each rule
+holds:
+
+- **The relying-party ID comes from the API.** `GET /auth/passkeys/config`
+  returns `rpId`, and the options the API signs carry it. The browser refuses
+  a ceremony for an RP ID outside the page's own origin, so a wrong value
+  fails closed. The app never builds an RP ID, challenge or credential
+  parameter of its own.
+- **User verification is the server's to require.** The options set
+  `userVerification: 'required'` and express checks the verified flag on
+  every answer. Nothing in the browser can lower it.
+- **A passkey is checked by the server, never by the app.** The app posts
+  the browser's response with its `challengeId` and trusts only the API's
+  answer.
+- **The WebAuthn package loads on demand.** `src/lib/webauthn.ts` is the only
+  importer of `@simplewebauthn/browser`, through one cached `import()`.
+  `pnpm check:bundle` fails if it reaches a first-visit chunk. A failed import
+  surfaces as a prompt failure, never as a hang.
+- **Signals tell the browser what the server knows, and nothing else.** After
+  a refused credential (`PASSKEY_UNKNOWN`), a delete, and a create or rename,
+  the app calls the browser's `signalUnknownCredential`,
+  `signalAllAcceptedCredentials` and `signalCurrentUserDetails`. The data is
+  the credential ids the account already holds, its user handle and its name
+  and address, sent to the browser's own passkey store, not the network. Each
+  is feature-detected and fire-and-forget, and `PASSKEY_SIGNALS` in
+  `src/lib/webauthn.ts` turns each off for a browser that misbehaves. A 403
+  `PASSKEY_NO_ACCESS` sends no signal.
+- **Passkey names are personal data.** A name is whatever the person typed
+  (or the device's name), so the list and both dialogs wrap it in `<Pii>`, and
+  the row buttons' `aria-label` is masked by `mask-attribute.ts`
+  (`e2e/fixtures/pii.test.ts` scans them).
+- **Analytics sees the ceremony, not the passkey.** `passkey_prompt_cancelled`
+  carries `sign_in`, `create` or `confirm` and nothing else;
+  `sign_in_completed.method` gains `'passkey'`.
+- **Required mode is enforced by the API.** The setup screen is a convenience:
+  the API answers 403 `PASSKEY_SETUP_REQUIRED` to every other authenticated
+  route until the account holds a passkey, whatever the page shows.
 
 ## Reason prompts
 

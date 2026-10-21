@@ -34,11 +34,20 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   API's developer sentence.
 - **A write that may need a recent sign-in runs through `useStepUp().run`.** The
   API refuses a stale sign-in with `REAUTH_REQUIRED`, which is not a verdict.
-  The "Confirm it's you" dialog confirms by an emailed link only, opened in
-  this browser's session on `/auth/confirm`. The confirm page posts
-  `step_up_confirmed`, and the dialog refreshes the session and retries the
-  write once. There is no password and no Google step-up: Google cannot prove
+  The "Confirm it's you" dialog confirms by a passkey, or by an emailed link
+  (under "Use another method"), opened in this browser's session on
+  `/auth/confirm`. The confirm page posts `step_up_confirmed`, and the dialog
+  refreshes the session and retries the write once. A passkey confirmation
+  needs no message: the dialog that asked holds the new token. There is no password and no Google step-up: Google cannot prove
   a fresh sign-in.
+- **Shared passkey and step-up modules are react's; change react first, then
+  copy.** The passkey, step-up and `app-shell` files listed in
+  [Sibling sync](ARCHITECTURE.md#sibling-sync-with-react-boilerplate) are byte
+  for byte react's at its passkeys merge. Never edit one here alone. After a
+  copy, run `bash -c 'for f in <paths>; do git -C ../react-boilerplate show
+<react-sha>:$f | cmp -s - $f || echo "DRIFT $f"; done'` and expect no
+  output. Apex's own seams are `src/constants/frontend-app.ts`,
+  `src/lib/action-message.ts` and `tests/mocks/setup-refusal.ts`.
 - **A member or invitation write through platform access carries a reason.** When
   `useMyRole` reports `access: 'platform'`, the write goes through `ReasonDialog`
   and sends `reason` in the body, DELETE included. A member of the tenant, the

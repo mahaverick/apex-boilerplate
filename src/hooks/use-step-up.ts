@@ -10,7 +10,7 @@ export interface StepUp {
   run: <T>(action: () => Promise<T>) => Promise<T>
 }
 
-/** Provided by `StepUpProvider`, which `AppLayout` mounts once for every staff page. */
+/** Provided by `StepUpProvider`, which `AppShell` mounts once around every signed-in page. */
 export const StepUpContext = createContext<StepUp | null>(null)
 
 /** The step-up runner. Throws outside `<StepUpProvider>`, where a destructive action has no dialog to ask with. */

@@ -4,22 +4,33 @@ import type { ComponentType } from 'react'
 import { RouteError } from '@/components/features/route-error'
 import { RouteNotFound } from '@/components/features/route-not-found'
 import { ListPending } from '@/components/shared/pending-templates'
+import { apiClient } from '@/http/client'
 import {
   ensureSession,
   installAnalyticsIdentity,
   installAuthBroadcastListener,
   isAuthVerdict,
 } from '@/http/session'
+import { installPasskeySetupInterceptor } from '@/lib/passkey-setup'
 import { setErrorRouteSource } from '@/observability/errors'
 import { forgetFeatureProperties } from '@/observability/flags/feature-property-names'
 import { installRouteFeatureProperties } from '@/observability/flags/flag-scope'
 import { capturePageview, forgetStaleIdentity } from '@/observability/telemetry'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
+import { isPasskeySetupRequired } from '@/types/passkey.types'
 
-/** The app's one query client: data stays fresh for 30 s and a failed query retries once. */
+// Required mode answers 403 PASSKEY_SETUP_REQUIRED to every route off its allowlist; the flag swaps the shell for the setup screen.
+installPasskeySetupInterceptor(apiClient)
+
+/** The app's one query client: data stays fresh for 30 s and a failed query retries once, except a refusal that asks for a passkey, which a retry cannot change. */
 export const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: (failureCount, error) => failureCount < 1 && !isPasskeySetupRequired(error),
+    },
+  },
 })
 
 /**
