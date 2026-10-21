@@ -1243,8 +1243,62 @@ const PLATFORM_TENANT_ROWS = [
   createdAt: `2026-01-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
 }))
 
+/**
+ * `?passkeys=off|optional|required` sets the passkey config mode (default `optional`).
+ * In `off` the sign-in routes answer express's unknown-route 404.
+ */
+const passkeyMode = (params.get('passkeys') ?? 'optional') as 'off' | 'optional' | 'required'
+
+/** A request challenge for `rpId` `localhost`, the harness's origin. */
+function passkeyRequestOptions() {
+  return {
+    challenge: 'aGFybmVzcy1jaGFsbGVuZ2U',
+    rpId: 'localhost',
+    timeout: 60000,
+    userVerification: 'required',
+  }
+}
+
+/**
+ * The passkey calls the sign-in page and the "Confirm it's you" dialog make.
+ * The harness does not check a signature. `?passkeyRefuse=no-access` makes the
+ * sign-in verify answer express's 403 `PASSKEY_NO_ACCESS` for a non-staff account.
+ * Step-up options answer 409 `NO_PASSKEY`, so the dialog opens on the email link.
+ */
+const passkeyHandlers = [
+  http.get('/api/v1/auth/passkeys/config', () =>
+    ok({ mode: passkeyMode, rpId: 'localhost' }, 'Passkey config retrieved.')
+  ),
+  http.post('/api/v1/auth/passkeys/sign-in/options', () =>
+    passkeyMode === 'off'
+      ? fail('Route not found', 404, 'not_found')
+      : ok({ challengeId: 'harness-sign-in', options: passkeyRequestOptions() }, 'Options.')
+  ),
+  http.post('/api/v1/auth/passkeys/sign-in/verify', () => {
+    if (passkeyMode === 'off') return fail('Route not found', 404, 'not_found')
+    if (params.get('passkeyRefuse') === 'no-access') {
+      return fail(
+        'This account doesn’t have staff access. Ask a staff owner to invite you.',
+        403,
+        'PASSKEY_NO_ACCESS'
+      )
+    }
+    hasRefreshCookie = true
+    return ok(
+      { user: testUser, accessToken: harnessToken(), isNewUser: false, redirect: null },
+      'Signed in.'
+    )
+  }),
+  http.post('/api/v1/auth/passkeys/step-up/options', () =>
+    passkeyMode === 'off'
+      ? fail('Route not found', 404, 'not_found')
+      : fail('You have no passkey to confirm with.', 409, 'NO_PASSKEY')
+  ),
+]
+
 const worker = setupWorker(
   ...sectionHandlers,
+  ...passkeyHandlers,
   // The Overview, the default route: its KPI cards and both charts.
   http.get('/api/v1/platform/stats', ({ request }) =>
     ok(

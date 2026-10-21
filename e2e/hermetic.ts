@@ -9,6 +9,17 @@ export const FALLBACK_HEADER = 'x-e2e-api-fallback'
 /** A signed-out page's session bootstrap. The one call the fallback is there to answer. */
 const BOOTSTRAP_REFRESH = 'POST /api/v1/auth/refresh'
 
+/** The sign-in page's public passkey config read, made by every signed-out page that shows sign-in. */
+const PASSKEY_CONFIG = 'GET /api/v1/auth/passkeys/config'
+
+/** The config answer for an API with passkeys off, so a page outside the harness shows no passkey UI. */
+const PASSKEYS_OFF = {
+  success: true,
+  message: 'Passkey config retrieved.',
+  statusCode: 200,
+  data: { mode: 'off', rpId: '' },
+}
+
 /** Whether `url` is an API call, whose path starts with `/api/`. */
 function isApi(url: URL): boolean {
   return url.pathname.startsWith('/api/')
@@ -55,7 +66,16 @@ export const test = base.extend<{ apiFallback: ApiFallback }>({
       await context.route(isApi, async (route) => {
         const request = route.request()
         const { pathname } = new URL(request.url())
-        answered.push(`${request.method()} ${pathname}`)
+        const call = `${request.method()} ${pathname}`
+        answered.push(call)
+        if (call === PASSKEY_CONFIG) {
+          await route.fulfill({
+            status: 200,
+            headers: { [FALLBACK_HEADER]: '1' },
+            json: PASSKEYS_OFF,
+          })
+          return
+        }
         await route.fulfill({
           status: 401,
           headers: { [FALLBACK_HEADER]: '1' },
@@ -73,7 +93,7 @@ export const test = base.extend<{ apiFallback: ApiFallback }>({
 
       expect(escaped, '/api responses that came from the dev server proxy').toEqual([])
       expect(
-        answered.filter((call) => call !== BOOTSTRAP_REFRESH),
+        answered.filter((call) => call !== BOOTSTRAP_REFRESH && call !== PASSKEY_CONFIG),
         'endpoints nothing mocked, answered by the fallback'
       ).toEqual([])
     },

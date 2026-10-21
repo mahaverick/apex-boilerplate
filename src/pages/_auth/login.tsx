@@ -2,6 +2,7 @@ import '@/lib/zod-jitless'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
+import { PasskeySignInButton } from '@/components/features/auth/passkey-sign-in'
 import { CHECK_INBOX_TITLE, SignInLinkForm } from '@/components/features/auth/sign-in-link-form'
 import { SocialSignIn } from '@/components/features/auth/social-sign-in'
 import { AuthCard } from '@/components/layouts/auth-card'
@@ -10,8 +11,10 @@ import { AuthPending } from '@/components/shared/pending-templates'
 import { FieldGroup } from '@/components/ui/field'
 import { APP_NAME, pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
+import { usePasskeyAutofill } from '@/hooks/use-passkey-autofill'
 import { safeLanding } from '@/lib/landing'
 import { toast } from '@/lib/toast'
+import { usePasskeyConfig } from '@/queries/passkey.queries'
 
 /**
  * The sign-in page. `validateSearch` is a schema so every key is optional on
@@ -63,6 +66,10 @@ function LoginPage() {
   const { error, redirect, notice } = Route.useSearch()
   const navigate = useNavigate()
   const [sentTo, setSentTo] = useState<string | null>(null)
+  const passkeyConfig = usePasskeyConfig()
+  const passkeysOn = passkeyConfig.data !== undefined && passkeyConfig.data.mode !== 'off'
+  /** Bumped when the button's prompt ends without a sign-in, so autofill asks again. */
+  const [autofillRun, setAutofillRun] = useState(0)
   // A tab reaches `/login?redirect=` from a token page when it is signed out there, and the token must not travel on.
   const landing = safeLanding(redirect) ?? undefined
 
@@ -82,6 +89,12 @@ function LoginPage() {
       : navigate({ to: ROUTES.overview, replace: true }))
   }
 
+  usePasskeyAutofill({
+    enabled: passkeysOn && sentTo === null,
+    onSignedIn,
+    restartKey: autofillRun,
+  })
+
   return (
     <AuthCard
       title={sentTo ? CHECK_INBOX_TITLE : `Sign in to ${APP_NAME}`}
@@ -98,8 +111,21 @@ function LoginPage() {
           onSentToChange={setSentTo}
           redirect={landing}
           onSignedIn={onSignedIn}
+          passkeyAutofill={passkeysOn}
         />
-        {sentTo === null && <SocialSignIn redirect={landing} />}
+        {sentTo === null && (
+          <SocialSignIn
+            redirect={landing}
+            extra={
+              passkeysOn ? (
+                <PasskeySignInButton
+                  onSignedIn={onSignedIn}
+                  onModalSettled={() => setAutofillRun((run) => run + 1)}
+                />
+              ) : undefined
+            }
+          />
+        )}
       </FieldGroup>
     </AuthCard>
   )
