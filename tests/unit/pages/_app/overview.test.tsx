@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { useAuthStore } from '@/states/auth.store'
 import { testFlagsStatus } from '@/tests/fixtures/flags'
 import { maintenanceStatus, PAUSED_QUEUES } from '@/tests/fixtures/maintenance-mode'

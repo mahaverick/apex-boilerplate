@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { RETIRED_AUDIT_ACTIONS, STORED_AUDIT_ACTIONS } from '@/constants/audit-action-names'
 import {
   actorName,

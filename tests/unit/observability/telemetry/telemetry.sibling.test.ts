@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import type { CaptureResult, PostHog } from 'posthog-js'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   ANALYTICS_APP,
   ANALYTICS_CROSS_SUBDOMAIN_COOKIE,

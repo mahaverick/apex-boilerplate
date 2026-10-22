@@ -8,7 +8,7 @@ import {
 } from '@tanstack/react-router'
 import { renderHook } from '@testing-library/react'
 import { http } from 'msw'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { forgetFeatureProperties } from '@/observability/flags/feature-property-names'
 import { ensureFlags } from '@/observability/flags/flag-query'
 import {

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { OnboardingStateBadge } from '@/components/features/onboarding/onboarding-state-badge'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { BADGE_TONES } from '@/constants/badge-tones'

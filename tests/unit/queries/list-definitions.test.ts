@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { http } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { z } from 'zod'
 import { AUDIT_ACTIONS } from '@/constants/audit-action-names'
 import {

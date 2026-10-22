@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { BADGE_TONES } from '@/constants/badge-tones'
 import {
   ONBOARDING_RANGE_LABELS,

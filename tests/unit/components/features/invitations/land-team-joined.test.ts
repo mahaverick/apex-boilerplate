@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { landTeamJoined } from '@/components/features/invitations/land-team-joined'
 import { toast } from '@/lib/toast'
 

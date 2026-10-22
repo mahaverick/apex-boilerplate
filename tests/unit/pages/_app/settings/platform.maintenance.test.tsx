@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import { STAFF_WRITES_NOTE } from '@/constants/maintenance-mode.constants'
 import { maintenanceModeKeys } from '@/queries/maintenance-mode.queries'
 import { queryClient } from '@/router'

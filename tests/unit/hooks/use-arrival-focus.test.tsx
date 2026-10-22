@@ -1,6 +1,6 @@
 import { render, renderHook, screen } from '@testing-library/react'
 import { useRef } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { useArrivalFocus, useLeavingFinalFocus } from '@/hooks/use-arrival-focus'
 import { requestArrivalFocus, takeArrivalFocus } from '@/lib/arrival-focus'
 

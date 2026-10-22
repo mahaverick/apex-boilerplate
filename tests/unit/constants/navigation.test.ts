@@ -1,5 +1,5 @@
 import { IconFlag } from '@tabler/icons-react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   NAV_GROUPS,
   NAV_ITEMS,

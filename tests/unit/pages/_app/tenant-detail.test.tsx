@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import type { MembershipRole } from '@/constants/roles'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import { queryClient } from '@/router'

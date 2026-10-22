@@ -9,7 +9,7 @@ import {
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { InviteMemberForm } from '@/components/features/tenant/invite-member-form'
 import { StepUpContext, type StepUp } from '@/hooks/use-step-up'
 import { markRefusedAfterConfirm } from '@/lib/step-up'

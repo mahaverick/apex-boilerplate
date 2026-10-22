@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { navItemsFor } from '@/constants/navigation'
 import { toast } from '@/lib/toast'
 import { expectMaskedToast } from '@/tests/fixtures/content'

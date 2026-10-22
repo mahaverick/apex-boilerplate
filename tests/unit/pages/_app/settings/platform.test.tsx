@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react'
 import { http } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { flagsEvaluation } from '@/tests/fixtures/flags'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { ok, testUser } from '@/tests/mocks/handlers'

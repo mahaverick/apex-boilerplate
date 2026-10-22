@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { apiDirPlan } from '../../scripts/api-dir-guard.mjs'
 
 /** The refusal text of a plan, failing the test when the plan resolved. */

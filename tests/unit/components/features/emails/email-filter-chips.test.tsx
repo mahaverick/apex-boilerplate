@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { TenantFilterChip, UserFilterChip } from '@/components/features/emails/email-filter-chips'
 
 /** Renders a chip under a query client, which both chips construct their query against. */

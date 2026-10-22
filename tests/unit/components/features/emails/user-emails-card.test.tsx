@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import { USER_EMAILS_SHOWN } from '@/components/features/emails/user-emails-card'
 import { useAuthStore } from '@/states/auth.store'
 import { EMAIL_ID, EMAIL_ID_2, USER_ID_2 } from '@/tests/fixtures/ids'

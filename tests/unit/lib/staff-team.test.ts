@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { teamName, tenantLabel } from '@/lib/staff-team'
 
 const PLATFORM = { name: 'Platform', slug: 'platform' }
