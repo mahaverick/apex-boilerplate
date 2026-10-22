@@ -274,7 +274,7 @@ The `fixtures` project covers passkeys in Chrome with a virtual authenticator
 contract's calls (`?passkeys=off|optional|required`, `?passkeylist=none|one|two`,
 `?stepup=once`, `?setup=1`), while the browser builds and signs the credential.
 The private keys are generated at run time. `E2E_BASE_URL` points a run at a dev
-server on another port, such as one started with `pnpm exec vite --port 5197
+server on another port, such as one started with `pnpm exec vp dev --port 5197
 --strictPort`. `e2e/live/passkeys.test.ts` runs the same flows against an express
 8.0.1 or later with passkeys on.
 
