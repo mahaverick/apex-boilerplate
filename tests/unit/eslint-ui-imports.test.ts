@@ -21,7 +21,8 @@ const IMPORTS = {
 /**
  * Lints each probe as a file in `dir`, in one Oxlint run. Oxlint has no stdin
  * mode, and editing the real file would race the test files that import it, so
- * each probe gets its own file, deleted afterwards.
+ * each probe gets its own file, deleted afterwards. The leading dot keeps the probe
+ * out of the `import.meta.glob` scans other suites run over src/ in parallel.
  * @param probes - Source text, keyed by a probe name unique within this run.
  * @param dir - The directory whose config overrides apply.
  * @returns The `help` text of each `no-restricted-imports` diagnostic, keyed by probe name.
@@ -33,7 +34,7 @@ function oxlintRestrictedImports(
   const paths = Object.fromEntries(
     Object.keys(probes).map((name) => [
       name,
-      path.join(dir, `lint-probe-${process.pid}-${name}.tsx`),
+      path.join(dir, `.lint-probe-${process.pid}-${name}.tsx`),
     ])
   )
   let stdout: string
