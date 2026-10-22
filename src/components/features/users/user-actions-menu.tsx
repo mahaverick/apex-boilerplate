@@ -46,7 +46,14 @@ import type { PlatformUserDetail } from '@/types/api.types'
 
 /** Which action's dialog is open, if any. */
 type OpenDialog =
-  'edit' | 'signInLink' | 'signOut' | 'deactivate' | 'reactivate' | 'delete' | 'purge' | null
+  | 'edit'
+  | 'signInLink'
+  | 'signOut'
+  | 'deactivate'
+  | 'reactivate'
+  | 'delete'
+  | 'purge'
+  | null
 
 /** The menu's order, which the palette lists them in too. */
 const MENU_ORDER: readonly UserAction[] = [

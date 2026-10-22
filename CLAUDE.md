@@ -45,7 +45,7 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   [Sibling sync](ARCHITECTURE.md#sibling-sync-with-react-boilerplate) are byte
   for byte react's at its passkeys merge. Never edit one here alone. After a
   copy, run `bash -c 'for f in <paths>; do git -C ../react-boilerplate show
-<react-sha>:$f | cmp -s - $f || echo "DRIFT $f"; done'` and expect no
+  <react-sha>:$f | cmp -s - $f || echo "DRIFT $f"; done'` and expect no
   output. Apex's own seams are `src/constants/frontend-app.ts`,
   `src/lib/action-message.ts` and `tests/mocks/setup-refusal.ts`.
 - **A member or invitation write through platform access carries a reason.** When

@@ -421,7 +421,13 @@ export type EmailFailureOrigin = 'send' | 'provider' | 'enqueue'
 
 /** Mirrors express's EMAIL_EVENT_TYPES. `opened` and `clicked` never change a status. */
 export type EmailEventType =
-  'delivered' | 'deferred' | 'bounced' | 'complained' | 'opened' | 'clicked' | 'failed'
+  | 'delivered'
+  | 'deferred'
+  | 'bounced'
+  | 'complained'
+  | 'opened'
+  | 'clicked'
+  | 'failed'
 
 /** Why an address is suppressed: only a hard bounce or a complaint adds one. */
 export type SuppressionReason = 'hard_bounce' | 'complaint'
@@ -737,7 +743,10 @@ export interface OnboardingStepDetail {
 
 /** Why a reminder cannot go now: the 409 code the remind endpoint would answer. */
 type OnboardingReminderBlock =
-  'tenant_state_conflict' | 'not_in_progress' | 'no_owner' | 'reminded_recently'
+  | 'tenant_state_conflict'
+  | 'not_in_progress'
+  | 'no_owner'
+  | 'reminded_recently'
 
 /**
  * One staff reminder, read from the tenant's `onboarding.reminder_sent`
@@ -824,7 +833,11 @@ export type FlagApp = 'react' | 'apex'
 
 /** The trait names express evaluates with; there is no other. */
 export type TraitName =
-  'platform_role' | 'tenant_role' | 'app_env' | 'account_created_days' | 'tenant_created_days'
+  | 'platform_role'
+  | 'tenant_role'
+  | 'app_env'
+  | 'account_created_days'
+  | 'tenant_created_days'
 
 /**
  * Why a flag evaluated as it did. The `fallback:*` reasons served the
@@ -964,7 +977,12 @@ export interface FlagsEvaluateResponse {
 
 /** Why the last definitions fetch failed, as express names it. */
 type FlagFetchErrorCode =
-  'unauthorized' | 'http_error' | 'timeout' | 'network' | 'body_too_large' | 'invalid_body'
+  | 'unauthorized'
+  | 'http_error'
+  | 'timeout'
+  | 'network'
+  | 'body_too_large'
+  | 'invalid_body'
 
 /** Feature flags' health, as the system status reports it. */
 export interface FlagsStatus {
