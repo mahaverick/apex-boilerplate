@@ -216,11 +216,11 @@ describe('ReasonDialog', () => {
       .mockRejectedValueOnce(apiFailure(409, 'Too soon', 'reminded_recently'))
       .mockRejectedValueOnce(apiFailure(409, 'No owner', 'no_owner'))
     /** Rewords only the `reminded_recently` refusal; any other falls back to the server's sentence. */
-    const refusalMessage = (error: unknown) =>
-      error instanceof AxiosError &&
-      (error.response?.data as { code?: string }).code === 'reminded_recently'
-        ? 'Try again tomorrow.'
-        : undefined
+    const refusalMessage = (error: unknown) => {
+      if (!(error instanceof AxiosError)) return undefined
+      const data = error.response?.data as { code?: string } | undefined
+      return data?.code === 'reminded_recently' ? 'Try again tomorrow.' : undefined
+    }
     const user = userEvent.setup()
     render(<Harness onConfirm={onConfirm} refusalMessage={refusalMessage} />)
     await user.type(await screen.findByLabelText('Reason'), 'why')

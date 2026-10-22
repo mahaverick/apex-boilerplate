@@ -6,22 +6,103 @@ import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import { defineConfig, lazyPlugins } from 'vite-plus'
 import { runtimeConfigPlugin } from './scripts/runtime-config-plugin.mjs'
 
+/**
+ * Type-aware rules off for the root configs, the pre-paint scripts and the `.mjs`
+ * scripts, as typescript-eslint's `disableTypeChecked` turned them off in ESLint.
+ */
+const typeAwareRulesOff = {
+  'typescript/await-thenable': 'off',
+  'typescript/consistent-return': 'off',
+  'typescript/consistent-type-exports': 'off',
+  'typescript/dot-notation': 'off',
+  'typescript/no-array-delete': 'off',
+  'typescript/no-base-to-string': 'off',
+  'typescript/no-confusing-void-expression': 'off',
+  'typescript/no-deprecated': 'off',
+  'typescript/no-duplicate-type-constituents': 'off',
+  'typescript/no-floating-promises': 'off',
+  'typescript/no-for-in-array': 'off',
+  'typescript/no-generated-empty-object-type': 'off',
+  'typescript/no-implied-eval': 'off',
+  'typescript/no-meaningless-void-operator': 'off',
+  'typescript/no-misused-promises': 'off',
+  'typescript/no-misused-spread': 'off',
+  'typescript/no-mixed-enums': 'off',
+  'typescript/no-redundant-type-constituents': 'off',
+  'typescript/no-unnecessary-boolean-literal-compare': 'off',
+  'typescript/no-unnecessary-condition': 'off',
+  'typescript/no-unnecessary-qualifier': 'off',
+  'typescript/no-unnecessary-template-expression': 'off',
+  'typescript/no-unnecessary-type-arguments': 'off',
+  'typescript/no-unnecessary-type-assertion': 'off',
+  'typescript/no-unnecessary-type-conversion': 'off',
+  'typescript/no-unnecessary-type-parameters': 'off',
+  'typescript/no-unsafe-argument': 'off',
+  'typescript/no-unsafe-assignment': 'off',
+  'typescript/no-unsafe-call': 'off',
+  'typescript/no-unsafe-enum-comparison': 'off',
+  'typescript/no-unsafe-member-access': 'off',
+  'typescript/no-unsafe-return': 'off',
+  'typescript/no-unsafe-type-assertion': 'off',
+  'typescript/no-unsafe-unary-minus': 'off',
+  'typescript/no-useless-default-assignment': 'off',
+  'typescript/non-nullable-type-assertion-style': 'off',
+  'typescript/only-throw-error': 'off',
+  'typescript/prefer-find': 'off',
+  'typescript/prefer-includes': 'off',
+  'typescript/prefer-nullish-coalescing': 'off',
+  'typescript/prefer-optional-chain': 'off',
+  'typescript/prefer-promise-reject-errors': 'off',
+  'typescript/prefer-readonly': 'off',
+  'typescript/prefer-readonly-parameter-types': 'off',
+  'typescript/prefer-reduce-type-parameter': 'off',
+  'typescript/prefer-regexp-exec': 'off',
+  'typescript/prefer-return-this-type': 'off',
+  'typescript/prefer-string-starts-ends-with': 'off',
+  'typescript/promise-function-async': 'off',
+  'typescript/related-getter-setter-pairs': 'off',
+  'typescript/require-array-sort-compare': 'off',
+  'typescript/require-await': 'off',
+  'typescript/restrict-plus-operands': 'off',
+  'typescript/restrict-template-expressions': 'off',
+  'typescript/return-await': 'off',
+  'typescript/strict-boolean-expressions': 'off',
+  'typescript/strict-void-return': 'off',
+  'typescript/switch-exhaustiveness-check': 'off',
+  'typescript/unbound-method': 'off',
+  'typescript/use-unknown-in-catch-callback-variable': 'off',
+} satisfies Record<string, 'off'>
+
+/** The `cn` ban: our own code imports the class merger from `@/lib/utils`. */
+const CN_PATH = { name: 'cn', message: "Import `cn` from '@/lib/utils'." }
+/** The `cmdk` ban: the command palette is Base UI Autocomplete, and cmdk pulls in Radix. */
+const CMDK_PATH = {
+  name: 'cmdk',
+  message: 'Use @/components/ui/command (Base UI Autocomplete); cmdk pulls in Radix.',
+}
+/** The `messageFrom` ban in feature code: a refusal's text goes through `staffMessageFrom`. */
+const MESSAGE_FROM_PATH = {
+  name: '@/lib/api-error',
+  importNames: ['messageFrom'],
+  message: "Use staffMessageFrom from '@/lib/staff-message'.",
+}
+/** The `@radix-ui/*` ban: Base UI owns the primitives (STYLESEED.md). */
+const RADIX_PATTERN = {
+  group: ['@radix-ui/*'],
+  message: 'Base UI owns the primitives here (STYLESEED.md).',
+}
+
 export default defineConfig({
   lint: {
-    plugins: ['oxc', 'typescript', 'unicorn'],
-    jsPlugins: [
-      '@tanstack/eslint-plugin-router',
-      {
-        name: 'vite-plus',
-        specifier: 'vite-plus/oxlint-plugin',
-      },
-    ],
+    plugins: ['oxc', 'typescript', 'unicorn', 'react', 'jsdoc', 'import'],
     categories: {
-      correctness: 'warn',
+      correctness: 'error',
     },
     options: {
       typeAware: true,
-      typeCheck: true,
+      typeCheck: false,
+      denyWarnings: true,
+      reportUnusedDisableDirectives: 'error',
     },
     env: {
       builtin: true,
@@ -88,7 +169,7 @@ export default defineConfig({
       'no-unsafe-optional-chaining': 'error',
       'no-unused-labels': 'error',
       'no-unused-private-class-members': 'error',
-      'no-unused-vars': 'error',
+      'no-unused-vars': ['error', {}],
       'no-useless-assignment': 'error',
       'no-useless-backreference': 'error',
       'no-useless-catch': 'error',
@@ -100,8 +181,6 @@ export default defineConfig({
       'valid-typeof': 'error',
       'no-array-constructor': 'error',
       'no-unused-expressions': 'error',
-      '@tanstack/router/create-route-property-order': 'warn',
-      '@tanstack/router/route-param-names': 'error',
       'typescript/await-thenable': 'error',
       'typescript/ban-ts-comment': 'error',
       'typescript/no-array-delete': 'error',
@@ -142,7 +221,12 @@ export default defineConfig({
       'typescript/restrict-template-expressions': 'error',
       'typescript/triple-slash-reference': 'error',
       'typescript/unbound-method': 'error',
-      'vite-plus/prefer-vite-plus-imports': 'error',
+      'react/no-danger': 'error',
+      'react/jsx-no-target-blank': 'error',
+      'react/iframe-missing-sandbox': 'error',
+      'react/jsx-no-script-url': 'error',
+      'no-eval': 'error',
+      'no-new-func': 'error',
     },
     overrides: [
       {
@@ -201,350 +285,42 @@ export default defineConfig({
         },
       },
       {
-        files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.svelte', '**/*.vue'],
-        rules: {
-          'tailwindcss/classnames-order': 'warn',
-          'tailwindcss/enforces-canonical-classname': 'warn',
-          'tailwindcss/enforces-negative-arbitrary-values': 'warn',
-          'tailwindcss/enforces-shorthand': 'warn',
-          'tailwindcss/important-modifier-suffix': 'warn',
-          'tailwindcss/no-arbitrary-value': 'off',
-          'tailwindcss/no-custom-classname': 'warn',
-          'tailwindcss/no-contradicting-classname': 'error',
-          'tailwindcss/no-unnecessary-arbitrary-value': 'warn',
-        },
-        jsPlugins: ['eslint-plugin-tailwindcss'],
-        globals: {
-          $state: 'readonly',
-          $derived: 'readonly',
-          $effect: 'readonly',
-          $props: 'readonly',
-          $bindable: 'readonly',
-          $inspect: 'readonly',
-          $host: 'readonly',
-        },
-      },
-      {
-        files: ['src/**/*.{ts,tsx}'],
-        rules: {
-          'tailwindcss/classnames-order': 'off',
-        },
-        jsPlugins: ['eslint-plugin-tailwindcss'],
-      },
-      {
         files: [
           'eslint.config.js',
-          'prettier.config.js',
           'vite.config.ts',
           'vitest.config.ts',
           'playwright.config.ts',
           'commitlint.config.js',
         ],
-        rules: {
-          'typescript/await-thenable': 'off',
-          'typescript/consistent-return': 'off',
-          'typescript/consistent-type-exports': 'off',
-          'typescript/dot-notation': 'off',
-          'typescript/no-array-delete': 'off',
-          'typescript/no-base-to-string': 'off',
-          'typescript/no-confusing-void-expression': 'off',
-          'typescript/no-deprecated': 'off',
-          'typescript/no-duplicate-type-constituents': 'off',
-          'typescript/no-floating-promises': 'off',
-          'typescript/no-for-in-array': 'off',
-          'typescript/no-generated-empty-object-type': 'off',
-          'typescript/no-implied-eval': 'off',
-          'typescript/no-meaningless-void-operator': 'off',
-          'typescript/no-misused-promises': 'off',
-          'typescript/no-misused-spread': 'off',
-          'typescript/no-mixed-enums': 'off',
-          'typescript/no-redundant-type-constituents': 'off',
-          'typescript/no-unnecessary-boolean-literal-compare': 'off',
-          'typescript/no-unnecessary-condition': 'off',
-          'typescript/no-unnecessary-qualifier': 'off',
-          'typescript/no-unnecessary-template-expression': 'off',
-          'typescript/no-unnecessary-type-arguments': 'off',
-          'typescript/no-unnecessary-type-assertion': 'off',
-          'typescript/no-unnecessary-type-conversion': 'off',
-          'typescript/no-unnecessary-type-parameters': 'off',
-          'typescript/no-unsafe-argument': 'off',
-          'typescript/no-unsafe-assignment': 'off',
-          'typescript/no-unsafe-call': 'off',
-          'typescript/no-unsafe-enum-comparison': 'off',
-          'typescript/no-unsafe-member-access': 'off',
-          'typescript/no-unsafe-return': 'off',
-          'typescript/no-unsafe-type-assertion': 'off',
-          'typescript/no-unsafe-unary-minus': 'off',
-          'typescript/no-useless-default-assignment': 'off',
-          'typescript/non-nullable-type-assertion-style': 'off',
-          'typescript/only-throw-error': 'off',
-          'typescript/prefer-find': 'off',
-          'typescript/prefer-includes': 'off',
-          'typescript/prefer-nullish-coalescing': 'off',
-          'typescript/prefer-optional-chain': 'off',
-          'typescript/prefer-promise-reject-errors': 'off',
-          'typescript/prefer-readonly': 'off',
-          'typescript/prefer-readonly-parameter-types': 'off',
-          'typescript/prefer-reduce-type-parameter': 'off',
-          'typescript/prefer-regexp-exec': 'off',
-          'typescript/prefer-return-this-type': 'off',
-          'typescript/prefer-string-starts-ends-with': 'off',
-          'typescript/promise-function-async': 'off',
-          'typescript/related-getter-setter-pairs': 'off',
-          'typescript/require-array-sort-compare': 'off',
-          'typescript/require-await': 'off',
-          'typescript/restrict-plus-operands': 'off',
-          'typescript/restrict-template-expressions': 'off',
-          'typescript/return-await': 'off',
-          'typescript/strict-boolean-expressions': 'off',
-          'typescript/strict-void-return': 'off',
-          'typescript/switch-exhaustiveness-check': 'off',
-          'typescript/unbound-method': 'off',
-          'typescript/use-unknown-in-catch-callback-variable': 'off',
-          'tailwindcss/classnames-order': 'off',
-          'tailwindcss/enforces-canonical-classname': 'off',
-          'tailwindcss/enforces-negative-arbitrary-values': 'off',
-          'tailwindcss/enforces-shorthand': 'off',
-          'tailwindcss/important-modifier-suffix': 'off',
-          'tailwindcss/no-custom-classname': 'off',
-          'tailwindcss/no-contradicting-classname': 'off',
-          'tailwindcss/no-unnecessary-arbitrary-value': 'off',
+        rules: typeAwareRulesOff,
+        env: {
+          node: true,
         },
-        jsPlugins: ['eslint-plugin-tailwindcss'],
       },
       {
         files: ['public/theme-init.js', 'public/boot-variant.js'],
-        rules: {
-          'typescript/await-thenable': 'off',
-          'typescript/consistent-return': 'off',
-          'typescript/consistent-type-exports': 'off',
-          'typescript/dot-notation': 'off',
-          'typescript/no-array-delete': 'off',
-          'typescript/no-base-to-string': 'off',
-          'typescript/no-confusing-void-expression': 'off',
-          'typescript/no-deprecated': 'off',
-          'typescript/no-duplicate-type-constituents': 'off',
-          'typescript/no-floating-promises': 'off',
-          'typescript/no-for-in-array': 'off',
-          'typescript/no-generated-empty-object-type': 'off',
-          'typescript/no-implied-eval': 'off',
-          'typescript/no-meaningless-void-operator': 'off',
-          'typescript/no-misused-promises': 'off',
-          'typescript/no-misused-spread': 'off',
-          'typescript/no-mixed-enums': 'off',
-          'typescript/no-redundant-type-constituents': 'off',
-          'typescript/no-unnecessary-boolean-literal-compare': 'off',
-          'typescript/no-unnecessary-condition': 'off',
-          'typescript/no-unnecessary-qualifier': 'off',
-          'typescript/no-unnecessary-template-expression': 'off',
-          'typescript/no-unnecessary-type-arguments': 'off',
-          'typescript/no-unnecessary-type-assertion': 'off',
-          'typescript/no-unnecessary-type-conversion': 'off',
-          'typescript/no-unnecessary-type-parameters': 'off',
-          'typescript/no-unsafe-argument': 'off',
-          'typescript/no-unsafe-assignment': 'off',
-          'typescript/no-unsafe-call': 'off',
-          'typescript/no-unsafe-enum-comparison': 'off',
-          'typescript/no-unsafe-member-access': 'off',
-          'typescript/no-unsafe-return': 'off',
-          'typescript/no-unsafe-type-assertion': 'off',
-          'typescript/no-unsafe-unary-minus': 'off',
-          'typescript/no-useless-default-assignment': 'off',
-          'typescript/non-nullable-type-assertion-style': 'off',
-          'typescript/only-throw-error': 'off',
-          'typescript/prefer-find': 'off',
-          'typescript/prefer-includes': 'off',
-          'typescript/prefer-nullish-coalescing': 'off',
-          'typescript/prefer-optional-chain': 'off',
-          'typescript/prefer-promise-reject-errors': 'off',
-          'typescript/prefer-readonly': 'off',
-          'typescript/prefer-readonly-parameter-types': 'off',
-          'typescript/prefer-reduce-type-parameter': 'off',
-          'typescript/prefer-regexp-exec': 'off',
-          'typescript/prefer-return-this-type': 'off',
-          'typescript/prefer-string-starts-ends-with': 'off',
-          'typescript/promise-function-async': 'off',
-          'typescript/related-getter-setter-pairs': 'off',
-          'typescript/require-array-sort-compare': 'off',
-          'typescript/require-await': 'off',
-          'typescript/restrict-plus-operands': 'off',
-          'typescript/restrict-template-expressions': 'off',
-          'typescript/return-await': 'off',
-          'typescript/strict-boolean-expressions': 'off',
-          'typescript/strict-void-return': 'off',
-          'typescript/switch-exhaustiveness-check': 'off',
-          'typescript/unbound-method': 'off',
-          'typescript/use-unknown-in-catch-callback-variable': 'off',
-          'tailwindcss/classnames-order': 'off',
-          'tailwindcss/enforces-canonical-classname': 'off',
-          'tailwindcss/enforces-negative-arbitrary-values': 'off',
-          'tailwindcss/enforces-shorthand': 'off',
-          'tailwindcss/important-modifier-suffix': 'off',
-          'tailwindcss/no-custom-classname': 'off',
-          'tailwindcss/no-contradicting-classname': 'off',
-          'tailwindcss/no-unnecessary-arbitrary-value': 'off',
-        },
-        jsPlugins: ['eslint-plugin-tailwindcss'],
+        rules: typeAwareRulesOff,
         env: {
           browser: true,
         },
       },
       {
         files: ['scripts/**/*.mjs', 'scripts/**/*.d.mts'],
-        rules: {
-          'typescript/await-thenable': 'off',
-          'typescript/consistent-return': 'off',
-          'typescript/consistent-type-exports': 'off',
-          'typescript/dot-notation': 'off',
-          'typescript/no-array-delete': 'off',
-          'typescript/no-base-to-string': 'off',
-          'typescript/no-confusing-void-expression': 'off',
-          'typescript/no-deprecated': 'off',
-          'typescript/no-duplicate-type-constituents': 'off',
-          'typescript/no-floating-promises': 'off',
-          'typescript/no-for-in-array': 'off',
-          'typescript/no-generated-empty-object-type': 'off',
-          'typescript/no-implied-eval': 'off',
-          'typescript/no-meaningless-void-operator': 'off',
-          'typescript/no-misused-promises': 'off',
-          'typescript/no-misused-spread': 'off',
-          'typescript/no-mixed-enums': 'off',
-          'typescript/no-redundant-type-constituents': 'off',
-          'typescript/no-unnecessary-boolean-literal-compare': 'off',
-          'typescript/no-unnecessary-condition': 'off',
-          'typescript/no-unnecessary-qualifier': 'off',
-          'typescript/no-unnecessary-template-expression': 'off',
-          'typescript/no-unnecessary-type-arguments': 'off',
-          'typescript/no-unnecessary-type-assertion': 'off',
-          'typescript/no-unnecessary-type-conversion': 'off',
-          'typescript/no-unnecessary-type-parameters': 'off',
-          'typescript/no-unsafe-argument': 'off',
-          'typescript/no-unsafe-assignment': 'off',
-          'typescript/no-unsafe-call': 'off',
-          'typescript/no-unsafe-enum-comparison': 'off',
-          'typescript/no-unsafe-member-access': 'off',
-          'typescript/no-unsafe-return': 'off',
-          'typescript/no-unsafe-type-assertion': 'off',
-          'typescript/no-unsafe-unary-minus': 'off',
-          'typescript/no-useless-default-assignment': 'off',
-          'typescript/non-nullable-type-assertion-style': 'off',
-          'typescript/only-throw-error': 'off',
-          'typescript/prefer-find': 'off',
-          'typescript/prefer-includes': 'off',
-          'typescript/prefer-nullish-coalescing': 'off',
-          'typescript/prefer-optional-chain': 'off',
-          'typescript/prefer-promise-reject-errors': 'off',
-          'typescript/prefer-readonly': 'off',
-          'typescript/prefer-readonly-parameter-types': 'off',
-          'typescript/prefer-reduce-type-parameter': 'off',
-          'typescript/prefer-regexp-exec': 'off',
-          'typescript/prefer-return-this-type': 'off',
-          'typescript/prefer-string-starts-ends-with': 'off',
-          'typescript/promise-function-async': 'off',
-          'typescript/related-getter-setter-pairs': 'off',
-          'typescript/require-array-sort-compare': 'off',
-          'typescript/require-await': 'off',
-          'typescript/restrict-plus-operands': 'off',
-          'typescript/restrict-template-expressions': 'off',
-          'typescript/return-await': 'off',
-          'typescript/strict-boolean-expressions': 'off',
-          'typescript/strict-void-return': 'off',
-          'typescript/switch-exhaustiveness-check': 'off',
-          'typescript/unbound-method': 'off',
-          'typescript/use-unknown-in-catch-callback-variable': 'off',
-        },
+        rules: typeAwareRulesOff,
         env: {
           node: true,
         },
       },
       {
         files: ['e2e/**/*.{ts,tsx}'],
-        rules: {
-          'tailwindcss/classnames-order': 'off',
-          'tailwindcss/enforces-canonical-classname': 'off',
-          'tailwindcss/enforces-negative-arbitrary-values': 'off',
-          'tailwindcss/enforces-shorthand': 'off',
-          'tailwindcss/important-modifier-suffix': 'off',
-          'tailwindcss/no-custom-classname': 'off',
-          'tailwindcss/no-contradicting-classname': 'off',
-          'tailwindcss/no-unnecessary-arbitrary-value': 'off',
-        },
-        jsPlugins: ['eslint-plugin-tailwindcss'],
+        rules: {},
         env: {
           browser: true,
         },
       },
       {
-        files: ['src/!(pages)/**/*.{ts,tsx}', 'src/*.{ts,tsx}'],
-        rules: {
-          'check-file/filename-naming-convention': [
-            'error',
-            {
-              'src/!(pages)/**/*.{ts,tsx}': 'KEBAB_CASE',
-              'src/*.{ts,tsx}': 'KEBAB_CASE',
-            },
-            {
-              ignoreMiddleExtensions: true,
-            },
-          ],
-          'check-file/folder-naming-convention': [
-            'error',
-            {
-              'src/!(pages)/**/': 'KEBAB_CASE',
-            },
-          ],
-          'check-file/folder-match-with-fex': [
-            'error',
-            {
-              '**/*.store.ts': 'src/states/**',
-              '**/*.queries.ts': 'src/queries/**',
-              '**/*.schemas.ts': 'src/schemas/**',
-              '**/*.types.ts': 'src/types/**',
-            },
-          ],
-        },
-        jsPlugins: ['eslint-plugin-check-file'],
-      },
-      {
-        files: ['src/**/*.{ts,tsx}'],
-        rules: {
-          'check-file/filename-blocklist': [
-            'error',
-            {
-              '**/*.{test,spec}.{ts,tsx}': 'tests/unit/**/*.test.{ts,tsx}',
-              '**/__tests__/**': 'tests/unit/**/*.test.{ts,tsx}',
-              'src/tests/**': 'tests/**',
-            },
-            {
-              errorMessage:
-                '`{{ target }}` is a test file under src/. Tests live in tests/unit/, mirroring the src/ path of the subject, e.g. src/http/session.ts → tests/unit/http/session.test.ts.',
-            },
-          ],
-        },
-        jsPlugins: ['eslint-plugin-check-file'],
-      },
-      {
         files: ['tests/**/*.{ts,tsx}'],
         rules: {
-          'tailwindcss/classnames-order': 'off',
-          'tailwindcss/enforces-canonical-classname': 'off',
-          'tailwindcss/enforces-negative-arbitrary-values': 'off',
-          'tailwindcss/enforces-shorthand': 'off',
-          'tailwindcss/important-modifier-suffix': 'off',
-          'tailwindcss/no-custom-classname': 'off',
-          'tailwindcss/no-contradicting-classname': 'off',
-          'tailwindcss/no-unnecessary-arbitrary-value': 'off',
-          'check-file/filename-blocklist': [
-            'error',
-            {
-              '**/*.spec.{ts,tsx}': '*.test.{ts,tsx}',
-              '**/__tests__/**': '*.test.{ts,tsx}',
-            },
-            {
-              errorMessage:
-                'This project uses `.test.` filenames under tests/unit/ — not `.spec.` and not a `__tests__/` folder.',
-            },
-          ],
           'react/rules-of-hooks': 'error',
           'react/exhaustive-deps': 'warn',
           'react/static-components': 'error',
@@ -559,59 +335,20 @@ export default defineConfig({
           'react/purity': 'error',
           'react/set-state-in-render': 'error',
           'react/unsupported-syntax': 'warn',
+          // tests fake `window.location` by spreading it
+          'typescript/no-misused-spread': 'off',
         },
-        jsPlugins: ['eslint-plugin-tailwindcss', 'eslint-plugin-check-file'],
         plugins: ['react'],
         env: {
           browser: true,
         },
       },
       {
-        files: [
-          'src/states/**/*.ts',
-          'src/queries/**/*.ts',
-          'src/schemas/**/*.ts',
-          'src/types/**/*.ts',
-          'src/hooks/**/*.{ts,tsx}',
-        ],
-        rules: {
-          'check-file/filename-naming-convention': [
-            'error',
-            {
-              'src/states/**/*.ts': '+([a-z])*([a-z0-9])*(-+([a-z0-9])).store',
-              'src/queries/**/*.ts': '+([a-z])*([a-z0-9])*(-+([a-z0-9])).queries',
-              'src/schemas/**/*.ts': '+([a-z])*([a-z0-9])*(-+([a-z0-9])).schemas',
-              'src/types/**/*.ts': '+([a-z])*([a-z0-9])*(-+([a-z0-9])).types',
-              'src/hooks/**/*.{ts,tsx}': 'use-+([a-z])*([a-z0-9])*(-+([a-z0-9]))',
-            },
-          ],
-        },
-        jsPlugins: ['eslint-plugin-check-file'],
-      },
-      {
         files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', 'e2e/**/*.{ts,tsx}'],
         rules: {
           'no-restricted-imports': [
             'error',
-            {
-              paths: [
-                {
-                  name: 'cn',
-                  message: "Import `cn` from '@/lib/utils'.",
-                },
-                {
-                  name: 'cmdk',
-                  message:
-                    'Use @/components/ui/command (Base UI Autocomplete); cmdk pulls in Radix.',
-                },
-              ],
-              patterns: [
-                {
-                  group: ['@radix-ui/*'],
-                  message: 'Base UI owns the primitives here (STYLESEED.md).',
-                },
-              ],
-            },
+            { paths: [CN_PATH, CMDK_PATH], patterns: [RADIX_PATTERN] },
           ],
         },
       },
@@ -620,53 +357,7 @@ export default defineConfig({
         rules: {
           'no-restricted-imports': [
             'error',
-            {
-              paths: [
-                {
-                  name: 'cn',
-                  message: "Import `cn` from '@/lib/utils'.",
-                },
-                {
-                  name: 'cmdk',
-                  message:
-                    'Use @/components/ui/command (Base UI Autocomplete); cmdk pulls in Radix.',
-                },
-                {
-                  name: '@/lib/api-error',
-                  importNames: ['messageFrom'],
-                  message: "Use staffMessageFrom from '@/lib/staff-message'.",
-                },
-              ],
-              patterns: [
-                {
-                  group: ['@radix-ui/*'],
-                  message: 'Base UI owns the primitives here (STYLESEED.md).',
-                },
-              ],
-            },
-          ],
-        },
-      },
-      {
-        files: ['src/components/ui/!(form|command).tsx'],
-        rules: {
-          'no-restricted-imports': [
-            'error',
-            {
-              paths: [
-                {
-                  name: 'cmdk',
-                  message:
-                    'Use @/components/ui/command (Base UI Autocomplete); cmdk pulls in Radix.',
-                },
-              ],
-              patterns: [
-                {
-                  group: ['@radix-ui/*'],
-                  message: 'Base UI owns the primitives here (STYLESEED.md).',
-                },
-              ],
-            },
+            { paths: [CN_PATH, CMDK_PATH, MESSAGE_FROM_PATH], patterns: [RADIX_PATTERN] },
           ],
         },
       },
@@ -677,15 +368,8 @@ export default defineConfig({
             'error',
             {
               paths: [
-                {
-                  name: 'cn',
-                  message: "Import `cn` from '@/lib/utils'.",
-                },
-                {
-                  name: 'cmdk',
-                  message:
-                    'Use @/components/ui/command (Base UI Autocomplete); cmdk pulls in Radix.',
-                },
+                CN_PATH,
+                CMDK_PATH,
                 {
                   name: 'node:timers/promises',
                   importNames: ['setTimeout'],
@@ -699,12 +383,7 @@ export default defineConfig({
                     'Wait on a condition, not a duration: findBy*/waitFor/vi.waitFor, expect.poll or a web-first assertion in e2e, fake timers, or settle(ms, reason) from @/tests/fixtures/timing (e2e: ./timing) when nothing can be observed.',
                 },
               ],
-              patterns: [
-                {
-                  group: ['@radix-ui/*'],
-                  message: 'Base UI owns the primitives here (STYLESEED.md).',
-                },
-              ],
+              patterns: [RADIX_PATTERN],
             },
           ],
         },
@@ -712,18 +391,8 @@ export default defineConfig({
       {
         files: ['src/components/ui/**'],
         rules: {
-          'tailwindcss/classnames-order': 'off',
-          'tailwindcss/enforces-canonical-classname': 'off',
-          'tailwindcss/enforces-negative-arbitrary-values': 'off',
-          'tailwindcss/enforces-shorthand': 'off',
-          'tailwindcss/important-modifier-suffix': 'off',
-          'tailwindcss/no-arbitrary-value': 'off',
-          'tailwindcss/no-contradicting-classname': 'off',
-          'tailwindcss/no-custom-classname': 'off',
-          'tailwindcss/no-unnecessary-arbitrary-value': 'off',
           'react/only-export-components': 'off',
         },
-        jsPlugins: ['eslint-plugin-tailwindcss'],
         plugins: ['react'],
       },
       {
@@ -757,14 +426,6 @@ export default defineConfig({
       {
         files: ['src/components/ui/form.tsx', 'src/components/ui/command.tsx'],
         rules: {
-          'tailwindcss/enforces-canonical-classname': 'warn',
-          'tailwindcss/enforces-negative-arbitrary-values': 'warn',
-          'tailwindcss/enforces-shorthand': 'warn',
-          'tailwindcss/important-modifier-suffix': 'warn',
-          'tailwindcss/no-arbitrary-value': 'off',
-          'tailwindcss/no-contradicting-classname': 'error',
-          'tailwindcss/no-custom-classname': 'warn',
-          'tailwindcss/no-unnecessary-arbitrary-value': 'warn',
           'react/only-export-components': [
             'warn',
             {
@@ -772,7 +433,6 @@ export default defineConfig({
             },
           ],
         },
-        jsPlugins: ['eslint-plugin-tailwindcss'],
         plugins: ['react'],
       },
       {
@@ -793,6 +453,51 @@ export default defineConfig({
         },
         plugins: ['jsdoc'],
       },
+      // Exemptions by override order (Oxlint ignores per-block `ignores` and extglobs; later options replace earlier ones).
+      { files: ['src/lib/utils.ts'], rules: { 'no-restricted-imports': 'off' } },
+      {
+        files: ['src/components/ui/*.tsx'],
+        rules: {
+          'no-restricted-imports': ['error', { paths: [CMDK_PATH], patterns: [RADIX_PATTERN] }],
+        },
+      },
+      {
+        files: ['src/components/ui/form.tsx', 'src/components/ui/command.tsx'],
+        rules: {
+          'no-restricted-imports': [
+            'error',
+            { paths: [CN_PATH, CMDK_PATH, MESSAGE_FROM_PATH], patterns: [RADIX_PATTERN] },
+          ],
+        },
+      },
+      {
+        files: [
+          'src/lib/api-error.ts',
+          'src/lib/retry.ts',
+          'src/lib/staff-message.ts',
+          'src/components/features/auth/sign-in-link-form.tsx',
+          'src/components/features/profile/security-section.tsx',
+          'src/components/features/profile/passkey-dialogs.tsx',
+          'src/lib/passkey-create-failure.ts',
+          'src/lib/passkey-setup.ts',
+        ],
+        rules: {
+          'no-restricted-imports': [
+            'error',
+            { paths: [CN_PATH, CMDK_PATH], patterns: [RADIX_PATTERN] },
+          ],
+        },
+      },
+      {
+        files: ['tests/fixtures/timing.ts', 'e2e/timing.ts'],
+        rules: {
+          'no-restricted-imports': [
+            'error',
+            { paths: [CN_PATH, CMDK_PATH], patterns: [RADIX_PATTERN] },
+          ],
+        },
+      },
+      { files: ['src/components/ui/chart.tsx'], rules: { 'react/no-danger': 'off' } },
     ],
   },
   fmt: {
