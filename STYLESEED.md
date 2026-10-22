@@ -18,8 +18,8 @@ line: `tests/unit/dependency-lock.test.ts` fails on any `@radix-ui/*` package or
 
 **`src/components/ui/command.tsx` is hand-written on Base UI Autocomplete.** shadcn's
 `command` is built on `cmdk`, which pulls in Radix. A re-pull of the registry file would
-break the dependency lock, so keep the hand-written one. `.prettierignore` names it,
-with `form.tsx`, as a file prettier formats.
+break the dependency lock, so keep the hand-written one. `fmt.ignorePatterns` in `vite.config.ts` names it,
+with `form.tsx`, as a file the formatter formats.
 
 ## Selection
 
@@ -163,7 +163,7 @@ them.
 live design tokens. Do not wire `--ss-*` into components, and do not treat those files as a
 source of truth.
 
-`.prettierignore` excludes `.styleseed/` and this file. A reformat of the generated files
+`fmt.ignorePatterns` in `vite.config.ts` excludes `.styleseed/` and this file. A reformat of the generated files
 changes their hashes and turns a clean scan into an SS000 contract error.
 
 ## Skills

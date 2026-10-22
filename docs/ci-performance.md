@@ -8,7 +8,7 @@ Timing record for the Vite+ migration. Later tasks append their "after" tables h
 - **Local:** `hyperfine --warmup 1 --runs 3`; the table shows the mean of 3 runs (hyperfine's markdown export), not the median.
 - **Machine:** Apple silicon laptop, 10 cores. Load average (1 min) was 3.35 at the start of the benchmark and 14.3 at its end. Vitest and Playwright spawn their own workers, so the later commands ran under their own load plus other processes on the machine. Treat the local numbers as indicative.
 - **Exit codes:** hyperfine ran without `--ignore-failure`, so it would have aborted on a non-zero exit. All five commands exited 0, including `pnpm test`, and `pnpm build` produced `dist/` (13 MB).
-- **Build time:** `pnpm build` is `tsc -b && vite build`. `tsc -b` reuses its incremental cache after the first run, so the 6s mean is warm. A cold build takes longer.
+- **Build time:** `pnpm build` is `tsc -b && vp build`. `tsc -b` reuses its incremental cache after the first run, so the 6s mean is warm. A cold build takes longer.
 - **Comparison:** take later "after" tables at a comparable load, or the ratios mean little.
 
 ## CI before

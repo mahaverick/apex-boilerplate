@@ -66,9 +66,12 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
 
 ## The gate
 
-- **0 errors and 0 warnings.** Check with `pnpm exec eslint . --max-warnings 0`,
-  as CI and the pre-push hook do. `pnpm lint`'s eslint half exits 0 on warnings.
-- `pnpm lint` also runs `prettier --check`, and CI runs `pnpm lint:docs`,
+- **0 errors and 0 warnings.** Check with `pnpm check`: `vp check` (Oxlint with
+  type-aware rules, plus the Oxfmt check), then ESLint with `--max-warnings 0` for
+  the 17 leftover rules, which run untyped. Oxlint fails on a warning too
+  (`denyWarnings` in `vite.config.ts`). `pnpm lint` runs `vp lint`, ESLint and
+  `vp fmt --check`, with the same zero-warning bar.
+- CI also runs `pnpm lint:docs`,
   `pnpm ui:drift`, `pnpm knip`, `pnpm typecheck`, `pnpm test:coverage` (thresholds in
   `vitest.config.ts`), `pnpm check:bundle` and the `e2e` and `docker` jobs. The scripts
   are in [README.md](README.md).
@@ -293,20 +296,24 @@ listed below.
 The directory holds vendored shadcn output. An edit there is lost the next time
 the component is added again.
 
-- **prettier skips the vendored files** (`.prettierignore`).
-- **eslint relaxes only some rules for them**: the Tailwind rules,
-  `react-refresh/only-export-components`, `local/comment-style`, the JSDoc
+- **The formatter skips the vendored files** (`fmt.ignorePatterns` in `vite.config.ts`).
+- **The linters relax only some rules for them**: the Tailwind rules,
+  `react/only-export-components`, `local/comment-style`, the JSDoc
   requirement and the import restrictions. Every other rule, type-aware rules at
   error included, still applies, so a type error there fails CI. The one
   exception is `chart.tsx`, which turns off five type-aware rules its Recharts
-  typing trips. Settle a doubt with `pnpm exec eslint --print-config <file>`, not
-  by reading the config.
+  typing trips. Settle a doubt by running the linter, not by reading the config:
+  for ESLint, `pnpm exec eslint --print-config <file>`. For Oxlint, lint a probe
+  file under the glob: `oxlint --print-config` prints the whole config, not one
+  file's. The exemptions live in the `vite.config.ts` overrides and in
+  `eslint.config.js`.
 - **`form.tsx` and `command.tsx` are ours**, fully linted and formatted. They are
-  named in five places: four `eslint.config.js` blocks (the block that re-enables
-  the Tailwind and `react-refresh` rules, plus the `!(form|command)` globs of the
-  import restriction, comment-style and JSDoc blocks), and the `!` negations in
-  `.prettierignore`. A third hand-written file there goes into all five in the
-  same change.
+  named in `vite.config.ts` and `eslint.config.js`. Find them with
+  `grep -n 'form.tsx' vite.config.ts` and `grep -n '!(form|command)' eslint.config.js`:
+  the `vite.config.ts` override blocks that re-enable the `react/only-export-components`
+  rule and the import restriction, the `!` negations in `fmt.ignorePatterns`, and the
+  `!(form|command)` globs in `eslint.config.js`. A third hand-written file there
+  goes into all of them in the same change.
 - **An edit to a vendored file is recorded, or CI fails.** `pnpm ui:drift`
   compares each file with its registry snapshot in `scripts/ui-registry/` and
   accepts only the edits in `docs/ui-local-edits.md`. On drift it prints the
@@ -368,16 +375,16 @@ the component is added again.
 ## Versions
 
 - **TypeScript stays below 6.1.** typescript-eslint 8.70.1 peers
-  `typescript >=4.8.4 <6.1.0`, and the type-aware rules are most of the lint
-  config. `renovate.json` holds it. Re-check that peer range before lifting the
-  hold. `@types/node` is not part of this constraint.
+  `typescript >=4.8.4 <6.1.0`. Oxlint's type-aware engine bundles its own TS 7, so
+  it does not constrain this pin. `renovate.json` holds it. Re-check the peer
+  range before lifting the hold. `@types/node` is not part of this constraint.
 - **The pnpm version lives only in `packageManager`.** The Dockerfile and CI read
   it. pnpm records itself in `pnpm-lock.yaml` (`packageManagerDependencies`), so
   changing the field means regenerating the lockfile in the same commit, or
   `--frozen-lockfile` fails.
 - **`devEngines.runtime` (`onFail: "error"`) refuses a wrong Node at install.**
 - **Renovate holds every Node pin below 25.** It covers the Docker `node` image,
-  `.nvmrc` and CI's `node-version:`. Renovate does not move `engines.node` or
+  `.node-version` and CI's `node-version:`. Renovate does not move `engines.node` or
   `devEngines.runtime.version`, so a Node major moves those by hand alongside the
   pins.
 - Renovate's schedule and automerge policy are in `renovate.json`. Majors and the

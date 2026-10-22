@@ -38,7 +38,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      # `pnpm lint` runs eslint AND `prettier --check`; formatting drift fails
+      # `pnpm lint` runs `vp lint`, eslint AND `vp fmt --check`; formatting drift fails
       # CI as loudly as a lint error does. `--max-warnings 0` is the gate the
       # eslint half is held to.
       - run: pnpm exec eslint . --max-warnings 0
