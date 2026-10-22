@@ -547,6 +547,19 @@ export default defineConfig({
       '.vitest/',
     ],
   },
+  /**
+   * What the pre-commit hook runs on staged files (`vp staged`). The
+   * no-error-on-unmatched-pattern flags and ESLint's `--no-warn-ignored` let a
+   * commit whose staged files are all ignored pass.
+   */
+  staged: {
+    '*.{ts,tsx,js,jsx,mjs}': [
+      'vp lint --fix --no-error-on-unmatched-pattern',
+      'eslint --fix --max-warnings 0 --no-warn-ignored',
+      'vp fmt --no-error-on-unmatched-pattern',
+    ],
+    '*.{css,json,jsonc,md,html}': ['vp fmt --no-error-on-unmatched-pattern'],
+  },
   plugins: lazyPlugins(async () => [
     tanstackRouter({
       target: 'react',
