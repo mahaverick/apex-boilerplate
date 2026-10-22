@@ -939,7 +939,7 @@ test.describe('chart series', () => {
             context.fillStyle = colour
             context.fillRect(0, 0, 1, 1)
           }
-          return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)]
+          return Array.from(context.getImageData(0, 0, 1, 1).data.subarray(0, 3))
         }
         /** The relative luminance of an sRGB colour, as WCAG defines it. */
         const luminance = (rgb: number[]) => {
@@ -1268,7 +1268,7 @@ test.describe('onboarding funnel', () => {
             context.fillStyle = colour
             context.fillRect(0, 0, 1, 1)
           }
-          return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)]
+          return Array.from(context.getImageData(0, 0, 1, 1).data.subarray(0, 3))
         }
         /** The relative luminance of an sRGB colour, as WCAG defines it. */
         const luminance = (rgb: number[]) => {
@@ -1388,7 +1388,7 @@ test.describe('toasts', () => {
               context.fillStyle = colour
               context.fillRect(0, 0, 1, 1)
             }
-            return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)]
+            return Array.from(context.getImageData(0, 0, 1, 1).data.subarray(0, 3))
           }
           /** The relative luminance of an sRGB colour, as WCAG defines it. */
           const luminance = (rgb: number[]) => {

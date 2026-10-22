@@ -14,7 +14,13 @@ export const WELCOME_RESEND_NOT_SENT =
 
 /** One action the user detail's menu can offer. */
 export type UserAction =
-  'edit' | 'signInLink' | 'signOut' | 'deactivate' | 'reactivate' | 'delete' | 'purge'
+  | 'edit'
+  | 'signInLink'
+  | 'signOut'
+  | 'deactivate'
+  | 'reactivate'
+  | 'delete'
+  | 'purge'
 
 /** What the rules read about the user on the page. */
 export type UserActionTarget = Pick<

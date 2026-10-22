@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-quer
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { delay, http } from 'msw'
 import type { ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   MAINTENANCE_MODE_IDLE_POLL_MS,
   MAINTENANCE_MODE_POLL_MS,

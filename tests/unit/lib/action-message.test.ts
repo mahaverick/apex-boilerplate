@@ -1,5 +1,5 @@
 import { AxiosError, AxiosHeaders } from 'axios'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { actionMessageFrom } from '@/lib/action-message'
 import { ROLE_DENIED_ACTION } from '@/lib/staff-message'
 

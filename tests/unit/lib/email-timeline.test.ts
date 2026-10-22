@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { buildEmailTimeline } from '@/lib/email-timeline'
 import {
   EMAIL_ATTEMPT_ID,

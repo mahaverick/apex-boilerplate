@@ -50,7 +50,7 @@ export default defineConfig({
     process.env.E2E_NGINX || process.env.E2E_CAPTURE
       ? undefined
       : {
-          command: 'pnpm exec vite --force',
+          command: 'pnpm exec vp dev --force',
           url: baseURL,
           reuseExistingServer: !process.env.CI,
           timeout: 60_000,

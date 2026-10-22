@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { MembershipRole } from '@/constants/roles'
 import { availableUserActions, type UserAction, type UserActionTarget } from '@/lib/user-actions'
 

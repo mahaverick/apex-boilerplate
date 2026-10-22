@@ -1,5 +1,5 @@
 import { screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { navItemsFor } from '@/constants/navigation'
 import { SETTINGS_SECTIONS } from '@/constants/settings'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'

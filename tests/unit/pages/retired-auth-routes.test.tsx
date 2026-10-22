@@ -1,6 +1,6 @@
 import type { RouterHistory } from '@tanstack/react-router'
 import { screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import { renderAppAt, signOut } from '@/tests/fixtures/render-app'
 
 /**

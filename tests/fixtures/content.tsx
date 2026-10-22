@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react'
-import { expect } from 'vitest'
+import { expect } from 'vite-plus/test'
 import { toast } from '@/lib/toast'
 
 /**

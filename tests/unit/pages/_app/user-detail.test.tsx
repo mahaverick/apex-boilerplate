@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http } from 'msw'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { PLATFORM_TENANT_SLUG } from '@/constants/routes'
 import { toast } from '@/lib/toast'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'

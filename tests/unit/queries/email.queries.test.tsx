@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider, type QueryKey } from '@tanstack/react
 import { renderHook, waitFor } from '@testing-library/react'
 import { http } from 'msw'
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import { resetSessionForTests } from '@/http/session'
 import { platformAuditListOptions, tenantAuditListOptions } from '@/queries/audit.queries'
 import {

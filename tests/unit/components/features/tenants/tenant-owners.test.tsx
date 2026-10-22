@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { FrozenTenant } from '@/components/features/tenants/frozen-tenant'
 import { TenantOwners } from '@/components/features/tenants/tenant-owners'
 import type { MembershipRole } from '@/constants/roles'

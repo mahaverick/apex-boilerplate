@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, configure } from '@testing-library/react'
 import { toHaveNoViolations } from 'jest-axe'
 import { createElement } from 'react'
-import { afterAll, afterEach, beforeAll, expect, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, expect, vi } from 'vite-plus/test'
 // This import loads `use-list-search` for every test file: a `vi.mock` of that module must use `vi.doMock` or a reset.
 import { resetListPositions } from '@/components/shared/data-table/use-list-search'
 import { toast } from '@/lib/toast'
@@ -73,7 +73,6 @@ declare module 'vitest' {
    * `AxeResults` locally and axe-core's is a different declaration, so a
    * `T extends AxeResults` guard would resolve to `never`.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- required by declaration merging, unused by this matcher's signature
   interface Matchers<R extends void | Promise<void> = void | Promise<void>, T = unknown> {
     toHaveNoViolations(): R
   }
@@ -172,6 +171,7 @@ if (typeof window !== 'undefined' && window.requestAnimationFrame) {
  */
 function runQueuedFrames(): void {
   for (let round = 0; round < 4 && queuedFrames.size > 0; round += 1) {
+    // oxlint-disable-next-line unicorn/no-useless-spread -- snapshot: the loop body deletes from queuedFrames
     for (const [handle, callback] of [...queuedFrames]) {
       // A callback earlier in the round may have cancelled this one.
       if (!queuedFrames.has(handle)) continue
@@ -179,6 +179,7 @@ function runQueuedFrames(): void {
       callback(performance.now())
     }
   }
+  // oxlint-disable-next-line unicorn/no-useless-spread -- snapshot: the loop body deletes from queuedFrames
   for (const handle of [...queuedFrames.keys()]) window.cancelAnimationFrame(handle)
 }
 

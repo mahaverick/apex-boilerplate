@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { useAuthStore } from '@/states/auth.store'
 import { byContent } from '@/tests/fixtures/content'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'

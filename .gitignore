@@ -62,3 +62,7 @@ dist-ssr
 
 # Left by an interrupted `pnpm ui:drift:refresh`; `pnpm ui:drift` fails while one exists.
 scripts/ui-registry.*/
+.vitest/
+
+# Probes from tests/unit/eslint-ui-imports.test.ts; a killed run can strand one.
+src/components/ui/.lint-probe-*

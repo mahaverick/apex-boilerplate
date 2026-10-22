@@ -1,6 +1,6 @@
 import { act, screen, within } from '@testing-library/react'
 import { http } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import { useAuthStore } from '@/states/auth.store'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'

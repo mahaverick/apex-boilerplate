@@ -1,5 +1,5 @@
 import { AxiosError, AxiosHeaders } from 'axios'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { ROLE_DENIED_ACTION, staffMessageFrom } from '@/lib/staff-message'
 
 /** An axios failure carrying express's error envelope. */

@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
