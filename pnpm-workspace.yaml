@@ -11,6 +11,9 @@ minimumReleaseAge: 4320
 # clears; remove it once every parent's own range excludes the vulnerable
 # versions (`pnpm why <name>`).
 overrides:
+  # GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr: dompurify 3.4.16 and earlier have a
+  # SAFE_FOR_TEMPLATES bypass and an IN_PLACE hook flaw. Via posthog-js. Production.
+  dompurify@<3.4.17: '>=3.4.17'
   # GHSA-q3jh-wrc6-jgq8, GHSA-8r9p-f939-6h3c: follow-redirects 1.16.0 leaks credential
   # headers across origins. Via axios. Production.
   follow-redirects@<1.16.1: ^1.16.1
