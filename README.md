@@ -252,8 +252,10 @@ CI holds the gate to **zero warnings** as well as zero errors. Run
 Oxlint runs the type-aware rules. ESLint runs the 17 leftover rules without types.
 The vendored `src/components/ui/` exemptions live in the `vite.config.ts`
 overrides and in `eslint.config.js`. To check one for Oxlint, lint a probe file
-under that glob, because `oxlint --print-config` prints the whole config, not a
-file's. To check one for ESLint, run `pnpm exec eslint --print-config <file>`.
+under that glob (seed it with `import { cn as seededCn } from 'cn'`), because
+`oxlint --print-config` prints the whole config, not a file's. `form.tsx` and
+`command.tsx` match by exact filename, so seed the real file in a scratch copy;
+`tests/unit/eslint-ui-imports.test.ts` covers the vendored side. To check one for ESLint, run `pnpm exec eslint --print-config <file>`.
 
 ## Testing
 

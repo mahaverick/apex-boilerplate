@@ -307,8 +307,10 @@ the component is added again.
   exception is `chart.tsx`, which turns off five type-aware rules its Recharts
   typing trips. Settle a doubt by running the linter, not by reading the config:
   for ESLint, `pnpm exec eslint --print-config <file>`. For Oxlint, lint a probe
-  file under the glob: `oxlint --print-config` prints the whole config, not one
-  file's. The exemptions live in the `vite.config.ts` overrides and in
+  file under the glob, seeded with `import { cn as seededCn } from 'cn'`:
+  `oxlint --print-config` prints the whole config, not one file's. `form.tsx` and
+  `command.tsx` match by exact filename, so seed the real file in a scratch copy;
+  `tests/unit/eslint-ui-imports.test.ts` covers the vendored side. The exemptions live in the `vite.config.ts` overrides and in
   `eslint.config.js`.
 - **`form.tsx` and `command.tsx` are ours**, fully linted and formatted. They are
   named in `vite.config.ts` and `eslint.config.js`. Find them with
@@ -377,8 +379,8 @@ the component is added again.
 
 ## Versions
 
-- **TypeScript stays below 6.1.** typescript-eslint 8.70.1 peers
-  `typescript >=4.8.4 <6.1.0`. Oxlint's type-aware engine bundles its own TS 7, so
+- **TypeScript stays below 6.1.** `tsc` 6 and typescript-eslint 8.70.1's parser
+  peer `typescript >=4.8.4 <6.1.0`. Oxlint's type-aware engine bundles its own TS 7, so
   it does not constrain this pin. `renovate.json` holds it. Re-check the peer
   range before lifting the hold. `@types/node` is not part of this constraint.
 - **The pnpm version lives only in `packageManager`.** The Dockerfile and CI read
