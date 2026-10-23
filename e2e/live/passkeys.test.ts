@@ -17,6 +17,9 @@ import {
   staffSession,
 } from './helpers'
 
+/** Playwright's message for a call on a page, context or browser that is already closed. */
+const TARGET_CLOSED = 'Target page, context or browser has been closed'
+
 test.skip(process.env.E2E_LIVE !== '1', 'live backend required — run pnpm test:e2e:live')
 
 test.beforeAll(async () => {
@@ -60,6 +63,9 @@ test('a staff member creates a passkey, signs out and signs back in with it', as
       timeout: 15_000,
     })
   } finally {
-    await auth.remove()
+    // After a test timeout Playwright has closed the page, and the authenticator with it; that throw would replace the real failure.
+    await auth.remove().catch((error: unknown) => {
+      if (!(error instanceof Error && error.message.includes(TARGET_CLOSED))) throw error
+    })
   }
 })
