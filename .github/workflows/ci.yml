@@ -137,7 +137,7 @@ jobs:
 
   # The `fixtures` Playwright project, on three workers.
   #
-  # It drives the MSW harness in e2e/harness/, so it needs the dev server and
+  # It drives the MSW harness in e2e/harness/, so it needs a built preview and
   # nothing else — playwright.config.ts's `webServer` starts one, and
   # `reuseExistingServer` is off under CI so it always gets a clean boot.
   # Each test gets its own page, so the tests run in parallel.
