@@ -8,7 +8,7 @@ import { requireServedApp, SECURITY_HEADERS } from './csp'
  * carry express's own security headers instead of nginx's.
  */
 
-test.beforeAll(requireServedApp)
+test.beforeEach(requireServedApp)
 
 /** The entry chunk index.html names: a real, content-hashed asset. */
 async function entryChunk(request: APIRequestContext): Promise<string> {

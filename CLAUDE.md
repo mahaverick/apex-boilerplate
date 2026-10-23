@@ -75,8 +75,10 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   `pnpm typecheck`, `pnpm build`, `pnpm check:bundle` and the audits. Six `unit`
   jobs run `pnpm test:shard`; the `test` job runs `pnpm test:merge`, which enforces
   the coverage thresholds in `vitest.config.ts` on the merged result. The `e2e` job
-  runs alongside. The `docker` job builds the image once with a layer cache,
-  checks it, and runs the `nginx` `@no-api` Playwright tests against it. Local
+  runs alongside. The `image` job builds the image once, with no layer
+  cache, and uploads it; `image-checks` checks it, two `nginx-e2e` shards run the
+  `nginx` `@no-api` Playwright tests against it, and the `docker` job, the
+  required check, needs all of them. Local
   `pnpm test:coverage` still enforces the same thresholds. The scripts are in
   [README.md](README.md).
 
@@ -541,11 +543,11 @@ a headless user agent). An analytics e2e test uses `HUMAN_USER_AGENT` and calls
 
 **`nginx`** runs against the production image (`pnpm test:e2e:nginx`), because the
 headers and the CSP are only real there. The `@no-api` tests also run in CI's
-`docker` job with nothing behind `/api`, on four parallel workers (the top-level
+two `nginx-e2e` shards with nothing behind `/api`, on four parallel workers each (the top-level
 `workers: 4` under CI is the cap). A run with `E2E_LIVE=1` (the nightly and
 `pnpm test:e2e:nginx`) uses one worker, because it shares a backend and a
 fixed-port fake PostHog. The tests that need a live API run there, not in the
-`docker` job.
+`nginx-e2e` shards.
 The variables are in the [README](README.md#testing), and the live half of
 `e2e/nginx/analytics.test.ts` has its setup in the README's
 [Analytics](README.md#analytics-posthog) section.

@@ -16,7 +16,7 @@ import {
  * pass on an image that sends no policy at all.
  */
 
-test.beforeAll(requireServedApp)
+test.beforeEach(requireServedApp)
 
 /**
  * Records, from now on, every script chunk `page` fetches that index.html
