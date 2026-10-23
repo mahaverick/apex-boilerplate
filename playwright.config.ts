@@ -29,7 +29,7 @@ export default defineConfig({
   workers: process.env.CI ? 3 : '50%',
   forbidOnly: !!process.env.CI,
   /** Under CI, ci.yml uploads the html report from playwright-report/ when e2e fails. */
-  reporter: process.env.CI ? [['github'], ['dot'], ['list'], ['html', { open: 'never' }]] : 'list',
+  reporter: process.env.CI ? [['github'], ['dot'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
     trace: 'on-first-retry',
@@ -63,7 +63,7 @@ export default defineConfig({
     {
       name: 'fixtures',
       testMatch: 'fixtures/**/*.test.ts',
-      // The MSW harness has no shared backend, so each test gets its own page and worker.
+      // No shared backend, so each test gets its own page; three workers, as four failed on a 4-vCPU runner.
       fullyParallel: true,
       workers: process.env.CI ? 3 : '50%',
       use: { ...devices['Desktop Chrome'] },

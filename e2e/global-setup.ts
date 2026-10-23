@@ -36,7 +36,6 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   try {
     const page = await browser.newPage({ baseURL })
     for (const path of WARM_PATHS) {
-      const started = Date.now()
       await page.goto(`/e2e/harness/?path=${path}`)
       // Best effort: a route that renders no h1 still has its chunks requested by now.
       await page
@@ -44,7 +43,6 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
         .first()
         .waitFor({ timeout: 30_000 })
         .catch(() => undefined)
-      console.log(`warm ${path} ${Date.now() - started} ms`)
     }
   } finally {
     await browser.close()
