@@ -61,7 +61,7 @@ export default defineConfig({
             : `pnpm exec vp dev --force --port ${port} --strictPort`,
           env: { NODE_ENV: 'development' },
           url: `${baseURL}/e2e/harness/`,
-          reuseExistingServer: !process.env.CI,
+          reuseExistingServer: !process.env.CI && !process.env.E2E_BUNDLED,
           // Under CI the server's log goes to the job log.
           stdout: process.env.CI ? 'pipe' : 'ignore',
           timeout: 120_000,

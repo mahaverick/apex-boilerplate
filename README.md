@@ -273,16 +273,18 @@ The `fixtures` project covers passkeys in Chrome with a virtual authenticator
 (`e2e/helpers/virtual-authenticator.ts`, over CDP): the harness answers the
 contract's calls (`?passkeys=off|optional|required`, `?passkeylist=none|one|two`,
 `?stepup=once`, `?setup=1`), while the browser builds and signs the credential.
-The private keys are generated at run time. `E2E_BASE_URL` points a run at a dev
-server on another port, such as one started with `pnpm exec vp dev --port 5197
---strictPort`. `e2e/live/passkeys.test.ts` runs the same flows against an express
+The private keys are generated at run time. `pnpm test:e2e` builds the harness
+in development mode and serves it with `vp preview`; a bare `playwright test
+--project=fixtures` without `E2E_BUNDLED` uses the dev server instead.
+`E2E_BASE_URL` points a run at a dev server on another port, such as one started
+with `pnpm exec vp dev --port 5197 --strictPort`. `e2e/live/passkeys.test.ts` runs the same flows against an express
 8.0.1 or later with passkeys on.
 
 Playwright has five projects in `e2e/`:
 
 | Project    | Command               | Runs against                                        | In CI                         |
 | ---------- | --------------------- | --------------------------------------------------- | ----------------------------- |
-| `fixtures` | `pnpm test:e2e`       | The real router and CSS, with MSW answering; no API | Yes                           |
+| `fixtures` | `pnpm test:e2e`       | A bundle of the harness, with MSW answering; no API | Yes                           |
 | `live`     | `pnpm test:e2e:live`  | A real express and its services, with `E2E_LIVE=1`  | Nightly                       |
 | `nginx`    | `pnpm test:e2e:nginx` | The production image on :8088                       | `@no-api` on PRs; all nightly |
 | `contrast` | `pnpm test:contrast`  | The harness, in both themes; no API                 | No                            |

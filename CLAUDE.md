@@ -475,10 +475,15 @@ Playwright has five projects: `fixtures`, `live`, `contrast`, `nginx` and
   would collect the Playwright files and run them under jsdom.
 - **`e2e/` is type-linted through its own `tsconfig.json`.** It is not exempted
   like the root configs.
-- **The dev server starts as `vite --force`.** Without it, Vite trusts a stale
-  dependency cache, finds a new import mid-run, re-optimises and reloads the page.
-  The reload drops the memory-only token and lands the test on `/login`. Outside
-  CI, a server that is already running is reused, with whatever cache it has.
+- **`pnpm test:e2e` runs `fixtures` against a bundle.** It sets `E2E_BUNDLED`, so
+  the `webServer` builds `e2e/harness.vite.config.ts` in development mode and serves
+  it with `vp preview`: a few files per page instead of the dev server's 300
+  modules. A bare `playwright test --project=fixtures` without `E2E_BUNDLED` uses
+  the dev server, which starts as `vp dev --force`. Without `--force`, Vite
+  trusts a stale dependency cache, finds a new import mid-run, re-optimises and
+  reloads the page. The reload drops the memory-only token and lands the test on
+  `/login`. Outside CI, a dev server that is already running is reused, with
+  whatever cache it has. A bundled run always builds and serves its own copy.
 
 **`fixtures`** drives `e2e/harness/`: the real router and CSS, with MSW answering
 the fixtures. It needs no backend. It exists for what jsdom cannot see, because

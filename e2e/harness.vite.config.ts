@@ -16,6 +16,7 @@ export default mergeConfig(
     build: {
       outDir: 'dist/e2e-harness',
       emptyOutDir: true,
+      sourcemap: false,
       rollupOptions: { input: 'e2e/harness/index.html' },
     },
   })
