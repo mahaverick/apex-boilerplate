@@ -7,7 +7,7 @@
  */
 import { expect, test } from '../hermetic'
 
-/** A cold Vite transform of a route chunk; the contrast suite allows the same. */
+/** A route chunk's first load on a busy runner; the contrast suite allows the same. */
 const COLD_TRANSFORM_BUDGET_MS = 20_000
 
 test('sorting the tenants then paging keeps the sort and moves the cursor', async ({ page }) => {

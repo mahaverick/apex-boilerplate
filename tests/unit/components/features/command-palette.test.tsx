@@ -1,8 +1,8 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import { prefetchPalette } from '@/components/shared/command-palette/palette-loader'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
+import { loadPalette, prefetchPalette } from '@/components/shared/command-palette/palette-loader'
 import { recordRecent } from '@/components/shared/command-palette/recent-items'
 import type { MembershipRole } from '@/constants/roles'
 import * as shortcut from '@/lib/shortcut'
@@ -68,6 +68,18 @@ function signInAs(platformRole: MembershipRole | null) {
 }
 
 describe('CommandPalette', () => {
+  // Loads the lazy chunks and renders the app shell once outside every test's findBy window; a cold first open under contention outlasted it.
+  beforeAll(async () => {
+    await loadPalette()
+    signInAs('viewer')
+    const warm = renderAppAt('/overview')
+    try {
+      await screen.findByRole('heading', { name: 'Overview', level: 1 }, { timeout: 25_000 })
+    } finally {
+      warm.unmount()
+    }
+  }, 30_000)
+
   beforeEach(() => {
     localStorage.clear()
     useCommandPaletteStore.setState({ open: false, query: '' })

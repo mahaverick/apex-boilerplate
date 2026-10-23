@@ -3,8 +3,8 @@ import { defineConfig, devices } from '@playwright/test'
 /**
  * @file The e2e projects.
  *
- * `fixtures` runs against the MSW harness in `e2e/harness/` and needs only the
- * dev server. It holds the checks that need a real browser rather than jsdom.
+ * `fixtures` runs against the MSW harness in `e2e/harness/` and needs only a
+ * preview of its build. It holds the checks that need a real browser rather than jsdom.
  *
  * `live` runs against a real express-boilerplate on :4040 (or `E2E_API_ORIGIN`) through the Vite
  * proxy, and is skipped unless `E2E_LIVE=1`. It covers what needs a real
@@ -16,53 +16,70 @@ import { defineConfig, devices } from '@playwright/test'
  * Tests are `*.test.ts`, not Playwright's default `*.spec.ts`, which
  * `check-file/filename-blocklist` rejects.
  */
-/** The origin the dev server answers on; `E2E_BASE_URL` points the run at another one. */
-const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:5174'
+/** The origin the server answers on; `E2E_BASE_URL` points the run at another one. */
+const port = process.env.APEX_E2E_PORT ?? '5174'
+const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${port}`
 
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.test.ts',
-  // Tests share one dev server and backend, so one test's sign-out would break another.
+  // live, contrast and capture run serially; nginx runs in parallel only in ci.yml's `docker` job (see its project).
   fullyParallel: false,
-  workers: 1,
+  // The total cap. Projects set their own, lower or equal: fixtures 3, nginx 4 in `docker`, the rest 1.
+  workers: process.env.CI ? 4 : '50%',
   forbidOnly: !!process.env.CI,
   /** Under CI, ci.yml uploads the html report from playwright-report/ when e2e fails. */
-  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
+  reporter: process.env.CI ? [['github'], ['dot'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
-    trace: 'on-first-retry',
+    // CI runs no retries, so on-first-retry would record nothing there; screenshots are off to keep the run fast.
+    trace: process.env.CI ? { mode: 'retain-on-failure', screenshots: false } : 'on-first-retry',
   },
   /**
-   * Reuses a running dev server or starts one. Skipped for the `nginx` project,
+   * Reuses a running server or starts one. Skipped for the `nginx` project,
    * which serves the production bundle from a container; `webServer` has no
    * per-project form, so the switch is an env var.
    *
-   * `--force` makes a server this config starts re-scan every import before
-   * serving. Vite trusts a dependency cache whose lockfile and config hashes
-   * still match, so a source change that imports a package the cache predates
-   * is found mid-run instead: Vite re-optimises and reloads the page, which
-   * drops the memory-only access token and lands the test on /login. A server
-   * that is reused is not restarted, so it keeps whatever cache it has.
-   * `E2E_CAPTURE` turns it off as well: the capture runs against a dev stack
-   * that is already up.
+   * `pnpm test:e2e` sets `E2E_BUNDLED` and runs `fixtures` against a build of
+   * the harness in development mode, previewed (e2e/harness.vite.config.ts): a
+   * few files per page instead of the dev server's 300 modules. `live` and
+   * `contrast` need the dev server and its proxy, so they start `vp dev`.
+   * Its `--force` makes a server this config starts re-scan every import
+   * before serving. Vite trusts a dependency cache whose lockfile and config
+   * hashes still match, so a source change that imports a package the cache
+   * predates is found mid-run instead: Vite re-optimises and reloads the page,
+   * which drops the memory-only access token and lands the test on /login. A
+   * server that is reused is not restarted, so it keeps whatever cache it has.
+   * `E2E_CAPTURE` turns the server off as well: the capture runs against a dev
+   * stack that is already up.
    */
   webServer:
     process.env.E2E_NGINX || process.env.E2E_CAPTURE
       ? undefined
       : {
-          command: 'pnpm exec vp dev --force',
-          url: baseURL,
-          reuseExistingServer: !process.env.CI,
-          timeout: 60_000,
+          command: process.env.E2E_BUNDLED
+            ? `pnpm exec vp build --mode development --config e2e/harness.vite.config.ts && pnpm exec vp preview --config e2e/harness.vite.config.ts --port ${port} --strictPort`
+            : `pnpm exec vp dev --force --port ${port} --strictPort`,
+          env: { NODE_ENV: 'development' },
+          url: `${baseURL}/e2e/harness/`,
+          reuseExistingServer: !process.env.CI && !process.env.E2E_BUNDLED,
+          // Under CI the server's log goes to the job log.
+          stdout: process.env.CI ? 'pipe' : 'ignore',
+          timeout: 120_000,
         },
   projects: [
     {
       name: 'fixtures',
       testMatch: 'fixtures/**/*.test.ts',
+      // No shared backend, so each test gets its own page; three workers, as four failed on a 4-vCPU runner.
+      fullyParallel: true,
+      workers: process.env.CI ? 3 : '50%',
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'live',
+      fullyParallel: false,
+      workers: 1,
       testMatch: 'live/**/*.test.ts',
       use: { ...devices['Desktop Chrome'] },
     },
@@ -74,6 +91,8 @@ export default defineConfig({
      */
     {
       name: 'contrast',
+      fullyParallel: false,
+      workers: 1,
       testMatch: 'contrast/**/*.test.ts',
       use: { ...devices['Desktop Chrome'] },
     },
@@ -84,17 +103,22 @@ export default defineConfig({
      */
     {
       name: 'capture',
+      fullyParallel: false,
+      workers: 1,
       testMatch: 'capture/**/*.test.ts',
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
       timeout: 30 * 60_000,
     },
     /**
      * Against the production image. The headers and the CSP are only real
-     * here; the tests that need no API are tagged `@no-api`, and CI runs them
-     * with `--grep @no-api`.
+     * here. The tests that need no API are tagged `@no-api` and run with
+     * `--grep @no-api` in ci.yml's `docker` job; the rest run in e2e-nightly.yml.
      */
     {
       name: 'nginx',
+      // Only ci.yml's `docker` job (CI, no E2E_LIVE) runs the stateless @no-api tests in parallel; a live run shares one backend and one fake PostHog port.
+      fullyParallel: !!process.env.CI && !process.env.E2E_LIVE,
+      workers: process.env.CI && !process.env.E2E_LIVE ? 4 : 1,
       testMatch: 'nginx/**/*.test.ts',
       use: {
         ...devices['Desktop Chrome'],

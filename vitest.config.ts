@@ -56,8 +56,14 @@ export default defineConfig({
         'src/components/ui/{table,tabs,textarea,toast,tooltip}.tsx',
         'src/components/ui/{alert,calendar,chart,checkbox,empty,item,kbd,popover,spinner,toggle,toggle-group}.tsx',
       ],
-      /** A drop below any of these fails CI (`pnpm test:coverage`). */
-      thresholds: { statements: 88, branches: 82, functions: 86, lines: 89 },
+      /**
+       * A drop below any of these fails CI (`pnpm test:merge`) and `pnpm test:coverage`.
+       * A shard sees part of the suite; the merge job enforces the gate on the whole.
+       */
+      thresholds:
+        process.env.COVERAGE_SHARD === '1'
+          ? undefined
+          : { statements: 88, branches: 82, functions: 86, lines: 89 },
     },
   },
 })

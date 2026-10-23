@@ -228,7 +228,7 @@ environment variable.
 | `pnpm typecheck:e2e`    | `tsc --noEmit` on `e2e/tsconfig.json`                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `pnpm format`           | `vp fmt` (Oxfmt)                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `pnpm test`             | Vitest, single pass                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `pnpm test:coverage`    | Vitest with coverage; fails under 88/82/86/89 % (statements/branches/functions/lines). CI runs it                                                                                                                                                                                                                                                                                                                                                              |
+| `pnpm test:coverage`    | Vitest with coverage; fails under 88/82/86/89 % (statements/branches/functions/lines). CI runs `test:shard` in six `unit` jobs, then `test:merge` in `test`                                                                                                                                                                                                                                                                                                    |
 | `pnpm test:watch`       | Vitest in watch mode                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `pnpm test:e2e`         | Playwright `fixtures` project against the MSW harness; no backend needed. CI runs it                                                                                                                                                                                                                                                                                                                                                                           |
 | `pnpm test:e2e:live`    | Playwright `live` project; needs express at `E2E_API_ORIGIN` (default :4040), mailpit and `APEX_URL` set                                                                                                                                                                                                                                                                                                                                                       |
@@ -273,16 +273,21 @@ The `fixtures` project covers passkeys in Chrome with a virtual authenticator
 (`e2e/helpers/virtual-authenticator.ts`, over CDP): the harness answers the
 contract's calls (`?passkeys=off|optional|required`, `?passkeylist=none|one|two`,
 `?stepup=once`, `?setup=1`), while the browser builds and signs the credential.
-The private keys are generated at run time. `E2E_BASE_URL` points a run at a dev
-server on another port, such as one started with `pnpm exec vp dev --port 5197
---strictPort`. `e2e/live/passkeys.test.ts` runs the same flows against an express
-8.0.1 or later with passkeys on.
+The private keys are generated at run time. `pnpm test:e2e` builds the harness
+in development mode and serves it with `vp preview`; a bare `playwright test
+--project=fixtures` without `E2E_BUNDLED` uses the dev server instead.
+`E2E_BASE_URL` points a run at a dev server on another port, such as one started
+with `pnpm exec vp dev --port 5197 --strictPort`. `pnpm test:e2e` serves the
+harness on :5174, the port `pnpm dev` uses, and refuses to start while `pnpm dev`
+holds it. Stop `pnpm dev`, or set `APEX_E2E_PORT` to a free port.
+`e2e/live/passkeys.test.ts` runs the same flows against an express 8.0.1 or later
+with passkeys on.
 
 Playwright has five projects in `e2e/`:
 
 | Project    | Command               | Runs against                                        | In CI                         |
 | ---------- | --------------------- | --------------------------------------------------- | ----------------------------- |
-| `fixtures` | `pnpm test:e2e`       | The real router and CSS, with MSW answering; no API | Yes                           |
+| `fixtures` | `pnpm test:e2e`       | A bundle of the harness, with MSW answering; no API | Yes                           |
 | `live`     | `pnpm test:e2e:live`  | A real express and its services, with `E2E_LIVE=1`  | Nightly                       |
 | `nginx`    | `pnpm test:e2e:nginx` | The production image on :8088                       | `@no-api` on PRs; all nightly |
 | `contrast` | `pnpm test:contrast`  | The harness, in both themes; no API                 | No                            |

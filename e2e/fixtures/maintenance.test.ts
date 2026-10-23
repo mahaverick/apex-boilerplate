@@ -16,9 +16,9 @@ import { sidewaysOverflow } from '../layout'
 const MAINTENANCE = '**/api/v1/platform/maintenance-mode'
 
 /**
- * The first page a fresh `vite --force` server serves transforms the whole
- * app on demand, which can outlast the default 5 s expect timeout when this
- * file runs first; later navigations are warm.
+ * The first page a worker loads parses the whole bundle on a busy CI runner,
+ * which can outlast the default 5 s expect timeout when this file runs first;
+ * later navigations are warm.
  */
 const COLD_TRANSFORM_BUDGET_MS = 20_000
 
