@@ -76,8 +76,9 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   jobs run `pnpm test:shard`; the `test` job runs `pnpm test:merge`, which enforces
   the coverage thresholds in `vitest.config.ts` on the merged result. The `e2e` job
   runs alongside. The `docker` job builds the image once with a layer cache,
-  checks it, and runs the `nginx` `@no-api` Playwright tests against it. Local `pnpm test:coverage` still enforces the same
-  thresholds. The scripts are in [README.md](README.md).
+  checks it, and runs the `nginx` `@no-api` Playwright tests against it. Local
+  `pnpm test:coverage` still enforces the same thresholds. The scripts are in
+  [README.md](README.md).
 
 ## Dead code (knip)
 
@@ -118,8 +119,8 @@ When it reports something:
   When `deploy.yml` calls `ci.yml`, `github.workflow` is the caller's name.
   Non-PR runs are grouped per commit, so a newer push never drops a pending gate.
 - **A moderate advisory in a production dependency fails CI**
-  (`pnpm audit --prod --audit-level moderate`). `test` is one of the checks the
-  `main` ruleset requires ([README](README.md#releases)), so the advisory blocks
+  (`pnpm audit --prod --audit-level moderate`) in the `lint` job. `lint` is one of
+  the checks the `main` ruleset requires ([README](README.md#releases)), so the advisory blocks
   every PR. Prefer an `overrides` entry in `pnpm-workspace.yaml` that forces the
   patched version, with a comment naming the advisory. When no patched version
   exists, list the ID under `auditConfig.ignoreGhsas` there, with a comment giving
@@ -484,7 +485,9 @@ Playwright has five projects: `fixtures`, `live`, `contrast`, `nginx` and
   trusts a stale dependency cache, finds a new import mid-run, re-optimises and
   reloads the page. The reload drops the memory-only token and lands the test on
   `/login`. Outside CI, a dev server that is already running is reused, with
-  whatever cache it has. A bundled run always builds and serves its own copy.
+  whatever cache it has. A bundled run always builds and serves its own copy on
+  :5174, the port `pnpm dev` uses, so it fails with "already used" while `pnpm dev`
+  runs. Stop `pnpm dev`, or set `APEX_E2E_PORT` to a free port.
 
 **`fixtures`** drives `e2e/harness/`: the real router and CSS, with MSW answering
 the fixtures. It needs no backend. It exists for what jsdom cannot see, because
@@ -538,10 +541,11 @@ a headless user agent). An analytics e2e test uses `HUMAN_USER_AGENT` and calls
 
 **`nginx`** runs against the production image (`pnpm test:e2e:nginx`), because the
 headers and the CSP are only real there. The `@no-api` tests also run in CI's
-`docker` job with nothing behind `/api`, on four parallel workers. A run with
-`E2E_LIVE=1` (the nightly and `pnpm test:e2e:nginx`) uses one worker, because it
-shares a backend and a fixed-port fake PostHog. The tests that need a live API run
-there, not in the `docker` job.
+`docker` job with nothing behind `/api`, on four parallel workers (the top-level
+`workers: 4` under CI is the cap). A run with `E2E_LIVE=1` (the nightly and
+`pnpm test:e2e:nginx`) uses one worker, because it shares a backend and a
+fixed-port fake PostHog. The tests that need a live API run there, not in the
+`docker` job.
 The variables are in the [README](README.md#testing), and the live half of
 `e2e/nginx/analytics.test.ts` has its setup in the README's
 [Analytics](README.md#analytics-posthog) section.

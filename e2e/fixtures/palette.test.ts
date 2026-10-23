@@ -15,7 +15,7 @@ import { expect, test } from '../hermetic'
 
 const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js')
 
-/** A cold Vite transform of the palette's chunk; the contrast suite allows the same. */
+/** The palette chunk's first load on a busy runner; the contrast suite allows the same. */
 const COLD_TRANSFORM_BUDGET_MS = 20_000
 
 /** Acme's tenant page in the harness. */

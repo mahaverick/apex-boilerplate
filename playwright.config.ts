@@ -23,9 +23,10 @@ const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${port}`
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.test.ts',
-  // live and nginx share one backend or container, so they run serially.
+  // live, contrast and capture run serially; nginx runs in parallel only in ci.yml's `docker` job (see its project).
   fullyParallel: false,
-  workers: process.env.CI ? 3 : '50%',
+  // The total cap. Projects set their own, lower or equal: fixtures 3, nginx 4 in `docker`, the rest 1.
+  workers: process.env.CI ? 4 : '50%',
   forbidOnly: !!process.env.CI,
   /** Under CI, ci.yml uploads the html report from playwright-report/ when e2e fails. */
   reporter: process.env.CI ? [['github'], ['dot'], ['html', { open: 'never' }]] : 'list',

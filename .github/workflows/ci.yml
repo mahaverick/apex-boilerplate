@@ -22,7 +22,7 @@ permissions:
 jobs:
   # Jobs: lint (static gate, build, bundle check, audits), unit (six test
   # shards) then test (merges the shards, enforces coverage), e2e and docker.
-  # lint, unit and e2e run in parallel; test waits on unit. Actions are pinned
+  # lint, unit, e2e and docker run in parallel; test waits on unit. Actions are pinned
   # to commit SHAs, and Renovate keeps the pins current. actions/cache and
   # actions/upload-artifact need an Actions Runner of at least 2.327.1, which
   # matters only for self-hosted runners; these jobs run on ubuntu-latest.

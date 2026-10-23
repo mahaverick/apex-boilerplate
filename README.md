@@ -277,8 +277,11 @@ The private keys are generated at run time. `pnpm test:e2e` builds the harness
 in development mode and serves it with `vp preview`; a bare `playwright test
 --project=fixtures` without `E2E_BUNDLED` uses the dev server instead.
 `E2E_BASE_URL` points a run at a dev server on another port, such as one started
-with `pnpm exec vp dev --port 5197 --strictPort`. `e2e/live/passkeys.test.ts` runs the same flows against an express
-8.0.1 or later with passkeys on.
+with `pnpm exec vp dev --port 5197 --strictPort`. `pnpm test:e2e` serves the
+harness on :5174, the port `pnpm dev` uses, and refuses to start while `pnpm dev`
+holds it. Stop `pnpm dev`, or set `APEX_E2E_PORT` to a free port.
+`e2e/live/passkeys.test.ts` runs the same flows against an express 8.0.1 or later
+with passkeys on.
 
 Playwright has five projects in `e2e/`:
 
