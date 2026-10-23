@@ -32,7 +32,8 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['dot'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
-    trace: 'on-first-retry',
+    // CI runs no retries, so on-first-retry would record nothing there; screenshots are off to keep the run fast.
+    trace: process.env.CI ? { mode: 'retain-on-failure', screenshots: false } : 'on-first-retry',
   },
   /**
    * Reuses a running dev server or starts one. Skipped for the `nginx` project,
@@ -103,8 +104,8 @@ export default defineConfig({
     },
     /**
      * Against the production image. The headers and the CSP are only real
-     * here; the tests that need no API are tagged `@no-api`, and CI runs them
-     * with `--grep @no-api`.
+     * here. The tests that need no API are tagged `@no-api` and run with
+     * `--grep @no-api`; the rest run in e2e-nightly.yml.
      */
     {
       name: 'nginx',

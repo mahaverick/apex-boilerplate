@@ -135,7 +135,7 @@ jobs:
           merge-multiple: true
       - run: pnpm test:merge
 
-  # The `fixtures` Playwright project, on four workers.
+  # The `fixtures` Playwright project, on three workers.
   #
   # It drives the MSW harness in e2e/harness/, so it needs the dev server and
   # nothing else — playwright.config.ts's `webServer` starts one, and

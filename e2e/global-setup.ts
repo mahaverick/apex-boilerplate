@@ -1,21 +1,20 @@
 import { chromium, type FullConfig } from '@playwright/test'
 
-/** Harness routes whose lazy chunks a cold dev server would otherwise transform mid-test. */
-const WARM_PATHS = [
-  '/overview',
-  '/tenants',
-  '/users',
-  '/deliverability',
-  '/emails',
-  '/suppressions',
-  '/activity',
-  '/onboarding',
-  '/login',
-  '/settings/account/profile',
-  '/settings/account/security',
-  '/settings/platform/flags',
-  '/settings/platform/maintenance',
-  '/settings/platform/staff',
+/** Harness routes, each with the h1 it must render; a route that lands elsewhere or errors fails the run. */
+const WARM_ROUTES: readonly (readonly [path: string, heading: string])[] = [
+  ['/overview', 'Overview'],
+  ['/tenants', 'Tenants'],
+  ['/users', 'Users'],
+  ['/deliverability', 'Deliverability'],
+  ['/emails', 'Emails'],
+  ['/suppressions', 'Suppressions'],
+  ['/activity', 'Activity'],
+  ['/onboarding', 'Onboarding'],
+  ['/settings/account/profile', 'Profile'],
+  ['/settings/account/security', 'Security'],
+  ['/settings/platform/flags', 'Feature flags'],
+  ['/settings/platform/maintenance', 'Maintenance'],
+  ['/settings/platform/staff', 'Staff'],
 ]
 
 /**
@@ -23,9 +22,13 @@ const WARM_PATHS = [
  * and transformed the entry and the first route chunks.
  *
  * `webServer` is ready as soon as `/` answers, which is before the dev
- * server's first optimizer pass and module transforms have finished. With four
- * workers on a cold server, the first tests would wait on that work inside
- * their 5 s assertion budget.
+ * server's first optimizer pass and module transforms have finished. With
+ * three workers on a cold server, the first tests would wait on that work
+ * inside their 5 s assertion budget.
+ *
+ * It also runs under `E2E_LIVE` (the nightly's `live` step), where the
+ * harness's unmocked status calls go through the dev proxy to the live API:
+ * they are read-only and count against its rate limit.
  */
 export default async function globalSetup(config: FullConfig): Promise<void> {
   if (process.env.E2E_NGINX || process.env.E2E_CAPTURE) return
@@ -35,14 +38,16 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   const browser = await chromium.launch()
   try {
     const page = await browser.newPage({ baseURL })
-    for (const path of WARM_PATHS) {
+    for (const [path, heading] of WARM_ROUTES) {
       await page.goto(`/e2e/harness/?path=${path}`)
-      // Best effort: a route that renders no h1 still has its chunks requested by now.
-      await page
-        .locator('h1')
-        .first()
-        .waitFor({ timeout: 30_000 })
-        .catch(() => undefined)
+      try {
+        await page.getByRole('heading', { name: heading, level: 1 }).waitFor({ timeout: 30_000 })
+      } catch (error) {
+        throw new Error(
+          `globalSetup: ${path} did not render the "${heading}" heading within 30 s (at ${page.url()})`,
+          { cause: error }
+        )
+      }
     }
   } finally {
     await browser.close()
