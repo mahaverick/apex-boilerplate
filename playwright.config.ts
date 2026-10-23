@@ -55,6 +55,8 @@ export default defineConfig({
           command: `pnpm exec vp dev --force --port ${port} --strictPort`,
           url: baseURL,
           reuseExistingServer: !process.env.CI,
+          // Under CI the dev server's log (re-optimising, reloads) goes to the job log.
+          stdout: process.env.CI ? 'pipe' : 'ignore',
           timeout: 60_000,
         },
   projects: [

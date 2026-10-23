@@ -1,7 +1,22 @@
 import { chromium, type FullConfig } from '@playwright/test'
 
 /** Harness routes whose lazy chunks a cold dev server would otherwise transform mid-test. */
-const WARM_PATHS = ['/overview', '/settings/platform/flags']
+const WARM_PATHS = [
+  '/overview',
+  '/tenants',
+  '/users',
+  '/deliverability',
+  '/emails',
+  '/suppressions',
+  '/activity',
+  '/onboarding',
+  '/login',
+  '/settings/account/profile',
+  '/settings/account/security',
+  '/settings/platform/flags',
+  '/settings/platform/maintenance',
+  '/settings/platform/staff',
+]
 
 /**
  * Loads the harness once before any test, so Vite has bundled its dependencies
@@ -22,7 +37,12 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
     const page = await browser.newPage({ baseURL })
     for (const path of WARM_PATHS) {
       await page.goto(`/e2e/harness/?path=${path}`)
-      await page.locator('h1').first().waitFor({ timeout: 60_000 })
+      // Best effort: a route that renders no h1 still has its chunks requested by now.
+      await page
+        .locator('h1')
+        .first()
+        .waitFor({ timeout: 30_000 })
+        .catch(() => undefined)
     }
   } finally {
     await browser.close()
