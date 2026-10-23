@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.0.3](https://github.com/mahaverick/apex-boilerplate/compare/v8.0.2...v8.0.3) (2026-10-23)
+
+
+### Bug Fixes
+
+* **palette:** keep keys typed while focus passes to the palette ([#103](https://github.com/mahaverick/apex-boilerplate/issues/103)) ([b31b66b](https://github.com/mahaverick/apex-boilerplate/commit/b31b66bd2ac2a6a58b372aa16d1743e595640b4c))
+
 ## [8.0.2](https://github.com/mahaverick/apex-boilerplate/compare/v8.0.1...v8.0.2) (2026-10-23)
 
 
