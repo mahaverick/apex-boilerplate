@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.0.4](https://github.com/mahaverick/apex-boilerplate/compare/v8.0.3...v8.0.4) (2026-10-23)
+
+
+### Performance Improvements
+
+* **ci:** take docker off the critical path ([#105](https://github.com/mahaverick/apex-boilerplate/issues/105)) ([889064f](https://github.com/mahaverick/apex-boilerplate/commit/889064f065654562ea672e8a6ab6021d4e739bf0))
+
 ## [8.0.3](https://github.com/mahaverick/apex-boilerplate/compare/v8.0.2...v8.0.3) (2026-10-23)
 
 
