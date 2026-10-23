@@ -17,6 +17,9 @@ import {
   staffSession,
 } from './helpers'
 
+/** Playwright's message for a call on a page, context or browser that is already closed. */
+const TARGET_CLOSED = 'Target page, context or browser has been closed'
+
 test.skip(process.env.E2E_LIVE !== '1', 'live backend required — run pnpm test:e2e:live')
 
 test.beforeAll(async () => {
@@ -32,6 +35,10 @@ test('a staff member creates a passkey, signs out and signs back in with it', as
   const email = freshEmail()
   await staffSession(email, 'viewer')
   const auth = await addVirtualAuthenticator(page)
+  // The virtual authenticator answers autofill by itself, so /login would sign in before the click; hide autofill so the button is the way in.
+  await page.addInitScript(() => {
+    PublicKeyCredential.isConditionalMediationAvailable = () => Promise.resolve(false)
+  })
 
   try {
     await logIn(page, email)
@@ -49,11 +56,16 @@ test('a staff member creates a passkey, signs out and signs back in with it', as
     await page.getByRole('menuitem', { name: 'Sign out' }).click()
     await expect(page).toHaveURL(/\/login/)
 
+    const verify = page.waitForRequest('**/auth/passkeys/sign-in/verify')
     await page.getByRole('button', { name: 'Sign in with a passkey' }).click()
+    await verify
     await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible({
       timeout: 15_000,
     })
   } finally {
-    await auth.remove()
+    // After a test timeout Playwright has closed the page, and the authenticator with it; that throw would replace the real failure.
+    await auth.remove().catch((error: unknown) => {
+      if (!(error instanceof Error && error.message.includes(TARGET_CLOSED))) throw error
+    })
   }
 })
