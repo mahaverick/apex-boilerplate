@@ -28,8 +28,6 @@ export default defineConfig({
   fullyParallel: false,
   workers: process.env.CI ? 4 : '50%',
   forbidOnly: !!process.env.CI,
-  // A CI runner renders the Overview through the unbundled dev server in over 5 s in some runs.
-  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
   /** Under CI, ci.yml uploads the html report from playwright-report/ when e2e fails. */
   reporter: process.env.CI ? [['github'], ['dot'], ['html', { open: 'never' }]] : 'list',
   use: {
