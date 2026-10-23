@@ -68,9 +68,13 @@ function signInAs(platformRole: MembershipRole | null) {
 }
 
 describe('CommandPalette', () => {
-  // Loads the lazy palette chunk outside every test's findBy window; a cold load under contention outlasted it.
+  // Loads the lazy chunks and renders the app shell once outside every test's findBy window; a cold first open under contention outlasted it.
   beforeAll(async () => {
     await loadPalette()
+    signInAs('viewer')
+    const warm = renderAppAt('/overview')
+    await screen.findByRole('heading', { name: 'Overview', level: 1 }, { timeout: 25_000 })
+    warm.unmount()
   }, 30_000)
 
   beforeEach(() => {
