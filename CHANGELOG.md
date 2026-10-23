@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.0.1](https://github.com/mahaverick/apex-boilerplate/compare/v8.0.0...v8.0.1) (2026-10-23)
+
+
+### Performance Improvements
+
+* **ci:** faster tests ([#98](https://github.com/mahaverick/apex-boilerplate/issues/98)) ([ea31402](https://github.com/mahaverick/apex-boilerplate/commit/ea3140209fb872bb1a1de5a91717d5a9092c46a5))
+
 ## [8.0.0](https://github.com/mahaverick/apex-boilerplate/compare/v7.0.1...v8.0.0) (2026-10-21)
 
 
