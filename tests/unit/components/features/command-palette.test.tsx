@@ -73,8 +73,11 @@ describe('CommandPalette', () => {
     await loadPalette()
     signInAs('viewer')
     const warm = renderAppAt('/overview')
-    await screen.findByRole('heading', { name: 'Overview', level: 1 }, { timeout: 25_000 })
-    warm.unmount()
+    try {
+      await screen.findByRole('heading', { name: 'Overview', level: 1 }, { timeout: 25_000 })
+    } finally {
+      warm.unmount()
+    }
   }, 30_000)
 
   beforeEach(() => {

@@ -27,11 +27,11 @@ vi.mock('@simplewebauthn/browser', () => ({
 
 /** A promise and the function that settles it. */
 function openGate() {
-  let settle: (() => void) | undefined
+  let settle!: () => void
   const held = new Promise<void>((resolve) => {
     settle = resolve
   })
-  return { held, release: () => settle?.() }
+  return { held, release: () => settle() }
 }
 
 describe('usePasskeySignIn with the real wrapper', () => {
@@ -63,11 +63,16 @@ describe('usePasskeySignIn with the real wrapper', () => {
       () => null,
       (error: unknown) => error
     )
-    await waitFor(() => expect(requested).toBe(true))
-    cancelPasskeyPrompt()
-    gate.release()
+    try {
+      await waitFor(() => expect(requested).toBe(true))
+      cancelPasskeyPrompt()
+      gate.release()
 
-    expect(passkeyFailure(await settled)).toBe('cancelled')
-    expect(mocks.startAuthentication).not.toHaveBeenCalled()
+      expect(passkeyFailure(await settled)).toBe('cancelled')
+      expect(mocks.startAuthentication).not.toHaveBeenCalled()
+    } finally {
+      // Releasing twice is harmless; a failed assertion must not leave the request held.
+      gate.release()
+    }
   })
 })
