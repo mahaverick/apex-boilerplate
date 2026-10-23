@@ -1,8 +1,8 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import { prefetchPalette } from '@/components/shared/command-palette/palette-loader'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
+import { loadPalette, prefetchPalette } from '@/components/shared/command-palette/palette-loader'
 import { recordRecent } from '@/components/shared/command-palette/recent-items'
 import type { MembershipRole } from '@/constants/roles'
 import * as shortcut from '@/lib/shortcut'
@@ -68,6 +68,11 @@ function signInAs(platformRole: MembershipRole | null) {
 }
 
 describe('CommandPalette', () => {
+  // Loads the lazy palette chunk outside every test's findBy window; a cold load under contention outlasted it.
+  beforeAll(async () => {
+    await loadPalette()
+  }, 30_000)
+
   beforeEach(() => {
     localStorage.clear()
     useCommandPaletteStore.setState({ open: false, query: '' })
