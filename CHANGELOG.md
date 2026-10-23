@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.0.2](https://github.com/mahaverick/apex-boilerplate/compare/v8.0.1...v8.0.2) (2026-10-23)
+
+
+### Bug Fixes
+
+* **e2e:** hide passkey autofill and keep the real failure in the live passkey spec ([#101](https://github.com/mahaverick/apex-boilerplate/issues/101)) ([b7cabc0](https://github.com/mahaverick/apex-boilerplate/commit/b7cabc0279a2fd066f4b8cb500c6330c01712e56))
+
 ## [8.0.1](https://github.com/mahaverick/apex-boilerplate/compare/v8.0.0...v8.0.1) (2026-10-23)
 
 
