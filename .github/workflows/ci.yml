@@ -234,11 +234,10 @@ jobs:
   # upload is skipped; the Dockerfile itself fails if .git reaches the build
   # context.
   #
-  # The build has no layer cache. On a source change, pulling the cached
-  # dependency layer (about 210 MB) from the GitHub Actions cache and
-  # extracting it took about 50 s, while `pnpm install` from the registry
-  # takes about 11 s, and exporting the cache took 12 to 44 s more. A
-  # from-scratch build is about 35 s. deploy.yml keeps its own cache.
+  # The build has no layer cache. On a source change, the cached build took
+  # 207 s (pulling and extracting the dependency layer, then exporting the
+  # cache again), and a build from scratch takes about 45 s, with `pnpm
+  # install` fetching from the registry. deploy.yml keeps its own cache.
   image:
     runs-on: ubuntu-latest
     timeout-minutes: 15

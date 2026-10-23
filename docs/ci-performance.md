@@ -123,3 +123,26 @@ No attempt failed. The two earlier causes of red runs, the `command-palette` and
 ## Local after PR 2
 
 `pnpm gate`: exit 0, `real 110.4s`, `user 656.97s`, `sys 105.22s`. Load average (1 min) was 4.35 at the start and 23.01 at the end, so treat it as indicative. The merged run is 235 files, 3841 tests passed and 10 skipped. PR 1 measured 98.78s at a start load near 13; the two numbers are not comparable.
+
+## The docker split
+
+On a source change, `docker` took 339s while `e2e` took 181s (run 39992137061, seconds from run start). The build step alone took 207s, the nginx `@no-api` tests 57s, and Playwright setup, `nginx -t`, the render check and `check-image.sh` about 40s. The job was the longest in the run, and it ran those steps one after another.
+
+Three changes took it off the critical path:
+
+- **No layer cache for CI's image.** On a source change the cached build took 207s. A build from scratch takes 43-50s, with `pnpm install` fetching from the registry, and there is no cache to export. deploy.yml keeps its own cache.
+- **`image`, `image-checks` and two `nginx-e2e` shards instead of one job.** `image` builds and uploads the image as an artifact named `image` (24 MB, 2s), and nothing else. `image-checks` and the shards each have `needs: image`, download it and `docker load` it (7s). `docker` is now an aggregate that fails unless all of them passed, like `test` over `unit`. The fixed artifact name is what lets "Re-run failed jobs" work: a re-run shard downloads the image the first attempt built. Run 39993638190 went red on a deliberately failing test; `gh run rerun --failed` re-ran only the failed shard and `docker`, and the shard downloaded and loaded the image before it ran.
+- **`beforeEach(requireServedApp)` instead of `beforeAll`.** Under `fullyParallel`, Playwright batches a file's tests that share a `beforeAll` into `ceil(n / workers)` chunks, so the slowest analytics tests ran back to back on one worker. With one check per test, each shard's test step takes 26-47s.
+
+Source-change runs, seconds from run start to job end:
+
+| Run                                              | `docker` | `e2e` | `test` | Wall-clock |
+| :----------------------------------------------- | -------: | ----: | -----: | ---------: |
+| 39992137061 (before)                             |      339 |   181 |    240 |        340 |
+| 39993044413                                      |      134 |   226 |    182 |        226 |
+| 39993638190 (one failing nginx test, on purpose) |      155 |   217 |    167 |        217 |
+| 39994450316                                      |      161 |   276 |    155 |        276 |
+
+`docker` finishes 134-161s after the run starts, and no longer sets the wall-clock. `image` ends at 53-74s, `image-checks` at 75-99s, and the shards at 124-157s. `e2e` is now the longest job and varies from run to run (217-276s here against 181s before), so the wall-clock follows it. This change does not touch `e2e`.
+
+**What to watch.** The shards split the tests by count, in file order, so one shard holds the heavier analytics tests. A long new test there lengthens `docker`. The build depends on the npm registry and releases.posthog.com on every run, not only on a lockfile change.
