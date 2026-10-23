@@ -74,8 +74,9 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
 - The `lint` job runs `pnpm check`, `pnpm lint:docs`, `pnpm ui:drift`, `pnpm knip`,
   `pnpm typecheck`, `pnpm build`, `pnpm check:bundle` and the audits. Six `unit`
   jobs run `pnpm test:shard`; the `test` job runs `pnpm test:merge`, which enforces
-  the coverage thresholds in `vitest.config.ts` on the merged result. The `e2e` and
-  `docker` jobs run alongside. Local `pnpm test:coverage` still enforces the same
+  the coverage thresholds in `vitest.config.ts` on the merged result. The `e2e` job
+  runs alongside. The `docker` job builds the image once with a layer cache,
+  checks it, and runs the `nginx` `@no-api` Playwright tests against it. Local `pnpm test:coverage` still enforces the same
   thresholds. The scripts are in [README.md](README.md).
 
 ## Dead code (knip)
@@ -536,8 +537,11 @@ a headless user agent). An analytics e2e test uses `HUMAN_USER_AGENT` and calls
 `passPosthogBotFilter` before its first navigation (`e2e/helpers/fake-posthog.ts`).
 
 **`nginx`** runs against the production image (`pnpm test:e2e:nginx`), because the
-headers and the CSP are only real there. The `@no-api` tests also run in CI with
-nothing behind `/api`. The rest need a live API and run locally.
+headers and the CSP are only real there. The `@no-api` tests also run in CI's
+`docker` job with nothing behind `/api`, on four parallel workers. A run with
+`E2E_LIVE=1` (the nightly and `pnpm test:e2e:nginx`) uses one worker, because it
+shares a backend and a fixed-port fake PostHog. The tests that need a live API run
+there, not in the `docker` job.
 The variables are in the [README](README.md#testing), and the live half of
 `e2e/nginx/analytics.test.ts` has its setup in the README's
 [Analytics](README.md#analytics-posthog) section.
