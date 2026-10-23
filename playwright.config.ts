@@ -26,7 +26,7 @@ export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
   // live and nginx share one backend or container, so they run serially.
   fullyParallel: false,
-  workers: process.env.CI ? 4 : '50%',
+  workers: process.env.CI ? 3 : '50%',
   forbidOnly: !!process.env.CI,
   /** Under CI, ci.yml uploads the html report from playwright-report/ when e2e fails. */
   reporter: process.env.CI ? [['github'], ['dot'], ['list'], ['html', { open: 'never' }]] : 'list',
@@ -65,7 +65,7 @@ export default defineConfig({
       testMatch: 'fixtures/**/*.test.ts',
       // The MSW harness has no shared backend, so each test gets its own page and worker.
       fullyParallel: true,
-      workers: process.env.CI ? 4 : '50%',
+      workers: process.env.CI ? 3 : '50%',
       use: { ...devices['Desktop Chrome'] },
     },
     {

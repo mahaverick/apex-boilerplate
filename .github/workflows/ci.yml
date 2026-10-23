@@ -192,31 +192,6 @@ jobs:
       # already has them, so a cache hit installs nothing.
       - run: pnpm exec playwright install --with-deps chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-      # A cache hit skips `install --with-deps`, which also installs fonts. Without
-      # them Chromium has no fallback fonts and the Overview renders slowly. The five
-      # font packages are fetched once into a cache and installed with dpkg, so a hit
-      # does not run apt, whose full `install-deps` stalled for about 600 s in some runs.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: fonts-cache
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        with:
-          path: ~/fonts-debs
-          key: fonts-${{ runner.os }}-ubuntu-24.04-v1
-      - name: Download the font packages
-        if: steps.playwright-cache.outputs.cache-hit == 'true' && steps.fonts-cache.outputs.cache-hit != 'true'
-        timeout-minutes: 3
-        run: |
-          mkdir -p ~/fonts-debs
-          sudo apt-get update
-          cd ~/fonts-debs
-          apt-get download fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf fonts-unifont fonts-wqy-zenhei
-      - name: Install the font packages
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        timeout-minutes: 3
-        run: |
-          fc-list | wc -l
-          sudo dpkg -i ~/fonts-debs/*.deb
-          fc-list | wc -l
       - run: |
           nproc; uptime; free -m | head -2
           pnpm test:e2e
