@@ -1,5 +1,5 @@
 /**
- * @file The entry point. React mounts only after `router.load()` settles, so
+ * @file The entry point (profiling probe). React mounts only after `router.load()` settles, so
  * index.html's static boot shell stays up until the first commit already has a
  * real match (or an error match). `createRoot().render()` clears `#root` on
  * its first commit and the router renders nothing until a match exists, so
