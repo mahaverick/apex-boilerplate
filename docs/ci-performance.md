@@ -87,3 +87,39 @@ Load average (1 min) was 2.55 when hyperfine started; `pnpm test` workers then r
 `pnpm exec eslint .` fell from 28.7s to 5.3s because it now runs only the 17 rules Oxlint cannot. `pnpm check` (format, type-aware Oxlint, tsc) replaces the old prettier + typecheck pair (13.95s) and takes 8.4s while also doing the lint pass.
 
 `/usr/bin/time -p pnpm gate`: `real 98.78s`, `user 639.79s`, `sys 99.48s`, started at load average about 13. The old pre-push (eslint, prettier, typecheck, unit tests) was `real 158.02s` at load 15.2.
+
+## CI after PR 2
+
+Head 9bc6110 (the sharded unit tests, the bundled e2e harness, nginx tests in the `docker` job, and the flake fixes). Run 39949291236: attempt 1 plus 10 reruns, all 11 green. The table uses the 10 reruns (attempts 2-11). Wall time is the first job start to the last job end.
+
+| Metric           |    Before | After PR 1 | After PR 2 |
+| :--------------- | --------: | ---------: | ---------: |
+| Median wall time |      552s |       594s |       216s |
+| p90              |      590s |      1160s |       234s |
+| Range            | 466-1187s |  564-1176s |   173-237s |
+
+The median fell 61% against before and 64% against PR 1. The p90 fell 80% against PR 1, because the Playwright install stalls are gone: the browser cache is keyed on the Playwright version and a hit skips the install.
+
+Per job (median, range, 10 reruns):
+
+| Job                              |  Median |    Range |
+| :------------------------------- | ------: | -------: |
+| `unit` (each of 6 shards)        | 88-126s |  65-132s |
+| `test` (merge and coverage gate) |     25s |   22-31s |
+| `lint`                           |     92s |  71-105s |
+| `e2e`                            |    216s | 172-236s |
+| `docker`                         |    116s | 100-132s |
+
+Shard medians: 1/6 126s, 2/6 88s, 3/6 121s, 4/6 114s, 5/6 115s, 6/6 90s.
+
+`e2e` is the longest job and sets the wall time. `lint` rose from 62-70s to 71-105s because it now also runs the build, the bundle check and the audits that used to sit in `test`.
+
+Run logs show the worker counts: `e2e` runs 165 tests on 3 workers and `docker` runs 35 tests on 4 workers. The top-level `workers` cap is 4 under CI; the `fixtures` project sets its own 3.
+
+`docker` is warm on reruns (the build step takes 8s). Cold, on the first attempt, it took 167s. On a source change it took 274s (build 146s, nginx tests 55s), about 1 minute longer than `e2e` in that run. The build layer for `vp build` re-runs on every commit because the commit SHA is a build argument. This is the next item to cut.
+
+No attempt failed. The two earlier causes of red runs, the `command-palette` and `passkey-sign-in-cancel` unit flakes, did not appear in 11 attempts.
+
+## Local after PR 2
+
+`pnpm gate`: exit 0, `real 110.4s`, `user 656.97s`, `sys 105.22s`. Load average (1 min) was 4.35 at the start and 23.01 at the end, so treat it as indicative. The merged run is 235 files, 3841 tests passed and 10 skipped. PR 1 measured 98.78s at a start load near 13; the two numbers are not comparable.
