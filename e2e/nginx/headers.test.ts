@@ -123,7 +123,3 @@ test(
     }
   }
 )
-
-test('throwaway: fails on purpose', { tag: '@no-api' }, async ({ request }) => {
-  expect((await request.get('/')).status()).toBe(418)
-})
