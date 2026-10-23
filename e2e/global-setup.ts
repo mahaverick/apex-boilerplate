@@ -17,6 +17,17 @@ const WARM_ROUTES: readonly (readonly [path: string, heading: string])[] = [
   ['/settings/platform/staff', 'Staff'],
 ]
 
+/** Runs `wait`; on failure throws an error naming what did not render. */
+async function warm(what: string, expected: string, wait: () => Promise<void>): Promise<void> {
+  try {
+    await wait()
+  } catch (error) {
+    throw new Error(`globalSetup: ${what} did not render "${expected}" within 30 s`, {
+      cause: error,
+    })
+  }
+}
+
 /**
  * Loads the harness once before any test, so Vite has bundled its dependencies
  * and transformed the entry and the first route chunks.
@@ -40,12 +51,25 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
     const page = await browser.newPage({ baseURL })
     for (const [path, heading] of WARM_ROUTES) {
       await page.goto(`/e2e/harness/?path=${path}`)
-      try {
-        await page.getByRole('heading', { name: heading, level: 1 }).waitFor({ timeout: 30_000 })
-      } catch (error) {
-        throw new Error(
-          `globalSetup: ${path} did not render the "${heading}" heading within 30 s (at ${page.url()})`,
-          { cause: error }
+      await warm(path, heading, () =>
+        page.getByRole('heading', { name: heading, level: 1 }).waitFor({ timeout: 30_000 })
+      )
+      // Lazy chunks the first test on a route would otherwise wait for: the command palette, and the passkeys list.
+      if (path === '/overview') {
+        await page.keyboard.press('ControlOrMeta+k')
+        await warm('the command palette', 'Command palette', () =>
+          page
+            .getByRole('dialog', { name: 'Command palette', exact: true })
+            .waitFor({ timeout: 30_000 })
+        )
+        await page.keyboard.press('Escape')
+      }
+      if (path === '/settings/account/security') {
+        await warm('the passkeys list', 'Passkeys', () =>
+          page
+            .getByRole('heading', { name: /passkeys/i })
+            .first()
+            .waitFor({ timeout: 30_000 })
         )
       }
     }
