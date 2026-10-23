@@ -46,3 +46,5 @@ void Promise.allSettled([loading, waitForTemplates()])
 loading.catch((error: unknown) => {
   console.error(error)
 })
+
+// Throwaway probe: changes the image build context to time a source-change run.
