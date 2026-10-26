@@ -1052,6 +1052,25 @@ describe('Plans page: trials and grace', () => {
     expect(length).toHaveValue('21')
   })
 
+  it('keeps the version read at the first edit when a refetch brings a newer one', async () => {
+    serveSettings(testBillingSettings, { ...testBillingSettings, version: 2 })
+    const saves = recordSettingsSave({ ...testBillingSettings, trialDays: 21, version: 3 })
+    const user = userEvent.setup()
+    openPlans('admin')
+    const settings = await settingsCard()
+    const length = await within(settings).findByRole('textbox', { name: 'Trial length (days)' })
+    await user.clear(length)
+    await user.type(length, '21')
+    await queryClient.refetchQueries({ queryKey: ['platform', 'billing-settings'] })
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Longer trials')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await confirmStepUp(user)
+    await waitFor(() => expect(saves).toHaveLength(2))
+    expect(saves[1]).toEqual({ version: 1, trialDays: 21, reason: 'Longer trials' })
+  })
+
   it('sends the trial switch alone when only it changed', async () => {
     const saves = recordSettingsSave({ ...testBillingSettings, trialEnabled: false, version: 2 })
     const user = userEvent.setup()
