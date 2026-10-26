@@ -396,13 +396,17 @@ than `z.number`, `z.literal` or `z.boolean` in a route's search schema, as
 `list.schemas.ts` does for `limit` and the yes/no filter, and keep
 `components/shared/data-table/**` (and TanStack Table) out of anything the
 entry imports: the switcher, the bell, `nav-secondary` and the guard never
-import from it. `pnpm check:bundle` enforces the budget, and this app did not
-raise it: `ENTRY_BUDGET_BYTES` is still 598,500. The entry started the lists
-at 594,895 B and ends at 589,247 B. The shared schemas use `z.custom`, which
+import from it. `pnpm check:bundle` enforces the budget, and the lists did
+not raise it: `ENTRY_BUDGET_BYTES` stayed 598,500. The entry started the lists
+at 594,895 B and ended at 589,247 B. The shared schemas use `z.custom`, which
 took it down; the 13 definitions' schemas, which every list route's
 `validateSearch` reaches, put 4,370 B back; deleting each page's old
 schema, options and hooks in the commit that adopted the table took the rest
-off.
+off. Zod ships as one shared first-visit chunk trimmed to the types used
+anywhere, so this holds only while no form uses those types either. The
+staff billing forms mirror express with `z.number()` and `z.boolean()`, and
+the budget rose to 608,000 with them; its history is in
+`scripts/check-bundle.mjs`.
 
 ### Apex's lists
 

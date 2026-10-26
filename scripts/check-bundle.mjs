@@ -12,8 +12,16 @@ import path from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { build } from 'vite'
 
-/** The ceiling for first-visit JS in bytes. Raise it only with a measured reason. */
-const ENTRY_BUDGET_BYTES = 598_500
+/**
+ * The ceiling for first-visit JS in bytes. Raise it only with a measured reason.
+ * - 2026-10-26: 598,500 → 608,000. Zod ships as one shared first-visit chunk,
+ *   trimmed to the zod types used anywhere in the app, so no route split can
+ *   move a type out of it. The staff billing forms are the first use of
+ *   `z.number()` and `z.boolean()`, and the full-tenant invite refusal reads
+ *   the billing keys: first-visit JS went from 597,445 to 603,638 bytes. The
+ *   new ceiling leaves about 4 KB for the Plans page's plan and price forms.
+ */
+const ENTRY_BUDGET_BYTES = 608_000
 
 /**
  * A module inside one of the devtools packages, by its node_modules path. Module
