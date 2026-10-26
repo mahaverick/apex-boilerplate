@@ -47,6 +47,8 @@ interface DateRow {
  * it reads as Free (`isPastCancelBuffer`), as the cancel dialog does.
  * A booked next subscription (a switch, or Paid again while cancelling)
  * reads as Paid continuing, checked first as react does, never as ending.
+ * A failed payment shows no period date: express ends its Paid when the
+ * grace ends, not at the period end, and the Failed payment row says when.
  * @param billing - The tenant's billing.
  * @param now - The moment the page reads as now, in milliseconds.
  * @param plans - The staff plans, for the next subscription's price.
@@ -62,6 +64,8 @@ function dateRows(
   }
   // Past the buffer express serves the tenant as Free, so a page left open shows Free's dates: none.
   if (isPastCancelBuffer(billing, now)) return []
+  // A failed payment's Paid ends with its grace, which the Failed payment row names; the period end is not it.
+  if (state === 'past_due') return []
   if (state === 'active' && nextSwitch !== null) {
     return [{ label: 'Next subscription', value: nextSubscriptionText(nextSwitch, plans) }]
   }

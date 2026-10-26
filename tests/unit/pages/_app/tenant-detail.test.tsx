@@ -336,21 +336,21 @@ describe('/tenants/$tenantId', () => {
         'admin' as const,
         detail(),
         'Suspend Acme Corp?',
-        'Members lose access at once, and its members and invitations are frozen until it is reactivated. We cancel a Paid subscription at the end of its paid period, or now if it hasn’t been charged yet.',
+        'Members lose access at once, and its members and invitations are frozen until it is reactivated. With payments on, we cancel a Paid subscription at the end of its paid period, or now if it hasn’t been charged yet.',
       ],
       [
         'Archive',
         'admin' as const,
         detail(),
         'Archive Acme Corp?',
-        'Archiving is permanent: the tenant can’t be reactivated, its pending invitations are revoked, and its slug becomes free for reuse. A Paid subscription is cancelled now.',
+        'Archiving is permanent: the tenant can’t be reactivated, its pending invitations are revoked, and its slug becomes free for reuse. With payments on, we cancel any Paid subscription now.',
       ],
       [
         'Delete permanently',
         'owner' as const,
         detail({ lifecycleState: 'archived', deletedAt: '2026-09-01T00:00:00.000Z' }),
         'Permanently delete Acme Corp?',
-        'This removes the tenant, its settings, memberships, invitations and its own activity log for good. Only a record of the deletion stays in the platform log. It can’t be undone. Cancel any Paid subscription first; we refuse the delete while one is live.',
+        'This removes the tenant, its settings, memberships, invitations and its own activity log for good. Only a record of the deletion stays in the platform log. It can’t be undone. Cancel any Paid subscription first; we refuse the delete while one can still charge a card.',
       ],
     ])('says what %s does to billing', async (item, role, tenant, title, description) => {
       signIn({ ...testUser, platformRole: role })

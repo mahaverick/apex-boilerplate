@@ -40,8 +40,9 @@ import type { StaffCancelWhen, StaffTenantBilling } from '@/types/billing.types'
  * Cancel a tenant's subscription as a platform admin, with an audited
  * reason, behind step-up. The choices and their wording follow what express
  * does in this tenant's case (`cancelChoicesFor`); a single choice shows no
- * radio. A cancel now asks for the tenant's slug typed. The toast reads the
- * view express answers (`cancelToast`). Refusals (nothing to cancel, the
+ * radio. A cancel now asks for the tenant's slug typed. The toast compares
+ * the view express answers with the billing the dialog opened on
+ * (`cancelToast`). Refusals (nothing to cancel, the
  * provider down) show the API's sentence in the dialog.
  */
 export function CancelBillingDialog({
@@ -101,8 +102,11 @@ function CancelBillingForm({
   const whenLabel = useId()
   const schema = useMemo(() => cancelBillingFormSchema(tenant.slug), [tenant.slug])
   const now = useNow()
-  // Worked out once, when the dialog opens: a refetch mid-form must not swap the choices under the reader.
-  const [{ choices, note }] = useState(() => cancelChoicesFor(tenant.name, billing, now))
+  // Pinned when the dialog opens: a refetch mid-form must not swap the choices, or the toast's "before", under the reader.
+  const [{ choices, note, opened }] = useState(() => ({
+    ...cancelChoicesFor(tenant.name, billing, now),
+    opened: billing,
+  }))
   const initialWhen: StaffCancelWhen = choices[0]?.when ?? 'now'
   const form = useForm({
     defaultValues: {
@@ -118,7 +122,7 @@ function CancelBillingForm({
       try {
         const view = await stepUp.run(() => cancel.mutateAsync(input))
         onBusyChange(false)
-        toast.success(cancelToast(tenant.name, billing, view))
+        toast.success(cancelToast(tenant.name, opened, view))
         onDone()
       } catch (error) {
         onBusyChange(false)

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
@@ -7,6 +7,8 @@ import { billingDate } from '@/constants/billing-labels'
 import type { MembershipRole } from '@/constants/roles'
 import { toast } from '@/lib/toast'
 import * as analytics from '@/observability/telemetry'
+import { billingAdminKeys } from '@/queries/billing-reads.queries'
+import { queryClient } from '@/router'
 import { endOfDay, localDate } from '@/schemas/billing.schemas'
 import { testFreeTenantBilling, testPlans, testTenantBilling } from '@/tests/fixtures/billing'
 import { TENANT_ID } from '@/tests/fixtures/ids'
@@ -799,6 +801,36 @@ describe('billing actions', () => {
         { when: 'cycle_end', reason: 'Customer asked' },
         { when: 'cycle_end', reason: 'Customer asked' },
       ])
+    })
+
+    it('words the toast against the billing the dialog opened on, not a refetch while it was open', async () => {
+      serve()
+      const cancelling: StaffTenantBilling = {
+        ...testTenantBilling,
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: '2026-12-20T00:00:00.000Z',
+      }
+      recordWrite('cancel', cancelling)
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      // Another staff member's cancel lands while this dialog is open, and the view refetches.
+      server.use(http.get(BASE, () => ok(cancelling, 'Billing retrieved.')))
+      await act(() =>
+        queryClient.invalidateQueries({ queryKey: billingAdminKeys.tenant(TENANT_ID) })
+      )
+      await waitFor(() => expect(screen.getByText('Cancels on')).toBeInTheDocument())
+      await user.type(within(dialog).getByLabelText('Reason'), 'Customer asked')
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel subscription' }))
+      await confirmStepUp(user)
+      await waitFor(() =>
+        expect(success).toHaveBeenCalledWith(
+          `Paid for Acme Corp ends on ${billingDate('2026-12-20T00:00:00.000Z')}.`
+        )
+      )
     })
 
     it('asks for the slug before cancelling now', async () => {

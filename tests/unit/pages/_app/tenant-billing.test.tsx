@@ -281,7 +281,7 @@ describe('/tenants/$tenantId/billing', () => {
         /^Payment failed on .+\. The payment provider is still retrying\. Subscription paused\.$/
       )
       expect(within(card).getByText('Dispute open')).toHaveAttribute('data-tone', 'destructive')
-      expect(row(card, 'Cancels on')).toMatch(/2026/)
+      expect(within(card).queryByText('Cancels on', { selector: 'dt' })).toBeNull()
       expect(row(card, 'Payer')).toBe('A B (left the workspace)')
     })
 
@@ -296,9 +296,10 @@ describe('/tenants/$tenantId/billing', () => {
         },
       })
       renderAppAt(BILLING)
-      expect(row(await summary(), 'Failed payment')).toMatch(
-        /^Payment failed on .+\. Paid ends on .+2026\.$/
-      )
+      const card = await summary()
+      expect(row(card, 'Failed payment')).toMatch(/^Payment failed on .+\. Paid ends on .+2026\.$/)
+      // Express ends a failed payment's Paid with its grace, so the period end (the failed renewal) is no row.
+      expect(within(card).queryByText('Paid until', { selector: 'dt' })).toBeNull()
     })
 
     it('shows the state with no provider ids and no invoices while payments are off', async () => {
