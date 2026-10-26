@@ -49,6 +49,13 @@ export function localDate(date: Date): string {
   return `${String(date.getFullYear())}-${month}-${day}`
 }
 
+/**
+ * The latest day a grant may end. A later year can come out of
+ * `toISOString` as an expanded year (`+010000-…`) in a zone behind UTC,
+ * which express's `z.iso.datetime()` refuses.
+ */
+const LATEST_GRANT_END = '2099-12-31'
+
 /** A limit grant's message: a whole number in range, or the form's No limit. */
 const GRANT_LIMIT_MESSAGE = 'Enter a whole number from 1 to 1,000,000, or choose No limit.'
 
@@ -81,7 +88,8 @@ export function grantSchema(catalog: readonly EntitlementCatalogEntry[]) {
         context.addIssue({
           code: 'custom',
           path: ['value'],
-          message: 'A feature grant turns the feature on.',
+          message:
+            'A feature grant only turns the feature on. To set a number, choose a limit instead.',
         })
       }
       if (entry?.kind === 'limit' && !isLimitValue(form.value)) {
@@ -92,6 +100,13 @@ export function grantSchema(catalog: readonly EntitlementCatalogEntry[]) {
           code: 'custom',
           path: ['endsOn'],
           message: 'Choose today or a later date, or leave it empty for no end date.',
+        })
+      } else if (form.endsOn > LATEST_GRANT_END) {
+        context.addIssue({
+          code: 'custom',
+          path: ['endsOn'],
+          message:
+            'Choose an end date on or before 31 Dec 2099, or leave it empty for no end date.',
         })
       }
     })
@@ -167,7 +182,7 @@ export const priceSchema = z
  * and a reason.
  */
 export const billingSettingsSchema = z.object({
-  trialEnabled: z.boolean({ error: 'Send true to offer trials or false to stop.' }),
+  trialEnabled: z.boolean({ error: 'Choose whether new workspaces get a Paid trial.' }),
   trialDays: daysSchema(MAX_TRIAL_DAYS),
   pastDueGraceDays: daysSchema(MAX_PAST_DUE_GRACE_DAYS),
 })

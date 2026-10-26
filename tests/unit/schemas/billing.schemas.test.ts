@@ -78,7 +78,9 @@ describe('grantSchema', () => {
       endsOn: '',
       reason: 'Demo',
     })
-    expect(messageAt(result, 'value')).toBe('A feature grant turns the feature on.')
+    expect(messageAt(result, 'value')).toBe(
+      'A feature grant only turns the feature on. To set a number, choose a limit instead.'
+    )
   })
 
   it('refuses a key the catalog lacks', () => {
@@ -102,6 +104,19 @@ describe('grantSchema', () => {
       )
     }
   )
+
+  it.each(['2100-01-01', '9999-12-31'])('refuses %s, after the latest end date', (endsOn) => {
+    const result = grant.safeParse({ key: 'members', value: 10, endsOn, reason: 'Team' })
+    expect(messageAt(result, 'endsOn')).toBe(
+      'Choose an end date on or before 31 Dec 2099, or leave it empty for no end date.'
+    )
+  })
+
+  it('sends the latest end date as an ISO date-time express takes, in any zone', () => {
+    const body = grant.parse({ key: 'members', value: 10, endsOn: '2099-12-31', reason: 'Team' })
+    // A zone behind UTC moves the end of the day into the next UTC day, never past year 2100.
+    expect(body.expiresAt).toMatch(/^(2099-12-31|2100-01-01)T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+  })
 
   it('sends expiresAt as the end of the chosen day, in the browser’s zone', () => {
     const body = grant.parse({ key: 'members', value: 10, endsOn: TODAY, reason: 'Team' })
@@ -132,6 +147,17 @@ describe('priceSchema', () => {
 })
 
 describe('billingSettingsSchema', () => {
+  it('asks for a choice when trials are neither on nor off', () => {
+    const result = billingSettingsSchema.safeParse({
+      trialEnabled: 'yes',
+      trialDays: 14,
+      pastDueGraceDays: 7,
+    })
+    expect(messageAt(result, 'trialEnabled')).toBe(
+      'Choose whether new workspaces get a Paid trial.'
+    )
+  })
+
   it('refuses a trial outside 1–90 days and a grace outside 1–30 days', () => {
     const result = billingSettingsSchema.safeParse({
       trialEnabled: true,
