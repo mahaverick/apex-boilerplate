@@ -17,12 +17,24 @@ import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
 const PAYMENTS_OFF_NOTE =
   'Payments are off on this server. The plan and dates show what is stored; nothing can be charged or synced.'
 
+/**
+ * How long a cancelled Paid stays on after its period ends, as express's
+ * `CANCEL_BUFFER_DAYS`, before the tenant moves to Free.
+ */
+const CANCEL_BUFFER_MS = 3 * 24 * 60 * 60 * 1000
+
 /** A billing date, read short. */
 const day = billingDate
 
 /** One dated row of the summary: its name and its date. */
 interface DateRow {
-  label: 'Trial ends' | 'First charge' | 'Cancels on' | 'Paid until'
+  label:
+    | 'Trial ends'
+    | 'First charge'
+    | 'Cancels on'
+    | 'Paid until'
+    | 'Period ended'
+    | 'Moves to Free on'
   value: string
 }
 
@@ -33,6 +45,9 @@ interface DateRow {
  * trialing tenant's authenticated subscription has no paid period yet. A
  * tenant that took Paid during its trial is `active` before its first charge,
  * which falls on the trial's end; it shows that charge, not a paid period.
+ * Free shows no dates: express keeps the last period's end after a move to
+ * Free. A cancelled period that has ended reads as ended, with the day the
+ * tenant moves to Free, never as cancelling on a past date.
  * @param billing - The tenant's billing.
  * @param now - The moment the page reads as now, in milliseconds.
  */
@@ -45,7 +60,14 @@ function dateRows(billing: StaffTenantBilling, now: number): DateRow[] {
     const amount = price === null ? '' : `${formatInr(price.amountMinor)} on `
     return [{ label: 'First charge', value: `${amount}${day(trialEndsAt)}` }]
   }
-  if (currentPeriodEnd === null) return []
+  if (state === 'free' || currentPeriodEnd === null) return []
+  const endsAt = new Date(currentPeriodEnd).getTime()
+  if (state === 'active' && billing.cancelAtPeriodEnd && endsAt <= now) {
+    return [
+      { label: 'Period ended', value: day(currentPeriodEnd) },
+      { label: 'Moves to Free on', value: day(new Date(endsAt + CANCEL_BUFFER_MS).toISOString()) },
+    ]
+  }
   return [
     {
       label: billing.cancelAtPeriodEnd ? 'Cancels on' : 'Paid until',

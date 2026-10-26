@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vite-plus/test'
+import { billingDate } from '@/constants/billing-labels'
 import {
   testBillingEvents,
   testBillingHistory,
@@ -349,6 +350,32 @@ describe('/tenants/$tenantId/billing', () => {
       renderAppAt(BILLING)
       const free = await summary()
       expect(within(free).queryByText('Trial ends', { selector: 'dt' })).toBeNull()
+    })
+
+    it('shows no paid period for a Free tenant whose cancelled subscription ended', async () => {
+      serve({
+        ...testFreeTenantBilling,
+        currentPeriodEnd: '2026-01-10T00:00:00.000Z',
+        cancelAtPeriodEnd: true,
+      })
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(within(card).queryByText('Cancels on', { selector: 'dt' })).toBeNull()
+      expect(within(card).queryByText('Paid until', { selector: 'dt' })).toBeNull()
+      expect(within(card).queryByText('Period ended', { selector: 'dt' })).toBeNull()
+    })
+
+    it('says when a cancelled period ended and when the tenant moves to Free', async () => {
+      serve({
+        ...testTenantBilling,
+        currentPeriodEnd: '2026-01-10T00:00:00.000Z',
+        cancelAtPeriodEnd: true,
+      })
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(row(card, 'Period ended')).toBe(billingDate('2026-01-10T00:00:00.000Z'))
+      expect(row(card, 'Moves to Free on')).toBe(billingDate('2026-01-13T00:00:00.000Z'))
+      expect(within(card).queryByText('Cancels on', { selector: 'dt' })).toBeNull()
     })
 
     it('shows a Free tenant with no price, payer or subscription', async () => {
@@ -701,7 +728,7 @@ describe('/tenants/$tenantId/billing', () => {
       renderAppAt(BILLING)
       expect(
         await screen.findByText(
-          'This page had no invoices. Select Load more invoices to read older subscriptions.'
+          'This page had no invoices, and more remain. Select Load more invoices to read the next page.'
         )
       ).toBeInTheDocument()
       expect(screen.queryByText('No invoices for this tenant.')).toBeNull()
@@ -797,7 +824,7 @@ describe('/tenants/$tenantId/billing', () => {
       await user.click(await screen.findByRole('button', { name: 'Load more invoices' }))
       expect(
         await screen.findByText(
-          /^This invoice list is out of date: the tenant’s subscriptions or the server’s payments changed since it opened\./
+          /^These invoices are out of date\. The tenant’s subscriptions changed, or payments were turned off on this server\./
         )
       ).toBeInTheDocument()
       const before = seen.invoices.length
@@ -805,6 +832,37 @@ describe('/tenants/$tenantId/billing', () => {
       await waitFor(() => expect(seen.invoices.length).toBeGreaterThan(before))
       expect(seen.invoices.at(-1)?.has('cursor')).toBe(false)
       expect(await screen.findByRole('button', { name: 'Load more invoices' })).toBeInTheDocument()
+    })
+
+    it('reads the billing again on Start again, so payments turned off show as off', async () => {
+      const seen = serve()
+      let billingReads = 0
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, () => {
+          billingReads += 1
+          return ok(
+            { ...testTenantBilling, paymentsEnabled: billingReads === 1 },
+            'Billing retrieved.'
+          )
+        }),
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/invoices`, ({ request }) => {
+          const params = new URL(request.url).searchParams
+          seen.invoices.push(params)
+          return params.has('cursor')
+            ? fail('Cursor is invalid.', 400, 'CURSOR_INVALID')
+            : ok(listPage(testInvoices, { nextCursor: 'c2', hasNext: true }), 'ok')
+        })
+      )
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await user.click(await screen.findByRole('button', { name: 'Load more invoices' }))
+      await user.click(await screen.findByRole('button', { name: 'Start again from the newest' }))
+      expect(
+        await screen.findByText(
+          'Payments are off on this server, so invoices can’t be read from the payment provider.'
+        )
+      ).toBeInTheDocument()
+      expect(screen.queryByText('No invoices for this tenant.')).toBeNull()
     })
   })
 })

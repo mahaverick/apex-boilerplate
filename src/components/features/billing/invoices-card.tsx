@@ -26,6 +26,7 @@ import { formatInr } from '@/lib/money'
 import { isRoleDenied } from '@/lib/role-denied'
 import { staffMessageFrom } from '@/lib/staff-message'
 import { staffInvoicesQueryOptions } from '@/queries/billing-admin.queries'
+import { billingAdminKeys } from '@/queries/billing-reads.queries'
 import { sortFilterValues } from '@/schemas/list.schemas'
 import { CURSOR_INVALID, INVOICE_STATUSES, type StaffInvoiceItem } from '@/types/billing.types'
 
@@ -116,8 +117,15 @@ export function InvoicesCard({
   const queryClient = useQueryClient()
   const query = useInfiniteQuery({ ...options, enabled: paymentsEnabled })
   const items = query.data?.pages.flatMap((page) => page.items) ?? []
-  /** Drops every loaded page and reads the first again, with no cursor. */
-  const restart = () => void queryClient.resetQueries({ queryKey: options.queryKey, exact: true })
+  /**
+   * Drops every loaded page and reads the first again, with no cursor. The
+   * billing view is read again too: a cursor refused because payments were
+   * turned off must show the payments-off note, not "No invoices".
+   */
+  const restart = () => {
+    void queryClient.invalidateQueries({ queryKey: billingAdminKeys.tenant(tenantId), exact: true })
+    void queryClient.resetQueries({ queryKey: options.queryKey, exact: true })
+  }
 
   /** The body for the state the read is in. */
   const body = () => {
@@ -142,7 +150,8 @@ export function InvoicesCard({
           <InvoicesTable items={items} />
         ) : query.hasNextPage ? (
           <p className="text-sm text-muted-foreground">
-            This page had no invoices. Select Load more invoices to read older subscriptions.
+            This page had no invoices, and more remain. Select Load more invoices to read the next
+            page.
           </p>
         ) : (
           <EmptyState
@@ -155,8 +164,8 @@ export function InvoicesCard({
         )}
         {refused ? (
           <Note tone="info">
-            This invoice list is out of date: the tenant’s subscriptions or the server’s payments
-            changed since it opened.{' '}
+            These invoices are out of date. The tenant’s subscriptions changed, or payments were
+            turned off on this server.{' '}
             <Button variant="link" size="sm" className="h-auto p-0" onClick={restart}>
               Start again from the newest
             </Button>

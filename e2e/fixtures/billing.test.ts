@@ -46,7 +46,7 @@ test('the history search and source filter live in the URL', async ({ page }) =>
 
 test('the invoices page past an empty first page', async ({ page }) => {
   await page.goto(`/e2e/harness/?path=${ACME}/billing`)
-  await expect(page.getByText(/^This page had no invoices\./)).toBeVisible()
+  await expect(page.getByText(/^This page had no invoices, and more remain\./)).toBeVisible()
   await expect(page.getByText('No invoices for this tenant.')).toHaveCount(0)
   await page.getByRole('button', { name: 'Load more invoices' }).click()
   await expect(
