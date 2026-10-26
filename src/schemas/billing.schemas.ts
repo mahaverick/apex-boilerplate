@@ -382,10 +382,10 @@ export function planEditForm(
  * The entitlements a plan edit changes, against the values it opened with:
  * each limit parsed (No limit is null), each feature on or off. An unchanged
  * entry is neither checked nor sent, so a stored value today's rules refuse
- * blocks nothing. A changed limit must be a whole number from 1 to
- * 1,000,000 and a feature on or off, as express's `planEntitlementsSchema`
- * takes them, with its messages; an issue lands on `limits.<key>` or
- * `features.<key>`.
+ * blocks nothing. A feature is on only when its switch is, so it is always
+ * on or off. A changed limit must be a whole number from 1 to 1,000,000, as
+ * express's `planEntitlementsSchema` takes it, with its message; the issue
+ * lands on `limits.<key>`.
  * @param catalog - The entitlements this product has.
  * @param baseline - The plan's stored values the edit diffs against.
  */
@@ -402,14 +402,6 @@ export function planEntitlementChanges(
           : form.noLimit[key] === true
             ? null
             : wholeNumber(form.limits[key] ?? '')
-      if (kind === 'feature' && typeof form.features[key] !== 'boolean') {
-        context.addIssue({
-          code: 'custom',
-          path: ['features', key],
-          message: `${label}: choose whether the plan includes this feature.`,
-        })
-        continue
-      }
       if (Object.is(value, baseline[key])) continue
       if (kind === 'limit' && !isLimitValue(value)) {
         context.addIssue({

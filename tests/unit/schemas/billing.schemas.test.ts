@@ -330,11 +330,8 @@ describe('planEntitlementChanges', () => {
     }
   })
 
-  it('refuses a feature that is neither on nor off, with express’s message', () => {
-    const result = changes.safeParse({ ...form, features: {} })
-    expect(messageAt(result, 'features.advanced_example')).toBe(
-      'Workspace insights: choose whether the plan includes this feature.'
-    )
+  it('reads a feature as on only when its switch is on, so a missing one is an unchanged off', () => {
+    expect(changes.parse({ ...form, features: {} })).toEqual({})
   })
 
   it('leaves alone a stored value today’s rules would refuse, while it is unchanged', () => {
