@@ -130,6 +130,35 @@ const SURFACES = [
     url: `/e2e/harness/?path=${ACME_PAGE}/activity`,
     heading: 'Acme Corp',
   },
+  // The Billing tab: the state badges, the Plan and Grant badges, the copy buttons and the four lists, in three billing states.
+  {
+    name: 'tenant billing',
+    url: `/e2e/harness/?path=${ACME_PAGE}/billing`,
+    heading: 'Usage and access',
+  },
+  {
+    name: 'tenant billing (trial)',
+    url: `/e2e/harness/?path=${ACME_PAGE}/billing&billing=trialing`,
+    heading: 'Usage and access',
+  },
+  // The past-due badge, the failed payment line and the dispute badge.
+  {
+    name: 'tenant billing (past due)',
+    url: `/e2e/harness/?path=${ACME_PAGE}/billing&billing=past_due`,
+    heading: 'Usage and access',
+  },
+  // The plan editor's inputs, switches and checkboxes, the prices table and the trials and grace card.
+  { name: 'plans', url: '/e2e/harness/?path=/plans', heading: 'Trials and grace' },
+  {
+    name: 'plans (viewer)',
+    url: '/e2e/harness/?path=/plans&role=viewer',
+    heading: 'Trials and grace',
+  },
+  {
+    name: 'billing alerts',
+    url: '/e2e/harness/?path=/billing-alerts',
+    heading: /^Billing alerts$/,
+  },
   // The flags inspector: state and reason badges, the traits' copy buttons and an evaluation.
   {
     name: 'flags',
@@ -1459,4 +1488,63 @@ test('a public page gets its bootstrap refresh from the fallback, not the dev se
     timeout: COLD_TRANSFORM_BUDGET_MS,
   })
   expect(apiFallback.answered).toContain('POST /api/v1/auth/refresh')
+})
+
+/**
+ * A tenant's Billing actions menu, with Cancel subscription as its
+ * destructive item, then the cancel dialog's radio group and the add-grant
+ * dialog's fields. None renders until driven open.
+ */
+test.describe('billing actions and their dialogs', () => {
+  for (const theme of THEMES) {
+    test(`the billing actions menu, the cancel dialog and the add-grant dialog meet WCAG AA contrast in ${theme}`, async ({
+      page,
+    }) => {
+      await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+      await page.goto(`/e2e/harness/?path=${ACME_PAGE}/billing&billing=active`)
+      await expect(page.getByRole('heading', { name: 'Usage and access', level: 2 })).toBeVisible({
+        timeout: COLD_TRANSFORM_BUDGET_MS,
+      })
+
+      await page.getByRole('button', { name: 'Billing actions' }).click()
+      const menu = page.getByRole('menu')
+      // The destructive item has its own token pair: the menu must be populated, or this grades nothing.
+      await expect(menu.getByRole('menuitem', { name: 'Cancel subscription' })).toBeVisible()
+      await afterAnimations(menu)
+      await afterFontsAndFrames(page)
+      await page.addScriptTag({ path: AXE_PATH })
+      const menuResult = await runAxe(page, '[role="menu"]')
+      expect(
+        report('billing actions menu', theme, menuResult),
+        report('billing actions menu', theme, menuResult)
+      ).toBe('')
+
+      await menu.getByRole('menuitem', { name: 'Cancel subscription' }).click()
+      const cancel = page.getByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      await expect(cancel.getByRole('radio').first()).toBeVisible()
+      await afterAnimations(cancel)
+      const cancelResult = await runAxe(page, '[role="alertdialog"]')
+      expect(
+        report('cancel dialog', theme, cancelResult),
+        report('cancel dialog', theme, cancelResult)
+      ).toBe('')
+      await cancel.getByRole('button', { name: 'Keep subscription' }).click()
+      await expect(cancel).toBeHidden()
+
+      await page.getByRole('button', { name: 'Billing actions' }).click()
+      await page.getByRole('menuitem', { name: 'Add grant' }).click()
+      const grant = page.getByRole('dialog', { name: 'Add a grant for Acme Corp' })
+      await grant.getByRole('combobox', { name: 'Limit or feature' }).click()
+      await page.getByRole('option', { name: 'Members' }).click()
+      await expect(grant.getByLabel('New limit')).toBeVisible()
+      await afterAnimations(grant)
+      const grantResult = await runAxe(page, '[role="dialog"]')
+      expect(
+        report('add-grant dialog', theme, grantResult),
+        report('add-grant dialog', theme, grantResult)
+      ).toBe('')
+    })
+  }
 })
