@@ -4,7 +4,8 @@
  * after another staff member saved first, and where an API entitlement
  * error belongs.
  */
-import { countOf } from '@/lib/plural'
+import { formatCount } from '@/lib/format'
+import { nounFor } from '@/lib/plural'
 import type { PlanEditForm } from '@/schemas/billing.schemas'
 import type {
   BillingInterval,
@@ -28,7 +29,7 @@ export const INTERVAL_LABELS: Record<BillingInterval, string> = {
 export function entitlementText(value: EntitlementValue | undefined): string {
   if (typeof value === 'boolean') return value ? 'On' : 'Off'
   if (value === null) return 'No limit'
-  return value === undefined ? '—' : value.toLocaleString('en-IN')
+  return value === undefined ? '—' : formatCount(value)
 }
 
 /**
@@ -38,8 +39,8 @@ export function entitlementText(value: EntitlementValue | undefined): string {
  */
 export function planCountsLine(plan: StaffPlan): string {
   const counts = plan.tenantCounts
-  if (plan.key === 'free') return `${String(counts.free)} on ${plan.name}`
-  return `${String(counts.active)} paying · ${String(counts.trialing)} in trial · ${String(counts.past_due)} with a failed payment`
+  if (plan.key === 'free') return `${formatCount(counts.free)} on ${plan.name}`
+  return `${formatCount(counts.active)} paying · ${formatCount(counts.trialing)} in trial · ${formatCount(counts.past_due)} with a failed payment`
 }
 
 /**
@@ -51,7 +52,7 @@ export function planCountsLine(plan: StaffPlan): string {
 export function tenantsOnPlan(preview: PlanChangePreview, planName: string): string {
   const { trialing, active, past_due: pastDue, free } = preview.affected
   const total = trialing + active + pastDue + free
-  return `${countOf(total, 'tenants')} ${total === 1 ? 'is' : 'are'} on ${planName}`
+  return `${formatCount(total)} ${nounFor(total, 'tenants')} ${total === 1 ? 'is' : 'are'} on ${planName}`
 }
 
 /**

@@ -30,6 +30,16 @@ export function shortDate(date: string): string {
   })
 }
 
+/**
+ * A count as staff pages write it, grouped as express writes its limits
+ * ("1,000,000") and as the app's other counts do: `1,250`. Money is not a
+ * count: it reads in the Indian grouping (`formatInr`).
+ * @param count - A whole number.
+ */
+export function formatCount(count: number): string {
+  return count.toLocaleString('en-US')
+}
+
 /** The name parts a person may have on file. */
 export interface NameParts {
   firstName?: string | null

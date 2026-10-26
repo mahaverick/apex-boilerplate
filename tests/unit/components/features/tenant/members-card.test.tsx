@@ -1081,6 +1081,19 @@ describe('inviting, and the pending invitations', () => {
     expect(billingReads).toBe(0)
   })
 
+  it('counts one member in the singular when the limit is 1', async () => {
+    server.use(http.post('/api/v1/tenants/acme/invitations', () => fullTenantRefusal(1, 1)))
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await user.type(await screen.findByLabelText('Email'), 'x@example.com')
+    await user.click(screen.getByRole('button', { name: 'Invite member' }))
+    expect(
+      await screen.findByText(
+        'Not sent. Acme Corp has 1 of 1 member. Add a Members grant on its Billing tab to invite more.'
+      )
+    ).toBeInTheDocument()
+  })
+
   it('offers no Billing link on the platform tenant, which has no Billing tab', async () => {
     server.use(
       http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>

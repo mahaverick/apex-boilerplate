@@ -21,6 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { billingDate } from '@/constants/billing-labels'
+import { formatCount } from '@/lib/format'
 import { formatInr } from '@/lib/money'
 import { INTERVAL_LABELS } from '@/lib/plan-editor'
 import type { StaffPlan } from '@/types/billing.types'
@@ -88,7 +89,7 @@ export function PricesCard({
                       {price.active ? 'Active' : 'Retired'}
                     </ToneBadge>
                   </TableCell>
-                  <TableCell>{price.subscribers.toLocaleString('en-IN')}</TableCell>
+                  <TableCell>{formatCount(price.subscribers)}</TableCell>
                   <TableCell>{billingDate(price.createdAt)}</TableCell>
                 </TableRow>
               ))}

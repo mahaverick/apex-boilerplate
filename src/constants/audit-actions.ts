@@ -5,8 +5,9 @@ import {
 } from '@/constants/audit-action-names'
 import { templateLabel } from '@/constants/email.constants'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
-import { formatDate } from '@/lib/format'
+import { formatCount, formatDate } from '@/lib/format'
 import { formatInr } from '@/lib/money'
+import { countOf } from '@/lib/plural'
 
 export { AUDIT_ACTIONS, type AuditAction }
 
@@ -191,7 +192,7 @@ function grantKey(metadata: Metadata): string {
 /** A trial extension: its days and new end, each left out when missing or mistyped. */
 function trialExtension(metadata: Metadata): string {
   const days = metadata.days
-  const by = typeof days === 'number' ? ` by ${String(days)} ${days === 1 ? 'day' : 'days'}` : ''
+  const by = typeof days === 'number' ? ` by ${countOf(days, 'days')}` : ''
   const ends = text(metadata, 'trialEndsAt')
   const date = ends === undefined ? null : formatDate(ends, 'medium')
   return `extended the trial${by}${date === null ? '' : ` to ${date}`}`
@@ -206,7 +207,7 @@ function grantAdded(metadata: Metadata): string {
       : value === true
         ? ' (on)'
         : typeof value === 'number'
-          ? ` (${String(value)})`
+          ? ` (${formatCount(value)})`
           : ''
   const expires = text(metadata, 'expiresAt')
   const until = expires === undefined ? null : formatDate(expires, 'medium')

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table'
 import type { BadgeTone } from '@/constants/badge-tones'
 import { billingDate } from '@/constants/billing-labels'
+import { formatCount } from '@/lib/format'
 import type { EntitlementCatalogEntry, StaffTenantBilling } from '@/types/billing.types'
 
 /** One grant, as the tenant's billing view carries it. */
@@ -33,7 +34,7 @@ const GRANT_STATUS_BADGE: Record<TenantGrant['status'], { label: string; tone: B
  */
 function valueText(grant: TenantGrant): string {
   if (typeof grant.value === 'boolean') return grant.value ? 'On' : 'Off'
-  return grant.value === null ? 'No limit' : grant.value.toLocaleString()
+  return grant.value === null ? 'No limit' : formatCount(grant.value)
 }
 
 /**

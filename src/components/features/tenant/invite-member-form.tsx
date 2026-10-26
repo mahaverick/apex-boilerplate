@@ -36,7 +36,9 @@ import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
 import { codeFrom, fieldErrorsFrom } from '@/lib/api-error'
+import { formatCount } from '@/lib/format'
 import { planRefusalFrom, type PlanRefusal } from '@/lib/plan-refusal'
+import { nounFor } from '@/lib/plural'
 import { staffMessageFrom } from '@/lib/staff-message'
 import { isPlatformTenant } from '@/lib/staff-team'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
@@ -98,7 +100,7 @@ async function membersLimitSentence(
 ): Promise<string> {
   const tenant = queryClient.getQueryData(platformTenantQueryOptions(tenantId).queryKey)
   const plan = await cachedPlanName(queryClient, tenantId)
-  const usage = `${tenant?.name ?? 'This tenant'} has ${String(refusal.used)} of ${String(refusal.limit)} members${plan === undefined ? '' : ` on ${plan}`}.`
+  const usage = `${tenant?.name ?? 'This tenant'} has ${formatCount(refusal.used)} of ${formatCount(refusal.limit)} ${nounFor(refusal.limit, 'members')}${plan === undefined ? '' : ` on ${plan}`}.`
   const next = canGrant
     ? 'Add a Members grant on its Billing tab to invite more.'
     : 'Ask a platform manager to add a Members grant on its Billing tab.'

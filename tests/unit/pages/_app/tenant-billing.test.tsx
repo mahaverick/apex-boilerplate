@@ -493,6 +493,27 @@ describe('/tenants/$tenantId/billing', () => {
       await waitFor(() => expect(row(card, 'Members')).toBe('3 of 3 membersAt limitPlan'))
     })
 
+    it.each([
+      [{ limit: null, used: 1 }, '1 member · No limitPlan'],
+      [{ limit: null, used: 0 }, '0 members · No limitPlan'],
+      [{ limit: 1, used: 0 }, '0 of 1 memberPlan'],
+      [{ limit: 1, used: 1 }, '1 of 1 memberAt limitPlan'],
+      [{ limit: 1_000_000, used: 1_250 }, '1,250 of 1,000,000 membersPlan'],
+    ])('counts members %o as %s', async (usage, text) => {
+      serve({
+        ...testFreeTenantBilling,
+        entitlements: {
+          ...testFreeTenantBilling.entitlements,
+          limits: { members: { ...usage, approaching: false } },
+        },
+        sources: { members: 'plan', advanced_example: 'plan' },
+      })
+      renderAppAt(BILLING)
+      const heading = await screen.findByRole('heading', { name: 'Usage and access' })
+      const card = heading.closest('[data-slot="card"]') as HTMLElement
+      await waitFor(() => expect(row(card, 'Members')).toBe(text))
+    })
+
     it('keeps an acronym in a limit’s noun', async () => {
       serve(
         {
@@ -518,7 +539,7 @@ describe('/tenants/$tenantId/billing', () => {
       renderAppAt(BILLING)
       const heading = await screen.findByRole('heading', { name: 'Usage and access' })
       const card = heading.closest('[data-slot="card"]') as HTMLElement
-      await waitFor(() => expect(row(card, 'API calls')).toBe('10 of 1000 API callsPlan'))
+      await waitFor(() => expect(row(card, 'API calls')).toBe('10 of 1,000 API callsPlan'))
       expect(row(card, 'Members')).toBe('4 members · No limitPlan')
     })
 

@@ -1,5 +1,7 @@
 import { ToneBadge } from '@/components/features/tone-badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatCount } from '@/lib/format'
+import { nounFor } from '@/lib/plural'
 import type { EntitlementCatalogEntry, StaffTenantBilling } from '@/types/billing.types'
 
 /** One entitlement row: its label, what the tenant has, and whether a grant set it. */
@@ -49,7 +51,10 @@ function rowsOf(
         {
           key,
           label,
-          value: limit === null ? `${used} ${unit} · No limit` : `${used} of ${limit} ${unit}`,
+          value:
+            limit === null
+              ? `${formatCount(used)} ${nounFor(used, unit)} · No limit`
+              : `${formatCount(used)} of ${formatCount(limit)} ${nounFor(limit, unit)}`,
           badge:
             limit !== null && used >= limit ? 'At limit' : usage.approaching ? 'Near limit' : null,
           source,
