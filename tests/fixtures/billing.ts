@@ -1,10 +1,10 @@
-import { STAFF_USER_ID, USER_ID } from '@/tests/fixtures/ids'
 /**
  * @file Billing fixtures as express's staff routes serve them, with the
  * catalog of express's entitlement registry. Apex's own: react's
  * `tests/fixtures/billing.ts` holds the customer views. `testPlans` keeps
  * react's name, so the shared `plural.test.ts` reads it in both apps.
  */
+import { STAFF_USER_ID, USER_ID } from '@/tests/fixtures/ids'
 import type { BillingSettings, StaffPlans, StaffTenantBilling } from '@/types/billing.types'
 
 /**
@@ -75,8 +75,10 @@ export const testPlans: StaffPlans = {
 
 /**
  * `GET /platform/tenants/:id/billing` for a tenant paying monthly for Paid:
- * synced from Razorpay in test mode, one active members grant, and one
- * state change and provider event each.
+ * synced from Razorpay in test mode, with one state change and one provider
+ * event. Its active members grant of 50 changes nothing, because Paid has no
+ * members limit and a grant never lowers one (express's
+ * `mergeEntitlements`), so members stay unlimited from the plan.
  */
 export const testTenantBilling: StaffTenantBilling = {
   state: 'active',
@@ -112,9 +114,9 @@ export const testTenantBilling: StaffTenantBilling = {
     cancelAtPeriodEnd: false,
     pastDue: null,
     features: { advanced_example: true },
-    limits: { members: { limit: 50, used: 4, approaching: false } },
+    limits: { members: { limit: null, used: 4, approaching: false } },
   },
-  sources: { members: 'grant', advanced_example: 'plan' },
+  sources: { members: 'plan', advanced_example: 'plan' },
   grants: [
     {
       id: '92000000-0000-4000-8000-000000000001',
@@ -145,6 +147,43 @@ export const testTenantBilling: StaffTenantBilling = {
       error: null,
     },
   ],
+}
+
+/**
+ * `GET /platform/tenants/:id/billing` for a tenant on Free after its trial
+ * ended, with no subscription. Its active members grant raises Free's limit
+ * of 3 to 50, so members come from the grant.
+ */
+export const testFreeTenantBilling: StaffTenantBilling = {
+  ...testTenantBilling,
+  state: 'free',
+  plan: { key: 'free', name: 'Free' },
+  interval: null,
+  price: null,
+  currentPeriodEnd: null,
+  payer: null,
+  providerSubscriptionId: null,
+  entitlements: {
+    plan: { key: 'free', name: 'Free' },
+    state: 'free',
+    trialEndsAt: null,
+    currentPeriodEnd: null,
+    cancelAtPeriodEnd: false,
+    pastDue: null,
+    features: { advanced_example: false },
+    limits: { members: { limit: 50, used: 4, approaching: false } },
+  },
+  sources: { members: 'grant', advanced_example: 'plan' },
+  history: [
+    {
+      from: 'trialing',
+      to: 'free',
+      cause: 'trial_ended',
+      source: 'job',
+      at: '2026-10-15T00:00:00.000Z',
+    },
+  ],
+  events: [],
 }
 
 /** `GET /platform/billing-settings`: a 14-day trial for new workspaces, and 7 days of Paid after a failed payment. */
