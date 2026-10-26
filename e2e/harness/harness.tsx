@@ -107,8 +107,10 @@ const STAFF_INVITATION = {
 /**
  * `?role=none` is a signed-in user who is not staff, so /no-access renders
  * instead of redirecting to the overview; `?role=viewer` is staff below
- * admin, so the admin-only pages refuse; `?role=owner` is a platform owner,
- * who gets the Maintenance page's controls. Anything else is an admin.
+ * admin, so the admin-only pages refuse; `?role=manager` is staff between
+ * the two, who gets a tenant's Billing actions but not its Cancel or the
+ * Plans page's controls; `?role=owner` is a platform owner, who gets the
+ * Maintenance page's controls. Anything else is an admin.
  */
 const roleParam = new URLSearchParams(location.search).get('role')
 const platformRole =
@@ -116,9 +118,11 @@ const platformRole =
     ? null
     : roleParam === 'viewer'
       ? ('viewer' as const)
-      : roleParam === 'owner'
-        ? ('owner' as const)
-        : ('admin' as const)
+      : roleParam === 'manager'
+        ? ('manager' as const)
+        : roleParam === 'owner'
+          ? ('owner' as const)
+          : ('admin' as const)
 
 /**
  * `?member=owner|admin|manager|editor|viewer` makes the harness user a member
@@ -300,14 +304,13 @@ function harnessToken(authTime = sessionAuthTime()): string {
  * 10 minutes, as express's `requireRecentAuth` does, and answers any other
  * with the suspended tenant, which the tenant's page then reads. So only a
  * retry that carries the confirmed token lands. Without it, every suspend is
- * refused.
+ * refused. The staff billing writes (a tenant's resync, extend trial, grants
+ * and cancel; a plan save, a new price and the billing settings) take the
+ * same check under it, and pass without it (`billingStepUpRefusal`).
  */
 const stepUpOnce = params.get('stepup') === 'once'
 /** Whether Acme is suspended now, in this page load. */
 const suspension = { suspended: false }
-
-/** The grants staff added in this page load, newest first, ahead of the fixture's. */
-const addedGrants: StaffTenantBilling['grants'] = []
 
 /** The plans as staff edits leave them in this page load. */
 const plans = { list: testPlans.plans }
@@ -392,9 +395,158 @@ function planById(id: unknown): StaffPlan | undefined {
   return plans.list.find((plan) => plan.id === id)
 }
 
-/** A customer tenant's billing view as it stands in this page load. */
-function tenantBilling(): StaffTenantBilling {
-  return { ...testTenantBilling, grants: [...addedGrants, ...testTenantBilling.grants] }
+/** One day, as express's `addDays` counts it. */
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * The moment `days` from now, as an ISO timestamp. The `?billing=` states
+ * date themselves from the page load, so a trial or a paid period never
+ * reads as over on a later run.
+ * @param days - Days ahead, or behind when negative.
+ */
+function daysFromNow(days: number): string {
+  return new Date(Date.now() + days * DAY_MS).toISOString()
+}
+
+/** A tenant on Paid, charged monthly, whose paid period ends in 25 days. */
+function activeBilling(): StaffTenantBilling {
+  const currentPeriodEnd = daysFromNow(25)
+  return {
+    ...testTenantBilling,
+    currentPeriodEnd,
+    entitlements: { ...testTenantBilling.entitlements, currentPeriodEnd },
+  }
+}
+
+/**
+ * `?billing=` picks every customer tenant's Billing tab, each state dated
+ * from the page load:
+ * - `active`: Paid, charged monthly, its period ending in 25 days;
+ * - `trialing`: a Paid trial ending in 10 days, with no subscription or payer yet;
+ * - `past_due`: `active` with a payment that failed 3 days ago and 4 days of grace left;
+ * - `free`: Free after a trial, with Free's 3 members (2 used) from the plan and no grants;
+ * - `none`: no billing, answered 404 `tenant_billing_not_found` as for the platform tenant.
+ *
+ * Without it the tab reads the fixed `testTenantBilling`. The writes (resync,
+ * extend trial, add and revoke a grant, cancel) change the view for the rest
+ * of the page load, as express would.
+ */
+function initialBilling(): StaffTenantBilling | null {
+  switch (params.get('billing')) {
+    case 'none':
+      return null
+    case 'active':
+      return activeBilling()
+    case 'trialing': {
+      const trialEndsAt = daysFromNow(10)
+      return {
+        ...testTenantBilling,
+        state: 'trialing',
+        interval: null,
+        price: null,
+        trialEndsAt,
+        currentPeriodEnd: null,
+        payer: null,
+        providerSubscriptionId: null,
+        entitlements: {
+          ...testTenantBilling.entitlements,
+          state: 'trialing',
+          trialEndsAt,
+          currentPeriodEnd: null,
+        },
+      }
+    }
+    case 'past_due': {
+      const active = activeBilling()
+      const pastDue = { since: daysFromNow(-3), graceEndsAt: daysFromNow(4), paused: false }
+      return {
+        ...active,
+        state: 'past_due',
+        pastDue,
+        entitlements: { ...active.entitlements, state: 'past_due', pastDue },
+      }
+    }
+    case 'free': {
+      const trialEndsAt = daysFromNow(-16)
+      const free = { key: 'free' as const, name: 'Free' }
+      return {
+        ...testTenantBilling,
+        state: 'free',
+        plan: free,
+        interval: null,
+        price: null,
+        trialEndsAt,
+        currentPeriodEnd: null,
+        payer: null,
+        providerSubscriptionId: null,
+        grants: [],
+        sources: { members: 'plan', advanced_example: 'plan' },
+        entitlements: {
+          plan: free,
+          state: 'free',
+          trialEndsAt,
+          currentPeriodEnd: null,
+          cancelAtPeriodEnd: false,
+          pastDue: null,
+          features: { advanced_example: false },
+          limits: { members: { limit: 3, used: 2, approaching: false } },
+        },
+      }
+    }
+    default:
+      return testTenantBilling
+  }
+}
+
+/** Every customer tenant's billing view as staff writes leave it in this page load; null under `?billing=none`. */
+const billing: { view: StaffTenantBilling | null } = { view: initialBilling() }
+
+/**
+ * The view with its entitlements worked out again from its plan and its
+ * active grants, as express's `mergeEntitlements` does: the most generous
+ * value wins (No limit beats any number, On beats Off), and the source is
+ * `grant` only where a grant beats the plan.
+ * @param view - The view after a write.
+ */
+function withEntitlements(view: StaffTenantBilling): StaffTenantBilling {
+  const plan = plans.list.find((candidate) => candidate.key === view.plan.key)
+  const active = view.grants.filter((grant) => grant.status === 'active')
+  const limits = { ...view.entitlements.limits }
+  const features = { ...view.entitlements.features }
+  const sources = { ...view.sources }
+  for (const entry of testPlans.catalog) {
+    const fromPlan = plan?.entitlements[entry.key] ?? null
+    const granted = active.filter((grant) => grant.key === entry.key).map((grant) => grant.value)
+    if (entry.kind === 'limit') {
+      const best = granted.reduce<EntitlementValue>(
+        (most, value) =>
+          most === null || value === null ? null : Math.max(Number(most), Number(value)),
+        fromPlan
+      )
+      limits[entry.key] = {
+        used: limits[entry.key]?.used ?? 0,
+        approaching: limits[entry.key]?.approaching ?? false,
+        limit: best === null ? null : Number(best),
+      }
+      sources[entry.key] = Object.is(best, fromPlan) ? 'plan' : 'grant'
+    } else {
+      const byGrant = fromPlan !== true && granted.includes(true)
+      features[entry.key] = fromPlan === true || byGrant
+      sources[entry.key] = byGrant ? 'grant' : 'plan'
+    }
+  }
+  return { ...view, sources, entitlements: { ...view.entitlements, limits, features } }
+}
+
+/**
+ * Under `?stepup=once`, express's step-up refusal for a staff billing write
+ * whose bearer has not confirmed in the last 10 minutes, or null once it
+ * has. Without it every billing write passes, so the specs that don't drive
+ * the step-up dialog need no confirm.
+ * @param request - The write.
+ */
+function billingStepUpRefusal(request: Request) {
+  return stepUpOnce ? reauthRefusal(request) : null
 }
 
 /** express's `STEP_UP_MAX_AGE_MS`: how recent a confirmation the step-up routes accept. */
@@ -1829,6 +1981,8 @@ const worker = setupWorker(
     )
   }),
   http.patch('/api/v1/platform/plans/:planId', async ({ params, request }) => {
+    const refusal = billingStepUpRefusal(request)
+    if (refusal) return refusal
     const plan = planById(params.planId)
     if (plan === undefined) return fail('Plan not found', 404, 'plan_not_found')
     const body = (await request.json()) as {
@@ -1856,6 +2010,8 @@ const worker = setupWorker(
   }),
   // A new price retires the active price of its interval, as express does.
   http.post('/api/v1/platform/plans/:planId/prices', async ({ params, request }) => {
+    const refusal = billingStepUpRefusal(request)
+    if (refusal) return refusal
     const plan = planById(params.planId)
     if (plan === undefined) return fail('Plan not found', 404, 'plan_not_found')
     const body = (await request.json()) as { interval: 'month' | 'year'; amountMinor: number }
@@ -1888,6 +2044,8 @@ const worker = setupWorker(
     ok(billingSettings.value, 'Billing settings retrieved.')
   ),
   http.patch('/api/v1/platform/billing-settings', async ({ request }) => {
+    const refusal = billingStepUpRefusal(request)
+    if (refusal) return refusal
     const body = (await request.json()) as Partial<BillingSettings> & { version: number }
     if (body.version !== billingSettings.value.version) {
       return fail(
@@ -1918,30 +2076,156 @@ const worker = setupWorker(
     )
   ),
   http.get('/api/v1/platform/tenants/:tenantId/billing', ({ params }) =>
-    params.tenantId === PLATFORM_TENANT_ID
+    params.tenantId === PLATFORM_TENANT_ID || billing.view === null
       ? fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
-      : ok(tenantBilling(), 'Billing retrieved.')
+      : ok(billing.view, 'Billing retrieved.')
   ),
-  // Adding a grant answers the view with it on top, as express does; staff routes past the step-up are not refused here.
+  // The staff billing writes answer the view after the write, as express does; `billingStepUpRefusal` holds them for a step-up under `?stepup=once`.
+  http.post('/api/v1/platform/tenants/:tenantId/billing/resync', ({ request }) => {
+    const refusal = billingStepUpRefusal(request)
+    if (refusal) return refusal
+    if (billing.view === null)
+      return fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
+    billing.view = { ...billing.view, syncedAt: new Date().toISOString() }
+    return ok(billing.view, 'Billing resynced.')
+  }),
+  // express's `extendTrial`: a running trial moves `days` past its end; Free, or a lapsed trial, starts one now; a paying tenant is refused.
+  http.post('/api/v1/platform/tenants/:tenantId/billing/extend-trial', async ({ request }) => {
+    const refusal = billingStepUpRefusal(request)
+    if (refusal) return refusal
+    const view = billing.view
+    if (view === null) return fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
+    if (view.state === 'active' || view.state === 'past_due') {
+      return fail(
+        'This tenant pays for Paid, so it has no trial to extend. Add a grant to give it more.',
+        409,
+        'TRIAL_NOT_EXTENDABLE'
+      )
+    }
+    const { days } = (await request.json()) as { days: number }
+    const now = Date.now()
+    const runningEnd =
+      view.state === 'trialing' && view.trialEndsAt !== null
+        ? new Date(view.trialEndsAt).getTime()
+        : 0
+    const trialEndsAt = new Date(Math.max(runningEnd, now) + days * DAY_MS).toISOString()
+    const paid = { key: 'paid' as const, name: planById(testPlans.plans[1]?.id)?.name ?? 'Paid' }
+    billing.view = withEntitlements({
+      ...view,
+      state: 'trialing',
+      plan: paid,
+      trialEndsAt,
+      entitlements: { ...view.entitlements, plan: paid, state: 'trialing', trialEndsAt },
+    })
+    return ok(billing.view, 'Trial extended.')
+  }),
+  // Adding a grant answers the view with it on top and its entitlement worked out again.
   http.post('/api/v1/platform/tenants/:tenantId/billing/grants', async ({ request }) => {
+    const refusal = billingStepUpRefusal(request)
+    if (refusal) return refusal
+    const view = billing.view
+    if (view === null) return fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
     const body = (await request.json()) as {
       key: string
       value: number | boolean | null
       expiresAt: string | null
       reason: string
     }
-    addedGrants.unshift({
-      id: `92000000-0000-4000-8000-${String(addedGrants.length + 2).padStart(12, '0')}`,
-      key: body.key,
-      value: body.value,
-      reason: body.reason,
-      grantedBy: { userId: STAFF_USER_ID, name: 'Staff Admin' },
-      createdAt: new Date().toISOString(),
-      expiresAt: body.expiresAt,
-      revokedAt: null,
-      status: 'active',
+    billing.view = withEntitlements({
+      ...view,
+      grants: [
+        {
+          id: `92000000-0000-4000-8000-${String(view.grants.length + 2).padStart(12, '0')}`,
+          key: body.key,
+          value: body.value,
+          reason: body.reason,
+          grantedBy: { userId: STAFF_USER_ID, name: 'Staff Admin' },
+          createdAt: new Date().toISOString(),
+          expiresAt: body.expiresAt,
+          revokedAt: null,
+          status: 'active',
+        },
+        ...view.grants,
+      ],
     })
-    return ok(tenantBilling(), 'Grant added.')
+    return ok(billing.view, 'Grant added.')
+  }),
+  // express's `revokeGrant`: another tenant's or an unknown grant is a 404; a revoked one is answered as it stands.
+  http.post(
+    '/api/v1/platform/tenants/:tenantId/billing/grants/:grantId/revoke',
+    ({ params, request }) => {
+      const refusal = billingStepUpRefusal(request)
+      if (refusal) return refusal
+      const view = billing.view
+      if (view === null) return fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
+      if (!view.grants.some((grant) => grant.id === params.grantId)) {
+        return fail(
+          "We couldn't find this grant on this tenant. Refresh the tenant's Billing tab to see its grants.",
+          404,
+          'grant_not_found'
+        )
+      }
+      const now = new Date().toISOString()
+      billing.view = withEntitlements({
+        ...view,
+        grants: view.grants.map((grant) =>
+          grant.id === params.grantId && grant.revokedAt === null
+            ? { ...grant, revokedAt: now, status: 'revoked' }
+            : grant
+        ),
+      })
+      return ok(billing.view, 'Grant revoked.')
+    }
+  ),
+  // express's `cancelByStaff` for a current subscription: `cycle_end` keeps Paid to the period's end, `now` moves the tenant to Free; nothing to cancel is a 409.
+  http.post('/api/v1/platform/tenants/:tenantId/billing/cancel', async ({ request }) => {
+    const refusal = billingStepUpRefusal(request)
+    if (refusal) return refusal
+    const view = billing.view
+    if (view === null) return fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
+    const current =
+      view.providerSubscriptionId !== null && (view.state === 'active' || view.state === 'past_due')
+    if (!current && view.nextSubscriptionId === null) {
+      return fail(
+        'This tenant has no subscription to cancel. Resync it if the provider shows one.',
+        409,
+        'NO_SUBSCRIPTION'
+      )
+    }
+    const { when } = (await request.json()) as { when: 'cycle_end' | 'now' }
+    const free = { key: 'free' as const, name: planById(testPlans.plans[0]?.id)?.name ?? 'Free' }
+    billing.view = withEntitlements(
+      when === 'cycle_end'
+        ? {
+            ...view,
+            cancelAtPeriodEnd: true,
+            nextSubscriptionId: null,
+            nextSwitch: null,
+            entitlements: { ...view.entitlements, cancelAtPeriodEnd: true },
+          }
+        : {
+            ...view,
+            state: 'free',
+            plan: free,
+            interval: null,
+            price: null,
+            currentPeriodEnd: null,
+            cancelAtPeriodEnd: false,
+            pastDue: null,
+            payer: null,
+            nextSubscriptionId: null,
+            nextSwitch: null,
+            entitlements: {
+              ...view.entitlements,
+              plan: free,
+              state: 'free',
+              currentPeriodEnd: null,
+              cancelAtPeriodEnd: false,
+              pastDue: null,
+            },
+          }
+    )
+    return ok(billing.view, 'Subscription cancelled.')
   }),
   http.get('/api/v1/platform/tenants/:tenantId/billing/history', ({ request }) =>
     ok(
