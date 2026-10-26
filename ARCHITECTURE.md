@@ -222,6 +222,8 @@ read a query without it, each with its own states:
   panel, evaluation and user picker;
 - the owners read behind the members list, which shows a `LoadError` beside
   it, and the command palette's two searches;
+- the Overview's billing alerts card, which hides itself on a 404, as the
+  status card does, and shows a `LoadError` for any other failure;
 - `MaintenanceBanner`, which renders nothing until it has an answer.
 
 **Breadcrumbs** come from each route's `staticData.crumb`, a string or a
@@ -410,24 +412,39 @@ raised the budget to 608,000; its history is in
 
 ### Apex's lists
 
-| List                | Definition (`src/queries/`)                | Route                                   | Page                                                    |
-| ------------------- | ------------------------------------------ | --------------------------------------- | ------------------------------------------------------- |
-| Tenants             | `tenantsList`, `tenant-admin.queries.ts`   | `/tenants`                              | `tenants/tenants-table.tsx`                             |
-| Users               | `usersList`, `user-admin.queries.ts`       | `/users`                                | `users/users-table.tsx`                                 |
-| Emails              | `emailsList`, `email.queries.ts`           | `/emails`                               | `emails/emails-table.tsx`                               |
-| A tenant's Emails   | `tenantEmailsList`, `email.queries.ts`     | `/tenants/$tenantId/emails`             | `emails/emails-table.tsx`, the tenant fixed by the page |
-| Suppressions        | `suppressionsList`, `email.queries.ts`     | `/suppressions`                         | `suppressions/suppressions-table.tsx`                   |
-| Onboarding tenants  | `onboardingTenantsList`                    | `/onboarding`                           | `onboarding/onboarding-tenants-table.tsx`               |
-| Activity            | `platformActivityList`, `audit.queries.ts` | `/activity`                             | `activity/activity-table.tsx`                           |
-| A tenant's Activity | `tenantActivityList`, `audit.queries.ts`   | `/tenants/$tenantId/activity`           | `activity/activity-table.tsx`                           |
-| History cards       | `historyList` (prefix `history`)           | `/tenants/$tenantId`, `/users/$userId`  | `history-card.tsx`, over `activity-table.tsx`           |
-| Members             | `membersList`, `tenant.queries.ts`         | `/tenants/$tenantId/members`, Staff     | `tenant/members-card.tsx`                               |
-| Pending invitations | `invitationsList` (prefix `invitations`)   | `/tenants/$tenantId/invitations`, Staff | `tenant/pending-invitations.tsx`                        |
-| Registered flags    | `flagsList`, `flag-inspector.queries.ts`   | `/settings/platform/flags`              | `flags/flag-registry-table.tsx`                         |
-| Unregistered flags  | `unregisteredFlagsList` (prefix)           | `/settings/platform/flags`              | `flags/unregistered-flags-table.tsx`                    |
+| List                       | Definition (`src/queries/`)                                                     | Route                                   | Page                                                               |
+| -------------------------- | ------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| Tenants                    | `tenantsList`, `tenant-admin.queries.ts`                                        | `/tenants`                              | `tenants/tenants-table.tsx`                                        |
+| Users                      | `usersList`, `user-admin.queries.ts`                                            | `/users`                                | `users/users-table.tsx`                                            |
+| Emails                     | `emailsList`, `email.queries.ts`                                                | `/emails`                               | `emails/emails-table.tsx`                                          |
+| A tenant's Emails          | `tenantEmailsList`, `email.queries.ts`                                          | `/tenants/$tenantId/emails`             | `emails/emails-table.tsx`, the tenant fixed by the page            |
+| Suppressions               | `suppressionsList`, `email.queries.ts`                                          | `/suppressions`                         | `suppressions/suppressions-table.tsx`                              |
+| Onboarding tenants         | `onboardingTenantsList`                                                         | `/onboarding`                           | `onboarding/onboarding-tenants-table.tsx`                          |
+| Activity                   | `platformActivityList`, `audit.queries.ts`                                      | `/activity`                             | `activity/activity-table.tsx`                                      |
+| A tenant's Activity        | `tenantActivityList`, `audit.queries.ts`                                        | `/tenants/$tenantId/activity`           | `activity/activity-table.tsx`                                      |
+| History cards              | `historyList` (prefix `history`)                                                | `/tenants/$tenantId`, `/users/$userId`  | `history-card.tsx`, over `activity-table.tsx`                      |
+| Members                    | `membersList`, `tenant.queries.ts`                                              | `/tenants/$tenantId/members`, Staff     | `tenant/members-card.tsx`                                          |
+| Pending invitations        | `invitationsList` (prefix `invitations`)                                        | `/tenants/$tenantId/invitations`, Staff | `tenant/pending-invitations.tsx`                                   |
+| Registered flags           | `flagsList`, `flag-inspector.queries.ts`                                        | `/settings/platform/flags`              | `flags/flag-registry-table.tsx`                                    |
+| Unregistered flags         | `unregisteredFlagsList` (prefix)                                                | `/settings/platform/flags`              | `flags/unregistered-flags-table.tsx`                               |
+| A tenant's state history   | `billingHistoryList` (prefix `history`), `billing-reads.queries.ts`             | `/tenants/$tenantId/billing`            | `billing/billing-history-card.tsx`                                 |
+| A tenant's provider events | `billingEventsList` (prefix `events`), `billing-reads.queries.ts`               | `/tenants/$tenantId/billing`            | `billing/billing-events-card.tsx`                                  |
+| A tenant's subscriptions   | `billingSubscriptionsList` (prefix `subscriptions`), `billing-reads.queries.ts` | `/tenants/$tenantId/billing`            | `billing/billing-subscriptions-card.tsx`                           |
+| Billing alerts             | `billingAlertsList`, `billing-reads.queries.ts`                                 | `/billing-alerts`                       | `billing/billing-alerts-list.tsx`, over `billing-alerts-table.tsx` |
 
 Staff (`/settings/platform/staff`) is the platform tenant's Members and
 Pending invitations lists, under the keys they have on a tenant's own tabs.
+
+A tenant's Billing tab holds three lists, so each takes a prefix and
+`billingHistoryList` names the other two in `also`. Its Invoices card is
+not a list query: express reads invoices from the provider, forward only,
+with a Status filter and no search, sort or total, so it pages with Load
+more and keeps the filter in component state. The billing list
+definitions and reads live in `billing-reads.queries.ts`, because a
+route's `validateSearch` and loader land in the entry chunk; the writes and
+the list options live in `billing-admin.queries.ts`, which only the billing
+components import, and `pnpm check:bundle` fails if it reaches a
+first-visit chunk.
 
 What is particular to this app:
 
