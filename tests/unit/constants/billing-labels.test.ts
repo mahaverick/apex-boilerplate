@@ -57,7 +57,7 @@ describe('BILLING_SOURCE_LABELS', () => {
 describe('historyCauseLabel', () => {
   it.each([
     ['created', 'Billing record created'],
-    ['trial_extended', 'Trial set by staff'],
+    ['trial_extended', 'Trial extended by staff'],
     ['trial_ended', 'Trial ended'],
     ['subscription_activated', 'First payment taken'],
     ['subscription_recovered', 'Payment recovered'],
@@ -177,7 +177,7 @@ describe('historySearchCode', () => {
     ['paid', 'active'],
     ['  TRIAL ', 'trialing'],
     ['grace period ended', 'grace_ended'],
-    ['Trial set by staff', 'trial_extended'],
+    ['Trial extended by staff', 'trial_extended'],
   ])('sends %s as %s', (term, code) => {
     expect(historySearchCode(term)).toBe(code)
   })

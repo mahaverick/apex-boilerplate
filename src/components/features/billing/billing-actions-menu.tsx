@@ -97,7 +97,7 @@ export function BillingActionsMenu({
     onOpenChange: (next: boolean) => setOpen(next ? which : null),
     finalFocus: hasActions && !fromPalette ? undefined : fallbackFocus,
   })
-  const provider = providerName(billing)
+  const provider = providerName(billing.provider)
 
   return (
     <>

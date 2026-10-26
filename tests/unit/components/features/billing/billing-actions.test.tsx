@@ -377,17 +377,21 @@ describe('billing actions', () => {
       expect(days).toHaveValue('7')
       expect(days).toHaveAttribute('inputmode', 'numeric')
       expect(dialog).toHaveTextContent(
-        `Trial now ends on ${billingDate('2099-01-15T00:00:00.000Z', 'UTC')}. After this it ends on ${billingDate('2099-01-22T00:00:00.000Z', 'UTC')}.`
+        `The trial ends on ${billingDate('2099-01-15T00:00:00.000Z', 'UTC')}. With 7 more days, it ends on ${billingDate('2099-01-22T00:00:00.000Z', 'UTC')}.`
       )
       expect(dialog).toHaveTextContent('Recorded in the audit log with your name.')
       await user.clear(days)
       expect(dialog).toHaveTextContent(
-        `Trial now ends on ${billingDate('2099-01-15T00:00:00.000Z', 'UTC')}.`
+        `The trial ends on ${billingDate('2099-01-15T00:00:00.000Z', 'UTC')}.`
       )
-      expect(dialog).not.toHaveTextContent('After this')
-      await user.type(days, '10')
+      expect(dialog).not.toHaveTextContent('more day')
+      await user.type(days, '1')
       expect(dialog).toHaveTextContent(
-        `After this it ends on ${billingDate('2099-01-25T00:00:00.000Z', 'UTC')}.`
+        `With 1 more day, it ends on ${billingDate('2099-01-16T00:00:00.000Z', 'UTC')}.`
+      )
+      await user.type(days, '0')
+      expect(dialog).toHaveTextContent(
+        `With 10 more days, it ends on ${billingDate('2099-01-25T00:00:00.000Z', 'UTC')}.`
       )
       await user.type(within(dialog).getByLabelText('Reason'), 'Pilot runs long')
       await user.click(within(dialog).getByRole('button', { name: 'Extend trial' }))
@@ -416,21 +420,32 @@ describe('billing actions', () => {
     /** The day a 7-day trial started at `at` ends. */
     const weekFrom = (at: number) => billingDate(new Date(at + 7 * DAY_MS).toISOString(), 'UTC')
 
-    it('says a Free tenant starts a trial now', async () => {
+    it('words the dialog as starting a trial on a Free tenant, and says the trial starts now', async () => {
       serve(testFreeTenantBilling)
+      recordWrite('extend-trial', { ...TRIALING, trialEndsAt: '2099-01-25T00:00:00.000Z' })
       const user = userEvent.setup()
       renderAppAt(BILLING)
       await openAction(user, 'Extend trial')
-      const dialog = await screen.findByRole('dialog', { name: 'Extend the trial for Acme Corp' })
+      const dialog = await screen.findByRole('dialog', { name: 'Start a trial for Acme Corp' })
+      expect(within(dialog).getByLabelText('Trial length (days)')).toHaveValue('7')
       expect(
         showsNear(
           dialog,
           (at) => `Acme Corp is on Free. This starts a Paid trial that ends on ${weekFrom(at)}.`
         )
       ).toBe(true)
-      expect(dialog).not.toHaveTextContent('After this')
-      await user.clear(within(dialog).getByLabelText('Days to add'))
+      expect(dialog).not.toHaveTextContent('more day')
+      await user.clear(within(dialog).getByLabelText('Trial length (days)'))
       expect(within(dialog).getByText('Acme Corp is on Free.')).toBeInTheDocument()
+      await user.type(within(dialog).getByLabelText('Trial length (days)'), '10')
+      await user.type(within(dialog).getByLabelText('Reason'), 'Second look')
+      await user.click(within(dialog).getByRole('button', { name: 'Start trial' }))
+      await confirmStepUp(user)
+      await waitFor(() =>
+        expect(success).toHaveBeenCalledWith(
+          `Acme Corp’s trial starts now and ends on ${billingDate('2099-01-25T00:00:00.000Z', 'UTC')}.`
+        )
+      )
     })
 
     it('says when a lapsed trial ended, and that a new one starts now', async () => {
@@ -438,7 +453,7 @@ describe('billing actions', () => {
       const user = userEvent.setup()
       renderAppAt(BILLING)
       await openAction(user, 'Extend trial')
-      const dialog = await screen.findByRole('dialog', { name: 'Extend the trial for Acme Corp' })
+      const dialog = await screen.findByRole('dialog', { name: 'Start a trial for Acme Corp' })
       const ended = `Acme Corp’s trial ended on ${billingDate('2026-01-15T00:00:00.000Z', 'UTC')}.`
       expect(
         showsNear(
@@ -447,7 +462,7 @@ describe('billing actions', () => {
         )
       ).toBe(true)
       expect(dialog).not.toHaveTextContent('is on Free')
-      await user.clear(within(dialog).getByLabelText('Days to add'))
+      await user.clear(within(dialog).getByLabelText('Trial length (days)'))
       expect(within(dialog).getByText(ended)).toBeInTheDocument()
     })
 
@@ -713,12 +728,14 @@ describe('billing actions', () => {
         name: 'Revoke the Members grant for Acme Corp?',
       })
       expect(dialog).toHaveTextContent(
-        'Acme Corp loses this grant at once. Its Members goes back to the plan’s value, or to another active grant’s.'
+        'Acme Corp loses the Members grant now. Its Members goes back to the plan’s value, or to another active grant’s.'
       )
       await user.type(within(dialog).getByLabelText('Reason'), 'Pilot ended')
       await user.click(within(dialog).getByRole('button', { name: 'Revoke grant' }))
       await confirmStepUp(user)
-      await waitFor(() => expect(success).toHaveBeenCalledWith('Members grant revoked.'))
+      await waitFor(() =>
+        expect(success).toHaveBeenCalledWith('Members grant revoked for Acme Corp.')
+      )
       expect(bodies).toEqual([{ reason: 'Pilot ended' }, { reason: 'Pilot ended' }])
     })
 
@@ -736,7 +753,7 @@ describe('billing actions', () => {
         name: 'Revoke the Workspace insights grant for Acme Corp?',
       })
       expect(dialog).toHaveTextContent(
-        'Acme Corp loses this grant at once. It keeps Workspace insights only if its plan or another active grant turns it on.'
+        'Acme Corp loses the Workspace insights grant now. It keeps Workspace insights only if its plan or another active grant turns it on.'
       )
     })
 
@@ -1171,7 +1188,7 @@ describe('billing actions', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Cancel subscription' }))
       await confirmStepUp(user)
       await waitFor(() =>
-        expect(success).toHaveBeenCalledWith('The subscription for Acme Corp is cancelled.')
+        expect(success).toHaveBeenCalledWith('We cancelled the subscription for Acme Corp.')
       )
     })
 

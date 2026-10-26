@@ -14,7 +14,8 @@ export function PlatformNotFound() {
           <h1>Page not available</h1>
         </CardTitle>
         <CardDescription>
-          This page does not exist, or it is not available to your account.
+          This page does not exist, or it is not available to your account. Go back to the overview
+          to continue.
         </CardDescription>
       </CardHeader>
       <CardContent>

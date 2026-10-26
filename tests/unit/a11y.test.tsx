@@ -789,8 +789,10 @@ describe('signed-in pages', () => {
     )
     renderAppAt('/tenants')
     await screen.findByRole('table', { name: 'Tenants' })
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Filter by plan, Tenants' }))
-    await screen.findByRole('dialog', { name: 'Filter by plan, Tenants' })
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Filter by billing, Tenants' }))
+    await screen.findByRole('dialog', { name: 'Filter by billing, Tenants' })
     await expectNoViolations()
   })
 
@@ -2236,7 +2238,7 @@ describe('tenant billing', () => {
   it('a tenant’s Billing tab while payments are off, with no grants, has no axe violations', async () => {
     serveBilling({ ...testFreeTenantBilling, paymentsEnabled: false, grants: [] })
     renderAppAt(`/tenants/${TENANT_ID}/billing`)
-    await screen.findByText(/invoices can’t be read from the payment provider/)
+    await screen.findByText(/we can’t read invoices from the payment provider/)
     await screen.findByText('No grants.')
     await screen.findByRole('table', { name: 'Subscriptions' })
     await expectNoViolations()
@@ -2472,7 +2474,7 @@ describe('billing settings and alerts', () => {
     open('/plans')
     const card = await screen.findByRole('region', { name: 'Trials and grace' })
     await user.click(
-      await within(card).findByRole('switch', { name: 'Give new workspaces a Paid trial' })
+      await within(card).findByRole('switch', { name: 'Give new tenants a Paid trial' })
     )
     await user.click(within(card).getByRole('button', { name: 'Save billing settings' }))
     await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
@@ -2494,7 +2496,7 @@ describe('billing settings and alerts', () => {
     open('/plans')
     const card = await screen.findByRole('region', { name: 'Trials and grace' })
     await user.click(
-      await within(card).findByRole('switch', { name: 'Give new workspaces a Paid trial' })
+      await within(card).findByRole('switch', { name: 'Give new tenants a Paid trial' })
     )
     await user.click(within(card).getByRole('button', { name: 'Save billing settings' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })

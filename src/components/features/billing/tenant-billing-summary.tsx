@@ -9,14 +9,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { billingDate, billingDateTime, providerLabel } from '@/constants/billing-labels'
 import { useNow } from '@/hooks/use-now'
-import { CANCEL_BUFFER_MS, effectiveState } from '@/lib/billing-actions'
+import { CANCEL_BUFFER_MS, effectiveState, providerName } from '@/lib/billing-actions'
 import { formatInr } from '@/lib/billing-format'
 import { relativeTime } from '@/lib/relative-time'
 import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
 
 /** What staff read when payments are off on the server. */
 const PAYMENTS_OFF_NOTE =
-  'Payments are off on this server. The plan and dates show what is stored; nothing can be charged or synced.'
+  'Payments are off on this server. This page shows the stored plan and dates. Nobody can be charged, and Resync and Cancel are hidden.'
 
 /** One dated row of the summary: its name and its date. */
 interface DateRow {
@@ -138,17 +138,19 @@ function priceText(billing: StaffTenantBilling, plans: StaffPlans | undefined): 
  * The failed payment line: when it failed, and when Paid ends, or that the
  * provider is still retrying while there is no end yet.
  * @param pastDue - The tenant's failed payment.
+ * @param provider - The tenant's payment provider, named in the sentence.
  * @param timeZone - The tenant's time zone, for the dates.
  */
 function pastDueText(
   pastDue: NonNullable<StaffTenantBilling['pastDue']>,
+  provider: StaffTenantBilling['provider'],
   timeZone: string
 ): string {
   const ends =
     pastDue.graceEndsAt === null
-      ? 'The payment provider is still retrying.'
+      ? `${providerName(provider, { sentenceStart: true })} is still retrying the payment.`
       : `Paid ends on ${billingDate(pastDue.graceEndsAt, timeZone)}.`
-  return `Payment failed on ${billingDate(pastDue.since, timeZone)}. ${ends}${pastDue.paused ? ' Subscription paused.' : ''}`
+  return `Payment failed on ${billingDate(pastDue.since, timeZone)}. ${ends}${pastDue.paused ? ` ${providerName(provider, { sentenceStart: true })} paused the subscription.` : ''}`
 }
 
 /** One subscription id row: the id in monospace and a button that copies it. */
@@ -232,7 +234,7 @@ export function TenantBillingSummary({
           {billing.pastDue !== null && (
             <>
               <dt className="text-muted-foreground">Failed payment</dt>
-              <dd>{pastDueText(billing.pastDue, timeZone)}</dd>
+              <dd>{pastDueText(billing.pastDue, billing.provider, timeZone)}</dd>
             </>
           )}
           <dt className="text-muted-foreground">Payer</dt>
@@ -242,7 +244,7 @@ export function TenantBillingSummary({
             ) : (
               <>
                 <Pii>{billing.payer.name}</Pii>
-                {!billing.payer.isMember && ' (left the workspace)'}
+                {!billing.payer.isMember && ' (left the tenant)'}
               </>
             )}
           </dd>

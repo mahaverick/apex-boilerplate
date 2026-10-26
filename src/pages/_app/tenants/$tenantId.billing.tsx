@@ -166,6 +166,7 @@ function TenantBilling({ tenantId, billing }: { tenantId: string; billing: Staff
       <InvoicesCard
         tenantId={tenantId}
         paymentsEnabled={billing.paymentsEnabled}
+        provider={billing.provider}
         timeZone={timeZone}
       />
     </div>

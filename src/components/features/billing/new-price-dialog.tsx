@@ -53,8 +53,9 @@ interface NewPriceDialogProps {
 /**
  * A new price for a plan, in whole rupees, with an audited reason, behind
  * step-up. Express retires the active price of the same interval in the
- * same write, and subscribers keep what they pay, which the confirm line
- * says with both amounts. Above the API's threshold a note warns that each
+ * same write, and subscribers keep what they pay. The confirm line names
+ * the new amount and its interval ("New subscribers pay ₹999 per month.").
+ * Above the API's threshold a note warns that each
  * charge needs the customer's approval.
  */
 export function NewPriceDialog(props: NewPriceDialogProps) {
@@ -189,7 +190,9 @@ function NewPriceForm({
           </Note>
         )}
         {amountMinor !== null && (
-          <p className="text-sm">New subscribers pay {formatInr(amountMinor)}.</p>
+          <p className="text-sm">
+            New subscribers pay {formatInr(amountMinor)} per {interval}.
+          </p>
         )}
         <FormField form={form} name="reason">
           {(field) => (

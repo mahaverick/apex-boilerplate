@@ -160,7 +160,7 @@ describe('/tenants', () => {
     )
     renderAppAt('/tenants')
     const table = await screen.findByRole('table', { name: 'Tenants' })
-    expect(within(table).getByRole('columnheader', { name: 'Plan' })).toBeInTheDocument()
+    expect(within(table).getByRole('columnheader', { name: 'Billing' })).toBeInTheDocument()
     const rows = within(table).getAllByRole('row').slice(1)
     const badges = rows.map((tableRow) => {
       const badge = within(tableRow).getByText(/^(Trial|Free|Paid|Payment failed)$/)
@@ -194,8 +194,8 @@ describe('/tenants', () => {
     const user = userEvent.setup()
     const router = renderAppAt('/tenants')
     await screen.findByText('Tenant 01')
-    await user.click(screen.getByRole('button', { name: 'Filter by plan, Tenants' }))
-    const popup = await screen.findByRole('dialog', { name: 'Filter by plan, Tenants' })
+    await user.click(screen.getByRole('button', { name: 'Filter by billing, Tenants' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by billing, Tenants' })
     expect(within(popup).getAllByRole('checkbox')).toHaveLength(4)
     for (const name of ['Trial', 'Free', 'Paid', 'Payment failed']) {
       expect(within(popup).getByRole('checkbox', { name })).toBeInTheDocument()
@@ -231,9 +231,11 @@ describe('/tenants', () => {
     await screen.findByText('Tenant 01')
     expect(seen[0]?.get('billingState')).toBe('past_due,trialing')
     expect(
-      screen.getByRole('button', { name: 'Remove filter: Plan: Payment failed' })
+      screen.getByRole('button', { name: 'Remove filter: Billing: Payment failed' })
     ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remove filter: Plan: Trial' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Remove filter: Billing: Trial' })
+    ).toBeInTheDocument()
   })
 
   it('drops the cursor when a filter changes', async () => {

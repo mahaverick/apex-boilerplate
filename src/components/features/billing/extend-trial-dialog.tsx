@@ -26,7 +26,7 @@ import { fieldValue } from '@/hooks/use-form-field'
 import { useNow } from '@/hooks/use-now'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
-import { extendTrialPreview } from '@/lib/billing-actions'
+import { extendTrialPreview, isRunningTrial } from '@/lib/billing-actions'
 import { refuseInForm } from '@/lib/billing-refusal'
 import { toast } from '@/lib/toast'
 import { useExtendTrial } from '@/queries/billing-admin.queries'
@@ -38,9 +38,11 @@ import type { StaffTenantBilling } from '@/types/billing.types'
 const DEFAULT_DAYS = '7'
 
 /**
- * Extend a tenant's trial, or start one on a Free tenant, by 1–90 days with
- * an audited reason, behind step-up. The description shows the new end as
- * the days change. A 409 (`TRIAL_NOT_EXTENDABLE`: the tenant pays) shows the
+ * Extend a tenant's running trial, or start one on a Free tenant or a trial
+ * that has lapsed, by 1–90 days with an audited reason, behind step-up. The
+ * title, the days label, the button and the toast say "extend" or "start"
+ * to match (`isRunningTrial`). The description shows the new end as the
+ * days change. A 409 (`TRIAL_NOT_EXTENDABLE`: the tenant pays) shows the
  * API's sentence in the dialog.
  */
 export function ExtendTrialDialog({
@@ -98,6 +100,8 @@ function ExtendTrialForm({
   const waiting = useStepUpWaiting()
   const serverErrors = useServerErrors()
   const now = useNow()
+  // Pinned when the dialog opens: a trial that lapses mid-form must not retitle it under the reader.
+  const [running] = useState(() => isRunningTrial(billing, now))
   const form = useForm({
     defaultValues: { days: DEFAULT_DAYS, reason: '' },
     validators: { onSubmit: extendTrialFormSchema },
@@ -108,10 +112,12 @@ function ExtendTrialForm({
       try {
         const view = await stepUp.run(() => extend.mutateAsync(input))
         onBusyChange(false)
+        // Express's extend always answers a trial end; a missing one reads "Unknown date".
+        const ends = billingDate(view.trialEndsAt ?? '', tenant.settings.timezone)
         toast.success(
-          view.trialEndsAt === null
-            ? `Trial for ${tenant.name} extended.`
-            : `Trial for ${tenant.name} ends on ${billingDate(view.trialEndsAt, tenant.settings.timezone)}.`
+          running
+            ? `Trial for ${tenant.name} ends on ${ends}.`
+            : `${tenant.name}’s trial starts now and ends on ${ends}.`
         )
         onDone()
       } catch (error) {
@@ -125,7 +131,9 @@ function ExtendTrialForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Extend the trial for {tenant.name}</DialogTitle>
+        <DialogTitle>
+          {running ? `Extend the trial for ${tenant.name}` : `Start a trial for ${tenant.name}`}
+        </DialogTitle>
         <DialogDescription>
           {extendTrialPreview(tenant.name, billing, days, now, tenant.settings.timezone)}
         </DialogDescription>
@@ -134,7 +142,7 @@ function ExtendTrialForm({
         <FormField form={form} name="days">
           {(field) => (
             <FormItem>
-              <FormLabel>Days to add</FormLabel>
+              <FormLabel>{running ? 'Days to add' : 'Trial length (days)'}</FormLabel>
               <FormControl>
                 <Input
                   inputMode="numeric"
@@ -171,10 +179,10 @@ function ExtendTrialForm({
           <BusyButton
             // The first write was refused, so it is not pending while the step-up waits.
             busy={extend.isPending || waiting}
-            busyLabel={waiting ? STEP_UP_WAITING_LABEL : 'Extending…'}
+            busyLabel={waiting ? STEP_UP_WAITING_LABEL : running ? 'Extending…' : 'Starting…'}
             type="submit"
           >
-            Extend trial
+            {running ? 'Extend trial' : 'Start trial'}
           </BusyButton>
         </DialogFooter>
       </Form>

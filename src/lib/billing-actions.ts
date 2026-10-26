@@ -5,6 +5,7 @@
  */
 import { billingDate } from '@/constants/billing-labels'
 import { platformRoleAtLeast } from '@/constants/roles'
+import { nounFor } from '@/lib/plural'
 import { trialDaysFrom } from '@/schemas/billing.schemas'
 import type { PlatformTenantDetail } from '@/types/api.types'
 import type {
@@ -22,11 +23,17 @@ export const CANCEL_BUFFER_MS = 3 * 24 * 60 * 60 * 1000
 
 /**
  * The payment provider as a sentence names it: Razorpay, or "the payment
- * provider" for the fake one a test server runs.
- * @param billing - The tenant's billing.
+ * provider" for the fake one a test server runs, or none on file. Every
+ * billing sentence names the provider through this one function.
+ * @param provider - The tenant's `provider`.
+ * @param options - `sentenceStart` capitalises the generic name to open a sentence.
  */
-export function providerName(billing: StaffTenantBilling): string {
-  return billing.provider === 'razorpay' ? 'Razorpay' : 'the payment provider'
+export function providerName(
+  provider: StaffTenantBilling['provider'],
+  { sentenceStart = false }: { sentenceStart?: boolean } = {}
+): string {
+  if (provider === 'razorpay') return 'Razorpay'
+  return sentenceStart ? 'The payment provider' : 'the payment provider'
 }
 
 /**
@@ -164,7 +171,7 @@ export function cancelChoicesFor(
 ): { choices: CancelChoice[]; note: string | null } {
   /** A date in the tenant's zone. */
   const day = (iso: string) => billingDate(iso, timeZone)
-  const provider = billing.provider === 'razorpay' ? 'Razorpay' : 'The payment provider'
+  const provider = providerName(billing.provider, { sentenceStart: true })
   const dashboard = billing.provider === 'razorpay' ? 'the Razorpay dashboard' : 'its dashboard'
   const end = billing.currentPeriodEnd
   const endsAhead = end !== null && new Date(end).getTime() > now
@@ -267,7 +274,7 @@ export function cancelToast(
   if (before.nextSubscriptionId !== null && after.nextSubscriptionId === null) {
     return `${tenantName}’s next subscription is cancelled.`
   }
-  return `The subscription for ${tenantName} is cancelled.`
+  return `We cancelled the subscription for ${tenantName}.`
 }
 
 /** One day, as express's `addDays` counts it. */
@@ -295,21 +302,36 @@ export function extendTrialPreview(
   /** A date in the tenant's zone. */
   const day = (iso: string) => billingDate(iso, timeZone)
   const count = trialDaysFrom(days)
-  /** The day the trial ends when it runs `count` days from `from`. */
-  const end = (from: number) => day(new Date(from + (count ?? 0) * DAY_MS).toISOString())
+  /** The day a trial of `count` days from `from` ends, or null while the days are not valid. */
+  const end = (from: number) =>
+    count === null ? null : day(new Date(from + count * DAY_MS).toISOString())
   const trialEnd = billing.trialEndsAt
-  if (billing.state === 'trialing' && trialEnd !== null) {
-    const endsAt = new Date(trialEnd).getTime()
-    if (endsAt > now) {
-      const current = `Trial now ends on ${day(trialEnd)}.`
-      return count === null ? current : `${current} After this it ends on ${end(endsAt)}.`
-    }
-    const lapsed = `${tenantName}’s trial ended on ${day(trialEnd)}.`
-    return count === null
-      ? lapsed
-      : `${lapsed} This starts a new Paid trial that ends on ${end(now)}.`
+  if (isRunningTrial(billing, now) && trialEnd !== null) {
+    const current = `The trial ends on ${day(trialEnd)}.`
+    const after = end(new Date(trialEnd).getTime())
+    return after === null || count === null
+      ? current
+      : `${current} With ${String(count)} more ${nounFor(count, 'days')}, it ends on ${after}.`
   }
-  return count === null
-    ? `${tenantName} is on Free.`
-    : `${tenantName} is on Free. This starts a Paid trial that ends on ${end(now)}.`
+  const lapsed = billing.state === 'trialing' && trialEnd !== null
+  const where = lapsed
+    ? `${tenantName}’s trial ended on ${day(trialEnd)}.`
+    : `${tenantName} is on Free.`
+  const after = end(now)
+  if (after === null) return where
+  return `${where} This starts a ${lapsed ? 'new ' : ''}Paid trial that ends on ${after}.`
+}
+
+/**
+ * Whether the tenant has a trial still running, which Extend trial moves
+ * later; on any other tenant it starts a new trial, and the dialog says so.
+ * @param billing - The tenant's billing.
+ * @param now - The moment the page reads as now, in milliseconds.
+ */
+export function isRunningTrial(billing: StaffTenantBilling, now: number): boolean {
+  return (
+    billing.state === 'trialing' &&
+    billing.trialEndsAt !== null &&
+    effectiveState(billing, now) === 'trialing'
+  )
 }

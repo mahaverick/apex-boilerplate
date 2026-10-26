@@ -40,7 +40,7 @@ test('the tenants list leaves archived tenants out by default, as express does',
   await expect(table.getByText('No billing')).toHaveCount(0)
 })
 
-test('the Plan facet on Free finds the active Free tenant, not the archived one', async ({
+test('the Billing facet on Free finds the active Free tenant, not the archived one', async ({
   page,
 }) => {
   await page.goto('/e2e/harness/?path=/tenants?billingState=free')

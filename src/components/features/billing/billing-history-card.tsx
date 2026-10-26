@@ -96,7 +96,7 @@ export function BillingHistoryCard({ tenantId, timeZone }: { tenantId: string; t
           getRowId={(row) => row.id}
           search={{
             label: 'Search state history',
-            placeholder: 'Search a state, cause or code, such as past_due',
+            placeholder: 'Search by state or cause, such as Payment failed',
           }}
           filters={FILTERS}
           errorMessage="We couldn’t load this tenant’s state history. Select Try again."

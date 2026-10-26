@@ -21,17 +21,23 @@ import {
 } from '@/components/ui/table'
 import { billingDate, INVOICE_STATUS_BADGE } from '@/constants/billing-labels'
 import { codeFrom } from '@/lib/api-error'
+import { providerName } from '@/lib/billing-actions'
 import { formatInr } from '@/lib/billing-format'
 import { isRoleDenied } from '@/lib/role-denied'
 import { staffMessageFrom } from '@/lib/staff-message'
 import { staffInvoicesQueryOptions } from '@/queries/billing-admin.queries'
 import { billingAdminKeys } from '@/queries/billing-reads.queries'
 import { sortFilterValues } from '@/schemas/list.schemas'
-import { CURSOR_INVALID, INVOICE_STATUSES, type StaffInvoiceItem } from '@/types/billing.types'
+import {
+  CURSOR_INVALID,
+  INVOICE_STATUSES,
+  type StaffInvoiceItem,
+  type StaffTenantBilling,
+} from '@/types/billing.types'
 
 /** What staff read when payments are off: the provider can't be asked, which is not "no invoices". */
 const INVOICES_PAYMENTS_OFF =
-  'Payments are off on this server, so invoices can’t be read from the payment provider.'
+  'Payments are off on this server, so we can’t read invoices from the payment provider.'
 
 /** The Status facet over the invoice statuses. */
 const STATUS_FILTER: DataTableFilter = {
@@ -104,10 +110,13 @@ function InvoicesTable({
 export function InvoicesCard({
   tenantId,
   paymentsEnabled,
+  provider,
   timeZone,
 }: {
   tenantId: string
   paymentsEnabled: boolean
+  /** The tenant's payment provider, named in the card's description. */
+  provider: StaffTenantBilling['provider']
   /** The tenant's time zone, for the invoice dates. */
   timeZone: string
 }) {
@@ -131,7 +140,7 @@ export function InvoicesCard({
 
   /** The body for the state the read is in. */
   const body = () => {
-    if (!paymentsEnabled) return <Note tone="passive">{INVOICES_PAYMENTS_OFF}</Note>
+    if (!paymentsEnabled) return <Note tone="info">{INVOICES_PAYMENTS_OFF}</Note>
     if (query.isError && isRoleDenied(query.error)) return <RoleDenied />
     if (query.isError && query.data === undefined) {
       return (
@@ -201,7 +210,8 @@ export function InvoicesCard({
           <h2>Invoices</h2>
         </CardTitle>
         <CardDescription>
-          The payment provider pages invoices newest first, so search and sort aren’t available.
+          {providerName(provider, { sentenceStart: true })} lists invoices newest first and offers
+          no search or sort.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3">

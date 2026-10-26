@@ -56,14 +56,14 @@ export function RevokeGrantAction({
         title={`Revoke the ${label} grant for ${tenant.name}?`}
         description={
           isFeature
-            ? `${tenant.name} loses this grant at once. It keeps ${label} only if its plan or another active grant turns it on.`
-            : `${tenant.name} loses this grant at once. Its ${label} goes back to the plan’s value, or to another active grant’s.`
+            ? `${tenant.name} loses the ${label} grant now. It keeps ${label} only if its plan or another active grant turns it on.`
+            : `${tenant.name} loses the ${label} grant now. Its ${label} goes back to the plan’s value, or to another active grant’s.`
         }
         confirmLabel="Revoke grant"
         destructive
         onConfirm={async (reason) => {
           await stepUp.run(() => revoke.mutateAsync({ grantId: grant.id, reason }))
-          toast.success(`${label} grant revoked.`)
+          toast.success(`${label} grant revoked for ${tenant.name}.`)
         }}
       />
     </>

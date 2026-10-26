@@ -107,7 +107,7 @@ export function GrantsCard({
                     </TableCell>
                     <TableCell>
                       {grant.grantedBy === null ? (
-                        'A script or removed account'
+                        'No account on record'
                       ) : (
                         <Pii>{grant.grantedBy.name}</Pii>
                       )}

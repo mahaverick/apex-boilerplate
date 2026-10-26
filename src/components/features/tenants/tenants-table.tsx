@@ -40,7 +40,7 @@ const columns = column.columns([
     cell: ({ getValue }) => <TenantStateBadge state={getValue()} />,
   }),
   column.accessor('billingState', {
-    header: 'Plan',
+    header: 'Billing',
     cell: ({ getValue }) => <BillingStateBadge state={getValue()} />,
   }),
   column.accessor('memberCount', {
@@ -70,7 +70,7 @@ const FILTERS: readonly DataTableFilter[] = [
   },
   {
     name: 'billingState',
-    label: 'Plan',
+    label: 'Billing',
     options: BILLING_STATES.map((state) => ({
       value: state,
       label: BILLING_STATE_BADGE[state].label,

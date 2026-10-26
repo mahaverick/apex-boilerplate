@@ -294,11 +294,11 @@ describe('/tenants/$tenantId/billing', () => {
       renderAppAt(BILLING)
       const card = await summary()
       expect(row(card, 'Failed payment')).toMatch(
-        /^Payment failed on .+\. The payment provider is still retrying\. Subscription paused\.$/
+        /^Payment failed on .+\. Razorpay is still retrying the payment\. Razorpay paused the subscription\.$/
       )
       expect(within(card).getByText('Dispute open')).toHaveAttribute('data-tone', 'destructive')
       expect(within(card).queryByText('Cancels on', { selector: 'dt' })).toBeNull()
-      expect(row(card, 'Payer')).toBe('A B (left the workspace)')
+      expect(row(card, 'Payer')).toBe('A B (left the tenant)')
     })
 
     it('says when Paid ends after a failed payment with a grace end', async () => {
@@ -323,13 +323,15 @@ describe('/tenants/$tenantId/billing', () => {
       renderAppAt(BILLING)
       const card = await summary()
       expect(
-        within(card).getByText(/Payments are off on this server\. The plan and dates show/)
+        within(card).getByText(
+          /Payments are off on this server\. This page shows the stored plan and dates\./
+        )
       ).toBeInTheDocument()
       expect(row(card, 'Plan')).toBe('PaidPaid')
       expect(within(card).queryByText('Subscription ID')).toBeNull()
       expect(within(card).queryByRole('button', { name: /^Copy/ })).toBeNull()
       expect(
-        await screen.findByText(/invoices can’t be read from the payment provider/)
+        await screen.findByText(/we can’t read invoices from the payment provider/)
       ).toBeInTheDocument()
       expect(screen.queryByRole('table', { name: 'Invoices' })).toBeNull()
       await screen.findByRole('table', { name: 'Subscriptions' })
@@ -992,7 +994,7 @@ describe('/tenants/$tenantId/billing', () => {
       await user.click(await screen.findByRole('button', { name: 'Start again from the newest' }))
       expect(
         await screen.findByText(
-          'Payments are off on this server, so invoices can’t be read from the payment provider.'
+          'Payments are off on this server, so we can’t read invoices from the payment provider.'
         )
       ).toBeInTheDocument()
       expect(screen.queryByText('No invoices for this tenant.')).toBeNull()

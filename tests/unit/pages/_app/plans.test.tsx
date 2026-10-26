@@ -721,7 +721,7 @@ describe('Plans page', () => {
       const dialog = await openNewPrice(user)
       const amount = within(dialog).getByRole('textbox', { name: 'Amount in rupees' })
       await user.type(amount, '15000')
-      expect(dialog).toHaveTextContent('New subscribers pay ₹15,000.')
+      expect(dialog).toHaveTextContent('New subscribers pay ₹15,000 per month.')
       expect(within(dialog).queryByText(/need the customer to approve/)).toBeNull()
       await user.clear(amount)
       await user.type(amount, '15001')
@@ -768,7 +768,7 @@ describe('Plans page', () => {
       await user.type(within(dialog).getByRole('textbox', { name: 'Amount in rupees' }), '12000')
       // The description already says subscribers keep their price, so the line says it no second time.
       expect(within(dialog).getByText(/^New subscribers pay/)).toHaveTextContent(
-        /^New subscribers pay ₹12,000\.$/
+        /^New subscribers pay ₹12,000 per year\.$/
       )
       expect(dialog).not.toHaveTextContent('Current subscribers')
       await user.type(within(dialog).getByLabelText('Reason'), 'Yearly repricing')
@@ -795,7 +795,7 @@ describe('Plans page', () => {
       await user.click(within(dialog).getByRole('combobox', { name: 'Interval' }))
       await user.click(await screen.findByRole('option', { name: 'Yearly' }))
       await user.type(within(dialog).getByRole('textbox', { name: 'Amount in rupees' }), '9000')
-      expect(dialog).toHaveTextContent('New subscribers pay ₹9,000.')
+      expect(dialog).toHaveTextContent('New subscribers pay ₹9,000 per year.')
       expect(dialog).not.toHaveTextContent('Current subscribers')
     })
 
@@ -956,7 +956,7 @@ describe('Plans page: trials and grace', () => {
       openPlans(role)
       const settings = await settingsCard()
       expect(await within(settings).findByText('Never changed.')).toBeInTheDocument()
-      expect(settings).toHaveTextContent('Paid trial for new workspacesOn')
+      expect(settings).toHaveTextContent('Paid trial for new tenantsOn')
       expect(settings).toHaveTextContent('Trial length14 days')
       expect(settings).toHaveTextContent('Days to keep Paid after the last failed payment7 days')
       expect(within(settings).queryByRole('switch')).toBeNull()
@@ -1015,7 +1015,7 @@ describe('Plans page: trials and grace', () => {
     openPlans('admin')
     const settings = await settingsCard()
     expect(
-      await within(settings).findByRole('switch', { name: 'Give new workspaces a Paid trial' })
+      await within(settings).findByRole('switch', { name: 'Give new tenants a Paid trial' })
     ).toBeChecked()
     expect(within(settings).getByRole('textbox', { name: 'Trial length (days)' })).toHaveValue('14')
     expect(
@@ -1079,7 +1079,7 @@ describe('Plans page: trials and grace', () => {
     openPlans('admin')
     const settings = await settingsCard()
     await user.click(
-      await within(settings).findByRole('switch', { name: 'Give new workspaces a Paid trial' })
+      await within(settings).findByRole('switch', { name: 'Give new tenants a Paid trial' })
     )
     await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
@@ -1139,7 +1139,7 @@ describe('Plans page: trials and grace', () => {
     openPlans('admin')
     const settings = await settingsCard()
     const trial = await within(settings).findByRole('switch', {
-      name: 'Give new workspaces a Paid trial',
+      name: 'Give new tenants a Paid trial',
     })
     await user.click(trial)
     await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
@@ -1284,7 +1284,7 @@ describe('Plans page: trials and grace', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     await user.click(
-      within(settings).getByRole('switch', { name: 'Give new workspaces a Paid trial' })
+      within(settings).getByRole('switch', { name: 'Give new tenants a Paid trial' })
     )
     await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
     dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })

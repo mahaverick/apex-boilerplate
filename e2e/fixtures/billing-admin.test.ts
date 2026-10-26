@@ -75,9 +75,9 @@ test('a manager extends a trial by 7 days, and the summary shows the new end', a
 
   const dialog = page.getByRole('dialog', { name: 'Extend the trial for Acme Corp' })
   await expect(dialog.getByLabel('Days to add')).toHaveValue('7')
-  await expect(dialog).toContainText(`Trial now ends on ${before}.`)
-  const preview = await dialog.getByText(/After this it ends on /).textContent()
-  const newEnd = /After this it ends on (.+)\.$/.exec(preview ?? '')?.[1]
+  await expect(dialog).toContainText(`The trial ends on ${before}.`)
+  const preview = await dialog.getByText(/With 7 more days, it ends on /).textContent()
+  const newEnd = /With 7 more days, it ends on (.+)\.$/.exec(preview ?? '')?.[1]
   expect(newEnd).toBeTruthy()
   expect(newEnd).not.toBe(before)
   await dialog.getByLabel('Reason').fill('Waiting on their procurement team')

@@ -57,7 +57,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'user.flags_evaluated': 'User flags evaluated',
   'platform.maintenance_mode_changed': 'Maintenance mode changed',
   'billing.checkout_started': 'Checkout started',
-  'billing.cancel_scheduled': 'Paid cancelled',
+  'billing.cancel_scheduled': 'Cancellation scheduled',
   'billing.interval_switch_scheduled': 'Billing switch scheduled',
   'billing.card_change_started': 'Card change started',
   'billing.grant_expired': 'Grant expired',
@@ -329,7 +329,7 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
     const every = cadence(m)
     return every === undefined ? 'started a Paid checkout' : `started a ${every} Paid checkout`
   },
-  'billing.cancel_scheduled': () => 'cancelled Paid',
+  'billing.cancel_scheduled': () => 'scheduled Paid to end at its period end',
   'billing.interval_switch_scheduled': (m) => {
     const every = cadence(m)
     return every === undefined

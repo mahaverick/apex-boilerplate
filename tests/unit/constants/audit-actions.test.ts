@@ -97,7 +97,7 @@ describe('auditSentence', () => {
   it.each([
     ['billing.checkout_started', { interval: 'year' }, 'started a yearly Paid checkout'],
     ['billing.checkout_started', { interval: 'month' }, 'started a monthly Paid checkout'],
-    ['billing.cancel_scheduled', {}, 'cancelled Paid'],
+    ['billing.cancel_scheduled', {}, 'scheduled Paid to end at its period end'],
     [
       'billing.interval_switch_scheduled',
       { interval: 'year' },

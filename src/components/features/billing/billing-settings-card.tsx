@@ -126,7 +126,7 @@ export function BillingSettingsCard({ canEdit }: { canEdit: boolean }) {
 function SettingsSummary({ settings }: { settings: BillingSettings }) {
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-      <dt className="text-muted-foreground">Paid trial for new workspaces</dt>
+      <dt className="text-muted-foreground">Paid trial for new tenants</dt>
       <dd>{settings.trialEnabled ? 'On' : 'Off'}</dd>
       <dt className="text-muted-foreground">Trial length</dt>
       <dd>{countOf(settings.trialDays, 'days')}</dd>
@@ -298,7 +298,7 @@ function SettingsEditor({ settings }: { settings: BillingSettings }) {
           {(field) => (
             <FormItem>
               <div className="flex items-center gap-3">
-                <FormLabel id={trialLabelId}>Give new workspaces a Paid trial</FormLabel>
+                <FormLabel id={trialLabelId}>Give new tenants a Paid trial</FormLabel>
                 <FormControl>
                   <Switch
                     aria-labelledby={trialLabelId}
