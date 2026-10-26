@@ -19,6 +19,7 @@ import { Route as RegisterRouteImport } from './pages/register'
 import { Route as ResetPasswordRouteImport } from './pages/reset-password'
 import { Route as VerifyEmailRouteImport } from './pages/verify-email'
 import { Route as AppActivityRouteImport } from './pages/_app/activity'
+import { Route as AppBillingAlertsRouteImport } from './pages/_app/billing-alerts'
 import { Route as AppDeliverabilityRouteImport } from './pages/_app/deliverability'
 import { Route as AppFlagsRouteImport } from './pages/_app/flags'
 import { Route as AppMaintenanceRouteImport } from './pages/_app/maintenance'
@@ -105,6 +106,11 @@ const VerifyEmailRoute = VerifyEmailRouteImport.update({
 const AppActivityRoute = AppActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBillingAlertsRoute = AppBillingAlertsRouteImport.update({
+  id: '/billing-alerts',
+  path: '/billing-alerts',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDeliverabilityRoute = AppDeliverabilityRouteImport.update({
@@ -324,6 +330,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
   '/activity': typeof AppActivityRoute
+  '/billing-alerts': typeof AppBillingAlertsRoute
   '/deliverability': typeof AppDeliverabilityRoute
   '/flags': typeof AppFlagsRoute
   '/maintenance': typeof AppMaintenanceRoute
@@ -373,6 +380,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
   '/activity': typeof AppActivityRoute
+  '/billing-alerts': typeof AppBillingAlertsRoute
   '/deliverability': typeof AppDeliverabilityRoute
   '/flags': typeof AppFlagsRoute
   '/maintenance': typeof AppMaintenanceRoute
@@ -422,6 +430,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
   '/_app/activity': typeof AppActivityRoute
+  '/_app/billing-alerts': typeof AppBillingAlertsRoute
   '/_app/deliverability': typeof AppDeliverabilityRoute
   '/_app/flags': typeof AppFlagsRoute
   '/_app/maintenance': typeof AppMaintenanceRoute
@@ -473,6 +482,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/activity'
+    | '/billing-alerts'
     | '/deliverability'
     | '/flags'
     | '/maintenance'
@@ -522,6 +532,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/activity'
+    | '/billing-alerts'
     | '/deliverability'
     | '/flags'
     | '/maintenance'
@@ -570,6 +581,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/_app/activity'
+    | '/_app/billing-alerts'
     | '/_app/deliverability'
     | '/_app/flags'
     | '/_app/maintenance'
@@ -698,6 +710,13 @@ declare module '@tanstack/react-router' {
       path: '/activity'
       fullPath: '/activity'
       preLoaderRoute: typeof AppActivityRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/billing-alerts': {
+      id: '/_app/billing-alerts'
+      path: '/billing-alerts'
+      fullPath: '/billing-alerts'
+      preLoaderRoute: typeof AppBillingAlertsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/deliverability': {
@@ -1041,6 +1060,7 @@ const AppUsersUserIdRouteWithChildren = AppUsersUserIdRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
+  AppBillingAlertsRoute: typeof AppBillingAlertsRoute
   AppDeliverabilityRoute: typeof AppDeliverabilityRoute
   AppFlagsRoute: typeof AppFlagsRoute
   AppMaintenanceRoute: typeof AppMaintenanceRoute
@@ -1061,6 +1081,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppActivityRoute: AppActivityRoute,
+  AppBillingAlertsRoute: AppBillingAlertsRoute,
   AppDeliverabilityRoute: AppDeliverabilityRoute,
   AppFlagsRoute: AppFlagsRoute,
   AppMaintenanceRoute: AppMaintenanceRoute,

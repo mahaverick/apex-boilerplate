@@ -1,7 +1,8 @@
 /**
  * @file The staff billing reads a route needs before its component loads:
- * the keys, the plans, settings and tenant billing reads, and the Billing
- * tab's list definitions (its `validateSearch`). A route's `validateSearch`
+ * the keys, the plans, settings and tenant billing reads, and the list
+ * definitions a route's `validateSearch` reads (the Billing tab's and the
+ * billing alerts page's). A route's `validateSearch`
  * and `loader` land in the entry chunk, so they import this small module and
  * never `billing-admin.queries.ts`, whose writes and list options stay with
  * the components that use them (`pnpm check:bundle` holds that line).
@@ -112,4 +113,11 @@ export const billingHistoryList = defineList({
   table: analyticsKey('billing_history'),
   prefix: 'history',
   also: [billingEventsList, billingSubscriptionsList],
+})
+
+/** The billing alerts list's URL contract on its own page: newest first, searched by message. */
+export const billingAlertsList = defineList({
+  sorts: ['-at', 'at'],
+  filters: {},
+  table: analyticsKey('billing_alerts'),
 })

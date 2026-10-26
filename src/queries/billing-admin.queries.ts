@@ -17,13 +17,11 @@ import {
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { codeFrom, statusFrom } from '@/lib/api-error'
-import { analyticsKey } from '@/observability/telemetry'
 import { auditKeys } from '@/queries/audit.queries'
 import { billingAdminKeys } from '@/queries/billing-reads.queries'
 import { listQueryOptions, retryList } from '@/queries/list.queries'
 import { invalidateDirectory } from '@/queries/platform.queries'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
-import { defineList } from '@/schemas/list.schemas'
 import type { ApiSuccess } from '@/types/api.types'
 import {
   GRANT_NOT_FOUND,
@@ -43,17 +41,6 @@ import {
   type StaffTenantBilling,
 } from '@/types/billing.types'
 import type { ListPage, ListRequest } from '@/types/list.types'
-
-/**
- * The billing alerts list's URL contract: newest first, searched by message.
- * Its keys carry the `alerts` prefix, since the list shares the Plans page.
- */
-export const billingAlertsList = defineList({
-  sorts: ['-at', 'at'],
-  filters: {},
-  prefix: 'alerts',
-  table: analyticsKey('billing_alerts'),
-})
 
 /**
  * One page of `GET /platform/billing/alerts` (admin), for the Overview card

@@ -3,7 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { useAuthStore } from '@/states/auth.store'
+import { testBillingAlerts } from '@/tests/fixtures/billing'
 import { testFlagsStatus } from '@/tests/fixtures/flags'
+import { TENANT_ID } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
 import { maintenanceStatus, PAUSED_QUEUES } from '@/tests/fixtures/maintenance-mode'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testStats, testSystemStatus, testUser } from '@/tests/mocks/handlers'
@@ -785,4 +788,111 @@ describe('the system status card’s maintenance mode', () => {
       within(card).queryByRole('heading', { name: 'Maintenance mode' })
     ).not.toBeInTheDocument()
   })
+})
+
+describe('the Overview’s billing alerts card', () => {
+  beforeEach(() => {
+    signIn({ ...testUser, platformRole: 'admin' })
+  })
+
+  /** Answers the alerts list with `answer`; records each request's query. */
+  function serveAlerts(answer: () => Response = () => ok(listPage(testBillingAlerts), 'OK')) {
+    const seen: URLSearchParams[] = []
+    server.use(
+      http.get('/api/v1/platform/billing/alerts', ({ request }) => {
+        seen.push(new URL(request.url).searchParams)
+        return answer()
+      })
+    )
+    return seen
+  }
+
+  it('lists the newest five: kind, tenant, message and when, asking for no total', async () => {
+    const seen = serveAlerts()
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'Billing alerts' })
+    const [duplicate, failing] = await within(card).findAllByRole('listitem')
+    expect(duplicate).toHaveTextContent('Duplicate refunded')
+    expect(duplicate).toHaveTextContent(testBillingAlerts[0]!.message)
+    expect(duplicate!.querySelector('time')).toHaveAttribute('datetime', testBillingAlerts[0]!.at)
+    expect(failing).toHaveTextContent('Provider event failing')
+    expect(seen.at(-1)?.get('limit')).toBe('5')
+    expect(seen.at(-1)?.get('total')).toBeNull()
+  })
+
+  it('links an alert to its tenant’s Billing tab', async () => {
+    serveAlerts()
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'Billing alerts' })
+    expect(await within(card).findByRole('link', { name: 'Acme Corp' })).toHaveAttribute(
+      'href',
+      `/tenants/${TENANT_ID}/billing`
+    )
+  })
+
+  it('shows No tenant, with no link, for an alert without one', async () => {
+    serveAlerts()
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'Billing alerts' })
+    const failing = (await within(card).findAllByRole('listitem'))[1]!
+    expect(failing).toHaveTextContent('No tenant')
+    expect(within(failing).queryByRole('link')).toBeNull()
+  })
+
+  it('links to the full list', async () => {
+    serveAlerts()
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'Billing alerts' })
+    expect(await within(card).findByRole('link', { name: 'Show all alerts' })).toHaveAttribute(
+      'href',
+      '/billing-alerts'
+    )
+  })
+
+  it('says when there are no billing alerts', async () => {
+    serveAlerts(() => ok(listPage([]), 'OK'))
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'Billing alerts' })
+    expect(await within(card).findByText('No billing alerts.')).toBeInTheDocument()
+  })
+
+  it('shows a retryable error in the card alone when the alerts fail', async () => {
+    let calls = 0
+    serveAlerts(() => {
+      calls += 1
+      return calls <= 2 ? fail('Boom', 500) : ok(listPage(testBillingAlerts), 'OK')
+    })
+    const user = userEvent.setup()
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'Billing alerts' })
+    expect(
+      await within(card).findByText('We couldn’t load the billing alerts. Select Try again.')
+    ).toBeInTheDocument()
+    await user.click(within(card).getByRole('button', { name: 'Try again' }))
+    expect(await within(card).findByText('Duplicate refunded')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Key figures' })).toBeInTheDocument()
+  })
+
+  it('hides the card, not the Overview, when the alerts answer 404', async () => {
+    const seen = serveAlerts(() => fail('Not found', 404))
+    renderAppAt('/overview')
+    await screen.findByRole('region', { name: 'Key figures' })
+    await waitFor(() => expect(seen.length).toBeGreaterThan(0))
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Billing alerts' })).not.toBeInTheDocument()
+    )
+    expect(screen.queryByText(/Your role can’t see this any more/)).not.toBeInTheDocument()
+  })
+
+  it.each(['viewer', 'manager'] as const)(
+    'is not shown to a %s, who never asks for it',
+    async (role) => {
+      signIn({ ...testUser, platformRole: role })
+      const seen = serveAlerts()
+      renderAppAt('/overview')
+      await screen.findByRole('region', { name: 'Key figures' })
+      expect(screen.queryByRole('region', { name: 'Billing alerts' })).not.toBeInTheDocument()
+      expect(seen).toHaveLength(0)
+    }
+  )
 })

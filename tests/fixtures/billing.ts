@@ -1,4 +1,5 @@
 import type {
+  BillingAlert,
   BillingSettings,
   StaffBillingEventItem,
   StaffBillingHistoryItem,
@@ -15,7 +16,7 @@ import type {
  * harness and the capture manifest import it too, where the `@/tests` alias
  * does not resolve, so it imports `ids` by path.
  */
-import { STAFF_USER_ID, USER_ID } from './ids'
+import { STAFF_USER_ID, TENANT_ID, USER_ID } from './ids'
 
 /**
  * `GET /platform/plans` as express serves it: Free (3 members, no
@@ -274,5 +275,27 @@ export const testInvoices: StaffInvoiceItem[] = [
     status: 'paid',
     issuedAt: '2026-10-20T09:00:00.000Z',
     paidAt: '2026-10-20T09:00:01.000Z',
+  },
+]
+
+/**
+ * `GET /platform/billing/alerts` rows, newest first: a refunded duplicate for
+ * Acme Corp, and a provider event still failing, which names no tenant.
+ */
+export const testBillingAlerts: BillingAlert[] = [
+  {
+    id: '94000000-0000-4000-8000-000000000001',
+    kind: 'duplicate_refunded',
+    tenant: { id: TENANT_ID, name: 'Acme Corp' },
+    message: 'Acme Corp paid twice for one checkout. We refunded ₹999 for the second payment.',
+    at: '2026-10-26T09:00:00.000Z',
+  },
+  {
+    id: '94000000-0000-4000-8000-000000000002',
+    kind: 'webhook_failing',
+    tenant: null,
+    message:
+      'A provider event is still retrying after an hour of provider outage. It retries for 24 hours. Check the provider’s status page.',
+    at: '2026-10-25T18:30:00.000Z',
   },
 ]

@@ -6,7 +6,6 @@ import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vite-plus/test'
 import { auditKeys } from '@/queries/audit.queries'
 import {
-  billingAlertsList,
   billingAlertsListOptions,
   billingEventsListOptions,
   billingHistoryListOptions,
@@ -24,6 +23,7 @@ import {
 } from '@/queries/billing-admin.queries'
 import {
   billingAdminKeys,
+  billingAlertsList,
   billingEventsList,
   billingHistoryList,
   billingSettingsQueryOptions,

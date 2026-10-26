@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { ACCESS_FILTER, ACTION_FILTER } from '@/components/features/activity/activity-filters'
 import { ActivityTable } from '@/components/features/activity/activity-table'
 import { TenantFilterChip, UserFilterChip } from '@/components/features/emails/email-filter-chips'
+import { PlatformNotFound } from '@/components/features/platform-not-found'
 import { RoleDenied } from '@/components/features/role-denied'
 import type { DataTableFilter } from '@/components/shared/data-table/data-table-model'
 import { useListQuery } from '@/components/shared/data-table/use-list-query'
@@ -12,7 +13,6 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
-import { ROUTES } from '@/constants/routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { fullName } from '@/lib/format'
 import { isRoleDenied } from '@/lib/role-denied'
@@ -30,30 +30,6 @@ export const Route = createFileRoute('/_app/activity')({
   staticData: { crumb: 'Activity' },
   component: PlatformActivityPage,
 })
-
-/**
- * The panel for staff below admin, matching the API: the page never confirms it
- * exists to someone it refuses.
- */
-function PlatformNotFound() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h1>Page not available</h1>
-        </CardTitle>
-        <CardDescription>
-          This page does not exist, or it is not available to your account.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Link to={ROUTES.overview} className="text-sm underline underline-offset-4">
-          Back to the overview
-        </Link>
-      </CardContent>
-    </Card>
-  )
-}
 
 /**
  * Every tenant's activity, filtered by tenant, action, actor and access path,

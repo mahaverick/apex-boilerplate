@@ -2,6 +2,7 @@ import '@/lib/zod-jitless'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
+import { BillingAlertsCard } from '@/components/features/overview/billing-alerts-card'
 import { EmailsChart } from '@/components/features/overview/emails-chart'
 import { KpiCards } from '@/components/features/overview/kpi-cards'
 import { RANGE_LABELS } from '@/components/features/overview/range'
@@ -54,8 +55,8 @@ function OverviewSkeleton() {
  * One request feeds every figure and chart, through `QueryState`: one
  * skeleton shaped like the loaded layout and one page-level error or
  * role-denied state; `SectionBoundary` isolates each widget's render error.
- * Admins also get the system status card, which has its own request and its
- * own states.
+ * Admins also get the system status and billing alerts cards, each with its
+ * own request and its own states.
  */
 function OverviewPage() {
   const { range } = Route.useSearch()
@@ -111,6 +112,11 @@ function OverviewPage() {
       {isAdmin && (
         <SectionBoundary name="System status">
           <SystemStatusCard />
+        </SectionBoundary>
+      )}
+      {isAdmin && (
+        <SectionBoundary name="Billing alerts">
+          <BillingAlertsCard />
         </SectionBoundary>
       )}
     </div>
