@@ -3,14 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { AlertTenant } from '@/components/features/billing/billing-alert-tenant'
 import { LoadError } from '@/components/features/load-error'
 import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BILLING_ALERT_KIND_LABELS } from '@/constants/billing-labels'
 import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/use-now'
@@ -39,7 +32,6 @@ export function BillingAlertsCard() {
           <CardTitle>
             <h2 id="billing-alerts">Billing alerts</h2>
           </CardTitle>
-          <CardDescription>The newest {CARD_ALERTS}, newest first</CardDescription>
           <CardAction>
             <Link to={ROUTES.billingAlerts} className="text-sm underline underline-offset-4">
               Show all alerts

@@ -34,7 +34,7 @@ function BillingAlerts() {
           <h1>Billing alerts</h1>
         </CardTitle>
         <CardDescription>
-          What the billing jobs and the payment provider reported, across all tenants, newest first.
+          What the billing jobs and the payment provider reported, across all tenants.
         </CardDescription>
       </CardHeader>
       <CardContent>
