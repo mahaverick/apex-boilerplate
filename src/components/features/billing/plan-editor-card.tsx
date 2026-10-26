@@ -56,8 +56,13 @@ import {
 /** What an unchanged save says. */
 const UNCHANGED = 'Change a field before saving.'
 
-/** What a save says when another staff member saved the plan first. */
-const CONFLICT = 'Another staff member changed this plan. Review the latest values and save again.'
+/** What a save says once another staff member's plan is loaded into the form. */
+const CONFLICT =
+  'Another staff member changed this plan. We loaded their values and kept what you typed. Review and save again.'
+
+/** What a save says while another staff member's plan has not loaded. */
+const CONFLICT_UNLOADED =
+  'Another staff member changed this plan, and their values didn’t load. Select Try again, then save again.'
 
 /**
  * One plan's card: its name, description, the tenants it serves and every
@@ -149,7 +154,8 @@ interface EntitlementBaseline {
  * (409 `PLAN_VERSION_CONFLICT`), the plans reload, each field this reader
  * left alone takes the saved value, each field they typed in keeps it, and
  * the baselines move to the saved plan, so the next save re-previews against
- * it.
+ * it. If the reload fails, the card says so and saves nothing until a later
+ * Save finds the plans loaded.
  */
 function PlanEditor({
   plan,
@@ -171,6 +177,7 @@ function PlanEditor({
     UNCHANGED
   )
   const [heldEntitlements, holdEntitlements] = useState<EntitlementBaseline | null>(null)
+  const [awaitingReload, setAwaitingReload] = useState(false)
   const entitlementBaseline = heldEntitlements ?? {
     version: plan.version,
     entitlements: plan.entitlements,
@@ -207,6 +214,10 @@ function PlanEditor({
       },
     },
     onSubmit: async ({ value }) => {
+      if (awaitingReload) {
+        rebaseOnConflict()
+        return
+      }
       const changedDetails = details.changes.parse(value)
       const entitlements = entitlementChanges.parse(value)
       const hasEntitlements = Object.keys(entitlements).length > 0
@@ -232,19 +243,27 @@ function PlanEditor({
     },
   })
 
-  /** Moves the form onto the plan another staff member just saved, keeping what this reader typed. */
+  /**
+   * Moves the form onto the plan another staff member just saved, keeping
+   * what this reader typed, once the plans have reloaded. Until then (the
+   * reload failed, and the page shows its Try again), it says their values
+   * didn't load, and each Save checks again instead of saving.
+   */
   function rebaseOnConflict() {
-    const fresh = queryClient
-      .getQueryData<StaffPlans>(billingAdminKeys.plans)
-      ?.plans.find((candidate) => candidate.id === plan.id)
-    if (fresh !== undefined) {
-      const freshForm = planEditForm(fresh, catalog)
-      for (const [name, value] of fieldsAfterConflict(form.state.values, loadedForm, freshForm)) {
-        form.setFieldValue(name as keyof PlanEditForm, value as never)
-      }
-      details.rebase({ name: fresh.name, description: fresh.description })
-      holdEntitlements({ version: fresh.version, entitlements: fresh.entitlements })
+    const state = queryClient.getQueryState<StaffPlans>(billingAdminKeys.plans)
+    const fresh = state?.data?.plans.find((candidate) => candidate.id === plan.id)
+    if (state?.status !== 'success' || fresh === undefined) {
+      setAwaitingReload(true)
+      serverErrors.setFormErrors([CONFLICT_UNLOADED])
+      return
     }
+    const freshForm = planEditForm(fresh, catalog)
+    for (const [name, value] of fieldsAfterConflict(form.state.values, loadedForm, freshForm)) {
+      form.setFieldValue(name as keyof PlanEditForm, value as never)
+    }
+    details.rebase({ name: fresh.name, description: fresh.description })
+    holdEntitlements({ version: fresh.version, entitlements: fresh.entitlements })
+    setAwaitingReload(false)
     serverErrors.setFormErrors([CONFLICT])
   }
 

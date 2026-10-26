@@ -498,7 +498,7 @@ describe('Plans page', () => {
 
       expect(
         await within(free).findByText(
-          'Another staff member changed this plan. Review the latest values and save again.'
+          'Another staff member changed this plan. We loaded their values and kept what you typed. Review and save again.'
         )
       ).toBeInTheDocument()
       await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
@@ -516,6 +516,68 @@ describe('Plans page', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Save' }))
       await waitFor(() => expect(success).toHaveBeenCalledWith('Starter saved.'))
       expect(saves[1]).toEqual({ version: 2, name: 'Starter', reason: 'Rename' })
+    })
+  })
+
+  describe('a conflict whose reload fails', () => {
+    it('says their values didn’t load, saves nothing, and loads them once the reload works', async () => {
+      const theirs: StaffPlan = { ...FREE, version: 2, description: 'Their new description.' }
+      let reads = 0
+      let failReads = true
+      server.use(
+        http.get('/api/v1/platform/plans', () => {
+          reads += 1
+          if (reads === 1) return ok(testPlans, 'Plans retrieved.')
+          return failReads
+            ? fail('Boom', 500)
+            : ok({ ...testPlans, plans: [theirs, PAID] }, 'Plans retrieved.')
+        })
+      )
+      const previews = recordPreview(FREE, freePreview([]))
+      const saves: unknown[] = []
+      server.use(
+        http.patch(`/api/v1/platform/plans/${FREE.id}`, async ({ request }) => {
+          saves.push(await request.json())
+          return fail('Someone changed the plan.', 409, 'PLAN_VERSION_CONFLICT')
+        })
+      )
+      const user = userEvent.setup()
+      openPlans()
+      const free = await card('Free')
+      const name = within(free).getByRole('textbox', { name: 'Name' })
+      await user.clear(name)
+      await user.type(name, 'Starter')
+      await user.click(within(free).getByRole('button', { name: 'Save Free' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Save Free?' })
+      await user.type(within(dialog).getByLabelText('Reason'), 'Rename')
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+      const unloaded =
+        'Another staff member changed this plan, and their values didn’t load. Select Try again, then save again.'
+      expect(await within(free).findByText(unloaded)).toBeInTheDocument()
+      expect(
+        await screen.findByText('We couldn’t load the plans. Select Try again.')
+      ).toBeInTheDocument()
+      await user.click(within(free).getByRole('button', { name: 'Save Free' }))
+      expect(screen.queryByRole('alertdialog')).toBeNull()
+      expect(saves).toHaveLength(1)
+
+      failReads = false
+      await user.click(screen.getByRole('button', { name: 'Try again' }))
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull())
+      await user.click(within(free).getByRole('button', { name: 'Save Free' }))
+      expect(
+        await within(free).findByText(
+          'Another staff member changed this plan. We loaded their values and kept what you typed. Review and save again.'
+        )
+      ).toBeInTheDocument()
+      expect(name).toHaveValue('Starter')
+      expect(within(free).getByRole('textbox', { name: 'Description' })).toHaveValue(
+        'Their new description.'
+      )
+      expect(screen.queryByRole('alertdialog')).toBeNull()
+      expect(saves).toHaveLength(1)
+      expect(previews).toEqual([])
     })
   })
 
