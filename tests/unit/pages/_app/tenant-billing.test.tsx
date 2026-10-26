@@ -15,6 +15,7 @@ import {
 import { PLATFORM_TENANT_ID, TENANT_ID } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
+import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import type { PlatformTenantDetail } from '@/types/api.types'
@@ -263,6 +264,37 @@ describe('/tenants/$tenantId/billing', () => {
       const card = await summary()
       // Midnight UTC on 20 November is still 19 November in Pago Pago (UTC−11), whatever zone the reader is in.
       await waitFor(() => expect(row(card, 'Paid until')).toBe('19 November 2026'))
+    })
+
+    it('keeps the skeleton until the tenant’s detail gives its time zone', async () => {
+      serve()
+      let release!: () => void
+      const detailGate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      let billingReads = 0
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}`, async () => {
+          await detailGate
+          return ok(
+            { ...detail(), settings: { timezone: 'Pacific/Pago_Pago', locale: 'en' } },
+            'Tenant retrieved.'
+          )
+        }),
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, () => {
+          billingReads += 1
+          return ok(testTenantBilling, 'Billing retrieved.')
+        })
+      )
+      renderAppAt(BILLING)
+      await waitFor(() => expect(billingReads).toBe(1))
+      await settle(200, 'the billing answer renders on the next commit; nothing marks it')
+      // Before the fix the card showed the UTC day (20 November) here, then switched to Pago Pago's.
+      expect(screen.queryByText('20 November 2026')).toBeNull()
+      expect(screen.queryByRole('heading', { name: 'Billing', level: 2 })).toBeNull()
+      release()
+      const card = await summary()
+      expect(row(card, 'Paid until')).toBe('19 November 2026')
     })
 
     it('shows the retired price label', async () => {

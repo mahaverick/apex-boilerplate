@@ -30,6 +30,7 @@ import {
 } from '@/queries/billing-reads.queries'
 import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
+import type { PlatformTenantDetail } from '@/types/api.types'
 import { TENANT_BILLING_NOT_FOUND, type StaffTenantBilling } from '@/types/billing.types'
 
 /** A tenant's Billing tab: its plan and state, usage, grants, and its billing lists. */
@@ -56,11 +57,15 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/billing')({
  * any 404 for a role refusal. The layout hides this tab for it, so only a
  * typed URL lands here. Any other 404 is a refusal (`RoleDenied`); the layout
  * handles an unknown tenant. The lists mount only once the billing read
- * succeeded, since they answer the same 404s.
+ * succeeded, since they answer the same 404s. The skeleton stays until the
+ * tenant's detail has loaded as well: every date reads in its time zone, so
+ * a date shown before it could name a different day.
  */
 function TenantBillingTab() {
   const { tenantId } = Route.useParams()
   const billing = useQuery(staffTenantBillingQueryOptions(tenantId))
+  // The layout reads the detail too; its time zone dates every row, so no date shows before it.
+  const tenant = useQuery(platformTenantQueryOptions(tenantId)).data
   if (billing.isError && codeFrom(billing.error) === TENANT_BILLING_NOT_FOUND) {
     return (
       <EmptyState
@@ -82,7 +87,13 @@ function TenantBillingTab() {
       errorMessage="We couldn’t load this tenant’s billing. Select Try again."
       skeleton={<BillingSkeleton />}
     >
-      {(data) => <TenantBilling tenantId={tenantId} billing={data} />}
+      {(data) =>
+        tenant === undefined ? (
+          <BillingSkeleton />
+        ) : (
+          <TenantBilling tenantId={tenantId} tenant={tenant} billing={data} />
+        )
+      }
     </QueryState>
   )
 }
@@ -112,18 +123,24 @@ function BillingSkeleton() {
  * page and express's billing emails write it, so staff and the customer
  * name the same day.
  */
-function TenantBilling({ tenantId, billing }: { tenantId: string; billing: StaffTenantBilling }) {
+function TenantBilling({
+  tenantId,
+  tenant,
+  billing,
+}: {
+  tenantId: string
+  tenant: PlatformTenantDetail
+  billing: StaffTenantBilling
+}) {
   const plans = useQuery(staffPlansQueryOptions())
-  const tenant = useQuery(platformTenantQueryOptions(tenantId)).data
   const role = useAuthStore((s) => s.user?.platformRole)
   const heading = useRef<HTMLHeadingElement>(null)
   const now = useNow()
   const catalog = plans.data?.catalog ?? []
-  const canRevoke =
-    tenant !== undefined && billingActionsFor(role, tenant, billing, catalog, now).revoke
+  const canRevoke = billingActionsFor(role, tenant, billing, catalog, now).revoke
   const labels = new Map(catalog.map((entry) => [entry.key, entry.label]))
-  // Express and react date a tenant's billing in its zone; UTC, as both do, until the detail is read.
-  const timeZone = tenant?.settings.timezone ?? 'UTC'
+  // Express and react date a tenant's billing in its zone.
+  const timeZone = tenant.settings.timezone
   return (
     <div className="grid gap-6">
       <TenantBillingSummary
@@ -132,14 +149,12 @@ function TenantBilling({ tenantId, billing }: { tenantId: string; billing: Staff
         timeZone={timeZone}
         headingRef={heading}
         actions={
-          tenant === undefined ? undefined : (
-            <BillingActionsMenu
-              tenant={tenant}
-              billing={billing}
-              catalog={catalog}
-              fallbackFocus={heading}
-            />
-          )
+          <BillingActionsMenu
+            tenant={tenant}
+            billing={billing}
+            catalog={catalog}
+            fallbackFocus={heading}
+          />
         }
       />
       <TenantEntitlementsCard billing={billing} catalog={catalog} />
