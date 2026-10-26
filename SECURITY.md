@@ -654,12 +654,12 @@ reactivating, archiving and deleting a tenant; signing a user out
 everywhere, deactivating, reactivating, deleting and permanently deleting a
 user; lifting a suppression; resending an email; marking an onboarding step complete and
 sending an onboarding reminder; resyncing a tenant's billing and revoking a
-grant; saving a plan that lowers nothing; and member and invitation writes
+grant; saving a plan that lowers nothing; saving the trial and grace rules; and member and invitation writes
 through platform access. Reissuing a tenant's owner invitation, extending a
 trial, adding a grant, cancelling a subscription, saving a plan that lowers
 a limit or turns a feature off, and adding a price ask in their own
 dialogs, with the same `reasonSchema`, and every billing write (resync,
-extend trial, add grant, revoke grant, cancel, plan edit, new price) goes
+extend trial, add grant, revoke grant, cancel, plan edit, new price, billing settings) goes
 through step-up. The plan preview writes nothing and takes neither. Other staff writes take no reason:
 creating a user or a tenant, renaming a user, editing a tenant's details,
 sending a user a sign-in link (a confirm dialog with no reason and no step-up), and removing a member of, or

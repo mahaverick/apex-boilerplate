@@ -128,25 +128,53 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     shot: 'plans',
     roleDenied: {
       as: 'viewer',
-      note: 'A viewer: the plans and prices as text, with no edit controls.',
+      note: 'A viewer: the plans, prices, trials and grace as text, with no edit controls.',
     },
     url: '/plans',
     as: 'staff',
     responsive: true,
-    sections: [{ name: 'Plans (Free, Paid, Prices)', endpoints: ['GET /platform/plans'] }],
+    sections: [
+      { name: 'Plans (Free, Paid, Prices)', endpoints: ['GET /platform/plans'] },
+      { name: 'Trials and grace', endpoints: ['GET /platform/billing-settings'] },
+    ],
   },
   '/overview': {
     kind: 'page',
     area: 'overview',
     shot: 'overview',
-    roleDenied: { as: 'viewer', note: 'A viewer: no system status card.' },
+    roleDenied: { as: 'viewer', note: 'A viewer: no system status or billing alerts card.' },
     url: '/overview',
     as: 'staff',
     responsive: true,
     sections: [
       { name: 'Stats (KPIs, charts)', endpoints: ['GET /platform/stats'] },
       { name: 'System status', endpoints: ['GET /platform/system/status'] },
+      { name: 'Billing alerts', endpoints: ['GET /platform/billing/alerts'] },
     ],
+  },
+  '/billing-alerts': {
+    kind: 'page',
+    area: 'plans',
+    shot: 'billing-alerts',
+    roleDenied: {
+      as: 'viewer',
+      note: 'A viewer: the platform-not-found card; no alerts request.',
+    },
+    url: '/billing-alerts',
+    as: 'staff',
+    responsive: true,
+    sections: [{ name: 'Billing alerts', endpoints: ['GET /platform/billing/alerts'] }],
+    empty: {
+      stubs: [
+        {
+          endpoint: 'GET /platform/billing/alerts',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+      ],
+    },
   },
   '/profile': { kind: 'redirect', to: '/settings/account/profile' },
   '/settings': {
