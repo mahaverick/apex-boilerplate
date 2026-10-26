@@ -23,6 +23,14 @@ import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { usePasskeySetupStore } from '@/states/passkey-setup.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
+import {
+  testBillingEvents,
+  testBillingHistory,
+  testBillingSubscriptions,
+  testFreeTenantBilling,
+  testInvoices,
+  testTenantBilling,
+} from '@/tests/fixtures/billing'
 import { byContent } from '@/tests/fixtures/content'
 import { flagsEvaluation, flagsMeta } from '@/tests/fixtures/flags'
 import {
@@ -89,6 +97,7 @@ import {
   type PlatformUserRow,
   type TenantLifecycleState,
 } from '@/types/api.types'
+import type { StaffTenantBilling } from '@/types/billing.types'
 
 // The browser prompt is not under test: it stays open, so the step-up dialog holds its passkey view.
 vi.mock('@/lib/webauthn', async (importOriginal) => ({
@@ -2173,6 +2182,82 @@ describe('onboarding', () => {
     await user.click(await screen.findByRole('button', { name: 'Send reminder' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Send an onboarding reminder?' })
     expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+})
+
+/** A tenant's Billing tab with every section and list filled, while payments are off, with a filter open, and for the platform tenant, which has no billing. */
+describe('tenant billing', () => {
+  beforeEach(() => {
+    signIn()
+  })
+
+  /** Acme, its billing view and every billing list with rows. */
+  function serveBilling(billing: StaffTenantBilling = testTenantBilling) {
+    serveTenant('active')
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, () =>
+        ok(billing, 'Billing retrieved.')
+      ),
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/history`, () =>
+        ok(listPage(testBillingHistory, { nextCursor: 'c2', hasNext: true }), 'ok')
+      ),
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/events`, () =>
+        ok(listPage(testBillingEvents), 'ok')
+      ),
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/subscriptions`, () =>
+        ok(listPage(testBillingSubscriptions), 'ok')
+      ),
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/invoices`, () =>
+        ok(listPage(testInvoices, { nextCursor: 'i2', hasNext: true }), 'ok')
+      )
+    )
+  }
+
+  it('a tenant’s Billing tab with every section filled has no axe violations', async () => {
+    serveBilling({
+      ...testTenantBilling,
+      pendingSubscriptionId: 'sub_TestPending0001',
+      disputeOpen: true,
+    })
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await screen.findByRole('table', { name: 'Grants' })
+    await screen.findByRole('table', { name: 'State history' })
+    await screen.findByRole('table', { name: 'Provider events' })
+    await screen.findByRole('table', { name: 'Subscriptions' })
+    await screen.findByRole('table', { name: 'Invoices' })
+    await screen.findByText('Workspace insights')
+    await expectNoViolations()
+  })
+
+  it('a tenant’s Billing tab while payments are off, with no grants, has no axe violations', async () => {
+    serveBilling({ ...testFreeTenantBilling, paymentsEnabled: false, grants: [] })
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await screen.findByText(/invoices can’t be read from the payment provider/)
+    await screen.findByText('No grants.')
+    await screen.findByRole('table', { name: 'Subscriptions' })
+    await expectNoViolations()
+  })
+
+  it('a tenant’s Billing tab with the invoice status filter open has no axe violations', async () => {
+    serveBilling()
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await screen.findByRole('table', { name: 'Invoices' })
+    await user.click(screen.getByRole('button', { name: 'Filter by status, Invoices' }))
+    await screen.findByRole('dialog', { name: 'Filter by status, Invoices' })
+    await expectNoViolations()
+  })
+
+  it('the platform tenant’s Billing URL, which has no billing, has no axe violations', async () => {
+    serveTenant('active')
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, () =>
+        fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
+      )
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await screen.findByRole('heading', { name: 'This tenant has no billing.' })
     await expectNoViolations()
   })
 })

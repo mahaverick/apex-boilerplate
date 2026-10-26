@@ -19,6 +19,14 @@ import { profileKeys } from '@/queries/profile.queries'
 import { queryClient, router } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
 import {
+  testBillingEvents,
+  testBillingHistory,
+  testBillingSubscriptions,
+  testInvoices,
+  testPlans,
+  testTenantBilling,
+} from '../../tests/fixtures/billing'
+import {
   AUDIT_ID_1,
   AUDIT_ID_2,
   EMAIL_ATTEMPT_ID,
@@ -503,8 +511,21 @@ const TENANT_DETAIL_BASE = {
  * owner; Beta is suspended, with its own details and one owner, so its tabs
  * render frozen; Delta is active with no owner at all, so its Actions menu
  * offers the owner invitation. Delta is on no list: only its own page is reached.
+ * The platform tenant (the staff team) has a page too, with no Billing tab.
  */
 function tenantDetail(tenantId: string) {
+  if (tenantId === PLATFORM_TENANT_ID) {
+    return {
+      ...TENANT_DETAIL_BASE,
+      ...PLATFORM,
+      lifecycleState: 'active',
+      description: null,
+      website: null,
+      memberCount: MEMBERS.length,
+      owners: [],
+      pendingInvitationCount: 0,
+    }
+  }
   if (tenantId === TENANT_ID_4) {
     return {
       ...TENANT_DETAIL_BASE,
@@ -1684,6 +1705,58 @@ const worker = setupWorker(
   http.get('/api/v1/platform/tenants/:tenantId/onboarding', ({ params }) =>
     ok(tenantOnboarding(String(params.tenantId)), 'Tenant onboarding retrieved.')
   ),
+  // The plans, and a tenant's Billing tab: every customer tenant reads as a monthly Paid customer, and the platform tenant has no billing, as express answers.
+  http.get('/api/v1/platform/plans', () => ok(testPlans, 'Plans retrieved.')),
+  http.get('/api/v1/platform/tenants/:tenantId/billing', ({ params }) =>
+    params.tenantId === PLATFORM_TENANT_ID
+      ? fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
+      : ok(testTenantBilling, 'Billing retrieved.')
+  ),
+  http.get('/api/v1/platform/tenants/:tenantId/billing/history', ({ request }) =>
+    ok(
+      serveList(testBillingHistory, new URL(request.url).searchParams, {
+        searchIn: (row) => [row.from ?? '', row.to, row.cause],
+        filters: { source: (row, values) => values.includes(row.source) },
+        sorts: { at: (a, b) => a.at.localeCompare(b.at) },
+      }),
+      'Billing history retrieved.'
+    )
+  ),
+  http.get('/api/v1/platform/tenants/:tenantId/billing/events', ({ request }) =>
+    ok(
+      serveList(testBillingEvents, new URL(request.url).searchParams, {
+        searchIn: (row) => [row.type, row.error ?? ''],
+        filters: { status: (row, values) => values.includes(row.status) },
+        sorts: { at: (a, b) => a.receivedAt.localeCompare(b.receivedAt) },
+      }),
+      'Billing events retrieved.'
+    )
+  ),
+  http.get('/api/v1/platform/tenants/:tenantId/billing/subscriptions', ({ request }) =>
+    ok(
+      serveList(testBillingSubscriptions, new URL(request.url).searchParams, {
+        searchIn: (row) => [row.subscriptionId],
+        filters: {
+          provider: (row, values) => values.includes(row.provider),
+          mode: (row, values) => values.includes(row.mode),
+        },
+        sorts: { firstSeen: (a, b) => a.firstSeenAt.localeCompare(b.firstSeenAt) },
+      }),
+      'Billing subscriptions retrieved.'
+    )
+  ),
+  // Forward only, as express pages the provider: the first page is empty with more to come, and the cursor's page holds the invoice; search and sort are ignored.
+  http.get('/api/v1/platform/tenants/:tenantId/billing/invoices', ({ request }) => {
+    const params = new URL(request.url).searchParams
+    const status = params.get('status')?.split(',')
+    const items = testInvoices.filter((row) => status === undefined || status.includes(row.status))
+    return ok(
+      params.has('cursor')
+        ? listPage(items, { hasPrev: true })
+        : listPage([], { nextCursor: 'i2', hasNext: true }),
+      'Invoices retrieved.'
+    )
+  }),
   // Acme's own routes, which its Members, Invitations and Activity tabs read. Beta's are never called: a suspended tenant's tabs make no tenant-route request.
   http.get('/api/v1/tenants/acme', () =>
     ok(
