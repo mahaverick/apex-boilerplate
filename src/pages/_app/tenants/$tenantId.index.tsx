@@ -98,7 +98,7 @@ function TenantOverviewTab() {
           </CardContent>
         </Card>
       </div>
-      <TenantHistoryCard tenantId={data.id} />
+      <TenantHistoryCard tenantId={data.id} timeZone={data.settings.timezone} />
     </div>
   )
 }

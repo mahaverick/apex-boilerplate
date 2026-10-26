@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http } from 'msw'
-import { beforeEach, describe, expect, it } from 'vite-plus/test'
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import type { MembershipRole } from '@/constants/roles'
 import { billingAdminKeys } from '@/queries/billing-reads.queries'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
@@ -93,6 +93,29 @@ function serve(tenant: PlatformTenantDetail, effectiveRole: MembershipRole = 'ad
     })
   )
   return internal
+}
+
+/** A grant chosen to end on 26 November in New York, stored as the end of that day there. */
+const NEW_YORK_GRANT = {
+  action: 'billing.grant_added',
+  access: 'platform',
+  actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
+  target: { type: 'tenant', id: TENANT_ID },
+  metadata: { key: 'members', value: null, expiresAt: '2026-11-27T04:59:59.999Z', reason: 'pilot' },
+  occurredAt: '2026-10-27T09:00:00.000Z',
+} as const
+
+/** Moves the reader's zone ahead of UTC for the enclosing tests, then restores it. */
+function readAheadOfUtc() {
+  let readerZone: string | undefined
+  beforeEach(() => {
+    readerZone = process.env.TZ
+    process.env.TZ = 'Asia/Kolkata'
+  })
+  afterEach(() => {
+    if (readerZone === undefined) delete process.env.TZ
+    else process.env.TZ = readerZone
+  })
 }
 
 describe('/tenants/$tenantId', () => {
@@ -987,6 +1010,8 @@ describe('/tenants/$tenantId', () => {
   })
 
   describe('overview', () => {
+    readAheadOfUtc()
+
     it('says an ownerless tenant’s invitation is pending, and when it expires', async () => {
       serve(
         detail({
@@ -1081,6 +1106,29 @@ describe('/tenants/$tenantId', () => {
       expect(within(card).queryByRole('link', { name: 'View tenant' })).not.toBeInTheDocument()
     })
 
+    it('names a grant’s end in the tenant’s zone in its History card, wherever the reader is', async () => {
+      serve(detail({ settings: { timezone: 'America/New_York', locale: 'en' } }))
+      server.use(
+        http.get('/api/v1/platform/audit-log', () =>
+          ok(
+            listPage([
+              {
+                ...NEW_YORK_GRANT,
+                id: AUDIT_ID_1,
+                tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
+              },
+            ]),
+            'Audit log retrieved.'
+          )
+        )
+      )
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const card = await screen.findByRole('region', { name: 'Staff actions on this tenant' })
+      expect(
+        await within(card).findByText('granted Members (no limit) until 26 November 2026: “pilot”')
+      ).toBeInTheDocument()
+    })
+
     it('says so when no staff action is filed under the tenant, and hides the card from a viewer', async () => {
       serve(detail())
       const { unmount } = renderAppAt(`/tenants/${TENANT_ID}`)
@@ -1112,6 +1160,8 @@ describe('/tenants/$tenantId', () => {
   })
 
   describe('tabs', () => {
+    readAheadOfUtc()
+
     it('lists the tenant’s activity for an effective admin', async () => {
       serve(detail())
       server.use(
@@ -1134,6 +1184,19 @@ describe('/tenants/$tenantId', () => {
       )
       renderAppAt(`/tenants/${TENANT_ID}/activity`)
       expect(await screen.findByText('Olive Owner')).toBeInTheDocument()
+    })
+
+    it('names a grant’s end in the tenant’s zone on the Activity tab, wherever the reader is', async () => {
+      serve(detail({ settings: { timezone: 'America/New_York', locale: 'en' } }))
+      server.use(
+        http.get('/api/v1/tenants/acme/audit-log', () =>
+          ok(listPage([{ ...NEW_YORK_GRANT, id: AUDIT_ID_1 }]), 'ok')
+        )
+      )
+      renderAppAt(`/tenants/${TENANT_ID}/activity`)
+      expect(
+        await screen.findByText('granted Members (no limit) until 26 November 2026: “pilot”')
+      ).toBeInTheDocument()
     })
 
     it('pages the tenant’s activity with Next page, and filters it by action through ?action=', async () => {

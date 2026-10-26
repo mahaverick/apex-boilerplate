@@ -208,6 +208,37 @@ describe('platform activity page', () => {
     expect(row.getByText('Staff')).toBeInTheDocument()
   })
 
+  it('names a grant’s end in UTC, zone said, since the log spans tenants in many zones', async () => {
+    const readerZone = process.env.TZ
+    process.env.TZ = 'Asia/Kolkata'
+    try {
+      signInAs('admin')
+      mockLog(() =>
+        page([
+          {
+            ...STAFF_VISIT,
+            action: 'billing.grant_added',
+            metadata: {
+              key: 'members',
+              value: null,
+              expiresAt: '2026-11-26T23:59:59.999Z',
+              reason: 'pilot',
+            },
+          },
+        ])
+      )
+      renderPlatformActivity()
+      expect(
+        await screen.findByText(
+          'granted Members (no limit) until 26 November 2026 at 23:59 UTC: “pilot”'
+        )
+      ).toBeInTheDocument()
+    } finally {
+      if (readerZone === undefined) delete process.env.TZ
+      else process.env.TZ = readerZone
+    }
+  })
+
   // A relative time read once at render froze at "just now" while the page stayed open.
   it('moves its relative times on as the clock ticks', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })

@@ -38,11 +38,19 @@ function TenantActivityTab() {
   if (data.lifecycleState !== 'active') {
     return <FrozenTenant state={data.lifecycleState} canReactivate={isAdmin} />
   }
-  return <TenantActivity slug={data.slug} tenantId={data.id} />
+  return <TenantActivity slug={data.slug} tenantId={data.id} timeZone={data.settings.timezone} />
 }
 
-/** The tenant's audit log: effective owner or admin, as its route requires. */
-function TenantActivity({ slug, tenantId }: { slug: string; tenantId: string }) {
+/** The tenant's audit log: effective owner or admin, as its route requires. Its billing dates read in the tenant's zone. */
+function TenantActivity({
+  slug,
+  tenantId,
+  timeZone,
+}: {
+  slug: string
+  tenantId: string
+  timeZone: string
+}) {
   const { role, isPending, isError, retry } = useMyRole(slug, tenantId)
   const allowed = role !== undefined && canViewActivity(role)
   const list = useListSearch(tenantActivityList)
@@ -62,6 +70,7 @@ function TenantActivity({ slug, tenantId }: { slug: string; tenantId: string }) 
     <ActivityTable
       query={log}
       filters={[ACTION_FILTER]}
+      timeZone={timeZone}
       empty={<EmptyState size="compact" title="Nothing has happened in this tenant yet." />}
     />
   )

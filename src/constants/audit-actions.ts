@@ -3,11 +3,12 @@ import {
   type AuditAction,
   type RetiredAuditAction,
 } from '@/constants/audit-action-names'
+import { billingDateTime } from '@/constants/billing-labels'
 import { templateLabel } from '@/constants/email.constants'
 import { entitlementLabel } from '@/constants/entitlements'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
-import { formatInr } from '@/lib/billing-format'
-import { formatCount, formatDate } from '@/lib/format'
+import { formatBillingDate, formatInr } from '@/lib/billing-format'
+import { formatCount } from '@/lib/format'
 import { countOf } from '@/lib/plural'
 
 export { AUDIT_ACTIONS, type AuditAction }
@@ -192,21 +193,38 @@ function grantKey(metadata: Metadata): string {
 }
 
 /**
- * A trial staff set, which extends a running trial or starts one on a Free
- * tenant: "set the trial to end on 9 Nov 2026 (7 days)". The end and the days
- * are each left out when missing or mistyped.
+ * The day a billing entry's moment falls on in the tenant's zone, as the
+ * Billing tab writes it ("26 November 2026"), so the log and the tab name the
+ * same day. Without the zone (a log across tenants) the day alone would be a
+ * guess, so it names the moment in UTC with the zone said: "26 November 2026
+ * at 23:59 UTC". Null when the value is missing or not a date.
+ * @param iso - The stored moment.
+ * @param timeZone - The tenant's `settings.timezone`, or undefined when the log spans tenants.
  */
-function trialSet(metadata: Metadata): string {
+function billingDay(iso: string | undefined, timeZone: string | undefined): string | null {
+  if (iso === undefined || Number.isNaN(new Date(iso).getTime())) return null
+  return timeZone === undefined ? billingDateTime(iso, 'UTC') : formatBillingDate(iso, timeZone)
+}
+
+/**
+ * A trial staff set, which extends a running trial or starts one on a Free
+ * tenant: "set the trial to end on 9 November 2026 (7 days)". The end and the
+ * days are each left out when missing or mistyped.
+ */
+function trialSet(metadata: Metadata, timeZone: string | undefined): string {
   const days = metadata.days
-  const ends = text(metadata, 'trialEndsAt')
-  const date = ends === undefined ? null : formatDate(ends, 'medium')
+  const date = billingDay(text(metadata, 'trialEndsAt'), timeZone)
   const length = typeof days === 'number' ? countOf(days, 'days') : null
   if (date === null) return length === null ? 'set the trial' : `set the trial (${length})`
   return `set the trial to end on ${date}${length === null ? '' : ` (${length})`}`
 }
 
-/** A grant's value and end: "granted members (10) until 1 Dec 2026", "granted members (no limit)". */
-function grantAdded(metadata: Metadata): string {
+/**
+ * A grant's value and end: "granted Members (10) until 1 December 2026",
+ * "granted Members (no limit)". The end is the last moment of the day staff
+ * chose, in the tenant's zone, so it reads as that day there.
+ */
+function grantAdded(metadata: Metadata, timeZone: string | undefined): string {
   const value = metadata.value
   const shown =
     value === null
@@ -216,8 +234,7 @@ function grantAdded(metadata: Metadata): string {
         : typeof value === 'number'
           ? ` (${formatCount(value)})`
           : ''
-  const expires = text(metadata, 'expiresAt')
-  const until = expires === undefined ? null : formatDate(expires, 'medium')
+  const until = billingDay(text(metadata, 'expiresAt'), timeZone)
   return `granted ${grantKey(metadata)}${shown}${until === null ? '' : ` until ${until}`}`
 }
 
@@ -264,105 +281,112 @@ function because(metadata: Metadata): string {
   return reason ? `: “${reason}”` : ''
 }
 
-const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
-  'tenant.created': (m) => `created the tenant “${text(m, 'name') ?? 'unnamed'}”`,
-  'tenant.updated': (m) => `updated the tenant${changedFields(m)}`,
-  'tenant.settings_updated': (m) => `changed the settings${changedFields(m)}`,
-  'member.role_changed': (m) =>
-    `changed a member’s role from ${roleLabel(m, 'from')} to ${roleLabel(m, 'to')}`,
-  'member.removed': (m) =>
-    m.self === true ? 'left the tenant' : `removed a member (${roleLabel(m, 'role')})`,
-  'member.left': () => 'left the tenant',
-  'invitation.created': (m) => `invited someone at ${domain(m)} as ${roleLabel(m, 'role')}`,
-  'invitation.resent': (m) => `resent the invitation to someone at ${domain(m)}`,
-  'invitation.revoked': (m) => `revoked the invitation to someone at ${domain(m)}`,
-  'invitation.accepted': (m) => `accepted an invitation as ${roleLabel(m, 'role')}`,
-  'platform.member.granted': (m) => `granted a platform member the ${roleLabel(m, 'role')} role`,
-  'tenant.accessed_by_platform': (m) =>
-    `opened this tenant as platform staff (${roleLabel(m, 'platformRole')})`,
-  'tenant.suspended': (m) => `suspended the tenant${because(m)}`,
-  'tenant.reactivated': (m) => `reactivated the tenant${because(m)}`,
-  'tenant.archived': (m) => `archived the tenant${because(m)}`,
-  'tenant.owner_invited': (m) => `invited someone at ${domain(m)} as the owner${because(m)}`,
-  'user.created': (m) => `created an account for someone at ${domain(m)}`,
-  'user.updated': (m) => `updated a user${changedFields(m)}`,
-  'user.deactivated': (m) => `deactivated a user${because(m)}`,
-  'user.reactivated': (m) => `reactivated a user${because(m)}`,
-  'user.signed_out': (m) => `signed a user out everywhere${because(m)}`,
-  'user.sign_in_link_sent': (m) =>
-    m.app === 'apex' ? 'sent a staff member a sign-in link to Apex' : 'sent a user a sign-in link',
-  'user.passkey_created': (m) => `created a passkey${providerNote(m)}${where(m)}`,
-  'user.passkey_deleted': (m) => `deleted a passkey${providerNote(m)}${where(m)}`,
-  'user.passkeys_cleared_on_claim': (m) =>
-    typeof m.count === 'number'
-      ? `deleted ${m.count} ${m.count === 1 ? 'passkey' : 'passkeys'} from an unverified account when its owner claimed it`
-      : 'deleted the passkeys on an unverified account when its owner claimed it',
-  'user.deleted': (m) => `deleted a user${because(m)}`,
-  'user.purged': (m) => `permanently deleted a user${because(m)}`,
-  'tenant.purged': (m) => {
-    const name = text(m, 'name')
-    return `permanently deleted ${name ? `the tenant ${name}` : 'a tenant'}${because(m)}`
-  },
-  // Apex confirms by passkey or email link; the `'google'` arms label rows written before Google step-up was dropped.
-  'auth.step_up_confirmed': (m) =>
-    m.method === 'google'
-      ? 'confirmed it was them with Google'
-      : m.method === 'passkey'
-        ? 'confirmed it was them with a passkey'
-        : 'confirmed it was them by email link',
-  'auth.step_up_refused': (m) =>
-    m.method === 'google'
-      ? 'failed a Google identity check'
-      : 'failed an email-link identity check',
-  'email.resent': (m) => {
-    const template = text(m, 'templateKey')
-    const which = template === undefined ? '' : ` (${templateLabel(template)})`
-    return `resent an email${which} to someone at ${domain(m)}${because(m)}`
-  },
-  'email.suppression_lifted': (m) =>
-    `lifted the email suppression on an address at ${domain(m)}${because(m)}`,
-  'onboarding.dismissed': () => 'dismissed the getting-started checklist',
-  'onboarding.undismissed': () => 'brought back the getting-started checklist',
-  'onboarding.step_completed': (m) => {
-    const step = text(m, 'stepKey')
-    const which = step === undefined ? 'an onboarding step' : `the onboarding step “${step}”`
-    return `marked ${which} complete${because(m)}`
-  },
-  'onboarding.reminder_sent': (m) =>
-    `sent an onboarding reminder to ${reminderRecipients(m)}${because(m)}`,
-  'user.flags_evaluated': (m) => `evaluated a user’s feature flags${flagsEvaluatedFor(m)}`,
-  'platform.maintenance_mode_changed': (m) => `${maintenanceChange(m)}${because(m)}`,
-  'billing.checkout_started': (m) => {
-    const every = cadence(m)
-    return every === undefined ? 'started a Paid checkout' : `started a ${every} Paid checkout`
-  },
-  // Express records a cycle-end cancel, a past-due cancel and an uncharged one (both now) alike, with no metadata.
-  'billing.cancel_scheduled': () => 'cancelled Paid',
-  'billing.interval_switch_scheduled': (m) => {
-    const every = cadence(m)
-    return every === undefined
-      ? 'scheduled a billing switch'
-      : `scheduled a switch to ${every} billing`
-  },
-  'billing.card_change_started': () => 'started a payment method change',
-  'billing.grant_expired': (m) => `marked the ${grantKey(m)} grant expired`,
-  'billing.viewed': () => 'viewed the tenant’s billing',
-  'billing.resynced': (m) => `resynced billing with the payment provider${because(m)}`,
-  'billing.trial_extended': (m) => `${trialSet(m)}${because(m)}`,
-  'billing.grant_added': (m) => `${grantAdded(m)}${because(m)}`,
-  'billing.grant_revoked': (m) => `revoked the ${grantKey(m)} grant${because(m)}`,
-  'billing.cancelled_by_staff': (m) => {
-    const when = text(m, 'when')
-    const at = when === 'now' ? ' now' : when === 'cycle_end' ? ' at its period end' : ''
-    return `cancelled the subscription${at}${because(m)}`
-  },
-  'plan.updated': (m) => {
-    const name = editedPlanName(m)
-    return `${name === undefined ? 'edited a plan' : `edited the ${name} plan`}${because(m)}`
-  },
-  'plan.price_created': (m) => `${priceCreated(m)}${because(m)}`,
-  'billing.settings_updated': (m) => `${settingsChange(m)}${because(m)}`,
-}
+/**
+ * Each action's sentence, from its metadata and, for the billing dates, the
+ * tenant's zone (undefined on a log across tenants).
+ */
+const SENTENCES: Record<AuditAction, (metadata: Metadata, timeZone: string | undefined) => string> =
+  {
+    'tenant.created': (m) => `created the tenant “${text(m, 'name') ?? 'unnamed'}”`,
+    'tenant.updated': (m) => `updated the tenant${changedFields(m)}`,
+    'tenant.settings_updated': (m) => `changed the settings${changedFields(m)}`,
+    'member.role_changed': (m) =>
+      `changed a member’s role from ${roleLabel(m, 'from')} to ${roleLabel(m, 'to')}`,
+    'member.removed': (m) =>
+      m.self === true ? 'left the tenant' : `removed a member (${roleLabel(m, 'role')})`,
+    'member.left': () => 'left the tenant',
+    'invitation.created': (m) => `invited someone at ${domain(m)} as ${roleLabel(m, 'role')}`,
+    'invitation.resent': (m) => `resent the invitation to someone at ${domain(m)}`,
+    'invitation.revoked': (m) => `revoked the invitation to someone at ${domain(m)}`,
+    'invitation.accepted': (m) => `accepted an invitation as ${roleLabel(m, 'role')}`,
+    'platform.member.granted': (m) => `granted a platform member the ${roleLabel(m, 'role')} role`,
+    'tenant.accessed_by_platform': (m) =>
+      `opened this tenant as platform staff (${roleLabel(m, 'platformRole')})`,
+    'tenant.suspended': (m) => `suspended the tenant${because(m)}`,
+    'tenant.reactivated': (m) => `reactivated the tenant${because(m)}`,
+    'tenant.archived': (m) => `archived the tenant${because(m)}`,
+    'tenant.owner_invited': (m) => `invited someone at ${domain(m)} as the owner${because(m)}`,
+    'user.created': (m) => `created an account for someone at ${domain(m)}`,
+    'user.updated': (m) => `updated a user${changedFields(m)}`,
+    'user.deactivated': (m) => `deactivated a user${because(m)}`,
+    'user.reactivated': (m) => `reactivated a user${because(m)}`,
+    'user.signed_out': (m) => `signed a user out everywhere${because(m)}`,
+    'user.sign_in_link_sent': (m) =>
+      m.app === 'apex'
+        ? 'sent a staff member a sign-in link to Apex'
+        : 'sent a user a sign-in link',
+    'user.passkey_created': (m) => `created a passkey${providerNote(m)}${where(m)}`,
+    'user.passkey_deleted': (m) => `deleted a passkey${providerNote(m)}${where(m)}`,
+    'user.passkeys_cleared_on_claim': (m) =>
+      typeof m.count === 'number'
+        ? `deleted ${m.count} ${m.count === 1 ? 'passkey' : 'passkeys'} from an unverified account when its owner claimed it`
+        : 'deleted the passkeys on an unverified account when its owner claimed it',
+    'user.deleted': (m) => `deleted a user${because(m)}`,
+    'user.purged': (m) => `permanently deleted a user${because(m)}`,
+    'tenant.purged': (m) => {
+      const name = text(m, 'name')
+      return `permanently deleted ${name ? `the tenant ${name}` : 'a tenant'}${because(m)}`
+    },
+    // Apex confirms by passkey or email link; the `'google'` arms label rows written before Google step-up was dropped.
+    'auth.step_up_confirmed': (m) =>
+      m.method === 'google'
+        ? 'confirmed it was them with Google'
+        : m.method === 'passkey'
+          ? 'confirmed it was them with a passkey'
+          : 'confirmed it was them by email link',
+    'auth.step_up_refused': (m) =>
+      m.method === 'google'
+        ? 'failed a Google identity check'
+        : 'failed an email-link identity check',
+    'email.resent': (m) => {
+      const template = text(m, 'templateKey')
+      const which = template === undefined ? '' : ` (${templateLabel(template)})`
+      return `resent an email${which} to someone at ${domain(m)}${because(m)}`
+    },
+    'email.suppression_lifted': (m) =>
+      `lifted the email suppression on an address at ${domain(m)}${because(m)}`,
+    'onboarding.dismissed': () => 'dismissed the getting-started checklist',
+    'onboarding.undismissed': () => 'brought back the getting-started checklist',
+    'onboarding.step_completed': (m) => {
+      const step = text(m, 'stepKey')
+      const which = step === undefined ? 'an onboarding step' : `the onboarding step “${step}”`
+      return `marked ${which} complete${because(m)}`
+    },
+    'onboarding.reminder_sent': (m) =>
+      `sent an onboarding reminder to ${reminderRecipients(m)}${because(m)}`,
+    'user.flags_evaluated': (m) => `evaluated a user’s feature flags${flagsEvaluatedFor(m)}`,
+    'platform.maintenance_mode_changed': (m) => `${maintenanceChange(m)}${because(m)}`,
+    'billing.checkout_started': (m) => {
+      const every = cadence(m)
+      return every === undefined ? 'started a Paid checkout' : `started a ${every} Paid checkout`
+    },
+    // Express records a cycle-end cancel, a past-due cancel and an uncharged one (both now) alike, with no metadata.
+    'billing.cancel_scheduled': () => 'cancelled Paid',
+    'billing.interval_switch_scheduled': (m) => {
+      const every = cadence(m)
+      return every === undefined
+        ? 'scheduled a billing switch'
+        : `scheduled a switch to ${every} billing`
+    },
+    'billing.card_change_started': () => 'started a payment method change',
+    'billing.grant_expired': (m) => `marked the ${grantKey(m)} grant expired`,
+    'billing.viewed': () => 'viewed the tenant’s billing',
+    'billing.resynced': (m) => `resynced billing with the payment provider${because(m)}`,
+    'billing.trial_extended': (m, zone) => `${trialSet(m, zone)}${because(m)}`,
+    'billing.grant_added': (m, zone) => `${grantAdded(m, zone)}${because(m)}`,
+    'billing.grant_revoked': (m) => `revoked the ${grantKey(m)} grant${because(m)}`,
+    'billing.cancelled_by_staff': (m) => {
+      const when = text(m, 'when')
+      const at = when === 'now' ? ' now' : when === 'cycle_end' ? ' at its period end' : ''
+      return `cancelled the subscription${at}${because(m)}`
+    },
+    'plan.updated': (m) => {
+      const name = editedPlanName(m)
+      return `${name === undefined ? 'edited a plan' : `edited the ${name} plan`}${because(m)}`
+    },
+    'plan.price_created': (m) => `${priceCreated(m)}${because(m)}`,
+    'billing.settings_updated': (m) => `${settingsChange(m)}${because(m)}`,
+  }
 
 /**
  * Sentences for the retired password-era actions, whose rows stay in the log
@@ -393,9 +417,15 @@ export function readableAction(action: string): string {
 /**
  * What the actor did, as the rest of a sentence their name begins. Reads the
  * metadata defensively, so a row whose fields are missing or mistyped still renders.
+ * @param entry - The audit entry.
+ * @param timeZone - The tenant's `settings.timezone` on a log of one tenant, so a
+ * billing date names the tenant's day; undefined on a log across tenants.
  */
-export function auditSentence(entry: { action: string; metadata: Metadata }): string {
-  if (isAuditAction(entry.action)) return SENTENCES[entry.action](entry.metadata)
+export function auditSentence(
+  entry: { action: string; metadata: Metadata },
+  timeZone?: string
+): string {
+  if (isAuditAction(entry.action)) return SENTENCES[entry.action](entry.metadata, timeZone)
   if (hasRetiredSentence(entry.action)) return RETIRED_SENTENCES[entry.action]
   return `performed ${readableAction(entry.action)}`
 }
