@@ -36,14 +36,25 @@ export const billingAdminKeys = {
   tenant: (id: string) => ['platform', 'tenant', id, 'billing'] as const,
 }
 
+/**
+ * The list reads' retry, typed for a single read: a 404 answers who is
+ * asking and never changes on a retry, and `retryList` treats it, like every
+ * 4xx but 408 and 429, as final. Typing the error as `Error` keeps the query's
+ * error type `Error`.
+ * @param failureCount - Failures so far.
+ * @param error - The last failure.
+ */
+function retryRead(failureCount: number, error: Error): boolean {
+  return retryList(failureCount, error)
+}
+
 /** `GET /platform/plans` (viewer): both plans with their prices and tenant counts, and the entitlement catalog. */
 export function staffPlansQueryOptions() {
   return queryOptions({
     queryKey: billingAdminKeys.plans,
     queryFn: async ({ signal }) =>
       unwrap(await apiClient.get<ApiSuccess<StaffPlans>>('/platform/plans', { signal })),
-    // A 404 answers who is asking and never changes on a retry; `retryList` treats every such 4xx as final.
-    retry: retryList,
+    retry: retryRead,
   })
 }
 
@@ -55,8 +66,7 @@ export function billingSettingsQueryOptions() {
       unwrap(
         await apiClient.get<ApiSuccess<BillingSettings>>('/platform/billing-settings', { signal })
       ),
-    // A 404 answers who is asking and never changes on a retry; `retryList` treats every such 4xx as final.
-    retry: retryList,
+    retry: retryRead,
   })
 }
 
@@ -75,8 +85,7 @@ export function staffTenantBillingQueryOptions(tenantId: string) {
           { signal }
         )
       ),
-    // A 404 answers who is asking and never changes on a retry; `retryList` treats every such 4xx as final.
-    retry: retryList,
+    retry: retryRead,
   })
 }
 
