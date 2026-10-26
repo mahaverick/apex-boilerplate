@@ -18,9 +18,17 @@ import { authTimeOf } from '@/lib/step-up'
 import { profileKeys } from '@/queries/profile.queries'
 import { queryClient, router } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
-import type { EntitlementValue, StaffPlan, StaffTenantBilling } from '@/types/billing.types'
+import type {
+  BillingAlert,
+  BillingSettings,
+  EntitlementValue,
+  StaffPlan,
+  StaffTenantBilling,
+} from '@/types/billing.types'
 import {
+  testBillingAlerts,
   testBillingEvents,
+  testBillingSettings,
   testBillingHistory,
   testBillingSubscriptions,
   testInvoices,
@@ -303,6 +311,65 @@ const addedGrants: StaffTenantBilling['grants'] = []
 
 /** The plans as staff edits leave them in this page load. */
 const plans = { list: testPlans.plans }
+
+/** The trial and grace settings as staff edits leave them in this page load: last changed by Sam Staff. */
+const billingSettings: { value: BillingSettings } = {
+  value: {
+    ...testBillingSettings,
+    version: 2,
+    updatedAt: '2026-10-20T10:00:00.000Z',
+    updatedBy: { userId: STAFF_USER_ID, name: 'Sam Staff' },
+  },
+}
+
+/**
+ * Seven billing alerts, newest first, so the Overview card shows five and
+ * the full list has more: every kind, one with no tenant, and one message
+ * at express's 280-character cap for the overflow check.
+ */
+const BILLING_ALERTS: BillingAlert[] = [
+  ...testBillingAlerts,
+  {
+    id: '94000000-0000-4000-8000-000000000003',
+    kind: 'dispute',
+    tenant: { id: TENANT_ID, name: 'Acme Corp' },
+    message: 'Acme Corp’s bank opened a dispute on a ₹999 payment. Answer it in Razorpay.',
+    at: '2026-10-24T12:00:00.000Z',
+  },
+  {
+    id: '94000000-0000-4000-8000-000000000004',
+    kind: 'reconcile_repair',
+    tenant: { id: TENANT_ID, name: 'Acme Corp' },
+    message:
+      `A billing job is still retrying after an hour of provider outage. It retries for 24 hours. Check the provider’s status page. ${'Detail '.repeat(22)}`.slice(
+        0,
+        280
+      ),
+    at: '2026-10-23T08:15:00.000Z',
+  },
+  {
+    id: '94000000-0000-4000-8000-000000000005',
+    kind: 'subscription_completed',
+    tenant: { id: TENANT_ID, name: 'Acme Corp' },
+    message: 'Acme Corp’s subscription ran its last billing cycle and ended.',
+    at: '2026-10-22T07:00:00.000Z',
+  },
+  {
+    id: '94000000-0000-4000-8000-000000000006',
+    kind: 'duplicate_refunded',
+    tenant: null,
+    message: 'A duplicate payment was refunded for a tenant that is gone.',
+    at: '2026-10-21T16:45:00.000Z',
+  },
+  {
+    id: '94000000-0000-4000-8000-000000000007',
+    kind: 'webhook_failing',
+    tenant: null,
+    message:
+      'A provider event failed 5 times. Check the provider events on the tenant’s Billing tab.',
+    at: '2026-10-20T11:30:00.000Z',
+  },
+]
 
 /**
  * Whether moving an entitlement from one value to another gives tenants
@@ -1816,6 +1883,40 @@ const worker = setupWorker(
     plans.list = plans.list.map((candidate) => (candidate.id === saved.id ? saved : candidate))
     return ok(saved, 'Price created.')
   }),
+  // The trial and grace settings, versioned as express keeps them: a stale version is a 409.
+  http.get('/api/v1/platform/billing-settings', () =>
+    ok(billingSettings.value, 'Billing settings retrieved.')
+  ),
+  http.patch('/api/v1/platform/billing-settings', async ({ request }) => {
+    const body = (await request.json()) as Partial<BillingSettings> & { version: number }
+    if (body.version !== billingSettings.value.version) {
+      return fail(
+        'Someone changed the billing settings after you opened this page. Reload it, then try again.',
+        409,
+        'PLAN_VERSION_CONFLICT'
+      )
+    }
+    billingSettings.value = {
+      ...billingSettings.value,
+      trialEnabled: body.trialEnabled ?? billingSettings.value.trialEnabled,
+      trialDays: body.trialDays ?? billingSettings.value.trialDays,
+      pastDueGraceDays: body.pastDueGraceDays ?? billingSettings.value.pastDueGraceDays,
+      version: billingSettings.value.version + 1,
+      updatedAt: new Date().toISOString(),
+      updatedBy: { userId: SAM.id, name: SAM.name },
+    }
+    return ok(billingSettings.value, 'Billing settings saved.')
+  }),
+  // The billing alerts, searched by message and sorted by time, as express serves them.
+  http.get('/api/v1/platform/billing/alerts', ({ request }) =>
+    ok(
+      serveList(BILLING_ALERTS, new URL(request.url).searchParams, {
+        searchIn: (row) => [row.message],
+        sorts: { at: (a, b) => a.at.localeCompare(b.at) },
+      }),
+      'Billing alerts retrieved.'
+    )
+  ),
   http.get('/api/v1/platform/tenants/:tenantId/billing', ({ params }) =>
     params.tenantId === PLATFORM_TENANT_ID
       ? fail('This tenant has no billing.', 404, 'tenant_billing_not_found')

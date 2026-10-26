@@ -64,3 +64,23 @@ test('an admin adds a yearly price above the warning threshold, and it replaces 
   await expect(table.getByRole('row', { name: /Yearly ₹18,000 Active/ })).toBeVisible()
   await expect(table.getByRole('row', { name: /Yearly ₹9,990 Retired/ })).toBeVisible()
 })
+
+test('a viewer reads the trial and grace rules, with who changed them last', async ({ page }) => {
+  await page.goto('/e2e/harness/?path=/plans&role=viewer')
+  const settings = page.getByRole('region', { name: 'Trials and grace' })
+  await expect(settings).toContainText('Trial length14 days')
+  await expect(settings).toContainText('Last changed by Sam Staff')
+  await expect(settings.getByRole('switch')).toHaveCount(0)
+})
+
+test('an admin saves a longer trial with a reason, and it stays saved', async ({ page }) => {
+  await page.goto('/e2e/harness/?path=/plans')
+  const settings = page.getByRole('region', { name: 'Trials and grace' })
+  await settings.getByRole('textbox', { name: 'Trial length (days)' }).fill('21')
+  await settings.getByRole('button', { name: 'Save billing settings' }).click()
+  const dialog = page.getByRole('alertdialog', { name: 'Save billing settings?' })
+  await dialog.getByLabel('Reason').fill('Longer trials for the launch')
+  await dialog.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByText('Billing settings saved.')).toBeVisible()
+  await expect(settings.getByRole('textbox', { name: 'Trial length (days)' })).toHaveValue('21')
+})

@@ -53,6 +53,7 @@ for (const [name, path, ready] of [
   ['deliverability', '/deliverability', 'Deliverability'],
   ['suppressions, active and lifted', '/suppressions?state=active,lifted', 'Suppressions'],
   ['onboarding', '/onboarding', 'Onboarding'],
+  ['plans, with the settings’ last editor', '/plans', 'Plans'],
   [
     'maintenance, with the banner',
     '/settings/platform/maintenance&maintenance=full',
