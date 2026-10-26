@@ -2249,6 +2249,77 @@ describe('tenant billing', () => {
     await expectNoViolations()
   })
 
+  /** Opens one billing action from the Billing card's menu. */
+  async function openBillingAction(user: ReturnType<typeof userEvent.setup>, item: string) {
+    await user.click(await screen.findByRole('button', { name: 'Billing actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: item }))
+  }
+
+  /** A trialing tenant with a checkout under way, so every billing action applies. */
+  const ALL_ACTIONS: StaffTenantBilling = {
+    ...testTenantBilling,
+    state: 'trialing',
+    trialEndsAt: '2099-01-15T00:00:00.000Z',
+    pendingSubscriptionId: 'sub_TestPending0001',
+  }
+
+  it('the open billing actions menu has no axe violations', async () => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await user.click(await screen.findByRole('button', { name: 'Billing actions' }))
+    await expectNoViolationsIn(await screen.findByRole('menu'))
+  })
+
+  it.each([
+    ['Resync billing', 'alertdialog', 'Resync billing for Acme Corp?'],
+    ['Extend trial', 'dialog', 'Extend the trial for Acme Corp'],
+    ['Cancel subscription', 'alertdialog', 'Cancel the subscription for Acme Corp?'],
+  ] as const)('the open %s dialog has no axe violations', async (item, role, name) => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await openBillingAction(user, item)
+    await screen.findByRole(role, { name })
+    await expectNoViolations()
+  })
+
+  it('the Cancel subscription dialog with Now chosen has no axe violations', async () => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await openBillingAction(user, 'Cancel subscription')
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Cancel the subscription for Acme Corp?',
+    })
+    await user.click(within(dialog).getByRole('radio', { name: 'Now' }))
+    await within(dialog).findByLabelText('Type acme to confirm')
+    await expectNoViolations()
+  })
+
+  it('the Add grant dialog with a limit chosen and its errors shown has no axe violations', async () => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await openBillingAction(user, 'Add grant')
+    const dialog = await screen.findByRole('dialog', { name: 'Add a grant for Acme Corp' })
+    await user.click(within(dialog).getByRole('combobox', { name: 'Limit or feature' }))
+    await user.click(await screen.findByRole('option', { name: 'Members' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Add grant' }))
+    await within(dialog).findByText('Enter a whole number from 1 to 1,000,000, or choose No limit.')
+    await within(dialog).findByRole('checkbox', { name: 'No limit' })
+    await expectNoViolations()
+  })
+
+  it('the open Revoke grant dialog has no axe violations', async () => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await user.click(await screen.findByRole('button', { name: 'Revoke the Members grant' }))
+    await screen.findByRole('alertdialog', { name: 'Revoke the Members grant for Acme Corp?' })
+    await expectNoViolations()
+  })
+
   it('the platform tenant’s Billing URL, which has no billing, has no axe violations', async () => {
     serveTenant('active')
     server.use(
