@@ -365,17 +365,37 @@ describe('/tenants/$tenantId/billing', () => {
       expect(within(card).queryByText('Period ended', { selector: 'dt' })).toBeNull()
     })
 
-    it('says when a cancelled period ended and when the tenant moves to Free', async () => {
+    it('says when a cancelled period ended and when the tenant moves to Free, inside the 3-day buffer', async () => {
+      // Yesterday: inside express's buffer, so the tenant is still served as active.
+      const endedAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      const freeAt = new Date(Date.parse(endedAt) + 3 * 24 * 60 * 60 * 1000).toISOString()
+      serve({ ...testTenantBilling, currentPeriodEnd: endedAt, cancelAtPeriodEnd: true })
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(row(card, 'Period ended')).toBe(billingDate(endedAt))
+      expect(row(card, 'Moves to Free on')).toBe(billingDate(freeAt))
+      expect(within(card).queryByText('Cancels on', { selector: 'dt' })).toBeNull()
+    })
+
+    it('reads a page left open past the 3-day buffer as Free: no past move-to-Free date', async () => {
       serve({
         ...testTenantBilling,
-        currentPeriodEnd: '2026-01-10T00:00:00.000Z',
+        currentPeriodEnd: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
         cancelAtPeriodEnd: true,
+        nextSubscriptionId: 'sub_TestNext0001',
+        nextSwitch: { interval: 'year', startsAt: '2026-01-10T00:00:00.000Z' },
       })
       renderAppAt(BILLING)
       const card = await summary()
-      expect(row(card, 'Period ended')).toBe(billingDate('2026-01-10T00:00:00.000Z'))
-      expect(row(card, 'Moves to Free on')).toBe(billingDate('2026-01-13T00:00:00.000Z'))
-      expect(within(card).queryByText('Cancels on', { selector: 'dt' })).toBeNull()
+      for (const term of [
+        'Period ended',
+        'Moves to Free on',
+        'Cancels on',
+        'Paid until',
+        'Next subscription',
+      ]) {
+        expect(within(card).queryByText(term, { selector: 'dt' })).toBeNull()
+      }
     })
 
     it('shows the booked next subscription, not the ending one, while Paid continues', async () => {

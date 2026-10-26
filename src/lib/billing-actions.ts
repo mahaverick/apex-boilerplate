@@ -34,13 +34,25 @@ export function providerName(billing: StaffTenantBilling): string {
  * @param now - The moment the page reads as now, in milliseconds.
  */
 function hasCurrentSubscription(billing: StaffTenantBilling, now: number): boolean {
-  const end = billing.currentPeriodEnd
-  const lapsed =
-    billing.cancelAtPeriodEnd && end !== null && new Date(end).getTime() + CANCEL_BUFFER_MS <= now
   return (
     billing.providerSubscriptionId !== null &&
     (billing.state === 'active' || billing.state === 'past_due') &&
-    !lapsed
+    !isPastCancelBuffer(billing, now)
+  )
+}
+
+/**
+ * Whether a cancelled period ended more than `CANCEL_BUFFER_MS` ago, so
+ * express's `effectiveBillingState` serves the tenant as Free, whatever its
+ * stored state. Fresh data never shows it as active then; a page left open
+ * across the buffer can, and reads it as Free.
+ * @param billing - The tenant's billing.
+ * @param now - The moment the page reads as now, in milliseconds.
+ */
+export function isPastCancelBuffer(billing: StaffTenantBilling, now: number): boolean {
+  const end = billing.currentPeriodEnd
+  return (
+    billing.cancelAtPeriodEnd && end !== null && new Date(end).getTime() + CANCEL_BUFFER_MS <= now
   )
 }
 

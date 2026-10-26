@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { billingDate, providerLabel } from '@/constants/billing-labels'
 import { useNow } from '@/hooks/use-now'
-import { CANCEL_BUFFER_MS } from '@/lib/billing-actions'
+import { CANCEL_BUFFER_MS, isPastCancelBuffer } from '@/lib/billing-actions'
 import { formatInr } from '@/lib/money'
 import { absoluteTime, relativeTime } from '@/lib/relative-time'
 import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
@@ -43,7 +43,8 @@ interface DateRow {
  * which falls on the trial's end; it shows that charge, not a paid period.
  * Free shows no dates: express keeps the last period's end after a move to
  * Free. A cancelled period that has ended reads as ended, with the day the
- * tenant moves to Free, never as cancelling on a past date.
+ * tenant moves to Free, never as cancelling on a past date; past that day
+ * it reads as Free (`isPastCancelBuffer`), as the cancel dialog does.
  * A booked next subscription (a switch, or Paid again while cancelling)
  * reads as Paid continuing, checked first as react does, never as ending.
  * @param billing - The tenant's billing.
@@ -59,6 +60,8 @@ function dateRows(
   if (state === 'trialing') {
     return trialEndsAt === null ? [] : [{ label: 'Trial ends', value: day(trialEndsAt) }]
   }
+  // Past the buffer express serves the tenant as Free, so a page left open shows Free's dates: none.
+  if (isPastCancelBuffer(billing, now)) return []
   if (state === 'active' && nextSwitch !== null) {
     return [{ label: 'Next subscription', value: nextSubscriptionText(nextSwitch, plans) }]
   }
