@@ -18,6 +18,7 @@ import { authTimeOf } from '@/lib/step-up'
 import { profileKeys } from '@/queries/profile.queries'
 import { queryClient, router } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
+import type { StaffTenantBilling } from '@/types/billing.types'
 import {
   testBillingEvents,
   testBillingHistory,
@@ -296,6 +297,14 @@ function harnessToken(authTime = sessionAuthTime()): string {
 const stepUpOnce = params.get('stepup') === 'once'
 /** Whether Acme is suspended now, in this page load. */
 const suspension = { suspended: false }
+
+/** The grants staff added in this page load, newest first, ahead of the fixture's. */
+const addedGrants: StaffTenantBilling['grants'] = []
+
+/** A customer tenant's billing view as it stands in this page load. */
+function tenantBilling(): StaffTenantBilling {
+  return { ...testTenantBilling, grants: [...addedGrants, ...testTenantBilling.grants] }
+}
 
 /** express's `STEP_UP_MAX_AGE_MS`: how recent a confirmation the step-up routes accept. */
 const STEP_UP_MAX_AGE_MS = 10 * 60 * 1000
@@ -1710,8 +1719,29 @@ const worker = setupWorker(
   http.get('/api/v1/platform/tenants/:tenantId/billing', ({ params }) =>
     params.tenantId === PLATFORM_TENANT_ID
       ? fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
-      : ok(testTenantBilling, 'Billing retrieved.')
+      : ok(tenantBilling(), 'Billing retrieved.')
   ),
+  // Adding a grant answers the view with it on top, as express does; staff routes past the step-up are not refused here.
+  http.post('/api/v1/platform/tenants/:tenantId/billing/grants', async ({ request }) => {
+    const body = (await request.json()) as {
+      key: string
+      value: number | boolean | null
+      expiresAt: string | null
+      reason: string
+    }
+    addedGrants.unshift({
+      id: `92000000-0000-4000-8000-${String(addedGrants.length + 2).padStart(12, '0')}`,
+      key: body.key,
+      value: body.value,
+      reason: body.reason,
+      grantedBy: { userId: STAFF_USER_ID, name: 'Staff Admin' },
+      createdAt: new Date().toISOString(),
+      expiresAt: body.expiresAt,
+      revokedAt: null,
+      status: 'active',
+    })
+    return ok(tenantBilling(), 'Grant added.')
+  }),
   http.get('/api/v1/platform/tenants/:tenantId/billing/history', ({ request }) =>
     ok(
       serveList(testBillingHistory, new URL(request.url).searchParams, {

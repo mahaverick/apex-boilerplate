@@ -67,3 +67,27 @@ test('the platform tenant has no Billing tab, and its typed URL says it has no b
   await expect(page.getByRole('heading', { name: 'This tenant has no billing.' })).toBeVisible()
   await expect(page.getByText('Your role can’t see this any more.')).toHaveCount(0)
 })
+
+test('a grant added through the dialog shows in the grants table, with nothing scrolling sideways at 390px', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`/e2e/harness/?path=${ACME}/billing`)
+  await page.getByRole('button', { name: 'Billing actions' }).click()
+  await page.getByRole('menuitem', { name: 'Add grant' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Add a grant for Acme Corp' })
+  await dialog.getByRole('combobox', { name: 'Limit or feature' }).click()
+  await page.getByRole('option', { name: 'Members' }).click()
+  await dialog.getByLabel('New limit').fill('120')
+  await dialog.getByLabel('Ends on (optional)').fill('2099-06-30')
+  await dialog.getByLabel('Reason').fill('Pilot with a large team')
+  expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0)
+  await dialog.getByRole('button', { name: 'Add grant' }).click()
+
+  await expect(page.getByText('Members grant added for Acme Corp.')).toBeVisible()
+  await expect(dialog).toHaveCount(0)
+  const row = page.getByRole('table', { name: 'Grants' }).getByRole('row').nth(1)
+  await expect(row).toContainText('120')
+  await expect(row).toContainText('2099')
+  await expect(row.getByRole('button', { name: 'Revoke the Members grant' })).toBeVisible()
+})
