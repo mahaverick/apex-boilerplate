@@ -122,6 +122,19 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     ],
     empty: { url: '/onboarding?state=dismissed' },
   },
+  '/plans': {
+    kind: 'page',
+    area: 'plans',
+    shot: 'plans',
+    roleDenied: {
+      as: 'viewer',
+      note: 'A viewer: the plans and prices as text, with no edit controls.',
+    },
+    url: '/plans',
+    as: 'staff',
+    responsive: true,
+    sections: [{ name: 'Plans (Free, Paid, Prices)', endpoints: ['GET /platform/plans'] }],
+  },
   '/overview': {
     kind: 'page',
     area: 'overview',

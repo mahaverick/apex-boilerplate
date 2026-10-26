@@ -18,7 +18,7 @@ import { authTimeOf } from '@/lib/step-up'
 import { profileKeys } from '@/queries/profile.queries'
 import { queryClient, router } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
-import type { StaffTenantBilling } from '@/types/billing.types'
+import type { EntitlementValue, StaffPlan, StaffTenantBilling } from '@/types/billing.types'
 import {
   testBillingEvents,
   testBillingHistory,
@@ -300,6 +300,30 @@ const suspension = { suspended: false }
 
 /** The grants staff added in this page load, newest first, ahead of the fixture's. */
 const addedGrants: StaffTenantBilling['grants'] = []
+
+/** The plans as staff edits leave them in this page load. */
+const plans = { list: testPlans.plans }
+
+/**
+ * Whether moving an entitlement from one value to another gives tenants
+ * more, as express's `directionOf` decides it.
+ * @param from - The value now.
+ * @param to - The value after.
+ */
+function directionOf(from: EntitlementValue, to: EntitlementValue): 'increase' | 'decrease' {
+  if (typeof to === 'boolean') return to ? 'increase' : 'decrease'
+  if (to === null) return 'increase'
+  if (from === null) return 'decrease'
+  return to > Number(from) ? 'increase' : 'decrease'
+}
+
+/**
+ * One plan by id, or undefined.
+ * @param id - The plan's id.
+ */
+function planById(id: unknown): StaffPlan | undefined {
+  return plans.list.find((plan) => plan.id === id)
+}
 
 /** A customer tenant's billing view as it stands in this page load. */
 function tenantBilling(): StaffTenantBilling {
@@ -1715,7 +1739,83 @@ const worker = setupWorker(
     ok(tenantOnboarding(String(params.tenantId)), 'Tenant onboarding retrieved.')
   ),
   // The plans, and a tenant's Billing tab: every customer tenant reads as a monthly Paid customer, and the platform tenant has no billing, as express answers.
-  http.get('/api/v1/platform/plans', () => ok(testPlans, 'Plans retrieved.')),
+  http.get('/api/v1/platform/plans', () =>
+    ok({ ...testPlans, plans: plans.list }, 'Plans retrieved.')
+  ),
+  // A plan preview and edit as express answers them: changes key by key, the tenants the plan serves, and a 409 for a stale version.
+  http.post('/api/v1/platform/plans/:planId/preview', async ({ params, request }) => {
+    const plan = planById(params.planId)
+    if (plan === undefined) return fail('Plan not found', 404, 'plan_not_found')
+    const { entitlements } = (await request.json()) as {
+      entitlements: Record<string, EntitlementValue>
+    }
+    const changes = Object.entries(entitlements)
+      .filter(([key, to]) => !Object.is(plan.entitlements[key], to))
+      .map(([key, to]) => {
+        const from = plan.entitlements[key] ?? null
+        return { key, from, to, direction: directionOf(from, to) }
+      })
+    const { trialing, active, past_due: pastDue, free } = plan.tenantCounts
+    return ok(
+      { changes, affected: { trialing, active, past_due: pastDue, free } },
+      'Preview ready.'
+    )
+  }),
+  http.patch('/api/v1/platform/plans/:planId', async ({ params, request }) => {
+    const plan = planById(params.planId)
+    if (plan === undefined) return fail('Plan not found', 404, 'plan_not_found')
+    const body = (await request.json()) as {
+      version: number
+      name?: string
+      description?: string
+      entitlements?: Record<string, EntitlementValue>
+    }
+    if (body.version !== plan.version) {
+      return fail(
+        'Someone changed the plan after you opened this page. Reload it, then try again.',
+        409,
+        'PLAN_VERSION_CONFLICT'
+      )
+    }
+    const saved: StaffPlan = {
+      ...plan,
+      name: body.name ?? plan.name,
+      description: body.description ?? plan.description,
+      entitlements: { ...plan.entitlements, ...body.entitlements },
+      version: plan.version + 1,
+    }
+    plans.list = plans.list.map((candidate) => (candidate.id === saved.id ? saved : candidate))
+    return ok(saved, 'Plan updated.')
+  }),
+  // A new price retires the active price of its interval, as express does.
+  http.post('/api/v1/platform/plans/:planId/prices', async ({ params, request }) => {
+    const plan = planById(params.planId)
+    if (plan === undefined) return fail('Plan not found', 404, 'plan_not_found')
+    const body = (await request.json()) as { interval: 'month' | 'year'; amountMinor: number }
+    const now = new Date().toISOString()
+    const saved: StaffPlan = {
+      ...plan,
+      prices: [
+        {
+          id: `91000000-0000-4000-8000-${String(plan.prices.length + 1).padStart(12, '0')}`,
+          interval: body.interval,
+          amountMinor: body.amountMinor,
+          currency: 'INR',
+          active: true,
+          createdAt: now,
+          retiredAt: null,
+          subscribers: 0,
+        },
+        ...plan.prices.map((price) =>
+          price.active && price.interval === body.interval
+            ? { ...price, active: false, retiredAt: now }
+            : price
+        ),
+      ],
+    }
+    plans.list = plans.list.map((candidate) => (candidate.id === saved.id ? saved : candidate))
+    return ok(saved, 'Price created.')
+  }),
   http.get('/api/v1/platform/tenants/:tenantId/billing', ({ params }) =>
     params.tenantId === PLATFORM_TENANT_ID
       ? fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
