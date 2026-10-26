@@ -1621,7 +1621,7 @@ const worker = setupWorker(
   http.get('/api/v1/tenants/platform/invitations', () =>
     ok(listPage([]), 'Invitations retrieved.')
   ),
-  // The Tenants table, the palette and the activity tenant filter: one tenant in each status, so every badge renders.
+  // The Tenants table, the palette and the activity tenant filter. The rows hold every status and plan state; the default view shows active and suspended, and ?state=archived adds the archived one.
   http.get('/api/v1/platform/tenants', ({ request }) => {
     const params = new URL(request.url).searchParams
     // express's `state` defaults to active and suspended, so archived tenants show only when asked for.
