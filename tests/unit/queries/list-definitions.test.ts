@@ -201,7 +201,7 @@ describe('the apex list definitions', () => {
       'user.password_setup_sent',
     ]
     for (const name of retired) expect(AUDIT_ACTIONS).not.toContain(name)
-    expect(AUDIT_ACTIONS).toHaveLength(38)
+    expect(AUDIT_ACTIONS).toHaveLength(52)
     expect(requestFor(platformActivityList, { action: 'auth.reauthenticated' })).toEqual({
       action: 'auth.reauthenticated',
     })

@@ -7,10 +7,11 @@ import {
   auditSentence,
   isAuditAction,
 } from '@/constants/audit-actions'
+import { formatDate } from '@/lib/format'
 import { EMAIL_ID, EMAIL_ID_2, INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
 describe('AUDIT_ACTIONS', () => {
-  it('lists exactly the thirty-eight actions the API writes', () => {
+  it('lists exactly the fifty-two actions the API writes', () => {
     expect([...AUDIT_ACTIONS].sort()).toEqual(
       [
         'invitation.accepted',
@@ -51,6 +52,20 @@ describe('AUDIT_ACTIONS', () => {
         'user.updated',
         'user.flags_evaluated',
         'platform.maintenance_mode_changed',
+        'billing.cancel_scheduled',
+        'billing.cancelled_by_staff',
+        'billing.card_change_started',
+        'billing.checkout_started',
+        'billing.grant_added',
+        'billing.grant_expired',
+        'billing.grant_revoked',
+        'billing.interval_switch_scheduled',
+        'billing.resynced',
+        'billing.settings_updated',
+        'billing.trial_extended',
+        'billing.viewed',
+        'plan.price_created',
+        'plan.updated',
       ].sort()
     )
     for (const action of AUDIT_ACTIONS) {
@@ -80,6 +95,84 @@ describe('AUDIT_ACTIONS', () => {
 
 describe('auditSentence', () => {
   it.each([
+    ['billing.checkout_started', { interval: 'year' }, 'started a yearly Paid checkout'],
+    ['billing.checkout_started', { interval: 'month' }, 'started a monthly Paid checkout'],
+    ['billing.cancel_scheduled', {}, 'cancelled Paid'],
+    [
+      'billing.interval_switch_scheduled',
+      { interval: 'year' },
+      'scheduled a switch to yearly billing',
+    ],
+    ['billing.card_change_started', {}, 'started a payment method change'],
+    [
+      'billing.grant_expired',
+      { grantId: USER_ID, key: 'members' },
+      'marked the members grant expired',
+    ],
+    ['billing.viewed', {}, 'viewed the tenant’s billing'],
+    [
+      'billing.resynced',
+      { reason: 'customer paid' },
+      'resynced billing with the payment provider: “customer paid”',
+    ],
+    [
+      'billing.trial_extended',
+      { days: 7, reason: 'pilot', trialEndsAt: '2026-11-09T12:00:00.000Z' },
+      `extended the trial by 7 days to ${formatDate('2026-11-09T12:00:00.000Z', 'medium') ?? ''}: “pilot”`,
+    ],
+    [
+      'billing.trial_extended',
+      { days: 1, reason: 'pilot', trialEndsAt: 'not a date' },
+      'extended the trial by 1 day: “pilot”',
+    ],
+    [
+      'billing.grant_added',
+      { key: 'members', value: null, expiresAt: null, reason: 'big team' },
+      'granted members: no limit: “big team”',
+    ],
+    [
+      'billing.grant_added',
+      { key: 'members', value: 10, expiresAt: '2026-12-01T12:00:00.000Z', reason: 'trial' },
+      `granted members: 10 until ${formatDate('2026-12-01T12:00:00.000Z', 'medium') ?? ''}: “trial”`,
+    ],
+    [
+      'billing.grant_added',
+      { key: 'advanced_example', value: true, expiresAt: null, reason: 'demo' },
+      'granted advanced_example: on: “demo”',
+    ],
+    [
+      'billing.grant_revoked',
+      { key: 'members', reason: 'ended' },
+      'revoked the members grant: “ended”',
+    ],
+    [
+      'billing.cancelled_by_staff',
+      { when: 'now', reason: 'fraud' },
+      'cancelled the subscription now: “fraud”',
+    ],
+    [
+      'billing.cancelled_by_staff',
+      { when: 'cycle_end', reason: 'asked' },
+      'cancelled the subscription at its period end: “asked”',
+    ],
+    [
+      'plan.updated',
+      { before: { name: 'Free' }, after: { name: 'Starter' }, reason: 'rename' },
+      'edited the Starter plan: “rename”',
+    ],
+    ['plan.updated', {}, 'edited a plan'],
+    [
+      'plan.price_created',
+      { interval: 'month', amountMinor: 129_900, reason: 'new price' },
+      'added a monthly price of ₹1,299: “new price”',
+    ],
+    ['plan.price_created', {}, 'added a price'],
+    [
+      'billing.settings_updated',
+      { changedFields: ['trialDays', 'trialEnabled'], reason: 'promo' },
+      'changed the billing settings (trialDays, trialEnabled): “promo”',
+    ],
+    ['billing.settings_updated', {}, 'changed the billing settings'],
     ['tenant.created', { name: 'Acme Corp', slug: 'acme' }, 'created the tenant “Acme Corp”'],
     ['tenant.updated', { changed: ['name', 'website'] }, 'updated the tenant (name, website)'],
     ['tenant.settings_updated', { changed: ['timezone'] }, 'changed the settings (timezone)'],

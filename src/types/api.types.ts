@@ -172,6 +172,8 @@ export type KnownAuditTargetType =
   | 'email_message'
   | 'email_suppression'
   | 'platform'
+  | 'plan'
+  | 'billing'
 
 /** A target kind: a known one (autocompleted) or any other the API sends. */
 export type AuditTargetType = KnownAuditTargetType | (string & {})
@@ -389,7 +391,7 @@ export const EMAIL_MESSAGE_STATUSES = [
 export type EmailMessageStatus = (typeof EMAIL_MESSAGE_STATUSES)[number]
 
 /**
- * The templates express knows: the nine it sends, then the five it retired,
+ * The templates express knows: the twenty-four it sends, then the five it retired,
  * whose stored messages the list's `template` filter still finds. A key the
  * API adds later still renders, by its raw name.
  */
@@ -403,6 +405,21 @@ export const EMAIL_TEMPLATE_KEYS = [
   'invitation_confirm',
   'passkey_created',
   'passkey_deleted',
+  'trial_started',
+  'trial_midpoint',
+  'trial_ending',
+  'trial_ends_today',
+  'trial_ended',
+  'paid_welcome',
+  'renewal_upcoming',
+  'payment_failed',
+  'moved_to_free',
+  'paid_cancelled',
+  'interval_switch_scheduled',
+  'payer_left',
+  'upgrade_requested',
+  'upgrade_request_fulfilled',
+  'winback',
   'email_verification',
   'password_reset',
   'registration_attempt',

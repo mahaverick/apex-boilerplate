@@ -16,7 +16,7 @@ describe('EMAIL_TEMPLATES', () => {
     for (const key of EMAIL_TEMPLATE_KEYS) expect(EMAIL_TEMPLATES[key].label).not.toBe('')
   })
 
-  it('matches express’s template keys, the nine it sends and the five it retired', () => {
+  it('matches express’s template keys, the twenty-four it sends and the five it retired', () => {
     expect([...EMAIL_TEMPLATE_KEYS].sort()).toEqual(
       [
         'tenant_invitation',
@@ -28,6 +28,21 @@ describe('EMAIL_TEMPLATES', () => {
         'invitation_confirm',
         'passkey_created',
         'passkey_deleted',
+        'trial_started',
+        'trial_midpoint',
+        'trial_ending',
+        'trial_ends_today',
+        'trial_ended',
+        'paid_welcome',
+        'renewal_upcoming',
+        'payment_failed',
+        'moved_to_free',
+        'paid_cancelled',
+        'interval_switch_scheduled',
+        'payer_left',
+        'upgrade_requested',
+        'upgrade_request_fulfilled',
+        'winback',
         'email_verification',
         'password_reset',
         'registration_attempt',

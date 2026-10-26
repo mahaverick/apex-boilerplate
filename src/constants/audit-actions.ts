@@ -5,6 +5,8 @@ import {
 } from '@/constants/audit-action-names'
 import { templateLabel } from '@/constants/email.constants'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
+import { formatDate } from '@/lib/format'
+import { formatInr } from '@/lib/money'
 
 export { AUDIT_ACTIONS, type AuditAction }
 
@@ -53,6 +55,20 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'onboarding.reminder_sent': 'Onboarding reminder sent',
   'user.flags_evaluated': 'User flags evaluated',
   'platform.maintenance_mode_changed': 'Maintenance mode changed',
+  'billing.checkout_started': 'Checkout started',
+  'billing.cancel_scheduled': 'Paid cancelled',
+  'billing.interval_switch_scheduled': 'Billing switch scheduled',
+  'billing.card_change_started': 'Card change started',
+  'billing.grant_expired': 'Grant expired',
+  'billing.viewed': 'Billing viewed',
+  'billing.resynced': 'Billing resynced',
+  'billing.trial_extended': 'Trial extended',
+  'billing.grant_added': 'Grant added',
+  'billing.grant_revoked': 'Grant revoked',
+  'billing.cancelled_by_staff': 'Subscription cancelled by staff',
+  'plan.updated': 'Plan edited',
+  'plan.price_created': 'Price added',
+  'billing.settings_updated': 'Billing settings changed',
 }
 
 /** An audit entry's free-form metadata, whose fields are checked before use. */
@@ -159,6 +175,59 @@ function maintenanceChange(metadata: Metadata): string {
     : 'eased maintenance from full to read-only'
 }
 
+/** "yearly" or "monthly" from an `interval` field, or undefined when it is neither. */
+function cadence(metadata: Metadata): string | undefined {
+  const interval = text(metadata, 'interval')
+  if (interval === 'year') return 'yearly'
+  if (interval === 'month') return 'monthly'
+  return undefined
+}
+
+/** A grant's entitlement key, or "an entitlement" when the entry names none. */
+function grantKey(metadata: Metadata): string {
+  return text(metadata, 'key') ?? 'an entitlement'
+}
+
+/** A trial extension: its days and new end, each left out when missing or mistyped. */
+function trialExtension(metadata: Metadata): string {
+  const days = metadata.days
+  const by = typeof days === 'number' ? ` by ${String(days)} ${days === 1 ? 'day' : 'days'}` : ''
+  const ends = text(metadata, 'trialEndsAt')
+  const date = ends === undefined ? null : formatDate(ends, 'medium')
+  return `extended the trial${by}${date === null ? '' : ` to ${date}`}`
+}
+
+/** A grant's value and end: "members: 10 until 1 Dec 2026", "members: no limit". */
+function grantAdded(metadata: Metadata): string {
+  const value = metadata.value
+  const shown =
+    value === null
+      ? ': no limit'
+      : value === true
+        ? ': on'
+        : typeof value === 'number'
+          ? `: ${String(value)}`
+          : ''
+  const expires = text(metadata, 'expiresAt')
+  const until = expires === undefined ? null : formatDate(expires, 'medium')
+  return `granted ${grantKey(metadata)}${shown}${until === null ? '' : ` until ${until}`}`
+}
+
+/** The plan's name after the edit, from `after.name`, or undefined when the entry lacks it. */
+function editedPlanName(metadata: Metadata): string | undefined {
+  const after = metadata.after
+  if (typeof after !== 'object' || after === null) return undefined
+  return text(after as Metadata, 'name')
+}
+
+/** A new price: "added a monthly price of ₹1,299", leaving out a missing interval or amount. */
+function priceCreated(metadata: Metadata): string {
+  const every = cadence(metadata)
+  const amount = metadata.amountMinor
+  const of = typeof amount === 'number' ? ` of ${formatInr(amount)}` : ''
+  return `added a ${every === undefined ? '' : `${every} `}price${of}`
+}
+
 /** `: “why”`, or nothing when the entry carries no reason. */
 function because(metadata: Metadata): string {
   const reason = text(metadata, 'reason')
@@ -233,6 +302,39 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
     `sent an onboarding reminder to ${reminderRecipients(m)}${because(m)}`,
   'user.flags_evaluated': (m) => `evaluated a user’s feature flags${flagsEvaluatedFor(m)}`,
   'platform.maintenance_mode_changed': (m) => `${maintenanceChange(m)}${because(m)}`,
+  'billing.checkout_started': (m) => {
+    const every = cadence(m)
+    return every === undefined ? 'started a Paid checkout' : `started a ${every} Paid checkout`
+  },
+  'billing.cancel_scheduled': () => 'cancelled Paid',
+  'billing.interval_switch_scheduled': (m) => {
+    const every = cadence(m)
+    return every === undefined
+      ? 'scheduled a billing switch'
+      : `scheduled a switch to ${every} billing`
+  },
+  'billing.card_change_started': () => 'started a payment method change',
+  'billing.grant_expired': (m) => `marked the ${grantKey(m)} grant expired`,
+  'billing.viewed': () => 'viewed the tenant’s billing',
+  'billing.resynced': (m) => `resynced billing with the payment provider${because(m)}`,
+  'billing.trial_extended': (m) => `${trialExtension(m)}${because(m)}`,
+  'billing.grant_added': (m) => `${grantAdded(m)}${because(m)}`,
+  'billing.grant_revoked': (m) => `revoked the ${grantKey(m)} grant${because(m)}`,
+  'billing.cancelled_by_staff': (m) => {
+    const when = text(m, 'when')
+    const at = when === 'now' ? ' now' : when === 'cycle_end' ? ' at its period end' : ''
+    return `cancelled the subscription${at}${because(m)}`
+  },
+  'plan.updated': (m) => {
+    const name = editedPlanName(m)
+    return `${name === undefined ? 'edited a plan' : `edited the ${name} plan`}${because(m)}`
+  },
+  'plan.price_created': (m) => `${priceCreated(m)}${because(m)}`,
+  // express stores this action's field names under `changedFields`, not the `changed` other updates use.
+  'billing.settings_updated': (m) => {
+    const fields = texts(m, 'changedFields')
+    return `changed the billing settings${fields.length > 0 ? ` (${fields.join(', ')})` : ''}${because(m)}`
+  },
 }
 
 /**
