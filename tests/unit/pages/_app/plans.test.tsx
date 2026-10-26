@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { MembershipRole } from '@/constants/roles'
-import { formatDate } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import { queryClient } from '@/router'
 import { testBillingSettings, testPlans } from '@/tests/fixtures/billing'
@@ -979,7 +978,7 @@ describe('Plans page: trials and grace', () => {
     }
   )
 
-  it('names who changed the settings last, masked, and when', async () => {
+  it('names who changed the settings last, masked, and when, in the prices’ date format', async () => {
     serveSettings({
       ...testBillingSettings,
       version: 3,
@@ -990,9 +989,7 @@ describe('Plans page: trials and grace', () => {
     const settings = await settingsCard()
     const name = await within(settings).findByText('Staff Admin')
     expect(name).toHaveClass('ph-mask')
-    expect(name.parentElement).toHaveTextContent(
-      `Last changed by Staff Admin on ${formatDate('2026-10-20T10:00:00.000Z', 'medium') ?? ''}.`
-    )
+    expect(name.parentElement).toHaveTextContent('Last changed by Staff Admin on 20 October 2026.')
   })
 
   it('says only when they last changed once the editor’s account is gone', async () => {
@@ -1005,9 +1002,7 @@ describe('Plans page: trials and grace', () => {
     openPlans('viewer')
     const settings = await settingsCard()
     expect(
-      await within(settings).findByText(
-        `Last changed on ${formatDate('2026-10-20T10:00:00.000Z', 'medium') ?? ''}.`
-      )
+      await within(settings).findByText('Last changed on 20 October 2026.')
     ).toBeInTheDocument()
     expect(settings).not.toHaveTextContent('Never changed.')
   })
