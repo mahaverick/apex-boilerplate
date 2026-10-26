@@ -336,7 +336,7 @@ describe('/tenants/$tenantId', () => {
         'admin' as const,
         detail(),
         'Suspend Acme Corp?',
-        'Members lose access at once, and its members and invitations are frozen until it is reactivated. A Paid subscription is cancelled at the end of its period.',
+        'Members lose access at once, and its members and invitations are frozen until it is reactivated. We cancel a Paid subscription at the end of its paid period, or now if it hasn’t been charged yet.',
       ],
       [
         'Archive',
