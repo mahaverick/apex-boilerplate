@@ -13,6 +13,7 @@ import {
   IconListCheck,
   IconMail,
   IconMailX,
+  IconReceipt,
   IconUsers,
   type TablerIcon,
 } from '@tabler/icons-react'
@@ -37,6 +38,7 @@ export type NavPath =
   | typeof ROUTES.deliverability
   | typeof ROUTES.suppressions
   | typeof ROUTES.onboarding
+  | typeof ROUTES.plans
   | typeof ROUTES.activity
 
 /** One page in the staff navigation, with who sees it and where it sits. */
@@ -90,6 +92,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     minRole: 'viewer',
     group: 'Growth',
   },
+  // Every staff role reads plans and prices; the page hides its edit controls below admin, which the API's writes require.
+  { label: 'Plans', to: ROUTES.plans, Icon: IconReceipt, minRole: 'viewer', group: 'Growth' },
   {
     label: 'Activity log',
     to: ROUTES.activity,

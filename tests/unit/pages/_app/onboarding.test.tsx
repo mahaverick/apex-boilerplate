@@ -501,9 +501,12 @@ describe('/onboarding', () => {
     })
   })
 
-  it('is the Growth group’s one item, for every staff role', () => {
+  it('leads the Growth group, for every staff role', () => {
     const growth = navItemsFor('viewer').filter((item) => item.group === 'Growth')
-    expect(growth.map((item) => [item.label, item.to])).toEqual([['Onboarding', '/onboarding']])
+    expect(growth.map((item) => [item.label, item.to])).toEqual([
+      ['Onboarding', '/onboarding'],
+      ['Plans', '/plans'],
+    ])
   })
 
   it('names the page in the title', async () => {

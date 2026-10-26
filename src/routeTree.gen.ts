@@ -24,6 +24,7 @@ import { Route as AppFlagsRouteImport } from './pages/_app/flags'
 import { Route as AppMaintenanceRouteImport } from './pages/_app/maintenance'
 import { Route as AppOnboardingRouteImport } from './pages/_app/onboarding'
 import { Route as AppOverviewRouteImport } from './pages/_app/overview'
+import { Route as AppPlansRouteImport } from './pages/_app/plans'
 import { Route as AppProfileRouteImport } from './pages/_app/profile'
 import { Route as AppSettingsRouteImport } from './pages/_app/settings'
 import { Route as AppStaffRouteImport } from './pages/_app/staff'
@@ -129,6 +130,11 @@ const AppOnboardingRoute = AppOnboardingRouteImport.update({
 const AppOverviewRoute = AppOverviewRouteImport.update({
   id: '/overview',
   path: '/overview',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPlansRoute = AppPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProfileRoute = AppProfileRouteImport.update({
@@ -323,6 +329,7 @@ export interface FileRoutesByFullPath {
   '/maintenance': typeof AppMaintenanceRoute
   '/onboarding': typeof AppOnboardingRoute
   '/overview': typeof AppOverviewRoute
+  '/plans': typeof AppPlansRoute
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/staff': typeof AppStaffRoute
@@ -371,6 +378,7 @@ export interface FileRoutesByTo {
   '/maintenance': typeof AppMaintenanceRoute
   '/onboarding': typeof AppOnboardingRoute
   '/overview': typeof AppOverviewRoute
+  '/plans': typeof AppPlansRoute
   '/profile': typeof AppProfileRoute
   '/staff': typeof AppStaffRoute
   '/suppressions': typeof AppSuppressionsRoute
@@ -419,6 +427,7 @@ export interface FileRoutesById {
   '/_app/maintenance': typeof AppMaintenanceRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/overview': typeof AppOverviewRoute
+  '/_app/plans': typeof AppPlansRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/staff': typeof AppStaffRoute
@@ -469,6 +478,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/onboarding'
     | '/overview'
+    | '/plans'
     | '/profile'
     | '/settings'
     | '/staff'
@@ -517,6 +527,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/onboarding'
     | '/overview'
+    | '/plans'
     | '/profile'
     | '/staff'
     | '/suppressions'
@@ -564,6 +575,7 @@ export interface FileRouteTypes {
     | '/_app/maintenance'
     | '/_app/onboarding'
     | '/_app/overview'
+    | '/_app/plans'
     | '/_app/profile'
     | '/_app/settings'
     | '/_app/staff'
@@ -721,6 +733,13 @@ declare module '@tanstack/react-router' {
       path: '/overview'
       fullPath: '/overview'
       preLoaderRoute: typeof AppOverviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/plans': {
+      id: '/_app/plans'
+      path: '/plans'
+      fullPath: '/plans'
+      preLoaderRoute: typeof AppPlansRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/profile': {
@@ -1027,6 +1046,7 @@ interface AppRouteChildren {
   AppMaintenanceRoute: typeof AppMaintenanceRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppOverviewRoute: typeof AppOverviewRoute
+  AppPlansRoute: typeof AppPlansRoute
   AppProfileRoute: typeof AppProfileRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppStaffRoute: typeof AppStaffRoute
@@ -1046,6 +1066,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppMaintenanceRoute: AppMaintenanceRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppOverviewRoute: AppOverviewRoute,
+  AppPlansRoute: AppPlansRoute,
   AppProfileRoute: AppProfileRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
   AppStaffRoute: AppStaffRoute,
