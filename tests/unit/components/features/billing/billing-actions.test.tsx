@@ -21,6 +21,10 @@ import type { StaffTenantBilling } from '@/types/billing.types'
 const BILLING = `/tenants/${TENANT_ID}/billing`
 const BASE = `/api/v1/platform/tenants/${TENANT_ID}/billing`
 const DAY_MS = 24 * 60 * 60 * 1000
+/** A paid period that ended yesterday: inside express's 3-day buffer, so the tenant is still served as `active`. */
+const ENDED_IN_BUFFER = new Date(Date.now() - DAY_MS).toISOString()
+/** A paid period that ended 5 days ago: past the buffer, where express serves the tenant as `free`. */
+const ENDED_PAST_BUFFER = new Date(Date.now() - 5 * DAY_MS).toISOString()
 const GRANT_ID = testTenantBilling.grants[0]!.id
 
 /**
@@ -844,7 +848,7 @@ describe('billing actions', () => {
       serve({
         ...testTenantBilling,
         cancelAtPeriodEnd: true,
-        currentPeriodEnd: '2026-01-10T00:00:00.000Z',
+        currentPeriodEnd: ENDED_IN_BUFFER,
       })
       const user = userEvent.setup()
       renderAppAt(BILLING)
@@ -947,12 +951,13 @@ describe('billing actions', () => {
     })
 
     it('names no past end and offers no refund when the ending period is over and a next subscription is held', async () => {
+      // express books the next subscription from the period's end.
       serve({
         ...testTenantBilling,
         cancelAtPeriodEnd: true,
-        currentPeriodEnd: '2026-01-10T00:00:00.000Z',
+        currentPeriodEnd: ENDED_IN_BUFFER,
         nextSubscriptionId: 'sub_TestNext0001',
-        nextSwitch: { interval: 'year', startsAt: '2026-01-10T00:00:00.000Z' },
+        nextSwitch: { interval: 'year', startsAt: ENDED_IN_BUFFER },
       })
       const user = userEvent.setup()
       renderAppAt(BILLING)
@@ -960,9 +965,9 @@ describe('billing actions', () => {
       const dialog = await screen.findByRole('alertdialog', {
         name: 'Cancel the subscription for Acme Corp?',
       })
-      const ended = billingDate('2026-01-10T00:00:00.000Z')
+      const ended = billingDate(ENDED_IN_BUFFER)
       expect(dialog).not.toHaveTextContent('keeps Paid until')
-      const free = billingDate('2026-01-13T00:00:00.000Z')
+      const free = billingDate(new Date(Date.parse(ENDED_IN_BUFFER) + 3 * DAY_MS).toISOString())
       expect(dialog).toHaveTextContent(
         `This cancels only Acme Corp’s next subscription, booked from ${ended}. Acme Corp’s paid period ended on ${ended}, and it moves to Free on ${free}.`
       )
@@ -998,7 +1003,7 @@ describe('billing actions', () => {
       serve({
         ...testTenantBilling,
         cancelAtPeriodEnd: true,
-        currentPeriodEnd: '2026-01-10T00:00:00.000Z',
+        currentPeriodEnd: ENDED_IN_BUFFER,
       })
       const user = userEvent.setup()
       renderAppAt(BILLING)
@@ -1008,6 +1013,58 @@ describe('billing actions', () => {
       })
       expect(dialog).toHaveTextContent('Acme Corp moves to Free now.')
       expect(dialog).not.toHaveTextContent('Refund')
+    })
+
+    it('reads a page left open past the 3-day buffer as Free, as express serves it: only the next subscription to cancel', async () => {
+      serve({
+        ...testTenantBilling,
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: ENDED_PAST_BUFFER,
+        nextSubscriptionId: 'sub_TestNext0001',
+        nextSwitch: null,
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      expect(within(dialog).queryAllByRole('radio')).toHaveLength(0)
+      expect(dialog).toHaveTextContent(
+        'This cancels Acme Corp’s next subscription. Nothing is charged.'
+      )
+      expect(dialog).not.toHaveTextContent('moves to Free')
+    })
+
+    it('hides Cancel on a page left open past the 3-day buffer with no next subscription', async () => {
+      serve({
+        ...testTenantBilling,
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: ENDED_PAST_BUFFER,
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      expect((await openMenu(user)).names).not.toContain('Cancel subscription')
+    })
+
+    it('offers only the next subscription’s cancel on a tenant express serves as Free past the buffer', async () => {
+      serve({
+        ...testFreeTenantBilling,
+        providerSubscriptionId: 'sub_TestActive0001',
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: ENDED_PAST_BUFFER,
+        nextSubscriptionId: 'sub_TestNext0001',
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      expect(within(dialog).queryAllByRole('radio')).toHaveLength(0)
+      expect(dialog).toHaveTextContent(
+        'This cancels Acme Corp’s next subscription. Nothing is charged.'
+      )
     })
 
     it('cancels only the next subscription when no current one is held, and says so', async () => {

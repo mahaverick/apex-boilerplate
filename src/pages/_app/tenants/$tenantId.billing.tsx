@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
+import { useNow } from '@/hooks/use-now'
 import { codeFrom } from '@/lib/api-error'
 import { billingActionsFor } from '@/lib/billing-actions'
 import {
@@ -111,8 +112,10 @@ function TenantBilling({ tenantId, billing }: { tenantId: string; billing: Staff
   const tenant = useQuery(platformTenantQueryOptions(tenantId)).data
   const role = useAuthStore((s) => s.user?.platformRole)
   const heading = useRef<HTMLHeadingElement>(null)
+  const now = useNow()
   const catalog = plans.data?.catalog ?? []
-  const canRevoke = tenant !== undefined && billingActionsFor(role, tenant, billing, catalog).revoke
+  const canRevoke =
+    tenant !== undefined && billingActionsFor(role, tenant, billing, catalog, now).revoke
   const labels = new Map(catalog.map((entry) => [entry.key, entry.label]))
   return (
     <div className="grid gap-6">

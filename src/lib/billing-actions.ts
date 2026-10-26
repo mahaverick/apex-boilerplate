@@ -26,13 +26,21 @@ export function providerName(billing: StaffTenantBilling): string {
  * Whether express would cancel a current subscription: an id with the tenant
  * on Paid and charged or past due, as `hasCurrentSubscription` in express's
  * checkout service reads it. A Free tenant keeps its last id after Paid ends,
- * and a pending checkout is never cancelled, so neither counts.
+ * and a pending checkout is never cancelled, so neither counts. A cancelled
+ * period more than `CANCEL_BUFFER_MS` past its end counts as Free, as
+ * express's `effectiveBillingState` serves it, so a page left open across
+ * the buffer offers what a fresh read would.
  * @param billing - The tenant's billing.
+ * @param now - The moment the page reads as now, in milliseconds.
  */
-function hasCurrentSubscription(billing: StaffTenantBilling): boolean {
+function hasCurrentSubscription(billing: StaffTenantBilling, now: number): boolean {
+  const end = billing.currentPeriodEnd
+  const lapsed =
+    billing.cancelAtPeriodEnd && end !== null && new Date(end).getTime() + CANCEL_BUFFER_MS <= now
   return (
     billing.providerSubscriptionId !== null &&
-    (billing.state === 'active' || billing.state === 'past_due')
+    (billing.state === 'active' || billing.state === 'past_due') &&
+    !lapsed
   )
 }
 
@@ -49,16 +57,18 @@ function hasCurrentSubscription(billing: StaffTenantBilling): boolean {
  * @param tenant - The tenant's platform detail.
  * @param billing - The tenant's billing.
  * @param catalog - The entitlement catalog; empty while the plans load or if they failed.
+ * @param now - The moment the page reads as now, in milliseconds.
  */
 export function billingActionsFor(
   role: Parameters<typeof platformRoleAtLeast>[0],
   tenant: PlatformTenantDetail,
   billing: StaffTenantBilling,
-  catalog: readonly EntitlementCatalogEntry[]
+  catalog: readonly EntitlementCatalogEntry[],
+  now: number
 ) {
   const isManager = platformRoleAtLeast(role, 'manager')
   const archived = tenant.lifecycleState === 'archived'
-  const cancellable = hasCurrentSubscription(billing) || billing.nextSubscriptionId !== null
+  const cancellable = hasCurrentSubscription(billing, now) || billing.nextSubscriptionId !== null
   return {
     resync: isManager && billing.paymentsEnabled,
     extend: isManager && !archived && (billing.state === 'trialing' || billing.state === 'free'),
@@ -127,7 +137,7 @@ export function cancelChoicesFor(
     description: `${tenantName} moves to Free now. ${provider} charges nothing more.${refund ? ` Refund any unused period in ${dashboard}.` : ''}${alsoNext}`,
   })
 
-  if (!hasCurrentSubscription(billing)) {
+  if (!hasCurrentSubscription(billing, now)) {
     return {
       choices: [
         {

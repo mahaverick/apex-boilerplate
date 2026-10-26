@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useNow } from '@/hooks/use-now'
 import { useStepUp } from '@/hooks/use-step-up'
 import { billingActionsFor, providerName } from '@/lib/billing-actions'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
@@ -67,7 +68,8 @@ export function BillingActionsMenu({
   /** Whether the open dialog came from the palette, whose close has already moved focus. */
   const [fromPalette, setFromPalette] = useState(false)
   const keepFocusOnPage = useMemo(() => focusFallbackOnRemoval(fallbackFocus), [fallbackFocus])
-  const can = billingActionsFor(role, tenant, billing, catalog)
+  const now = useNow()
+  const can = billingActionsFor(role, tenant, billing, catalog, now)
   const hasActions = can.resync || can.extend || can.grant || can.cancel
 
   usePaletteCommands(
