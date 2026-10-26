@@ -3,14 +3,21 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { MembershipRole } from '@/constants/roles'
+import { formatDate } from '@/lib/format'
 import { toast } from '@/lib/toast'
-import { testPlans } from '@/tests/fixtures/billing'
+import { testBillingSettings, testPlans } from '@/tests/fixtures/billing'
+import { STAFF_USER_ID } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import { confirmStepUp } from '@/tests/mocks/step-up'
 import { REAUTH_REQUIRED } from '@/types/api.types'
-import type { PlanChangePreview, StaffPlan, StaffPlans } from '@/types/billing.types'
+import type {
+  BillingSettings,
+  PlanChangePreview,
+  StaffPlan,
+  StaffPlans,
+} from '@/types/billing.types'
 
 const FREE = testPlans.plans[0]!
 const PAID = testPlans.plans[1]!
@@ -577,5 +584,325 @@ describe('Plans page', () => {
         await within(dialog).findByText('Another price change is in progress. Try again.')
       ).toBeInTheDocument()
     })
+  })
+})
+
+/**
+ * Records each settings PATCH body; the first is refused for a stale
+ * sign-in, so the save runs through step-up, and the retry answers `answer`.
+ * @param answer - The settings the retry answers.
+ */
+function recordSettingsSave(answer: BillingSettings): unknown[] {
+  const bodies: unknown[] = []
+  server.use(
+    http.patch('/api/v1/platform/billing-settings', async ({ request }) => {
+      bodies.push(await request.json())
+      return bodies.length === 1
+        ? fail('Recent sign-in required', 401, REAUTH_REQUIRED)
+        : ok(answer, 'Billing settings saved.')
+    })
+  )
+  return bodies
+}
+
+/**
+ * Serves the billing settings: `settings` for every read, or each read in turn.
+ * @param settings - The answers, in order; the last repeats.
+ */
+function serveSettings(...settings: BillingSettings[]) {
+  let reads = 0
+  server.use(
+    http.get('/api/v1/platform/billing-settings', () => {
+      const answer = settings[Math.min(reads, settings.length - 1)] ?? testBillingSettings
+      reads += 1
+      return ok(answer, 'Billing settings retrieved.')
+    })
+  )
+}
+
+/** The Trials and grace card, found by its heading. */
+async function settingsCard() {
+  return screen.findByRole('region', { name: 'Trials and grace' })
+}
+
+/** The unchanged-save message, express's refine word for word. */
+const NO_SETTING_CHANGED =
+  'Change at least one setting: trials, the trial length or the grace period.'
+
+describe('Plans page: trials and grace', () => {
+  let success: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    servePlans(testPlans)
+    serveSettings(testBillingSettings)
+    success = vi.spyOn(toast, 'success')
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it.each(['viewer', 'manager'] as const)(
+    'shows a %s the settings as text, with no controls',
+    async (role) => {
+      openPlans(role)
+      const settings = await settingsCard()
+      expect(await within(settings).findByText('Never changed.')).toBeInTheDocument()
+      expect(settings).toHaveTextContent('Paid trial for new workspacesOn')
+      expect(settings).toHaveTextContent('Trial length14 days')
+      expect(settings).toHaveTextContent('Days to keep Paid after the last failed payment7 days')
+      expect(within(settings).queryByRole('switch')).toBeNull()
+      expect(within(settings).queryByRole('textbox')).toBeNull()
+      expect(within(settings).queryByRole('button')).toBeNull()
+    }
+  )
+
+  it('names who changed the settings last, masked, and when', async () => {
+    serveSettings({
+      ...testBillingSettings,
+      version: 3,
+      updatedAt: '2026-10-20T10:00:00.000Z',
+      updatedBy: { userId: STAFF_USER_ID, name: 'Staff Admin' },
+    })
+    openPlans('viewer')
+    const settings = await settingsCard()
+    const name = await within(settings).findByText('Staff Admin')
+    expect(name).toHaveClass('ph-mask')
+    expect(name.parentElement).toHaveTextContent(
+      `Last changed by Staff Admin on ${formatDate('2026-10-20T10:00:00.000Z', 'medium') ?? ''}.`
+    )
+  })
+
+  it('gives an admin the switch and both day fields, loaded', async () => {
+    openPlans('admin')
+    const settings = await settingsCard()
+    expect(
+      await within(settings).findByRole('switch', { name: 'Give new workspaces a Paid trial' })
+    ).toBeChecked()
+    expect(within(settings).getByRole('textbox', { name: 'Trial length (days)' })).toHaveValue('14')
+    expect(
+      within(settings).getByRole('textbox', {
+        name: 'Days to keep Paid after the last failed payment',
+      })
+    ).toHaveValue('7')
+    expect(
+      within(settings).getByRole('button', { name: 'Save billing settings' })
+    ).toBeInTheDocument()
+  })
+
+  it('posts only the changed setting with the version, after a reason and step-up', async () => {
+    const saves = recordSettingsSave({ ...testBillingSettings, trialDays: 21, version: 2 })
+    const user = userEvent.setup()
+    openPlans('admin')
+    const settings = await settingsCard()
+    const length = await within(settings).findByRole('textbox', { name: 'Trial length (days)' })
+    await user.clear(length)
+    await user.type(length, '21')
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    expect(dialog).toHaveTextContent(
+      'New trials use these rules. Trials already running keep their end dates. A grace change applies to every tenant with a failed payment now.'
+    )
+    await user.type(within(dialog).getByLabelText('Reason'), 'Longer trials for the launch')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await confirmStepUp(user)
+    await waitFor(() => expect(success).toHaveBeenCalledWith('Billing settings saved.'))
+    expect(saves).toEqual([
+      { version: 1, trialDays: 21, reason: 'Longer trials for the launch' },
+      { version: 1, trialDays: 21, reason: 'Longer trials for the launch' },
+    ])
+    expect(length).toHaveValue('21')
+  })
+
+  it('sends the trial switch alone when only it changed', async () => {
+    const saves = recordSettingsSave({ ...testBillingSettings, trialEnabled: false, version: 2 })
+    const user = userEvent.setup()
+    openPlans('admin')
+    const settings = await settingsCard()
+    await user.click(
+      await within(settings).findByRole('switch', { name: 'Give new workspaces a Paid trial' })
+    )
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Pause trials')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await confirmStepUp(user)
+    await waitFor(() => expect(saves).toHaveLength(2))
+    expect(saves[1]).toEqual({ version: 1, trialEnabled: false, reason: 'Pause trials' })
+  })
+
+  it('asks for a change when nothing changed, in express’s words, and posts nothing', async () => {
+    const saves = recordSettingsSave(testBillingSettings)
+    const user = userEvent.setup()
+    openPlans('admin')
+    const settings = await settingsCard()
+    await user.click(await within(settings).findByRole('button', { name: 'Save billing settings' }))
+    expect(await within(settings).findByText(NO_SETTING_CHANGED)).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(saves).toEqual([])
+  })
+
+  it('refuses 31 grace days before asking for a reason', async () => {
+    const saves = recordSettingsSave(testBillingSettings)
+    const user = userEvent.setup()
+    openPlans('admin')
+    const settings = await settingsCard()
+    const grace = await within(settings).findByRole('textbox', {
+      name: 'Days to keep Paid after the last failed payment',
+    })
+    await user.clear(grace)
+    await user.type(grace, '31')
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    expect(
+      await within(settings).findByText('Enter a whole number of days from 1 to 30.')
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(saves).toEqual([])
+  })
+
+  it('puts the API’s trial error under its switch, and clears it when the switch changes', async () => {
+    const message = 'Choose whether new workspaces get a Paid trial.'
+    server.use(
+      http.patch('/api/v1/platform/billing-settings', () =>
+        HttpResponse.json(
+          {
+            success: false,
+            message: 'Check the highlighted fields, then try again.',
+            statusCode: 400,
+            errors: { trialEnabled: [message] },
+            requestId: 'test-request-id',
+          },
+          { status: 400 }
+        )
+      )
+    )
+    const user = userEvent.setup()
+    openPlans('admin')
+    const settings = await settingsCard()
+    const trial = await within(settings).findByRole('switch', {
+      name: 'Give new workspaces a Paid trial',
+    })
+    await user.click(trial)
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Test')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(await within(settings).findByText(message)).toBeInTheDocument()
+    await waitFor(() => expect(trial).toHaveAttribute('aria-invalid', 'true'))
+    await user.click(trial)
+    await waitFor(() => expect(within(settings).queryByText(message)).toBeNull())
+  })
+
+  it('says their settings didn’t load, and saves nothing, until the reload succeeds', async () => {
+    const theirs: BillingSettings = { ...testBillingSettings, version: 2, pastDueGraceDays: 10 }
+    let reads = 0
+    let failReads = true
+    server.use(
+      http.get('/api/v1/platform/billing-settings', () => {
+        reads += 1
+        if (reads === 1) return ok(testBillingSettings, 'Billing settings retrieved.')
+        return failReads ? fail('Boom', 500) : ok(theirs, 'Billing settings retrieved.')
+      })
+    )
+    const saves: unknown[] = []
+    server.use(
+      http.patch('/api/v1/platform/billing-settings', async ({ request }) => {
+        saves.push(await request.json())
+        return fail('Someone changed the billing settings.', 409, 'PLAN_VERSION_CONFLICT')
+      })
+    )
+    const user = userEvent.setup()
+    openPlans('admin')
+    const settings = await settingsCard()
+    const length = await within(settings).findByRole('textbox', { name: 'Trial length (days)' })
+    await user.clear(length)
+    await user.type(length, '30')
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Longer trials')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    const unloaded =
+      'Another staff member changed the billing settings, and their values didn’t load. Select Try again, then save again.'
+    expect(await within(settings).findByText(unloaded)).toBeInTheDocument()
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(saves).toHaveLength(1)
+
+    failReads = false
+    await user.click(await within(settings).findByRole('button', { name: 'Try again' }))
+    await waitFor(() =>
+      expect(within(settings).queryByRole('button', { name: 'Try again' })).toBeNull()
+    )
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    expect(
+      await within(settings).findByText(
+        'Another staff member changed the billing settings. We loaded their values and kept what you typed. Review and save again.'
+      )
+    ).toBeInTheDocument()
+    expect(length).toHaveValue('30')
+    expect(
+      within(settings).getByRole('textbox', {
+        name: 'Days to keep Paid after the last failed payment',
+      })
+    ).toHaveValue('10')
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(saves).toHaveLength(1)
+  })
+
+  it('keeps typed values after another staff member saves first, and loads theirs elsewhere', async () => {
+    const theirs: BillingSettings = {
+      ...testBillingSettings,
+      version: 2,
+      pastDueGraceDays: 10,
+      updatedBy: { userId: STAFF_USER_ID, name: 'Staff Admin' },
+    }
+    serveSettings(testBillingSettings, theirs)
+    const saves: unknown[] = []
+    server.use(
+      http.patch('/api/v1/platform/billing-settings', async ({ request }) => {
+        saves.push(await request.json())
+        return saves.length === 1
+          ? fail(
+              'Someone changed the billing settings after you opened this page. Reload it, then try again.',
+              409,
+              'PLAN_VERSION_CONFLICT'
+            )
+          : ok({ ...theirs, version: 3, trialDays: 30 }, 'Billing settings saved.')
+      })
+    )
+    const user = userEvent.setup()
+    openPlans('admin')
+    const settings = await settingsCard()
+    const length = await within(settings).findByRole('textbox', { name: 'Trial length (days)' })
+    await user.clear(length)
+    await user.type(length, '30')
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    let dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Longer trials')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    expect(
+      await within(settings).findByText(
+        'Another staff member changed the billing settings. We loaded their values and kept what you typed. Review and save again.'
+      )
+    ).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(length).toHaveValue('30')
+    await waitFor(() =>
+      expect(
+        within(settings).getByRole('textbox', {
+          name: 'Days to keep Paid after the last failed payment',
+        })
+      ).toHaveValue('10')
+    )
+
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Longer trials')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(success).toHaveBeenCalledWith('Billing settings saved.'))
+    expect(saves[1]).toEqual({ version: 2, trialDays: 30, reason: 'Longer trials' })
   })
 })

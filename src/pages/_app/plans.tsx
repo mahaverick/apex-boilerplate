@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import { BillingSettingsCard } from '@/components/features/billing/billing-settings-card'
 import { PlanEditorCard } from '@/components/features/billing/plan-editor-card'
 import { PricesCard } from '@/components/features/billing/prices-card'
 import { DashboardPending } from '@/components/shared/pending-templates'
@@ -8,15 +9,19 @@ import { SectionBoundary } from '@/components/shared/section-boundary'
 import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { platformRoleAtLeast } from '@/constants/roles'
-import { staffPlansQueryOptions } from '@/queries/billing-reads.queries'
+import {
+  billingSettingsQueryOptions,
+  staffPlansQueryOptions,
+} from '@/queries/billing-reads.queries'
 import { useAuthStore } from '@/states/auth.store'
 import type { StaffPlans } from '@/types/billing.types'
 
-/** The Plans page: Free and Paid with their entitlements, and Paid's prices. */
+/** The Plans page: Free and Paid with their entitlements, Paid's prices, and the trial and grace rules. */
 export const Route = createFileRoute('/_app/plans')({
   // Started, not awaited: the page renders its skeleton while this runs.
   loader: ({ context }) => {
     void context.queryClient.prefetchQuery(staffPlansQueryOptions())
+    void context.queryClient.prefetchQuery(billingSettingsQueryOptions())
   },
   head: () => ({ meta: [{ title: pageTitle('Plans') }] }),
   staticData: { crumb: 'Plans' },
@@ -42,6 +47,7 @@ function PlansSkeleton() {
  * viewer route); only an admin and up edits them, since every plan and
  * price write is admin. Below admin the edit controls are not rendered at
  * all. A 404 is a role refusal, which `QueryState` shows as `RoleDenied`.
+ * The trial and grace card has its own read, so a plans failure leaves it up.
  */
 function PlansPage() {
   const plans = useQuery(staffPlansQueryOptions())
@@ -61,6 +67,9 @@ function PlansPage() {
       >
         {(data) => <PlansContent plans={data} canEdit={canEdit} />}
       </QueryState>
+      <SectionBoundary name="Trials and grace">
+        <BillingSettingsCard canEdit={canEdit} />
+      </SectionBoundary>
     </div>
   )
 }

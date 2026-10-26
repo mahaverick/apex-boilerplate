@@ -9,7 +9,11 @@ import '@/lib/zod-jitless'
 import { z } from 'zod'
 import { reasonSchema } from '@/schemas/reason.schemas'
 import { safeText } from '@/schemas/safe-text.schemas'
-import { BILLING_INTERVALS, type EntitlementCatalogEntry } from '@/types/billing.types'
+import {
+  BILLING_INTERVALS,
+  type BillingSettings,
+  type EntitlementCatalogEntry,
+} from '@/types/billing.types'
 
 /** The most days one trial extension or trial may run: express's `MAX_TRIAL_DAYS`. */
 const MAX_TRIAL_DAYS = 90
@@ -252,6 +256,40 @@ export const billingSettingsSchema = z.object({
   trialDays: daysSchema(MAX_TRIAL_DAYS),
   pastDueGraceDays: daysSchema(MAX_PAST_DUE_GRACE_DAYS),
 })
+
+/** The billing settings form as the reader edits it: the switch, and each day count as typed. */
+export interface BillingSettingsForm {
+  trialEnabled: boolean
+  trialDays: string
+  pastDueGraceDays: string
+}
+
+/**
+ * The billing settings form's fields, each parsing into its
+ * `billingSettingsSchema` value: the days as typed become whole numbers.
+ * `useChangedFields` diffs the typed values against the loaded ones and
+ * parses only the fields that changed.
+ */
+export const billingSettingsFormSchema = z.object({
+  trialEnabled: billingSettingsSchema.shape.trialEnabled,
+  trialDays: z.string().transform(wholeNumber).pipe(billingSettingsSchema.shape.trialDays),
+  pastDueGraceDays: z
+    .string()
+    .transform(wholeNumber)
+    .pipe(billingSettingsSchema.shape.pastDueGraceDays),
+})
+
+/**
+ * The billing settings as the form holds them, the days as text.
+ * @param settings - The stored settings.
+ */
+export function billingSettingsForm(settings: BillingSettings): BillingSettingsForm {
+  return {
+    trialEnabled: settings.trialEnabled,
+    trialDays: String(settings.trialDays),
+    pastDueGraceDays: String(settings.pastDueGraceDays),
+  }
+}
 
 /** The longest plan name and description: express's column widths. */
 const MAX_PLAN_NAME_LENGTH = 64
