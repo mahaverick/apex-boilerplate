@@ -12,11 +12,12 @@ import { codeFrom, statusFrom } from '@/lib/api-error'
 import { analyticsKey } from '@/observability/telemetry'
 import { auditKeys } from '@/queries/audit.queries'
 import { listQueryOptions } from '@/queries/list.queries'
-import { invalidateDirectory } from '@/queries/platform.queries'
+import { invalidateDirectory, PLANS_KEY } from '@/queries/platform.queries'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import { defineList } from '@/schemas/list.schemas'
 import type { ApiSuccess } from '@/types/api.types'
 import {
+  GRANT_NOT_FOUND,
   PLAN_VERSION_CONFLICT,
   type BillingAlert,
   type BillingInterval,
@@ -36,7 +37,7 @@ import type { ListRequest } from '@/types/list.types'
  * `tenantAdminKeys.detail(id)`.
  */
 export const billingAdminKeys = {
-  plans: ['platform', 'plans'] as const,
+  plans: PLANS_KEY,
   settings: ['platform', 'billing-settings'] as const,
   alerts: ['platform', 'billing', 'alerts'] as const,
   tenant: (id: string) => ['platform', 'tenant', id, 'billing'] as const,
@@ -126,10 +127,13 @@ function invalidateTenantBillingViews(queryClient: QueryClient): Promise<void> {
 /**
  * A write on one tenant's billing. Each answers the tenant's staff view,
  * which replaces the cached one; the rest of the tenant's directory
- * refreshes (its detail, the tenants list's plan column, the audit log),
- * and the plans, whose tenant counts may have moved. A 409 means the cached
- * state was stale (a trial that is no longer extendable, a subscription
- * already ending), so the view is refetched to show the real one.
+ * refreshes (its detail, the tenants list's plan column, the audit log,
+ * and the plans, whose tenant counts may have moved). A 409 means the
+ * cached state was stale (a trial that is no longer extendable, a
+ * subscription already ending), so the view, the tenants list and the plan
+ * counts refetch to show the real state. A 404 `grant_not_found` means the
+ * grant shown is gone, so the view refetches. Any other failure changed
+ * nothing, so the cache stays.
  * @param tenantId - The tenant's id.
  * @param post - Sends the write and returns the answered view.
  */
@@ -142,13 +146,16 @@ function useTenantBillingWrite<Input>(
     mutationFn: post,
     onSuccess: async (view) => {
       queryClient.setQueryData(billingAdminKeys.tenant(tenantId), view)
-      await Promise.all([
-        invalidateDirectory(queryClient, billingAdminKeys.tenant(tenantId)),
-        queryClient.invalidateQueries({ queryKey: billingAdminKeys.plans }),
-      ])
+      await invalidateDirectory(queryClient, billingAdminKeys.tenant(tenantId))
     },
     onError: async (error) => {
       if (statusFrom(error) === 409) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: billingAdminKeys.tenant(tenantId) }),
+          queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all }),
+          queryClient.invalidateQueries({ queryKey: billingAdminKeys.plans }),
+        ])
+      } else if (codeFrom(error) === GRANT_NOT_FOUND) {
         await queryClient.invalidateQueries({ queryKey: billingAdminKeys.tenant(tenantId) })
       }
     },

@@ -63,11 +63,19 @@ export function systemStatusQueryOptions() {
 }
 
 /**
+ * The staff plans read, `billingAdminKeys.plans`. It lives here because
+ * `billing-admin.queries.ts` imports this module: its tenant counts move
+ * whenever a tenant is created, purged or changes state.
+ */
+export const PLANS_KEY = ['platform', 'plans'] as const
+
+/**
  * The cache prefixes a staff write can make stale beyond its own record: the
  * users list and pages, the tenants list and pages, every tenant's own routes
- * (members, invitations, detail, log; the Staff page is the platform tenant's),
- * the platform audit log, since every staff write is an entry there, and the
- * onboarding funnel, lists and tenant pages, which count active tenants only.
+ * (members, invitations, detail, log, billing; the Staff page is the platform
+ * tenant's), the platform audit log, since every staff write is an entry
+ * there, the onboarding funnel, lists and tenant pages, which count active
+ * tenants only, and the plans, whose tenant counts move with a tenant's state.
  * The email queries are marked stale beside these (`invalidateEmails`): a
  * write may send mail, and a purge deletes the mail it held.
  */
@@ -79,6 +87,7 @@ const DIRECTORY_PREFIXES: readonly QueryKey[] = [
   ['tenants'],
   ['platform', 'audit-log'],
   onboardingKeys.all,
+  PLANS_KEY,
 ]
 
 /** Whether `key` starts with every part of `prefix`. */

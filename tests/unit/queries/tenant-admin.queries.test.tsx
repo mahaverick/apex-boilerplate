@@ -4,13 +4,18 @@ import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vite-plus/test'
 import { platformAuditListOptions } from '@/queries/audit.queries'
+import { billingAdminKeys } from '@/queries/billing-admin.queries'
 import {
+  useArchiveTenant,
+  useCreatePlatformTenant,
   usePurgeTenant,
+  useReactivateTenant,
   useReissueOwnerInvitation,
   useSuspendTenant,
 } from '@/queries/tenant-admin.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
 import { userAdminKeys, usersListOptions } from '@/queries/user-admin.queries'
+import { testPlans, testTenantBilling } from '@/tests/fixtures/billing'
 import { TENANT_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { ok } from '@/tests/mocks/handlers'
@@ -83,4 +88,63 @@ describe('tenant-admin queries', () => {
       expect(client.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(true)
     }
   })
+
+  it.each([
+    ['suspending', 'suspend', () => useSuspendTenant(TENANT_ID), 'suspended'],
+    ['reactivating', 'reactivate', () => useReactivateTenant(TENANT_ID), 'active'],
+    ['archiving', 'archive', () => useArchiveTenant(TENANT_ID), 'archived'],
+  ] as const)(
+    '%s a tenant refreshes the plan counts and its billing view',
+    async (_label, action, useHook, lifecycleState) => {
+      server.use(
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/${action}`, () =>
+          ok({ id: TENANT_ID, slug: 'acme', lifecycleState }, 'Done.')
+        )
+      )
+      const client = clientWithBilling()
+      const { result } = renderHook(useHook, { wrapper: wrapperWith(client) })
+      result.current.mutate('Billing hold')
+      await waitFor(() => expect(result.current.isSuccess).toBe(true))
+      expect(client.getQueryState(billingAdminKeys.plans)?.isInvalidated).toBe(true)
+      expect(client.getQueryState(billingAdminKeys.tenant(TENANT_ID))?.isInvalidated).toBe(true)
+    }
+  )
+
+  it('purging a tenant refreshes the plan counts', async () => {
+    server.use(
+      http.post(`/api/v1/platform/tenants/${TENANT_ID}/purge`, () =>
+        ok(null, 'Tenant permanently deleted.')
+      )
+    )
+    const client = clientWithBilling()
+    const { result } = renderHook(() => usePurgeTenant(TENANT_ID, { onPurged: async () => {} }), {
+      wrapper: wrapperWith(client),
+    })
+    result.current.mutate('Erasure request')
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(client.getQueryState(billingAdminKeys.plans)?.isInvalidated).toBe(true)
+  })
+
+  it('creating a tenant refreshes the plan counts', async () => {
+    server.use(
+      http.post('/api/v1/platform/tenants', () =>
+        ok({ tenant: { id: TENANT_ID, slug: 'acme' }, emailSent: true }, 'Tenant created.', 201)
+      )
+    )
+    const client = clientWithBilling()
+    const { result } = renderHook(() => useCreatePlatformTenant(), {
+      wrapper: wrapperWith(client),
+    })
+    result.current.mutate({ name: 'Acme', slug: 'acme', ownerEmail: 'owner@acme.test' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(client.getQueryState(billingAdminKeys.plans)?.isInvalidated).toBe(true)
+  })
 })
+
+/** A client holding the plans and one tenant's billing view, so a test can see a lifecycle write mark them stale. */
+function clientWithBilling() {
+  const client = clientWithHistory()
+  client.setQueryData(billingAdminKeys.plans, testPlans)
+  client.setQueryData(billingAdminKeys.tenant(TENANT_ID), testTenantBilling)
+  return client
+}

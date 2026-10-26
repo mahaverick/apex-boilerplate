@@ -13,7 +13,7 @@ import { auditKeys } from '@/queries/audit.queries'
 import { invalidateEmails } from '@/queries/email.queries'
 import { listQueryOptions } from '@/queries/list.queries'
 import { invalidateOnboarding } from '@/queries/onboarding.queries'
-import { invalidateDirectory } from '@/queries/platform.queries'
+import { invalidateDirectory, PLANS_KEY } from '@/queries/platform.queries'
 import { tenantKeys } from '@/queries/tenant.queries'
 import { defineList, listFilter } from '@/schemas/list.schemas'
 import type { CreatePlatformTenantInput } from '@/schemas/tenant.schemas'
@@ -65,7 +65,8 @@ export function tenantsListOptions(request: ListRequest, options: { total?: bool
  * `POST /platform/tenants`: a tenant with no members, and an owner invitation
  * to `ownerEmail`. The created tenant's detail is seeded into the cache, so opening the
  * tenant needs no second request; every tenant list, email query and audit
- * log refreshes, and the onboarding lists, where it awaits its owner.
+ * log refreshes, the onboarding lists, where it awaits its owner, and the
+ * plans, whose tenant counts it joins.
  */
 export function useCreatePlatformTenant() {
   const queryClient = useQueryClient()
@@ -85,6 +86,7 @@ export function useCreatePlatformTenant() {
         invalidateOnboarding(queryClient),
         queryClient.invalidateQueries({ queryKey: auditKeys.platformAll }),
         queryClient.invalidateQueries({ queryKey: auditKeys.tenantAll(tenant.slug) }),
+        queryClient.invalidateQueries({ queryKey: PLANS_KEY }),
       ])
     },
   })

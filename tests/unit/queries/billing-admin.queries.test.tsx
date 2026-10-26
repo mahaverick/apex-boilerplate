@@ -158,15 +158,16 @@ describe('tenant billing writes', () => {
     }
   )
 
-  it('invalidates the tenant’s billing and directory after a grant is revoked', async () => {
+  it('caches the answered view and refreshes the directory after a grant is revoked', async () => {
     const grantId = '92000000-0000-4000-8000-000000000001'
+    const revoked = { ...testTenantBilling, grants: [] }
     let body: unknown
     server.use(
       http.post(
         `/api/v1/platform/tenants/${TENANT_ID}/billing/grants/${grantId}/revoke`,
         async ({ request }) => {
           body = await request.json()
-          return ok(testTenantBilling, 'Grant revoked.')
+          return ok(revoked, 'Grant revoked.')
         }
       )
     )
@@ -177,6 +178,7 @@ describe('tenant billing writes', () => {
     result.current.mutate({ grantId, reason: 'Ended' })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(body).toEqual({ reason: 'Ended' })
+    expect(client.getQueryData(billingAdminKeys.tenant(TENANT_ID))).toEqual(revoked)
     expect(stale(client, tenantAdminKeys.detail(TENANT_ID))).toBe(true)
     expect(stale(client, AUDIT_KEY)).toBe(true)
   })
@@ -198,7 +200,47 @@ describe('tenant billing writes', () => {
     result.current.mutate({ days: 7, reason: 'Pilot' })
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(stale(client, billingAdminKeys.tenant(TENANT_ID))).toBe(true)
+    expect(stale(client, TENANTS_KEY)).toBe(true)
+    expect(stale(client, billingAdminKeys.plans)).toBe(true)
     expect(stale(client, billingAdminKeys.tenant(TENANT_ID_2))).toBe(false)
+  })
+
+  it('refetches the tenant’s billing when the grant to revoke is gone', async () => {
+    const grantId = '92000000-0000-4000-8000-000000000009'
+    server.use(
+      http.post(`/api/v1/platform/tenants/${TENANT_ID}/billing/grants/${grantId}/revoke`, () =>
+        fail('We couldn’t find this grant on this tenant.', 404, 'grant_not_found')
+      )
+    )
+    const client = seededClient()
+    const { result } = renderHook(() => useRevokeGrant(TENANT_ID), {
+      wrapper: wrapperWith(client),
+    })
+    result.current.mutate({ grantId, reason: 'Ended' })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(stale(client, billingAdminKeys.tenant(TENANT_ID))).toBe(true)
+  })
+
+  it.each([
+    [404, 'not_found'],
+    [502, 'PAYMENT_PROVIDER_UNAVAILABLE'],
+    [503, 'BILLING_BUSY'],
+  ])('leaves the cached view alone on a %i', async (status, code) => {
+    server.use(
+      http.post(`/api/v1/platform/tenants/${TENANT_ID}/billing/cancel`, () =>
+        fail('Refused.', status, code)
+      )
+    )
+    const client = seededClient()
+    const { result } = renderHook(() => useCancelBillingByStaff(TENANT_ID), {
+      wrapper: wrapperWith(client),
+    })
+    result.current.mutate({ when: 'now', reason: 'Fraud' })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(client.getQueryData(billingAdminKeys.tenant(TENANT_ID))).toBe(testTenantBilling)
+    expect(stale(client, billingAdminKeys.tenant(TENANT_ID))).toBe(false)
+    expect(stale(client, TENANTS_KEY)).toBe(false)
+    expect(stale(client, billingAdminKeys.plans)).toBe(false)
   })
 })
 
@@ -283,6 +325,33 @@ describe('plan writes', () => {
         ?.plans.find((plan) => plan.id === PAID_ID)?.version
     ).toBe(2)
     expect(stale(client, AUDIT_KEY)).toBe(true)
+    expect(stale(client, billingAdminKeys.tenant(TENANT_ID))).toBe(false)
+    expect(stale(client, TENANTS_KEY)).toBe(false)
+    expect(stale(client, tenantAdminKeys.detail(TENANT_ID))).toBe(false)
+  })
+
+  it('caches no plans when none were cached', async () => {
+    server.use(
+      http.patch(`/api/v1/platform/plans/${PAID_ID}`, () =>
+        ok({ ...PAID, name: 'Pro', version: 2 }, 'Plan saved.')
+      )
+    )
+    const client = new QueryClient()
+    const { result } = renderHook(() => useUpdatePlan(PAID_ID), { wrapper: wrapperWith(client) })
+    result.current.mutate({ version: 1, name: 'Pro', reason: 'Rename' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(client.getQueryData(billingAdminKeys.plans)).toBeUndefined()
+  })
+
+  it('leaves the plans alone on a 409 that is not a version conflict', async () => {
+    server.use(
+      http.patch(`/api/v1/platform/plans/${PAID_ID}`, () => fail('Refused.', 409, 'OTHER'))
+    )
+    const client = seededClient()
+    const { result } = renderHook(() => useUpdatePlan(PAID_ID), { wrapper: wrapperWith(client) })
+    result.current.mutate({ version: 1, name: 'Pro', reason: 'Rename' })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(stale(client, billingAdminKeys.plans)).toBe(false)
   })
 
   it('reloads the plans when another price change won the slot', async () => {
@@ -334,5 +403,18 @@ describe('billing settings writes', () => {
     result.current.mutate({ version: 1, trialDays: 21, reason: 'Longer trials' })
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(stale(client, billingAdminKeys.settings)).toBe(true)
+  })
+
+  it('leaves the settings alone on a 409 that is not a version conflict', async () => {
+    server.use(
+      http.patch('/api/v1/platform/billing-settings', () => fail('Refused.', 409, 'OTHER'))
+    )
+    const client = seededClient()
+    const { result } = renderHook(() => useUpdateBillingSettings(), {
+      wrapper: wrapperWith(client),
+    })
+    result.current.mutate({ version: 1, trialDays: 21, reason: 'Longer trials' })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(stale(client, billingAdminKeys.settings)).toBe(false)
   })
 })

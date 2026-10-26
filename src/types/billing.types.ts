@@ -228,3 +228,6 @@ export const PLAN_FEATURE_REQUIRED = 'PLAN_FEATURE_REQUIRED'
 
 /** `code` on the 409 for a plan or billing settings edit made against a version another staff member replaced. */
 export const PLAN_VERSION_CONFLICT = 'PLAN_VERSION_CONFLICT'
+
+/** `code` on the 404 for a grant revoke naming a grant this tenant does not have. */
+export const GRANT_NOT_FOUND = 'grant_not_found'
