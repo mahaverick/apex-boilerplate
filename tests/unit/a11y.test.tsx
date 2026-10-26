@@ -44,6 +44,7 @@ import {
   TENANT_ID_2,
   TENANT_ID_3,
   TENANT_ID_4,
+  TENANT_ID_5,
   USER_ID,
   USER_ID_2,
   USER_ID_3,
@@ -729,7 +730,7 @@ describe('signed-in pages', () => {
       [TENANT_ID_2, 'Beta Ltd', 'beta', 'suspended', 'past_due'],
       [TENANT_ID_3, 'Gamma Inc', 'gamma', 'archived', 'free'],
       [TENANT_ID_4, 'Delta LLC', 'delta', 'active', 'active'],
-      ['10000000-0000-4000-8000-000000000005', 'Epsilon Co', 'epsilon', 'active', null],
+      [TENANT_ID_5, 'Epsilon Co', 'epsilon', 'active', null],
     ] as const
   ).map(([id, name, slug, lifecycleState, billingState]): PlatformTenantRow => ({
     id,

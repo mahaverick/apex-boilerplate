@@ -15,6 +15,8 @@ export const TENANT_ID_2 = '10000000-0000-4000-8000-000000000002'
 export const TENANT_ID_3 = '10000000-0000-4000-8000-000000000003'
 /** A fourth tenant ('Delta LLC'), which only the e2e harness serves. */
 export const TENANT_ID_4 = '10000000-0000-4000-8000-000000000004'
+/** A fifth tenant ('Epsilon Co'), the a11y tenants list's row with no billing record. */
+export const TENANT_ID_5 = '10000000-0000-4000-8000-000000000005'
 /** The platform tenant that staff accounts belong to. */
 export const PLATFORM_TENANT_ID = '10000000-0000-4000-8000-000000000100'
 
