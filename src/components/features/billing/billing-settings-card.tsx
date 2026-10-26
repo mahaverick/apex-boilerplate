@@ -139,19 +139,22 @@ function SettingsSummary({ settings }: { settings: BillingSettings }) {
 /**
  * Who changed the settings last, and when. Express sends no editor before
  * the first staff edit (version 1), or once the editor's account is gone.
+ * A date that doesn't parse is left out rather than guessed.
  */
 function LastChanged({ settings }: { settings: BillingSettings }) {
-  const date = formatDate(settings.updatedAt, 'medium') ?? 'an unknown date'
+  const date = formatDate(settings.updatedAt, 'medium')
+  const on = date === null ? '' : ` on ${date}`
   return (
     <p className="text-xs text-muted-foreground">
       {settings.updatedBy !== null ? (
         <>
-          Last changed by <Pii>{settings.updatedBy.name}</Pii> on {date}.
+          Last changed by <Pii>{settings.updatedBy.name}</Pii>
+          {on}.
         </>
       ) : settings.version === 1 ? (
         'Never changed.'
       ) : (
-        `Last changed on ${date}.`
+        `Last changed${on}.`
       )}
     </p>
   )

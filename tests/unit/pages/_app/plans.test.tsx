@@ -979,6 +979,36 @@ describe('Plans page: trials and grace', () => {
     )
   })
 
+  it('says only when they last changed once the editor’s account is gone', async () => {
+    serveSettings({
+      ...testBillingSettings,
+      version: 3,
+      updatedAt: '2026-10-20T10:00:00.000Z',
+      updatedBy: null,
+    })
+    openPlans('viewer')
+    const settings = await settingsCard()
+    expect(
+      await within(settings).findByText(
+        `Last changed on ${formatDate('2026-10-20T10:00:00.000Z', 'medium') ?? ''}.`
+      )
+    ).toBeInTheDocument()
+    expect(settings).not.toHaveTextContent('Never changed.')
+  })
+
+  it('leaves the date out rather than guess it when the API sends none it can read', async () => {
+    serveSettings({
+      ...testBillingSettings,
+      version: 3,
+      updatedAt: 'not a date',
+      updatedBy: { userId: STAFF_USER_ID, name: 'Staff Admin' },
+    })
+    openPlans('viewer')
+    const settings = await settingsCard()
+    const name = await within(settings).findByText('Staff Admin')
+    expect(name.parentElement).toHaveTextContent(/^Last changed by Staff Admin\.$/)
+  })
+
   it('gives an admin the switch and both day fields, loaded', async () => {
     openPlans('admin')
     const settings = await settingsCard()
