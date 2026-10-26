@@ -75,7 +75,7 @@ describe('fieldsAfterConflict', () => {
 
   it('keeps a typed limit whole when they saved No limit for it', () => {
     const theirsNoLimit = planEditForm(
-      { ...FREE, version: 2, entitlements: { ...FREE.entitlements, members: null } },
+      { ...FREE, entitlements: { ...FREE.entitlements, members: null } },
       catalog
     )
     const current = { ...loaded, limits: { members: '5' } }
@@ -93,7 +93,7 @@ describe('fieldsAfterConflict', () => {
 
   it('takes both halves of a limit the reader left alone', () => {
     const theirsNoLimit = planEditForm(
-      { ...FREE, version: 2, entitlements: { ...FREE.entitlements, members: null } },
+      { ...FREE, entitlements: { ...FREE.entitlements, members: null } },
       catalog
     )
     const updates = new Map(fieldsAfterConflict(loaded, loaded, theirsNoLimit))
