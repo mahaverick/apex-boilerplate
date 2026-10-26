@@ -1,5 +1,6 @@
 import { useForm, useStore } from '@tanstack/react-form'
 import { useId, useMemo, useState, type ComponentProps } from 'react'
+import { ReasonHint } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
 import { Pii } from '@/components/shared/pii'
 import {
@@ -23,10 +24,11 @@ import {
 import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
-import { billingDate } from '@/constants/billing-labels'
 import { fieldValue } from '@/hooks/use-form-field'
+import { useNow } from '@/hooks/use-now'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
+import { cancelChoicesFor, cancelToast } from '@/lib/billing-actions'
 import { refuseInForm } from '@/lib/billing-refusal'
 import { toast } from '@/lib/toast'
 import { useCancelBillingByStaff } from '@/queries/billing-admin.queries'
@@ -35,12 +37,12 @@ import type { PlatformTenantDetail } from '@/types/api.types'
 import type { StaffCancelWhen, StaffTenantBilling } from '@/types/billing.types'
 
 /**
- * Cancel a tenant's subscription as a platform admin, at the end of the paid
- * period or now, with an audited reason, behind step-up. A cancel now asks
- * for the tenant's slug typed. A subscription already ending at its period
- * end offers only Now, since express refuses a second cycle-end cancel.
- * Refusals (nothing to cancel, payments off, the provider down) show the
- * API's sentence in the dialog.
+ * Cancel a tenant's subscription as a platform admin, with an audited
+ * reason, behind step-up. The choices and their wording follow what express
+ * does in this tenant's case (`cancelChoicesFor`); a single choice shows no
+ * radio. A cancel now asks for the tenant's slug typed. The toast reads the
+ * view express answers (`cancelToast`). Refusals (nothing to cancel, the
+ * provider down) show the API's sentence in the dialog.
  */
 export function CancelBillingDialog({
   tenant,
@@ -80,28 +82,6 @@ export function CancelBillingDialog({
   )
 }
 
-/**
- * What a cancel does, for the chosen moment.
- * @param tenantName - The tenant's name.
- * @param when - When the subscription ends.
- * @param end - The paid period's end, read short, or null when there is none yet.
- * @param provider - The provider as a sentence names it.
- */
-function cancelDescription(
-  tenantName: string,
-  when: StaffCancelWhen,
-  end: string | null,
-  provider: string
-): string {
-  if (when === 'now') {
-    const dashboard = provider === 'Razorpay' ? 'the Razorpay dashboard' : 'its dashboard'
-    return `${tenantName} moves to Free now. ${provider} charges nothing more. Refund any unused period in ${dashboard}.`
-  }
-  return end === null
-    ? `${tenantName} keeps Paid until its paid period ends, then moves to Free. Nothing more is charged.`
-    : `${tenantName} keeps Paid until ${end}, then moves to Free. Nothing more is charged.`
-}
-
 /** The cancel form inside the open dialog; `onBusyChange` holds the dialog still while it runs. */
 function CancelBillingForm({
   tenant,
@@ -120,10 +100,10 @@ function CancelBillingForm({
   const serverErrors = useServerErrors()
   const whenLabel = useId()
   const schema = useMemo(() => cancelBillingFormSchema(tenant.slug), [tenant.slug])
-  const end = billing.currentPeriodEnd === null ? null : billingDate(billing.currentPeriodEnd)
-  const onlyNow = billing.cancelAtPeriodEnd
-  const provider = billing.provider === 'razorpay' ? 'Razorpay' : 'The payment provider'
-  const initialWhen: StaffCancelWhen = onlyNow ? 'now' : 'cycle_end'
+  const now = useNow()
+  // Worked out once, when the dialog opens: a refetch mid-form must not swap the choices under the reader.
+  const [{ choices, note }] = useState(() => cancelChoicesFor(tenant.name, billing, now))
+  const initialWhen: StaffCancelWhen = choices[0]?.when ?? 'now'
   const form = useForm({
     defaultValues: {
       when: initialWhen,
@@ -138,12 +118,7 @@ function CancelBillingForm({
       try {
         const view = await stepUp.run(() => cancel.mutateAsync(input))
         onBusyChange(false)
-        const endsOn = view.currentPeriodEnd ?? billing.currentPeriodEnd
-        toast.success(
-          input.when === 'now' || endsOn === null
-            ? `${tenant.name} moved to Free.`
-            : `Paid for ${tenant.name} ends on ${billingDate(endsOn)}.`
-        )
+        toast.success(cancelToast(tenant.name, billing, view))
         onDone()
       } catch (error) {
         onBusyChange(false)
@@ -152,47 +127,44 @@ function CancelBillingForm({
     },
   })
   const when = useStore(form.store, (state) => state.values.when)
+  const chosen = choices.find((choice) => choice.when === when) ?? choices[0]
 
   return (
     <>
       <AlertDialogHeader>
         <AlertDialogTitle>Cancel the subscription for {tenant.name}?</AlertDialogTitle>
         <AlertDialogDescription>
-          {onlyNow && end !== null && `Paid already ends on ${end}. `}
-          {cancelDescription(tenant.name, when, end, provider)}
+          {note !== null && `${note} `}
+          {chosen?.description}
         </AlertDialogDescription>
       </AlertDialogHeader>
       <Form form={form} serverErrors={serverErrors} className="grid gap-4">
-        <FormField form={form} name="when">
-          {(field) => (
-            <div className="grid gap-2">
-              <p id={whenLabel} className="text-sm font-medium">
-                When it ends
-              </p>
-              <RadioGroup
-                aria-labelledby={whenLabel}
-                value={field.state.value}
-                onValueChange={(next) => {
-                  field.handleChange(next as StaffCancelWhen)
-                  serverErrors.clearField('confirmation')
-                }}
-              >
-                {!onlyNow && (
-                  <label className="flex items-center gap-2 text-sm">
-                    <RadioGroupItem value="cycle_end" />
-                    {end === null
-                      ? 'At the end of the paid period'
-                      : `At the end of the paid period (${end})`}
-                  </label>
-                )}
-                <label className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem value="now" />
-                  Now
-                </label>
-              </RadioGroup>
-            </div>
-          )}
-        </FormField>
+        {choices.length > 1 && (
+          <FormField form={form} name="when">
+            {(field) => (
+              <div className="grid gap-2">
+                <p id={whenLabel} className="text-sm font-medium">
+                  When it ends
+                </p>
+                <RadioGroup
+                  aria-labelledby={whenLabel}
+                  value={field.state.value}
+                  onValueChange={(next) => {
+                    field.handleChange(next as StaffCancelWhen)
+                    serverErrors.clearField('confirmation')
+                  }}
+                >
+                  {choices.map((choice) => (
+                    <label key={choice.when} className="flex items-center gap-2 text-sm">
+                      <RadioGroupItem value={choice.when} />
+                      {choice.label}
+                    </label>
+                  ))}
+                </RadioGroup>
+              </div>
+            )}
+          </FormField>
+        )}
         <FormField form={form} name="reason">
           {(field) => (
             <FormItem>
@@ -205,6 +177,7 @@ function CancelBillingForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
               </FormControl>
+              <ReasonHint />
               <FormMessage />
             </FormItem>
           )}

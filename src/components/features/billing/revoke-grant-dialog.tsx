@@ -56,8 +56,8 @@ export function RevokeGrantAction({
         title={`Revoke the ${label} grant for ${tenant.name}?`}
         description={
           isFeature
-            ? `${tenant.name} loses ${label} now unless its plan includes it.`
-            : `${tenant.name} goes back to its plan’s value for ${label} now. Members over a lower limit stay; no one new can join.`
+            ? `${tenant.name} loses this grant at once. It keeps ${label} only if its plan or another active grant turns it on.`
+            : `${tenant.name} loses this grant at once. Its ${label} goes back to the plan’s value, or to another active grant’s.`
         }
         confirmLabel="Revoke grant"
         destructive

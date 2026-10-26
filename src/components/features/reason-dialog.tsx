@@ -32,6 +32,11 @@ import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { reasonFormSchema } from '@/schemas/reason.schemas'
 import { REASON_REQUIRED, ROUTE_NOT_FOUND } from '@/types/api.types'
 
+/** The hint under every staff Reason field: where the reason goes, and with whose name. */
+export function ReasonHint() {
+  return <FormDescription>Recorded in the audit log with your name.</FormDescription>
+}
+
 /** What `ReasonDialog` shows and does: its wording, the action it confirms, and how its refusals read. */
 export interface ReasonDialogProps {
   open: boolean
@@ -173,7 +178,7 @@ function ReasonForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
               </FormControl>
-              <FormDescription>Recorded in the audit log with your name.</FormDescription>
+              <ReasonHint />
               <FormMessage />
             </FormItem>
           )}

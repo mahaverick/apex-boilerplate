@@ -1,5 +1,6 @@
 import { useForm, useStore } from '@tanstack/react-form'
 import { useState, type ComponentProps } from 'react'
+import { ReasonHint } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
 import {
   Dialog,
@@ -158,6 +159,7 @@ function ExtendTrialForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
               </FormControl>
+              <ReasonHint />
               <FormMessage />
             </FormItem>
           )}

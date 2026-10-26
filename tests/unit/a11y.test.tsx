@@ -2255,12 +2255,12 @@ describe('tenant billing', () => {
     await user.click(await screen.findByRole('menuitem', { name: item }))
   }
 
-  /** A trialing tenant with a checkout under way, so every billing action applies. */
+  /** A trialing tenant with a next subscription booked, so every billing action applies. */
   const ALL_ACTIONS: StaffTenantBilling = {
     ...testTenantBilling,
     state: 'trialing',
     trialEndsAt: '2099-01-15T00:00:00.000Z',
-    pendingSubscriptionId: 'sub_TestPending0001',
+    nextSubscriptionId: 'sub_TestNext0001',
   }
 
   it('the open billing actions menu has no axe violations', async () => {
@@ -2285,7 +2285,7 @@ describe('tenant billing', () => {
   })
 
   it('the Cancel subscription dialog with Now chosen has no axe violations', async () => {
-    serveBilling(ALL_ACTIONS)
+    serveBilling()
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/billing`)
     await openBillingAction(user, 'Cancel subscription')

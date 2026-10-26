@@ -1,5 +1,6 @@
 import { useForm, useStore } from '@tanstack/react-form'
 import { useMemo, useState, type ComponentProps } from 'react'
+import { ReasonHint } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -249,6 +250,7 @@ function AddGrantForm({
                 onChange={(e) => field.handleChange(e.target.value)}
               />
             </FormControl>
+            <ReasonHint />
             <FormMessage />
           </FormItem>
         )}

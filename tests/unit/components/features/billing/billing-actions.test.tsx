@@ -162,16 +162,44 @@ describe('billing actions', () => {
       expect((await openMenu(user)).names).not.toContain('Cancel subscription')
     })
 
-    it('offers Extend trial on a trialing tenant', async () => {
+    it('offers Extend trial on a trialing tenant, and no Cancel for a checkout that is only pending', async () => {
       serve({ ...TRIALING, pendingSubscriptionId: 'sub_TestPending0001' })
       const user = userEvent.setup()
       renderAppAt(BILLING)
-      expect((await openMenu(user)).names).toEqual([
-        'Resync billing',
-        'Extend trial',
-        'Add grant',
-        'Cancel subscription',
-      ])
+      expect((await openMenu(user)).names).toEqual(['Resync billing', 'Extend trial', 'Add grant'])
+    })
+
+    it('offers Cancel on a trialing tenant that holds a next subscription', async () => {
+      serve({ ...TRIALING, nextSubscriptionId: 'sub_TestNext0001' })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      expect((await openMenu(user)).names).toContain('Cancel subscription')
+    })
+
+    it('hides Cancel on a Free tenant that once paid, though it keeps the old subscription id', async () => {
+      serve({
+        ...testFreeTenantBilling,
+        providerSubscriptionId: 'sub_TestActive0001',
+        currentPeriodEnd: '2026-01-10T00:00:00.000Z',
+        cancelAtPeriodEnd: true,
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      expect((await openMenu(user)).names).toEqual(['Resync billing', 'Extend trial', 'Add grant'])
+    })
+
+    it('hides Cancel on a stale trialing row that still holds a subscription id', async () => {
+      serve({ ...TRIALING, providerSubscriptionId: 'sub_TestActive0001' })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      expect((await openMenu(user)).names).not.toContain('Cancel subscription')
+    })
+
+    it('hides Cancel and Resync while payments are off, even on a paying tenant', async () => {
+      serve({ ...testTenantBilling, paymentsEnabled: false })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      expect((await openMenu(user)).names).toEqual(['Add grant'])
     })
 
     it('offers Extend trial on a Free tenant', async () => {
@@ -189,12 +217,7 @@ describe('billing actions', () => {
     })
 
     it('offers an archived tenant Resync, Cancel and Revoke, not Extend trial or Add grant', async () => {
-      serve(TRIALING, detail({ lifecycleState: 'archived' }))
-      server.use(
-        http.get(BASE, () =>
-          ok({ ...TRIALING, providerSubscriptionId: 'sub_TestActive0001' }, 'Billing retrieved.')
-        )
-      )
+      serve(testTenantBilling, detail({ lifecycleState: 'archived' }))
       const user = userEvent.setup()
       renderAppAt(BILLING)
       expect((await openMenu(user)).names).toEqual(['Resync billing', 'Cancel subscription'])
@@ -251,7 +274,7 @@ describe('billing actions', () => {
       ],
       [
         'admin',
-        { ...TRIALING, pendingSubscriptionId: 'sub_TestPending0001' },
+        { ...TRIALING, nextSubscriptionId: 'sub_TestNext0001' },
         [
           ['Resync billing', 'page_action_resync_billing', 'afterClose'],
           ['Extend trial', 'page_action_extend_trial', 'afterClose'],
@@ -348,9 +371,14 @@ describe('billing actions', () => {
       expect(days).toHaveValue('7')
       expect(days).toHaveAttribute('inputmode', 'numeric')
       expect(dialog).toHaveTextContent(
-        `Trial ends on ${billingDate('2099-01-15T00:00:00.000Z')} now. After this it ends on ${billingDate('2099-01-22T00:00:00.000Z')}.`
+        `Trial now ends on ${billingDate('2099-01-15T00:00:00.000Z')}. After this it ends on ${billingDate('2099-01-22T00:00:00.000Z')}.`
       )
+      expect(dialog).toHaveTextContent('Recorded in the audit log with your name.')
       await user.clear(days)
+      expect(dialog).toHaveTextContent(
+        `Trial now ends on ${billingDate('2099-01-15T00:00:00.000Z')}.`
+      )
+      expect(dialog).not.toHaveTextContent('After this')
       await user.type(days, '10')
       expect(dialog).toHaveTextContent(
         `After this it ends on ${billingDate('2099-01-25T00:00:00.000Z')}.`
@@ -369,26 +397,52 @@ describe('billing actions', () => {
       ])
     })
 
-    it.each([
-      ['a Free tenant', testFreeTenantBilling],
-      ['a lapsed trial', { ...TRIALING, trialEndsAt: '2026-01-15T00:00:00.000Z' }],
-    ])('says it starts a trial now for %s', async (_, billing) => {
-      serve(billing)
+    /**
+     * Whether the dialog shows `line(at)` for a clock read near now: the
+     * shared clock may lag the test's by up to a tick.
+     */
+    function showsNear(dialog: HTMLElement, line: (at: number) => string): boolean {
+      const before = Date.now()
+      const text = dialog.textContent ?? ''
+      return [before - 60_000, before, before + 60_000].some((at) => text.includes(line(at)))
+    }
+
+    /** The day a 7-day trial started at `at` ends. */
+    const weekFrom = (at: number) => billingDate(new Date(at + 7 * DAY_MS).toISOString())
+
+    it('says a Free tenant starts a trial now', async () => {
+      serve(testFreeTenantBilling)
       const user = userEvent.setup()
       renderAppAt(BILLING)
       await openAction(user, 'Extend trial')
       const dialog = await screen.findByRole('dialog', { name: 'Extend the trial for Acme Corp' })
-      /** The Free preview line when the dialog read the clock at `at`. */
-      const expected = (at: number) =>
-        `Acme Corp is on Free. This starts a Paid trial that ends on ${billingDate(new Date(at + 7 * DAY_MS).toISOString())}.`
-      const before = Date.now()
-      const text = dialog.textContent ?? ''
       expect(
-        [expected(before - 60_000), expected(before), expected(before + 60_000)].some((line) =>
-          text.includes(line)
+        showsNear(
+          dialog,
+          (at) => `Acme Corp is on Free. This starts a Paid trial that ends on ${weekFrom(at)}.`
         )
       ).toBe(true)
       expect(dialog).not.toHaveTextContent('After this')
+      await user.clear(within(dialog).getByLabelText('Days to add'))
+      expect(within(dialog).getByText('Acme Corp is on Free.')).toBeInTheDocument()
+    })
+
+    it('says when a lapsed trial ended, and that a new one starts now', async () => {
+      serve({ ...TRIALING, trialEndsAt: '2026-01-15T00:00:00.000Z' })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Extend trial')
+      const dialog = await screen.findByRole('dialog', { name: 'Extend the trial for Acme Corp' })
+      const ended = `Acme Corp’s trial ended on ${billingDate('2026-01-15T00:00:00.000Z')}.`
+      expect(
+        showsNear(
+          dialog,
+          (at) => `${ended} This starts a new Paid trial that ends on ${weekFrom(at)}.`
+        )
+      ).toBe(true)
+      expect(dialog).not.toHaveTextContent('is on Free')
+      await user.clear(within(dialog).getByLabelText('Days to add'))
+      expect(within(dialog).getByText(ended)).toBeInTheDocument()
     })
 
     it('refuses days outside 1–90 before posting', async () => {
@@ -458,6 +512,7 @@ describe('billing actions', () => {
       expect(dialog).toHaveTextContent(
         'Empty means no end date. A date ends the grant at the end of that day, your time.'
       )
+      expect(dialog).toHaveTextContent('Recorded in the audit log with your name.')
       await user.type(within(dialog).getByLabelText('New limit'), '25')
       await user.type(endsOn, '2099-06-30')
       await user.type(within(dialog).getByLabelText('Reason'), 'Pilot with a large team')
@@ -602,6 +657,48 @@ describe('billing actions', () => {
         )
       ).toBeNull()
     })
+
+    it('clears the API’s key and value errors when another entry is chosen', async () => {
+      serve()
+      server.use(
+        http.post(`${BASE}/grants`, () =>
+          HttpResponse.json(
+            {
+              success: false,
+              message: 'Check the highlighted fields, then try again.',
+              statusCode: 400,
+              errors: {
+                key: ['Choose a limit or feature this product has.'],
+                value: [
+                  'Enter a whole number from 1 to 1,000,000 for a limit, or null for no cap.',
+                ],
+              },
+              requestId: 'test-request-id',
+            },
+            { status: 400 }
+          )
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      const dialog = await openGrant(user, 'Members')
+      await user.type(within(dialog).getByLabelText('New limit'), '5')
+      await user.type(within(dialog).getByLabelText('Reason'), 'Pilot')
+      await user.click(within(dialog).getByRole('button', { name: 'Add grant' }))
+      expect(
+        await within(dialog).findByText('Choose a limit or feature this product has.')
+      ).toBeInTheDocument()
+      await user.click(within(dialog).getByRole('combobox', { name: 'Limit or feature' }))
+      await user.click(await screen.findByRole('option', { name: 'Workspace insights' }))
+      await user.click(within(dialog).getByRole('combobox', { name: 'Limit or feature' }))
+      await user.click(await screen.findByRole('option', { name: 'Members' }))
+      expect(within(dialog).queryByText('Choose a limit or feature this product has.')).toBeNull()
+      expect(
+        within(dialog).queryByText(
+          'Enter a whole number from 1 to 1,000,000 for a limit, or null for no cap.'
+        )
+      ).toBeNull()
+    })
   })
 
   describe('revoke grant', () => {
@@ -615,7 +712,7 @@ describe('billing actions', () => {
         name: 'Revoke the Members grant for Acme Corp?',
       })
       expect(dialog).toHaveTextContent(
-        'Acme Corp goes back to its plan’s value for Members now. Members over a lower limit stay; no one new can join.'
+        'Acme Corp loses this grant at once. Its Members goes back to the plan’s value, or to another active grant’s.'
       )
       await user.type(within(dialog).getByLabelText('Reason'), 'Pilot ended')
       await user.click(within(dialog).getByRole('button', { name: 'Revoke grant' }))
@@ -638,15 +735,46 @@ describe('billing actions', () => {
         name: 'Revoke the Workspace insights grant for Acme Corp?',
       })
       expect(dialog).toHaveTextContent(
-        'Acme Corp loses Workspace insights now unless its plan includes it.'
+        'Acme Corp loses this grant at once. It keeps Workspace insights only if its plan or another active grant turns it on.'
       )
+    })
+
+    it('shows the API sentence when the grant isn’t on this tenant any more', async () => {
+      serve()
+      server.use(
+        http.post(`${BASE}/grants/${GRANT_ID}/revoke`, () =>
+          fail(
+            'We couldn’t find this grant on this tenant. Refresh the tenant’s Billing tab to see its grants.',
+            404,
+            'grant_not_found'
+          )
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await user.click(await screen.findByRole('button', { name: 'Revoke the Members grant' }))
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Revoke the Members grant for Acme Corp?',
+      })
+      await user.type(within(dialog).getByLabelText('Reason'), 'Pilot ended')
+      await user.click(within(dialog).getByRole('button', { name: 'Revoke grant' }))
+      expect(
+        await within(dialog).findByText(
+          'We couldn’t find this grant on this tenant. Refresh the tenant’s Billing tab to see its grants.'
+        )
+      ).toBeInTheDocument()
+      expect(success).not.toHaveBeenCalled()
     })
   })
 
   describe('cancel subscription', () => {
     it('posts a cycle-end cancel after the identity check, and says when Paid ends', async () => {
       serve()
-      const bodies = recordWrite('cancel', { ...testTenantBilling, cancelAtPeriodEnd: true })
+      const bodies = recordWrite('cancel', {
+        ...testTenantBilling,
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: '2026-12-20T00:00:00.000Z',
+      })
       const user = userEvent.setup()
       renderAppAt(BILLING)
       await openAction(user, 'Cancel subscription')
@@ -661,11 +789,15 @@ describe('billing actions', () => {
         `Acme Corp keeps Paid until ${end}, then moves to Free. Nothing more is charged.`
       )
       expect(within(dialog).queryByLabelText(/to confirm/)).toBeNull()
+      expect(dialog).toHaveTextContent('Recorded in the audit log with your name.')
       await user.type(within(dialog).getByLabelText('Reason'), 'Customer asked')
       await user.click(within(dialog).getByRole('button', { name: 'Cancel subscription' }))
       await confirmStepUp(user)
+      // From the answered view, not the cached period end.
       await waitFor(() =>
-        expect(success).toHaveBeenCalledWith(`Paid for Acme Corp ends on ${end}.`)
+        expect(success).toHaveBeenCalledWith(
+          `Paid for Acme Corp ends on ${billingDate('2026-12-20T00:00:00.000Z')}.`
+        )
       )
       expect(bodies).toEqual([
         { when: 'cycle_end', reason: 'Customer asked' },
@@ -709,16 +841,117 @@ describe('billing actions', () => {
       const dialog = await screen.findByRole('alertdialog', {
         name: 'Cancel the subscription for Acme Corp?',
       })
-      expect(
-        within(dialog)
-          .getAllByRole('radio')
-          .map((radio) => radio.textContent)
-      ).toHaveLength(1)
-      expect(within(dialog).getByRole('radio', { name: 'Now' })).toBeChecked()
+      expect(within(dialog).queryAllByRole('radio')).toHaveLength(0)
       expect(dialog).toHaveTextContent(
-        `Paid already ends on ${billingDate('2026-11-20T00:00:00.000Z')}.`
+        `Paid already ends on ${billingDate('2026-11-20T00:00:00.000Z')}. Acme Corp moves to Free now.`
       )
       expect(within(dialog).getByLabelText('Type acme to confirm')).toBeInTheDocument()
+    })
+
+    it('names no past end date for a subscription whose period already ended', async () => {
+      serve({
+        ...testTenantBilling,
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: '2026-01-10T00:00:00.000Z',
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      expect(dialog).not.toHaveTextContent('already ends')
+      expect(dialog).toHaveTextContent('Acme Corp moves to Free now.')
+    })
+
+    it('cancels a subscription not charged yet now, and says the tenant is back on its trial', async () => {
+      const deferred: StaffTenantBilling = {
+        ...testTenantBilling,
+        trialEndsAt: '2099-01-15T00:00:00.000Z',
+        currentPeriodEnd: '2099-01-15T00:00:00.000Z',
+      }
+      serve(deferred)
+      const bodies = recordWrite('cancel', {
+        ...deferred,
+        state: 'trialing',
+        currentPeriodEnd: null,
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      const trialEnd = billingDate('2099-01-15T00:00:00.000Z')
+      expect(within(dialog).queryAllByRole('radio')).toHaveLength(0)
+      expect(dialog).toHaveTextContent(
+        `Acme Corp hasn’t been charged yet. This cancels Paid now, and Acme Corp goes back to its trial, which ends on ${trialEnd}. Nothing is charged.`
+      )
+      await user.type(within(dialog).getByLabelText('Reason'), 'Asked to stay on trial')
+      await user.type(within(dialog).getByLabelText('Type acme to confirm'), 'acme')
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel subscription' }))
+      await confirmStepUp(user)
+      await waitFor(() =>
+        expect(success).toHaveBeenCalledWith(
+          `Acme Corp is back on its trial, which ends on ${trialEnd}.`
+        )
+      )
+      expect(bodies[1]).toEqual({ when: 'now', reason: 'Asked to stay on trial' })
+    })
+
+    it('offers a past-due tenant only Now, with no refund line', async () => {
+      serve({
+        ...testTenantBilling,
+        state: 'past_due',
+        pastDue: { since: '2026-10-20T00:00:00.000Z', graceEndsAt: null, paused: false },
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      expect(within(dialog).queryAllByRole('radio')).toHaveLength(0)
+      expect(dialog).toHaveTextContent(
+        'Acme Corp moves to Free now. Razorpay charges nothing more.'
+      )
+      expect(dialog).not.toHaveTextContent('Refund')
+    })
+
+    it('offers to cancel only the next subscription while the current one is ending', async () => {
+      const ending: StaffTenantBilling = {
+        ...testTenantBilling,
+        cancelAtPeriodEnd: true,
+        nextSubscriptionId: 'sub_TestNext0001',
+        nextSwitch: { interval: 'year', startsAt: '2026-11-20T00:00:00.000Z' },
+      }
+      serve(ending)
+      const bodies = recordWrite('cancel', {
+        ...ending,
+        nextSubscriptionId: null,
+        nextSwitch: null,
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      const end = billingDate('2026-11-20T00:00:00.000Z')
+      expect(
+        within(dialog).getByRole('radio', { name: 'Only the next subscription' })
+      ).toBeChecked()
+      expect(within(dialog).getByRole('radio', { name: 'Now' })).toBeInTheDocument()
+      expect(dialog).toHaveTextContent(
+        `Acme Corp keeps Paid until ${end}, then moves to Free. This cancels its next subscription, booked from ${end}.`
+      )
+      await user.type(within(dialog).getByLabelText('Reason'), 'Customer changed their mind')
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel subscription' }))
+      await confirmStepUp(user)
+      await waitFor(() =>
+        expect(success).toHaveBeenCalledWith('Acme Corp’s next subscription is cancelled.')
+      )
+      expect(bodies[1]).toEqual({ when: 'cycle_end', reason: 'Customer changed their mind' })
     })
 
     it('shows the API sentence when the provider refuses', async () => {

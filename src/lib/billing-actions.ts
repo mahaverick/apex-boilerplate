@@ -7,7 +7,11 @@ import { billingDate } from '@/constants/billing-labels'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { trialDaysFrom } from '@/schemas/billing.schemas'
 import type { PlatformTenantDetail } from '@/types/api.types'
-import type { EntitlementCatalogEntry, StaffTenantBilling } from '@/types/billing.types'
+import type {
+  EntitlementCatalogEntry,
+  StaffCancelWhen,
+  StaffTenantBilling,
+} from '@/types/billing.types'
 
 /**
  * The payment provider as a sentence names it: Razorpay, or "the payment
@@ -19,13 +23,28 @@ export function providerName(billing: StaffTenantBilling): string {
 }
 
 /**
+ * Whether express would cancel a current subscription: an id with the tenant
+ * on Paid and charged or past due, as `hasCurrentSubscription` in express's
+ * checkout service reads it. A Free tenant keeps its last id after Paid ends,
+ * and a pending checkout is never cancelled, so neither counts.
+ * @param billing - The tenant's billing.
+ */
+function hasCurrentSubscription(billing: StaffTenantBilling): boolean {
+  return (
+    billing.providerSubscriptionId !== null &&
+    (billing.state === 'active' || billing.state === 'past_due')
+  )
+}
+
+/**
  * Which billing actions a role may take on this tenant, as express allows
  * them: Resync, Extend trial and Add grant from manager, Cancel from admin.
  * Resync needs payments on (it would change nothing, yet still be audited).
  * Extend trial needs a trialing or Free tenant (express refuses a paying
  * one). An archived tenant can't use access, so it gets neither Extend trial
- * nor Add grant. Add grant needs the catalog to choose from. Cancel needs a
- * subscription id to cancel.
+ * nor Add grant. Add grant needs the catalog to choose from. Cancel needs
+ * payments on (express answers 502 otherwise) and something express cancels:
+ * a current subscription or a next one.
  * @param role - The signed-in staff member's platform role.
  * @param tenant - The tenant's platform detail.
  * @param billing - The tenant's billing.
@@ -39,18 +58,141 @@ export function billingActionsFor(
 ) {
   const isManager = platformRoleAtLeast(role, 'manager')
   const archived = tenant.lifecycleState === 'archived'
-  const holdsSubscription = [
-    billing.providerSubscriptionId,
-    billing.pendingSubscriptionId,
-    billing.nextSubscriptionId,
-  ].some((id) => id !== null)
+  const cancellable = hasCurrentSubscription(billing) || billing.nextSubscriptionId !== null
   return {
     resync: isManager && billing.paymentsEnabled,
     extend: isManager && !archived && (billing.state === 'trialing' || billing.state === 'free'),
     grant: isManager && !archived && catalog.length > 0,
-    cancel: platformRoleAtLeast(role, 'admin') && holdsSubscription,
+    cancel: platformRoleAtLeast(role, 'admin') && billing.paymentsEnabled && cancellable,
     revoke: isManager,
   }
+}
+
+/** One moment a staff cancel may end the subscription at, as the dialog offers it. */
+export interface CancelChoice {
+  when: StaffCancelWhen
+  label: string
+  /** What express does for this choice, in this tenant's case. */
+  description: string
+}
+
+/**
+ * The choices a staff cancel offers for this tenant, each worded as express's
+ * `cancelSubscriptions` acts on it, and a line on the period already ending.
+ * - Only a next subscription (no current one): cancelling ends just that.
+ * - Paid taken during a trial and not charged yet: express cancels it now
+ *   whatever is asked, and the tenant goes back to its trial; only Now.
+ * - Past due: only Now, as the owner's cancel; a cycle-end cancel would leave
+ *   a failed charge retrying.
+ * - Already cancelling at its period end: express refuses a second cycle-end
+ *   cancel, unless a next subscription is held, which a cycle-end cancel then
+ *   ends alone.
+ * - Otherwise: the end of the paid period, or now.
+ * @param tenantName - The tenant's name.
+ * @param billing - The tenant's billing.
+ * @param now - The moment the page reads as now, in milliseconds.
+ */
+export function cancelChoicesFor(
+  tenantName: string,
+  billing: StaffTenantBilling,
+  now: number
+): { choices: CancelChoice[]; note: string | null } {
+  const provider = billing.provider === 'razorpay' ? 'Razorpay' : 'The payment provider'
+  const dashboard = billing.provider === 'razorpay' ? 'the Razorpay dashboard' : 'its dashboard'
+  const end = billing.currentPeriodEnd
+  const endsAhead = end !== null && new Date(end).getTime() > now
+  const hasNext = billing.nextSubscriptionId !== null
+  const nextFrom =
+    billing.nextSwitch === null ? '' : `, booked from ${billingDate(billing.nextSwitch.startsAt)}`
+  const alsoNext = hasNext ? ' Its next subscription is cancelled too.' : ''
+  /** Cancelling a charged subscription now. */
+  const nowChoice = (refund: boolean): CancelChoice => ({
+    when: 'now',
+    label: 'Now',
+    description: `${tenantName} moves to Free now. ${provider} charges nothing more.${refund ? ` Refund any unused period in ${dashboard}.` : ''}${alsoNext}`,
+  })
+
+  if (!hasCurrentSubscription(billing)) {
+    return {
+      choices: [
+        {
+          when: 'now',
+          label: 'Now',
+          description: `This cancels ${tenantName}’s next subscription${nextFrom}. Nothing is charged.`,
+        },
+      ],
+      note: null,
+    }
+  }
+  const trialEnd = billing.trialEndsAt
+  if (billing.state === 'active' && trialEnd !== null && new Date(trialEnd).getTime() > now) {
+    return {
+      choices: [
+        {
+          when: 'now',
+          label: 'Now',
+          description: `${tenantName} hasn’t been charged yet. This cancels Paid now, and ${tenantName} goes back to its trial, which ends on ${billingDate(trialEnd)}. Nothing is charged.${alsoNext}`,
+        },
+      ],
+      note: null,
+    }
+  }
+  if (billing.state === 'past_due') return { choices: [nowChoice(false)], note: null }
+  if (billing.cancelAtPeriodEnd) {
+    const note = end !== null && endsAhead ? `Paid already ends on ${billingDate(end)}.` : null
+    if (!hasNext) return { choices: [nowChoice(true)], note }
+    return {
+      choices: [
+        {
+          when: 'cycle_end',
+          label: 'Only the next subscription',
+          description: `${tenantName} keeps Paid until ${end === null ? 'its paid period ends' : billingDate(end)}, then moves to Free. This cancels its next subscription${nextFrom}.`,
+        },
+        nowChoice(true),
+      ],
+      note,
+    }
+  }
+  return {
+    choices: [
+      {
+        when: 'cycle_end',
+        label:
+          end === null
+            ? 'At the end of the paid period'
+            : `At the end of the paid period (${billingDate(end)})`,
+        description: `${tenantName} keeps Paid until ${end === null ? 'its paid period ends' : billingDate(end)}, then moves to Free. Nothing more is charged.${alsoNext}`,
+      },
+      nowChoice(true),
+    ],
+    note: null,
+  }
+}
+
+/**
+ * The cancel's toast, from the view express answered, compared with the one
+ * the dialog opened on: Free, back on the trial, Paid ending at the period's
+ * end, or a next subscription gone.
+ * @param tenantName - The tenant's name.
+ * @param before - The billing the dialog opened on.
+ * @param after - The billing the cancel answered.
+ */
+export function cancelToast(
+  tenantName: string,
+  before: StaffTenantBilling,
+  after: StaffTenantBilling
+): string {
+  if (after.state === 'free' && before.state !== 'free') return `${tenantName} moved to Free.`
+  if (after.state === 'trialing' && before.state !== 'trialing' && after.trialEndsAt !== null) {
+    return `${tenantName} is back on its trial, which ends on ${billingDate(after.trialEndsAt)}.`
+  }
+  if (!before.cancelAtPeriodEnd && after.cancelAtPeriodEnd && after.currentPeriodEnd !== null) {
+    return `Paid for ${tenantName} ends on ${billingDate(after.currentPeriodEnd)}.`
+  }
+  if (before.nextSubscriptionId !== null && after.nextSubscriptionId === null) {
+    return `${tenantName}’s next subscription is cancelled.`
+  }
+  return `The subscription for ${tenantName} is cancelled.`
 }
 
 /** One day, as express's `addDays` counts it. */
@@ -59,9 +201,9 @@ const DAY_MS = 24 * 60 * 60 * 1000
 /**
  * The preview line, worked out as express's `extendTrialEnd` does: a running
  * trial (trialing, with an end still ahead) moves `days` past its end; any
- * other tenant, Free or with a lapsed trial, starts a trial now that ends
- * `days` from now. With days that aren't valid, it says only where the
- * tenant stands.
+ * other tenant starts a trial now that ends `days` from now, worded for a
+ * trial that lapsed before the billing job moved it, or for Free. With days
+ * that aren't valid, it says only where the tenant stands.
  * @param tenantName - The tenant's name.
  * @param billing - The tenant's billing.
  * @param days - The typed days, as the form holds them.
@@ -74,18 +216,21 @@ export function extendTrialPreview(
   now: number
 ): string {
   const count = trialDaysFrom(days)
-  const runningEnd =
-    billing.state === 'trialing' && billing.trialEndsAt !== null
-      ? new Date(billing.trialEndsAt).getTime()
-      : null
-  const isRunning = runningEnd !== null && runningEnd > now
   /** The day the trial ends when it runs `count` days from `from`. */
   const end = (from: number) => billingDate(new Date(from + (count ?? 0) * DAY_MS).toISOString())
-  if (isRunning && billing.trialEndsAt !== null) {
-    const current = `Trial ends on ${billingDate(billing.trialEndsAt)} now.`
-    return count !== null ? `${current} After this it ends on ${end(runningEnd)}.` : current
+  const trialEnd = billing.trialEndsAt
+  if (billing.state === 'trialing' && trialEnd !== null) {
+    const endsAt = new Date(trialEnd).getTime()
+    if (endsAt > now) {
+      const current = `Trial now ends on ${billingDate(trialEnd)}.`
+      return count === null ? current : `${current} After this it ends on ${end(endsAt)}.`
+    }
+    const lapsed = `${tenantName}’s trial ended on ${billingDate(trialEnd)}.`
+    return count === null
+      ? lapsed
+      : `${lapsed} This starts a new Paid trial that ends on ${end(now)}.`
   }
-  return count !== null
-    ? `${tenantName} is on Free. This starts a Paid trial that ends on ${end(now)}.`
-    : `${tenantName} is on Free.`
+  return count === null
+    ? `${tenantName} is on Free.`
+    : `${tenantName} is on Free. This starts a Paid trial that ends on ${end(now)}.`
 }
