@@ -52,7 +52,8 @@ export const BILLING_SOURCE_LABELS: Record<BillingHistorySource, string> = {
 /** The causes express writes on a state change, from its sync causes, scheduler, checkout and staff service. */
 const HISTORY_CAUSE_LABELS: Readonly<Record<string, string>> = {
   created: 'Billing record created',
-  trial_extended: 'Trial extended by staff',
+  // Staff extend a running trial or start one on a Free tenant; express names both trial_extended.
+  trial_extended: 'Trial set by staff',
   trial_ended: 'Trial ended',
   subscription_activated: 'First payment taken',
   subscription_recovered: 'Payment recovered',

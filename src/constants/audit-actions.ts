@@ -57,13 +57,13 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'user.flags_evaluated': 'User flags evaluated',
   'platform.maintenance_mode_changed': 'Maintenance mode changed',
   'billing.checkout_started': 'Checkout started',
-  'billing.cancel_scheduled': 'Cancellation scheduled',
+  'billing.cancel_scheduled': 'Paid cancelled by owner',
   'billing.interval_switch_scheduled': 'Billing switch scheduled',
   'billing.card_change_started': 'Card change started',
   'billing.grant_expired': 'Grant expired',
   'billing.viewed': 'Billing viewed',
   'billing.resynced': 'Billing resynced',
-  'billing.trial_extended': 'Trial extended',
+  'billing.trial_extended': 'Trial set by staff',
   'billing.grant_added': 'Grant added',
   'billing.grant_revoked': 'Grant revoked',
   'billing.cancelled_by_staff': 'Subscription cancelled by staff',
@@ -189,13 +189,18 @@ function grantKey(metadata: Metadata): string {
   return text(metadata, 'key') ?? 'an entitlement'
 }
 
-/** A trial extension: its days and new end, each left out when missing or mistyped. */
-function trialExtension(metadata: Metadata): string {
+/**
+ * A trial staff set, which extends a running trial or starts one on a Free
+ * tenant: "set the trial to end on 9 Nov 2026 (7 days)". The end and the days
+ * are each left out when missing or mistyped.
+ */
+function trialSet(metadata: Metadata): string {
   const days = metadata.days
-  const by = typeof days === 'number' ? ` by ${countOf(days, 'days')}` : ''
   const ends = text(metadata, 'trialEndsAt')
   const date = ends === undefined ? null : formatDate(ends, 'medium')
-  return `extended the trial${by}${date === null ? '' : ` to ${date}`}`
+  const length = typeof days === 'number' ? countOf(days, 'days') : null
+  if (date === null) return length === null ? 'set the trial' : `set the trial (${length})`
+  return `set the trial to end on ${date}${length === null ? '' : ` (${length})`}`
 }
 
 /** A grant's value and end: "granted members (10) until 1 Dec 2026", "granted members (no limit)". */
@@ -329,7 +334,8 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
     const every = cadence(m)
     return every === undefined ? 'started a Paid checkout' : `started a ${every} Paid checkout`
   },
-  'billing.cancel_scheduled': () => 'scheduled Paid to end at its period end',
+  // Express records a cycle-end cancel, a past-due cancel and an uncharged one (both now) alike, with no metadata.
+  'billing.cancel_scheduled': () => 'cancelled Paid',
   'billing.interval_switch_scheduled': (m) => {
     const every = cadence(m)
     return every === undefined
@@ -340,7 +346,7 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
   'billing.grant_expired': (m) => `marked the ${grantKey(m)} grant expired`,
   'billing.viewed': () => 'viewed the tenant’s billing',
   'billing.resynced': (m) => `resynced billing with the payment provider${because(m)}`,
-  'billing.trial_extended': (m) => `${trialExtension(m)}${because(m)}`,
+  'billing.trial_extended': (m) => `${trialSet(m)}${because(m)}`,
   'billing.grant_added': (m) => `${grantAdded(m)}${because(m)}`,
   'billing.grant_revoked': (m) => `revoked the ${grantKey(m)} grant${because(m)}`,
   'billing.cancelled_by_staff': (m) => {
