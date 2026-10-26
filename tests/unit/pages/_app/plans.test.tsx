@@ -733,7 +733,8 @@ describe('Plans page', () => {
     })
 
     it('takes the threshold from the API, and names the chosen interval', async () => {
-      servePlans({ ...testPlans, priceWarningAboveMinor: 1_000_000 })
+      // The type pins express's constant today; the page must still read whatever the API sends.
+      servePlans({ ...testPlans, priceWarningAboveMinor: 1_000_000 } as unknown as StaffPlans)
       const user = userEvent.setup()
       const dialog = await openNewPrice(user)
       await user.click(within(dialog).getByRole('combobox', { name: 'Interval' }))
