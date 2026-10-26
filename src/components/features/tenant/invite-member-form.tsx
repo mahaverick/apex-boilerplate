@@ -1,7 +1,7 @@
 import { useForm } from '@tanstack/react-form'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { z } from 'zod'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select'
 import {
   canActorGrantRole,
+  platformRoleAtLeast,
   DEFAULT_MEMBER_ROLE,
   MEMBERSHIP_ROLES,
   ROLE_LABELS,
@@ -39,37 +40,67 @@ import { planRefusalFrom, type PlanRefusal } from '@/lib/plan-refusal'
 import { staffMessageFrom } from '@/lib/staff-message'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
-import { staffTenantBillingQueryOptions } from '@/queries/billing-reads.queries'
-import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
+import { billingAdminKeys, staffPlansQueryOptions } from '@/queries/billing-reads.queries'
+import { platformTenantQueryOptions, tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import { useInviteMember } from '@/queries/tenant-writes.queries'
 import { inviteMemberSchema, type InviteMemberInput } from '@/schemas/tenant.schemas'
-import { ALREADY_MEMBER, INVITATION_CONFLICT } from '@/types/api.types'
+import { useAuthStore } from '@/states/auth.store'
+import { ALREADY_MEMBER, INVITATION_CONFLICT, type PlatformTenantRow } from '@/types/api.types'
+import type { StaffTenantBilling } from '@/types/billing.types'
+import type { ListPage } from '@/types/list.types'
 
 /** A 409 `invitation_conflict`: another invite for this address just won the race. */
 const RACED =
   'Someone else invited this address first. Their invitation is under Pending invitations.'
 
 /**
+ * The plan a tenant is on, from data already cached, never from its billing
+ * read, which express audits as staff viewing the tenant's billing: the
+ * billing view if the Billing tab cached it, else the tenant's row in a
+ * cached Tenants list and that plan's name from the staff plans (a viewer
+ * read with no per-tenant audit). Undefined when neither is cached.
+ * @param queryClient - The app's query client.
+ * @param tenantId - The tenant's id.
+ */
+async function cachedPlanName(
+  queryClient: QueryClient,
+  tenantId: string
+): Promise<string | undefined> {
+  const billing = queryClient.getQueryData<StaffTenantBilling>(billingAdminKeys.tenant(tenantId))
+  if (billing !== undefined) return billing.plan.name
+  const planKey = queryClient
+    .getQueriesData<ListPage<PlatformTenantRow>>({ queryKey: tenantAdminKeys.all })
+    .flatMap(([, page]) => (Array.isArray(page?.items) ? page.items : []))
+    .find((row) => row.id === tenantId)?.planKey
+  if (planKey === undefined || planKey === null) return undefined
+  const plans = await queryClient.fetchQuery(staffPlansQueryOptions()).catch(() => undefined)
+  return plans?.plans.find((plan) => plan.key === planKey)?.name
+}
+
+/**
  * The staff wording for a tenant at its members limit. The API's own
- * sentence tells the customer to upgrade, which staff can't do for them; the
- * next step for staff is a Members grant. The tenant's name and its plan
- * come from the cached reads (the plan from its billing, which names the
- * effective plan); either missing leaves its words out.
+ * sentence tells the customer to upgrade, which staff can't do for them;
+ * the next step is a Members grant, which needs a platform manager, so
+ * anyone below asks one. The tenant's name comes from its cached detail and
+ * the plan from `cachedPlanName`; either missing leaves its words out.
  * @param queryClient - The app's query client.
  * @param tenantId - The tenant's id.
  * @param refusal - The 402's usage.
+ * @param canGrant - Whether the reader may add a grant (platform manager and up).
  */
 async function membersLimitSentence(
   queryClient: QueryClient,
   tenantId: string,
-  refusal: Extract<PlanRefusal, { kind: 'limit' }>
+  refusal: Extract<PlanRefusal, { kind: 'limit' }>,
+  canGrant: boolean
 ): Promise<string> {
-  const [tenant, billing] = await Promise.all([
-    queryClient.fetchQuery(platformTenantQueryOptions(tenantId)).catch(() => undefined),
-    queryClient.fetchQuery(staffTenantBillingQueryOptions(tenantId)).catch(() => undefined),
-  ])
-  const plan = billing === undefined ? '' : ` on ${billing.plan.name}`
-  return `Not sent. ${tenant?.name ?? 'This tenant'} has ${String(refusal.used)} of ${String(refusal.limit)} members${plan}. Add a Members grant on its Billing tab to invite more.`
+  const tenant = queryClient.getQueryData(platformTenantQueryOptions(tenantId).queryKey)
+  const plan = await cachedPlanName(queryClient, tenantId)
+  const usage = `${tenant?.name ?? 'This tenant'} has ${String(refusal.used)} of ${String(refusal.limit)} members${plan === undefined ? '' : ` on ${plan}`}.`
+  const next = canGrant
+    ? 'Add a Members grant on its Billing tab to invite more.'
+    : 'Ask a platform manager to add a Members grant on its Billing tab.'
+  return `Not sent. ${usage} ${next}`
 }
 
 /**
@@ -122,6 +153,18 @@ export function InviteMemberForm({
   const refusedOnField = useRef(false)
   /** Set when the reason dialog closed on a members-limit refusal, so focus goes to the Billing link. */
   const refusedFull = useRef(false)
+  /** Set when a member's own send met a members-limit refusal: no dialog closes, so the link takes focus once shown. */
+  const focusBillingLink = useRef(false)
+  const canGrant = platformRoleAtLeast(
+    useAuthStore((state) => state.user?.platformRole),
+    'manager'
+  )
+
+  useEffect(() => {
+    if (!full || !focusBillingLink.current) return
+    focusBillingLink.current = false
+    billingLink.current?.focus()
+  }, [full])
 
   /**
    * Shows a members-limit refusal at form level in staff words.
@@ -130,7 +173,7 @@ export function InviteMemberForm({
   async function showFull(error: unknown): Promise<boolean> {
     const refusal = planRefusalFrom(error)
     if (refusal?.kind !== 'limit' || tenantId === undefined) return false
-    const sentence = await membersLimitSentence(queryClient, tenantId, refusal)
+    const sentence = await membersLimitSentence(queryClient, tenantId, refusal, canGrant)
     serverErrors.setFormErrors([sentence])
     setFull(true)
     return true
@@ -190,7 +233,10 @@ export function InviteMemberForm({
           serverErrors.setFormErrors([stepUpRefusal(error)])
           return
         }
+        // Set before the refusal renders, so the effect that shows the link finds it.
+        focusBillingLink.current = true
         if (await showFull(error)) return
+        focusBillingLink.current = false
         serverErrors.capture(error)
       }
     },
