@@ -6,6 +6,7 @@ import type { MembershipRole } from '@/constants/roles'
 import { formatDate } from '@/lib/format'
 import { ROLE_DENIED_ACTION } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
+import { billingAdminKeys } from '@/queries/billing-reads.queries'
 import { tenantsListOptions } from '@/queries/tenant-admin.queries'
 import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
@@ -2248,6 +2249,27 @@ describe('staff acting through platform access', () => {
     expect(
       await screen.findByText(
         'Not sent. Acme Corp has 3 of 3 members on Free. Add a Members grant on its Billing tab to invite more.'
+      )
+    ).toBeInTheDocument()
+    expect(billingReads()).toBe(0)
+  })
+
+  it('names the plan from a billing view the Billing tab cached, before any list', async () => {
+    const billingReads = serveFullTenant()
+    queryClient.setQueryData(billingAdminKeys.tenant(TENANT_ID), {
+      ...testFreeTenantBilling,
+      plan: { key: 'free', name: 'Starter' },
+    })
+    queryClient.setQueryData(
+      tenantsListOptions({ search: 'acme', limit: 20 }).queryKey,
+      listPage([TENANT_ROW])
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await inviteAsStaff(user, 'x@example.com')
+    expect(
+      await screen.findByText(
+        'Not sent. Acme Corp has 3 of 3 members on Starter. Add a Members grant on its Billing tab to invite more.'
       )
     ).toBeInTheDocument()
     expect(billingReads()).toBe(0)
