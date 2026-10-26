@@ -653,9 +653,11 @@ API stores in the audit log with the actor's name. `ReasonDialog`
 reactivating, archiving and deleting a tenant; signing a user out
 everywhere, deactivating, reactivating, deleting and permanently deleting a
 user; lifting a suppression; resending an email; marking an onboarding step complete and
-sending an onboarding reminder; and member and invitation writes through
-platform access. Reissuing a tenant's owner invitation asks in its own
-dialog, with the same `reasonSchema`. Other staff writes take no reason:
+sending an onboarding reminder; resyncing a tenant's billing and revoking a
+grant; and member and invitation writes through platform access. Reissuing
+a tenant's owner invitation, extending a trial, adding a grant and
+cancelling a subscription ask in their own dialogs, with the same
+`reasonSchema`, and all four billing writes go through step-up. Other staff writes take no reason:
 creating a user or a tenant, renaming a user, editing a tenant's details,
 sending a user a sign-in link (a confirm dialog with no reason and no step-up), and removing a member of, or
 leaving, the platform tenant. Maintenance changes have their own dialogs
@@ -668,7 +670,7 @@ leaving, the platform tenant. Maintenance changes have their own dialogs
   renders as given, so a caller with a person's value in it wraps only that
   value in `<Pii>`.
 - **Irreversible actions need the target typed.** Archiving or deleting a
-  tenant asks for its slug; deleting or permanently deleting a user asks for
+  tenant, and cancelling its subscription now, asks for its slug; deleting or permanently deleting a user asks for
   their email address (`confirmText`).
 - **Reasons on customer tenants follow the access path.** When staff reach a
   customer tenant through platform access (`access: 'platform'` from
