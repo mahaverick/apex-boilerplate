@@ -80,8 +80,9 @@ export function effectiveState(billing: StaffTenantBilling, now: number): Billin
  * Which billing actions a role may take on this tenant, as express allows
  * them: Resync, Extend trial and Add grant from manager, Cancel from admin.
  * Resync needs payments on (it would change nothing, yet still be audited).
- * Extend trial needs a trialing or Free tenant (express refuses a paying
- * one). An archived tenant can't use access, so it gets neither Extend trial
+ * Extend trial needs a tenant express serves as trialing or Free
+ * (`effectiveState`, as express's extend reads it since #158): a past-due
+ * tenant past its grace is Free and may start one; a paying one may not. An archived tenant can't use access, so it gets neither Extend trial
  * nor Add grant. Add grant needs the catalog to choose from. Cancel needs
  * payments on (express answers 502 otherwise) and something express cancels:
  * a current subscription or a next one.
@@ -101,9 +102,10 @@ export function billingActionsFor(
   const isManager = platformRoleAtLeast(role, 'manager')
   const archived = tenant.lifecycleState === 'archived'
   const cancellable = hasCurrentSubscription(billing, now) || billing.nextSubscriptionId !== null
+  const state = effectiveState(billing, now)
   return {
     resync: isManager && billing.paymentsEnabled,
-    extend: isManager && !archived && (billing.state === 'trialing' || billing.state === 'free'),
+    extend: isManager && !archived && (state === 'trialing' || state === 'free'),
     grant: isManager && !archived && catalog.length > 0,
     cancel: platformRoleAtLeast(role, 'admin') && billing.paymentsEnabled && cancellable,
     revoke: isManager,
@@ -314,9 +316,5 @@ export function extendTrialPreview(
  * @param now - The moment the page reads as now, in milliseconds.
  */
 export function isRunningTrial(billing: StaffTenantBilling, now: number): boolean {
-  return (
-    billing.state === 'trialing' &&
-    billing.trialEndsAt !== null &&
-    effectiveState(billing, now) === 'trialing'
-  )
+  return billing.trialEndsAt !== null && effectiveState(billing, now) === 'trialing'
 }

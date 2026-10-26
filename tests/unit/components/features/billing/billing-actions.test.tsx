@@ -248,6 +248,38 @@ describe('billing actions', () => {
       expect(screen.queryByRole('button', { name: /revoke/i })).toBeNull()
     })
 
+    it('offers Extend trial on a past-due tenant past its grace, which express serves as Free', async () => {
+      signIn({ ...testUser, platformRole: 'manager' })
+      serve({
+        ...testTenantBilling,
+        state: 'past_due',
+        pastDue: {
+          since: new Date(Date.now() - 10 * DAY_MS).toISOString(),
+          graceEndsAt: new Date(Date.now() - DAY_MS).toISOString(),
+          paused: false,
+        },
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      expect((await openMenu(user)).names).toContain('Extend trial')
+    })
+
+    it('offers no Extend trial on a past-due tenant still in its grace', async () => {
+      signIn({ ...testUser, platformRole: 'manager' })
+      serve({
+        ...testTenantBilling,
+        state: 'past_due',
+        pastDue: {
+          since: new Date(Date.now() - DAY_MS).toISOString(),
+          graceEndsAt: new Date(Date.now() + 6 * DAY_MS).toISOString(),
+          paused: false,
+        },
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      expect((await openMenu(user)).names).not.toContain('Extend trial')
+    })
+
     it('hides Add grant when the plans fail', async () => {
       serve()
       server.use(
