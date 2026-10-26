@@ -10,15 +10,12 @@ import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
-/** Answers every alerts request with the two alerts (or an empty later page), recording each query. */
+/** Answers every alerts request with the two alerts, recording each query. */
 function serve(seen: URLSearchParams[], nextCursor: string | null = null) {
   server.use(
     http.get('/api/v1/platform/billing/alerts', ({ request }) => {
       const params = new URL(request.url).searchParams
       seen.push(params)
-      if (params.get('cursor') === 'c2') {
-        return ok(listPage([], { prevCursor: 'p1', hasPrev: true }), 'ok')
-      }
       return ok(
         listPage(
           testBillingAlerts,
