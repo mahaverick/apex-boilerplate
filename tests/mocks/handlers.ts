@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import type { MembershipRole } from '@/constants/roles'
 import type { ClientFlagValues } from '@/observability/flags/flag-types'
+import { testBillingSettings, testPlans, testTenantBilling } from '@/tests/fixtures/billing'
 import { flagRows, flagsMeta, unregisteredRows } from '@/tests/fixtures/flags'
 import {
   AUDIT_ID_4,
@@ -714,6 +715,15 @@ export const handlers = [
     )
   ),
   // Tracked tenants exist but no list has a row, and any tenant reads as Acme's in-progress detail.
+  http.get('/api/v1/platform/plans', () => ok(testPlans, 'Plans retrieved.')),
+  http.get('/api/v1/platform/billing-settings', () =>
+    ok(testBillingSettings, 'Billing settings retrieved.')
+  ),
+  http.get('/api/v1/platform/billing/alerts', () => ok(listPage([]), 'Billing alerts retrieved.')),
+  http.get('/api/v1/platform/tenants/:tenantId/billing', () =>
+    ok(testTenantBilling, 'Billing retrieved.')
+  ),
+
   http.get('/api/v1/platform/onboarding/funnel', ({ request }) =>
     ok(
       { ...testOnboardingFunnel, range: new URL(request.url).searchParams.get('range') ?? '30d' },
