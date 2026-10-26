@@ -528,7 +528,7 @@ describe('billing actions', () => {
       server.use(
         http.post(`${BASE}/extend-trial`, () =>
           fail(
-            'This tenant pays for Paid, so it has no trial to extend. Add a grant to give it more.',
+            'Express’s TRIAL_NOT_EXTENDABLE sentence, shown as sent.',
             409,
             'TRIAL_NOT_EXTENDABLE'
           )
@@ -541,9 +541,7 @@ describe('billing actions', () => {
       await user.type(within(dialog).getByLabelText('Reason'), 'Pilot')
       await user.click(within(dialog).getByRole('button', { name: 'Extend trial' }))
       expect(
-        await within(dialog).findByText(
-          'This tenant pays for Paid, so it has no trial to extend. Add a grant to give it more.'
-        )
+        await within(dialog).findByText('Express’s TRIAL_NOT_EXTENDABLE sentence, shown as sent.')
       ).toBeInTheDocument()
       expect(success).not.toHaveBeenCalled()
     })
@@ -1267,11 +1265,7 @@ describe('billing actions', () => {
       serve()
       server.use(
         http.post(`${BASE}/cancel`, () =>
-          fail(
-            'This subscription already ends at its period end. Cancel it now to end it sooner.',
-            409,
-            'NO_SUBSCRIPTION'
-          )
+          fail('Express’s NO_SUBSCRIPTION sentence, shown as sent.', 409, 'NO_SUBSCRIPTION')
         )
       )
       const user = userEvent.setup()
@@ -1283,9 +1277,7 @@ describe('billing actions', () => {
       await user.type(within(dialog).getByLabelText('Reason'), 'Customer asked')
       await user.click(within(dialog).getByRole('button', { name: 'Cancel subscription' }))
       expect(
-        await within(dialog).findByText(
-          'This subscription already ends at its period end. Cancel it now to end it sooner.'
-        )
+        await within(dialog).findByText('Express’s NO_SUBSCRIPTION sentence, shown as sent.')
       ).toBeInTheDocument()
     })
   })

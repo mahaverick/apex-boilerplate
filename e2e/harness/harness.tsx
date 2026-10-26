@@ -2097,7 +2097,7 @@ const worker = setupWorker(
     if (view === null) return fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
     if (view.state === 'active' || view.state === 'past_due') {
       return fail(
-        'This tenant pays for Paid, so it has no trial to extend. Add a grant to give it more.',
+        'Express’s TRIAL_NOT_EXTENDABLE sentence, shown as sent.',
         409,
         'TRIAL_NOT_EXTENDABLE'
       )
@@ -2186,11 +2186,7 @@ const worker = setupWorker(
     const current =
       view.providerSubscriptionId !== null && (view.state === 'active' || view.state === 'past_due')
     if (!current && view.nextSubscriptionId === null) {
-      return fail(
-        'This tenant has no subscription to cancel. Resync it if the provider shows one.',
-        409,
-        'NO_SUBSCRIPTION'
-      )
+      return fail('Express’s NO_SUBSCRIPTION sentence, shown as sent.', 409, 'NO_SUBSCRIPTION')
     }
     const { when } = (await request.json()) as { when: 'cycle_end' | 'now' }
     const free = { key: 'free' as const, name: planById(testPlans.plans[0]?.id)?.name ?? 'Free' }

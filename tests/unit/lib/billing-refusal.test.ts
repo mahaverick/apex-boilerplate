@@ -89,8 +89,17 @@ describe('refuseInForm', () => {
   it('shows a 403 or 409 as the API’s sentence', () => {
     for (const status of [403, 409]) {
       const errors = spyErrors()
-      refuseInForm(errors, refused(status, 'This tenant pays for Paid.', 'TRIAL_NOT_EXTENDABLE'))
-      expect(errors.setFormErrors).toHaveBeenCalledWith(['This tenant pays for Paid.'])
+      refuseInForm(
+        errors,
+        refused(
+          status,
+          'Express’s TRIAL_NOT_EXTENDABLE sentence, shown as sent.',
+          'TRIAL_NOT_EXTENDABLE'
+        )
+      )
+      expect(errors.setFormErrors).toHaveBeenCalledWith([
+        'Express’s TRIAL_NOT_EXTENDABLE sentence, shown as sent.',
+      ])
     }
   })
 

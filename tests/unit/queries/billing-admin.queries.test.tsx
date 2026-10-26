@@ -300,11 +300,7 @@ describe('tenant billing writes', () => {
   it('refetches the tenant’s billing after a 409, whose cached state was stale', async () => {
     server.use(
       http.post(`/api/v1/platform/tenants/${TENANT_ID}/billing/extend-trial`, () =>
-        fail(
-          'This tenant pays for Paid, so it has no trial to extend.',
-          409,
-          'TRIAL_NOT_EXTENDABLE'
-        )
+        fail('Express’s TRIAL_NOT_EXTENDABLE sentence, shown as sent.', 409, 'TRIAL_NOT_EXTENDABLE')
       )
     )
     const client = seededClient()

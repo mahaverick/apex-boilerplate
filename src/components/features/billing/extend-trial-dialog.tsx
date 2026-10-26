@@ -42,8 +42,9 @@ const DEFAULT_DAYS = '7'
  * that has lapsed, by 1–90 days with an audited reason, behind step-up. The
  * title, the days label, the button and the toast say "extend" or "start"
  * to match (`isRunningTrial`). The description shows the new end as the
- * days change. A 409 (`TRIAL_NOT_EXTENDABLE`: the tenant pays) shows the
- * API's sentence in the dialog.
+ * days change. A 409 `TRIAL_NOT_EXTENDABLE` (the tenant pays, or the provider
+ * hasn't confirmed its subscription ended) shows the API's sentence in the
+ * dialog; a busy row or a provider outage reads as `refuseInForm` words it.
  */
 export function ExtendTrialDialog({
   tenant,
