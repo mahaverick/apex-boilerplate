@@ -77,6 +77,24 @@ export interface CancelChoice {
 }
 
 /**
+ * How long a cancelled Paid stays on after its period ends, as express's
+ * `CANCEL_BUFFER_DAYS` (3), before the tenant moves to Free.
+ */
+export const CANCEL_BUFFER_MS = 3 * 24 * 60 * 60 * 1000
+
+/**
+ * When a tenant whose paid period ended moves to Free: express keeps Paid
+ * for `CANCEL_BUFFER_MS` past the end, so "moves to Free on {date}", or
+ * "moved" once that day has passed.
+ * @param periodEnd - The ended period's end, as an ISO timestamp.
+ * @param now - The current time in milliseconds.
+ */
+function movesToFree(periodEnd: string, now: number): string {
+  const free = new Date(new Date(periodEnd).getTime() + CANCEL_BUFFER_MS)
+  return `${free.getTime() > now ? 'moves' : 'moved'} to Free on ${billingDate(free.toISOString())}`
+}
+
+/**
  * The choices a staff cancel offers for this tenant, each worded as express's
  * `cancelSubscriptions` acts on it, and a line on the period already ending.
  * - Only a next subscription (no current one): cancelling ends just that.
@@ -149,7 +167,7 @@ export function cancelChoicesFor(
           when: 'cycle_end',
           label: 'Only the next subscription',
           description: ended
-            ? `Paid’s period ended on ${billingDate(end)}. This cancels its next subscription${nextFrom}.`
+            ? `This cancels only ${tenantName}’s next subscription${nextFrom}. ${tenantName}’s paid period ended on ${billingDate(end)}, and it ${movesToFree(end, now)}.`
             : `${tenantName} keeps Paid until ${end === null ? 'its paid period ends' : billingDate(end)}, then moves to Free. This cancels its next subscription${nextFrom}.`,
         },
         nowChoice(!ended),

@@ -970,14 +970,36 @@ describe('billing actions', () => {
       })
       const ended = billingDate('2026-01-10T00:00:00.000Z')
       expect(dialog).not.toHaveTextContent('keeps Paid until')
+      const free = billingDate('2026-01-13T00:00:00.000Z')
       expect(dialog).toHaveTextContent(
-        `Paid’s period ended on ${ended}. This cancels its next subscription, booked from ${ended}.`
+        `This cancels only Acme Corp’s next subscription, booked from ${ended}. Acme Corp’s paid period ended on ${ended}, and it moved to Free on ${free}.`
       )
       await user.click(within(dialog).getByRole('radio', { name: 'Now' }))
       expect(dialog).toHaveTextContent(
         'Acme Corp moves to Free now. Razorpay charges nothing more.'
       )
       expect(dialog).not.toHaveTextContent('Refund')
+    })
+
+    it('says when a tenant whose period just ended moves to Free, three days on', async () => {
+      const endedAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      const freeAt = new Date(Date.parse(endedAt) + 3 * 24 * 60 * 60 * 1000).toISOString()
+      serve({
+        ...testTenantBilling,
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: endedAt,
+        nextSubscriptionId: 'sub_TestNext0001',
+        nextSwitch: null,
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      expect(dialog).toHaveTextContent(
+        `This cancels only Acme Corp’s next subscription. Acme Corp’s paid period ended on ${billingDate(endedAt)}, and it moves to Free on ${billingDate(freeAt)}.`
+      )
     })
 
     it('offers no refund on Now when the ending period is over', async () => {

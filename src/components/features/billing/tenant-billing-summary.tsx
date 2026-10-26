@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { billingDate, providerLabel } from '@/constants/billing-labels'
 import { useNow } from '@/hooks/use-now'
+import { CANCEL_BUFFER_MS } from '@/lib/billing-actions'
 import { formatInr } from '@/lib/money'
 import { absoluteTime, relativeTime } from '@/lib/relative-time'
 import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
@@ -16,12 +17,6 @@ import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
 /** What staff read when payments are off on the server. */
 const PAYMENTS_OFF_NOTE =
   'Payments are off on this server. The plan and dates show what is stored; nothing can be charged or synced.'
-
-/**
- * How long a cancelled Paid stays on after its period ends, as express's
- * `CANCEL_BUFFER_DAYS`, before the tenant moves to Free.
- */
-const CANCEL_BUFFER_MS = 3 * 24 * 60 * 60 * 1000
 
 /** A billing date, read short. */
 const day = billingDate
