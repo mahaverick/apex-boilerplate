@@ -1235,8 +1235,9 @@ const sectionHandlers = [
 
 /**
  * The Tenants table's rows: one in each status, then enough more to fill a
- * second page. Between them they hold every plan state, and the first filler
- * has no billing record.
+ * second page. Between them they hold every plan state, each one express can
+ * produce: every customer tenant has a billing record, so none is null. The
+ * first filler is on Free, so the first page shows every plan badge.
  */
 const PLATFORM_TENANT_ROWS = [
   { ...ACME, lifecycleState: 'active', billingState: 'active' },
@@ -1259,11 +1260,11 @@ const PLATFORM_TENANT_ROWS = [
     name: `Filler ${String(index + 1).padStart(2, '0')} Co`,
     slug: `filler-${index + 1}`,
     lifecycleState: 'active',
-    billingState: index === 0 ? null : 'trialing',
+    billingState: index === 0 ? 'free' : 'trialing',
   })),
 ].map((tenant, index) => ({
   ...tenant,
-  planKey: tenant.billingState === null ? null : tenant.billingState === 'free' ? 'free' : 'paid',
+  planKey: tenant.billingState === 'free' ? 'free' : 'paid',
   memberCount: 2,
   createdAt: `2026-01-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
 }))
@@ -1621,14 +1622,16 @@ const worker = setupWorker(
     ok(listPage([]), 'Invitations retrieved.')
   ),
   // The Tenants table, the palette and the activity tenant filter: one tenant in each status, so every badge renders.
-  http.get('/api/v1/platform/tenants', ({ request }) =>
-    ok(
-      serveList(PLATFORM_TENANT_ROWS, new URL(request.url).searchParams, {
+  http.get('/api/v1/platform/tenants', ({ request }) => {
+    const params = new URL(request.url).searchParams
+    // express's `state` defaults to active and suspended, so archived tenants show only when asked for.
+    if (!params.get('state')) params.set('state', 'active,suspended')
+    return ok(
+      serveList(PLATFORM_TENANT_ROWS, params, {
         searchIn: (row) => [row.name, row.slug],
         filters: {
           state: (row, values) => values.includes(row.lifecycleState),
-          billingState: (row, values) =>
-            row.billingState !== null && values.includes(row.billingState),
+          billingState: (row, values) => values.includes(row.billingState),
         },
         sorts: {
           name: (a, b) => a.name.localeCompare(b.name),
@@ -1637,7 +1640,7 @@ const worker = setupWorker(
       }),
       'Tenants retrieved.'
     )
-  ),
+  }),
   // The Users table and the palette's user search; `prevCursor` is null, as on a real first page.
   http.get('/api/v1/platform/users', ({ request }) => {
     const params = new URL(request.url).searchParams

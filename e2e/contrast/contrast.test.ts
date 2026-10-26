@@ -971,7 +971,7 @@ test.describe('chart series', () => {
 
 /**
  * The staff surfaces: the Staff badge on an Activity row and the three tenant
- * status badges, each asserted present, because a page without them grades
+ * status badges and four plan badges, each asserted present, because a page without them grades
  * clean and proves nothing about their token pairs.
  */
 test.describe('staff surfaces', () => {
@@ -983,11 +983,23 @@ test.describe('staff surfaces', () => {
       expect(report('staff badge', theme, result), report('staff badge', theme, result)).toBe('')
     })
 
-    test(`the Tenants status badges meet WCAG AA contrast in ${theme}`, async ({ page }) => {
-      const result = await contrastOf(page, '/e2e/harness/?path=/tenants', theme, 'Tenants')
+    test(`the Tenants status and plan badges meet WCAG AA contrast in ${theme}`, async ({
+      page,
+    }) => {
+      // Archived tenants show only when asked for, as express's default status filter leaves them out.
+      const tenants = '/e2e/harness/?path=/tenants?state=active,suspended,archived'
+      const result = await contrastOf(page, tenants, theme, 'Tenants')
       const table = page.getByRole('table', { name: 'Tenants' })
-      for (const status of ['Active', 'Suspended', 'Archived']) {
-        await expect(table.getByText(status, { exact: true }).first()).toBeVisible()
+      for (const badge of [
+        'Active',
+        'Suspended',
+        'Archived',
+        'Trial',
+        'Free',
+        'Paid',
+        'Payment failed',
+      ]) {
+        await expect(table.getByText(badge, { exact: true }).first()).toBeVisible()
       }
       expect(report('status badges', theme, result), report('status badges', theme, result)).toBe(
         ''
