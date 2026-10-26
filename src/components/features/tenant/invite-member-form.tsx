@@ -1,4 +1,6 @@
 import { useForm } from '@tanstack/react-form'
+import { useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import type { z } from 'zod'
 import { ReasonDialog } from '@/components/features/reason-dialog'
@@ -28,13 +30,17 @@ import {
   ROLE_LABELS,
   type MembershipRole,
 } from '@/constants/roles'
+import { ROUTES } from '@/constants/routes'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
 import { codeFrom, fieldErrorsFrom } from '@/lib/api-error'
+import { planRefusalFrom, type PlanRefusal } from '@/lib/plan-refusal'
 import { staffMessageFrom } from '@/lib/staff-message'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
+import { staffTenantBillingQueryOptions } from '@/queries/billing-reads.queries'
+import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
 import { useInviteMember } from '@/queries/tenant-writes.queries'
 import { inviteMemberSchema, type InviteMemberInput } from '@/schemas/tenant.schemas'
 import { ALREADY_MEMBER, INVITATION_CONFLICT } from '@/types/api.types'
@@ -42,6 +48,29 @@ import { ALREADY_MEMBER, INVITATION_CONFLICT } from '@/types/api.types'
 /** A 409 `invitation_conflict`: another invite for this address just won the race. */
 const RACED =
   'Someone else invited this address first. Their invitation is under Pending invitations.'
+
+/**
+ * The staff wording for a tenant at its members limit. The API's own
+ * sentence tells the customer to upgrade, which staff can't do for them; the
+ * next step for staff is a Members grant. The tenant's name and its plan
+ * come from the cached reads (the plan from its billing, which names the
+ * effective plan); either missing leaves its words out.
+ * @param queryClient - The app's query client.
+ * @param tenantId - The tenant's id.
+ * @param refusal - The 402's usage.
+ */
+async function membersLimitSentence(
+  queryClient: QueryClient,
+  tenantId: string,
+  refusal: Extract<PlanRefusal, { kind: 'limit' }>
+): Promise<string> {
+  const [tenant, billing] = await Promise.all([
+    queryClient.fetchQuery(platformTenantQueryOptions(tenantId)).catch(() => undefined),
+    queryClient.fetchQuery(staffTenantBillingQueryOptions(tenantId)).catch(() => undefined),
+  ])
+  const plan = billing === undefined ? '' : ` on ${billing.plan.name}`
+  return `Not sent. ${tenant?.name ?? 'This tenant'} has ${String(refusal.used)} of ${String(refusal.limit)} members${plan}. Add a Members grant on its Billing tab to invite more.`
+}
 
 /**
  * Invite someone by email. Shown to owners and admins (`canManageTenant`); the
@@ -59,6 +88,10 @@ const RACED =
  * about the address or the role (`already_member`, a field error) closes the
  * dialog and shows on that field, as it does for a member, with focus on it;
  * any other shows in the dialog, a racing invite with `RACED`.
+ *
+ * On an Apex tenant page (`tenantId`), a tenant at its members limit (402
+ * `PLAN_LIMIT_REACHED`) closes the dialog and says so at form level in
+ * staff words, with an "Open Billing" link that takes focus.
  */
 export function InviteMemberForm({
   slug,
@@ -76,6 +109,10 @@ export function InviteMemberForm({
   submitLabel?: string
 }) {
   const inviteMember = useInviteMember(slug, tenantId)
+  const queryClient = useQueryClient()
+  /** Set while the form shows a members-limit refusal, which carries the Billing link. */
+  const [full, setFull] = useState(false)
+  const billingLink = useRef<HTMLAnchorElement>(null)
   const stepUp = useStepUp()
   const waiting = useStepUpWaiting()
   const serverErrors = useServerErrors()
@@ -83,6 +120,21 @@ export function InviteMemberForm({
   const formRef = useRef<HTMLFormElement>(null)
   /** Set when the reason dialog closed on a field refusal, so focus goes to that field; cleared each time it opens. */
   const refusedOnField = useRef(false)
+  /** Set when the reason dialog closed on a members-limit refusal, so focus goes to the Billing link. */
+  const refusedFull = useRef(false)
+
+  /**
+   * Shows a members-limit refusal at form level in staff words.
+   * @returns Whether the refusal was one, on a tenant page that can link its Billing tab.
+   */
+  async function showFull(error: unknown): Promise<boolean> {
+    const refusal = planRefusalFrom(error)
+    if (refusal?.kind !== 'limit' || tenantId === undefined) return false
+    const sentence = await membersLimitSentence(queryClient, tenantId, refusal)
+    serverErrors.setFormErrors([sentence])
+    setFull(true)
+    return true
+  }
 
   /**
    * Puts a refusal about the address or the role on its field: `already_member`
@@ -112,9 +164,11 @@ export function InviteMemberForm({
     validators: { onSubmit: inviteMemberSchema },
     onSubmit: async ({ value }) => {
       serverErrors.reset()
+      setFull(false)
       const input = inviteMemberSchema.parse(value)
       if (asStaff) {
         refusedOnField.current = false
+        refusedFull.current = false
         setToConfirm(input)
         return
       }
@@ -136,6 +190,7 @@ export function InviteMemberForm({
           serverErrors.setFormErrors([stepUpRefusal(error)])
           return
         }
+        if (await showFull(error)) return
         serverErrors.capture(error)
       }
     },
@@ -201,6 +256,16 @@ export function InviteMemberForm({
 
         <div className="grid gap-2 sm:pt-6">
           <FormError />
+          {full && tenantId !== undefined && (
+            <Link
+              ref={billingLink}
+              to={ROUTES.tenantBilling}
+              params={{ tenantId }}
+              className="text-sm underline underline-offset-4"
+            >
+              Open Billing
+            </Link>
+          )}
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
               <BusyButton
@@ -235,6 +300,7 @@ export function InviteMemberForm({
           confirmLabel="Send invitation"
           refusalMessage={(error) => (codeFrom(error) === INVITATION_CONFLICT ? RACED : undefined)}
           finalFocus={() =>
+            (refusedFull.current && billingLink.current) ||
             (refusedOnField.current &&
               formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')) ||
             true
@@ -244,6 +310,10 @@ export function InviteMemberForm({
             try {
               await stepUp.run(() => inviteMember.mutateAsync({ ...toConfirm, reason }))
             } catch (error) {
+              if (await showFull(error)) {
+                refusedFull.current = true
+                return
+              }
               if (!showOnField(error)) throw error
               refusedOnField.current = true
               return

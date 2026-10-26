@@ -8,6 +8,7 @@ import { ROLE_DENIED_ACTION } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
 import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
+import { testFreeTenantBilling } from '@/tests/fixtures/billing'
 import { byContent } from '@/tests/fixtures/content'
 import {
   INVITATION_ID,
@@ -2141,6 +2142,44 @@ describe('staff acting through platform access', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Owner asked by email')
     await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
   }
+
+  it('tells staff to add a Members grant when the tenant is full', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, () =>
+        ok(testFreeTenantBilling, 'Billing retrieved.')
+      ),
+      http.post('/api/v1/tenants/acme/invitations', () =>
+        HttpResponse.json(
+          {
+            success: false,
+            message: 'You’ve used 3 of 3 members on Free. Upgrade to add more.',
+            statusCode: 402,
+            code: 'PLAN_LIMIT_REACHED',
+            details: { key: 'members', used: 3, limit: 3 },
+            requestId: 'test-request-id',
+          },
+          { status: 402 }
+        )
+      )
+    )
+    const success = vi.spyOn(toast, 'success')
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await inviteAsStaff(user, 'x@example.com')
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(
+      await screen.findByText(
+        'Not sent. Acme Corp has 3 of 3 members on Free. Add a Members grant on its Billing tab to invite more.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Upgrade to add more/)).toBeNull()
+    const billing = screen.getByRole('link', { name: 'Open Billing' })
+    expect(billing).toHaveAttribute('href', `/tenants/${TENANT_ID}/billing`)
+    await waitFor(() => expect(billing).toHaveFocus())
+    expect(screen.getByLabelText('Email')).toHaveValue('x@example.com')
+    expect(success).not.toHaveBeenCalled()
+  })
 
   it('closes the dialog and puts an address the API refused on the Email field', async () => {
     server.use(
