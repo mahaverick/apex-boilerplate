@@ -63,6 +63,23 @@ function parsedField(name: keyof BillingSettingsForm, value: unknown): unknown {
   return result.success ? result.data : undefined
 }
 
+/**
+ * The save dialog's description, from what the save changes: the trial
+ * rules apply to new trials, and the grace to every past-due tenant now.
+ * @param body - The changed settings.
+ */
+function saveDescription(body: SettingsBody): string {
+  const trials =
+    body.trialEnabled !== undefined || body.trialDays !== undefined
+      ? 'New trials use these rules. Trials already running keep their end dates.'
+      : null
+  const grace =
+    body.pastDueGraceDays === undefined
+      ? null
+      : 'The new grace applies now to every tenant with a failed payment.'
+  return [trials, grace].filter((line) => line !== null).join(' ')
+}
+
 /** The settings' version and values a save diffs against and sends back. */
 type SettingsBody = Partial<
   Pick<BillingSettings, 'trialEnabled' | 'trialDays' | 'pastDueGraceDays'>
@@ -345,7 +362,7 @@ function SettingsEditor({ settings }: { settings: BillingSettings }) {
           if (!open) setPending(null)
         }}
         title="Save billing settings?"
-        description="New trials use these rules. Trials already running keep their end dates. A grace change applies to every tenant with a failed payment now."
+        description={pending === null ? '' : saveDescription(pending)}
         confirmLabel="Save"
         onConfirm={async (reason) => {
           if (pending !== null) await save(pending, reason)

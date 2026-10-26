@@ -1008,8 +1008,9 @@ describe('Plans page: trials and grace', () => {
 
     const dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
     expect(dialog).toHaveTextContent(
-      'New trials use these rules. Trials already running keep their end dates. A grace change applies to every tenant with a failed payment now.'
+      'New trials use these rules. Trials already running keep their end dates.'
     )
+    expect(dialog).not.toHaveTextContent('grace')
     await user.type(within(dialog).getByLabelText('Reason'), 'Longer trials for the launch')
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
     await confirmStepUp(user)
@@ -1210,6 +1211,35 @@ describe('Plans page: trials and grace', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(success).toHaveBeenCalledWith('Billing settings saved.'))
     expect(saves[1]).toEqual({ version: 2, trialDays: 30, reason: 'Longer trials' })
+  })
+
+  it('words the save dialog for a grace change alone, then for both kinds of change', async () => {
+    recordSettingsSave(testBillingSettings)
+    const user = userEvent.setup()
+    openPlans('admin')
+    const settings = await settingsCard()
+    const grace = await within(settings).findByRole('textbox', {
+      name: 'Days to keep Paid after the last failed payment',
+    })
+    await user.clear(grace)
+    await user.type(grace, '10')
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    let dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    expect(within(dialog).getByText(/^The new grace/)).toHaveTextContent(
+      /^The new grace applies now to every tenant with a failed payment\.$/
+    )
+    expect(dialog).not.toHaveTextContent('New trials')
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    await user.click(
+      within(settings).getByRole('switch', { name: 'Give new workspaces a Paid trial' })
+    )
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    expect(dialog).toHaveTextContent(
+      'New trials use these rules. Trials already running keep their end dates. The new grace applies now to every tenant with a failed payment.'
+    )
   })
 
   it('reads 014 trial days as the stored 14: no change, express’s message, and nothing posted', async () => {
