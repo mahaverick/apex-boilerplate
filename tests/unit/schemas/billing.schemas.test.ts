@@ -7,7 +7,12 @@ import {
   grantFormSchema,
   grantSchema,
   localDate,
+  lowerLimitsFormSchema,
   planDetailsSchema,
+  planEditForm,
+  planEntitlementChanges,
+  priceFormSchema,
+  priceRupeesFrom,
   priceSchema,
 } from '@/schemas/billing.schemas'
 import { testPlans } from '@/tests/fixtures/billing'
@@ -280,5 +285,97 @@ describe('endOfDay', () => {
 
   it('uses the browser’s zone when no offset is given', () => {
     expect(endOfDay('2026-11-09').getTime()).toBe(new Date('2026-11-09T23:59:59.999').getTime())
+  })
+})
+
+describe('planEditForm', () => {
+  it('holds a limit as text with its No limit box, and a feature as a switch', () => {
+    expect(planEditForm(testPlans.plans[0]!, testPlans.catalog)).toEqual({
+      name: 'Free',
+      description: 'For small teams getting started.',
+      limits: { members: '3' },
+      noLimit: { members: false },
+      features: { advanced_example: false },
+    })
+    expect(planEditForm(testPlans.plans[1]!, testPlans.catalog)).toMatchObject({
+      limits: { members: '' },
+      noLimit: { members: true },
+      features: { advanced_example: true },
+    })
+  })
+})
+
+describe('planEntitlementChanges', () => {
+  const free = testPlans.plans[0]!
+  const changes = planEntitlementChanges(testPlans.catalog, free.entitlements)
+  const form = planEditForm(free, testPlans.catalog)
+
+  it('sends nothing for an untouched form', () => {
+    expect(changes.parse(form)).toEqual({})
+  })
+
+  it('sends only the changed entries, No limit as null', () => {
+    expect(
+      changes.parse({ ...form, limits: { members: '5' }, features: { advanced_example: true } })
+    ).toEqual({ members: 5, advanced_example: true })
+    expect(changes.parse({ ...form, noLimit: { members: true } })).toEqual({ members: null })
+  })
+
+  it('refuses a changed limit that is 0, a fraction or over 1,000,000, on its field', () => {
+    for (const typed of ['0', '2.5', '1000001', 'ten', '']) {
+      const result = changes.safeParse({ ...form, limits: { members: typed } })
+      expect(messageAt(result, 'limits.members')).toBe(
+        'Enter a whole number from 1 to 1,000,000, or choose No limit.'
+      )
+    }
+  })
+
+  it('leaves alone a stored value today’s rules would refuse, while it is unchanged', () => {
+    const stored = planEntitlementChanges(testPlans.catalog, {
+      members: 0,
+      advanced_example: false,
+    })
+    expect(
+      stored.parse(planEditForm({ ...free, entitlements: { members: 0 } }, testPlans.catalog))
+    ).toEqual({})
+  })
+})
+
+describe('priceFormSchema', () => {
+  it('parses whole rupees into paise', () => {
+    expect(
+      priceFormSchema.parse({ interval: 'year', amountRupees: ' 9990 ', reason: 'x' })
+    ).toEqual({ interval: 'year', amountMinor: 999_000, reason: 'x' })
+  })
+
+  it('refuses 0, a fraction, more than ₹1,00,000 and a typed exponent', () => {
+    for (const typed of ['0', '99.5', '100001', '1e3']) {
+      const result = priceFormSchema.safeParse({
+        interval: 'month',
+        amountRupees: typed,
+        reason: 'x',
+      })
+      expect(messageAt(result, 'amountRupees')).toBe(
+        'Enter a whole number of rupees from ₹1 to ₹1,00,000.'
+      )
+    }
+  })
+
+  it('reads the rupees for the warning only when the form would take them', () => {
+    expect(priceRupeesFrom('15001')).toBe(15_001)
+    expect(priceRupeesFrom('0')).toBeNull()
+    expect(priceRupeesFrom('100001')).toBeNull()
+  })
+})
+
+describe('lowerLimitsFormSchema', () => {
+  it('needs the second confirm and a reason', () => {
+    const result = lowerLimitsFormSchema.safeParse({ checked: false, reason: '' })
+    expect(messageAt(result, 'checked')).toBe('Confirm you checked the tenants this affects.')
+    expect(messageAt(result, 'reason')).toBeDefined()
+    expect(lowerLimitsFormSchema.parse({ checked: true, reason: 'Why' })).toEqual({
+      checked: true,
+      reason: 'Why',
+    })
   })
 })

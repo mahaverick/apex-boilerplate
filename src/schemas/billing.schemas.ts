@@ -298,3 +298,129 @@ export function cancelBillingFormSchema(slug: string) {
     })
     .transform(({ when, reason }) => ({ when, reason }))
 }
+
+/**
+ * A plan editor's form: the name and description as typed, each limit as
+ * typed with its No limit box, and each feature's switch. Field names are
+ * `limits.<key>`, `noLimit.<key>` and `features.<key>`.
+ */
+export interface PlanEditForm {
+  name: string
+  description: string
+  limits: Record<string, string>
+  noLimit: Record<string, boolean>
+  features: Record<string, boolean>
+}
+
+/**
+ * A plan's stored values as the editor's form holds them.
+ * @param plan - The plan's name, description and every entitlement.
+ * @param catalog - The entitlements this product has.
+ */
+export function planEditForm(
+  plan: { name: string; description: string; entitlements: Record<string, unknown> },
+  catalog: readonly EntitlementCatalogEntry[]
+): PlanEditForm {
+  const form: PlanEditForm = {
+    name: plan.name,
+    description: plan.description,
+    limits: {},
+    noLimit: {},
+    features: {},
+  }
+  for (const { key, kind } of catalog) {
+    const value = plan.entitlements[key]
+    if (kind === 'feature') {
+      form.features[key] = value === true
+    } else {
+      form.limits[key] = typeof value === 'number' ? String(value) : ''
+      form.noLimit[key] = value === null
+    }
+  }
+  return form
+}
+
+/**
+ * The entitlements a plan edit changes, against the values it opened with:
+ * each limit parsed (No limit is null), each feature on or off. An unchanged
+ * entry is neither checked nor sent, so a stored value today's rules refuse
+ * blocks nothing. A changed limit must be a whole number from 1 to
+ * 1,000,000, as express's `planEntitlementsSchema` takes it; its issue lands
+ * on `limits.<key>`.
+ * @param catalog - The entitlements this product has.
+ * @param baseline - The plan's stored values the edit diffs against.
+ */
+export function planEntitlementChanges(
+  catalog: readonly EntitlementCatalogEntry[],
+  baseline: Readonly<Record<string, unknown>>
+) {
+  return z.custom<PlanEditForm>().transform((form, context) => {
+    const changed: Record<string, boolean | number | null> = {}
+    for (const { key, kind } of catalog) {
+      const value =
+        kind === 'feature'
+          ? form.features[key] === true
+          : form.noLimit[key] === true
+            ? null
+            : wholeNumber(form.limits[key] ?? '')
+      if (Object.is(value, baseline[key])) continue
+      if (kind === 'limit' && !isLimitValue(value)) {
+        context.addIssue({ code: 'custom', path: ['limits', key], message: GRANT_LIMIT_MESSAGE })
+        continue
+      }
+      changed[key] = value
+    }
+    return changed
+  })
+}
+
+/**
+ * The plan editor's submit check: the changed name and description (from
+ * `useChangedFields`) and the changed entitlements, each issue on its field.
+ * @param details - `useChangedFields`'s `changes` over `planDetailsSchema`.
+ * @param entitlements - `planEntitlementChanges` for the same baseline.
+ */
+export function planEditSchema(details: z.ZodType, entitlements: z.ZodType) {
+  return z.custom<PlanEditForm>().superRefine((form, context) => {
+    for (const schema of [details, entitlements]) {
+      const result = schema.safeParse(form)
+      if (result.success) continue
+      for (const issue of result.error.issues) {
+        context.addIssue({ code: 'custom', path: issue.path, message: issue.message })
+      }
+    }
+  })
+}
+
+/**
+ * The new-price dialog's form: the interval and the rupees as typed, parsed
+ * into `priceSchema`'s body (`amountMinor` in paise).
+ */
+export const priceFormSchema = z
+  .object({ interval: z.string(), amountRupees: z.string(), reason: z.string() })
+  .transform(({ interval, amountRupees, reason }) => ({
+    interval,
+    amountRupees: wholeNumber(amountRupees),
+    reason,
+  }))
+  .pipe(priceSchema)
+
+/**
+ * The rupees a typed amount holds, or null when the new-price form would
+ * refuse it, for the warning and the confirm line, which follow the typing.
+ * @param text - The Amount in rupees field's value.
+ */
+export function priceRupeesFrom(text: string): number | null {
+  const rupees = wholeNumber(text)
+  return Number.isSafeInteger(rupees) && rupees >= MIN_PRICE_RUPEES && rupees <= MAX_PRICE_RUPEES
+    ? rupees
+    : null
+}
+
+/** The lower-limits dialog's form: the second confirm, ticked, and a reason. */
+export const lowerLimitsFormSchema = z.object({
+  checked: z.boolean().refine((checked) => checked, {
+    message: 'Confirm you checked the tenants this affects.',
+  }),
+  reason: reasonSchema,
+})
