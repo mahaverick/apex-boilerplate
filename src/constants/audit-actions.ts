@@ -197,16 +197,16 @@ function trialExtension(metadata: Metadata): string {
   return `extended the trial${by}${date === null ? '' : ` to ${date}`}`
 }
 
-/** A grant's value and end: "members: 10 until 1 Dec 2026", "members: no limit". */
+/** A grant's value and end: "granted members (10) until 1 Dec 2026", "granted members (no limit)". */
 function grantAdded(metadata: Metadata): string {
   const value = metadata.value
   const shown =
     value === null
-      ? ': no limit'
+      ? ' (no limit)'
       : value === true
-        ? ': on'
+        ? ' (on)'
         : typeof value === 'number'
-          ? `: ${String(value)}`
+          ? ` (${String(value)})`
           : ''
   const expires = text(metadata, 'expiresAt')
   const until = expires === undefined ? null : formatDate(expires, 'medium')
@@ -226,6 +226,26 @@ function priceCreated(metadata: Metadata): string {
   const amount = metadata.amountMinor
   const of = typeof amount === 'number' ? ` of ${formatInr(amount)}` : ''
   return `added a ${every === undefined ? '' : `${every} `}price${of}`
+}
+
+/** Each billing setting as a sentence names it; a field this build does not know keeps its name. */
+const BILLING_SETTING_WORDS: Readonly<Record<string, string>> = {
+  trialEnabled: 'trials on or off',
+  trialDays: 'trial length',
+  pastDueGraceDays: 'grace period',
+}
+
+/**
+ * A billing settings save: the settings it changed, in words, or a save
+ * with no changes, which express records too. express stores the field
+ * names under `changedFields`, not the `changed` other updates use.
+ */
+function settingsChange(metadata: Metadata): string {
+  if (!Array.isArray(metadata.changedFields)) return 'changed the billing settings'
+  const fields = texts(metadata, 'changedFields')
+  if (fields.length === 0) return 'saved the billing settings with no changes'
+  const words = fields.map((field) => BILLING_SETTING_WORDS[field] ?? field)
+  return `changed the billing settings (${words.join(', ')})`
 }
 
 /** `: “why”`, or nothing when the entry carries no reason. */
@@ -330,11 +350,7 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
     return `${name === undefined ? 'edited a plan' : `edited the ${name} plan`}${because(m)}`
   },
   'plan.price_created': (m) => `${priceCreated(m)}${because(m)}`,
-  // express stores this action's field names under `changedFields`, not the `changed` other updates use.
-  'billing.settings_updated': (m) => {
-    const fields = texts(m, 'changedFields')
-    return `changed the billing settings${fields.length > 0 ? ` (${fields.join(', ')})` : ''}${because(m)}`
-  },
+  'billing.settings_updated': (m) => `${settingsChange(m)}${because(m)}`,
 }
 
 /**

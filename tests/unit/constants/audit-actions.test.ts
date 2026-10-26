@@ -128,17 +128,17 @@ describe('auditSentence', () => {
     [
       'billing.grant_added',
       { key: 'members', value: null, expiresAt: null, reason: 'big team' },
-      'granted members: no limit: “big team”',
+      'granted members (no limit): “big team”',
     ],
     [
       'billing.grant_added',
       { key: 'members', value: 10, expiresAt: '2026-12-01T12:00:00.000Z', reason: 'trial' },
-      `granted members: 10 until ${formatDate('2026-12-01T12:00:00.000Z', 'medium') ?? ''}: “trial”`,
+      `granted members (10) until ${formatDate('2026-12-01T12:00:00.000Z', 'medium') ?? ''}: “trial”`,
     ],
     [
       'billing.grant_added',
       { key: 'advanced_example', value: true, expiresAt: null, reason: 'demo' },
-      'granted advanced_example: on: “demo”',
+      'granted advanced_example (on): “demo”',
     ],
     [
       'billing.grant_revoked',
@@ -170,9 +170,24 @@ describe('auditSentence', () => {
     [
       'billing.settings_updated',
       { changedFields: ['trialDays', 'trialEnabled'], reason: 'promo' },
-      'changed the billing settings (trialDays, trialEnabled): “promo”',
+      'changed the billing settings (trial length, trials on or off): “promo”',
     ],
     ['billing.settings_updated', {}, 'changed the billing settings'],
+    [
+      'billing.settings_updated',
+      { changedFields: ['pastDueGraceDays', 'newSetting'], reason: 'promo' },
+      'changed the billing settings (grace period, newSetting): “promo”',
+    ],
+    [
+      'billing.settings_updated',
+      { changedFields: [], reason: 'checked' },
+      'saved the billing settings with no changes: “checked”',
+    ],
+    [
+      'billing.grant_added',
+      { key: 'members', value: 'ten', expiresAt: null, reason: 'demo' },
+      'granted members: “demo”',
+    ],
     ['tenant.created', { name: 'Acme Corp', slug: 'acme' }, 'created the tenant “Acme Corp”'],
     ['tenant.updated', { changed: ['name', 'website'] }, 'updated the tenant (name, website)'],
     ['tenant.settings_updated', { changed: ['timezone'] }, 'changed the settings (timezone)'],
