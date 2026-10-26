@@ -620,9 +620,7 @@ describe('billing actions', () => {
               message: 'Check the highlighted fields, then try again.',
               statusCode: 400,
               errors: {
-                value: [
-                  'Enter a whole number from 1 to 1,000,000 for a limit, or null for no cap.',
-                ],
+                value: ['Enter a whole number from 1 to 1,000,000, or choose No limit.'],
                 expiresAt: ['Choose an expiry in the future, or null for none.'],
               },
               requestId: 'test-request-id',
@@ -640,7 +638,7 @@ describe('billing actions', () => {
       const limit = within(dialog).getByLabelText('New limit')
       await waitFor(() => expect(limit).toHaveAttribute('aria-invalid', 'true'))
       expect(limit).toHaveAccessibleDescription(
-        'Enter a whole number from 1 to 1,000,000 for a limit, or null for no cap.'
+        'Enter a whole number from 1 to 1,000,000, or choose No limit.'
       )
       expect(within(dialog).getByLabelText('Ends on (optional)')).toHaveAttribute(
         'aria-invalid',
@@ -652,9 +650,7 @@ describe('billing actions', () => {
 
       await user.click(within(dialog).getByRole('checkbox', { name: 'No limit' }))
       expect(
-        within(dialog).queryByText(
-          'Enter a whole number from 1 to 1,000,000 for a limit, or null for no cap.'
-        )
+        within(dialog).queryByText('Enter a whole number from 1 to 1,000,000, or choose No limit.')
       ).toBeNull()
     })
 
@@ -669,9 +665,7 @@ describe('billing actions', () => {
               statusCode: 400,
               errors: {
                 key: ['Choose a limit or feature this product has.'],
-                value: [
-                  'Enter a whole number from 1 to 1,000,000 for a limit, or null for no cap.',
-                ],
+                value: ['Enter a whole number from 1 to 1,000,000, or choose No limit.'],
               },
               requestId: 'test-request-id',
             },
@@ -694,9 +688,7 @@ describe('billing actions', () => {
       await user.click(await screen.findByRole('option', { name: 'Members' }))
       expect(within(dialog).queryByText('Choose a limit or feature this product has.')).toBeNull()
       expect(
-        within(dialog).queryByText(
-          'Enter a whole number from 1 to 1,000,000 for a limit, or null for no cap.'
-        )
+        within(dialog).queryByText('Enter a whole number from 1 to 1,000,000, or choose No limit.')
       ).toBeNull()
     })
   })

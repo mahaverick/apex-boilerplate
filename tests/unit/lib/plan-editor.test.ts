@@ -112,8 +112,8 @@ describe('entitlementErrorFields', () => {
     expect(
       entitlementErrorFields(
         [
-          'Members: enter a whole number from 1 to 1,000,000, or null for no cap.',
-          'Workspace insights: send true to include the feature or false to leave it out.',
+          'Members: enter a whole number from 1 to 1,000,000, or choose No limit.',
+          'Workspace insights: choose whether the plan includes this feature.',
           'Send at least one entitlement to change.',
         ],
         catalog
@@ -121,10 +121,10 @@ describe('entitlementErrorFields', () => {
     ).toEqual({
       fields: {
         'limits.members': [
-          'Members: enter a whole number from 1 to 1,000,000, or null for no cap.',
+          'Members: enter a whole number from 1 to 1,000,000, or choose No limit.',
         ],
         'features.advanced_example': [
-          'Workspace insights: send true to include the feature or false to leave it out.',
+          'Workspace insights: choose whether the plan includes this feature.',
         ],
       },
       unplaced: ['Send at least one entitlement to change.'],

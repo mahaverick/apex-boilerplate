@@ -443,7 +443,9 @@ describe('Plans page', () => {
               message: 'Check the highlighted fields, then try again.',
               statusCode: 400,
               errors: {
-                entitlements: ['Workspace insights: send true to include the feature or false.'],
+                entitlements: [
+                  'Workspace insights: choose whether the plan includes this feature.',
+                ],
               },
               requestId: 'test-request-id',
             },
@@ -457,7 +459,7 @@ describe('Plans page', () => {
       const insights = within(free).getByRole('switch', { name: 'Workspace insights' })
       await user.click(insights)
       await user.click(within(free).getByRole('button', { name: 'Save Free' }))
-      const message = 'Workspace insights: send true to include the feature or false.'
+      const message = 'Workspace insights: choose whether the plan includes this feature.'
       expect(await within(free).findByText(message)).toBeInTheDocument()
       await waitFor(() => expect(insights).toHaveAttribute('aria-invalid', 'true'))
       await user.click(insights)
