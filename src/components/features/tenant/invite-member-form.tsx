@@ -71,7 +71,8 @@ async function cachedPlanName(
   const planKey = queryClient
     .getQueriesData<ListPage<PlatformTenantRow>>({ queryKey: tenantAdminKeys.all })
     .flatMap(([, page]) => (Array.isArray(page?.items) ? page.items : []))
-    .find((row) => row.id === tenantId)?.planKey
+    // Another list under the prefix may hold this tenant's row without a plan; only a row with one counts.
+    .find((row) => row.id === tenantId && row.planKey != null)?.planKey
   if (planKey === undefined || planKey === null) return undefined
   const plans = await queryClient.fetchQuery(staffPlansQueryOptions()).catch(() => undefined)
   return plans?.plans.find((plan) => plan.key === planKey)?.name

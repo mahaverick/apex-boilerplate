@@ -7,7 +7,7 @@ import { formatDate } from '@/lib/format'
 import { ROLE_DENIED_ACTION } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
 import { billingAdminKeys } from '@/queries/billing-reads.queries'
-import { tenantsListOptions } from '@/queries/tenant-admin.queries'
+import { tenantAdminKeys, tenantsListOptions } from '@/queries/tenant-admin.queries'
 import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
 import { testFreeTenantBilling } from '@/tests/fixtures/billing'
@@ -2273,6 +2273,27 @@ describe('staff acting through platform access', () => {
       )
     ).toBeInTheDocument()
     expect(billingReads()).toBe(0)
+  })
+
+  it('skips a cached row of another list that carries no plan', async () => {
+    serveFullTenant()
+    // Another list under the tenants prefix, cached first, whose rows hold no plan.
+    queryClient.setQueryData(
+      [...tenantAdminKeys.all, 'other'],
+      listPage([{ id: TENANT_ID, name: 'Acme Corp' }])
+    )
+    queryClient.setQueryData(
+      tenantsListOptions({ search: 'acme', limit: 20 }).queryKey,
+      listPage([TENANT_ROW])
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await inviteAsStaff(user, 'x@example.com')
+    expect(
+      await screen.findByText(
+        'Not sent. Acme Corp has 3 of 3 members on Free. Add a Members grant on its Billing tab to invite more.'
+      )
+    ).toBeInTheDocument()
   })
 
   it('closes the dialog and puts an address the API refused on the Email field', async () => {
