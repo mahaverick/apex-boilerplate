@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { MembershipRole } from '@/constants/roles'
 import { formatDate } from '@/lib/format'
 import { toast } from '@/lib/toast'
+import { queryClient } from '@/router'
 import { testBillingSettings, testPlans } from '@/tests/fixtures/billing'
 import { STAFF_USER_ID } from '@/tests/fixtures/ids'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
@@ -521,6 +522,75 @@ describe('Plans page', () => {
     })
   })
 
+  describe('the version a save sends', () => {
+    it('stays the one read at the first edit when a refetch brings a newer one', async () => {
+      const theirs: StaffPlan = { ...FREE, version: 2 }
+      servePlans(testPlans, { ...testPlans, plans: [theirs, PAID] })
+      recordPreview(FREE, freePreview([{ key: 'members', from: 3, to: 5, direction: 'increase' }]))
+      const saves: unknown[] = []
+      server.use(
+        http.patch(`/api/v1/platform/plans/${FREE.id}`, async ({ request }) => {
+          saves.push(await request.json())
+          return fail('Someone changed the plan.', 409, 'PLAN_VERSION_CONFLICT')
+        })
+      )
+      const user = userEvent.setup()
+      openPlans()
+      const free = await card('Free')
+      const members = within(free).getByRole('textbox', { name: 'Members' })
+      await user.clear(members)
+      await user.type(members, '5')
+      await queryClient.refetchQueries({ queryKey: ['platform', 'plans'] })
+      await user.click(within(free).getByRole('button', { name: 'Save Free' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Save Free?' })
+      await user.type(within(dialog).getByLabelText('Reason'), 'Room for five')
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+      expect(
+        await within(free).findByText(
+          'Another staff member changed this plan. We loaded their values and kept what you typed. Review and save again.'
+        )
+      ).toBeInTheDocument()
+      expect(saves[0]).toEqual({
+        version: 1,
+        entitlements: { members: 5 },
+        reason: 'Room for five',
+      })
+    })
+  })
+
+  describe('a save the API refuses field by field', () => {
+    it('puts the errors on the card and closes the dialog', async () => {
+      const message = 'Keep the plan name to 64 characters.'
+      server.use(
+        http.patch(`/api/v1/platform/plans/${FREE.id}`, () =>
+          HttpResponse.json(
+            {
+              success: false,
+              message: 'Check the highlighted fields, then try again.',
+              statusCode: 400,
+              errors: { name: [message] },
+              requestId: 'test-request-id',
+            },
+            { status: 400 }
+          )
+        )
+      )
+      const user = userEvent.setup()
+      openPlans()
+      const free = await card('Free')
+      const name = within(free).getByRole('textbox', { name: 'Name' })
+      await user.clear(name)
+      await user.type(name, 'Starter')
+      await user.click(within(free).getByRole('button', { name: 'Save Free' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Save Free?' })
+      await user.type(within(dialog).getByLabelText('Reason'), 'Rename')
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+      expect(await within(free).findByText(message)).toBeInTheDocument()
+      await waitFor(() => expect(name).toHaveAttribute('aria-invalid', 'true'))
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    })
+  })
+
   describe('a conflict whose reload fails', () => {
     it('says their values didn’t load, saves nothing, and loads them once the reload works', async () => {
       const theirs: StaffPlan = { ...FREE, version: 2, description: 'Their new description.' }
@@ -750,6 +820,32 @@ describe('Plans page', () => {
         await within(dialog).findByText('Enter a whole number of rupees from ₹1 to ₹1,00,000.')
       ).toBeInTheDocument()
       expect(posts).toBe(0)
+    })
+
+    it('puts the API’s amountMinor error on the rupees field', async () => {
+      const message = 'Enter a whole number of rupees from ₹1 to ₹1,00,000.'
+      server.use(
+        http.post(`/api/v1/platform/plans/${PAID.id}/prices`, () =>
+          HttpResponse.json(
+            {
+              success: false,
+              message: 'Check the highlighted fields, then try again.',
+              statusCode: 400,
+              errors: { amountMinor: [message] },
+              requestId: 'test-request-id',
+            },
+            { status: 400 }
+          )
+        )
+      )
+      const user = userEvent.setup()
+      const dialog = await openNewPrice(user)
+      const amount = within(dialog).getByRole('textbox', { name: 'Amount in rupees' })
+      await user.type(amount, '999')
+      await user.type(within(dialog).getByLabelText('Reason'), 'Test')
+      await user.click(within(dialog).getByRole('button', { name: 'Add price' }))
+      expect(await within(dialog).findByText(message)).toBeInTheDocument()
+      await waitFor(() => expect(amount).toHaveAttribute('aria-invalid', 'true'))
     })
 
     it('clears the API’s interval error when another interval is chosen', async () => {
