@@ -297,6 +297,24 @@ describe('endOfDay', () => {
     expect(endOfDay('2026-10-24', 'Europe/London').toISOString()).toBe('2026-10-24T22:59:59.999Z')
   })
 
+  it('ends a fall-back day at its later 23:59:59.999, the true last instant', () => {
+    // Santiago goes back from UTC−3 to UTC−4 at 24:00 on 4 April 2026, so 23:00–23:59 happens twice.
+    expect(endOfDay('2026-04-04', 'America/Santiago').toISOString()).toBe(
+      '2026-04-05T03:59:59.999Z'
+    )
+  })
+
+  it('ends a spring-forward day at its own 23:59:59.999', () => {
+    // New York jumps from 02:00 to 03:00 on 8 March 2026 and ends the day at UTC−4.
+    expect(endOfDay('2026-03-08', 'America/New_York').toISOString()).toBe(
+      '2026-03-09T03:59:59.999Z'
+    )
+    // Santiago jumps from 24:00 to 01:00 on 6 September 2026 and ends the day at UTC−3.
+    expect(endOfDay('2026-09-06', 'America/Santiago').toISOString()).toBe(
+      '2026-09-07T02:59:59.999Z'
+    )
+  })
+
   it('reads an unknown zone as UTC', () => {
     expect(endOfDay('2026-11-09', 'Mars/Olympus').toISOString()).toBe('2026-11-09T23:59:59.999Z')
   })

@@ -73,6 +73,9 @@ export function trialDaysFrom(text: string): number | null {
   return result.success ? result.data : null
 }
 
+/** One day, in milliseconds. */
+const DAY_MS = 24 * 60 * 60 * 1000
+
 /**
  * A moment's calendar parts in a zone; an unknown zone reads as UTC, as
  * `formatBillingDate` does.
@@ -235,17 +238,27 @@ export function grantFormSchema(catalog: readonly EntitlementCatalogEntry[], tim
 }
 
 /**
- * The last moment of a `YYYY-MM-DD` day in a zone. The zone's offset is read
- * at that wall time, and read again once moved there, so a day that changes
- * offset (daylight saving) still ends at its own 23:59:59.999.
+ * The last moment of a `YYYY-MM-DD` day in a zone: its 23:59:59.999. Each
+ * offset the zone uses within a day of that wall time gives a candidate,
+ * kept only when the zone reads that offset at it; the latest one wins, so
+ * a fall-back day, whose last hour happens twice, ends at the second, and a
+ * spring-forward day at its new offset.
  * @param day - A date input's value.
  * @param timeZone - The tenant's time zone; an unknown one reads as UTC.
  */
 export function endOfDay(day: string, timeZone: string): Date {
   const [year = 0, month = 1, date = 1] = day.split('-').map(Number)
   const wall = Date.UTC(year, month - 1, date, 23, 59, 59, 999)
-  const first = wall + zoneOffsetMinutes(wall, timeZone) * 60_000
-  return new Date(wall + zoneOffsetMinutes(first, timeZone) * 60_000)
+  const offsets = new Set(
+    [wall - DAY_MS, wall, wall + DAY_MS].map((at) => zoneOffsetMinutes(at, timeZone))
+  )
+  const ends = [...offsets]
+    .filter((offset) => zoneOffsetMinutes(wall + offset * 60_000, timeZone) === offset)
+    .map((offset) => wall + offset * 60_000)
+  // No candidate only if 23:59:59 itself is skipped by a jump; the wall time's own offset is the closest.
+  return new Date(
+    ends.length === 0 ? wall + zoneOffsetMinutes(wall, timeZone) * 60_000 : Math.max(...ends)
+  )
 }
 
 /**
