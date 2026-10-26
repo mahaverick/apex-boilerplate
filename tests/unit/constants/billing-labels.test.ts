@@ -110,7 +110,7 @@ describe('INVOICE_STATUS_BADGE', () => {
   it('labels and tones every invoice status', () => {
     expect(Object.keys(INVOICE_STATUS_BADGE).sort()).toEqual([...INVOICE_STATUSES].sort())
     expect(INVOICE_STATUS_BADGE).toEqual({
-      issued: { label: 'Issued', tone: 'neutral' },
+      issued: { label: 'Not paid', tone: 'neutral' },
       paid: { label: 'Paid', tone: 'success' },
       cancelled: { label: 'Cancelled', tone: 'muted' },
       expired: { label: 'Expired', tone: 'muted' },
@@ -134,9 +134,40 @@ describe('providerLabel', () => {
 
 describe('billingDate and billingDateTime', () => {
   it('read every value that is not a date as Unknown date', () => {
-    expect(billingDate('not-a-date')).toBe('Unknown date')
-    expect(billingDateTime('not-a-date')).toBe('Unknown date')
-    expect(billingDate('2026-11-20T00:00:00.000Z')).toMatch(/2026/)
+    expect(billingDate('not-a-date', 'UTC')).toBe('Unknown date')
+    expect(billingDateTime('not-a-date', 'UTC')).toBe('Unknown date')
+    expect(billingDate('not-a-date', undefined)).toBe('Unknown date')
+  })
+
+  it('name the day in the tenant’s zone, month spelled out, as react and express do', () => {
+    // Razorpay's cycles end at 18:30Z, which is midnight in India.
+    expect(billingDate('2026-11-01T18:30:00.000Z', 'Asia/Kolkata')).toBe('2 November 2026')
+    expect(billingDate('2026-11-01T18:30:00.000Z', 'UTC')).toBe('1 November 2026')
+    expect(billingDate('2026-11-20T00:00:00.000Z', 'Pacific/Pago_Pago')).toBe('19 November 2026')
+  })
+
+  it('name the zone on a date and time, which depends on it', () => {
+    expect(billingDateTime('2026-11-20T09:05:00.000Z', 'UTC')).toBe('20 November 2026 at 09:05 UTC')
+    expect(billingDateTime('2026-11-20T00:00:00.000Z', 'Asia/Kolkata')).toBe(
+      '20 November 2026 at 05:30 GMT+5:30'
+    )
+  })
+
+  it('read an unknown zone as UTC', () => {
+    expect(billingDate('2026-11-01T18:30:00.000Z', 'Mars/Olympus')).toBe('1 November 2026')
+    expect(billingDateTime('2026-11-20T09:05:00.000Z', 'Mars/Olympus')).toBe(
+      '20 November 2026 at 09:05 UTC'
+    )
+  })
+
+  it('read a date no one tenant owns in the reader’s zone', () => {
+    const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone
+    expect(billingDate('2026-11-01T18:30:00.000Z', undefined)).toBe(
+      billingDate('2026-11-01T18:30:00.000Z', zone)
+    )
+    expect(billingDateTime('2026-11-01T18:30:00.000Z', undefined)).toBe(
+      billingDateTime('2026-11-01T18:30:00.000Z', zone)
+    )
   })
 })
 

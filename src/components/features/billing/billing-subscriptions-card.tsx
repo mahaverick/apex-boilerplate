@@ -1,4 +1,5 @@
 import { createColumnHelper } from '@tanstack/react-table'
+import { useMemo } from 'react'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { DataTable } from '@/components/shared/data-table/data-table'
 import type {
@@ -27,32 +28,37 @@ import {
 
 const column = createColumnHelper<DataTableFeatures, StaffBillingSubscriptionItem>()
 
-const columns = column.columns([
-  column.accessor('subscriptionId', {
-    header: 'Subscription ID',
-    cell: ({ getValue }) => <code className="break-all">{getValue()}</code>,
-  }),
-  column.accessor('standing', {
-    header: 'Standing',
-    cell: ({ getValue }) => {
-      const { label, tone } = SUBSCRIPTION_STANDING_BADGE[getValue()]
-      return <ToneBadge tone={tone}>{label}</ToneBadge>
-    },
-  }),
-  column.accessor('provider', {
-    header: 'Provider',
-    cell: ({ row }) => providerLabel(row.original.provider, row.original.mode),
-  }),
-  column.accessor('firstSeenAt', {
-    header: 'First seen',
-    meta: {
-      sorts: ['-firstSeen', 'firstSeen'],
-      sortName: analyticsKey('first_seen'),
-      sortWords: 'date',
-    },
-    cell: ({ getValue }) => billingDateTime(getValue()),
-  }),
-])
+/**
+ * The table's columns, with each first-seen time in the tenant's zone.
+ * @param timeZone - The tenant's time zone.
+ */
+const columnsFor = (timeZone: string) =>
+  column.columns([
+    column.accessor('subscriptionId', {
+      header: 'Subscription ID',
+      cell: ({ getValue }) => <code className="break-all">{getValue()}</code>,
+    }),
+    column.accessor('standing', {
+      header: 'Standing',
+      cell: ({ getValue }) => {
+        const { label, tone } = SUBSCRIPTION_STANDING_BADGE[getValue()]
+        return <ToneBadge tone={tone}>{label}</ToneBadge>
+      },
+    }),
+    column.accessor('provider', {
+      header: 'Provider',
+      cell: ({ row }) => providerLabel(row.original.provider, row.original.mode),
+    }),
+    column.accessor('firstSeenAt', {
+      header: 'First seen',
+      meta: {
+        sorts: ['-firstSeen', 'firstSeen'],
+        sortName: analyticsKey('first_seen'),
+        sortWords: 'date',
+      },
+      cell: ({ getValue }) => billingDateTime(getValue(), timeZone),
+    }),
+  ])
 
 /** The Provider and Mode facets. */
 const FILTERS: readonly DataTableFilter[] = [
@@ -74,7 +80,14 @@ const FILTERS: readonly DataTableFilter[] = [
  * the `subscriptions` prefix. A pending or next subscription that never
  * became current is only in the Billing card.
  */
-export function BillingSubscriptionsCard({ tenantId }: { tenantId: string }) {
+export function BillingSubscriptionsCard({
+  tenantId,
+  timeZone,
+}: {
+  tenantId: string
+  timeZone: string
+}) {
+  const columns = useMemo(() => columnsFor(timeZone), [timeZone])
   const list = useListSearch(billingSubscriptionsList)
   const query = useListQuery(list, (request) => billingSubscriptionsListOptions(tenantId, request))
   return (

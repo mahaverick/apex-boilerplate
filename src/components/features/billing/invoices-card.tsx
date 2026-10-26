@@ -19,10 +19,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { INVOICE_STATUS_BADGE } from '@/constants/billing-labels'
+import { billingDate, INVOICE_STATUS_BADGE } from '@/constants/billing-labels'
 import { codeFrom } from '@/lib/api-error'
-import { formatDate } from '@/lib/format'
-import { formatInr } from '@/lib/money'
+import { formatInr } from '@/lib/billing-format'
 import { isRoleDenied } from '@/lib/role-denied'
 import { staffMessageFrom } from '@/lib/staff-message'
 import { staffInvoicesQueryOptions } from '@/queries/billing-admin.queries'
@@ -41,16 +40,14 @@ const STATUS_FILTER: DataTableFilter = {
   options: INVOICE_STATUSES.map((value) => ({ value, label: INVOICE_STATUS_BADGE[value].label })),
 }
 
-/**
- * A date in the reader's locale, or a fallback.
- * @param iso - An ISO timestamp.
- */
-function day(iso: string): string {
-  return formatDate(iso, 'medium') ?? 'Unknown'
-}
-
-/** The loaded invoices as a table. */
-function InvoicesTable({ items }: { items: readonly StaffInvoiceItem[] }) {
+/** The loaded invoices as a table, dated in the tenant's zone. */
+function InvoicesTable({
+  items,
+  timeZone,
+}: {
+  items: readonly StaffInvoiceItem[]
+  timeZone: string
+}) {
   return (
     <Table aria-label="Invoices">
       <TableCaption className="sr-only">Invoices</TableCaption>
@@ -79,8 +76,10 @@ function InvoicesTable({ items }: { items: readonly StaffInvoiceItem[] }) {
               <TableCell>
                 <ToneBadge tone={status.tone}>{status.label}</ToneBadge>
               </TableCell>
-              <TableCell>{day(invoice.issuedAt)}</TableCell>
-              <TableCell>{invoice.paidAt === null ? 'Not paid' : day(invoice.paidAt)}</TableCell>
+              <TableCell>{billingDate(invoice.issuedAt, timeZone)}</TableCell>
+              <TableCell>
+                {invoice.paidAt === null ? 'Not paid' : billingDate(invoice.paidAt, timeZone)}
+              </TableCell>
             </TableRow>
           )
         })}
@@ -105,9 +104,12 @@ function InvoicesTable({ items }: { items: readonly StaffInvoiceItem[] }) {
 export function InvoicesCard({
   tenantId,
   paymentsEnabled,
+  timeZone,
 }: {
   tenantId: string
   paymentsEnabled: boolean
+  /** The tenant's time zone, for the invoice dates. */
+  timeZone: string
 }) {
   const [status, setStatus] = useState<readonly string[]>([])
   const options = staffInvoicesQueryOptions(
@@ -147,7 +149,7 @@ export function InvoicesCard({
     return (
       <div className="grid gap-3">
         {items.length > 0 ? (
-          <InvoicesTable items={items} />
+          <InvoicesTable items={items} timeZone={timeZone} />
         ) : query.hasNextPage ? (
           <p className="text-sm text-muted-foreground">
             This page had no invoices, and more remain. Select Load more invoices to read the next

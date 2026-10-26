@@ -9,7 +9,7 @@ import { toast } from '@/lib/toast'
 import * as analytics from '@/observability/telemetry'
 import { billingAdminKeys } from '@/queries/billing-reads.queries'
 import { queryClient } from '@/router'
-import { endOfDay, localDate } from '@/schemas/billing.schemas'
+import { localDate } from '@/schemas/billing.schemas'
 import { testFreeTenantBilling, testPlans, testTenantBilling } from '@/tests/fixtures/billing'
 import { TENANT_ID } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
@@ -377,24 +377,24 @@ describe('billing actions', () => {
       expect(days).toHaveValue('7')
       expect(days).toHaveAttribute('inputmode', 'numeric')
       expect(dialog).toHaveTextContent(
-        `Trial now ends on ${billingDate('2099-01-15T00:00:00.000Z')}. After this it ends on ${billingDate('2099-01-22T00:00:00.000Z')}.`
+        `Trial now ends on ${billingDate('2099-01-15T00:00:00.000Z', 'UTC')}. After this it ends on ${billingDate('2099-01-22T00:00:00.000Z', 'UTC')}.`
       )
       expect(dialog).toHaveTextContent('Recorded in the audit log with your name.')
       await user.clear(days)
       expect(dialog).toHaveTextContent(
-        `Trial now ends on ${billingDate('2099-01-15T00:00:00.000Z')}.`
+        `Trial now ends on ${billingDate('2099-01-15T00:00:00.000Z', 'UTC')}.`
       )
       expect(dialog).not.toHaveTextContent('After this')
       await user.type(days, '10')
       expect(dialog).toHaveTextContent(
-        `After this it ends on ${billingDate('2099-01-25T00:00:00.000Z')}.`
+        `After this it ends on ${billingDate('2099-01-25T00:00:00.000Z', 'UTC')}.`
       )
       await user.type(within(dialog).getByLabelText('Reason'), 'Pilot runs long')
       await user.click(within(dialog).getByRole('button', { name: 'Extend trial' }))
       await confirmStepUp(user)
       await waitFor(() =>
         expect(success).toHaveBeenCalledWith(
-          `Trial for Acme Corp ends on ${billingDate('2099-01-25T00:00:00.000Z')}.`
+          `Trial for Acme Corp ends on ${billingDate('2099-01-25T00:00:00.000Z', 'UTC')}.`
         )
       )
       expect(bodies).toEqual([
@@ -414,7 +414,7 @@ describe('billing actions', () => {
     }
 
     /** The day a 7-day trial started at `at` ends. */
-    const weekFrom = (at: number) => billingDate(new Date(at + 7 * DAY_MS).toISOString())
+    const weekFrom = (at: number) => billingDate(new Date(at + 7 * DAY_MS).toISOString(), 'UTC')
 
     it('says a Free tenant starts a trial now', async () => {
       serve(testFreeTenantBilling)
@@ -439,7 +439,7 @@ describe('billing actions', () => {
       renderAppAt(BILLING)
       await openAction(user, 'Extend trial')
       const dialog = await screen.findByRole('dialog', { name: 'Extend the trial for Acme Corp' })
-      const ended = `Acme Corp’s trial ended on ${billingDate('2026-01-15T00:00:00.000Z')}.`
+      const ended = `Acme Corp’s trial ended on ${billingDate('2026-01-15T00:00:00.000Z', 'UTC')}.`
       expect(
         showsNear(
           dialog,
@@ -505,18 +505,22 @@ describe('billing actions', () => {
       return dialog
     }
 
-    it('posts the limit, its end and the reason after the identity check', async () => {
-      serve()
+    it('posts the limit, its end in the tenant’s zone and the reason after the identity check', async () => {
+      // Pago Pago (UTC−11) is neither UTC nor India, so the end can only come from the tenant's zone.
+      serve(
+        testTenantBilling,
+        detail({ settings: { timezone: 'Pacific/Pago_Pago', locale: 'en' } })
+      )
       const bodies = recordWrite('grants', testTenantBilling)
       const user = userEvent.setup()
       renderAppAt(BILLING)
       const dialog = await openGrant(user, 'Members')
       const endsOn = within(dialog).getByLabelText('Ends on (optional)')
       expect(endsOn).toHaveAttribute('type', 'date')
-      expect(endsOn).toHaveAttribute('min', localDate(new Date()))
+      expect(endsOn).toHaveAttribute('min', localDate(new Date(), 'Pacific/Pago_Pago'))
       expect(endsOn).toHaveAttribute('max', '2099-12-31')
       expect(dialog).toHaveTextContent(
-        'Empty means no end date. A date ends the grant at the end of that day, your time.'
+        'Empty means no end date. A date ends the grant at the end of that day in the tenant’s time zone (Pacific/Pago_Pago).'
       )
       expect(dialog).toHaveTextContent('Recorded in the audit log with your name.')
       await user.type(within(dialog).getByLabelText('New limit'), '25')
@@ -530,7 +534,7 @@ describe('billing actions', () => {
       const body = {
         key: 'members',
         value: 25,
-        expiresAt: endOfDay('2099-06-30').toISOString(),
+        expiresAt: '2099-07-01T10:59:59.999Z',
         reason: 'Pilot with a large team',
       }
       expect(bodies).toEqual([body, body])
@@ -552,7 +556,7 @@ describe('billing actions', () => {
       expect(bodies[1]).toEqual({
         key: 'members',
         value: null,
-        expiresAt: new Date(2099, 2, 1, 23, 59, 59, 999).toISOString(),
+        expiresAt: '2099-03-01T23:59:59.999Z',
         reason: 'Unlimited pilot',
       })
     })
@@ -585,8 +589,7 @@ describe('billing actions', () => {
       const user = userEvent.setup()
       renderAppAt(BILLING)
       const dialog = await openGrant(user, 'Members')
-      const now = new Date()
-      const yesterday = localDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1))
+      const yesterday = localDate(new Date(Date.now() - DAY_MS), 'UTC')
       await user.type(within(dialog).getByLabelText('New limit'), '10')
       await user.type(within(dialog).getByLabelText('Ends on (optional)'), yesterday)
       await user.type(within(dialog).getByLabelText('Reason'), 'Backdated')
@@ -779,7 +782,7 @@ describe('billing actions', () => {
       const dialog = await screen.findByRole('alertdialog', {
         name: 'Cancel the subscription for Acme Corp?',
       })
-      const end = billingDate('2026-11-20T00:00:00.000Z')
+      const end = billingDate('2026-11-20T00:00:00.000Z', 'UTC')
       expect(
         within(dialog).getByRole('radio', { name: `At the end of the paid period (${end})` })
       ).toBeChecked()
@@ -794,7 +797,7 @@ describe('billing actions', () => {
       // From the answered view, not the cached period end.
       await waitFor(() =>
         expect(success).toHaveBeenCalledWith(
-          `Paid for Acme Corp ends on ${billingDate('2026-12-20T00:00:00.000Z')}.`
+          `Paid for Acme Corp ends on ${billingDate('2026-12-20T00:00:00.000Z', 'UTC')}.`
         )
       )
       expect(bodies).toEqual([
@@ -828,7 +831,7 @@ describe('billing actions', () => {
       await confirmStepUp(user)
       await waitFor(() =>
         expect(success).toHaveBeenCalledWith(
-          `Paid for Acme Corp ends on ${billingDate('2026-12-20T00:00:00.000Z')}.`
+          `Paid for Acme Corp ends on ${billingDate('2026-12-20T00:00:00.000Z', 'UTC')}.`
         )
       )
     })
@@ -871,7 +874,7 @@ describe('billing actions', () => {
       })
       expect(within(dialog).queryAllByRole('radio')).toHaveLength(0)
       expect(dialog).toHaveTextContent(
-        `Paid already ends on ${billingDate('2026-11-20T00:00:00.000Z')}. Acme Corp moves to Free now.`
+        `Paid already ends on ${billingDate('2026-11-20T00:00:00.000Z', 'UTC')}. Acme Corp moves to Free now.`
       )
       expect(within(dialog).getByLabelText('Type acme to confirm')).toBeInTheDocument()
     })
@@ -910,7 +913,7 @@ describe('billing actions', () => {
       const dialog = await screen.findByRole('alertdialog', {
         name: 'Cancel the subscription for Acme Corp?',
       })
-      const trialEnd = billingDate('2099-01-15T00:00:00.000Z')
+      const trialEnd = billingDate('2099-01-15T00:00:00.000Z', 'UTC')
       expect(within(dialog).queryAllByRole('radio')).toHaveLength(0)
       expect(dialog).toHaveTextContent(
         `Acme Corp hasn’t been charged yet. This cancels Paid now, and Acme Corp goes back to its trial, which ends on ${trialEnd}. Nothing is charged.`
@@ -965,7 +968,7 @@ describe('billing actions', () => {
       const dialog = await screen.findByRole('alertdialog', {
         name: 'Cancel the subscription for Acme Corp?',
       })
-      const end = billingDate('2026-11-20T00:00:00.000Z')
+      const end = billingDate('2026-11-20T00:00:00.000Z', 'UTC')
       expect(
         within(dialog).getByRole('radio', { name: 'Only the next subscription' })
       ).toBeChecked()
@@ -997,9 +1000,12 @@ describe('billing actions', () => {
       const dialog = await screen.findByRole('alertdialog', {
         name: 'Cancel the subscription for Acme Corp?',
       })
-      const ended = billingDate(ENDED_IN_BUFFER)
+      const ended = billingDate(ENDED_IN_BUFFER, 'UTC')
       expect(dialog).not.toHaveTextContent('keeps Paid until')
-      const free = billingDate(new Date(Date.parse(ENDED_IN_BUFFER) + 3 * DAY_MS).toISOString())
+      const free = billingDate(
+        new Date(Date.parse(ENDED_IN_BUFFER) + 3 * DAY_MS).toISOString(),
+        'UTC'
+      )
       expect(dialog).toHaveTextContent(
         `This cancels only Acme Corp’s next subscription. Acme Corp’s paid period ended on ${ended}, and it moves to Free on ${free}.`
       )
@@ -1027,7 +1033,7 @@ describe('billing actions', () => {
         name: 'Cancel the subscription for Acme Corp?',
       })
       expect(dialog).toHaveTextContent(
-        `This cancels only Acme Corp’s next subscription. Acme Corp’s paid period ended on ${billingDate(endedAt)}, and it moves to Free on ${billingDate(freeAt)}.`
+        `This cancels only Acme Corp’s next subscription. Acme Corp’s paid period ended on ${billingDate(endedAt, 'UTC')}, and it moves to Free on ${billingDate(freeAt, 'UTC')}.`
       )
     })
 
@@ -1119,7 +1125,7 @@ describe('billing actions', () => {
       })
       expect(within(dialog).queryAllByRole('radio')).toHaveLength(0)
       expect(dialog).toHaveTextContent(
-        `This cancels Acme Corp’s next subscription, booked from ${billingDate('2099-01-15T00:00:00.000Z')}. Nothing is charged.`
+        `This cancels Acme Corp’s next subscription, booked from ${billingDate('2099-01-15T00:00:00.000Z', 'UTC')}. Nothing is charged.`
       )
       await user.type(within(dialog).getByLabelText('Reason'), 'Booked by mistake')
       await user.type(within(dialog).getByLabelText('Type acme to confirm'), 'acme')

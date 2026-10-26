@@ -21,8 +21,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { billingDate } from '@/constants/billing-labels'
+import { formatInr } from '@/lib/billing-format'
 import { formatCount } from '@/lib/format'
-import { formatInr } from '@/lib/money'
 import { INTERVAL_LABELS } from '@/lib/plan-editor'
 import type { StaffPlan } from '@/types/billing.types'
 
@@ -90,7 +90,7 @@ export function PricesCard({
                     </ToneBadge>
                   </TableCell>
                   <TableCell>{formatCount(price.subscribers)}</TableCell>
-                  <TableCell>{billingDate(price.createdAt)}</TableCell>
+                  <TableCell>{billingDate(price.createdAt, undefined)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

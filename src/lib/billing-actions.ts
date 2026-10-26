@@ -108,9 +108,13 @@ export const CANCEL_BUFFER_MS = 3 * 24 * 60 * 60 * 1000
  * The day a tenant whose paid period ended moves to Free: express keeps Paid
  * for `CANCEL_BUFFER_MS` past the end.
  * @param periodEnd - The ended period's end, as an ISO timestamp.
+ * @param timeZone - The tenant's time zone.
  */
-function freeFrom(periodEnd: string): string {
-  return billingDate(new Date(new Date(periodEnd).getTime() + CANCEL_BUFFER_MS).toISOString())
+function freeFrom(periodEnd: string, timeZone: string): string {
+  return billingDate(
+    new Date(new Date(periodEnd).getTime() + CANCEL_BUFFER_MS).toISOString(),
+    timeZone
+  )
 }
 
 /**
@@ -128,19 +132,23 @@ function freeFrom(periodEnd: string): string {
  * @param tenantName - The tenant's name.
  * @param billing - The tenant's billing.
  * @param now - The moment the page reads as now, in milliseconds.
+ * @param timeZone - The tenant's time zone, for the dates.
  */
 export function cancelChoicesFor(
   tenantName: string,
   billing: StaffTenantBilling,
-  now: number
+  now: number,
+  timeZone: string
 ): { choices: CancelChoice[]; note: string | null } {
+  /** A date in the tenant's zone. */
+  const day = (iso: string) => billingDate(iso, timeZone)
   const provider = billing.provider === 'razorpay' ? 'Razorpay' : 'The payment provider'
   const dashboard = billing.provider === 'razorpay' ? 'the Razorpay dashboard' : 'its dashboard'
   const end = billing.currentPeriodEnd
   const endsAhead = end !== null && new Date(end).getTime() > now
   const hasNext = billing.nextSubscriptionId !== null
   const nextFrom =
-    billing.nextSwitch === null ? '' : `, booked from ${billingDate(billing.nextSwitch.startsAt)}`
+    billing.nextSwitch === null ? '' : `, booked from ${day(billing.nextSwitch.startsAt)}`
   const alsoNext = hasNext ? ' Its next subscription is cancelled too.' : ''
   /** Cancelling a charged subscription now. */
   const nowChoice = (refund: boolean): CancelChoice => ({
@@ -168,7 +176,7 @@ export function cancelChoicesFor(
         {
           when: 'now',
           label: 'Now',
-          description: `${tenantName} hasn’t been charged yet. This cancels Paid now, and ${tenantName} goes back to its trial, which ends on ${billingDate(trialEnd)}. Nothing is charged.${alsoNext}`,
+          description: `${tenantName} hasn’t been charged yet. This cancels Paid now, and ${tenantName} goes back to its trial, which ends on ${day(trialEnd)}. Nothing is charged.${alsoNext}`,
         },
       ],
       note: null,
@@ -176,7 +184,7 @@ export function cancelChoicesFor(
   }
   if (billing.state === 'past_due') return { choices: [nowChoice(false)], note: null }
   if (billing.cancelAtPeriodEnd) {
-    const note = end !== null && endsAhead ? `Paid already ends on ${billingDate(end)}.` : null
+    const note = end !== null && endsAhead ? `Paid already ends on ${day(end)}.` : null
     // A period that is already over leaves no unused time to refund.
     const ended = end !== null && !endsAhead
     if (!hasNext) return { choices: [nowChoice(!ended)], note }
@@ -186,8 +194,8 @@ export function cancelChoicesFor(
           when: 'cycle_end',
           label: 'Only the next subscription',
           description: ended
-            ? `This cancels only ${tenantName}’s next subscription. ${tenantName}’s paid period ended on ${billingDate(end)}, and it moves to Free on ${freeFrom(end)}.`
-            : `${tenantName} keeps Paid until ${end === null ? 'its paid period ends' : billingDate(end)}, then moves to Free. This cancels its next subscription${nextFrom}.`,
+            ? `This cancels only ${tenantName}’s next subscription. ${tenantName}’s paid period ended on ${day(end)}, and it moves to Free on ${freeFrom(end, timeZone)}.`
+            : `${tenantName} keeps Paid until ${end === null ? 'its paid period ends' : day(end)}, then moves to Free. This cancels its next subscription${nextFrom}.`,
         },
         nowChoice(!ended),
       ],
@@ -201,8 +209,8 @@ export function cancelChoicesFor(
         label:
           end === null
             ? 'At the end of the paid period'
-            : `At the end of the paid period (${billingDate(end)})`,
-        description: `${tenantName} keeps Paid until ${end === null ? 'its paid period ends' : billingDate(end)}, then moves to Free. Nothing more is charged.${alsoNext}`,
+            : `At the end of the paid period (${day(end)})`,
+        description: `${tenantName} keeps Paid until ${end === null ? 'its paid period ends' : day(end)}, then moves to Free. Nothing more is charged.${alsoNext}`,
       },
       nowChoice(true),
     ],
@@ -217,18 +225,22 @@ export function cancelChoicesFor(
  * @param tenantName - The tenant's name.
  * @param before - The billing the dialog opened on.
  * @param after - The billing the cancel answered.
+ * @param timeZone - The tenant's time zone, for the dates.
  */
 export function cancelToast(
   tenantName: string,
   before: StaffTenantBilling,
-  after: StaffTenantBilling
+  after: StaffTenantBilling,
+  timeZone: string
 ): string {
+  /** A date in the tenant's zone. */
+  const day = (iso: string) => billingDate(iso, timeZone)
   if (after.state === 'free' && before.state !== 'free') return `${tenantName} moved to Free.`
   if (after.state === 'trialing' && before.state !== 'trialing' && after.trialEndsAt !== null) {
-    return `${tenantName} is back on its trial, which ends on ${billingDate(after.trialEndsAt)}.`
+    return `${tenantName} is back on its trial, which ends on ${day(after.trialEndsAt)}.`
   }
   if (!before.cancelAtPeriodEnd && after.cancelAtPeriodEnd && after.currentPeriodEnd !== null) {
-    return `Paid for ${tenantName} ends on ${billingDate(after.currentPeriodEnd)}.`
+    return `Paid for ${tenantName} ends on ${day(after.currentPeriodEnd)}.`
   }
   if (before.nextSubscriptionId !== null && after.nextSubscriptionId === null) {
     return `${tenantName}’s next subscription is cancelled.`
@@ -249,24 +261,28 @@ const DAY_MS = 24 * 60 * 60 * 1000
  * @param billing - The tenant's billing.
  * @param days - The typed days, as the form holds them.
  * @param now - The moment the page reads as now, in milliseconds.
+ * @param timeZone - The tenant's time zone, for the dates.
  */
 export function extendTrialPreview(
   tenantName: string,
   billing: StaffTenantBilling,
   days: string,
-  now: number
+  now: number,
+  timeZone: string
 ): string {
+  /** A date in the tenant's zone. */
+  const day = (iso: string) => billingDate(iso, timeZone)
   const count = trialDaysFrom(days)
   /** The day the trial ends when it runs `count` days from `from`. */
-  const end = (from: number) => billingDate(new Date(from + (count ?? 0) * DAY_MS).toISOString())
+  const end = (from: number) => day(new Date(from + (count ?? 0) * DAY_MS).toISOString())
   const trialEnd = billing.trialEndsAt
   if (billing.state === 'trialing' && trialEnd !== null) {
     const endsAt = new Date(trialEnd).getTime()
     if (endsAt > now) {
-      const current = `Trial now ends on ${billingDate(trialEnd)}.`
+      const current = `Trial now ends on ${day(trialEnd)}.`
       return count === null ? current : `${current} After this it ends on ${end(endsAt)}.`
     }
-    const lapsed = `${tenantName}’s trial ended on ${billingDate(trialEnd)}.`
+    const lapsed = `${tenantName}’s trial ended on ${day(trialEnd)}.`
     return count === null
       ? lapsed
       : `${lapsed} This starts a new Paid trial that ends on ${end(now)}.`

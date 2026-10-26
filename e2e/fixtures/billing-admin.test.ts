@@ -116,7 +116,14 @@ test('a manager grants Members No limit for 30 days, and the usage card shows Gr
   await expect(members).toContainText('Grant')
   const row = page.getByRole('table', { name: 'Grants' }).getByRole('row').nth(1)
   await expect(row).toContainText('No limit')
-  await expect(row).toContainText(ends.slice(0, 4))
+  // The grant ends at the end of that day in the tenant's zone, and the table dates in that zone too.
+  const endsText = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(`${ends}T12:00:00Z`))
+  await expect(row).toContainText(endsText)
   expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0)
 })
 

@@ -5,8 +5,8 @@ import {
 } from '@/constants/audit-action-names'
 import { templateLabel } from '@/constants/email.constants'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
+import { formatInr } from '@/lib/billing-format'
 import { formatCount, formatDate } from '@/lib/format'
-import { formatInr } from '@/lib/money'
 import { countOf } from '@/lib/plural'
 
 export { AUDIT_ACTIONS, type AuditAction }

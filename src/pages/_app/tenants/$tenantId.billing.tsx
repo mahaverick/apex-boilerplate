@@ -108,6 +108,9 @@ function BillingSkeleton() {
  * for the roles and states express accepts (`billingActionsFor`); they need
  * the tenant's name, slug and lifecycle state from its detail, which the
  * layout has already read. A viewer gets no actions and no actions column.
+ * Every date reads in the tenant's `settings.timezone`, as react's billing
+ * page and express's billing emails write it, so staff and the customer
+ * name the same day.
  */
 function TenantBilling({ tenantId, billing }: { tenantId: string; billing: StaffTenantBilling }) {
   const plans = useQuery(staffPlansQueryOptions())
@@ -119,11 +122,14 @@ function TenantBilling({ tenantId, billing }: { tenantId: string; billing: Staff
   const canRevoke =
     tenant !== undefined && billingActionsFor(role, tenant, billing, catalog, now).revoke
   const labels = new Map(catalog.map((entry) => [entry.key, entry.label]))
+  // Express and react date a tenant's billing in its zone; UTC, as both do, until the detail is read.
+  const timeZone = tenant?.settings.timezone ?? 'UTC'
   return (
     <div className="grid gap-6">
       <TenantBillingSummary
         billing={billing}
         plans={plans.data}
+        timeZone={timeZone}
         headingRef={heading}
         actions={
           tenant === undefined ? undefined : (
@@ -140,6 +146,7 @@ function TenantBilling({ tenantId, billing }: { tenantId: string; billing: Staff
       <GrantsCard
         grants={billing.grants}
         catalog={catalog}
+        timeZone={timeZone}
         actions={
           canRevoke
             ? (grant) => (
@@ -153,10 +160,14 @@ function TenantBilling({ tenantId, billing }: { tenantId: string; billing: Staff
             : undefined
         }
       />
-      <BillingHistoryCard tenantId={tenantId} />
-      <BillingEventsCard tenantId={tenantId} />
-      <BillingSubscriptionsCard tenantId={tenantId} />
-      <InvoicesCard tenantId={tenantId} paymentsEnabled={billing.paymentsEnabled} />
+      <BillingHistoryCard tenantId={tenantId} timeZone={timeZone} />
+      <BillingEventsCard tenantId={tenantId} timeZone={timeZone} />
+      <BillingSubscriptionsCard tenantId={tenantId} timeZone={timeZone} />
+      <InvoicesCard
+        tenantId={tenantId}
+        paymentsEnabled={billing.paymentsEnabled}
+        timeZone={timeZone}
+      />
     </div>
   )
 }

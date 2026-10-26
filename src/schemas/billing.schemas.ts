@@ -74,13 +74,63 @@ export function trialDaysFrom(text: string): number | null {
 }
 
 /**
- * A day as a date input holds it (`YYYY-MM-DD`), in the browser's zone.
- * @param date - The moment whose local calendar day to write.
+ * A moment's calendar parts in a zone; an unknown zone reads as UTC, as
+ * `formatBillingDate` does.
+ * @param date - A valid moment.
+ * @param timeZone - An IANA zone name.
  */
-export function localDate(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${String(date.getFullYear())}-${month}-${day}`
+function partsInZone(date: Date, timeZone: string): Record<string, number> {
+  let format: Intl.DateTimeFormat
+  try {
+    format = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+    })
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error
+    return partsInZone(date, 'UTC')
+  }
+  return Object.fromEntries(
+    format
+      .formatToParts(date)
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, Number(part.value)])
+  )
+}
+
+/**
+ * A day as a date input holds it (`YYYY-MM-DD`), in a zone.
+ * @param date - The moment whose calendar day to write.
+ * @param timeZone - The tenant's time zone.
+ */
+export function localDate(date: Date, timeZone: string): string {
+  const { year = 0, month = 1, day = 1 } = partsInZone(date, timeZone)
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+/**
+ * How far a zone runs behind UTC at a moment, in minutes, as
+ * `getTimezoneOffset` counts it: 600 for UTC−10:00, −330 for India.
+ * @param at - The moment, in milliseconds.
+ * @param timeZone - An IANA zone name.
+ */
+function zoneOffsetMinutes(at: number, timeZone: string): number {
+  const {
+    year = 0,
+    month = 1,
+    day = 1,
+    hour = 0,
+    minute = 0,
+    second = 0,
+  } = partsInZone(new Date(at), timeZone)
+  const wall = Date.UTC(year, month - 1, day, hour, minute, second)
+  return Math.round((Math.floor(at / 1000) * 1000 - wall) / 60_000)
 }
 
 /**
@@ -98,11 +148,13 @@ const GRANT_LIMIT_MESSAGE = 'Enter a whole number from 1 to 1,000,000, or choose
  * The add-grant form for one catalog. `value` is the limit (null for No
  * limit) or `true` for a feature; `endsOn` is a date input's value, empty for
  * no end. It parses into express's `grantBodySchema` body: `expiresAt` is the
- * end of that day in the browser's zone, as an ISO date-time, so a grant
- * ending today is still in the future when it is sent.
+ * end of that day in the tenant's zone, as an ISO date-time, so the Grants
+ * table, which dates in that zone, shows the day chosen, and a grant ending
+ * today is still in the future when it is sent.
  * @param catalog - The entitlements this product has, from `GET /platform/plans`.
+ * @param timeZone - The tenant's time zone.
  */
-export function grantSchema(catalog: readonly EntitlementCatalogEntry[]) {
+export function grantSchema(catalog: readonly EntitlementCatalogEntry[], timeZone: string) {
   return z
     .object({
       key: z.string(),
@@ -130,7 +182,7 @@ export function grantSchema(catalog: readonly EntitlementCatalogEntry[]) {
       if (entry?.kind === 'limit' && !isLimitValue(form.value)) {
         context.addIssue({ code: 'custom', path: ['value'], message: GRANT_LIMIT_MESSAGE })
       }
-      if (form.endsOn !== '' && !isDayFromToday(form.endsOn)) {
+      if (form.endsOn !== '' && !isDayFromToday(form.endsOn, timeZone)) {
         context.addIssue({
           code: 'custom',
           path: ['endsOn'],
@@ -148,7 +200,7 @@ export function grantSchema(catalog: readonly EntitlementCatalogEntry[]) {
     .transform(({ key, value, endsOn, reason }) => ({
       key,
       value: value as boolean | number | null,
-      expiresAt: endsOn === '' ? null : endOfDay(endsOn).toISOString(),
+      expiresAt: endsOn === '' ? null : endOfDay(endsOn, timeZone).toISOString(),
       reason,
     }))
 }
@@ -158,8 +210,9 @@ export function grantSchema(catalog: readonly EntitlementCatalogEntry[]) {
  * parsed into `grantSchema`'s input, so its errors land on `key`, `value`
  * and `endsOn`. A feature's value is always `true`; No limit is `null`.
  * @param catalog - The entitlements this product has, from `GET /platform/plans`.
+ * @param timeZone - The tenant's time zone.
  */
-export function grantFormSchema(catalog: readonly EntitlementCatalogEntry[]) {
+export function grantFormSchema(catalog: readonly EntitlementCatalogEntry[], timeZone: string) {
   return z
     .object({
       key: z.string(),
@@ -178,34 +231,38 @@ export function grantFormSchema(catalog: readonly EntitlementCatalogEntry[]) {
         reason,
       }
     })
-    .pipe(grantSchema(catalog))
+    .pipe(grantSchema(catalog, timeZone))
 }
 
 /**
- * The last moment of a `YYYY-MM-DD` day in a zone: the browser's, unless an
- * offset is given. Exported so a test can name a zone behind UTC whatever
- * zone the test process runs in.
+ * The last moment of a `YYYY-MM-DD` day in a zone. The zone's offset is read
+ * at that wall time, and read again once moved there, so a day that changes
+ * offset (daylight saving) still ends at its own 23:59:59.999.
  * @param day - A date input's value.
- * @param offsetMinutes - The zone's `getTimezoneOffset()` at that moment
- *   (600 for UTC−10:00, −330 for India); the browser's own when absent.
+ * @param timeZone - The tenant's time zone; an unknown one reads as UTC.
  */
-export function endOfDay(day: string, offsetMinutes?: number): Date {
+export function endOfDay(day: string, timeZone: string): Date {
   const [year = 0, month = 1, date = 1] = day.split('-').map(Number)
-  const offset =
-    offsetMinutes ?? new Date(year, month - 1, date, 23, 59, 59, 999).getTimezoneOffset()
-  return new Date(Date.UTC(year, month - 1, date, 23, 59, 59, 999) + offset * 60_000)
+  const wall = Date.UTC(year, month - 1, date, 23, 59, 59, 999)
+  const first = wall + zoneOffsetMinutes(wall, timeZone) * 60_000
+  return new Date(wall + zoneOffsetMinutes(first, timeZone) * 60_000)
 }
 
 /**
- * Whether `day` is a real `YYYY-MM-DD` day, today or later in the browser's
+ * Whether `day` is a real `YYYY-MM-DD` day, today or later in the tenant's
  * zone. The shape is checked first: a string comparison alone would pass
  * any text that sorts after today's date.
  * @param day - A date input's value.
+ * @param timeZone - The tenant's time zone.
  */
-function isDayFromToday(day: string): boolean {
+function isDayFromToday(day: string, timeZone: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false
-  const end = endOfDay(day)
-  return !Number.isNaN(end.getTime()) && localDate(end) === day && day >= localDate(new Date())
+  const end = endOfDay(day, timeZone)
+  return (
+    !Number.isNaN(end.getTime()) &&
+    localDate(end, timeZone) === day &&
+    day >= localDate(new Date(), timeZone)
+  )
 }
 
 /**

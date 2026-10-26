@@ -20,7 +20,7 @@ describe('plan editor wording', () => {
       'Off',
       'No limit',
       '3',
-      '1,00,000',
+      '100,000',
     ])
   })
 

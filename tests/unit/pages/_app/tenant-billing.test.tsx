@@ -230,7 +230,7 @@ describe('/tenants/$tenantId/billing', () => {
         'success'
       )
       expect(row(card, 'Price')).toBe('₹999 per month')
-      expect(row(card, 'Paid until')).toMatch(/2026/)
+      expect(row(card, 'Paid until')).toBe('20 November 2026')
       expect(row(card, 'Payer')).toBe('A B')
       expect(row(card, 'Payment provider')).toBe('Razorpay (test)')
       expect(row(card, 'Subscription ID')).toBe('sub_TestActive0001')
@@ -239,6 +239,22 @@ describe('/tenants/$tenantId/billing', () => {
       expect(within(card).queryByText('Dispute open')).toBeNull()
       expect(within(card).getByText('Last synced', { selector: 'dt' })).toBeInTheDocument()
       expect(within(card).queryByText(/billing email/i)).toBeNull()
+    })
+
+    it('dates the billing in the tenant’s time zone, as the customer reads it', async () => {
+      serve()
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+          ok(
+            { ...detail(), settings: { timezone: 'Pacific/Pago_Pago', locale: 'en' } },
+            'Tenant retrieved.'
+          )
+        )
+      )
+      renderAppAt(BILLING)
+      const card = await summary()
+      // Midnight UTC on 20 November is still 19 November in Pago Pago (UTC−11), whatever zone the reader is in.
+      await waitFor(() => expect(row(card, 'Paid until')).toBe('19 November 2026'))
     })
 
     it('shows the retired price label', async () => {
@@ -398,8 +414,8 @@ describe('/tenants/$tenantId/billing', () => {
       serve({ ...testTenantBilling, currentPeriodEnd: endedAt, cancelAtPeriodEnd: true })
       renderAppAt(BILLING)
       const card = await summary()
-      expect(row(card, 'Period ended')).toBe(billingDate(endedAt))
-      expect(row(card, 'Moves to Free on')).toBe(billingDate(freeAt))
+      expect(row(card, 'Period ended')).toBe(billingDate(endedAt, 'UTC'))
+      expect(row(card, 'Moves to Free on')).toBe(billingDate(freeAt, 'UTC'))
       expect(within(card).queryByText('Cancels on', { selector: 'dt' })).toBeNull()
     })
 
@@ -434,7 +450,7 @@ describe('/tenants/$tenantId/billing', () => {
       renderAppAt(BILLING)
       const card = await summary()
       expect(row(card, 'Next subscription')).toBe(
-        `₹9,990 per year from ${billingDate('2026-11-20T00:00:00.000Z')}`
+        `₹9,990 per year from ${billingDate('2026-11-20T00:00:00.000Z', 'UTC')}`
       )
       expect(within(card).queryByText('Cancels on', { selector: 'dt' })).toBeNull()
       expect(within(card).queryByText('Moves to Free on', { selector: 'dt' })).toBeNull()
@@ -452,7 +468,7 @@ describe('/tenants/$tenantId/billing', () => {
       renderAppAt(BILLING)
       const card = await summary()
       expect(row(card, 'Next subscription')).toBe(
-        `Yearly from ${billingDate('2026-11-20T00:00:00.000Z')}`
+        `Yearly from ${billingDate('2026-11-20T00:00:00.000Z', 'UTC')}`
       )
       expect(within(card).queryByText('Paid until', { selector: 'dt' })).toBeNull()
     })

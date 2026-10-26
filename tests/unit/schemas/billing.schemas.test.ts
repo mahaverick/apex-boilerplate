@@ -25,15 +25,16 @@ function messageAt(
   return result.error?.issues.find((issue) => issue.path.join('.') === path)?.message
 }
 
-/** Today in the browser's zone, as a date input's value. */
-const TODAY = localDate(new Date())
+/** The tenant's zone in these tests. */
+const ZONE = 'UTC'
 
-/** Yesterday in the browser's zone, as a date input's value. */
-const YESTERDAY = localDate(
-  new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() - 1)
-)
+/** Today in the tenant's zone, as a date input's value. */
+const TODAY = localDate(new Date(), ZONE)
 
-const grant = grantSchema(testPlans.catalog)
+/** Yesterday in the tenant's zone, as a date input's value. */
+const YESTERDAY = localDate(new Date(Date.now() - 24 * 60 * 60 * 1000), ZONE)
+
+const grant = grantSchema(testPlans.catalog, ZONE)
 
 describe('extendTrialSchema', () => {
   it('refuses 0 and 91 days', () => {
@@ -71,7 +72,7 @@ describe('extendTrialFormSchema', () => {
 })
 
 describe('grantFormSchema', () => {
-  const form = grantFormSchema(testPlans.catalog)
+  const form = grantFormSchema(testPlans.catalog, ZONE)
   const base = { key: 'members', value: '', noLimit: false, endsOn: '', reason: 'Team' }
 
   it('sends a typed limit as a number', () => {
@@ -184,9 +185,16 @@ describe('grantSchema', () => {
     expect(body.expiresAt).toMatch(/^(2099-12-31|2100-01-01)T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
   })
 
-  it('sends expiresAt as the end of the chosen day, in the browser’s zone', () => {
+  it('sends expiresAt as the end of the chosen day, in the tenant’s zone', () => {
     const body = grant.parse({ key: 'members', value: 10, endsOn: TODAY, reason: 'Team' })
-    expect(body.expiresAt).toBe(new Date(`${TODAY}T23:59:59.999`).toISOString())
+    expect(body.expiresAt).toBe(`${TODAY}T23:59:59.999Z`)
+    const india = grantSchema(testPlans.catalog, 'Asia/Kolkata').parse({
+      key: 'members',
+      value: 10,
+      endsOn: '2099-03-01',
+      reason: 'Team',
+    })
+    expect(india.expiresAt).toBe('2099-03-01T18:29:59.999Z')
   })
 })
 
@@ -268,8 +276,8 @@ describe('planDetailsSchema', () => {
 })
 
 describe('endOfDay', () => {
-  /** `getTimezoneOffset` for UTC−10:00 (Hawaii), a zone behind UTC: minutes to add to reach UTC. */
-  const HAWAII = 600
+  /** UTC−10:00 all year, a zone behind UTC. */
+  const HAWAII = 'Pacific/Honolulu'
 
   it('puts the latest grant end in the next UTC day behind UTC, still a 4-digit year', () => {
     expect(endOfDay('2099-12-31', HAWAII).toISOString()).toBe('2100-01-01T09:59:59.999Z')
@@ -280,11 +288,24 @@ describe('endOfDay', () => {
   })
 
   it('ends the day earlier in UTC for a zone ahead of it', () => {
-    expect(endOfDay('2026-11-09', -330).toISOString()).toBe('2026-11-09T18:29:59.999Z')
+    expect(endOfDay('2026-11-09', 'Asia/Kolkata').toISOString()).toBe('2026-11-09T18:29:59.999Z')
   })
 
-  it('uses the browser’s zone when no offset is given', () => {
-    expect(endOfDay('2026-11-09').getTime()).toBe(new Date('2026-11-09T23:59:59.999').getTime())
+  it('ends a day that changes offset at its own 23:59:59.999', () => {
+    // London leaves summer time on 25 October 2026, so that day ends at UTC+0, the day before at UTC+1.
+    expect(endOfDay('2026-10-25', 'Europe/London').toISOString()).toBe('2026-10-25T23:59:59.999Z')
+    expect(endOfDay('2026-10-24', 'Europe/London').toISOString()).toBe('2026-10-24T22:59:59.999Z')
+  })
+
+  it('reads an unknown zone as UTC', () => {
+    expect(endOfDay('2026-11-09', 'Mars/Olympus').toISOString()).toBe('2026-11-09T23:59:59.999Z')
+  })
+})
+
+describe('localDate', () => {
+  it('writes the day in the tenant’s zone, whatever the browser’s', () => {
+    expect(localDate(new Date('2026-11-01T18:30:00.000Z'), 'Asia/Kolkata')).toBe('2026-11-02')
+    expect(localDate(new Date('2026-11-01T18:30:00.000Z'), 'UTC')).toBe('2026-11-01')
   })
 })
 

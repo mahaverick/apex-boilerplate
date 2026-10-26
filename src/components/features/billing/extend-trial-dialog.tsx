@@ -111,7 +111,7 @@ function ExtendTrialForm({
         toast.success(
           view.trialEndsAt === null
             ? `Trial for ${tenant.name} extended.`
-            : `Trial for ${tenant.name} ends on ${billingDate(view.trialEndsAt)}.`
+            : `Trial for ${tenant.name} ends on ${billingDate(view.trialEndsAt, tenant.settings.timezone)}.`
         )
         onDone()
       } catch (error) {
@@ -126,7 +126,9 @@ function ExtendTrialForm({
     <>
       <DialogHeader>
         <DialogTitle>Extend the trial for {tenant.name}</DialogTitle>
-        <DialogDescription>{extendTrialPreview(tenant.name, billing, days, now)}</DialogDescription>
+        <DialogDescription>
+          {extendTrialPreview(tenant.name, billing, days, now, tenant.settings.timezone)}
+        </DialogDescription>
       </DialogHeader>
       <Form form={form} serverErrors={serverErrors} className="grid gap-4">
         <FormField form={form} name="days">

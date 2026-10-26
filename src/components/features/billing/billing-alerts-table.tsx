@@ -14,7 +14,9 @@ const columns = column.columns([
   column.accessor('at', {
     header: 'When',
     meta: { sorts: ['-at', 'at'], sortName: analyticsKey('at'), sortWords: 'date' },
-    cell: ({ getValue }) => <time dateTime={getValue()}>{billingDateTime(getValue())}</time>,
+    cell: ({ getValue }) => (
+      <time dateTime={getValue()}>{billingDateTime(getValue(), undefined)}</time>
+    ),
   }),
   column.accessor('kind', {
     header: 'Kind',

@@ -46,10 +46,13 @@ function valueText(grant: TenantGrant): string {
 export function GrantsCard({
   grants,
   catalog,
+  timeZone,
   actions,
 }: {
   grants: readonly TenantGrant[]
   catalog: readonly EntitlementCatalogEntry[]
+  /** The tenant's time zone, for each grant's end. */
+  timeZone: string
   actions?: (grant: TenantGrant) => ReactNode
 }) {
   const labels = new Map(catalog.map((entry) => [entry.key, entry.label]))
@@ -95,7 +98,9 @@ export function GrantsCard({
                     </TableCell>
                     <TableCell>{valueText(grant)}</TableCell>
                     <TableCell>
-                      {grant.expiresAt === null ? 'No end date' : billingDate(grant.expiresAt)}
+                      {grant.expiresAt === null
+                        ? 'No end date'
+                        : billingDate(grant.expiresAt, timeZone)}
                     </TableCell>
                     <TableCell>
                       <ToneBadge tone={status.tone}>{status.label}</ToneBadge>

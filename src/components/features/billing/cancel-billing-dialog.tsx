@@ -104,7 +104,7 @@ function CancelBillingForm({
   const now = useNow()
   // Pinned when the dialog opens: a refetch mid-form must not swap the choices, or the toast's "before", under the reader.
   const [{ choices, note, opened }] = useState(() => ({
-    ...cancelChoicesFor(tenant.name, billing, now),
+    ...cancelChoicesFor(tenant.name, billing, now, tenant.settings.timezone),
     opened: billing,
   }))
   const initialWhen: StaffCancelWhen = choices[0]?.when ?? 'now'
@@ -122,7 +122,7 @@ function CancelBillingForm({
       try {
         const view = await stepUp.run(() => cancel.mutateAsync(input))
         onBusyChange(false)
-        toast.success(cancelToast(tenant.name, opened, view))
+        toast.success(cancelToast(tenant.name, opened, view, tenant.settings.timezone))
         onDone()
       } catch (error) {
         onBusyChange(false)

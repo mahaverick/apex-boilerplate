@@ -6,7 +6,7 @@
  * are this app's.
  */
 import type { BadgeTone } from '@/constants/badge-tones'
-import { formatDate, formatDateTime } from '@/lib/format'
+import { formatBillingDate, invoiceStatusLabel } from '@/lib/billing-format'
 import type {
   BillingAlertKind,
   BillingEventStatus,
@@ -99,12 +99,16 @@ export const SUBSCRIPTION_STANDING_BADGE: Record<
   earlier: { label: 'Earlier', tone: 'muted' },
 }
 
-/** Each invoice status's badge. */
+/**
+ * Each invoice status's badge, worded as react's invoices table words it
+ * (`invoiceStatusLabel`): `issued` reads "Not paid", so staff and the
+ * customer use one word for one invoice.
+ */
 export const INVOICE_STATUS_BADGE: Record<InvoiceStatus, { label: string; tone: BadgeTone }> = {
-  issued: { label: 'Issued', tone: 'neutral' },
-  paid: { label: 'Paid', tone: 'success' },
-  cancelled: { label: 'Cancelled', tone: 'muted' },
-  expired: { label: 'Expired', tone: 'muted' },
+  issued: { label: invoiceStatusLabel('issued'), tone: 'neutral' },
+  paid: { label: invoiceStatusLabel('paid'), tone: 'success' },
+  cancelled: { label: invoiceStatusLabel('cancelled'), tone: 'muted' },
+  expired: { label: invoiceStatusLabel('expired'), tone: 'muted' },
 }
 
 /** Each provider's name. `fake` is express's test double. */
@@ -132,19 +136,60 @@ export function providerLabel(provider: BillingProvider, mode: BillingProviderMo
 const UNKNOWN_DATE = 'Unknown date'
 
 /**
- * A billing date in the reader's locale, or `Unknown date`.
- * @param iso - An ISO timestamp.
+ * The reader's own zone, for a date no one tenant owns: a plan's price, the
+ * billing settings, an alert list across tenants.
  */
-export function billingDate(iso: string): string {
-  return formatDate(iso, 'medium') ?? UNKNOWN_DATE
+function readerZone(): string {
+  return new Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
 /**
- * A billing date and time in the reader's locale, or `Unknown date`.
+ * A billing date as react's billing page and express's billing emails write
+ * it (`formatBillingDate`): "2 November 2026", in the tenant's zone, so staff
+ * and the customer name the same day. A date no one tenant owns reads in
+ * the reader's zone.
  * @param iso - An ISO timestamp.
+ * @param timeZone - The tenant's `settings.timezone`, or `undefined` for the reader's zone.
+ * @returns The date, or `Unknown date` when `iso` is not one.
  */
-export function billingDateTime(iso: string): string {
-  return formatDateTime(iso) ?? UNKNOWN_DATE
+export function billingDate(iso: string, timeZone: string | undefined): string {
+  return formatBillingDate(iso, timeZone ?? readerZone()) || UNKNOWN_DATE
+}
+
+/**
+ * A billing date and time with its zone named, since the time depends on it:
+ * "2 November 2026 at 05:30 GMT+5:30". An unknown zone reads as UTC, as
+ * `formatBillingDate` does.
+ * @param iso - An ISO timestamp.
+ * @param timeZone - The tenant's `settings.timezone`, or `undefined` for the reader's zone.
+ * @returns The date and time, or `Unknown date` when `iso` is not one.
+ */
+export function billingDateTime(iso: string, timeZone: string | undefined): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return UNKNOWN_DATE
+  try {
+    return dateTimeInZone(date, timeZone ?? readerZone())
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error
+    return dateTimeInZone(date, 'UTC')
+  }
+}
+
+/**
+ * The date and time in one zone, month spelled out and the zone named.
+ * @param date - A valid moment.
+ * @param timeZone - An IANA zone name; an unknown one throws `RangeError`.
+ */
+function dateTimeInZone(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(date)
 }
 
 /**

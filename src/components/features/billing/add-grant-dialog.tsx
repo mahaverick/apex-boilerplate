@@ -46,8 +46,9 @@ import type { EntitlementCatalogEntry } from '@/types/billing.types'
  * Raise a limit or turn on a feature for one tenant, beyond its plan, with an
  * audited reason, behind step-up. The value follows the chosen entry's kind:
  * a limit takes a number from 1 to 1,000,000 or No limit; a feature only turns
- * on. "Ends on" is a native date input from today to 31 Dec 2099, sent as the
- * end of that day in the browser's zone. The API's field errors land on the
+ * on. "Ends on" is a native date input from today to 31 Dec 2099 in the
+ * tenant's zone, sent as the end of that day there, so the Grants table,
+ * which dates in that zone, shows the day chosen. The API's field errors land on the
  * fields (`expiresAt` on Ends on).
  */
 export function AddGrantDialog({
@@ -111,8 +112,9 @@ function AddGrantForm({
   const stepUp = useStepUp()
   const waiting = useStepUpWaiting()
   const serverErrors = useServerErrors()
-  const schema = useMemo(() => grantFormSchema(catalog), [catalog])
-  const today = localDate(new Date(useNow()))
+  const timeZone = tenant.settings.timezone
+  const schema = useMemo(() => grantFormSchema(catalog, timeZone), [catalog, timeZone])
+  const today = localDate(new Date(useNow()), timeZone)
   const form = useForm({
     defaultValues: { key: '', value: '', noLimit: false, endsOn: '', reason: '' },
     validators: { onSubmit: schema },
@@ -232,7 +234,8 @@ function AddGrantForm({
               />
             </FormControl>
             <FormDescription>
-              Empty means no end date. A date ends the grant at the end of that day, your time.
+              Empty means no end date. A date ends the grant at the end of that day in the tenant’s
+              time zone ({timeZone}).
             </FormDescription>
             <FormMessage />
           </FormItem>

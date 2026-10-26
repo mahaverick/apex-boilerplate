@@ -7,19 +7,16 @@ import { Note } from '@/components/shared/note'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { billingDate, providerLabel } from '@/constants/billing-labels'
+import { billingDate, billingDateTime, providerLabel } from '@/constants/billing-labels'
 import { useNow } from '@/hooks/use-now'
 import { CANCEL_BUFFER_MS, isPastCancelBuffer } from '@/lib/billing-actions'
-import { formatInr } from '@/lib/money'
-import { absoluteTime, relativeTime } from '@/lib/relative-time'
+import { formatInr } from '@/lib/billing-format'
+import { relativeTime } from '@/lib/relative-time'
 import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
 
 /** What staff read when payments are off on the server. */
 const PAYMENTS_OFF_NOTE =
   'Payments are off on this server. The plan and dates show what is stored; nothing can be charged or synced.'
-
-/** A billing date, read short. */
-const day = billingDate
 
 /** One dated row of the summary: its name and its date. */
 interface DateRow {
@@ -52,13 +49,17 @@ interface DateRow {
  * @param billing - The tenant's billing.
  * @param now - The moment the page reads as now, in milliseconds.
  * @param plans - The staff plans, for the next subscription's price.
+ * @param timeZone - The tenant's time zone, for the dates.
  */
 function dateRows(
   billing: StaffTenantBilling,
   now: number,
-  plans: StaffPlans | undefined
+  plans: StaffPlans | undefined,
+  timeZone: string
 ): DateRow[] {
   const { state, trialEndsAt, currentPeriodEnd, price, nextSwitch } = billing
+  /** A date in the tenant's zone. */
+  const day = (iso: string) => billingDate(iso, timeZone)
   if (state === 'trialing') {
     return trialEndsAt === null ? [] : [{ label: 'Trial ends', value: day(trialEndsAt) }]
   }
@@ -67,7 +68,9 @@ function dateRows(
   // A failed payment's Paid ends with its grace, which the Failed payment row names; the period end is not it.
   if (state === 'past_due') return []
   if (state === 'active' && nextSwitch !== null) {
-    return [{ label: 'Next subscription', value: nextSubscriptionText(nextSwitch, plans) }]
+    return [
+      { label: 'Next subscription', value: nextSubscriptionText(nextSwitch, plans, timeZone) },
+    ]
   }
   if (state === 'active' && trialEndsAt !== null && new Date(trialEndsAt).getTime() > now) {
     const amount = price === null ? '' : `${formatInr(price.amountMinor)} on `
@@ -95,10 +98,12 @@ function dateRows(
  * from {date}" when the plans don't give one.
  * @param next - The next subscription's interval and start.
  * @param plans - The staff plans, if they loaded.
+ * @param timeZone - The tenant's time zone, for the date.
  */
 function nextSubscriptionText(
   next: NonNullable<StaffTenantBilling['nextSwitch']>,
-  plans: StaffPlans | undefined
+  plans: StaffPlans | undefined,
+  timeZone: string
 ): string {
   const amount = plans?.plans
     .find((plan) => plan.key === 'paid')
@@ -109,7 +114,7 @@ function nextSubscriptionText(
         ? 'Yearly'
         : 'Monthly'
       : `${formatInr(amount)} per ${next.interval}`
-  return `${price} from ${day(next.startsAt)}`
+  return `${price} from ${billingDate(next.startsAt, timeZone)}`
 }
 
 /**
@@ -131,13 +136,17 @@ function priceText(billing: StaffTenantBilling, plans: StaffPlans | undefined): 
  * The failed payment line: when it failed, and when Paid ends, or that the
  * provider is still retrying while there is no end yet.
  * @param pastDue - The tenant's failed payment.
+ * @param timeZone - The tenant's time zone, for the dates.
  */
-function pastDueText(pastDue: NonNullable<StaffTenantBilling['pastDue']>): string {
+function pastDueText(
+  pastDue: NonNullable<StaffTenantBilling['pastDue']>,
+  timeZone: string
+): string {
   const ends =
     pastDue.graceEndsAt === null
       ? 'The payment provider is still retrying.'
-      : `Paid ends on ${day(pastDue.graceEndsAt)}.`
-  return `Payment failed on ${day(pastDue.since)}. ${ends}${pastDue.paused ? ' Subscription paused.' : ''}`
+      : `Paid ends on ${billingDate(pastDue.graceEndsAt, timeZone)}.`
+  return `Payment failed on ${billingDate(pastDue.since, timeZone)}. ${ends}${pastDue.paused ? ' Subscription paused.' : ''}`
 }
 
 /** One subscription id row: the id in monospace and a button that copies it. */
@@ -171,10 +180,13 @@ function SubscriptionIdRow({ label, id }: { label: string; id: string }) {
 export function TenantBillingSummary({
   billing,
   plans,
+  timeZone,
   actions,
   headingRef,
 }: {
   billing: StaffTenantBilling
+  /** The tenant's `settings.timezone`: its dates read in it, as the customer reads them. */
+  timeZone: string
   /** The staff plans, for the retired-price mark; absent while they load or if they failed. */
   plans: StaffPlans | undefined
   actions?: ReactNode
@@ -209,7 +221,7 @@ export function TenantBillingSummary({
           </dd>
           <dt className="text-muted-foreground">Price</dt>
           <dd>{priceText(billing, plans)}</dd>
-          {dateRows(billing, now, plans).map(({ label, value }) => (
+          {dateRows(billing, now, plans, timeZone).map(({ label, value }) => (
             <div key={label} className="contents">
               <dt className="text-muted-foreground">{label}</dt>
               <dd>{value}</dd>
@@ -218,7 +230,7 @@ export function TenantBillingSummary({
           {billing.pastDue !== null && (
             <>
               <dt className="text-muted-foreground">Failed payment</dt>
-              <dd>{pastDueText(billing.pastDue)}</dd>
+              <dd>{pastDueText(billing.pastDue, timeZone)}</dd>
             </>
           )}
           <dt className="text-muted-foreground">Payer</dt>
@@ -247,7 +259,7 @@ export function TenantBillingSummary({
             {billing.syncedAt === null ? (
               'Never'
             ) : (
-              <time dateTime={billing.syncedAt} title={absoluteTime(billing.syncedAt)}>
+              <time dateTime={billing.syncedAt} title={billingDateTime(billing.syncedAt, timeZone)}>
                 {relativeTime(billing.syncedAt, now)}
               </time>
             )}
