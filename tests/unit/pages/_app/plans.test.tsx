@@ -655,7 +655,25 @@ describe('Plans page', () => {
       await user.type(amount, '15001')
       expect(
         await within(dialog).findByText(
-          'Charges above ₹15,000 need the customer to approve each payment. Keep yearly prices at ₹15,000 or less.'
+          'Charges above ₹15,000 need the customer to approve each payment. Keep monthly prices at ₹15,000 or less.'
+        )
+      ).toBeInTheDocument()
+    })
+
+    it('takes the threshold from the API, and names the chosen interval', async () => {
+      servePlans({ ...testPlans, priceWarningAboveMinor: 1_000_000 })
+      const user = userEvent.setup()
+      const dialog = await openNewPrice(user)
+      await user.click(within(dialog).getByRole('combobox', { name: 'Interval' }))
+      await user.click(await screen.findByRole('option', { name: 'Yearly' }))
+      const amount = within(dialog).getByRole('textbox', { name: 'Amount in rupees' })
+      await user.type(amount, '10000')
+      expect(within(dialog).queryByText(/need the customer to approve/)).toBeNull()
+      await user.clear(amount)
+      await user.type(amount, '10001')
+      expect(
+        await within(dialog).findByText(
+          'Charges above ₹10,000 need the customer to approve each payment. Keep yearly prices at ₹10,000 or less.'
         )
       ).toBeInTheDocument()
     })
@@ -676,7 +694,7 @@ describe('Plans page', () => {
       await user.click(await screen.findByRole('option', { name: 'Yearly' }))
       await user.type(within(dialog).getByRole('textbox', { name: 'Amount in rupees' }), '12000')
       expect(dialog).toHaveTextContent(
-        'Existing subscribers keep ₹9,990. New subscribers pay ₹12,000.'
+        'Current subscribers keep the price they signed up at. New subscribers pay ₹12,000.'
       )
       await user.type(within(dialog).getByLabelText('Reason'), 'Yearly repricing')
       await user.click(within(dialog).getByRole('button', { name: 'Add price' }))
@@ -703,7 +721,7 @@ describe('Plans page', () => {
       await user.click(await screen.findByRole('option', { name: 'Yearly' }))
       await user.type(within(dialog).getByRole('textbox', { name: 'Amount in rupees' }), '9000')
       expect(dialog).toHaveTextContent('New subscribers pay ₹9,000.')
-      expect(dialog).not.toHaveTextContent('Existing subscribers')
+      expect(dialog).not.toHaveTextContent('Current subscribers')
     })
 
     it('refuses ₹0 and a fraction of a rupee before posting', async () => {

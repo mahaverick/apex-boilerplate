@@ -90,9 +90,10 @@ export function NewPriceDialog(props: NewPriceDialogProps) {
 function whoPaysWhat(plan: StaffPlan, interval: string, amountMinor: number): string {
   const active = plan.prices.find((price) => price.active && price.interval === interval)
   const pays = `New subscribers pay ${formatInr(amountMinor)}.`
+  // Subscribers on older retired prices keep those too, so the line names no single old amount.
   return active === undefined
     ? pays
-    : `Existing subscribers keep ${formatInr(active.amountMinor)}. ${pays}`
+    : `Current subscribers keep the price they signed up at. ${pays}`
 }
 
 /** The new-price form inside the open dialog; `onBusyChange` holds the dialog still while it runs. */
@@ -198,7 +199,8 @@ function NewPriceForm({
         {amountMinor !== null && amountMinor > warnAboveMinor && (
           <Note tone="warning">
             Charges above {formatInr(warnAboveMinor)} need the customer to approve each payment.
-            Keep yearly prices at {formatInr(warnAboveMinor)} or less.
+            Keep {interval === 'year' ? 'yearly' : 'monthly'} prices at {formatInr(warnAboveMinor)}{' '}
+            or less.
           </Note>
         )}
         {amountMinor !== null && (
