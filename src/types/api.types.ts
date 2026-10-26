@@ -1,5 +1,6 @@
 import type { AuditAction } from '@/constants/audit-action-names'
 import type { MembershipRole } from '@/constants/roles'
+import type { BillingState, PlanKey } from '@/types/billing.types'
 
 /** The envelope express wraps a successful response in; `data` is the payload. */
 export interface ApiSuccess<T> {
@@ -150,6 +151,13 @@ export interface PlatformTenantRow {
   lifecycleState: TenantLifecycleState
   memberCount: number
   createdAt: string
+  /**
+   * The stored billing state, which express's billing job moves on a lapsed
+   * trial or period at its next run; null for a tenant with no billing record.
+   */
+  billingState: BillingState | null
+  /** The stored plan: Paid for a trialing tenant, as the record keeps it; null with no billing record. */
+  planKey: PlanKey | null
 }
 
 /** How an audit entry's actor reached the tenant. `system` is a script, with no actor. */

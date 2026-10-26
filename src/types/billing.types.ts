@@ -8,7 +8,7 @@
  */
 
 /** The plans the API serves. */
-type PlanKey = 'free' | 'paid'
+export type PlanKey = 'free' | 'paid'
 
 /** Where a workspace is in its billing lifecycle, in express's order (`BILLING_STATES`). */
 export const BILLING_STATES = ['trialing', 'free', 'active', 'past_due'] as const

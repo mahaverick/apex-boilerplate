@@ -43,6 +43,7 @@ import {
   TENANT_ID,
   TENANT_ID_2,
   TENANT_ID_3,
+  TENANT_ID_4,
   USER_ID,
   USER_ID_2,
   USER_ID_3,
@@ -721,19 +722,24 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
+  /** A row in every lifecycle state and every billing state, and one with no billing record. */
   const TENANT_ROWS = (
     [
-      [TENANT_ID, 'Acme Corp', 'acme', 'active'],
-      [TENANT_ID_2, 'Beta Ltd', 'beta', 'suspended'],
-      [TENANT_ID_3, 'Gamma Inc', 'gamma', 'archived'],
+      [TENANT_ID, 'Acme Corp', 'acme', 'active', 'trialing'],
+      [TENANT_ID_2, 'Beta Ltd', 'beta', 'suspended', 'past_due'],
+      [TENANT_ID_3, 'Gamma Inc', 'gamma', 'archived', 'free'],
+      [TENANT_ID_4, 'Delta LLC', 'delta', 'active', 'active'],
+      ['10000000-0000-4000-8000-000000000005', 'Epsilon Co', 'epsilon', 'active', null],
     ] as const
-  ).map(([id, name, slug, lifecycleState]): PlatformTenantRow => ({
+  ).map(([id, name, slug, lifecycleState, billingState]): PlatformTenantRow => ({
     id,
     name,
     slug,
     lifecycleState,
     memberCount: 2,
     createdAt: '2026-01-01T00:00:00.000Z',
+    billingState,
+    planKey: billingState === null ? null : billingState === 'free' ? 'free' : 'paid',
   }))
 
   it('tenants with a row in every status has no axe violations', async () => {
@@ -746,6 +752,8 @@ describe('signed-in pages', () => {
     // The h1 renders before the page lands; grade the table, its badges and the pager.
     const table = await screen.findByRole('table', { name: 'Tenants' })
     expect(within(table).getByText('Archived')).toBeInTheDocument()
+    expect(within(table).getByText('Payment failed')).toBeInTheDocument()
+    expect(within(table).getByText('No billing')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled()
     await expectNoViolations()
   })
@@ -759,6 +767,17 @@ describe('signed-in pages', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Filter by status, Tenants' }))
     await screen.findByRole('dialog', { name: 'Filter by status, Tenants' })
     // A portaled popover is exempt from `region`, so it is graded at document scope.
+    await expectNoViolations()
+  })
+
+  it('tenants with the plan facet open has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () => ok(listPage(TENANT_ROWS), 'Tenants retrieved.'))
+    )
+    renderAppAt('/tenants')
+    await screen.findByRole('table', { name: 'Tenants' })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Filter by plan, Tenants' }))
+    await screen.findByRole('dialog', { name: 'Filter by plan, Tenants' })
     await expectNoViolations()
   })
 

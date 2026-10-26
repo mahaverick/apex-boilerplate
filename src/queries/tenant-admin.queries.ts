@@ -24,6 +24,7 @@ import {
   type PlatformTenantDetail,
   type PlatformTenantRow,
 } from '@/types/api.types'
+import { BILLING_STATES } from '@/types/billing.types'
 import type { ListRequest } from '@/types/list.types'
 
 /**
@@ -37,10 +38,10 @@ export const tenantAdminKeys = {
   detail: (id: string) => ['platform', 'tenant', id] as const,
 }
 
-/** The Tenants list's URL contract: name order by default, filtered by lifecycle state. */
+/** The Tenants list's URL contract: name order by default, filtered by lifecycle state and stored billing state. */
 export const tenantsList = defineList({
   sorts: ['name', 'created', '-created'],
-  filters: { state: listFilter(TENANT_LIFECYCLE_STATES) },
+  filters: { state: listFilter(TENANT_LIFECYCLE_STATES), billingState: listFilter(BILLING_STATES) },
   table: analyticsKey('tenants'),
 })
 
