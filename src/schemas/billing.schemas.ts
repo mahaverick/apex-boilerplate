@@ -289,7 +289,7 @@ const PRICE_MESSAGE = 'Enter a whole number of rupees from ₹1 to ₹1,00,000.'
  */
 export const priceSchema = z
   .object({
-    interval: z.enum(BILLING_INTERVALS, { error: 'Choose month or year.' }),
+    interval: z.enum(BILLING_INTERVALS, { error: 'Choose Monthly or Yearly.' }),
     amountRupees: z
       .number({ error: PRICE_MESSAGE })
       .int(PRICE_MESSAGE)

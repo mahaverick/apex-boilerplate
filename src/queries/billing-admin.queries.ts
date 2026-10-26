@@ -235,8 +235,14 @@ export function useResyncBilling(tenantId: string) {
 
 /**
  * `POST …/billing/extend-trial` (manager): adds `days` to a running trial, or
- * starts one on a Free tenant. 409 `TRIAL_NOT_EXTENDABLE` on a paying or
- * past-due tenant.
+ * starts one on a tenant express serves as Free (its effective state), after
+ * syncing a row its paid time has outlived. Refusals, whose sentences apex
+ * shows as express words them:
+ * - 409 `TRIAL_NOT_EXTENDABLE`: the tenant pays or is past due, or the
+ *   provider hasn't confirmed its subscription ended (or has no record of it);
+ * - 503 `BILLING_BUSY` with `Retry-After: 30`: the lapsed row kept moving;
+ * - 503 or 502 `PAYMENT_PROVIDER_UNAVAILABLE`: the provider read failed.
+ * Nothing is written on any of them.
  */
 export function useExtendTrial(tenantId: string) {
   return useTenantBillingWrite(tenantId, (input: { days: number; reason: string }) =>
@@ -275,8 +281,14 @@ export function useRevokeGrant(tenantId: string) {
 
 /**
  * `POST …/billing/cancel` (admin): ends the subscription at its cycle end or
- * now. 409 `NO_SUBSCRIPTION` with nothing to cancel, or for a cycle-end cancel
- * already scheduled; 502 or 503 when the provider can't be reached.
+ * now, after syncing a row its paid time has outlived (whose cancel is then
+ * only audited). Refusals, whose sentences apex shows as express words them:
+ * - 409 `NO_SUBSCRIPTION`: nothing to cancel, a cycle-end cancel already
+ *   scheduled, a tenant off Paid that still holds a subscription id, or one
+ *   the provider has no record of;
+ * - 503 `BILLING_BUSY` with `Retry-After: 30`: the lapsed row kept moving;
+ * - 503 or 502 `PAYMENT_PROVIDER_UNAVAILABLE`: the provider failed, or
+ *   payments are off while the tenant holds a subscription (502).
  */
 export function useCancelBillingByStaff(tenantId: string) {
   return useTenantBillingWrite(tenantId, (input: { when: StaffCancelWhen; reason: string }) =>

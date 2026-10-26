@@ -871,7 +871,7 @@ describe('Plans page', () => {
               success: false,
               message: 'Check the highlighted fields, then try again.',
               statusCode: 400,
-              errors: { interval: ['Choose month or year.'] },
+              errors: { interval: ['Choose Monthly or Yearly.'] },
               requestId: 'test-request-id',
             },
             { status: 400 }
@@ -883,10 +883,12 @@ describe('Plans page', () => {
       await user.type(within(dialog).getByRole('textbox', { name: 'Amount in rupees' }), '999')
       await user.type(within(dialog).getByLabelText('Reason'), 'Test')
       await user.click(within(dialog).getByRole('button', { name: 'Add price' }))
-      expect(await within(dialog).findByText('Choose month or year.')).toBeInTheDocument()
+      expect(await within(dialog).findByText('Choose Monthly or Yearly.')).toBeInTheDocument()
       await user.click(within(dialog).getByRole('combobox', { name: 'Interval' }))
       await user.click(await screen.findByRole('option', { name: 'Yearly' }))
-      await waitFor(() => expect(within(dialog).queryByText('Choose month or year.')).toBeNull())
+      await waitFor(() =>
+        expect(within(dialog).queryByText('Choose Monthly or Yearly.')).toBeNull()
+      )
     })
 
     it('shows the API sentence when another price change won', async () => {

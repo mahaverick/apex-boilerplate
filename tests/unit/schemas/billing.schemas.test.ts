@@ -216,7 +216,7 @@ describe('priceSchema', () => {
 
   it('refuses an interval other than month or year', () => {
     const result = priceSchema.safeParse({ interval: 'week', amountRupees: 999, reason: 'x' })
-    expect(messageAt(result, 'interval')).toBe('Choose month or year.')
+    expect(messageAt(result, 'interval')).toBe('Choose Monthly or Yearly.')
   })
 })
 
