@@ -29,6 +29,7 @@ import {
   testBillingSubscriptions,
   testFreeTenantBilling,
   testInvoices,
+  testPlans,
   testTenantBilling,
 } from '@/tests/fixtures/billing'
 import { byContent } from '@/tests/fixtures/content'
@@ -2330,6 +2331,103 @@ describe('tenant billing', () => {
     renderAppAt(`/tenants/${TENANT_ID}/billing`)
     await screen.findByRole('heading', { name: 'This tenant has no billing.' })
     await expectNoViolations()
+  })
+})
+
+/** The Plans page read-only and with its edit controls, and each of its dialogs open. */
+describe('plans', () => {
+  const FREE = testPlans.plans[0]!
+
+  /**
+   * Opens the Plans page as `role`, with Free's preview answering `direction`.
+   * @param role - The platform role.
+   * @param direction - Whether the previewed change raises or lowers Members.
+   */
+  function openPlans(
+    role: 'viewer' | 'admin' = 'admin',
+    direction: 'increase' | 'decrease' = 'increase'
+  ) {
+    signIn({ ...testUser, platformRole: role })
+    server.use(
+      http.post(`/api/v1/platform/plans/${FREE.id}/preview`, () =>
+        ok(
+          {
+            changes: [{ key: 'members', from: 3, to: direction === 'increase' ? 5 : 2, direction }],
+            affected: { trialing: 0, active: 0, past_due: 0, free: 4 },
+          },
+          'Preview ready.'
+        )
+      )
+    )
+    renderAppAt('/plans')
+  }
+
+  /** Types a new Members limit on Free and selects Save Free. */
+  async function saveFreeMembers(user: ReturnType<typeof userEvent.setup>, members: string) {
+    const free = await screen.findByRole('region', { name: 'Free' })
+    const input = within(free).getByRole('textbox', { name: 'Members' })
+    await user.clear(input)
+    await user.type(input, members)
+    await user.click(within(free).getByRole('button', { name: 'Save Free' }))
+  }
+
+  it('the Plans page, read-only for a viewer, has no axe violations', async () => {
+    openPlans('viewer')
+    await screen.findByRole('region', { name: 'Free' })
+    await screen.findByRole('table', { name: 'Prices' })
+    await expectNoViolations()
+  })
+
+  it('the Plans page with its edit controls has no axe violations', async () => {
+    openPlans()
+    await screen.findAllByRole('switch', { name: 'Workspace insights' })
+    await screen.findByRole('button', { name: 'New price' })
+    await expectNoViolations()
+  })
+
+  it('the Plans page with a limit error showing has no axe violations', async () => {
+    const user = userEvent.setup()
+    openPlans()
+    await saveFreeMembers(user, '0')
+    await screen.findByText('Enter a whole number from 1 to 1,000,000, or choose No limit.')
+    await expectNoViolations()
+  })
+
+  it('the open Save plan dialog has no axe violations', async () => {
+    const user = userEvent.setup()
+    openPlans()
+    await saveFreeMembers(user, '5')
+    await screen.findByRole('alertdialog', { name: 'Save Free?' })
+    await expectNoViolations()
+  })
+
+  it('the open Lower limits dialog with its errors showing has no axe violations', async () => {
+    const user = userEvent.setup()
+    openPlans('admin', 'decrease')
+    await saveFreeMembers(user, '2')
+    const dialog = await screen.findByRole('alertdialog', { name: 'Lower limits on Free?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Lower limits' }))
+    await within(dialog).findByText('Confirm you checked the tenants this affects.')
+    await expectNoViolations()
+  })
+
+  it('the open New price dialog with the price warning has no axe violations', async () => {
+    const user = userEvent.setup()
+    openPlans()
+    await user.click(await screen.findByRole('button', { name: 'New price' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New price for Paid' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Amount in rupees' }), '20000')
+    await within(dialog).findByText(/need the customer to approve each payment/)
+    await expectNoViolations()
+  })
+
+  it('the New price dialog’s open interval list has no axe violations', async () => {
+    const user = userEvent.setup()
+    openPlans()
+    await user.click(await screen.findByRole('button', { name: 'New price' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New price for Paid' })
+    await user.click(within(dialog).getByRole('combobox', { name: 'Interval' }))
+    await expectNoViolationsIn(await screen.findByRole('listbox'))
   })
 })
 
