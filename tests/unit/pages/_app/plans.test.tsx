@@ -439,6 +439,53 @@ describe('Plans page', () => {
     })
   })
 
+  describe('a limit typed before another staff member saved No limit', () => {
+    it('keeps the typed number, and the next save sends it', async () => {
+      const theirs: StaffPlan = {
+        ...FREE,
+        version: 2,
+        entitlements: { ...FREE.entitlements, members: null },
+      }
+      servePlans(testPlans, { ...testPlans, plans: [theirs, PAID] })
+      const previews = recordPreview(
+        FREE,
+        freePreview([{ key: 'members', from: 3, to: 5, direction: 'increase' }])
+      )
+      const saves: unknown[] = []
+      server.use(
+        http.patch(`/api/v1/platform/plans/${FREE.id}`, async ({ request }) => {
+          saves.push(await request.json())
+          return saves.length === 1
+            ? fail('Someone changed the plan.', 409, 'PLAN_VERSION_CONFLICT')
+            : ok(
+                { ...theirs, version: 3, entitlements: { ...theirs.entitlements, members: 5 } },
+                'Plan updated.'
+              )
+        })
+      )
+      const user = userEvent.setup()
+      openPlans()
+      const free = await card('Free')
+      const members = within(free).getByRole('textbox', { name: 'Members' })
+      await user.clear(members)
+      await user.type(members, '5')
+      await user.click(within(free).getByRole('button', { name: 'Save Free' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Save Free?' })
+      await user.type(within(dialog).getByLabelText('Reason'), 'Room for five')
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+      await waitFor(() => expect(saves).toHaveLength(1))
+
+      expect(members).toHaveValue('5')
+      expect(members).toBeEnabled()
+      expect(within(free).getByRole('checkbox', { name: 'No limit' })).not.toBeChecked()
+      await user.click(within(free).getByRole('button', { name: 'Save Free' }))
+      expect(await screen.findByRole('alertdialog', { name: /Free\?$/ })).toBeInTheDocument()
+      await waitFor(() => expect(previews).toHaveLength(2))
+      expect(previews[1]).toEqual({ entitlements: { members: 5 } })
+    })
+  })
+
   describe('prices', () => {
     it('lists Paid’s prices, and no prices card for Free', async () => {
       openPlans('viewer')

@@ -72,6 +72,34 @@ describe('fieldsAfterConflict', () => {
     )
   })
 
+  it('keeps a typed limit whole when they saved No limit for it', () => {
+    const theirsNoLimit = planEditForm(
+      { ...FREE, version: 2, entitlements: { ...FREE.entitlements, members: null } },
+      catalog
+    )
+    const current = { ...loaded, limits: { members: '5' } }
+    const updates = new Map(fieldsAfterConflict(current, loaded, theirsNoLimit))
+    expect(updates.has('limits.members')).toBe(false)
+    expect(updates.has('noLimit.members')).toBe(false)
+  })
+
+  it('keeps a ticked No limit whole when they saved a number for it', () => {
+    const current = { ...loaded, limits: { members: '' }, noLimit: { members: true } }
+    const updates = new Map(fieldsAfterConflict(current, loaded, fresh))
+    expect(updates.has('limits.members')).toBe(false)
+    expect(updates.has('noLimit.members')).toBe(false)
+  })
+
+  it('takes both halves of a limit the reader left alone', () => {
+    const theirsNoLimit = planEditForm(
+      { ...FREE, version: 2, entitlements: { ...FREE.entitlements, members: null } },
+      catalog
+    )
+    const updates = new Map(fieldsAfterConflict(loaded, loaded, theirsNoLimit))
+    expect(updates.get('noLimit.members')).toBe(true)
+    expect(updates.get('limits.members')).toBe(theirsNoLimit.limits.members)
+  })
+
   it('keeps a typed value even where they saved one too', () => {
     const current = { ...loaded, limits: { members: '8' } }
     expect(fieldsAfterConflict(current, loaded, fresh)).not.toContainEqual(['limits.members', '5'])

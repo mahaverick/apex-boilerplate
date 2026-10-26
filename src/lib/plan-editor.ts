@@ -87,7 +87,9 @@ function flatFields(form: PlanEditForm): Map<string, unknown> {
  * The fields to set after another staff member saved first: each field the
  * reader left as it was loaded takes the newly saved value, and each field
  * the reader changed keeps what they typed, so the next save neither loses
- * their edit nor sends back the other's.
+ * their edit nor sends back the other's. A limit's number and its No limit
+ * box are one value: when the reader changed either half, both stay as they
+ * are; otherwise both take the saved value.
  * @param current - The form's values now.
  * @param loaded - The values the form opened with.
  * @param fresh - The values just saved by the other staff member.
@@ -100,11 +102,13 @@ export function fieldsAfterConflict(
 ): Array<[string, unknown]> {
   const was = flatFields(loaded)
   const now = flatFields(current)
+  /** Whether the reader changed `name` from its loaded value. */
+  const typed = (name: string) => !Object.is(now.get(name), was.get(name))
   const updates: Array<[string, unknown]> = []
   for (const [name, value] of flatFields(fresh)) {
-    if (Object.is(now.get(name), was.get(name)) && !Object.is(now.get(name), value)) {
-      updates.push([name, value])
-    }
+    const key = /^(?:limits|noLimit)\.(.+)$/.exec(name)?.[1]
+    const kept = key === undefined ? typed(name) : typed(`limits.${key}`) || typed(`noLimit.${key}`)
+    if (!kept && !Object.is(now.get(name), value)) updates.push([name, value])
   }
   return updates
 }
