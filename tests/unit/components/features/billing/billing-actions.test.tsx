@@ -996,6 +996,76 @@ describe('billing actions', () => {
       expect(dialog).not.toHaveTextContent('Refund')
     })
 
+    it('cancels only the next subscription when no current one is held, and says so', async () => {
+      const nextOnly: StaffTenantBilling = {
+        ...TRIALING,
+        nextSubscriptionId: 'sub_TestNext0001',
+        nextSwitch: { interval: 'year', startsAt: '2099-01-15T00:00:00.000Z' },
+      }
+      serve(nextOnly)
+      const bodies = recordWrite('cancel', {
+        ...nextOnly,
+        nextSubscriptionId: null,
+        nextSwitch: null,
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      expect(within(dialog).queryAllByRole('radio')).toHaveLength(0)
+      expect(dialog).toHaveTextContent(
+        `This cancels Acme Corp’s next subscription, booked from ${billingDate('2099-01-15T00:00:00.000Z')}. Nothing is charged.`
+      )
+      await user.type(within(dialog).getByLabelText('Reason'), 'Booked by mistake')
+      await user.type(within(dialog).getByLabelText('Type acme to confirm'), 'acme')
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel subscription' }))
+      await confirmStepUp(user)
+      await waitFor(() =>
+        expect(success).toHaveBeenCalledWith('Acme Corp’s next subscription is cancelled.')
+      )
+      expect(bodies[1]).toEqual({ when: 'now', reason: 'Booked by mistake' })
+    })
+
+    it('says a held next subscription is cancelled too, on either choice', async () => {
+      serve({
+        ...testTenantBilling,
+        nextSubscriptionId: 'sub_TestNext0001',
+        nextSwitch: { interval: 'year', startsAt: '2026-11-20T00:00:00.000Z' },
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      expect(dialog).toHaveTextContent(
+        'then moves to Free. Nothing more is charged. Its next subscription is cancelled too.'
+      )
+      await user.click(within(dialog).getByRole('radio', { name: 'Now' }))
+      expect(dialog).toHaveTextContent(
+        'Refund any unused period in the Razorpay dashboard. Its next subscription is cancelled too.'
+      )
+    })
+
+    it('falls back to a plain toast when the answered view shows no change it can name', async () => {
+      serve()
+      recordWrite('cancel', testTenantBilling)
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      await user.type(within(dialog).getByLabelText('Reason'), 'Customer asked')
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel subscription' }))
+      await confirmStepUp(user)
+      await waitFor(() =>
+        expect(success).toHaveBeenCalledWith('The subscription for Acme Corp is cancelled.')
+      )
+    })
+
     it('shows the API sentence when the provider refuses', async () => {
       serve()
       server.use(
