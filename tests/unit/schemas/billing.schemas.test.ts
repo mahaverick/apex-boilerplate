@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test'
 import {
   billingSettingsSchema,
+  endOfDay,
   extendTrialSchema,
   grantSchema,
   localDate,
@@ -112,9 +113,8 @@ describe('grantSchema', () => {
     )
   })
 
-  it('sends the latest end date as an ISO date-time express takes, in any zone', () => {
+  it('sends the latest end date as an ISO date-time express takes, in this zone', () => {
     const body = grant.parse({ key: 'members', value: 10, endsOn: '2099-12-31', reason: 'Team' })
-    // A zone behind UTC moves the end of the day into the next UTC day, never past year 2100.
     expect(body.expiresAt).toMatch(/^(2099-12-31|2100-01-01)T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
   })
 
@@ -198,5 +198,26 @@ describe('planDetailsSchema', () => {
   it('refuses control characters', () => {
     const result = planDetailsSchema.safeParse({ name: 'Fr\u0000ee', description: '' })
     expect(messageAt(result, 'name')).toBe('Remove the control characters from the plan name.')
+  })
+})
+
+describe('endOfDay', () => {
+  /** `getTimezoneOffset` for UTC−10:00 (Hawaii), a zone behind UTC: minutes to add to reach UTC. */
+  const HAWAII = 600
+
+  it('puts the latest grant end in the next UTC day behind UTC, still a 4-digit year', () => {
+    expect(endOfDay('2099-12-31', HAWAII).toISOString()).toBe('2100-01-01T09:59:59.999Z')
+  })
+
+  it('expands 9999-12-31 behind UTC to a year express refuses, which the cap keeps clear of', () => {
+    expect(endOfDay('9999-12-31', HAWAII).toISOString()).toBe('+010000-01-01T09:59:59.999Z')
+  })
+
+  it('ends the day earlier in UTC for a zone ahead of it', () => {
+    expect(endOfDay('2026-11-09', -330).toISOString()).toBe('2026-11-09T18:29:59.999Z')
+  })
+
+  it('uses the browser’s zone when no offset is given', () => {
+    expect(endOfDay('2026-11-09').getTime()).toBe(new Date('2026-11-09T23:59:59.999').getTime())
   })
 })

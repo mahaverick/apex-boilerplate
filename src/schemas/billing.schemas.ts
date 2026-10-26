@@ -50,9 +50,10 @@ export function localDate(date: Date): string {
 }
 
 /**
- * The latest day a grant may end. A later year can come out of
- * `toISOString` as an expanded year (`+010000-…`) in a zone behind UTC,
- * which express's `z.iso.datetime()` refuses.
+ * The latest day a grant may end: a cap well inside the 4-digit years. Only
+ * a day near 9999-12-31 in a zone behind UTC comes out of `toISOString` as
+ * an expanded year (`+010000-…`), which express's `z.iso.datetime()`
+ * refuses; ending at 2099 keeps clear of it.
  */
 const LATEST_GRANT_END = '2099-12-31'
 
@@ -119,11 +120,18 @@ export function grantSchema(catalog: readonly EntitlementCatalogEntry[]) {
 }
 
 /**
- * The last moment of a `YYYY-MM-DD` day in the browser's zone.
+ * The last moment of a `YYYY-MM-DD` day in a zone: the browser's, unless an
+ * offset is given. Exported so a test can name a zone behind UTC whatever
+ * zone the test process runs in.
  * @param day - A date input's value.
+ * @param offsetMinutes - The zone's `getTimezoneOffset()` at that moment
+ *   (600 for UTC−10:00, −330 for India); the browser's own when absent.
  */
-function endOfDay(day: string): Date {
-  return new Date(`${day}T23:59:59.999`)
+export function endOfDay(day: string, offsetMinutes?: number): Date {
+  const [year = 0, month = 1, date = 1] = day.split('-').map(Number)
+  const offset =
+    offsetMinutes ?? new Date(year, month - 1, date, 23, 59, 59, 999).getTimezoneOffset()
+  return new Date(Date.UTC(year, month - 1, date, 23, 59, 59, 999) + offset * 60_000)
 }
 
 /**
