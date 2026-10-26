@@ -123,6 +123,8 @@ const TRIALING: StaffTenantBilling = {
   trialEndsAt: '2099-01-15T00:00:00.000Z',
   currentPeriodEnd: null,
   providerSubscriptionId: null,
+  // A trial with no subscription has no payer yet, as express serves it.
+  payer: null,
 }
 
 describe('billing actions', () => {
@@ -143,6 +145,8 @@ describe('billing actions', () => {
       serve()
       renderAppAt(BILLING)
       await screen.findByRole('table', { name: 'Grants' })
+      // The actions need the tenant's detail too; its heading is the layout's barrier for it.
+      await screen.findByRole('heading', { level: 1, name: 'Acme Corp' })
       expect(screen.queryByRole('button', { name: 'Billing actions' })).toBeNull()
       expect(screen.queryByRole('button', { name: /revoke/i })).toBeNull()
     })
@@ -239,10 +243,12 @@ describe('billing actions', () => {
       })
       renderAppAt(BILLING)
       await screen.findByRole('table', { name: 'Grants' })
+      // The actions need the tenant's detail too; its heading is the layout's barrier for it.
+      await screen.findByRole('heading', { level: 1, name: 'Acme Corp' })
       expect(screen.queryByRole('button', { name: /revoke/i })).toBeNull()
     })
 
-    it('offers Add grant only once the catalog has loaded', async () => {
+    it('hides Add grant when the plans fail', async () => {
       serve()
       server.use(
         http.get('/api/v1/platform/plans', () => fail('Internal server error', 500, 'internal'))

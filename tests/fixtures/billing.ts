@@ -171,13 +171,15 @@ export const testFreeTenantBilling: StaffTenantBilling = {
   plan: { key: 'free', name: 'Free' },
   interval: null,
   price: null,
+  // Express keeps the trial's end after the trial, which its history says ended.
+  trialEndsAt: '2026-10-15T00:00:00.000Z',
   currentPeriodEnd: null,
   payer: null,
   providerSubscriptionId: null,
   entitlements: {
     plan: { key: 'free', name: 'Free' },
     state: 'free',
-    trialEndsAt: null,
+    trialEndsAt: '2026-10-15T00:00:00.000Z',
     currentPeriodEnd: null,
     cancelAtPeriodEnd: false,
     pastDue: null,

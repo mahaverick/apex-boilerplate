@@ -72,7 +72,8 @@ const HISTORY_CAUSE_LABELS: Readonly<Record<string, string>> = {
  * @param cause - The history row's `cause`, such as `subscription_halted`.
  */
 export function historyCauseLabel(cause: string): string {
-  if (Object.hasOwn(HISTORY_CAUSE_LABELS, cause)) return HISTORY_CAUSE_LABELS[cause] ?? cause
+  const known = Object.hasOwn(HISTORY_CAUSE_LABELS, cause) ? HISTORY_CAUSE_LABELS[cause] : undefined
+  if (known !== undefined) return known
   const words = cause.replaceAll('_', ' ')
   return `${words.charAt(0).toUpperCase()}${words.slice(1)}`
 }

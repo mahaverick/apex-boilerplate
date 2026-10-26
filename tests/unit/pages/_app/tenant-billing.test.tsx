@@ -210,6 +210,8 @@ describe('/tenants/$tenantId/billing', () => {
       serve()
       renderAppAt(BILLING)
       await screen.findByRole('table', { name: 'Invoices' })
+      // The actions need the tenant's detail too; its heading is the layout's barrier for it.
+      await screen.findByRole('heading', { level: 1, name: 'Acme Corp' })
       expect(
         screen.queryByRole('button', { name: /resync|extend|grant|revoke|cancel|actions/i })
       ).toBeNull()

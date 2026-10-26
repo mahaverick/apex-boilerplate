@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { CANCEL_BUFFER_MS, effectiveState } from '@/lib/billing-actions'
+import { CANCEL_BUFFER_MS, cancelChoicesFor, effectiveState } from '@/lib/billing-actions'
 import { testFreeTenantBilling, testTenantBilling } from '@/tests/fixtures/billing'
 import type { StaffTenantBilling } from '@/types/billing.types'
 
@@ -53,5 +53,32 @@ describe('effectiveState', () => {
 
   it('keeps Free as Free', () => {
     expect(effectiveState(testFreeTenantBilling, NOW)).toBe('free')
+  })
+})
+
+describe('cancelChoicesFor, with no period end on file', () => {
+  // Express allows an active row with no currentPeriodEnd; the dialog then names no date.
+  const active: StaffTenantBilling = { ...testTenantBilling, currentPeriodEnd: null }
+
+  it('offers the end of the paid period with no date, and says Paid lasts until it ends', () => {
+    const { choices } = cancelChoicesFor('Acme Corp', active, NOW, 'UTC')
+    expect(choices[0]).toEqual({
+      when: 'cycle_end',
+      label: 'At the end of the paid period',
+      description:
+        'Acme Corp keeps Paid until its paid period ends, then moves to Free. Nothing more is charged.',
+    })
+  })
+
+  it('words a next subscription’s cancel while cancelling with no date', () => {
+    const { choices } = cancelChoicesFor(
+      'Acme Corp',
+      { ...active, cancelAtPeriodEnd: true, nextSubscriptionId: 'sub_TestNext0001' },
+      NOW,
+      'UTC'
+    )
+    expect(choices[0]?.description).toBe(
+      'Acme Corp keeps Paid until its paid period ends, then moves to Free. This cancels its next subscription.'
+    )
   })
 })

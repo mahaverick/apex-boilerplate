@@ -11,6 +11,16 @@ const TENANT: Section = { name: 'Tenant', endpoints: ['GET /platform/tenants/:id
 const USER: Section = { name: 'User', endpoints: ['GET /platform/users/:id'] }
 
 /**
+ * A moment `days` from when the capture runs, so a state's dates stay as
+ * true on every run as on the first: a trial still running, a failed
+ * payment recent.
+ * @param days - Days from now; negative is earlier.
+ */
+function daysFromNow(days: number): string {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+}
+
+/**
  * The Billing tab's named states, each the seeded tenant's billing read
  * replaced by a canned view. The platform tenant's "no billing" state is not
  * shot: the seed names no platform tenant id, and a stub can only succeed.
@@ -27,10 +37,17 @@ const BILLING_STATES: readonly CaptureState[] = [
           state: 'trialing',
           price: null,
           interval: null,
-          trialEndsAt: '2026-11-03T00:00:00.000Z',
+          trialEndsAt: daysFromNow(8),
           currentPeriodEnd: null,
           providerSubscriptionId: null,
-          entitlements: { ...testTenantBilling.entitlements, state: 'trialing' },
+          // A trial with no subscription has no payer yet, as express serves it.
+          payer: null,
+          entitlements: {
+            ...testTenantBilling.entitlements,
+            state: 'trialing',
+            trialEndsAt: daysFromNow(8),
+            currentPeriodEnd: null,
+          },
         },
       },
     ],
@@ -44,8 +61,16 @@ const BILLING_STATES: readonly CaptureState[] = [
         data: {
           ...testTenantBilling,
           state: 'past_due',
-          pastDue: { since: '2026-10-21T00:00:00.000Z', graceEndsAt: null, paused: false },
+          // The renewal that failed ended the period.
+          currentPeriodEnd: daysFromNow(-5),
+          pastDue: { since: daysFromNow(-5), graceEndsAt: null, paused: false },
           disputeOpen: true,
+          entitlements: {
+            ...testTenantBilling.entitlements,
+            state: 'past_due',
+            currentPeriodEnd: daysFromNow(-5),
+            pastDue: { since: daysFromNow(-5), graceEndsAt: null, paused: false },
+          },
         },
       },
     ],

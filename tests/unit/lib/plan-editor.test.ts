@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test'
 import {
   changeLine,
+  detailsSentence,
   entitlementErrorFields,
   entitlementText,
   fieldsAfterConflict,
@@ -51,6 +52,20 @@ describe('plan editor wording', () => {
   })
 })
 
+describe('detailsSentence', () => {
+  it('says where a new name and a new description show, and nothing when neither changed', () => {
+    const name =
+      'The new name shows on the pricing page and on the Billing page of every workspace on Free.'
+    const description = 'The new description shows on the pricing page.'
+    expect(detailsSentence({ name: 'Starter' }, 'Free')).toBe(name)
+    expect(detailsSentence({ description: 'Theirs.' }, 'Free')).toBe(description)
+    expect(detailsSentence({ name: 'Starter', description: 'Theirs.' }, 'Free')).toBe(
+      `${name} ${description}`
+    )
+    expect(detailsSentence({}, 'Free')).toBeNull()
+  })
+})
+
 describe('fieldsAfterConflict', () => {
   const loaded = planEditForm(FREE, catalog)
   const fresh = planEditForm(
@@ -89,6 +104,14 @@ describe('fieldsAfterConflict', () => {
     const updates = new Map(fieldsAfterConflict(current, loaded, fresh))
     expect(updates.has('limits.members')).toBe(false)
     expect(updates.has('noLimit.members')).toBe(false)
+  })
+
+  it('keeps both halves when the reader changed only the No limit box', () => {
+    const current = { ...loaded, noLimit: { members: true } }
+    const updates = new Map(fieldsAfterConflict(current, loaded, fresh))
+    expect(updates.has('limits.members')).toBe(false)
+    expect(updates.has('noLimit.members')).toBe(false)
+    expect(updates.get('description')).toBe('Theirs.')
   })
 
   it('takes both halves of a limit the reader left alone', () => {
