@@ -87,7 +87,7 @@ export function grantSchema(catalog: readonly EntitlementCatalogEntry[]) {
       if (entry?.kind === 'limit' && !isLimitValue(form.value)) {
         context.addIssue({ code: 'custom', path: ['value'], message: GRANT_LIMIT_MESSAGE })
       }
-      if (form.endsOn !== '' && !(form.endsOn >= localDate(new Date()))) {
+      if (form.endsOn !== '' && !isDayFromToday(form.endsOn)) {
         context.addIssue({
           code: 'custom',
           path: ['endsOn'],
@@ -98,9 +98,29 @@ export function grantSchema(catalog: readonly EntitlementCatalogEntry[]) {
     .transform(({ key, value, endsOn, reason }) => ({
       key,
       value: value as boolean | number | null,
-      expiresAt: endsOn === '' ? null : new Date(`${endsOn}T23:59:59.999`).toISOString(),
+      expiresAt: endsOn === '' ? null : endOfDay(endsOn).toISOString(),
       reason,
     }))
+}
+
+/**
+ * The last moment of a `YYYY-MM-DD` day in the browser's zone.
+ * @param day - A date input's value.
+ */
+function endOfDay(day: string): Date {
+  return new Date(`${day}T23:59:59.999`)
+}
+
+/**
+ * Whether `day` is a real `YYYY-MM-DD` day, today or later in the browser's
+ * zone. The shape is checked first: a string comparison alone would pass
+ * any text that sorts after today's date.
+ * @param day - A date input's value.
+ */
+function isDayFromToday(day: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false
+  const end = endOfDay(day)
+  return !Number.isNaN(end.getTime()) && localDate(end) === day && day >= localDate(new Date())
 }
 
 /**

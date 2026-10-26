@@ -93,6 +93,16 @@ describe('grantSchema', () => {
     )
   })
 
+  it.each(['not-a-date', '2999-13-45', '2999-02-30', '29990101'])(
+    'refuses %s as an end date',
+    (endsOn) => {
+      const result = grant.safeParse({ key: 'members', value: 10, endsOn, reason: 'Team' })
+      expect(messageAt(result, 'endsOn')).toBe(
+        'Choose today or a later date, or leave it empty for no end date.'
+      )
+    }
+  )
+
   it('sends expiresAt as the end of the chosen day, in the browser’s zone', () => {
     const body = grant.parse({ key: 'members', value: 10, endsOn: TODAY, reason: 'Team' })
     expect(body.expiresAt).toBe(new Date(`${TODAY}T23:59:59.999`).toISOString())
