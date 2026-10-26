@@ -47,7 +47,7 @@ import type { ListPage, ListRequest } from '@/types/list.types'
  * (`{ limit: 5 }`) and the full list.
  * @param request - From `listRequest(billingAlertsList, …)`, or `{ limit }`.
  * @param options - `total: false` for the card, which never shows the total.
- * @returns Query options for `useListQuery`, `useQuery` or a route loader.
+ * @returns Query options for `useListQuery` or `useQuery`.
  */
 export function billingAlertsListOptions(request: ListRequest, options: { total?: boolean } = {}) {
   return listQueryOptions<BillingAlert>({
@@ -78,7 +78,7 @@ function tenantBillingListOptions<T>(tenantId: string, name: string, request: Li
  * matches the from and to states and the cause as stored.
  * @param tenantId - The tenant.
  * @param request - From `listRequest(billingHistoryList, …)`.
- * @returns Query options for `useListQuery` or a route loader.
+ * @returns Query options for `useListQuery`.
  */
 export function billingHistoryListOptions(tenantId: string, request: ListRequest) {
   return tenantBillingListOptions<StaffBillingHistoryItem>(tenantId, 'history', request)
@@ -89,7 +89,7 @@ export function billingHistoryListOptions(tenantId: string, request: ListRequest
  * matches the event type and the error.
  * @param tenantId - The tenant.
  * @param request - From `listRequest(billingEventsList, …)`.
- * @returns Query options for `useListQuery` or a route loader.
+ * @returns Query options for `useListQuery`.
  */
 export function billingEventsListOptions(tenantId: string, request: ListRequest) {
   return tenantBillingListOptions<StaffBillingEventItem>(tenantId, 'events', request)
@@ -100,7 +100,7 @@ export function billingEventsListOptions(tenantId: string, request: ListRequest)
  * search matches the subscription id.
  * @param tenantId - The tenant.
  * @param request - From `listRequest(billingSubscriptionsList, …)`.
- * @returns Query options for `useListQuery` or a route loader.
+ * @returns Query options for `useListQuery`.
  */
 export function billingSubscriptionsListOptions(tenantId: string, request: ListRequest) {
   return tenantBillingListOptions<StaffBillingSubscriptionItem>(tenantId, 'subscriptions', request)

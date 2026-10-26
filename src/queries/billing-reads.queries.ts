@@ -9,8 +9,8 @@
  */
 import { queryOptions } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
-import { statusFrom } from '@/lib/api-error'
 import { analyticsKey } from '@/observability/telemetry'
+import { retryList } from '@/queries/list.queries'
 import { PLANS_KEY } from '@/queries/platform.queries'
 import { defineList, listFilter } from '@/schemas/list.schemas'
 import type { ApiSuccess } from '@/types/api.types'
@@ -36,18 +36,14 @@ export const billingAdminKeys = {
   tenant: (id: string) => ['platform', 'tenant', id, 'billing'] as const,
 }
 
-/** Whether asking again could change a refusal: a 404 answers who is asking, so it never can. */
-function retryUnlessNotFound(failureCount: number, error: Error): boolean {
-  return statusFrom(error) !== 404 && failureCount < 1
-}
-
 /** `GET /platform/plans` (viewer): both plans with their prices and tenant counts, and the entitlement catalog. */
 export function staffPlansQueryOptions() {
   return queryOptions({
     queryKey: billingAdminKeys.plans,
     queryFn: async ({ signal }) =>
       unwrap(await apiClient.get<ApiSuccess<StaffPlans>>('/platform/plans', { signal })),
-    retry: retryUnlessNotFound,
+    // A 404 answers who is asking and never changes on a retry; `retryList` treats every such 4xx as final.
+    retry: retryList,
   })
 }
 
@@ -59,7 +55,8 @@ export function billingSettingsQueryOptions() {
       unwrap(
         await apiClient.get<ApiSuccess<BillingSettings>>('/platform/billing-settings', { signal })
       ),
-    retry: retryUnlessNotFound,
+    // A 404 answers who is asking and never changes on a retry; `retryList` treats every such 4xx as final.
+    retry: retryList,
   })
 }
 
@@ -78,7 +75,8 @@ export function staffTenantBillingQueryOptions(tenantId: string) {
           { signal }
         )
       ),
-    retry: retryUnlessNotFound,
+    // A 404 answers who is asking and never changes on a retry; `retryList` treats every such 4xx as final.
+    retry: retryList,
   })
 }
 

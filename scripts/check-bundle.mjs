@@ -18,8 +18,8 @@ import { build } from 'vite'
  *   trimmed to the zod types used anywhere in the app, so no route split can
  *   move a type out of it. The staff billing forms are the first use of
  *   `z.number()` and `z.boolean()`, and the full-tenant invite refusal reads
- *   the billing keys: first-visit JS went from 597,445 to 603,638 bytes. The
- *   new ceiling leaves about 4 KB for the Plans page's plan and price forms.
+ *   the billing keys: first-visit JS went from 597,445 to 603,638 bytes. After
+ *   the Plans page's plan and price forms: 605,833 bytes.
  */
 const ENTRY_BUDGET_BYTES = 608_000
 

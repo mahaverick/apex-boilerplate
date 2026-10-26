@@ -159,7 +159,9 @@ Each rule's reason is in [Analytics privacy](SECURITY.md#analytics-privacy).
   description. Use `<Pii>`, not `ph-no-capture`, which blanks the element in
   replay. A staff page that renders person data goes into the page list in
   `e2e/fixtures/pii.test.ts`, and a new harness person into its `NAMES`. Without
-  them the guard cannot see it.
+  them the guard cannot see it. The one exception is public catalog copy staff
+  type: a plan's name and description are the pricing page's words, shown to
+  every visitor, not personal data, so they render unwrapped.
 - **An attribute may carry personal data only if `mask-attribute.ts` masks it.**
   `e2e/nginx/analytics.test.ts` pins `aria-label` masking in the full snapshot
   and in later mutations.

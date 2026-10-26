@@ -33,7 +33,7 @@ No screenshot yet: the page needs a capture run against a dev stack on express w
 
 ### `/billing-alerts` — Billing alerts
 
-No screenshot yet: the page needs a capture run against a dev stack on express with billing (`CAPTURE_ONLY=/billing-alerts pnpm capture:pages`).
+No screenshot yet: the page needs a capture run against a dev stack on express with billing (`CAPTURE_ONLY=plans pnpm capture:pages`, which shoots the Plans page too).
 
 |                     |                                                                                                                                                                                                                                                                                                                          |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

@@ -508,9 +508,11 @@ people out of pages that would fail.
   (`src/constants/navigation.ts`), a tenant's Flags tab
   (admins, `src/constants/tenant-tabs.ts`), the activity log (admins), the
   maintenance controls (owners), and billing: a tenant's Resync, Extend
-  trial, Add grant and Revoke (managers), its Cancel subscription, the Plans
-  page's edit controls, the billing alerts card and the Billing alerts page
-  (admins) (`billingActionsFor` in `src/lib/billing-actions.ts`). `canPlatformActorModifyTarget` mirrors the
+  trial, Add grant and Revoke (managers) and its Cancel subscription (admins),
+  in `billingActionsFor` (`src/lib/billing-actions.ts`); the Plans page's
+  edit controls (admins, `src/pages/_app/plans.tsx`); and the billing alerts
+  card and the Billing alerts page (admins, `src/pages/_app/overview.tsx`
+  and `src/pages/_app/billing-alerts.tsx`). `canPlatformActorModifyTarget` mirrors the
   API's rule for acting on other staff: an owner may act on any other staff
   member, an admin only on staff below admin, and nobody on themselves. A
   rule changed here and not in express offers actions the API refuses, or

@@ -14,7 +14,7 @@ import {
   staffPlansQueryOptions,
 } from '@/queries/billing-reads.queries'
 import { useAuthStore } from '@/states/auth.store'
-import type { StaffPlans } from '@/types/billing.types'
+import type { PlanKey, StaffPlans } from '@/types/billing.types'
 
 /** The Plans page: Free and Paid with their entitlements, Paid's prices, and the trial and grace rules. */
 export const Route = createFileRoute('/_app/plans')({
@@ -74,12 +74,17 @@ function PlansPage() {
   )
 }
 
+/** The cards' order: Free, then Paid, by name rather than by the alphabet. */
+const PLAN_ORDER: readonly PlanKey[] = ['free', 'paid']
+
 /**
  * Free's card, then Paid's, then Paid's prices. Express refuses a price on
  * Free, so only Paid has a prices card.
  */
 function PlansContent({ plans, canEdit }: { plans: StaffPlans; canEdit: boolean }) {
-  const ordered = [...plans.plans].sort((a, b) => a.key.localeCompare(b.key))
+  const ordered = [...plans.plans].sort(
+    (a, b) => PLAN_ORDER.indexOf(a.key) - PLAN_ORDER.indexOf(b.key)
+  )
   const paid = ordered.find((plan) => plan.key === 'paid')
   return (
     <>
