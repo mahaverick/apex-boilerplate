@@ -954,6 +954,48 @@ describe('billing actions', () => {
       expect(bodies[1]).toEqual({ when: 'cycle_end', reason: 'Customer changed their mind' })
     })
 
+    it('names no past end and offers no refund when the ending period is over and a next subscription is held', async () => {
+      serve({
+        ...testTenantBilling,
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: '2026-01-10T00:00:00.000Z',
+        nextSubscriptionId: 'sub_TestNext0001',
+        nextSwitch: { interval: 'year', startsAt: '2026-01-10T00:00:00.000Z' },
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      const ended = billingDate('2026-01-10T00:00:00.000Z')
+      expect(dialog).not.toHaveTextContent('keeps Paid until')
+      expect(dialog).toHaveTextContent(
+        `Paid’s period ended on ${ended}. This cancels its next subscription, booked from ${ended}.`
+      )
+      await user.click(within(dialog).getByRole('radio', { name: 'Now' }))
+      expect(dialog).toHaveTextContent(
+        'Acme Corp moves to Free now. Razorpay charges nothing more.'
+      )
+      expect(dialog).not.toHaveTextContent('Refund')
+    })
+
+    it('offers no refund on Now when the ending period is over', async () => {
+      serve({
+        ...testTenantBilling,
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: '2026-01-10T00:00:00.000Z',
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      expect(dialog).toHaveTextContent('Acme Corp moves to Free now.')
+      expect(dialog).not.toHaveTextContent('Refund')
+    })
+
     it('shows the API sentence when the provider refuses', async () => {
       serve()
       server.use(

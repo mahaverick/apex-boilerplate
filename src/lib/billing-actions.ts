@@ -140,15 +140,19 @@ export function cancelChoicesFor(
   if (billing.state === 'past_due') return { choices: [nowChoice(false)], note: null }
   if (billing.cancelAtPeriodEnd) {
     const note = end !== null && endsAhead ? `Paid already ends on ${billingDate(end)}.` : null
-    if (!hasNext) return { choices: [nowChoice(true)], note }
+    // A period that is already over leaves no unused time to refund.
+    const ended = end !== null && !endsAhead
+    if (!hasNext) return { choices: [nowChoice(!ended)], note }
     return {
       choices: [
         {
           when: 'cycle_end',
           label: 'Only the next subscription',
-          description: `${tenantName} keeps Paid until ${end === null ? 'its paid period ends' : billingDate(end)}, then moves to Free. This cancels its next subscription${nextFrom}.`,
+          description: ended
+            ? `Paid’s period ended on ${billingDate(end)}. This cancels its next subscription${nextFrom}.`
+            : `${tenantName} keeps Paid until ${end === null ? 'its paid period ends' : billingDate(end)}, then moves to Free. This cancels its next subscription${nextFrom}.`,
         },
-        nowChoice(true),
+        nowChoice(!ended),
       ],
       note,
     }
