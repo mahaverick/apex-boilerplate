@@ -9,14 +9,21 @@ import { useListQuery } from '@/components/shared/data-table/use-list-query'
 import { useListSearch } from '@/components/shared/data-table/use-list-search'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { providerLabel, SUBSCRIPTION_STANDING_BADGE } from '@/constants/billing-labels'
-import { formatDateTime } from '@/lib/format'
-import { analyticsKey } from '@/observability/telemetry'
 import {
-  billingSubscriptionsList,
-  billingSubscriptionsListOptions,
-} from '@/queries/billing-admin.queries'
-import type { StaffBillingSubscriptionItem } from '@/types/billing.types'
+  billingDateTime,
+  PROVIDER_MODE_NAMES,
+  PROVIDER_NAMES,
+  providerLabel,
+  SUBSCRIPTION_STANDING_BADGE,
+} from '@/constants/billing-labels'
+import { analyticsKey } from '@/observability/telemetry'
+import { billingSubscriptionsListOptions } from '@/queries/billing-admin.queries'
+import { billingSubscriptionsList } from '@/queries/billing-reads.queries'
+import {
+  BILLING_PROVIDER_MODES,
+  BILLING_PROVIDERS,
+  type StaffBillingSubscriptionItem,
+} from '@/types/billing.types'
 
 const column = createColumnHelper<DataTableFeatures, StaffBillingSubscriptionItem>()
 
@@ -43,7 +50,7 @@ const columns = column.columns([
       sortName: analyticsKey('first_seen'),
       sortWords: 'date',
     },
-    cell: ({ getValue }) => formatDateTime(getValue()) ?? 'Unknown',
+    cell: ({ getValue }) => billingDateTime(getValue()),
   }),
 ])
 
@@ -52,18 +59,12 @@ const FILTERS: readonly DataTableFilter[] = [
   {
     name: 'provider',
     label: 'Provider',
-    options: [
-      { value: 'razorpay', label: 'Razorpay' },
-      { value: 'fake', label: 'Fake' },
-    ],
+    options: BILLING_PROVIDERS.map((value) => ({ value, label: PROVIDER_NAMES[value] })),
   },
   {
     name: 'mode',
     label: 'Mode',
-    options: [
-      { value: 'test', label: 'Test' },
-      { value: 'live', label: 'Live' },
-    ],
+    options: BILLING_PROVIDER_MODES.map((value) => ({ value, label: PROVIDER_MODE_NAMES[value] })),
   },
 ]
 

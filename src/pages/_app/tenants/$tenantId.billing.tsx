@@ -22,7 +22,7 @@ import {
   billingHistoryList,
   staffPlansQueryOptions,
   staffTenantBillingQueryOptions,
-} from '@/queries/billing-admin.queries'
+} from '@/queries/billing-reads.queries'
 import { TENANT_BILLING_NOT_FOUND, type StaffTenantBilling } from '@/types/billing.types'
 
 /** A tenant's Billing tab: its plan and state, usage, grants, and its billing lists. */

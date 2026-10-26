@@ -4,7 +4,7 @@ import { http } from 'msw'
 import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vite-plus/test'
 import { platformAuditListOptions } from '@/queries/audit.queries'
-import { billingAdminKeys } from '@/queries/billing-admin.queries'
+import { billingAdminKeys } from '@/queries/billing-reads.queries'
 import {
   useArchiveTenant,
   useCreatePlatformTenant,

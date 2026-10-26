@@ -7,9 +7,8 @@ import { Note } from '@/components/shared/note'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { providerLabel } from '@/constants/billing-labels'
+import { billingDate, providerLabel } from '@/constants/billing-labels'
 import { useNow } from '@/hooks/use-now'
-import { formatDate } from '@/lib/format'
 import { formatInr } from '@/lib/money'
 import { absoluteTime, relativeTime } from '@/lib/relative-time'
 import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
@@ -18,12 +17,41 @@ import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
 const PAYMENTS_OFF_NOTE =
   'Payments are off on this server. The plan and dates show what is stored; nothing can be charged or synced.'
 
+/** A billing date, read short. */
+const day = billingDate
+
+/** One dated row of the summary: its name and its date. */
+interface DateRow {
+  label: 'Trial ends' | 'First charge' | 'Cancels on' | 'Paid until'
+  value: string
+}
+
 /**
- * A date in the reader's locale, or a fallback for a value that is not a date.
- * @param iso - An ISO timestamp.
+ * The summary's dated rows, as react's billing page reads the same states.
+ * A trial shows only when it ends: express keeps `trialEndsAt` after a trial,
+ * so a past trial date never shows once the tenant pays or is on Free, and a
+ * trialing tenant's authenticated subscription has no paid period yet. A
+ * tenant that took Paid during its trial is `active` before its first charge,
+ * which falls on the trial's end; it shows that charge, not a paid period.
+ * @param billing - The tenant's billing.
+ * @param now - The moment the page reads as now, in milliseconds.
  */
-function day(iso: string): string {
-  return formatDate(iso, 'medium') ?? 'an unknown date'
+function dateRows(billing: StaffTenantBilling, now: number): DateRow[] {
+  const { state, trialEndsAt, currentPeriodEnd, price } = billing
+  if (state === 'trialing') {
+    return trialEndsAt === null ? [] : [{ label: 'Trial ends', value: day(trialEndsAt) }]
+  }
+  if (state === 'active' && trialEndsAt !== null && new Date(trialEndsAt).getTime() > now) {
+    const amount = price === null ? '' : `${formatInr(price.amountMinor)} on `
+    return [{ label: 'First charge', value: `${amount}${day(trialEndsAt)}` }]
+  }
+  if (currentPeriodEnd === null) return []
+  return [
+    {
+      label: billing.cancelAtPeriodEnd ? 'Cancels on' : 'Paid until',
+      value: day(currentPeriodEnd),
+    },
+  ]
 }
 
 /**
@@ -117,20 +145,12 @@ export function TenantBillingSummary({
           </dd>
           <dt className="text-muted-foreground">Price</dt>
           <dd>{priceText(billing, plans)}</dd>
-          {billing.trialEndsAt !== null && (
-            <>
-              <dt className="text-muted-foreground">Trial ends</dt>
-              <dd>{day(billing.trialEndsAt)}</dd>
-            </>
-          )}
-          {billing.currentPeriodEnd !== null && (
-            <>
-              <dt className="text-muted-foreground">
-                {billing.cancelAtPeriodEnd ? 'Cancels on' : 'Paid until'}
-              </dt>
-              <dd>{day(billing.currentPeriodEnd)}</dd>
-            </>
-          )}
+          {dateRows(billing, now).map(({ label, value }) => (
+            <div key={label} className="contents">
+              <dt className="text-muted-foreground">{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
           {billing.nextSwitch !== null && (
             <>
               <dt className="text-muted-foreground">Next switch</dt>

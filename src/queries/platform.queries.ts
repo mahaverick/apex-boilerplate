@@ -64,7 +64,7 @@ export function systemStatusQueryOptions() {
 
 /**
  * The staff plans read, `billingAdminKeys.plans`. It lives here because
- * `billing-admin.queries.ts` imports this module: its tenant counts move
+ * `billing-reads.queries.ts` imports this module: its tenant counts move
  * whenever a tenant is created, purged or changes state.
  */
 export const PLANS_KEY = ['platform', 'plans'] as const

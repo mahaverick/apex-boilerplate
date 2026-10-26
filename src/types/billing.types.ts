@@ -316,6 +316,14 @@ export const PLAN_FEATURE_REQUIRED = 'PLAN_FEATURE_REQUIRED'
 /** `code` on the 409 for a plan or billing settings edit made against a version another staff member replaced. */
 export const PLAN_VERSION_CONFLICT = 'PLAN_VERSION_CONFLICT'
 
+/**
+ * `code` on the 400 for a list cursor the API refused. Apex's shared list
+ * hook keeps its own copy; this one is for the invoices list, whose cursor
+ * express also refuses once the tenant's subscriptions change or payments
+ * are turned off.
+ */
+export const CURSOR_INVALID = 'CURSOR_INVALID'
+
 /** `code` on the 404 for a staff billing read of a tenant with no billing record: the platform tenant. */
 export const TENANT_BILLING_NOT_FOUND = 'tenant_billing_not_found'
 

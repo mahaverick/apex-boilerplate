@@ -24,12 +24,10 @@ import { codeFrom } from '@/lib/api-error'
 import { formatDate } from '@/lib/format'
 import { formatInr } from '@/lib/money'
 import { isRoleDenied } from '@/lib/role-denied'
+import { staffMessageFrom } from '@/lib/staff-message'
 import { staffInvoicesQueryOptions } from '@/queries/billing-admin.queries'
 import { sortFilterValues } from '@/schemas/list.schemas'
-import { INVOICE_STATUSES, type StaffInvoiceItem } from '@/types/billing.types'
-
-/** The `code` of the API's 400 for a refused cursor: the tenant's subscriptions changed since the first page. */
-const CURSOR_INVALID_CODE = 'CURSOR_INVALID'
+import { CURSOR_INVALID, INVOICE_STATUSES, type StaffInvoiceItem } from '@/types/billing.types'
 
 /** What staff read when payments are off: the provider can't be asked, which is not "no invoices". */
 const INVOICES_PAYMENTS_OFF =
@@ -97,9 +95,11 @@ function InvoicesTable({ items }: { items: readonly StaffInvoiceItem[] }) {
  * come back short or empty while more remain, so "Load more invoices" stays
  * while the last page says there is more, and "No invoices" shows only once
  * the provider says there are none left. A refused cursor (the tenant's
- * subscriptions changed) starts again from the newest. With payments off it
- * asks nothing and says why. The filter is not in the URL: a cursor is bound
- * to the subscriptions as they were, so a link could not reopen the same page.
+ * subscriptions changed, or payments were turned off) starts again from the
+ * newest. With payments off it asks nothing and says why. A failure shows
+ * the API's sentence (`staffMessageFrom`) with Try again; a failed Load more
+ * keeps the pages already read. The Status filter stays in the card for
+ * simplicity: the list is forward only and the filter is one click.
  */
 export function InvoicesCard({
   tenantId,
@@ -125,10 +125,7 @@ export function InvoicesCard({
     if (query.isError && isRoleDenied(query.error)) return <RoleDenied />
     if (query.isError && query.data === undefined) {
       return (
-        <LoadError
-          message="We couldn’t load this tenant’s invoices. Select Try again."
-          onRetry={() => void query.refetch()}
-        />
+        <LoadError message={staffMessageFrom(query.error)} onRetry={() => void query.refetch()} />
       )
     }
     if (query.data === undefined) {
@@ -138,14 +135,14 @@ export function InvoicesCard({
         </div>
       )
     }
-    const refused = query.isFetchNextPageError && codeFrom(query.error) === CURSOR_INVALID_CODE
+    const refused = query.isFetchNextPageError && codeFrom(query.error) === CURSOR_INVALID
     return (
       <div className="grid gap-3">
         {items.length > 0 ? (
           <InvoicesTable items={items} />
         ) : query.hasNextPage ? (
           <p className="text-sm text-muted-foreground">
-            No invoices found yet. Older subscriptions may have some. Select Load more invoices.
+            This page had no invoices. Select Load more invoices to read older subscriptions.
           </p>
         ) : (
           <EmptyState
@@ -158,14 +155,15 @@ export function InvoicesCard({
         )}
         {refused ? (
           <Note tone="info">
-            This tenant’s subscriptions changed since the list opened.{' '}
+            This invoice list is out of date: the tenant’s subscriptions or the server’s payments
+            changed since it opened.{' '}
             <Button variant="link" size="sm" className="h-auto p-0" onClick={restart}>
               Start again from the newest
             </Button>
           </Note>
         ) : query.isFetchNextPageError ? (
           <LoadError
-            message="We couldn’t load more invoices. Select Try again."
+            message={staffMessageFrom(query.error)}
             onRetry={() => void query.fetchNextPage()}
           />
         ) : (
@@ -192,7 +190,7 @@ export function InvoicesCard({
           <h2>Invoices</h2>
         </CardTitle>
         <CardDescription>
-          From the payment provider, newest first. Search and sort aren’t available here.
+          The payment provider pages invoices newest first, so search and sort aren’t available.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3">

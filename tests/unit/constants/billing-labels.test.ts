@@ -4,7 +4,10 @@ import {
   BILLING_EVENT_STATUS_BADGE,
   BILLING_SOURCE_LABELS,
   BILLING_STATE_BADGE,
+  billingDate,
+  billingDateTime,
   historyCauseLabel,
+  historySearchCode,
   INVOICE_STATUS_BADGE,
   providerLabel,
   SUBSCRIPTION_STANDING_BADGE,
@@ -126,5 +129,30 @@ describe('providerLabel', () => {
 
   it('names a provider with no mode on file by itself', () => {
     expect(providerLabel('razorpay', null)).toBe('Razorpay')
+  })
+})
+
+describe('billingDate and billingDateTime', () => {
+  it('read every value that is not a date as Unknown date', () => {
+    expect(billingDate('not-a-date')).toBe('Unknown date')
+    expect(billingDateTime('not-a-date')).toBe('Unknown date')
+    expect(billingDate('2026-11-20T00:00:00.000Z')).toMatch(/2026/)
+  })
+})
+
+describe('historySearchCode', () => {
+  it.each([
+    ['Payment failed', 'past_due'],
+    ['paid', 'active'],
+    ['  TRIAL ', 'trialing'],
+    ['grace period ended', 'grace_ended'],
+    ['Trial set by staff', 'trial_extended'],
+  ])('sends %s as %s', (term, code) => {
+    expect(historySearchCode(term)).toBe(code)
+  })
+
+  it('sends a part of a label, or a code, as typed', () => {
+    expect(historySearchCode('pay')).toBe('pay')
+    expect(historySearchCode('past_due')).toBe('past_due')
   })
 })

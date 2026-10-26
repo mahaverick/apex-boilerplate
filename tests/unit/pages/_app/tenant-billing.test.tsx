@@ -293,6 +293,64 @@ describe('/tenants/$tenantId/billing', () => {
       expect(seen.invoices).toEqual([])
     })
 
+    it('shows when a trial ends, and no paid period, while the tenant is trialing', async () => {
+      serve({
+        ...testTenantBilling,
+        state: 'trialing',
+        price: null,
+        interval: null,
+        trialEndsAt: '2099-01-15T00:00:00.000Z',
+        currentPeriodEnd: null,
+        providerSubscriptionId: null,
+      })
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(row(card, 'Trial ends')).toMatch(/2099/)
+      expect(within(card).queryByText('Paid until', { selector: 'dt' })).toBeNull()
+      expect(within(card).queryByText('First charge', { selector: 'dt' })).toBeNull()
+    })
+
+    it('shows no paid period for a trialing tenant whose subscription is authenticated', async () => {
+      serve({
+        ...testTenantBilling,
+        state: 'trialing',
+        trialEndsAt: '2099-01-15T00:00:00.000Z',
+        currentPeriodEnd: '2099-01-15T00:00:00.000Z',
+      })
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(row(card, 'Trial ends')).toMatch(/2099/)
+      expect(within(card).queryByText('Paid until', { selector: 'dt' })).toBeNull()
+    })
+
+    it('shows the first charge, not a paid period, for a tenant that upgraded during its trial', async () => {
+      serve({
+        ...testTenantBilling,
+        state: 'active',
+        trialEndsAt: '2099-01-15T00:00:00.000Z',
+        currentPeriodEnd: '2099-01-15T00:00:00.000Z',
+      })
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(row(card, 'First charge')).toMatch(/^₹999 on .*2099$/)
+      expect(within(card).queryByText('Paid until', { selector: 'dt' })).toBeNull()
+      expect(within(card).queryByText('Trial ends', { selector: 'dt' })).toBeNull()
+    })
+
+    it('shows no past trial date once the tenant pays or moves to Free', async () => {
+      serve({ ...testTenantBilling, trialEndsAt: '2026-01-15T00:00:00.000Z' })
+      const view = renderAppAt(BILLING)
+      const card = await summary()
+      expect(row(card, 'Paid until')).toMatch(/2026/)
+      expect(within(card).queryByText('Trial ends', { selector: 'dt' })).toBeNull()
+      view.unmount()
+
+      serve({ ...testFreeTenantBilling, trialEndsAt: '2026-01-15T00:00:00.000Z' })
+      renderAppAt(BILLING)
+      const free = await summary()
+      expect(within(free).queryByText('Trial ends', { selector: 'dt' })).toBeNull()
+    })
+
     it('shows a Free tenant with no price, payer or subscription', async () => {
       serve(testFreeTenantBilling)
       renderAppAt(BILLING)
@@ -327,6 +385,35 @@ describe('/tenants/$tenantId/billing', () => {
       const heading = await screen.findByRole('heading', { name: 'Usage and access' })
       const card = heading.closest('[data-slot="card"]') as HTMLElement
       await waitFor(() => expect(row(card, 'Members')).toBe('3 of 3 membersAt limitPlan'))
+    })
+
+    it('keeps an acronym in a limit’s noun', async () => {
+      serve(
+        {
+          ...testTenantBilling,
+          entitlements: {
+            ...testTenantBilling.entitlements,
+            limits: {
+              ...testTenantBilling.entitlements.limits,
+              api_calls: { limit: 1000, used: 10, approaching: false },
+            },
+          },
+          sources: { ...testTenantBilling.sources, api_calls: 'plan' },
+        },
+        {},
+        {
+          ...testPlans,
+          catalog: [
+            ...testPlans.catalog,
+            { key: 'api_calls', kind: 'limit', label: 'API calls', description: 'Calls a month.' },
+          ],
+        }
+      )
+      renderAppAt(BILLING)
+      const heading = await screen.findByRole('heading', { name: 'Usage and access' })
+      const card = heading.closest('[data-slot="card"]') as HTMLElement
+      await waitFor(() => expect(row(card, 'API calls')).toBe('10 of 1000 API callsPlan'))
+      expect(row(card, 'Members')).toBe('4 members · No limitPlan')
     })
 
     it('falls back to registry keys when the plans can’t be read', async () => {
@@ -410,6 +497,25 @@ describe('/tenants/$tenantId/billing', () => {
       expect(seen.events.every((params) => !params.has('search'))).toBe(true)
     })
 
+    it('sends the stored code for a search that names a state or cause label', async () => {
+      const seen = serve()
+      const user = userEvent.setup()
+      const router = renderAppAt(BILLING)
+      await screen.findByRole('table', { name: 'State history' })
+      const box = screen.getByRole('searchbox', { name: 'Search state history' })
+      await user.type(box, 'payment failed')
+      await waitFor(() => expect(seen.history.at(-1)?.get('search')).toBe('past_due'))
+      expect(router.state.location.search).toEqual({ historySearch: 'payment failed' })
+
+      await user.clear(box)
+      await user.type(box, 'first payment taken')
+      await waitFor(() => expect(seen.history.at(-1)?.get('search')).toBe('subscription_activated'))
+
+      await user.clear(box)
+      await user.type(box, 'halt')
+      await waitFor(() => expect(seen.history.at(-1)?.get('search')).toBe('halt'))
+    })
+
     it('says so when no state changes are recorded', async () => {
       serve(testTenantBilling, { history: () => listPage([]) })
       renderAppAt(BILLING)
@@ -427,7 +533,39 @@ describe('/tenants/$tenantId/billing', () => {
       expect(within(failed).getByText('Provider timed out on every retry')).toHaveClass(
         'text-destructive'
       )
-      expect(within(failed).getByText('Not yet')).toBeInTheDocument()
+      expect(within(failed).getByText('Gave up')).toBeInTheDocument()
+      expect(within(failed).queryByText('Not yet')).toBeNull()
+    })
+
+    it('says a pending event is not handled yet, and an unused event’s reason is not an error', async () => {
+      serve(testTenantBilling, {
+        events: () =>
+          listPage([
+            {
+              ...testBillingEvents[0]!,
+              id: 'e-pending',
+              type: 'payment.captured',
+              status: 'pending',
+              processedAt: null,
+              recordedOutcomes: 0,
+            },
+            {
+              ...testBillingEvents[0]!,
+              id: 'e-unused',
+              type: 'subscription.updated',
+              status: 'unused',
+              error: 'payments_off',
+            },
+          ]),
+      })
+      renderAppAt(BILLING)
+      const table = await screen.findByRole('table', { name: 'Provider events' })
+      const pending = within(table).getByText('payment.captured').closest('tr')!
+      expect(within(pending).getByText('Waiting')).toBeInTheDocument()
+      expect(within(pending).getByText('Not yet')).toBeInTheDocument()
+      const unused = within(table).getByText('subscription.updated').closest('tr')!
+      expect(within(unused).getByText('payments_off')).not.toHaveClass('text-destructive')
+      expect(within(unused).getByText('payments_off')).toHaveClass('text-muted-foreground')
     })
 
     it('sends its search, status filter and sort, and pages with the cursor', async () => {
@@ -563,12 +701,75 @@ describe('/tenants/$tenantId/billing', () => {
       renderAppAt(BILLING)
       expect(
         await screen.findByText(
-          'No invoices found yet. Older subscriptions may have some. Select Load more invoices.'
+          'This page had no invoices. Select Load more invoices to read older subscriptions.'
         )
       ).toBeInTheDocument()
       expect(screen.queryByText('No invoices for this tenant.')).toBeNull()
       await user.click(screen.getByRole('button', { name: 'Load more invoices' }))
       expect(await screen.findByRole('table', { name: 'Invoices' })).toBeInTheDocument()
+    })
+
+    it('shows the provider’s refusal with a retry when the first page fails', async () => {
+      const seen = serve()
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/invoices`, ({ request }) => {
+          seen.invoices.push(new URL(request.url).searchParams)
+          return seen.invoices.length <= 2
+            ? fail(
+                'Razorpay didn’t answer. Try again in a minute.',
+                503,
+                'PAYMENT_PROVIDER_UNAVAILABLE'
+              )
+            : ok(listPage(testInvoices), 'ok')
+        })
+      )
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      expect(
+        await screen.findByText('Razorpay didn’t answer. Try again in a minute.')
+      ).toBeInTheDocument()
+      expect(screen.getByRole('table', { name: 'Subscriptions' })).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Try again' }))
+      expect(await screen.findByRole('table', { name: 'Invoices' })).toBeInTheDocument()
+    })
+
+    it('keeps the loaded invoices and offers a retry when Load more fails', async () => {
+      const seen = serve()
+      // Two failures: a list read is tried once more before it fails.
+      let failures = 2
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/invoices`, ({ request }) => {
+          const params = new URL(request.url).searchParams
+          seen.invoices.push(params)
+          if (!params.has('cursor')) {
+            return ok(listPage(testInvoices, { nextCursor: 'c2', hasNext: true }), 'ok')
+          }
+          if (failures > 0) {
+            failures -= 1
+            return fail(
+              'Razorpay didn’t answer. Try again in a minute.',
+              503,
+              'PAYMENT_PROVIDER_UNAVAILABLE'
+            )
+          }
+          return ok(
+            listPage([{ ...testInvoices[0]!, id: 'inv_TestPaid0000' }], { hasPrev: true }),
+            'ok'
+          )
+        })
+      )
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await user.click(await screen.findByRole('button', { name: 'Load more invoices' }))
+      expect(
+        await screen.findByText('Razorpay didn’t answer. Try again in a minute.')
+      ).toBeInTheDocument()
+      expect(
+        within(screen.getByRole('table', { name: 'Invoices' })).getByText('inv_TestPaid0001')
+      ).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Try again' }))
+      expect(await screen.findByText('inv_TestPaid0000')).toBeInTheDocument()
+      expect(seen.invoices.at(-1)?.get('cursor')).toBe('c2')
     })
 
     it('says the tenant has no invoices once the provider has no more', async () => {
@@ -595,7 +796,9 @@ describe('/tenants/$tenantId/billing', () => {
       renderAppAt(BILLING)
       await user.click(await screen.findByRole('button', { name: 'Load more invoices' }))
       expect(
-        await screen.findByText(/This tenant’s subscriptions changed since the list opened\./)
+        await screen.findByText(
+          /^This invoice list is out of date: the tenant’s subscriptions or the server’s payments changed since it opened\./
+        )
       ).toBeInTheDocument()
       const before = seen.invoices.length
       await user.click(screen.getByRole('button', { name: 'Start again from the newest' }))

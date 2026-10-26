@@ -6,19 +6,12 @@ import type { ReactNode } from 'react'
 import { describe, expect, it } from 'vite-plus/test'
 import { auditKeys } from '@/queries/audit.queries'
 import {
-  billingAdminKeys,
   billingAlertsList,
   billingAlertsListOptions,
-  billingEventsList,
   billingEventsListOptions,
-  billingHistoryList,
   billingHistoryListOptions,
-  billingSettingsQueryOptions,
-  billingSubscriptionsList,
   billingSubscriptionsListOptions,
   staffInvoicesQueryOptions,
-  staffPlansQueryOptions,
-  staffTenantBillingQueryOptions,
   useAddGrant,
   useCancelBillingByStaff,
   useCreatePrice,
@@ -29,6 +22,15 @@ import {
   useUpdateBillingSettings,
   useUpdatePlan,
 } from '@/queries/billing-admin.queries'
+import {
+  billingAdminKeys,
+  billingEventsList,
+  billingHistoryList,
+  billingSettingsQueryOptions,
+  billingSubscriptionsList,
+  staffPlansQueryOptions,
+  staffTenantBillingQueryOptions,
+} from '@/queries/billing-reads.queries'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import { testBillingSettings, testPlans, testTenantBilling } from '@/tests/fixtures/billing'
 import { TENANT_ID, TENANT_ID_2 } from '@/tests/fixtures/ids'
@@ -206,6 +208,11 @@ describe('tenant billing lists', () => {
     expect(
       options.getNextPageParam(listPage([], { hasPrev: true }), [], 'c2', [undefined, 'c2'])
     ).toBeUndefined()
+  })
+
+  it('never re-reads every loaded invoice page when the window regains focus', () => {
+    // Each page costs up to 10 provider calls, and a focus refetch would re-read every loaded page.
+    expect(staffInvoicesQueryOptions(TENANT_ID, undefined).refetchOnWindowFocus).toBe(false)
   })
 
   it('asks the invoices route for no status when none is picked', async () => {

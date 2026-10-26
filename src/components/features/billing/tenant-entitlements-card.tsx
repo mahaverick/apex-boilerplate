@@ -12,6 +12,17 @@ interface EntitlementRow {
 }
 
 /**
+ * A label as a noun inside a sentence: its first letter lowered, unless the
+ * first word is all capitals ("API calls" stays as it is).
+ * @param label - The catalog's label, such as "Members".
+ */
+function noun(label: string): string {
+  const first = label.split(' ')[0] ?? ''
+  if (first.length > 1 && first === first.toUpperCase()) return label
+  return `${label.charAt(0).toLowerCase()}${label.slice(1)}`
+}
+
+/**
  * The rows in catalog order, then any key the catalog lacks under its raw
  * key, so a key added in express after this build still shows.
  * @param billing - The tenant's billing.
@@ -32,13 +43,13 @@ function rowsOf(
     const source = billing.sources[key]
     const usage = limits[key]
     if (usage !== undefined) {
-      const noun = label.toLowerCase()
+      const unit = noun(label)
       const { used, limit } = usage
       return [
         {
           key,
           label,
-          value: limit === null ? `${used} ${noun} · No limit` : `${used} of ${limit} ${noun}`,
+          value: limit === null ? `${used} ${unit} · No limit` : `${used} of ${limit} ${unit}`,
           badge:
             limit !== null && used >= limit ? 'At limit' : usage.approaching ? 'Near limit' : null,
           source,

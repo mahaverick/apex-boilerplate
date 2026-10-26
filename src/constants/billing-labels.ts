@@ -6,6 +6,7 @@
  * are this app's.
  */
 import type { BadgeTone } from '@/constants/badge-tones'
+import { formatDate, formatDateTime } from '@/lib/format'
 import type {
   BillingAlertKind,
   BillingEventStatus,
@@ -107,7 +108,16 @@ export const INVOICE_STATUS_BADGE: Record<InvoiceStatus, { label: string; tone: 
 }
 
 /** Each provider's name. `fake` is express's test double. */
-const PROVIDER_NAMES: Record<BillingProvider, string> = { razorpay: 'Razorpay', fake: 'Fake' }
+export const PROVIDER_NAMES: Record<BillingProvider, string> = {
+  razorpay: 'Razorpay',
+  fake: 'Fake',
+}
+
+/** Each provider mode's name, as a filter option reads it. */
+export const PROVIDER_MODE_NAMES: Record<BillingProviderMode, string> = {
+  test: 'Test',
+  live: 'Live',
+}
 
 /**
  * A payment provider and its mode: "Razorpay (test)".
@@ -116,4 +126,43 @@ const PROVIDER_NAMES: Record<BillingProvider, string> = { razorpay: 'Razorpay', 
  */
 export function providerLabel(provider: BillingProvider, mode: BillingProviderMode | null): string {
   return mode === null ? PROVIDER_NAMES[provider] : `${PROVIDER_NAMES[provider]} (${mode})`
+}
+
+/** What every billing date reads as when the value is not a date. */
+const UNKNOWN_DATE = 'Unknown date'
+
+/**
+ * A billing date in the reader's locale, or `Unknown date`.
+ * @param iso - An ISO timestamp.
+ */
+export function billingDate(iso: string): string {
+  return formatDate(iso, 'medium') ?? UNKNOWN_DATE
+}
+
+/**
+ * A billing date and time in the reader's locale, or `Unknown date`.
+ * @param iso - An ISO timestamp.
+ */
+export function billingDateTime(iso: string): string {
+  return formatDateTime(iso) ?? UNKNOWN_DATE
+}
+
+/**
+ * The stored code a history search should send. Express matches the stored
+ * state and cause codes, while the table shows their labels, so a term that
+ * is a whole state or cause label (any case) becomes its code; any other term
+ * is sent as typed.
+ * @param term - What the reader typed.
+ * @returns The code, such as `past_due` for "Payment failed", or the term.
+ */
+export function historySearchCode(term: string): string {
+  const wanted = term.trim().toLowerCase()
+  const labelled: [string, string][] = [
+    ...Object.entries(BILLING_STATE_BADGE).map(([code, { label }]): [string, string] => [
+      code,
+      label,
+    ]),
+    ...Object.entries(HISTORY_CAUSE_LABELS),
+  ]
+  return labelled.find(([, label]) => label.toLowerCase() === wanted)?.[0] ?? term
 }

@@ -9,10 +9,14 @@ import { useListQuery } from '@/components/shared/data-table/use-list-query'
 import { useListSearch } from '@/components/shared/data-table/use-list-search'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { BILLING_EVENT_STATUS_BADGE, providerLabel } from '@/constants/billing-labels'
-import { formatDateTime } from '@/lib/format'
+import {
+  BILLING_EVENT_STATUS_BADGE,
+  billingDateTime,
+  providerLabel,
+} from '@/constants/billing-labels'
 import { analyticsKey } from '@/observability/telemetry'
-import { billingEventsList, billingEventsListOptions } from '@/queries/billing-admin.queries'
+import { billingEventsListOptions } from '@/queries/billing-admin.queries'
+import { billingEventsList } from '@/queries/billing-reads.queries'
 import { BILLING_EVENT_STATUSES, type StaffBillingEventItem } from '@/types/billing.types'
 
 const column = createColumnHelper<DataTableFeatures, StaffBillingEventItem>()
@@ -34,21 +38,29 @@ const columns = column.columns([
   column.accessor('receivedAt', {
     header: 'Received',
     meta: { sorts: ['-at', 'at'], sortName: analyticsKey('at'), sortWords: 'date' },
-    cell: ({ getValue }) => formatDateTime(getValue()) ?? 'Unknown',
+    cell: ({ getValue }) => billingDateTime(getValue()),
   }),
   column.accessor('processedAt', {
     header: 'Handled',
-    cell: ({ getValue }) => {
-      const at = getValue()
-      return at === null ? 'Not yet' : (formatDateTime(at) ?? 'Unknown')
+    // A failed event gave up after every retry and nothing retries it; only a pending one is still to be handled.
+    cell: ({ row }) => {
+      const { processedAt, status } = row.original
+      if (processedAt !== null) return billingDateTime(processedAt)
+      return status === 'failed' ? 'Gave up' : status === 'pending' ? 'Not yet' : none
     },
   }),
   column.accessor('error', {
     header: 'Error',
     meta: { className: 'whitespace-normal' },
-    cell: ({ getValue }) => {
-      const error = getValue()
-      return error === null ? none : <span className="text-destructive">{error}</span>
+    // A failed event's error is a failure; an unused event's is only why it changed nothing.
+    cell: ({ row }) => {
+      const { error, status } = row.original
+      if (error === null) return none
+      return (
+        <span className={status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}>
+          {error}
+        </span>
+      )
     },
   }),
   column.accessor('provider', {

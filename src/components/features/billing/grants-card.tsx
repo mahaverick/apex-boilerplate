@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { BadgeTone } from '@/constants/badge-tones'
-import { formatDate } from '@/lib/format'
+import { billingDate } from '@/constants/billing-labels'
 import type { EntitlementCatalogEntry, StaffTenantBilling } from '@/types/billing.types'
 
 /** One grant, as the tenant's billing view carries it. */
@@ -94,9 +94,7 @@ export function GrantsCard({
                     </TableCell>
                     <TableCell>{valueText(grant)}</TableCell>
                     <TableCell>
-                      {grant.expiresAt === null
-                        ? 'No end date'
-                        : (formatDate(grant.expiresAt, 'medium') ?? 'An unknown date')}
+                      {grant.expiresAt === null ? 'No end date' : billingDate(grant.expiresAt)}
                     </TableCell>
                     <TableCell>
                       <ToneBadge tone={status.tone}>{status.label}</ToneBadge>
