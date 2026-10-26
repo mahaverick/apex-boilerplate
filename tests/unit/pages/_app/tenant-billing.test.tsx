@@ -363,21 +363,46 @@ describe('/tenants/$tenantId/billing', () => {
       expect(within(card).queryByText('First charge', { selector: 'dt' })).toBeNull()
     })
 
-    it('reads a trial that lapsed while the page was open as Free: no past Trial ends date', async () => {
+    it('reads a trial that lapsed while the page was open as Free, and says when it ended', async () => {
+      const endedAt = new Date(Date.now() - 60 * 1000).toISOString()
       serve({
         ...testTenantBilling,
         state: 'trialing',
         price: null,
         interval: null,
-        trialEndsAt: new Date(Date.now() - 60 * 1000).toISOString(),
+        trialEndsAt: endedAt,
         currentPeriodEnd: null,
         providerSubscriptionId: null,
         payer: null,
       })
       renderAppAt(BILLING)
       const card = await summary()
+      expect(row(card, 'Plan')).toBe('FreeFree')
+      expect(within(card).getByText('Free', { selector: '[data-tone]' })).toHaveAttribute(
+        'data-tone',
+        'muted'
+      )
+      expect(row(card, 'Trial ended on')).toBe(billingDate(endedAt, 'UTC'))
       expect(within(card).queryByText('Trial ends', { selector: 'dt' })).toBeNull()
       expect(within(card).queryByText('Paid until', { selector: 'dt' })).toBeNull()
+    })
+
+    it('reads a failed payment past its grace as Free, and says when Paid ended', async () => {
+      const graceEndsAt = new Date(Date.now() - 60 * 1000).toISOString()
+      serve({
+        ...testTenantBilling,
+        state: 'past_due',
+        pastDue: {
+          since: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+          graceEndsAt,
+          paused: false,
+        },
+      })
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(row(card, 'Plan')).toBe('FreeFree')
+      expect(row(card, 'Paid ended on')).toBe(billingDate(graceEndsAt, 'UTC'))
+      expect(within(card).queryByText('Failed payment', { selector: 'dt' })).toBeNull()
     })
 
     it('shows no paid period for a trialing tenant whose subscription is authenticated', async () => {
@@ -447,9 +472,10 @@ describe('/tenants/$tenantId/billing', () => {
     })
 
     it('reads a page left open past the 3-day buffer as Free: no past move-to-Free date', async () => {
+      const periodEnd = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
       serve({
         ...testTenantBilling,
-        currentPeriodEnd: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        currentPeriodEnd: periodEnd,
         cancelAtPeriodEnd: true,
         nextSubscriptionId: 'sub_TestNext0001',
         nextSwitch: { interval: 'year', startsAt: '2026-01-10T00:00:00.000Z' },
@@ -465,6 +491,10 @@ describe('/tenants/$tenantId/billing', () => {
       ]) {
         expect(within(card).queryByText(term, { selector: 'dt' })).toBeNull()
       }
+      expect(row(card, 'Plan')).toBe('FreeFree')
+      expect(row(card, 'Paid ended on')).toBe(
+        billingDate(new Date(Date.parse(periodEnd) + 3 * 24 * 60 * 60 * 1000).toISOString(), 'UTC')
+      )
     })
 
     it('shows the booked next subscription, not the ending one, while Paid continues', async () => {

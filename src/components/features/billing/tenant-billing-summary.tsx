@@ -41,6 +41,8 @@ interface DateRow {
     | 'Paid until'
     | 'Period ended'
     | 'Moves to Free on'
+    | 'Trial ended on'
+    | 'Paid ended on'
   value: string
 }
 
@@ -48,8 +50,9 @@ interface DateRow {
  * The summary's dated rows, as react's billing page reads the same states.
  * A tenant a fresh read would serve as Free (`effectiveState`: a trial past
  * its end, a cancelled period past its buffer, a failed payment past its
- * grace, on a page left open) shows Free's dates: none, never a date that
- * reads as still to come. A trial shows only when it ends: express keeps `trialEndsAt` after a trial,
+ * grace, on a page left open) shows one row saying what ended and when,
+ * never a date that reads as still to come; the card's plan and badge read
+ * Free too. A trial shows only when it ends: express keeps `trialEndsAt` after a trial,
  * so a past trial date never shows once the tenant pays or is on Free, and a
  * trialing tenant's authenticated subscription has no paid period yet. A
  * tenant that took Paid during its trial is `active` before its first charge,
@@ -75,8 +78,21 @@ function dateRows(
   const { state, trialEndsAt, currentPeriodEnd, price, nextSwitch } = billing
   /** A date in the tenant's zone. */
   const day = (iso: string) => billingDate(iso, timeZone)
-  // Express serves a lapsed trial, cancel or grace as Free, so a page left open shows Free's dates: none.
-  if (effectiveState(billing, now) === 'free') return []
+  // Express serves a lapsed trial, cancel or grace as Free, so a page left open says what ended.
+  if (effectiveState(billing, now) === 'free') {
+    if (state === 'trialing' && trialEndsAt !== null) {
+      return [{ label: 'Trial ended on', value: day(trialEndsAt) }]
+    }
+    const graceEndsAt = billing.pastDue?.graceEndsAt ?? null
+    if (state === 'past_due' && graceEndsAt !== null) {
+      return [{ label: 'Paid ended on', value: day(graceEndsAt) }]
+    }
+    if (state === 'active' && currentPeriodEnd !== null) {
+      const endsAt = new Date(currentPeriodEnd).getTime() + CANCEL_BUFFER_MS
+      return [{ label: 'Paid ended on', value: day(new Date(endsAt).toISOString()) }]
+    }
+    return []
+  }
   if (state === 'trialing') {
     return trialEndsAt === null ? [] : [{ label: 'Trial ends', value: day(trialEndsAt) }]
   }
@@ -211,6 +227,11 @@ export function TenantBillingSummary({
   headingRef?: Ref<HTMLHeadingElement>
 }) {
   const now = useNow()
+  // A page left open past a trial's end, a cancel's buffer or a grace reads as the Free a fresh read would serve.
+  const lapsed = billing.state !== 'free' && effectiveState(billing, now) === 'free'
+  const planName = lapsed
+    ? (plans?.plans.find((plan) => plan.key === 'free')?.name ?? 'Free')
+    : billing.plan.name
   const showIds = billing.paymentsEnabled
   const ids = [
     ['Subscription ID', billing.providerSubscriptionId],
@@ -232,8 +253,8 @@ export function TenantBillingSummary({
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
           <dt className="text-muted-foreground">Plan</dt>
           <dd className="flex flex-wrap items-center gap-2">
-            {billing.plan.name}
-            <BillingStateBadge state={billing.state} />
+            {planName}
+            <BillingStateBadge state={lapsed ? 'free' : billing.state} />
             {billing.disputeOpen && <ToneBadge tone="destructive">Dispute open</ToneBadge>}
           </dd>
           <dt className="text-muted-foreground">Price</dt>
@@ -244,7 +265,7 @@ export function TenantBillingSummary({
               <dd>{value}</dd>
             </Fragment>
           ))}
-          {billing.pastDue !== null && (
+          {billing.pastDue !== null && !lapsed && (
             <>
               <dt className="text-muted-foreground">Failed payment</dt>
               <dd>{pastDueText(billing.pastDue, billing.provider, timeZone)}</dd>
