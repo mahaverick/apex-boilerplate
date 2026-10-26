@@ -1,6 +1,6 @@
+import { providerDashboard, providerName } from '@/constants/billing-labels'
 import type { ServerErrors } from '@/hooks/use-server-errors'
 import { codeFrom, retryAfterSecondsFrom, statusFrom } from '@/lib/api-error'
-import { providerName } from '@/lib/billing-actions'
 import { nounFor } from '@/lib/plural'
 import { ROLE_DENIED_ACTION, staffMessageFrom } from '@/lib/staff-message'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
@@ -61,7 +61,7 @@ export function billingOutageMessage(
   }
   if (status === 502) {
     const tenant = context === undefined ? 'the tenant' : context.tenantName
-    return `${provider} didn’t accept this request. Check ${tenant} in ${owned} dashboard.`
+    return `${provider} didn’t accept this request. Check ${tenant} in ${providerDashboard(context?.provider ?? null)}.`
   }
   return undefined
 }

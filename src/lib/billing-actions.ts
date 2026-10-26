@@ -3,7 +3,7 @@
  * a role may take in a tenant's state, how a sentence names the payment
  * provider, and the extend-trial preview, worked out as express does.
  */
-import { billingDate } from '@/constants/billing-labels'
+import { billingDate, providerName } from '@/constants/billing-labels'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { nounFor } from '@/lib/plural'
 import { trialDaysFrom } from '@/schemas/billing.schemas'
@@ -20,21 +20,6 @@ import type {
  * `CANCEL_BUFFER_DAYS` (3), before the tenant moves to Free.
  */
 export const CANCEL_BUFFER_MS = 3 * 24 * 60 * 60 * 1000
-
-/**
- * The payment provider as a sentence names it: Razorpay, or "the payment
- * provider" for the fake one a test server runs, or none on file. Every
- * billing sentence names the provider through this one function.
- * @param provider - The tenant's `provider`.
- * @param options - `sentenceStart` capitalises the generic name to open a sentence.
- */
-export function providerName(
-  provider: StaffTenantBilling['provider'],
-  { sentenceStart = false }: { sentenceStart?: boolean } = {}
-): string {
-  if (provider === 'razorpay') return 'Razorpay'
-  return sentenceStart ? 'The payment provider' : 'the payment provider'
-}
 
 /**
  * Whether express would cancel a current subscription: an id with the tenant

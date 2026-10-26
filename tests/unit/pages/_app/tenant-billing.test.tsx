@@ -332,7 +332,7 @@ describe('/tenants/$tenantId/billing', () => {
       const card = await summary()
       expect(
         within(card).getByText(
-          /Payments are off on this server\. This page shows the stored plan and dates\./
+          'Payments are off on this server, so it can’t charge, sync or cancel. A subscription made earlier still charges at Razorpay; cancel it in the Razorpay dashboard.'
         )
       ).toBeInTheDocument()
       expect(row(card, 'Plan')).toBe('PaidPaid')

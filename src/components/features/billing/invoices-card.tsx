@@ -19,9 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { billingDate, INVOICE_STATUS_BADGE } from '@/constants/billing-labels'
+import { billingDate, INVOICE_STATUS_BADGE, providerName } from '@/constants/billing-labels'
 import { codeFrom } from '@/lib/api-error'
-import { providerName } from '@/lib/billing-actions'
 import { formatInr } from '@/lib/billing-format'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
 import { isRoleDenied } from '@/lib/role-denied'

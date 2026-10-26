@@ -119,6 +119,31 @@ export const PROVIDER_NAMES: Record<BillingProvider, string> = {
   fake: 'Fake',
 }
 
+/**
+ * The payment provider as a sentence names it: Razorpay, or "the payment
+ * provider" for the fake one a test server runs, or none on file. Every
+ * billing sentence names the provider through this one function.
+ * @param provider - The tenant's `provider`.
+ * @param options - `sentenceStart` capitalises the generic name to open a sentence.
+ */
+export function providerName(
+  provider: BillingProvider | null,
+  { sentenceStart = false }: { sentenceStart?: boolean } = {}
+): string {
+  if (provider === 'razorpay') return 'Razorpay'
+  return sentenceStart ? 'The payment provider' : 'the payment provider'
+}
+
+/**
+ * Where staff act on a subscription this server can't reach: "the Razorpay
+ * dashboard", or "the payment provider’s dashboard" for another provider or
+ * none on file.
+ * @param provider - The tenant's `provider`, or null when unknown.
+ */
+export function providerDashboard(provider: BillingProvider | null): string {
+  return provider === 'razorpay' ? 'the Razorpay dashboard' : 'the payment provider’s dashboard'
+}
+
 /** Each provider mode's name, as a filter option reads it. */
 export const PROVIDER_MODE_NAMES: Record<BillingProviderMode, string> = {
   test: 'Test',

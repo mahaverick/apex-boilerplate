@@ -7,16 +7,29 @@ import { Note } from '@/components/shared/note'
 import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { billingDate, billingDateTime, providerLabel } from '@/constants/billing-labels'
+import {
+  billingDate,
+  billingDateTime,
+  providerDashboard,
+  providerLabel,
+  providerName,
+} from '@/constants/billing-labels'
 import { useNow } from '@/hooks/use-now'
-import { CANCEL_BUFFER_MS, effectiveState, providerName } from '@/lib/billing-actions'
+import { CANCEL_BUFFER_MS, effectiveState } from '@/lib/billing-actions'
 import { formatInr } from '@/lib/billing-format'
 import { relativeTime } from '@/lib/relative-time'
 import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
 
-/** What staff read when payments are off on the server. */
-const PAYMENTS_OFF_NOTE =
-  'Payments are off on this server. This page shows the stored plan and dates. Nobody can be charged, and Resync and Cancel are hidden.'
+/**
+ * What staff read when payments are off on the server. Express then holds no
+ * provider keys, so it can't reach a subscription made earlier, which still
+ * charges at the provider; the next step is the provider's dashboard.
+ * @param provider - The tenant's payment provider.
+ */
+function paymentsOffNote(provider: StaffTenantBilling['provider']): string {
+  const at = providerName(provider)
+  return `Payments are off on this server, so it can’t charge, sync or cancel. A subscription made earlier still charges at ${at}; cancel it in ${providerDashboard(provider)}.`
+}
 
 /** One dated row of the summary: its name and its date. */
 interface DateRow {
@@ -215,7 +228,7 @@ export function TenantBillingSummary({
         {actions !== undefined && <CardAction>{actions}</CardAction>}
       </CardHeader>
       <CardContent className="grid gap-4">
-        {!billing.paymentsEnabled && <Note tone="info">{PAYMENTS_OFF_NOTE}</Note>}
+        {!billing.paymentsEnabled && <Note tone="info">{paymentsOffNote(billing.provider)}</Note>}
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
           <dt className="text-muted-foreground">Plan</dt>
           <dd className="flex flex-wrap items-center gap-2">

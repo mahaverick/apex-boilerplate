@@ -13,9 +13,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { providerName } from '@/constants/billing-labels'
 import { useNow } from '@/hooks/use-now'
 import { useStepUp } from '@/hooks/use-step-up'
-import { billingActionsFor, providerName } from '@/lib/billing-actions'
+import { billingActionsFor } from '@/lib/billing-actions'
 import { billingOutageMessage } from '@/lib/billing-refusal'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
 import { toast } from '@/lib/toast'
