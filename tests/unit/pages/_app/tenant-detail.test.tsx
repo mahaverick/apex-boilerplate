@@ -330,6 +330,38 @@ describe('/tenants/$tenantId', () => {
       })
     })
 
+    it.each([
+      [
+        'Suspend',
+        'admin' as const,
+        detail(),
+        'Suspend Acme Corp?',
+        'Members lose access at once, and its members and invitations are frozen until it is reactivated. A Paid subscription is cancelled at the end of its period.',
+      ],
+      [
+        'Archive',
+        'admin' as const,
+        detail(),
+        'Archive Acme Corp?',
+        'Archiving is permanent: the tenant can’t be reactivated, its pending invitations are revoked, and its slug becomes free for reuse. A Paid subscription is cancelled now.',
+      ],
+      [
+        'Delete permanently',
+        'owner' as const,
+        detail({ lifecycleState: 'archived', deletedAt: '2026-09-01T00:00:00.000Z' }),
+        'Permanently delete Acme Corp?',
+        'This removes the tenant, its settings, memberships, invitations and its own activity log for good. Only a record of the deletion stays in the platform log. It can’t be undone. Cancel any Paid subscription first; we refuse the delete while one is live.',
+      ],
+    ])('says what %s does to billing', async (item, role, tenant, title, description) => {
+      signIn({ ...testUser, platformRole: role })
+      serve(tenant)
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: item }))
+      const dialog = await screen.findByRole('alertdialog', { name: title })
+      expect(dialog).toHaveAccessibleDescription(description)
+    })
+
     it('shows a 409 inside the dialog', async () => {
       serve(detail())
       server.use(

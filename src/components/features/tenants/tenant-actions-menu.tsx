@@ -174,7 +174,7 @@ export function TenantActionsMenu({
         {...dialogProps('suspend')}
         finalFocus={finalFocus}
         title={`Suspend ${tenant.name}?`}
-        description="Members lose access at once, and its members and invitations are frozen until it is reactivated."
+        description="Members lose access at once, and its members and invitations are frozen until it is reactivated. A Paid subscription is cancelled at the end of its period."
         confirmLabel="Suspend"
         destructive
         onConfirm={async (reason) => {
@@ -197,7 +197,7 @@ export function TenantActionsMenu({
         {...dialogProps('archive')}
         finalFocus={finalFocus}
         title={`Archive ${tenant.name}?`}
-        description="Archiving is permanent: the tenant can’t be reactivated, its pending invitations are revoked, and its slug becomes free for reuse."
+        description="Archiving is permanent: the tenant can’t be reactivated, its pending invitations are revoked, and its slug becomes free for reuse. A Paid subscription is cancelled now."
         confirmLabel="Archive"
         destructive
         confirmText={tenant.slug}
@@ -210,7 +210,7 @@ export function TenantActionsMenu({
         {...dialogProps('purge')}
         finalFocus={purgeFocus.finalFocus}
         title={`Permanently delete ${tenant.name}?`}
-        description="This removes the tenant, its settings, memberships, invitations and its own activity log for good. Only a record of the deletion stays in the platform log. It can’t be undone."
+        description="This removes the tenant, its settings, memberships, invitations and its own activity log for good. Only a record of the deletion stays in the platform log. It can’t be undone. Cancel any Paid subscription first; we refuse the delete while one is live."
         confirmLabel="Delete permanently"
         destructive
         confirmText={tenant.slug}
