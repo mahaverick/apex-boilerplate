@@ -30,6 +30,7 @@ const day = billingDate
 interface DateRow {
   label:
     | 'Trial ends'
+    | 'Next subscription'
     | 'First charge'
     | 'Cancels on'
     | 'Paid until'
@@ -48,13 +49,23 @@ interface DateRow {
  * Free shows no dates: express keeps the last period's end after a move to
  * Free. A cancelled period that has ended reads as ended, with the day the
  * tenant moves to Free, never as cancelling on a past date.
+ * A booked next subscription (a switch, or Paid again while cancelling)
+ * reads as Paid continuing, checked first as react does, never as ending.
  * @param billing - The tenant's billing.
  * @param now - The moment the page reads as now, in milliseconds.
+ * @param plans - The staff plans, for the next subscription's price.
  */
-function dateRows(billing: StaffTenantBilling, now: number): DateRow[] {
-  const { state, trialEndsAt, currentPeriodEnd, price } = billing
+function dateRows(
+  billing: StaffTenantBilling,
+  now: number,
+  plans: StaffPlans | undefined
+): DateRow[] {
+  const { state, trialEndsAt, currentPeriodEnd, price, nextSwitch } = billing
   if (state === 'trialing') {
     return trialEndsAt === null ? [] : [{ label: 'Trial ends', value: day(trialEndsAt) }]
+  }
+  if (state === 'active' && nextSwitch !== null) {
+    return [{ label: 'Next subscription', value: nextSubscriptionText(nextSwitch, plans) }]
   }
   if (state === 'active' && trialEndsAt !== null && new Date(trialEndsAt).getTime() > now) {
     const amount = price === null ? '' : `${formatInr(price.amountMinor)} on `
@@ -74,6 +85,29 @@ function dateRows(billing: StaffTenantBilling, now: number): DateRow[] {
       value: day(currentPeriodEnd),
     },
   ]
+}
+
+/**
+ * A booked next subscription as react's billing page reads it: "₹9,990 per
+ * year from {date}" at Paid's active price for that interval, or "Yearly
+ * from {date}" when the plans don't give one.
+ * @param next - The next subscription's interval and start.
+ * @param plans - The staff plans, if they loaded.
+ */
+function nextSubscriptionText(
+  next: NonNullable<StaffTenantBilling['nextSwitch']>,
+  plans: StaffPlans | undefined
+): string {
+  const amount = plans?.plans
+    .find((plan) => plan.key === 'paid')
+    ?.prices.find((p) => p.interval === next.interval && p.active)?.amountMinor
+  const price =
+    amount === undefined
+      ? next.interval === 'year'
+        ? 'Yearly'
+        : 'Monthly'
+      : `${formatInr(amount)} per ${next.interval}`
+  return `${price} from ${day(next.startsAt)}`
 }
 
 /**
@@ -173,21 +207,12 @@ export function TenantBillingSummary({
           </dd>
           <dt className="text-muted-foreground">Price</dt>
           <dd>{priceText(billing, plans)}</dd>
-          {dateRows(billing, now).map(({ label, value }) => (
+          {dateRows(billing, now, plans).map(({ label, value }) => (
             <div key={label} className="contents">
               <dt className="text-muted-foreground">{label}</dt>
               <dd>{value}</dd>
             </div>
           ))}
-          {billing.nextSwitch !== null && (
-            <>
-              <dt className="text-muted-foreground">Next switch</dt>
-              <dd>
-                Switches to {billing.nextSwitch.interval === 'year' ? 'yearly' : 'monthly'} billing
-                on {day(billing.nextSwitch.startsAt)}
-              </dd>
-            </>
-          )}
           {billing.pastDue !== null && (
             <>
               <dt className="text-muted-foreground">Failed payment</dt>

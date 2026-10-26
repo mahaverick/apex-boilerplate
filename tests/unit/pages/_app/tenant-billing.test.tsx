@@ -378,6 +378,39 @@ describe('/tenants/$tenantId/billing', () => {
       expect(within(card).queryByText('Cancels on', { selector: 'dt' })).toBeNull()
     })
 
+    it('shows the booked next subscription, not the ending one, while Paid continues', async () => {
+      serve({
+        ...testTenantBilling,
+        cancelAtPeriodEnd: true,
+        nextSubscriptionId: 'sub_TestNext0001',
+        nextSwitch: { interval: 'year', startsAt: '2026-11-20T00:00:00.000Z' },
+      })
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(row(card, 'Next subscription')).toBe(
+        `₹9,990 per year from ${billingDate('2026-11-20T00:00:00.000Z')}`
+      )
+      expect(within(card).queryByText('Cancels on', { selector: 'dt' })).toBeNull()
+      expect(within(card).queryByText('Moves to Free on', { selector: 'dt' })).toBeNull()
+    })
+
+    it('names the next subscription’s interval when the plans can’t be read', async () => {
+      serve({
+        ...testTenantBilling,
+        nextSubscriptionId: 'sub_TestNext0001',
+        nextSwitch: { interval: 'year', startsAt: '2026-11-20T00:00:00.000Z' },
+      })
+      server.use(
+        http.get('/api/v1/platform/plans', () => fail('Internal server error', 500, 'internal'))
+      )
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(row(card, 'Next subscription')).toBe(
+        `Yearly from ${billingDate('2026-11-20T00:00:00.000Z')}`
+      )
+      expect(within(card).queryByText('Paid until', { selector: 'dt' })).toBeNull()
+    })
+
     it('shows a Free tenant with no price, payer or subscription', async () => {
       serve(testFreeTenantBilling)
       renderAppAt(BILLING)
