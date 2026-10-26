@@ -153,6 +153,18 @@ describe('Plans page', () => {
       expect(await screen.findByText(/Your role can’t see this any more/)).toBeInTheDocument()
     })
 
+    it('reads an entitlement the plan sets no value for as Not set, with the dash hidden', async () => {
+      const [free, paid] = testPlans.plans
+      servePlans({
+        ...testPlans,
+        plans: [{ ...free!, entitlements: { members: 3 } }, paid!],
+      })
+      openPlans('viewer')
+      const freeCard = await card('Free')
+      expect(within(freeCard).getByText('Not set')).toHaveClass('sr-only')
+      expect(within(freeCard).getByText('—')).toHaveAttribute('aria-hidden', 'true')
+    })
+
     it('counts the tenants each plan serves', async () => {
       openPlans('viewer')
       expect(await card('Free')).toHaveTextContent('4 on Free')

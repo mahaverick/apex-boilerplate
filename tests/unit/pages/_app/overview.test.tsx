@@ -2,6 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
+import { absoluteTime } from '@/lib/relative-time'
 import { useAuthStore } from '@/states/auth.store'
 import { testBillingAlerts } from '@/tests/fixtures/billing'
 import { testFlagsStatus } from '@/tests/fixtures/flags'
@@ -815,6 +816,10 @@ describe('the Overview’s billing alerts card', () => {
     expect(duplicate).toHaveTextContent('Duplicate refunded')
     expect(duplicate).toHaveTextContent(testBillingAlerts[0]!.message)
     expect(duplicate!.querySelector('time')).toHaveAttribute('datetime', testBillingAlerts[0]!.at)
+    expect(duplicate!.querySelector('time')).toHaveAttribute(
+      'title',
+      absoluteTime(testBillingAlerts[0]!.at)
+    )
     expect(failing).toHaveTextContent('Provider event failing')
     expect(seen.at(-1)?.get('limit')).toBe('5')
     expect(seen.at(-1)?.get('total')).toBeNull()

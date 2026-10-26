@@ -236,6 +236,12 @@ describe('/tenants/$tenantId/billing', () => {
       expect(row(card, 'Payer')).toBe('A B')
       expect(row(card, 'Payment provider')).toBe('Razorpay (test)')
       expect(row(card, 'Subscription ID')).toBe('sub_TestActive0001')
+      // A dl holds groups or bare pairs, never both: every child is a dt or a dd.
+      for (const dl of document.querySelectorAll('dl')) {
+        expect(new Set([...dl.children].map((child) => child.tagName))).toEqual(
+          new Set(['DT', 'DD'])
+        )
+      }
       expect(within(card).getByRole('button', { name: 'Copy subscription ID' })).toBeInTheDocument()
       expect(within(card).queryByText('Pending subscription ID')).toBeNull()
       expect(within(card).queryByText('Dispute open')).toBeNull()
@@ -699,6 +705,10 @@ describe('/tenants/$tenantId/billing', () => {
       )
       expect(within(failed).getByText('Gave up')).toBeInTheDocument()
       expect(within(failed).queryByText('Not yet')).toBeNull()
+      // A processed event has no error: a dash on screen, "None" for a screen reader.
+      const processed = within(table).getByText('subscription.charged').closest('tr')!
+      expect(within(processed).getByText('None')).toHaveClass('sr-only')
+      expect(within(processed).getByText('—')).toHaveAttribute('aria-hidden', 'true')
     })
 
     it('says a pending event is not handled yet, and an unused event’s reason is not an error', async () => {

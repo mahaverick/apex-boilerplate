@@ -19,7 +19,8 @@ import { build } from 'vite'
  *   move a type out of it. The staff billing forms are the first use of
  *   `z.number()` and `z.boolean()`, and the full-tenant invite refusal reads
  *   the billing keys: first-visit JS went from 597,445 to 603,638 bytes. After
- *   the Plans page's plan and price forms: 605,833 bytes.
+ *   the Plans page's plan and price forms: 605,833 bytes; after the
+ *   whole-branch fix round (tenant time zones): 606,030 bytes.
  */
 const ENTRY_BUDGET_BYTES = 608_000
 
