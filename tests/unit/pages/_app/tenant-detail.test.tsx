@@ -1085,7 +1085,7 @@ describe('/tenants/$tenantId', () => {
                 actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
                 target: { type: 'tenant', id: TENANT_ID },
                 metadata: { emailDomain: 'acme.test', reason: 'Owner left' },
-                tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
+                tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme', timezone: 'UTC' },
               },
             ]),
             'Audit log retrieved.'
@@ -1115,7 +1115,12 @@ describe('/tenants/$tenantId', () => {
               {
                 ...NEW_YORK_GRANT,
                 id: AUDIT_ID_1,
-                tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
+                tenant: {
+                  id: TENANT_ID,
+                  name: 'Acme Corp',
+                  slug: 'acme',
+                  timezone: 'America/New_York',
+                },
               },
             ]),
             'Audit log retrieved.'

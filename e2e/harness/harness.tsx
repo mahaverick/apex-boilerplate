@@ -622,6 +622,10 @@ function serveList<T>(rows: T[], params: URLSearchParams, options: ServeOptions<
 const SAM = { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' }
 const PLATFORM = { id: PLATFORM_TENANT_ID, name: 'Platform', slug: 'platform' }
 
+/** An audit entry's tenant, which names its zone (express sends `UTC` for a tenant with none). */
+const PLATFORM_IN_LOG = { ...PLATFORM, timezone: 'UTC' }
+const ACME_IN_LOG = { ...ACME, timezone: 'UTC' }
+
 /**
  * A History card's entries: a user's (`target`) or a tenant's staff actions
  * (`tenant` with `access=platform`), each carrying a long reason so the
@@ -641,7 +645,7 @@ function historyOf(params: URLSearchParams) {
         metadata: {
           reason: 'Repeated chargebacks reported by Cleo D at the billing provider this month',
         },
-        tenant: PLATFORM,
+        tenant: PLATFORM_IN_LOG,
       },
       {
         id: AUDIT_ID_1,
@@ -651,7 +655,7 @@ function historyOf(params: URLSearchParams) {
         actor: SAM,
         target: { type: 'user', id: targetId },
         metadata: { emailDomain: 'example-corp.co.uk' },
-        tenant: PLATFORM,
+        tenant: PLATFORM_IN_LOG,
       },
     ]
   }
@@ -664,7 +668,7 @@ function historyOf(params: URLSearchParams) {
       actor: SAM,
       target: { type: 'tenant', id: params.get('tenant') ?? TENANT_ID },
       metadata: { reason: 'Billing hold while the overdue invoices are reconciled' },
-      tenant: ACME,
+      tenant: ACME_IN_LOG,
     },
   ]
 }
@@ -1841,7 +1845,7 @@ const worker = setupWorker(
             actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
             target: { type: 'settings', id: TENANT_ID },
             metadata: { changed: ['timezone'] },
-            tenant: ACME,
+            tenant: ACME_IN_LOG,
           },
           {
             id: AUDIT_ID_1,
@@ -1851,7 +1855,7 @@ const worker = setupWorker(
             actor: { id: USER_ID, name: 'A B', email: 'a.b@example.com' },
             target: { type: 'tenant', id: TENANT_ID },
             metadata: { name: 'Acme Corp', slug: 'acme' },
-            tenant: ACME,
+            tenant: ACME_IN_LOG,
           },
           {
             id: SUSPENDED_AUDIT_ID,
@@ -1861,7 +1865,7 @@ const worker = setupWorker(
             actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
             target: { type: 'tenant', id: TENANT_ID },
             metadata: { reason: 'Escalated by Cleo D after the overdue invoices' },
-            tenant: ACME,
+            tenant: ACME_IN_LOG,
           },
         ],
         { hasNext: true, nextCursor: 'c2' }

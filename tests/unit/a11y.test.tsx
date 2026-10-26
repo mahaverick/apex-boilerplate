@@ -832,7 +832,7 @@ describe('signed-in pages', () => {
     useAuthStore.setState({ user: { ...testUser, platformRole: 'admin' } })
     const entries: PlatformAuditEntry[] = AUDIT_ENTRIES.map((entry) => ({
       ...entry,
-      tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
+      tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme', timezone: 'UTC' },
     }))
     server.use(
       http.get('/api/v1/platform/audit-log', () => ok(listPage(entries), 'Audit log retrieved.'))

@@ -29,7 +29,8 @@ import type { AuditEntry, PlatformAuditEntry } from '@/types/api.types'
 
 /**
  * What the cells need from the table's caller: whether tenants show, the
- * record the list sits on, and the tenant's zone on a log of one tenant.
+ * record the list sits on, and the tenant's zone on a log of one tenant (a
+ * log across tenants reads each entry's own).
  */
 interface ActivityContextValue {
   showTenant: boolean
@@ -109,14 +110,19 @@ function Target({ entry }: { entry: AuditEntry }) {
 }
 
 /**
- * What happened, as a sentence; a billing date in it names the tenant's day
- * when the log is one tenant's.
+ * What happened, as a sentence; a billing date in it names the tenant's day:
+ * the page's tenant on a log of one tenant, else the entry's own tenant on a
+ * log across tenants. Only an entry with neither names the moment in UTC.
  * @param props - The entry.
  * @param props.entry - The row.
  */
 function Action({ entry }: { entry: AuditEntry }) {
   const { timeZone } = useContext(ActivityContext)
-  return <Pii className="whitespace-normal">{auditSentence(entry, timeZone)}</Pii>
+  return (
+    <Pii className="whitespace-normal">
+      {auditSentence(entry, timeZone ?? tenantOf(entry)?.timezone)}
+    </Pii>
+  )
 }
 
 const column = createColumnHelper<DataTableFeatures, AuditEntry>()
@@ -204,7 +210,7 @@ const ACTIVITY_ERROR = 'We couldn’t load the activity, so none is listed. Sele
  * @param props.subjectId - The record the list sits on; a target that is this record gets no link to the page already open.
  * @param props.landmark - False when the parent is already the list's named region.
  * @param props.timeZone - The tenant's `settings.timezone` when the log is one tenant's, so a
- * billing date names the tenant's day; left out on a log across tenants.
+ * billing date names the tenant's day; left out on a log across tenants, which reads each entry's own.
  */
 export function ActivityTable<T extends AuditEntry>({
   query,

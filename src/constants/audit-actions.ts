@@ -195,11 +195,11 @@ function grantKey(metadata: Metadata): string {
 /**
  * The day a billing entry's moment falls on in the tenant's zone, as the
  * Billing tab writes it ("26 November 2026"), so the log and the tab name the
- * same day. Without the zone (a log across tenants) the day alone would be a
+ * same day. Without a zone (an entry with no tenant) the day alone would be a
  * guess, so it names the moment in UTC with the zone said: "26 November 2026
  * at 23:59 UTC". Null when the value is missing or not a date.
  * @param iso - The stored moment.
- * @param timeZone - The tenant's `settings.timezone`, or undefined when the log spans tenants.
+ * @param timeZone - The tenant's zone, or undefined for an entry with no tenant.
  */
 function billingDay(iso: string | undefined, timeZone: string | undefined): string | null {
   if (iso === undefined || Number.isNaN(new Date(iso).getTime())) return null
@@ -281,7 +281,7 @@ function because(metadata: Metadata): string {
   return reason ? `: “${reason}”` : ''
 }
 
-/** One action's sentence, from its metadata and the tenant's zone (undefined on a log across tenants). */
+/** One action's sentence, from its metadata and the tenant's zone (undefined for an entry with no tenant). */
 type Sentence = (metadata: Metadata, timeZone: string | undefined) => string
 
 /** Each action's sentence; only the billing dates read the zone. */
@@ -415,8 +415,8 @@ export function readableAction(action: string): string {
  * What the actor did, as the rest of a sentence their name begins. Reads the
  * metadata defensively, so a row whose fields are missing or mistyped still renders.
  * @param entry - The audit entry.
- * @param timeZone - The tenant's `settings.timezone` on a log of one tenant, so a
- * billing date names the tenant's day; undefined on a log across tenants.
+ * @param timeZone - The tenant's zone (the page's tenant, or the entry's own on a log across tenants), so a
+ * billing date names the tenant's day; undefined for an entry with no tenant.
  */
 export function auditSentence(
   entry: { action: string; metadata: Metadata },
