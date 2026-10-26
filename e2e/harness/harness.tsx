@@ -1233,19 +1233,37 @@ const sectionHandlers = [
   ),
 ]
 
-/** The Tenants table's rows: one in each status, then enough more to fill a second page. */
+/**
+ * The Tenants table's rows: one in each status, then enough more to fill a
+ * second page. Between them they hold every plan state, and the first filler
+ * has no billing record.
+ */
 const PLATFORM_TENANT_ROWS = [
-  { ...ACME, lifecycleState: 'active' },
-  { id: TENANT_ID_2, name: 'Beta Ltd', slug: 'beta', lifecycleState: 'suspended' },
-  { id: TENANT_ID_3, name: 'Gamma Inc', slug: 'gamma', lifecycleState: 'archived' },
+  { ...ACME, lifecycleState: 'active', billingState: 'active' },
+  {
+    id: TENANT_ID_2,
+    name: 'Beta Ltd',
+    slug: 'beta',
+    lifecycleState: 'suspended',
+    billingState: 'past_due',
+  },
+  {
+    id: TENANT_ID_3,
+    name: 'Gamma Inc',
+    slug: 'gamma',
+    lifecycleState: 'archived',
+    billingState: 'free',
+  },
   ...Array.from({ length: 21 }, (_, index) => ({
     id: `10000000-0000-4000-8000-${String(100 + index).padStart(12, '0')}`,
     name: `Filler ${String(index + 1).padStart(2, '0')} Co`,
     slug: `filler-${index + 1}`,
     lifecycleState: 'active',
+    billingState: index === 0 ? null : 'trialing',
   })),
 ].map((tenant, index) => ({
   ...tenant,
+  planKey: tenant.billingState === null ? null : tenant.billingState === 'free' ? 'free' : 'paid',
   memberCount: 2,
   createdAt: `2026-01-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
 }))
@@ -1607,7 +1625,11 @@ const worker = setupWorker(
     ok(
       serveList(PLATFORM_TENANT_ROWS, new URL(request.url).searchParams, {
         searchIn: (row) => [row.name, row.slug],
-        filters: { state: (row, values) => values.includes(row.lifecycleState) },
+        filters: {
+          state: (row, values) => values.includes(row.lifecycleState),
+          billingState: (row, values) =>
+            row.billingState !== null && values.includes(row.billingState),
+        },
         sorts: {
           name: (a, b) => a.name.localeCompare(b.name),
           created: (a, b) => a.createdAt.localeCompare(b.createdAt),
