@@ -174,7 +174,7 @@ export function cancelChoicesFor(
           when: 'cycle_end',
           label: 'Only the next subscription',
           description: ended
-            ? `This cancels only ${tenantName}’s next subscription${nextFrom}. ${tenantName}’s paid period ended on ${billingDate(end)}, and it moves to Free on ${freeFrom(end)}.`
+            ? `This cancels only ${tenantName}’s next subscription. ${tenantName}’s paid period ended on ${billingDate(end)}, and it moves to Free on ${freeFrom(end)}.`
             : `${tenantName} keeps Paid until ${end === null ? 'its paid period ends' : billingDate(end)}, then moves to Free. This cancels its next subscription${nextFrom}.`,
         },
         nowChoice(!ended),

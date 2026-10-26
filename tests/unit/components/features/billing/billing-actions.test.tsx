@@ -969,7 +969,7 @@ describe('billing actions', () => {
       expect(dialog).not.toHaveTextContent('keeps Paid until')
       const free = billingDate(new Date(Date.parse(ENDED_IN_BUFFER) + 3 * DAY_MS).toISOString())
       expect(dialog).toHaveTextContent(
-        `This cancels only Acme Corp’s next subscription, booked from ${ended}. Acme Corp’s paid period ended on ${ended}, and it moves to Free on ${free}.`
+        `This cancels only Acme Corp’s next subscription. Acme Corp’s paid period ended on ${ended}, and it moves to Free on ${free}.`
       )
       await user.click(within(dialog).getByRole('radio', { name: 'Now' }))
       expect(dialog).toHaveTextContent(
