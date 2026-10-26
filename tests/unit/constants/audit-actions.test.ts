@@ -141,6 +141,7 @@ describe('auditSentence dates, read ahead of UTC', () => {
     )
   })
 
+  // A guard for billingDay's null path, not a regression test: main left such an end out too.
   it('leaves out an end that is not a date, whatever the zone', () => {
     expect(auditSentence(grantUntil('not a date'), 'UTC')).toBe(
       'granted Members (no limit): “big team”'
