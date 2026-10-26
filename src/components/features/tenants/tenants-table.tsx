@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { createColumnHelper } from '@tanstack/react-table'
 import type { ReactNode } from 'react'
+import { BillingStateBadge } from '@/components/features/billing/billing-state-badge'
 import { TenantStateBadge } from '@/components/features/tenants/tenant-state-badge'
 import { DataTable } from '@/components/shared/data-table/data-table'
 import type {
@@ -8,9 +9,11 @@ import type {
   DataTableFilter,
 } from '@/components/shared/data-table/data-table-model'
 import type { ListQueryState } from '@/components/shared/data-table/use-list-query'
+import { BILLING_STATE_BADGE } from '@/constants/billing-labels'
 import { ROUTES } from '@/constants/routes'
 import { analyticsKey } from '@/observability/telemetry'
 import { TENANT_LIFECYCLE_STATES, type PlatformTenantRow } from '@/types/api.types'
+import { BILLING_STATES } from '@/types/billing.types'
 
 const column = createColumnHelper<DataTableFeatures, PlatformTenantRow>()
 
@@ -36,6 +39,10 @@ const columns = column.columns([
     header: 'Status',
     cell: ({ getValue }) => <TenantStateBadge state={getValue()} />,
   }),
+  column.accessor('billingState', {
+    header: 'Billing',
+    cell: ({ getValue }) => <BillingStateBadge state={getValue()} />,
+  }),
   column.accessor('memberCount', {
     header: 'Members',
     cell: ({ getValue }) => <span className="tabular-nums">{getValue()}</span>,
@@ -60,6 +67,14 @@ const FILTERS: readonly DataTableFilter[] = [
     name: 'state',
     label: 'Status',
     options: TENANT_LIFECYCLE_STATES.map((state) => ({ value: state, label: STATE_LABELS[state] })),
+  },
+  {
+    name: 'billingState',
+    label: 'Billing',
+    options: BILLING_STATES.map((state) => ({
+      value: state,
+      label: BILLING_STATE_BADGE[state].label,
+    })),
   },
 ]
 

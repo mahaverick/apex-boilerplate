@@ -3,9 +3,11 @@ import userEvent from '@testing-library/user-event'
 import { delay, http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import type { MembershipRole } from '@/constants/roles'
+import { billingAdminKeys } from '@/queries/billing-reads.queries'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import { queryClient } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
+import { testTenantBilling } from '@/tests/fixtures/billing'
 import { byContent } from '@/tests/fixtures/content'
 import {
   AUDIT_ID_1,
@@ -328,6 +330,50 @@ describe('/tenants/$tenantId', () => {
         isAuthenticated: true,
         accessToken: stepped,
       })
+    })
+
+    it.each([
+      [
+        'Suspend',
+        'admin' as const,
+        detail(),
+        'Suspend Acme Corp?',
+        'Members lose access at once, and its members and invitations are frozen until it is reactivated. With payments on, we cancel a Paid subscription at the end of its paid period, or now if it hasn’t been charged yet. With payments off, cancel it in the payment provider’s dashboard.',
+      ],
+      [
+        'Archive',
+        'admin' as const,
+        detail(),
+        'Archive Acme Corp?',
+        'Archiving is permanent: the tenant can’t be reactivated, its pending invitations are revoked, and its slug becomes free for reuse. With payments on, we cancel any Paid subscription now. With payments off, cancel it in the payment provider’s dashboard.',
+      ],
+      [
+        'Delete permanently',
+        'owner' as const,
+        detail({ lifecycleState: 'archived', deletedAt: '2026-09-01T00:00:00.000Z' }),
+        'Permanently delete Acme Corp?',
+        'This removes the tenant, its settings, memberships, invitations and its own activity log for good. Only a record of the deletion stays in the platform log. It can’t be undone. Cancel any Paid subscription first; we refuse the delete while one can still charge a card.',
+      ],
+    ])('says what %s does to billing', async (item, role, tenant, title, description) => {
+      signIn({ ...testUser, platformRole: role })
+      serve(tenant)
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: item }))
+      const dialog = await screen.findByRole('alertdialog', { name: title })
+      expect(dialog).toHaveAccessibleDescription(description)
+    })
+
+    it('names Razorpay’s dashboard when the Billing tab cached the tenant’s provider', async () => {
+      serve(detail())
+      queryClient.setQueryData(billingAdminKeys.tenant(TENANT_ID), testTenantBilling)
+      renderAppAt(`/tenants/${TENANT_ID}`)
+      const { user, menu } = await openMenu()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Suspend' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Suspend Acme Corp?' })
+      expect(dialog).toHaveAccessibleDescription(
+        /With payments off, cancel it in the Razorpay dashboard\.$/
+      )
     })
 
     it('shows a 409 inside the dialog', async () => {

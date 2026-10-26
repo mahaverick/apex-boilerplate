@@ -130,6 +130,35 @@ const SURFACES = [
     url: `/e2e/harness/?path=${ACME_PAGE}/activity`,
     heading: 'Acme Corp',
   },
+  // The Billing tab: the state badges, the Plan and Grant badges, the copy buttons and the four lists, in three billing states.
+  {
+    name: 'tenant billing',
+    url: `/e2e/harness/?path=${ACME_PAGE}/billing`,
+    heading: 'Usage and access',
+  },
+  {
+    name: 'tenant billing (trial)',
+    url: `/e2e/harness/?path=${ACME_PAGE}/billing&billing=trialing`,
+    heading: 'Usage and access',
+  },
+  // The past-due badge, the failed payment line and the dispute badge.
+  {
+    name: 'tenant billing (past due)',
+    url: `/e2e/harness/?path=${ACME_PAGE}/billing&billing=past_due`,
+    heading: 'Usage and access',
+  },
+  // The plan editor's inputs, switches and checkboxes, the prices table and the trials and grace card.
+  { name: 'plans', url: '/e2e/harness/?path=/plans', heading: 'Trials and grace' },
+  {
+    name: 'plans (viewer)',
+    url: '/e2e/harness/?path=/plans&role=viewer',
+    heading: 'Trials and grace',
+  },
+  {
+    name: 'billing alerts',
+    url: '/e2e/harness/?path=/billing-alerts',
+    heading: /^Billing alerts$/,
+  },
   // The flags inspector: state and reason badges, the traits' copy buttons and an evaluation.
   {
     name: 'flags',
@@ -971,7 +1000,7 @@ test.describe('chart series', () => {
 
 /**
  * The staff surfaces: the Staff badge on an Activity row and the three tenant
- * status badges, each asserted present, because a page without them grades
+ * status badges and four plan badges, each asserted present, because a page without them grades
  * clean and proves nothing about their token pairs.
  */
 test.describe('staff surfaces', () => {
@@ -983,11 +1012,23 @@ test.describe('staff surfaces', () => {
       expect(report('staff badge', theme, result), report('staff badge', theme, result)).toBe('')
     })
 
-    test(`the Tenants status badges meet WCAG AA contrast in ${theme}`, async ({ page }) => {
-      const result = await contrastOf(page, '/e2e/harness/?path=/tenants', theme, 'Tenants')
+    test(`the Tenants status and plan badges meet WCAG AA contrast in ${theme}`, async ({
+      page,
+    }) => {
+      // Archived tenants show only when asked for, as express's default status filter leaves them out.
+      const tenants = '/e2e/harness/?path=/tenants?state=active,suspended,archived'
+      const result = await contrastOf(page, tenants, theme, 'Tenants')
       const table = page.getByRole('table', { name: 'Tenants' })
-      for (const status of ['Active', 'Suspended', 'Archived']) {
-        await expect(table.getByText(status, { exact: true }).first()).toBeVisible()
+      for (const badge of [
+        'Active',
+        'Suspended',
+        'Archived',
+        'Trial',
+        'Free',
+        'Paid',
+        'Payment failed',
+      ]) {
+        await expect(table.getByText(badge, { exact: true }).first()).toBeVisible()
       }
       expect(report('status badges', theme, result), report('status badges', theme, result)).toBe(
         ''
@@ -1447,4 +1488,63 @@ test('a public page gets its bootstrap refresh from the fallback, not the dev se
     timeout: COLD_TRANSFORM_BUDGET_MS,
   })
   expect(apiFallback.answered).toContain('POST /api/v1/auth/refresh')
+})
+
+/**
+ * A tenant's Billing actions menu, with Cancel subscription as its
+ * destructive item, then the cancel dialog's radio group and the add-grant
+ * dialog's fields. None renders until driven open.
+ */
+test.describe('billing actions and their dialogs', () => {
+  for (const theme of THEMES) {
+    test(`the billing actions menu, the cancel dialog and the add-grant dialog meet WCAG AA contrast in ${theme}`, async ({
+      page,
+    }) => {
+      await page.addInitScript(`localStorage.setItem('theme', ${JSON.stringify(theme)})`)
+      await page.goto(`/e2e/harness/?path=${ACME_PAGE}/billing&billing=active`)
+      await expect(page.getByRole('heading', { name: 'Usage and access', level: 2 })).toBeVisible({
+        timeout: COLD_TRANSFORM_BUDGET_MS,
+      })
+
+      await page.getByRole('button', { name: 'Billing actions' }).click()
+      const menu = page.getByRole('menu')
+      // The destructive item has its own token pair: the menu must be populated, or this grades nothing.
+      await expect(menu.getByRole('menuitem', { name: 'Cancel subscription' })).toBeVisible()
+      await afterAnimations(menu)
+      await afterFontsAndFrames(page)
+      await page.addScriptTag({ path: AXE_PATH })
+      const menuResult = await runAxe(page, '[role="menu"]')
+      expect(
+        report('billing actions menu', theme, menuResult),
+        report('billing actions menu', theme, menuResult)
+      ).toBe('')
+
+      await menu.getByRole('menuitem', { name: 'Cancel subscription' }).click()
+      const cancel = page.getByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      await expect(cancel.getByRole('radio').first()).toBeVisible()
+      await afterAnimations(cancel)
+      const cancelResult = await runAxe(page, '[role="alertdialog"]')
+      expect(
+        report('cancel dialog', theme, cancelResult),
+        report('cancel dialog', theme, cancelResult)
+      ).toBe('')
+      await cancel.getByRole('button', { name: 'Keep subscription' }).click()
+      await expect(cancel).toBeHidden()
+
+      await page.getByRole('button', { name: 'Billing actions' }).click()
+      await page.getByRole('menuitem', { name: 'Add grant' }).click()
+      const grant = page.getByRole('dialog', { name: 'Add a grant for Acme Corp' })
+      await grant.getByRole('combobox', { name: 'Limit or feature' }).click()
+      await page.getByRole('option', { name: 'Members' }).click()
+      await expect(grant.getByLabel('New limit')).toBeVisible()
+      await afterAnimations(grant)
+      const grantResult = await runAxe(page, '[role="dialog"]')
+      expect(
+        report('add-grant dialog', theme, grantResult),
+        report('add-grant dialog', theme, grantResult)
+      ).toBe('')
+    })
+  }
 })

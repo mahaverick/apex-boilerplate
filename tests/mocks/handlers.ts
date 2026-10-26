@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import type { MembershipRole } from '@/constants/roles'
 import type { ClientFlagValues } from '@/observability/flags/flag-types'
+import { testBillingSettings, testPlans, testTenantBilling } from '@/tests/fixtures/billing'
 import { flagRows, flagsMeta, unregisteredRows } from '@/tests/fixtures/flags'
 import {
   AUDIT_ID_4,
@@ -713,6 +714,28 @@ export const handlers = [
       'Suppression lifted.'
     )
   ),
+  // Both plans, the default trial rules, no billing alerts, and any tenant reads as a monthly Paid customer with empty billing lists.
+  http.get('/api/v1/platform/plans', () => ok(testPlans, 'Plans retrieved.')),
+  http.get('/api/v1/platform/billing-settings', () =>
+    ok(testBillingSettings, 'Billing settings retrieved.')
+  ),
+  http.get('/api/v1/platform/billing/alerts', () => ok(listPage([]), 'Billing alerts retrieved.')),
+  http.get('/api/v1/platform/tenants/:tenantId/billing', () =>
+    ok(testTenantBilling, 'Billing retrieved.')
+  ),
+  http.get('/api/v1/platform/tenants/:tenantId/billing/history', () =>
+    ok(listPage([]), 'Billing history retrieved.')
+  ),
+  http.get('/api/v1/platform/tenants/:tenantId/billing/events', () =>
+    ok(listPage([]), 'Billing events retrieved.')
+  ),
+  http.get('/api/v1/platform/tenants/:tenantId/billing/subscriptions', () =>
+    ok(listPage([]), 'Billing subscriptions retrieved.')
+  ),
+  http.get('/api/v1/platform/tenants/:tenantId/billing/invoices', () =>
+    ok(listPage([]), 'Invoices retrieved.')
+  ),
+
   // Tracked tenants exist but no list has a row, and any tenant reads as Acme's in-progress detail.
   http.get('/api/v1/platform/onboarding/funnel', ({ request }) =>
     ok(

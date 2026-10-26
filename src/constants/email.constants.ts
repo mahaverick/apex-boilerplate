@@ -16,7 +16,8 @@ import type {
  * Resend dialog shows: a sign-in link or welcome message mails a fresh
  * sign-in link, and an invitation or its confirmation sends the invitation
  * again. The identity confirmation link, the onboarding reminder, the
- * maintenance-mode notice, the two passkey notices and the five retired templates have no resend.
+ * maintenance-mode notice, the two passkey notices, the fifteen billing
+ * notices and the five retired templates have no resend.
  */
 export const EMAIL_TEMPLATES: Record<
   EmailTemplateKey,
@@ -34,6 +35,21 @@ export const EMAIL_TEMPLATES: Record<
   },
   passkey_created: { label: 'Passkey created', resendLabel: null },
   passkey_deleted: { label: 'Passkey deleted', resendLabel: null },
+  trial_started: { label: 'Trial started', resendLabel: null },
+  trial_midpoint: { label: 'Trial halfway', resendLabel: null },
+  trial_ending: { label: 'Trial ends in 3 days', resendLabel: null },
+  trial_ends_today: { label: 'Trial ends today', resendLabel: null },
+  trial_ended: { label: 'Trial ended', resendLabel: null },
+  paid_welcome: { label: 'Welcome to Paid', resendLabel: null },
+  renewal_upcoming: { label: 'Yearly renewal in 7 days', resendLabel: null },
+  payment_failed: { label: 'Payment failed', resendLabel: null },
+  moved_to_free: { label: 'Moved to Free', resendLabel: null },
+  paid_cancelled: { label: 'Paid cancelled', resendLabel: null },
+  interval_switch_scheduled: { label: 'Billing switch scheduled', resendLabel: null },
+  payer_left: { label: 'Payer left', resendLabel: null },
+  upgrade_requested: { label: 'Upgrade requested', resendLabel: null },
+  upgrade_request_fulfilled: { label: 'Upgrade request fulfilled', resendLabel: null },
+  winback: { label: 'Win-back', resendLabel: null },
   email_verification: { label: 'Email verification', resendLabel: null },
   password_reset: { label: 'Password reset', resendLabel: null },
   registration_attempt: { label: 'Registration attempt', resendLabel: null },

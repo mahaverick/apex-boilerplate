@@ -4,10 +4,78 @@
  * listed here. Endpoints are relative to /api/v1 (see endpoint.ts).
  */
 import type { FileRoutesByFullPath } from '@/routeTree.gen'
-import type { NavigationCapture, RouteCapture, Section } from './types'
+import { testTenantBilling } from '../../tests/fixtures/billing'
+import type { CaptureState, NavigationCapture, RouteCapture, Section } from './types'
 
 const TENANT: Section = { name: 'Tenant', endpoints: ['GET /platform/tenants/:id'] }
 const USER: Section = { name: 'User', endpoints: ['GET /platform/users/:id'] }
+
+/**
+ * A moment `days` from when the capture runs, so a state's dates stay as
+ * true on every run as on the first: a trial still running, a failed
+ * payment recent.
+ * @param days - Days from now; negative is earlier.
+ */
+function daysFromNow(days: number): string {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+}
+
+/**
+ * The Billing tab's named states, each the seeded tenant's billing read
+ * replaced by a canned view. The platform tenant's "no billing" state is not
+ * shot: the seed names no platform tenant id, and a stub can only succeed.
+ */
+const BILLING_STATES: readonly CaptureState[] = [
+  {
+    name: 'trial',
+    note: 'A tenant in its Paid trial: no price paid yet, the trial end date.',
+    stubs: [
+      {
+        endpoint: 'GET /platform/tenants/:id/billing',
+        data: {
+          ...testTenantBilling,
+          state: 'trialing',
+          price: null,
+          interval: null,
+          trialEndsAt: daysFromNow(8),
+          currentPeriodEnd: null,
+          providerSubscriptionId: null,
+          // A trial with no subscription has no payer yet, as express serves it.
+          payer: null,
+          entitlements: {
+            ...testTenantBilling.entitlements,
+            state: 'trialing',
+            trialEndsAt: daysFromNow(8),
+            currentPeriodEnd: null,
+          },
+        },
+      },
+    ],
+  },
+  {
+    name: 'past-due',
+    note: 'A failed payment the provider is still retrying, with a dispute open.',
+    stubs: [
+      {
+        endpoint: 'GET /platform/tenants/:id/billing',
+        data: {
+          ...testTenantBilling,
+          state: 'past_due',
+          // The renewal that failed ended the period.
+          currentPeriodEnd: daysFromNow(-5),
+          pastDue: { since: daysFromNow(-5), graceEndsAt: null, paused: false },
+          disputeOpen: true,
+          entitlements: {
+            ...testTenantBilling.entitlements,
+            state: 'past_due',
+            currentPeriodEnd: daysFromNow(-5),
+            pastDue: { since: daysFromNow(-5), graceEndsAt: null, paused: false },
+          },
+        },
+      },
+    ],
+  },
+]
 
 /** Each route's capture, keyed by its full path. */
 export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
@@ -79,18 +147,59 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     ],
     empty: { url: '/onboarding?state=dismissed' },
   },
+  '/plans': {
+    kind: 'page',
+    area: 'plans',
+    shot: 'plans',
+    roleDenied: {
+      as: 'viewer',
+      note: 'A viewer: the plans, prices, trials and grace as text, with no edit controls.',
+    },
+    url: '/plans',
+    as: 'staff',
+    responsive: true,
+    sections: [
+      { name: 'Plans (Free, Paid, Prices)', endpoints: ['GET /platform/plans'] },
+      { name: 'Trials and grace', endpoints: ['GET /platform/billing-settings'] },
+    ],
+  },
   '/overview': {
     kind: 'page',
     area: 'overview',
     shot: 'overview',
-    roleDenied: { as: 'viewer', note: 'A viewer: no system status card.' },
+    roleDenied: { as: 'viewer', note: 'A viewer: no system status or billing alerts card.' },
     url: '/overview',
     as: 'staff',
     responsive: true,
     sections: [
       { name: 'Stats (KPIs, charts)', endpoints: ['GET /platform/stats'] },
       { name: 'System status', endpoints: ['GET /platform/system/status'] },
+      { name: 'Billing alerts', endpoints: ['GET /platform/billing/alerts'] },
     ],
+  },
+  '/billing-alerts': {
+    kind: 'page',
+    area: 'plans',
+    shot: 'billing-alerts',
+    roleDenied: {
+      as: 'viewer',
+      note: 'A viewer: the platform-not-found card; no alerts request.',
+    },
+    url: '/billing-alerts',
+    as: 'staff',
+    responsive: true,
+    sections: [{ name: 'Billing alerts', endpoints: ['GET /platform/billing/alerts'] }],
+    empty: {
+      stubs: [
+        {
+          endpoint: 'GET /platform/billing/alerts',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+      ],
+    },
   },
   '/profile': { kind: 'redirect', to: '/settings/account/profile' },
   '/settings': {
@@ -428,6 +537,24 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     url: '/tenants/{tenantId}/onboarding',
     as: 'staff',
     sections: [TENANT, { name: 'Onboarding', endpoints: ['GET /platform/tenants/:id/onboarding'] }],
+  },
+  '/tenants/$tenantId/billing': {
+    kind: 'page',
+    area: 'tenants',
+    shot: 'tenant-billing',
+    url: '/tenants/{tenantId}/billing',
+    as: 'staff',
+    sections: [
+      TENANT,
+      { name: 'Billing', endpoints: ['GET /platform/tenants/:id/billing'] },
+      { name: 'Plans', endpoints: ['GET /platform/plans'] },
+      { name: 'State history', endpoints: ['GET /platform/tenants/:id/billing/history'] },
+      { name: 'Provider events', endpoints: ['GET /platform/tenants/:id/billing/events'] },
+      { name: 'Subscriptions', endpoints: ['GET /platform/tenants/:id/billing/subscriptions'] },
+      { name: 'Invoices', endpoints: ['GET /platform/tenants/:id/billing/invoices'] },
+    ],
+    states: BILLING_STATES,
+    note: 'Every staff role reads the same tab, so there is no role-denied shot.',
   },
   '/settings/account/': { kind: 'redirect', to: '/settings/account/profile' },
   '/settings/platform/': { kind: 'redirect', to: '/settings/platform/staff' },

@@ -7,10 +7,11 @@ import {
   auditSentence,
   isAuditAction,
 } from '@/constants/audit-actions'
+import { formatDate } from '@/lib/format'
 import { EMAIL_ID, EMAIL_ID_2, INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
 describe('AUDIT_ACTIONS', () => {
-  it('lists exactly the thirty-eight actions the API writes', () => {
+  it('lists exactly the fifty-two actions the API writes', () => {
     expect([...AUDIT_ACTIONS].sort()).toEqual(
       [
         'invitation.accepted',
@@ -51,12 +52,32 @@ describe('AUDIT_ACTIONS', () => {
         'user.updated',
         'user.flags_evaluated',
         'platform.maintenance_mode_changed',
+        'billing.cancel_scheduled',
+        'billing.cancelled_by_staff',
+        'billing.card_change_started',
+        'billing.checkout_started',
+        'billing.grant_added',
+        'billing.grant_expired',
+        'billing.grant_revoked',
+        'billing.interval_switch_scheduled',
+        'billing.resynced',
+        'billing.settings_updated',
+        'billing.trial_extended',
+        'billing.viewed',
+        'plan.price_created',
+        'plan.updated',
       ].sort()
     )
     for (const action of AUDIT_ACTIONS) {
       expect(AUDIT_ACTION_LABELS[action]).not.toBe('')
       expect(auditSentence({ action, metadata: {} })).not.toMatch(/^performed /)
     }
+  })
+
+  it('names each billing event as true for every case express records under it', () => {
+    // An owner's cancel is at the period end, or now for a past-due or uncharged Paid; staff extend or start a trial.
+    expect(AUDIT_ACTION_LABELS['billing.cancel_scheduled']).toBe('Paid cancelled by owner')
+    expect(AUDIT_ACTION_LABELS['billing.trial_extended']).toBe('Trial set by staff')
   })
 
   it('keeps the four passwordless retirements stored and filterable, never offered', () => {
@@ -80,6 +101,110 @@ describe('AUDIT_ACTIONS', () => {
 
 describe('auditSentence', () => {
   it.each([
+    ['billing.checkout_started', { interval: 'year' }, 'started a yearly Paid checkout'],
+    ['billing.checkout_started', { interval: 'month' }, 'started a monthly Paid checkout'],
+    ['billing.cancel_scheduled', {}, 'cancelled Paid'],
+    [
+      'billing.interval_switch_scheduled',
+      { interval: 'year' },
+      'scheduled a switch to yearly billing',
+    ],
+    ['billing.card_change_started', {}, 'started a payment method change'],
+    [
+      'billing.grant_expired',
+      { grantId: USER_ID, key: 'members' },
+      'marked the Members grant expired',
+    ],
+    ['billing.viewed', {}, 'viewed the tenant’s billing'],
+    [
+      'billing.resynced',
+      { reason: 'customer paid' },
+      'resynced billing with the payment provider: “customer paid”',
+    ],
+    [
+      'billing.trial_extended',
+      { days: 7, reason: 'pilot', trialEndsAt: '2026-11-09T12:00:00.000Z' },
+      `set the trial to end on ${formatDate('2026-11-09T12:00:00.000Z', 'medium') ?? ''} (7 days): “pilot”`,
+    ],
+    [
+      'billing.trial_extended',
+      { days: 1, reason: 'pilot', trialEndsAt: 'not a date' },
+      'set the trial (1 day): “pilot”',
+    ],
+    ['billing.trial_extended', { reason: 'pilot' }, 'set the trial: “pilot”'],
+    [
+      'billing.grant_added',
+      { key: 'members', value: null, expiresAt: null, reason: 'big team' },
+      'granted Members (no limit): “big team”',
+    ],
+    [
+      'billing.grant_added',
+      { key: 'members', value: 10, expiresAt: '2026-12-01T12:00:00.000Z', reason: 'trial' },
+      `granted Members (10) until ${formatDate('2026-12-01T12:00:00.000Z', 'medium') ?? ''}: “trial”`,
+    ],
+    [
+      'billing.grant_added',
+      { key: 'advanced_example', value: true, expiresAt: null, reason: 'demo' },
+      'granted Workspace insights (on): “demo”',
+    ],
+    [
+      'billing.grant_revoked',
+      { key: 'seats_v2', reason: 'ended' },
+      'revoked the seats_v2 grant: “ended”',
+    ],
+    [
+      'billing.grant_revoked',
+      { key: 'members', reason: 'ended' },
+      'revoked the Members grant: “ended”',
+    ],
+    [
+      'billing.cancelled_by_staff',
+      { when: 'now', reason: 'fraud' },
+      'cancelled the subscription now: “fraud”',
+    ],
+    [
+      'billing.cancelled_by_staff',
+      { when: 'cycle_end', reason: 'asked' },
+      'cancelled the subscription at its period end: “asked”',
+    ],
+    [
+      'plan.updated',
+      { before: { name: 'Free' }, after: { name: 'Starter' }, reason: 'rename' },
+      'edited the Starter plan: “rename”',
+    ],
+    ['plan.updated', {}, 'edited a plan'],
+    [
+      'plan.price_created',
+      { interval: 'month', amountMinor: 129_900, reason: 'new price' },
+      'added a monthly price of ₹1,299: “new price”',
+    ],
+    ['plan.price_created', {}, 'added a price'],
+    [
+      'billing.settings_updated',
+      { changedFields: ['trialDays', 'trialEnabled'], reason: 'promo' },
+      'changed the billing settings (trial length, trials on or off): “promo”',
+    ],
+    ['billing.settings_updated', {}, 'changed the billing settings'],
+    [
+      'billing.settings_updated',
+      { changedFields: ['pastDueGraceDays', 'newSetting'], reason: 'promo' },
+      'changed the billing settings (grace period, newSetting): “promo”',
+    ],
+    [
+      'billing.settings_updated',
+      { changedFields: [1, null], reason: 'checked' },
+      'changed the billing settings: “checked”',
+    ],
+    [
+      'billing.settings_updated',
+      { changedFields: [], reason: 'checked' },
+      'saved the billing settings with no changes: “checked”',
+    ],
+    [
+      'billing.grant_added',
+      { key: 'members', value: 'ten', expiresAt: null, reason: 'demo' },
+      'granted Members: “demo”',
+    ],
     ['tenant.created', { name: 'Acme Corp', slug: 'acme' }, 'created the tenant “Acme Corp”'],
     ['tenant.updated', { changed: ['name', 'website'] }, 'updated the tenant (name, website)'],
     ['tenant.settings_updated', { changed: ['timezone'] }, 'changed the settings (timezone)'],

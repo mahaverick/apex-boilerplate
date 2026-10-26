@@ -19,6 +19,8 @@ export const AUDIT_TARGET_LABELS: Record<KnownAuditTargetType, string> = {
   email_message: 'Email',
   email_suppression: 'Suppression',
   platform: 'Platform',
+  plan: 'Plan',
+  billing: 'Billing',
 }
 
 /**

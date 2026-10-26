@@ -154,6 +154,7 @@ const ADMIN_TENANT_PAGE = [
   'Go to Activity',
   'Go to Emails',
   'Go to Onboarding',
+  'Go to Billing',
   'Go to Flags',
   'Copy tenant ID',
 ]
@@ -227,6 +228,7 @@ describe('the This page sources', () => {
           'Go to Activity',
           'Go to Emails',
           'Go to Onboarding',
+          'Go to Billing',
           'Go to Flags',
           'Copy tenant ID',
         ])

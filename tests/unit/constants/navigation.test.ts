@@ -29,17 +29,21 @@ const ITEMS: readonly NavItem[] = [
 ]
 
 describe('navigation', () => {
-  it('gives a viewer the Directory, Operations and Growth pages, not the activity log', () => {
-    expect(navItemsFor('viewer').map((item) => item.label)).toEqual([
-      'Overview',
-      'Tenants',
-      'Users',
-      'Emails',
-      'Deliverability',
-      'Suppressions',
-      'Onboarding',
-    ])
-  })
+  it.each(['viewer', 'manager'] as const)(
+    'gives a %s the Directory, Operations and Growth pages, Plans included, not the billing alerts or the activity log',
+    (role) => {
+      expect(navItemsFor(role).map((item) => item.label)).toEqual([
+        'Overview',
+        'Tenants',
+        'Users',
+        'Emails',
+        'Deliverability',
+        'Suppressions',
+        'Onboarding',
+        'Plans',
+      ])
+    }
+  )
 
   it('gives an admin every item', () => {
     expect(navItemsFor('admin').map((item) => item.label)).toEqual([
@@ -49,7 +53,9 @@ describe('navigation', () => {
       'Emails',
       'Deliverability',
       'Suppressions',
+      'Billing alerts',
       'Onboarding',
+      'Plans',
       'Activity log',
     ])
   })
@@ -72,8 +78,8 @@ describe('navigation', () => {
     ).toEqual([
       ['General', ['Overview']],
       ['Directory', ['Tenants', 'Users']],
-      ['Operations', ['Emails', 'Deliverability', 'Suppressions']],
-      ['Growth', ['Onboarding']],
+      ['Operations', ['Emails', 'Deliverability', 'Suppressions', 'Billing alerts']],
+      ['Growth', ['Onboarding', 'Plans']],
       ['Security', ['Activity log']],
     ])
   })

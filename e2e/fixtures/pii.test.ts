@@ -16,6 +16,7 @@ const NAMES = [
   'Cleo D',
   'Cleo',
   'Sam Staff',
+  'Staff Admin',
   'Evangeline',
   'Featherstonehaugh',
   'Pii Probe’s phone',
@@ -44,6 +45,7 @@ for (const [name, path, ready] of [
   ['a tenant’s activity', `${ACME}/activity`, 'Acme Corp'],
   ['a tenant’s emails', `${ACME}/emails`, 'Acme Corp'],
   ['a tenant’s onboarding', `${ACME}/onboarding`, 'Acme Corp'],
+  ['a tenant’s billing', `${ACME}/billing`, 'Acme Corp'],
   ['the emails list', '/emails', 'Emails'],
   ['an email', DELIVERED, 'cleo.d@example.com'],
   ['an email’s preview', `${DELIVERED}?tab=preview`, 'cleo.d@example.com'],
@@ -51,6 +53,7 @@ for (const [name, path, ready] of [
   ['deliverability', '/deliverability', 'Deliverability'],
   ['suppressions, active and lifted', '/suppressions?state=active,lifted', 'Suppressions'],
   ['onboarding', '/onboarding', 'Onboarding'],
+  ['plans, with the settings’ last editor', '/plans', 'Plans'],
   [
     'maintenance, with the banner',
     '/settings/platform/maintenance&maintenance=full',

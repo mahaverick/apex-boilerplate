@@ -8,7 +8,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axeCore from 'axe-core'
-import { http } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ThemeToggle } from '@/components/features/theme-toggle'
 import { recordRecent } from '@/components/shared/command-palette/recent-items'
@@ -23,6 +23,17 @@ import { useCommandPaletteStore } from '@/states/command-palette.store'
 import { usePasskeySetupStore } from '@/states/passkey-setup.store'
 import { useSidebarStore } from '@/states/sidebar.store'
 import { useThemeStore } from '@/states/theme.store'
+import {
+  testBillingEvents,
+  testBillingHistory,
+  testBillingSubscriptions,
+  testFreeTenantBilling,
+  testInvoices,
+  testBillingAlerts,
+  testBillingSettings,
+  testPlans,
+  testTenantBilling,
+} from '@/tests/fixtures/billing'
 import { byContent } from '@/tests/fixtures/content'
 import { flagsEvaluation, flagsMeta } from '@/tests/fixtures/flags'
 import {
@@ -43,6 +54,8 @@ import {
   TENANT_ID,
   TENANT_ID_2,
   TENANT_ID_3,
+  TENANT_ID_4,
+  TENANT_ID_5,
   USER_ID,
   USER_ID_2,
   USER_ID_3,
@@ -87,6 +100,7 @@ import {
   type PlatformUserRow,
   type TenantLifecycleState,
 } from '@/types/api.types'
+import type { StaffTenantBilling } from '@/types/billing.types'
 
 // The browser prompt is not under test: it stays open, so the step-up dialog holds its passkey view.
 vi.mock('@/lib/webauthn', async (importOriginal) => ({
@@ -721,19 +735,24 @@ describe('signed-in pages', () => {
     await expectNoViolations()
   })
 
+  /** A row in every lifecycle state and every billing state, and one with no billing record. */
   const TENANT_ROWS = (
     [
-      [TENANT_ID, 'Acme Corp', 'acme', 'active'],
-      [TENANT_ID_2, 'Beta Ltd', 'beta', 'suspended'],
-      [TENANT_ID_3, 'Gamma Inc', 'gamma', 'archived'],
+      [TENANT_ID, 'Acme Corp', 'acme', 'active', 'trialing'],
+      [TENANT_ID_2, 'Beta Ltd', 'beta', 'suspended', 'past_due'],
+      [TENANT_ID_3, 'Gamma Inc', 'gamma', 'archived', 'free'],
+      [TENANT_ID_4, 'Delta LLC', 'delta', 'active', 'active'],
+      [TENANT_ID_5, 'Epsilon Co', 'epsilon', 'active', null],
     ] as const
-  ).map(([id, name, slug, lifecycleState]): PlatformTenantRow => ({
+  ).map(([id, name, slug, lifecycleState, billingState]): PlatformTenantRow => ({
     id,
     name,
     slug,
     lifecycleState,
     memberCount: 2,
     createdAt: '2026-01-01T00:00:00.000Z',
+    billingState,
+    planKey: billingState === null ? null : billingState === 'free' ? 'free' : 'paid',
   }))
 
   it('tenants with a row in every status has no axe violations', async () => {
@@ -746,6 +765,8 @@ describe('signed-in pages', () => {
     // The h1 renders before the page lands; grade the table, its badges and the pager.
     const table = await screen.findByRole('table', { name: 'Tenants' })
     expect(within(table).getByText('Archived')).toBeInTheDocument()
+    expect(within(table).getByText('Payment failed')).toBeInTheDocument()
+    expect(within(table).getByText('No billing')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled()
     await expectNoViolations()
   })
@@ -759,6 +780,19 @@ describe('signed-in pages', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Filter by status, Tenants' }))
     await screen.findByRole('dialog', { name: 'Filter by status, Tenants' })
     // A portaled popover is exempt from `region`, so it is graded at document scope.
+    await expectNoViolations()
+  })
+
+  it('tenants with the plan facet open has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () => ok(listPage(TENANT_ROWS), 'Tenants retrieved.'))
+    )
+    renderAppAt('/tenants')
+    await screen.findByRole('table', { name: 'Tenants' })
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Filter by billing, Tenants' }))
+    await screen.findByRole('dialog', { name: 'Filter by billing, Tenants' })
     await expectNoViolations()
   })
 
@@ -2153,6 +2187,450 @@ describe('onboarding', () => {
     await user.click(await screen.findByRole('button', { name: 'Send reminder' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Send an onboarding reminder?' })
     expect(within(dialog).getByLabelText('Reason')).toBeInTheDocument()
+    await expectNoViolations()
+  })
+})
+
+/** A tenant's Billing tab with every section and list filled, while payments are off, with a filter open, and for the platform tenant, which has no billing. */
+describe('tenant billing', () => {
+  beforeEach(() => {
+    signIn()
+  })
+
+  /** Acme, its billing view and every billing list with rows. */
+  function serveBilling(billing: StaffTenantBilling = testTenantBilling) {
+    serveTenant('active')
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, () =>
+        ok(billing, 'Billing retrieved.')
+      ),
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/history`, () =>
+        ok(listPage(testBillingHistory, { nextCursor: 'c2', hasNext: true }), 'ok')
+      ),
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/events`, () =>
+        ok(listPage(testBillingEvents), 'ok')
+      ),
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/subscriptions`, () =>
+        ok(listPage(testBillingSubscriptions), 'ok')
+      ),
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/invoices`, () =>
+        ok(listPage(testInvoices, { nextCursor: 'i2', hasNext: true }), 'ok')
+      )
+    )
+  }
+
+  it('a tenant’s Billing tab with every section filled has no axe violations', async () => {
+    serveBilling({
+      ...testTenantBilling,
+      pendingSubscriptionId: 'sub_TestPending0001',
+      disputeOpen: true,
+    })
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await screen.findByRole('table', { name: 'Grants' })
+    await screen.findByRole('table', { name: 'State history' })
+    await screen.findByRole('table', { name: 'Provider events' })
+    await screen.findByRole('table', { name: 'Subscriptions' })
+    await screen.findByRole('table', { name: 'Invoices' })
+    await screen.findByText('Workspace insights')
+    await expectNoViolations()
+  })
+
+  it('a tenant’s Billing tab while payments are off, with no grants, has no axe violations', async () => {
+    serveBilling({ ...testFreeTenantBilling, paymentsEnabled: false, grants: [] })
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await screen.findByText(/we can’t read invoices from the payment provider/)
+    await screen.findByText('No grants.')
+    await screen.findByRole('table', { name: 'Subscriptions' })
+    await expectNoViolations()
+  })
+
+  it('a tenant’s Billing tab with the invoice status filter open has no axe violations', async () => {
+    serveBilling()
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await screen.findByRole('table', { name: 'Invoices' })
+    await user.click(screen.getByRole('button', { name: 'Filter by status, Invoices' }))
+    await screen.findByRole('dialog', { name: 'Filter by status, Invoices' })
+    await expectNoViolations()
+  })
+
+  /** Opens one billing action from the Billing card's menu. */
+  async function openBillingAction(user: ReturnType<typeof userEvent.setup>, item: string) {
+    await user.click(await screen.findByRole('button', { name: 'Billing actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: item }))
+  }
+
+  /** A trialing tenant with a next subscription booked, so every billing action applies. */
+  const ALL_ACTIONS: StaffTenantBilling = {
+    ...testTenantBilling,
+    state: 'trialing',
+    trialEndsAt: '2099-01-15T00:00:00.000Z',
+    nextSubscriptionId: 'sub_TestNext0001',
+  }
+
+  it('the open billing actions menu has no axe violations', async () => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await user.click(await screen.findByRole('button', { name: 'Billing actions' }))
+    await expectNoViolationsIn(await screen.findByRole('menu'))
+  })
+
+  it.each([
+    ['Resync billing', 'alertdialog', 'Resync billing for Acme Corp?'],
+    ['Extend trial', 'dialog', 'Extend the trial for Acme Corp'],
+    ['Cancel subscription', 'alertdialog', 'Cancel the subscription for Acme Corp?'],
+  ] as const)('the open %s dialog has no axe violations', async (item, role, name) => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await openBillingAction(user, item)
+    await screen.findByRole(role, { name })
+    await expectNoViolations()
+  })
+
+  it('the Cancel subscription dialog with Now chosen has no axe violations', async () => {
+    serveBilling()
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await openBillingAction(user, 'Cancel subscription')
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Cancel the subscription for Acme Corp?',
+    })
+    await user.click(within(dialog).getByRole('radio', { name: 'Now' }))
+    await within(dialog).findByLabelText('Type acme to confirm')
+    await expectNoViolations()
+  })
+
+  it('the Add grant dialog with a limit chosen and its errors shown has no axe violations', async () => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await openBillingAction(user, 'Add grant')
+    const dialog = await screen.findByRole('dialog', { name: 'Add a grant for Acme Corp' })
+    await user.click(within(dialog).getByRole('combobox', { name: 'Limit or feature' }))
+    await user.click(await screen.findByRole('option', { name: 'Members' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Add grant' }))
+    await within(dialog).findByText('Enter a whole number from 1 to 1,000,000, or choose No limit.')
+    await within(dialog).findByRole('checkbox', { name: 'No limit' })
+    await expectNoViolations()
+  })
+
+  it('the open Revoke grant dialog has no axe violations', async () => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await user.click(await screen.findByRole('button', { name: 'Revoke the Members grant' }))
+    await screen.findByRole('alertdialog', { name: 'Revoke the Members grant for Acme Corp?' })
+    await expectNoViolations()
+  })
+
+  it('the Add grant dialog with a feature chosen has no axe violations', async () => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await openBillingAction(user, 'Add grant')
+    const dialog = await screen.findByRole('dialog', { name: 'Add a grant for Acme Corp' })
+    await user.click(within(dialog).getByRole('combobox', { name: 'Limit or feature' }))
+    await user.click(await screen.findByRole('option', { name: 'Workspace insights' }))
+    await within(dialog).findByText('Turns Workspace insights on.')
+    await expectNoViolations()
+  })
+
+  it('the Add grant dialog’s open Limit or feature list has no axe violations', async () => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await openBillingAction(user, 'Add grant')
+    const dialog = await screen.findByRole('dialog', { name: 'Add a grant for Acme Corp' })
+    await user.click(within(dialog).getByRole('combobox', { name: 'Limit or feature' }))
+    await expectNoViolationsIn(await screen.findByRole('listbox'))
+  })
+
+  it('the Start a trial dialog on a Free tenant has no axe violations', async () => {
+    serveBilling(testFreeTenantBilling)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await openBillingAction(user, 'Extend trial')
+    const dialog = await screen.findByRole('dialog', { name: 'Start a trial for Acme Corp' })
+    await within(dialog).findByText(/^Acme Corp is on Free\. This starts a Paid trial/)
+    await expectNoViolations()
+  })
+
+  it('the Invoices card’s refused-cursor note with Start again has no axe violations', async () => {
+    serveBilling()
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/invoices`, ({ request }) =>
+        new URL(request.url).searchParams.has('cursor')
+          ? fail('Cursor is invalid.', 400, 'CURSOR_INVALID')
+          : ok(listPage(testInvoices, { nextCursor: 'i2', hasNext: true }), 'ok')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await user.click(await screen.findByRole('button', { name: 'Load more invoices' }))
+    await screen.findByRole('button', { name: 'Start again from the newest' })
+    await expectNoViolations()
+  })
+
+  it.each([
+    ['Filter by source, State history', 'State history'],
+    ['Filter by status, Provider events', 'Provider events'],
+    ['Filter by provider, Subscriptions', 'Subscriptions'],
+    ['Filter by mode, Subscriptions', 'Subscriptions'],
+  ] as const)(
+    'the Billing tab with the %s facet open has no axe violations',
+    async (facet, table) => {
+      serveBilling()
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}/billing`)
+      await screen.findByRole('table', { name: table })
+      await user.click(screen.getByRole('button', { name: facet }))
+      await screen.findByRole('dialog', { name: facet })
+      await expectNoViolations()
+    }
+  )
+
+  it('the invite form’s members-limit refusal with Open Billing has no axe violations', async () => {
+    serveTenant('active')
+    server.use(
+      http.post('/api/v1/tenants/acme/invitations', () =>
+        HttpResponse.json(
+          {
+            success: false,
+            message: 'You’ve used 3 of 3 members on Free. Upgrade to add more.',
+            statusCode: 402,
+            code: 'PLAN_LIMIT_REACHED',
+            details: { key: 'members', used: 3, limit: 3 },
+            requestId: 'test-request-id',
+          },
+          { status: 402 }
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await user.type(await screen.findByLabelText('Email'), 'x@example.com')
+    await user.click(screen.getByRole('button', { name: 'Invite member' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send this invitation?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Owner asked by email')
+    await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
+    await screen.findByRole('link', { name: 'Open Billing' })
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    await expectNoViolations()
+  })
+
+  it('the platform tenant’s Billing URL, which has no billing, has no axe violations', async () => {
+    serveTenant('active')
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, () =>
+        fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
+      )
+    )
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await screen.findByRole('heading', { name: 'This tenant has no billing.' })
+    await expectNoViolations()
+  })
+})
+
+/** The Plans page read-only and with its edit controls, and each of its dialogs open. */
+describe('plans', () => {
+  const FREE = testPlans.plans[0]!
+
+  /**
+   * Opens the Plans page as `role`, with Free's preview answering `direction`.
+   * @param role - The platform role.
+   * @param direction - Whether the previewed change raises or lowers Members.
+   */
+  function openPlans(
+    role: 'viewer' | 'admin' = 'admin',
+    direction: 'increase' | 'decrease' = 'increase'
+  ) {
+    signIn()
+    useAuthStore.setState({ user: { ...testUser, platformRole: role } })
+    server.use(
+      http.post(`/api/v1/platform/plans/${FREE.id}/preview`, () =>
+        ok(
+          {
+            changes: [{ key: 'members', from: 3, to: direction === 'increase' ? 5 : 2, direction }],
+            affected: { trialing: 0, active: 0, past_due: 0, free: 4 },
+          },
+          'Preview ready.'
+        )
+      )
+    )
+    renderAppAt('/plans')
+  }
+
+  /** Types a new Members limit on Free and selects Save Free. */
+  async function saveFreeMembers(user: ReturnType<typeof userEvent.setup>, members: string) {
+    const free = await screen.findByRole('region', { name: 'Free' })
+    const input = within(free).getByRole('textbox', { name: 'Members' })
+    await user.clear(input)
+    await user.type(input, members)
+    await user.click(within(free).getByRole('button', { name: 'Save Free' }))
+  }
+
+  it('the Plans page, read-only for a viewer, has no axe violations', async () => {
+    openPlans('viewer')
+    await screen.findByRole('region', { name: 'Free' })
+    await screen.findByRole('table', { name: 'Prices' })
+    expect(screen.queryByRole('button', { name: 'New price' })).toBeNull()
+    await expectNoViolations()
+  })
+
+  it('the Plans page with its edit controls has no axe violations', async () => {
+    openPlans()
+    await screen.findAllByRole('switch', { name: 'Workspace insights' })
+    await screen.findByRole('button', { name: 'New price' })
+    await expectNoViolations()
+  })
+
+  it('the Plans page with a limit error showing has no axe violations', async () => {
+    const user = userEvent.setup()
+    openPlans()
+    await saveFreeMembers(user, '0')
+    await screen.findByText(
+      'Members: enter a whole number from 1 to 1,000,000, or choose No limit.'
+    )
+    await expectNoViolations()
+  })
+
+  it('the open Save plan dialog has no axe violations', async () => {
+    const user = userEvent.setup()
+    openPlans()
+    await saveFreeMembers(user, '5')
+    await screen.findByRole('alertdialog', { name: 'Save Free?' })
+    await expectNoViolations()
+  })
+
+  it('the open Lower limits dialog with its errors showing has no axe violations', async () => {
+    const user = userEvent.setup()
+    openPlans('admin', 'decrease')
+    await saveFreeMembers(user, '2')
+    const dialog = await screen.findByRole('alertdialog', { name: 'Lower limits on Free?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Lower limits' }))
+    await within(dialog).findByText('Confirm you checked the tenants this affects.')
+    await expectNoViolations()
+  })
+
+  it('the open New price dialog with the price warning has no axe violations', async () => {
+    const user = userEvent.setup()
+    openPlans()
+    await user.click(await screen.findByRole('button', { name: 'New price' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New price for Paid' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Amount in rupees' }), '20000')
+    await within(dialog).findByText(/need the customer to approve each payment/)
+    await expectNoViolations()
+  })
+
+  it('the New price dialog’s open interval list has no axe violations', async () => {
+    const user = userEvent.setup()
+    openPlans()
+    await user.click(await screen.findByRole('button', { name: 'New price' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New price for Paid' })
+    await user.click(within(dialog).getByRole('combobox', { name: 'Interval' }))
+    await expectNoViolationsIn(await screen.findByRole('listbox'))
+  })
+})
+
+/** The Trials and grace card read-only and with a field error, its Save dialog, and the billing alerts card and page. */
+describe('billing settings and alerts', () => {
+  /** Signs in as `role` and opens `path`. */
+  function open(path: string, role: 'viewer' | 'admin' = 'admin') {
+    signIn()
+    useAuthStore.setState({ user: { ...testUser, platformRole: role } })
+    renderAppAt(path)
+  }
+
+  it('the Trials and grace card, read-only for a viewer, has no axe violations', async () => {
+    open('/plans', 'viewer')
+    const card = await screen.findByRole('region', { name: 'Trials and grace' })
+    await within(card).findByText('Never changed.')
+    await screen.findByRole('region', { name: 'Free' })
+    await expectNoViolations()
+  })
+
+  it('the Trials and grace card with a field error showing has no axe violations', async () => {
+    const user = userEvent.setup()
+    open('/plans')
+    const card = await screen.findByRole('region', { name: 'Trials and grace' })
+    const length = await within(card).findByRole('textbox', { name: 'Trial length (days)' })
+    await user.clear(length)
+    await user.type(length, '0')
+    await user.click(within(card).getByRole('button', { name: 'Save billing settings' }))
+    await within(card).findByText('Enter a whole number of days from 1 to 90.')
+    await screen.findByRole('region', { name: 'Free' })
+    await expectNoViolations()
+  })
+
+  it('the open Save billing settings dialog has no axe violations', async () => {
+    const user = userEvent.setup()
+    open('/plans')
+    const card = await screen.findByRole('region', { name: 'Trials and grace' })
+    await user.click(
+      await within(card).findByRole('switch', { name: 'Give new tenants a Paid trial' })
+    )
+    await user.click(within(card).getByRole('button', { name: 'Save billing settings' }))
+    await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    await expectNoViolations()
+  })
+
+  it('the Trials and grace card waiting on a failed reload after a conflict has no axe violations', async () => {
+    let reads = 0
+    server.use(
+      http.get('/api/v1/platform/billing-settings', () => {
+        reads += 1
+        return reads === 1 ? ok(testBillingSettings, 'OK') : fail('Boom', 500)
+      }),
+      http.patch('/api/v1/platform/billing-settings', () =>
+        fail('Someone changed the billing settings.', 409, 'PLAN_VERSION_CONFLICT')
+      )
+    )
+    const user = userEvent.setup()
+    open('/plans')
+    const card = await screen.findByRole('region', { name: 'Trials and grace' })
+    await user.click(
+      await within(card).findByRole('switch', { name: 'Give new tenants a Paid trial' })
+    )
+    await user.click(within(card).getByRole('button', { name: 'Save billing settings' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Pause trials')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await within(card).findByText(
+      'Another staff member changed the billing settings, and their values didn’t load. Select Try again, then save again.'
+    )
+    await within(card).findByRole('button', { name: 'Try again' })
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    await screen.findByRole('region', { name: 'Free' })
+    await expectNoViolations()
+  })
+
+  it('the Overview with the billing alerts card has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/billing/alerts', () => ok(listPage(testBillingAlerts), 'OK'))
+    )
+    open('/overview')
+    const card = await screen.findByRole('region', { name: 'Billing alerts' })
+    await within(card).findAllByRole('listitem')
+    await screen.findByRole('figure', { name: 'Sign-ups per day' })
+    await screen.findByText(testSystemStatus.release)
+    await expectNoViolations()
+  })
+
+  it('the Billing alerts page has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/billing/alerts', () => ok(listPage(testBillingAlerts), 'OK'))
+    )
+    open('/billing-alerts')
+    await screen.findByRole('heading', { name: 'Billing alerts', level: 1 })
+    await screen.findByRole('table', { name: 'Billing alerts' })
+    await expectNoViolations()
+  })
+
+  it('the Billing alerts page below admin has no axe violations', async () => {
+    open('/billing-alerts', 'viewer')
+    await screen.findByRole('heading', { name: 'Page not available', level: 1 })
     await expectNoViolations()
   })
 })

@@ -12,10 +12,11 @@ import { server } from '@/tests/mocks/server'
 import type { PlatformTenantDetail, PlatformTenantRow } from '@/types/api.types'
 import { LIST_SEARCH_DEBOUNCE_MS } from '@/types/list.types'
 
-/** A tenant row numbered `index`: named "Tenant NN" with `index` members. */
+/** A tenant row numbered `index`: named "Tenant NN" with `index` members, on Paid unless given. */
 function row(
   index: number,
-  lifecycleState: PlatformTenantRow['lifecycleState'] = 'active'
+  lifecycleState: PlatformTenantRow['lifecycleState'] = 'active',
+  billingState: PlatformTenantRow['billingState'] = 'active'
 ): PlatformTenantRow {
   return {
     id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
@@ -24,6 +25,8 @@ function row(
     lifecycleState,
     memberCount: index,
     createdAt: '2026-01-01T00:00:00.000Z',
+    billingState,
+    planKey: billingState === null ? null : billingState === 'free' ? 'free' : 'paid',
   }
 }
 
@@ -139,6 +142,100 @@ describe('/tenants', () => {
       expect(router.state.location.search).toEqual({ state: 'archived,suspended' })
     )
     await waitFor(() => expect(seen.at(-1)?.get('state')).toBe('archived,suspended'))
+  })
+
+  it('shows each tenant’s plan badge', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () =>
+        ok(
+          listPage([
+            row(1, 'active', 'trialing'),
+            row(2, 'active', 'free'),
+            row(3, 'active', 'active'),
+            row(4, 'suspended', 'past_due'),
+          ]),
+          'Tenants retrieved.'
+        )
+      )
+    )
+    renderAppAt('/tenants')
+    const table = await screen.findByRole('table', { name: 'Tenants' })
+    expect(within(table).getByRole('columnheader', { name: 'Billing' })).toBeInTheDocument()
+    const rows = within(table).getAllByRole('row').slice(1)
+    const badges = rows.map((tableRow) => {
+      const badge = within(tableRow).getByText(/^(Trial|Free|Paid|Payment failed)$/)
+      return [badge.textContent, badge.dataset.tone]
+    })
+    expect(badges).toEqual([
+      ['Trial', 'neutral'],
+      ['Free', 'muted'],
+      ['Paid', 'success'],
+      ['Payment failed', 'warning'],
+    ])
+  })
+
+  it('shows a dash for a tenant with no billing record', async () => {
+    server.use(
+      http.get('/api/v1/platform/tenants', () =>
+        ok(listPage([row(1, 'active', null)]), 'Tenants retrieved.')
+      )
+    )
+    renderAppAt('/tenants')
+    const table = await screen.findByRole('table', { name: 'Tenants' })
+    const tableRow = within(table).getAllByRole('row')[1]!
+    expect(within(tableRow).getByText('—')).toHaveAttribute('aria-hidden', 'true')
+    expect(within(tableRow).getByText('No billing')).toBeInTheDocument()
+    expect(within(tableRow).queryByText(/^(Trial|Free|Paid|Payment failed)$/)).toBeNull()
+  })
+
+  it('filters by Payment failed with billingState=past_due', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/tenants')
+    await screen.findByText('Tenant 01')
+    await user.click(screen.getByRole('button', { name: 'Filter by billing, Tenants' }))
+    const popup = await screen.findByRole('dialog', { name: 'Filter by billing, Tenants' })
+    expect(within(popup).getAllByRole('checkbox')).toHaveLength(4)
+    for (const name of ['Trial', 'Free', 'Paid', 'Payment failed']) {
+      expect(within(popup).getByRole('checkbox', { name })).toBeInTheDocument()
+    }
+    await user.click(within(popup).getByRole('checkbox', { name: 'Payment failed' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ billingState: 'past_due' }))
+    await waitFor(() => expect(seen.at(-1)?.get('billingState')).toBe('past_due'))
+    expect(seen.at(-1)?.get('state')).toBeNull()
+  })
+
+  it('sends no billingState for the default view', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    const router = renderAppAt('/tenants')
+    await screen.findByText('Tenant 01')
+    expect(seen.at(-1)?.has('billingState')).toBe(false)
+    expect(router.state.location.search).toEqual({})
+  })
+
+  it('keeps a known plan state from the URL and drops a bogus one', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    const router = renderAppAt('/tenants?billingState=past_due,bogus')
+    await screen.findByText('Tenant 01')
+    expect(seen.at(-1)?.get('billingState')).toBe('past_due')
+    expect(router.state.location.search).toEqual({ billingState: 'past_due' })
+  })
+
+  it('opens a deep link with its plan facet applied', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    renderAppAt('/tenants?billingState=past_due,trialing')
+    await screen.findByText('Tenant 01')
+    expect(seen[0]?.get('billingState')).toBe('past_due,trialing')
+    expect(
+      screen.getByRole('button', { name: 'Remove filter: Billing: Payment failed' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Remove filter: Billing: Trial' })
+    ).toBeInTheDocument()
   })
 
   it('drops the cursor when a filter changes', async () => {

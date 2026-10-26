@@ -31,6 +31,8 @@ const ACME = {
   lifecycleState: 'active',
   memberCount: 3,
   createdAt: '2026-01-01T00:00:00.000Z',
+  billingState: 'active',
+  planKey: 'paid',
 }
 
 const ACME_TWO = { ...ACME, id: TENANT_ID_2, slug: 'acme-two', lifecycleState: 'suspended' }

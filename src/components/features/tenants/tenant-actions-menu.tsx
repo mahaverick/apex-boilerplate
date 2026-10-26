@@ -1,4 +1,5 @@
 import { IconChevronDown } from '@tabler/icons-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useState, type RefObject } from 'react'
 import { ReasonDialog } from '@/components/features/reason-dialog'
@@ -13,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { providerDashboard } from '@/constants/billing-labels'
 import { platformRoleAtLeast } from '@/constants/roles'
 import { ROUTES } from '@/constants/routes'
 import { useLeavingFinalFocus } from '@/hooks/use-arrival-focus'
@@ -20,6 +22,7 @@ import { useStepUp } from '@/hooks/use-step-up'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
 import { toast } from '@/lib/toast'
 import { analyticsKey } from '@/observability/telemetry'
+import { billingAdminKeys } from '@/queries/billing-reads.queries'
 import {
   activeOwnerCount,
   useArchiveTenant,
@@ -29,6 +32,7 @@ import {
 } from '@/queries/tenant-admin.queries'
 import { useAuthStore } from '@/states/auth.store'
 import type { PlatformTenantDetail } from '@/types/api.types'
+import type { StaffTenantBilling } from '@/types/billing.types'
 
 /** Which action's dialog is open, if any. */
 type Open = 'edit' | 'owner' | 'suspend' | 'reactivate' | 'archive' | 'purge' | null
@@ -71,6 +75,11 @@ export function TenantActionsMenu({
   /** Whether the open dialog came from the palette, whose close has already moved focus. */
   const [fromPalette, setFromPalette] = useState(false)
   const keepFocusOnPage = useMemo(() => focusFallbackOnRemoval(fallbackFocus), [fallbackFocus])
+  // The provider from a billing view the Billing tab cached, never a read: express audits every billing read.
+  const dashboard = providerDashboard(
+    useQueryClient().getQueryData<StaffTenantBilling>(billingAdminKeys.tenant(tenant.id))
+      ?.provider ?? null
+  )
 
   const isAdmin = platformRoleAtLeast(role, 'admin')
   const isOwner = platformRoleAtLeast(role, 'owner')
@@ -174,7 +183,7 @@ export function TenantActionsMenu({
         {...dialogProps('suspend')}
         finalFocus={finalFocus}
         title={`Suspend ${tenant.name}?`}
-        description="Members lose access at once, and its members and invitations are frozen until it is reactivated."
+        description={`Members lose access at once, and its members and invitations are frozen until it is reactivated. With payments on, we cancel a Paid subscription at the end of its paid period, or now if it hasn’t been charged yet. With payments off, cancel it in ${dashboard}.`}
         confirmLabel="Suspend"
         destructive
         onConfirm={async (reason) => {
@@ -197,7 +206,7 @@ export function TenantActionsMenu({
         {...dialogProps('archive')}
         finalFocus={finalFocus}
         title={`Archive ${tenant.name}?`}
-        description="Archiving is permanent: the tenant can’t be reactivated, its pending invitations are revoked, and its slug becomes free for reuse."
+        description={`Archiving is permanent: the tenant can’t be reactivated, its pending invitations are revoked, and its slug becomes free for reuse. With payments on, we cancel any Paid subscription now. With payments off, cancel it in ${dashboard}.`}
         confirmLabel="Archive"
         destructive
         confirmText={tenant.slug}
@@ -210,7 +219,7 @@ export function TenantActionsMenu({
         {...dialogProps('purge')}
         finalFocus={purgeFocus.finalFocus}
         title={`Permanently delete ${tenant.name}?`}
-        description="This removes the tenant, its settings, memberships, invitations and its own activity log for good. Only a record of the deletion stays in the platform log. It can’t be undone."
+        description="This removes the tenant, its settings, memberships, invitations and its own activity log for good. Only a record of the deletion stays in the platform log. It can’t be undone. Cancel any Paid subscription first; we refuse the delete while one can still charge a card."
         confirmLabel="Delete permanently"
         destructive
         confirmText={tenant.slug}

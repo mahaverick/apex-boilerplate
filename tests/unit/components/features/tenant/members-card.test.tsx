@@ -6,8 +6,11 @@ import type { MembershipRole } from '@/constants/roles'
 import { formatDate } from '@/lib/format'
 import { ROLE_DENIED_ACTION } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
+import { billingAdminKeys } from '@/queries/billing-reads.queries'
+import { tenantAdminKeys, tenantsListOptions } from '@/queries/tenant-admin.queries'
 import { tenantKeys, type TenantMember } from '@/queries/tenant.queries'
 import { queryClient } from '@/router'
+import { testFreeTenantBilling } from '@/tests/fixtures/billing'
 import { byContent } from '@/tests/fixtures/content'
 import {
   INVITATION_ID,
@@ -42,6 +45,7 @@ import { confirmStepUp, dismissStepUp, STEP_UP_EMAIL_WAIT } from '@/tests/mocks/
 import {
   REAUTH_REQUIRED,
   type PlatformTenantDetail,
+  type PlatformTenantRow,
   type TenantInvitation,
 } from '@/types/api.types'
 import type { ListPage } from '@/types/list.types'
@@ -101,6 +105,37 @@ function mockPlatformDetail() {
     ),
     http.get('/api/v1/tenants/acme/invitations', () => ok(listPage([]), 'Invitations retrieved.'))
   )
+}
+
+/**
+ * Express's 402 for an invite into a tenant at its members limit, with the customer's sentence.
+ * @param used - The members the tenant has.
+ * @param limit - Its members limit.
+ */
+function fullTenantRefusal(used = 3, limit = 3) {
+  return HttpResponse.json(
+    {
+      success: false,
+      message: `You’ve used ${String(used)} of ${String(limit)} members on Free. Upgrade to add more.`,
+      statusCode: 402,
+      code: 'PLAN_LIMIT_REACHED',
+      details: { key: 'members', used, limit },
+      requestId: 'test-request-id',
+    },
+    { status: 402 }
+  )
+}
+
+/** Acme's row in the Tenants list, as a cached page holds it. */
+const TENANT_ROW: PlatformTenantRow = {
+  id: TENANT_ID,
+  name: 'Acme Corp',
+  slug: 'acme',
+  lifecycleState: 'active',
+  memberCount: 3,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  billingState: 'free',
+  planKey: 'free',
 }
 
 /** Each fixture user's membership row. */
@@ -1019,6 +1054,67 @@ describe('inviting, and the pending invitations', () => {
     signIn()
     mockPlatformDetail()
     mockTenant('owner', [member(ME, 'owner', 'Me'), member(USER_ID_3, 'viewer', 'Vic')])
+  })
+
+  it('tells a member below platform manager to ask for a Members grant when the tenant is full', async () => {
+    signIn({ ...testUser, platformRole: 'viewer' })
+    let billingReads = 0
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, () => {
+        billingReads += 1
+        return ok(testFreeTenantBilling, 'Billing retrieved.')
+      }),
+      http.post('/api/v1/tenants/acme/invitations', () => fullTenantRefusal())
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await user.type(await screen.findByLabelText('Email'), 'x@example.com')
+    await user.click(screen.getByRole('button', { name: 'Invite member' }))
+
+    expect(
+      await screen.findByText(
+        'Not sent. Acme Corp has 3 of 3 members. Ask a platform manager to add a Members grant on its Billing tab.'
+      )
+    ).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: 'Open Billing' })
+    await waitFor(() => expect(link).toHaveFocus())
+    expect(billingReads).toBe(0)
+  })
+
+  it('counts one member in the singular when the limit is 1', async () => {
+    server.use(http.post('/api/v1/tenants/acme/invitations', () => fullTenantRefusal(1, 1)))
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await user.type(await screen.findByLabelText('Email'), 'x@example.com')
+    await user.click(screen.getByRole('button', { name: 'Invite member' }))
+    expect(
+      await screen.findByText(
+        'Not sent. Acme Corp has 1 of 1 member. Add a Members grant on its Billing tab to invite more.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('offers no Billing link on the platform tenant, which has no Billing tab', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+        ok({ ...PLATFORM_DETAIL, name: 'Platform', slug: 'platform' }, 'Tenant retrieved.')
+      ),
+      http.get('/api/v1/tenants/platform', () =>
+        ok(tenantDetail({ ...TENANT, slug: 'platform' }, 'owner'), 'Tenant retrieved.')
+      ),
+      http.get('/api/v1/tenants/platform/invitations', () =>
+        ok(listPage([]), 'Invitations retrieved.')
+      ),
+      http.post('/api/v1/tenants/platform/invitations', () => fullTenantRefusal())
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await user.type(await screen.findByLabelText('Email'), 'x@example.com')
+    await user.click(screen.getByRole('button', { name: 'Invite member' }))
+    expect(
+      await screen.findByText('You’ve used 3 of 3 members on Free. Upgrade to add more.')
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open Billing' })).toBeNull()
   })
 
   it('sends an invitation, says so, and refreshes the pending list', async () => {
@@ -2133,6 +2229,22 @@ describe('staff acting through platform access', () => {
     ).toBeInTheDocument()
   })
 
+  /**
+   * Refuses every invite as express does at the members limit, and counts the
+   * tenant billing reads, which the refusal's wording must not make.
+   */
+  function serveFullTenant(): () => number {
+    let reads = 0
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, () => {
+        reads += 1
+        return ok(testFreeTenantBilling, 'Billing retrieved.')
+      }),
+      http.post('/api/v1/tenants/acme/invitations', () => fullTenantRefusal())
+    )
+    return () => reads
+  }
+
   /** Opens the invite reason dialog for `email` and confirms it with a reason. */
   async function inviteAsStaff(user: ReturnType<typeof userEvent.setup>, email: string) {
     await user.type(await screen.findByLabelText('Email'), email)
@@ -2141,6 +2253,88 @@ describe('staff acting through platform access', () => {
     await user.type(within(dialog).getByLabelText('Reason'), 'Owner asked by email')
     await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
   }
+
+  it('tells staff to add a Members grant when the tenant is full, and reads no billing', async () => {
+    const billingReads = serveFullTenant()
+    const success = vi.spyOn(toast, 'success')
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await inviteAsStaff(user, 'x@example.com')
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    // No plan is cached, so the sentence leaves it out rather than read the billing, which express audits.
+    expect(
+      await screen.findByText(
+        'Not sent. Acme Corp has 3 of 3 members. Add a Members grant on its Billing tab to invite more.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Upgrade to add more/)).toBeNull()
+    const billing = screen.getByRole('link', { name: 'Open Billing' })
+    expect(billing).toHaveAttribute('href', `/tenants/${TENANT_ID}/billing`)
+    await waitFor(() => expect(billing).toHaveFocus())
+    expect(screen.getByLabelText('Email')).toHaveValue('x@example.com')
+    expect(success).not.toHaveBeenCalled()
+    expect(billingReads()).toBe(0)
+  })
+
+  it('names the plan from the cached tenants list and the staff plans', async () => {
+    const billingReads = serveFullTenant()
+    queryClient.setQueryData(
+      tenantsListOptions({ search: 'acme', limit: 20 }).queryKey,
+      listPage([TENANT_ROW])
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await inviteAsStaff(user, 'x@example.com')
+    expect(
+      await screen.findByText(
+        'Not sent. Acme Corp has 3 of 3 members on Free. Add a Members grant on its Billing tab to invite more.'
+      )
+    ).toBeInTheDocument()
+    expect(billingReads()).toBe(0)
+  })
+
+  it('names the plan from a billing view the Billing tab cached, before any list', async () => {
+    const billingReads = serveFullTenant()
+    queryClient.setQueryData(billingAdminKeys.tenant(TENANT_ID), {
+      ...testFreeTenantBilling,
+      plan: { key: 'free', name: 'Starter' },
+    })
+    queryClient.setQueryData(
+      tenantsListOptions({ search: 'acme', limit: 20 }).queryKey,
+      listPage([TENANT_ROW])
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await inviteAsStaff(user, 'x@example.com')
+    expect(
+      await screen.findByText(
+        'Not sent. Acme Corp has 3 of 3 members on Starter. Add a Members grant on its Billing tab to invite more.'
+      )
+    ).toBeInTheDocument()
+    expect(billingReads()).toBe(0)
+  })
+
+  it('skips a cached row of another list that carries no plan', async () => {
+    serveFullTenant()
+    // Another list under the tenants prefix, cached first, whose rows hold no plan.
+    queryClient.setQueryData(
+      [...tenantAdminKeys.all, 'other'],
+      listPage([{ id: TENANT_ID, name: 'Acme Corp' }])
+    )
+    queryClient.setQueryData(
+      tenantsListOptions({ search: 'acme', limit: 20 }).queryKey,
+      listPage([TENANT_ROW])
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await inviteAsStaff(user, 'x@example.com')
+    expect(
+      await screen.findByText(
+        'Not sent. Acme Corp has 3 of 3 members on Free. Add a Members grant on its Billing tab to invite more.'
+      )
+    ).toBeInTheDocument()
+  })
 
   it('closes the dialog and puts an address the API refused on the Email field', async () => {
     server.use(

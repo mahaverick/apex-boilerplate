@@ -1,6 +1,7 @@
 /**
  * @file The list checks jsdom cannot make, because it has no layout or real
- * history: a sort then a page keeps the sort and moves the cursor, a facet
+ * history: a sort then a page keeps the sort and moves the cursor, the
+ * tenants list filters as express does by default and by plan, a facet
  * writes a comma list its chip takes one value out of, a search writes
  * `?search=`, and a list stacks as cards on a phone without scrolling the
  * page sideways. They run against the MSW harness in `e2e/harness/`.
@@ -23,6 +24,30 @@ test('sorting the tenants then paging keeps the sort and moves the cursor', asyn
   await expect(page).toHaveURL(/sort=created/)
   await expect(page).toHaveURL(/cursor=/)
   await expect(page.getByRole('button', { name: 'Previous page' })).toBeEnabled()
+})
+
+test('the tenants list leaves archived tenants out by default, as express does', async ({
+  page,
+}) => {
+  await page.goto('/e2e/harness/?path=/tenants')
+  const table = page.getByRole('table', { name: 'Tenants' })
+  await expect(table).toBeVisible({ timeout: COLD_TRANSFORM_BUDGET_MS })
+  await expect(table.getByText('Suspended', { exact: true })).toBeVisible()
+  await expect(table.getByText('Archived', { exact: true })).toHaveCount(0)
+  for (const plan of ['Trial', 'Free', 'Paid', 'Payment failed']) {
+    await expect(table.getByText(plan, { exact: true }).first()).toBeVisible()
+  }
+  await expect(table.getByText('No billing')).toHaveCount(0)
+})
+
+test('the Billing facet on Free finds the active Free tenant, not the archived one', async ({
+  page,
+}) => {
+  await page.goto('/e2e/harness/?path=/tenants?billingState=free')
+  const table = page.getByRole('table', { name: 'Tenants' })
+  await expect(table).toBeVisible({ timeout: COLD_TRANSFORM_BUDGET_MS })
+  await expect(table.getByRole('link', { name: 'Filler 01 Co' })).toBeVisible()
+  await expect(table.getByText('Gamma Inc')).toHaveCount(0)
 })
 
 test('a facet on Emails writes a comma list and its chip removes one value', async ({ page }) => {

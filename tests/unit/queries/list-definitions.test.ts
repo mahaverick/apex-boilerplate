@@ -65,10 +65,16 @@ function requestFor(
 describe('the apex list definitions', () => {
   it('builds the tenants, users and emails requests in the API’s names', () => {
     expect(
-      requestFor(tenantsList, { search: 'acme', state: 'archived,active', sort: '-created' })
+      requestFor(tenantsList, {
+        search: 'acme',
+        state: 'archived,active',
+        billingState: 'trialing,past_due',
+        sort: '-created',
+      })
     ).toEqual({
       search: 'acme',
       state: 'active,archived',
+      billingState: 'past_due,trialing',
       sort: '-created',
     })
     expect(
@@ -201,7 +207,7 @@ describe('the apex list definitions', () => {
       'user.password_setup_sent',
     ]
     for (const name of retired) expect(AUDIT_ACTIONS).not.toContain(name)
-    expect(AUDIT_ACTIONS).toHaveLength(38)
+    expect(AUDIT_ACTIONS).toHaveLength(52)
     expect(requestFor(platformActivityList, { action: 'auth.reauthenticated' })).toEqual({
       action: 'auth.reauthenticated',
     })

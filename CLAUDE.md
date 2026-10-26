@@ -54,6 +54,9 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   Staff page included, sends none.
 - **`src/constants/roles.ts` mirrors express's role rules.** Change both repos
   together, or the app offers actions the API refuses, or hides ones it allows.
+- **`src/constants/entitlements.ts` mirrors express's entitlement labels**
+  (`entitlements.constants.ts`) for audit sentences, which have no catalog to
+  read. Add a key in both repos; until then it reads as its key.
 - **A new main-nav page is an entry in `src/constants/navigation.ts`** plus the
   pieces [The staff shell](ARCHITECTURE.md#the-staff-shell-this-app-only) lists.
   The sidebar's main nav and the command palette both read that list.
@@ -159,7 +162,9 @@ Each rule's reason is in [Analytics privacy](SECURITY.md#analytics-privacy).
   description. Use `<Pii>`, not `ph-no-capture`, which blanks the element in
   replay. A staff page that renders person data goes into the page list in
   `e2e/fixtures/pii.test.ts`, and a new harness person into its `NAMES`. Without
-  them the guard cannot see it.
+  them the guard cannot see it. The one exception is public catalog copy staff
+  type: a plan's name and description are the pricing page's words, shown to
+  every visitor, not personal data, so they render unwrapped.
 - **An attribute may carry personal data only if `mask-attribute.ts` masks it.**
   `e2e/nginx/analytics.test.ts` pins `aria-label` masking in the full snapshot
   and in later mutations.
@@ -494,8 +499,10 @@ Playwright has five projects: `fixtures`, `live`, `contrast`, `nginx` and
 **`fixtures`** drives `e2e/harness/`: the real router and CSS, with MSW answering
 the fixtures. It needs no backend. It exists for what jsdom cannot see, because
 jsdom has no layout. `?path=` picks the route, and the harness's other query
-parameters shape the fixtures: `?role=none|viewer|owner` (the default is a
-platform admin), `?member=`, `?flags=`, `?preview=`, `?emails=none`, `?maintenance=full|route`, `?hold=` and `?fail=` (comma-separated `/api/v1/` paths that never answer or answer 500), `?profile=stale` and
+parameters shape the fixtures: `?role=none|viewer|manager|owner` (the default is a
+platform admin), `?member=`, `?billing=active|trialing|past_due|free|none` (every
+customer tenant's Billing tab, dated from the page load), `?stepup=once` (a
+suspend and every staff billing write need a recent confirmation), `?flags=`, `?preview=`, `?emails=none`, `?maintenance=full|route`, `?hold=` and `?fail=` (comma-separated `/api/v1/` paths that never answer or answer 500), `?profile=stale` and
 `?onboarding=`. The harness's comments give each one's meaning.
 
 **An endpoint the harness leaves unmocked falls through**

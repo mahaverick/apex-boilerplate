@@ -54,7 +54,7 @@ export default defineConfig({
         'src/components/ui/{alert-dialog,avatar,badge,breadcrumb,button,card,collapsible,combobox,dialog,dropdown-menu}.tsx',
         'src/components/ui/{field,input,input-group,label,select,separator,sheet,sidebar,skeleton,switch}.tsx',
         'src/components/ui/{table,tabs,textarea,toast,tooltip}.tsx',
-        'src/components/ui/{alert,calendar,chart,checkbox,empty,item,kbd,popover,spinner,toggle,toggle-group}.tsx',
+        'src/components/ui/{alert,calendar,chart,checkbox,empty,item,kbd,popover,radio-group,spinner,toggle,toggle-group}.tsx',
       ],
       /**
        * A drop below any of these fails CI (`pnpm test:merge`) and `pnpm test:coverage`.

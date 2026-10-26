@@ -81,7 +81,16 @@ describe('AppLayout', () => {
   it.each([
     [
       'viewer',
-      ['Overview', 'Tenants', 'Users', 'Emails', 'Deliverability', 'Suppressions', 'Onboarding'],
+      [
+        'Overview',
+        'Tenants',
+        'Users',
+        'Emails',
+        'Deliverability',
+        'Suppressions',
+        'Onboarding',
+        'Plans',
+      ],
       ['General', 'Directory', 'Operations', 'Growth'],
     ],
     [
@@ -93,7 +102,9 @@ describe('AppLayout', () => {
         'Emails',
         'Deliverability',
         'Suppressions',
+        'Billing alerts',
         'Onboarding',
+        'Plans',
         'Activity log',
       ],
       ['General', 'Directory', 'Operations', 'Growth', 'Security'],

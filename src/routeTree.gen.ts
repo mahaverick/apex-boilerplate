@@ -19,11 +19,13 @@ import { Route as RegisterRouteImport } from './pages/register'
 import { Route as ResetPasswordRouteImport } from './pages/reset-password'
 import { Route as VerifyEmailRouteImport } from './pages/verify-email'
 import { Route as AppActivityRouteImport } from './pages/_app/activity'
+import { Route as AppBillingAlertsRouteImport } from './pages/_app/billing-alerts'
 import { Route as AppDeliverabilityRouteImport } from './pages/_app/deliverability'
 import { Route as AppFlagsRouteImport } from './pages/_app/flags'
 import { Route as AppMaintenanceRouteImport } from './pages/_app/maintenance'
 import { Route as AppOnboardingRouteImport } from './pages/_app/onboarding'
 import { Route as AppOverviewRouteImport } from './pages/_app/overview'
+import { Route as AppPlansRouteImport } from './pages/_app/plans'
 import { Route as AppProfileRouteImport } from './pages/_app/profile'
 import { Route as AppSettingsRouteImport } from './pages/_app/settings'
 import { Route as AppStaffRouteImport } from './pages/_app/staff'
@@ -50,6 +52,7 @@ import { Route as AppSettingsPlatformMaintenanceRouteImport } from './pages/_app
 import { Route as AppSettingsPlatformStaffRouteImport } from './pages/_app/settings/platform.staff'
 import { Route as AppTenantsTenantIdIndexRouteImport } from './pages/_app/tenants/$tenantId.index'
 import { Route as AppTenantsTenantIdActivityRouteImport } from './pages/_app/tenants/$tenantId.activity'
+import { Route as AppTenantsTenantIdBillingRouteImport } from './pages/_app/tenants/$tenantId.billing'
 import { Route as AppTenantsTenantIdEmailsRouteImport } from './pages/_app/tenants/$tenantId.emails'
 import { Route as AppTenantsTenantIdFlagsRouteImport } from './pages/_app/tenants/$tenantId.flags'
 import { Route as AppTenantsTenantIdInvitationsRouteImport } from './pages/_app/tenants/$tenantId.invitations'
@@ -105,6 +108,11 @@ const AppActivityRoute = AppActivityRouteImport.update({
   path: '/activity',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBillingAlertsRoute = AppBillingAlertsRouteImport.update({
+  id: '/billing-alerts',
+  path: '/billing-alerts',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDeliverabilityRoute = AppDeliverabilityRouteImport.update({
   id: '/deliverability',
   path: '/deliverability',
@@ -128,6 +136,11 @@ const AppOnboardingRoute = AppOnboardingRouteImport.update({
 const AppOverviewRoute = AppOverviewRouteImport.update({
   id: '/overview',
   path: '/overview',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPlansRoute = AppPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProfileRoute = AppProfileRouteImport.update({
@@ -267,6 +280,12 @@ const AppTenantsTenantIdActivityRoute =
     path: '/activity',
     getParentRoute: () => AppTenantsTenantIdRoute,
   } as any)
+const AppTenantsTenantIdBillingRoute =
+  AppTenantsTenantIdBillingRouteImport.update({
+    id: '/billing',
+    path: '/billing',
+    getParentRoute: () => AppTenantsTenantIdRoute,
+  } as any)
 const AppTenantsTenantIdEmailsRoute =
   AppTenantsTenantIdEmailsRouteImport.update({
     id: '/emails',
@@ -311,11 +330,13 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
   '/activity': typeof AppActivityRoute
+  '/billing-alerts': typeof AppBillingAlertsRoute
   '/deliverability': typeof AppDeliverabilityRoute
   '/flags': typeof AppFlagsRoute
   '/maintenance': typeof AppMaintenanceRoute
   '/onboarding': typeof AppOnboardingRoute
   '/overview': typeof AppOverviewRoute
+  '/plans': typeof AppPlansRoute
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/staff': typeof AppStaffRoute
@@ -339,6 +360,7 @@ export interface FileRoutesByFullPath {
   '/settings/platform/maintenance': typeof AppSettingsPlatformMaintenanceRoute
   '/settings/platform/staff': typeof AppSettingsPlatformStaffRoute
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
+  '/tenants/$tenantId/billing': typeof AppTenantsTenantIdBillingRoute
   '/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/tenants/$tenantId/flags': typeof AppTenantsTenantIdFlagsRoute
   '/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
@@ -358,11 +380,13 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
   '/activity': typeof AppActivityRoute
+  '/billing-alerts': typeof AppBillingAlertsRoute
   '/deliverability': typeof AppDeliverabilityRoute
   '/flags': typeof AppFlagsRoute
   '/maintenance': typeof AppMaintenanceRoute
   '/onboarding': typeof AppOnboardingRoute
   '/overview': typeof AppOverviewRoute
+  '/plans': typeof AppPlansRoute
   '/profile': typeof AppProfileRoute
   '/staff': typeof AppStaffRoute
   '/suppressions': typeof AppSuppressionsRoute
@@ -383,6 +407,7 @@ export interface FileRoutesByTo {
   '/settings/platform/maintenance': typeof AppSettingsPlatformMaintenanceRoute
   '/settings/platform/staff': typeof AppSettingsPlatformStaffRoute
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
+  '/tenants/$tenantId/billing': typeof AppTenantsTenantIdBillingRoute
   '/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/tenants/$tenantId/flags': typeof AppTenantsTenantIdFlagsRoute
   '/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
@@ -405,11 +430,13 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
   '/_app/activity': typeof AppActivityRoute
+  '/_app/billing-alerts': typeof AppBillingAlertsRoute
   '/_app/deliverability': typeof AppDeliverabilityRoute
   '/_app/flags': typeof AppFlagsRoute
   '/_app/maintenance': typeof AppMaintenanceRoute
   '/_app/onboarding': typeof AppOnboardingRoute
   '/_app/overview': typeof AppOverviewRoute
+  '/_app/plans': typeof AppPlansRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/staff': typeof AppStaffRoute
@@ -433,6 +460,7 @@ export interface FileRoutesById {
   '/_app/settings/platform/maintenance': typeof AppSettingsPlatformMaintenanceRoute
   '/_app/settings/platform/staff': typeof AppSettingsPlatformStaffRoute
   '/_app/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
+  '/_app/tenants/$tenantId/billing': typeof AppTenantsTenantIdBillingRoute
   '/_app/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/_app/tenants/$tenantId/flags': typeof AppTenantsTenantIdFlagsRoute
   '/_app/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
@@ -454,11 +482,13 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/activity'
+    | '/billing-alerts'
     | '/deliverability'
     | '/flags'
     | '/maintenance'
     | '/onboarding'
     | '/overview'
+    | '/plans'
     | '/profile'
     | '/settings'
     | '/staff'
@@ -482,6 +512,7 @@ export interface FileRouteTypes {
     | '/settings/platform/maintenance'
     | '/settings/platform/staff'
     | '/tenants/$tenantId/activity'
+    | '/tenants/$tenantId/billing'
     | '/tenants/$tenantId/emails'
     | '/tenants/$tenantId/flags'
     | '/tenants/$tenantId/invitations'
@@ -501,11 +532,13 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/activity'
+    | '/billing-alerts'
     | '/deliverability'
     | '/flags'
     | '/maintenance'
     | '/onboarding'
     | '/overview'
+    | '/plans'
     | '/profile'
     | '/staff'
     | '/suppressions'
@@ -526,6 +559,7 @@ export interface FileRouteTypes {
     | '/settings/platform/maintenance'
     | '/settings/platform/staff'
     | '/tenants/$tenantId/activity'
+    | '/tenants/$tenantId/billing'
     | '/tenants/$tenantId/emails'
     | '/tenants/$tenantId/flags'
     | '/tenants/$tenantId/invitations'
@@ -547,11 +581,13 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/_app/activity'
+    | '/_app/billing-alerts'
     | '/_app/deliverability'
     | '/_app/flags'
     | '/_app/maintenance'
     | '/_app/onboarding'
     | '/_app/overview'
+    | '/_app/plans'
     | '/_app/profile'
     | '/_app/settings'
     | '/_app/staff'
@@ -575,6 +611,7 @@ export interface FileRouteTypes {
     | '/_app/settings/platform/maintenance'
     | '/_app/settings/platform/staff'
     | '/_app/tenants/$tenantId/activity'
+    | '/_app/tenants/$tenantId/billing'
     | '/_app/tenants/$tenantId/emails'
     | '/_app/tenants/$tenantId/flags'
     | '/_app/tenants/$tenantId/invitations'
@@ -675,6 +712,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppActivityRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/billing-alerts': {
+      id: '/_app/billing-alerts'
+      path: '/billing-alerts'
+      fullPath: '/billing-alerts'
+      preLoaderRoute: typeof AppBillingAlertsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/deliverability': {
       id: '/_app/deliverability'
       path: '/deliverability'
@@ -708,6 +752,13 @@ declare module '@tanstack/react-router' {
       path: '/overview'
       fullPath: '/overview'
       preLoaderRoute: typeof AppOverviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/plans': {
+      id: '/_app/plans'
+      path: '/plans'
+      fullPath: '/plans'
+      preLoaderRoute: typeof AppPlansRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/profile': {
@@ -892,6 +943,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantsTenantIdActivityRouteImport
       parentRoute: typeof AppTenantsTenantIdRoute
     }
+    '/_app/tenants/$tenantId/billing': {
+      id: '/_app/tenants/$tenantId/billing'
+      path: '/billing'
+      fullPath: '/tenants/$tenantId/billing'
+      preLoaderRoute: typeof AppTenantsTenantIdBillingRouteImport
+      parentRoute: typeof AppTenantsTenantIdRoute
+    }
     '/_app/tenants/$tenantId/emails': {
       id: '/_app/tenants/$tenantId/emails'
       path: '/emails'
@@ -965,6 +1023,7 @@ const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
 
 interface AppTenantsTenantIdRouteChildren {
   AppTenantsTenantIdActivityRoute: typeof AppTenantsTenantIdActivityRoute
+  AppTenantsTenantIdBillingRoute: typeof AppTenantsTenantIdBillingRoute
   AppTenantsTenantIdEmailsRoute: typeof AppTenantsTenantIdEmailsRoute
   AppTenantsTenantIdFlagsRoute: typeof AppTenantsTenantIdFlagsRoute
   AppTenantsTenantIdInvitationsRoute: typeof AppTenantsTenantIdInvitationsRoute
@@ -975,6 +1034,7 @@ interface AppTenantsTenantIdRouteChildren {
 
 const AppTenantsTenantIdRouteChildren: AppTenantsTenantIdRouteChildren = {
   AppTenantsTenantIdActivityRoute: AppTenantsTenantIdActivityRoute,
+  AppTenantsTenantIdBillingRoute: AppTenantsTenantIdBillingRoute,
   AppTenantsTenantIdEmailsRoute: AppTenantsTenantIdEmailsRoute,
   AppTenantsTenantIdFlagsRoute: AppTenantsTenantIdFlagsRoute,
   AppTenantsTenantIdInvitationsRoute: AppTenantsTenantIdInvitationsRoute,
@@ -1000,11 +1060,13 @@ const AppUsersUserIdRouteWithChildren = AppUsersUserIdRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
+  AppBillingAlertsRoute: typeof AppBillingAlertsRoute
   AppDeliverabilityRoute: typeof AppDeliverabilityRoute
   AppFlagsRoute: typeof AppFlagsRoute
   AppMaintenanceRoute: typeof AppMaintenanceRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppOverviewRoute: typeof AppOverviewRoute
+  AppPlansRoute: typeof AppPlansRoute
   AppProfileRoute: typeof AppProfileRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppStaffRoute: typeof AppStaffRoute
@@ -1019,11 +1081,13 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppActivityRoute: AppActivityRoute,
+  AppBillingAlertsRoute: AppBillingAlertsRoute,
   AppDeliverabilityRoute: AppDeliverabilityRoute,
   AppFlagsRoute: AppFlagsRoute,
   AppMaintenanceRoute: AppMaintenanceRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppOverviewRoute: AppOverviewRoute,
+  AppPlansRoute: AppPlansRoute,
   AppProfileRoute: AppProfileRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
   AppStaffRoute: AppStaffRoute,

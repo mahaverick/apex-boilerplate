@@ -80,7 +80,9 @@ describe('NavMain', () => {
       'Emails',
       'Deliverability',
       'Suppressions',
+      'Billing alerts',
       'Onboarding',
+      'Plans',
       'Activity log',
     ])
     expect(within(nav).getByRole('link', { name: 'Overview' })).toHaveAttribute('data-active')
@@ -143,7 +145,7 @@ describe('NavMain', () => {
     renderNavAt('/overview', false)
 
     const nav = await screen.findByRole('navigation', { name: 'Main' })
-    expect(within(nav).getAllByRole('link')).toHaveLength(8)
+    expect(within(nav).getAllByRole('link')).toHaveLength(10)
   })
 
   describe('in the phone drawer', () => {

@@ -506,8 +506,13 @@ people out of pages that would fail.
 - **Role tiers are mirrored, not enforced.** `platformRoleAtLeast` hides what
   a role cannot use rather than showing it disabled: navigation items
   (`src/constants/navigation.ts`), a tenant's Flags tab
-  (admins, `src/constants/tenant-tabs.ts`), the activity log (admins) and the
-  maintenance controls (owners). `canPlatformActorModifyTarget` mirrors the
+  (admins, `src/constants/tenant-tabs.ts`), the activity log (admins), the
+  maintenance controls (owners), and billing: a tenant's Resync, Extend
+  trial, Add grant and Revoke (managers) and its Cancel subscription (admins),
+  in `billingActionsFor` (`src/lib/billing-actions.ts`); the Plans page's
+  edit controls (admins, `src/pages/_app/plans.tsx`); and the billing alerts
+  card and the Billing alerts page (admins, `src/pages/_app/overview.tsx`
+  and `src/pages/_app/billing-alerts.tsx`). `canPlatformActorModifyTarget` mirrors the
   API's rule for acting on other staff: an owner may act on any other staff
   member, an admin only on staff below admin, and nobody on themselves. A
   rule changed here and not in express offers actions the API refuses, or
@@ -653,9 +658,14 @@ API stores in the audit log with the actor's name. `ReasonDialog`
 reactivating, archiving and deleting a tenant; signing a user out
 everywhere, deactivating, reactivating, deleting and permanently deleting a
 user; lifting a suppression; resending an email; marking an onboarding step complete and
-sending an onboarding reminder; and member and invitation writes through
-platform access. Reissuing a tenant's owner invitation asks in its own
-dialog, with the same `reasonSchema`. Other staff writes take no reason:
+sending an onboarding reminder; resyncing a tenant's billing and revoking a
+grant; saving a plan that lowers nothing; saving the trial and grace rules; and member and invitation writes
+through platform access. Reissuing a tenant's owner invitation, extending a
+trial, adding a grant, cancelling a subscription, saving a plan that lowers
+a limit or turns a feature off, and adding a price ask in their own
+dialogs, with the same `reasonSchema`, and every billing write (resync,
+extend trial, add grant, revoke grant, cancel, plan edit, new price, billing settings) goes
+through step-up. The plan preview writes nothing and takes neither. Other staff writes take no reason:
 creating a user or a tenant, renaming a user, editing a tenant's details,
 sending a user a sign-in link (a confirm dialog with no reason and no step-up), and removing a member of, or
 leaving, the platform tenant. Maintenance changes have their own dialogs
@@ -668,7 +678,7 @@ leaving, the platform tenant. Maintenance changes have their own dialogs
   renders as given, so a caller with a person's value in it wraps only that
   value in `<Pii>`.
 - **Irreversible actions need the target typed.** Archiving or deleting a
-  tenant asks for its slug; deleting or permanently deleting a user asks for
+  tenant, and cancelling its subscription now, asks for its slug; deleting or permanently deleting a user asks for
   their email address (`confirmText`).
 - **Reasons on customer tenants follow the access path.** When staff reach a
   customer tenant through platform access (`access: 'platform'` from

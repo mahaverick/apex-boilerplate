@@ -73,6 +73,8 @@ const ACME_ROW: PlatformTenantRow = {
   lifecycleState: 'active',
   memberCount: 2,
   createdAt: '2026-01-01T00:00:00.000Z',
+  billingState: 'active',
+  planKey: 'paid',
 }
 const GLOBEX_ROW: PlatformTenantRow = {
   ...ACME_ROW,
