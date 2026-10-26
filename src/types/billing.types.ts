@@ -35,6 +35,40 @@ export const BILLING_HISTORY_SOURCES = [
 /** One source of a billing state change. */
 export type BillingHistorySource = (typeof BILLING_HISTORY_SOURCES)[number]
 
+/** How a provider event ended, as express's `BILLING_EVENT_STATUSES`. */
+export const BILLING_EVENT_STATUSES = ['processed', 'unused', 'failed', 'pending'] as const
+
+/**
+ * How a provider event ended: `processed` synced the tenant, `unused`
+ * changed nothing (its `error` says why), `failed` gave up after every retry
+ * and alerted staff, `pending` is not handled yet.
+ */
+export type BillingEventStatus = (typeof BILLING_EVENT_STATUSES)[number]
+
+/** The payment providers express runs, as its `BILLING_PROVIDERS`. */
+export const BILLING_PROVIDERS = ['razorpay', 'fake'] as const
+
+/** One payment provider. `fake` is express's test double. */
+export type BillingProvider = (typeof BILLING_PROVIDERS)[number]
+
+/** A provider's modes, as express's `BILLING_PROVIDER_MODES`. */
+export const BILLING_PROVIDER_MODES = ['test', 'live'] as const
+
+/** One provider mode. */
+export type BillingProviderMode = (typeof BILLING_PROVIDER_MODES)[number]
+
+/** How a subscription the tenant held compares with its billing record now. */
+export const BILLING_SUBSCRIPTION_STANDINGS = ['current', 'pending', 'next', 'earlier'] as const
+
+/** One subscription's standing: the record's current, pending or next one, or an earlier one. */
+export type BillingSubscriptionStanding = (typeof BILLING_SUBSCRIPTION_STANDINGS)[number]
+
+/** An invoice's status at the provider, as express's `INVOICE_STATUSES`. */
+export const INVOICE_STATUSES = ['issued', 'paid', 'cancelled', 'expired'] as const
+
+/** One invoice status. */
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number]
+
 /** The kinds of billing alert staff see, as express's `BILLING_ALERT_KINDS`. */
 export const BILLING_ALERT_KINDS = [
   'duplicate_refunded',
@@ -137,8 +171,8 @@ interface Grant {
 
 /** `GET /platform/tenants/:id/billing`: the customer view plus provider ids, grants and history. */
 export interface StaffTenantBilling extends TenantBilling {
-  provider: 'razorpay' | 'fake' | null
-  providerMode: 'test' | 'live' | null
+  provider: BillingProvider | null
+  providerMode: BillingProviderMode | null
   providerSubscriptionId: string | null
   pendingSubscriptionId: string | null
   nextSubscriptionId: string | null
@@ -147,7 +181,7 @@ export interface StaffTenantBilling extends TenantBilling {
   entitlements: TenantEntitlements
   sources: Record<string, 'plan' | 'grant'>
   grants: Grant[]
-  /** The newest 20. */
+  /** The newest 20; the full list is `GET …/billing/history`. */
   history: Array<{
     from: BillingState | null
     to: BillingState
@@ -155,13 +189,66 @@ export interface StaffTenantBilling extends TenantBilling {
     source: BillingHistorySource
     at: string
   }>
-  /** The newest 20. */
+  /** The newest 20; the full list is `GET …/billing/events`. */
   events: Array<{
     type: string
     receivedAt: string
     processedAt: string | null
     error: string | null
   }>
+}
+
+/** One row of `GET /platform/tenants/:id/billing/history`: a billing state change. `from` is `null` for the first. */
+export interface StaffBillingHistoryItem {
+  id: string
+  from: BillingState | null
+  to: BillingState
+  cause: string
+  source: BillingHistorySource
+  at: string
+}
+
+/**
+ * One row of `GET /platform/tenants/:id/billing/events`: a provider event
+ * tied to this tenant. It never carries the provider's event id, the
+ * subscription id or the payload; `id` is the stored row's.
+ */
+export interface StaffBillingEventItem {
+  id: string
+  type: string
+  status: BillingEventStatus
+  provider: BillingProvider
+  mode: BillingProviderMode
+  receivedAt: string
+  processedAt: string | null
+  /** How many times an outcome was written to the row: 0 or 1 in practice, not the job's attempts. */
+  recordedOutcomes: number
+  error: string | null
+}
+
+/** One row of `GET /platform/tenants/:id/billing/subscriptions`: a subscription the tenant held as its current one. */
+export interface StaffBillingSubscriptionItem {
+  id: string
+  subscriptionId: string
+  provider: BillingProvider
+  mode: BillingProviderMode
+  firstSeenAt: string
+  standing: BillingSubscriptionStanding
+}
+
+/**
+ * One row of `GET /platform/tenants/:id/billing/invoices`, read from the
+ * provider. It has no `url`: the provider's invoice page shows the payer's
+ * contact details, which staff never see.
+ */
+export interface StaffInvoiceItem {
+  id: string
+  subscriptionId: string
+  amountMinor: number
+  currency: 'INR'
+  status: InvoiceStatus
+  issuedAt: string
+  paidAt: string | null
 }
 
 /** One plan on the staff plans screen. */
@@ -228,6 +315,9 @@ export const PLAN_FEATURE_REQUIRED = 'PLAN_FEATURE_REQUIRED'
 
 /** `code` on the 409 for a plan or billing settings edit made against a version another staff member replaced. */
 export const PLAN_VERSION_CONFLICT = 'PLAN_VERSION_CONFLICT'
+
+/** `code` on the 404 for a staff billing read of a tenant with no billing record: the platform tenant. */
+export const TENANT_BILLING_NOT_FOUND = 'tenant_billing_not_found'
 
 /** `code` on the 404 for a grant revoke naming a grant this tenant does not have. */
 export const GRANT_NOT_FOUND = 'grant_not_found'

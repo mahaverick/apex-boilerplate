@@ -5,7 +5,15 @@
  * react's name, so the shared `plural.test.ts` reads it in both apps.
  */
 import { STAFF_USER_ID, USER_ID } from '@/tests/fixtures/ids'
-import type { BillingSettings, StaffPlans, StaffTenantBilling } from '@/types/billing.types'
+import type {
+  BillingSettings,
+  StaffBillingEventItem,
+  StaffBillingHistoryItem,
+  StaffBillingSubscriptionItem,
+  StaffInvoiceItem,
+  StaffPlans,
+  StaffTenantBilling,
+} from '@/types/billing.types'
 
 /**
  * `GET /platform/plans` as express serves it: Free (3 members, no
@@ -195,3 +203,74 @@ export const testBillingSettings: BillingSettings = {
   updatedAt: '2026-10-01T00:00:00.000Z',
   updatedBy: null,
 }
+
+/** `GET …/billing/history` rows for the Paid tenant, newest first: created in a trial, then paid. */
+export const testBillingHistory: StaffBillingHistoryItem[] = [
+  {
+    id: '93000000-0000-4000-8000-000000000002',
+    from: 'trialing',
+    to: 'active',
+    cause: 'subscription_activated',
+    source: 'webhook',
+    at: '2026-10-20T09:00:00.000Z',
+  },
+  {
+    id: '93000000-0000-4000-8000-000000000001',
+    from: null,
+    to: 'trialing',
+    cause: 'created',
+    source: 'staff',
+    at: '2026-10-06T09:00:00.000Z',
+  },
+]
+
+/** `GET …/billing/events` rows for the Paid tenant, newest first: one processed charge, one event that gave up. */
+export const testBillingEvents: StaffBillingEventItem[] = [
+  {
+    id: '94000000-0000-4000-8000-000000000002',
+    type: 'subscription.charged',
+    status: 'processed',
+    provider: 'razorpay',
+    mode: 'test',
+    receivedAt: '2026-10-20T09:00:00.000Z',
+    processedAt: '2026-10-20T09:00:01.000Z',
+    recordedOutcomes: 1,
+    error: null,
+  },
+  {
+    id: '94000000-0000-4000-8000-000000000001',
+    type: 'subscription.activated',
+    status: 'failed',
+    provider: 'razorpay',
+    mode: 'test',
+    receivedAt: '2026-10-19T09:00:00.000Z',
+    processedAt: null,
+    recordedOutcomes: 1,
+    error: 'Provider timed out on every retry',
+  },
+]
+
+/** `GET …/billing/subscriptions` rows for the Paid tenant: its current subscription. */
+export const testBillingSubscriptions: StaffBillingSubscriptionItem[] = [
+  {
+    id: '95000000-0000-4000-8000-000000000001',
+    subscriptionId: 'sub_TestActive0001',
+    provider: 'razorpay',
+    mode: 'test',
+    firstSeenAt: '2026-10-20T09:00:00.000Z',
+    standing: 'current',
+  },
+]
+
+/** `GET …/billing/invoices` rows for the Paid tenant: its first monthly charge, paid. */
+export const testInvoices: StaffInvoiceItem[] = [
+  {
+    id: 'inv_TestPaid0001',
+    subscriptionId: 'sub_TestActive0001',
+    amountMinor: 99_900,
+    currency: 'INR',
+    status: 'paid',
+    issuedAt: '2026-10-20T09:00:00.000Z',
+    paidAt: '2026-10-20T09:00:01.000Z',
+  },
+]

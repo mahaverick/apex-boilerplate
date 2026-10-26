@@ -1,11 +1,21 @@
 /**
  * @file How staff pages name billing: each state's badge, each alert kind,
- * each state change's cause and source. The values are express's
+ * each state change's cause and source, each provider event's status, each
+ * held subscription's standing and each invoice's status. The values are express's
  * (`billing.constants.ts`, `billing-state-machine.utilities.ts`); the words
  * are this app's.
  */
 import type { BadgeTone } from '@/constants/badge-tones'
-import type { BillingAlertKind, BillingHistorySource, BillingState } from '@/types/billing.types'
+import type {
+  BillingAlertKind,
+  BillingEventStatus,
+  BillingHistorySource,
+  BillingProvider,
+  BillingProviderMode,
+  BillingState,
+  BillingSubscriptionStanding,
+  InvoiceStatus,
+} from '@/types/billing.types'
 
 /** Each billing state's badge: Paid covers `active`; a trial and a failed payment are Paid too. */
 export const BILLING_STATE_BADGE: Record<BillingState, { label: string; tone: BadgeTone }> = {
@@ -64,4 +74,46 @@ export function historyCauseLabel(cause: string): string {
   if (Object.hasOwn(HISTORY_CAUSE_LABELS, cause)) return HISTORY_CAUSE_LABELS[cause] ?? cause
   const words = cause.replaceAll('_', ' ')
   return `${words.charAt(0).toUpperCase()}${words.slice(1)}`
+}
+
+/** Each provider event status's badge. `pending` reads Waiting: the event is not handled yet. */
+export const BILLING_EVENT_STATUS_BADGE: Record<
+  BillingEventStatus,
+  { label: string; tone: BadgeTone }
+> = {
+  processed: { label: 'Processed', tone: 'success' },
+  unused: { label: 'Unused', tone: 'muted' },
+  failed: { label: 'Failed', tone: 'destructive' },
+  pending: { label: 'Waiting', tone: 'neutral' },
+}
+
+/** Each held subscription's standing as a badge, against the billing record now. */
+export const SUBSCRIPTION_STANDING_BADGE: Record<
+  BillingSubscriptionStanding,
+  { label: string; tone: BadgeTone }
+> = {
+  current: { label: 'Current', tone: 'success' },
+  pending: { label: 'Pending', tone: 'neutral' },
+  next: { label: 'Next', tone: 'neutral-outline' },
+  earlier: { label: 'Earlier', tone: 'muted' },
+}
+
+/** Each invoice status's badge. */
+export const INVOICE_STATUS_BADGE: Record<InvoiceStatus, { label: string; tone: BadgeTone }> = {
+  issued: { label: 'Issued', tone: 'neutral' },
+  paid: { label: 'Paid', tone: 'success' },
+  cancelled: { label: 'Cancelled', tone: 'muted' },
+  expired: { label: 'Expired', tone: 'muted' },
+}
+
+/** Each provider's name. `fake` is express's test double. */
+const PROVIDER_NAMES: Record<BillingProvider, string> = { razorpay: 'Razorpay', fake: 'Fake' }
+
+/**
+ * A payment provider and its mode: "Razorpay (test)".
+ * @param provider - The provider.
+ * @param mode - Its mode, or `null` when none is on file.
+ */
+export function providerLabel(provider: BillingProvider, mode: BillingProviderMode | null): string {
+  return mode === null ? PROVIDER_NAMES[provider] : `${PROVIDER_NAMES[provider]} (${mode})`
 }

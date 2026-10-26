@@ -6,17 +6,27 @@
  * site and carries a reason. A tenant's billing key sits under its detail
  * key, so `invalidateDirectory` reaches it with the rest of the tenant.
  */
-import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import {
+  infiniteQueryOptions,
+  queryOptions,
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { codeFrom, statusFrom } from '@/lib/api-error'
 import { analyticsKey } from '@/observability/telemetry'
 import { auditKeys } from '@/queries/audit.queries'
-import { listQueryOptions } from '@/queries/list.queries'
+import { listQueryOptions, retryList } from '@/queries/list.queries'
 import { invalidateDirectory, PLANS_KEY } from '@/queries/platform.queries'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
-import { defineList } from '@/schemas/list.schemas'
+import { defineList, listFilter } from '@/schemas/list.schemas'
 import type { ApiSuccess } from '@/types/api.types'
 import {
+  BILLING_EVENT_STATUSES,
+  BILLING_HISTORY_SOURCES,
+  BILLING_PROVIDER_MODES,
+  BILLING_PROVIDERS,
   GRANT_NOT_FOUND,
   PLAN_VERSION_CONFLICT,
   type BillingAlert,
@@ -24,12 +34,16 @@ import {
   type BillingSettings,
   type EntitlementValue,
   type PlanChangePreview,
+  type StaffBillingEventItem,
+  type StaffBillingHistoryItem,
+  type StaffBillingSubscriptionItem,
   type StaffCancelWhen,
+  type StaffInvoiceItem,
   type StaffPlan,
   type StaffPlans,
   type StaffTenantBilling,
 } from '@/types/billing.types'
-import type { ListRequest } from '@/types/list.types'
+import type { ListPage, ListRequest } from '@/types/list.types'
 
 /**
  * `plans` and `settings` are the platform-wide reads; `alerts` prefixes
@@ -113,6 +127,122 @@ export function billingAlertsListOptions(request: ListRequest, options: { total?
     path: '/platform/billing/alerts',
     request,
     ...options,
+  })
+}
+
+/** The provider events list's URL contract on a tenant's Billing tab: newest received first, by status. */
+export const billingEventsList = defineList({
+  sorts: ['-at', 'at'],
+  filters: { status: listFilter(BILLING_EVENT_STATUSES) },
+  table: analyticsKey('billing_events'),
+  prefix: 'events',
+})
+
+/** The held subscriptions list's URL contract on a tenant's Billing tab: newest first seen first, by provider and mode. */
+export const billingSubscriptionsList = defineList({
+  sorts: ['-firstSeen', 'firstSeen'],
+  filters: {
+    provider: listFilter(BILLING_PROVIDERS),
+    mode: listFilter(BILLING_PROVIDER_MODES),
+  },
+  table: analyticsKey('billing_subscriptions'),
+  prefix: 'subscriptions',
+})
+
+/**
+ * The state history list's URL contract on a tenant's Billing tab: newest
+ * first, by source. Each of the tab's three lists has its own prefix, and
+ * this one carries the other two, so its `schema` is the route's one
+ * `validateSearch`.
+ */
+export const billingHistoryList = defineList({
+  sorts: ['-at', 'at'],
+  filters: { source: listFilter(BILLING_HISTORY_SOURCES) },
+  table: analyticsKey('billing_history'),
+  prefix: 'history',
+  also: [billingEventsList, billingSubscriptionsList],
+})
+
+/**
+ * One page of a tenant's billing list, under the tenant's billing key, so
+ * every billing write and directory refresh refetches it.
+ * @param tenantId - The tenant.
+ * @param name - The list's route under the tenant's billing.
+ * @param request - From `listRequest`.
+ */
+function tenantBillingListOptions<T>(tenantId: string, name: string, request: ListRequest) {
+  return listQueryOptions<T>({
+    key: [...billingAdminKeys.tenant(tenantId), name],
+    path: `/platform/tenants/${tenantId}/billing/${name}`,
+    request,
+  })
+}
+
+/**
+ * One page of `GET /platform/tenants/:id/billing/history` (viewer): search
+ * matches the from and to states and the cause as stored.
+ * @param tenantId - The tenant.
+ * @param request - From `listRequest(billingHistoryList, …)`.
+ * @returns Query options for `useListQuery` or a route loader.
+ */
+export function billingHistoryListOptions(tenantId: string, request: ListRequest) {
+  return tenantBillingListOptions<StaffBillingHistoryItem>(tenantId, 'history', request)
+}
+
+/**
+ * One page of `GET /platform/tenants/:id/billing/events` (viewer): search
+ * matches the event type and the error.
+ * @param tenantId - The tenant.
+ * @param request - From `listRequest(billingEventsList, …)`.
+ * @returns Query options for `useListQuery` or a route loader.
+ */
+export function billingEventsListOptions(tenantId: string, request: ListRequest) {
+  return tenantBillingListOptions<StaffBillingEventItem>(tenantId, 'events', request)
+}
+
+/**
+ * One page of `GET /platform/tenants/:id/billing/subscriptions` (viewer):
+ * search matches the subscription id.
+ * @param tenantId - The tenant.
+ * @param request - From `listRequest(billingSubscriptionsList, …)`.
+ * @returns Query options for `useListQuery` or a route loader.
+ */
+export function billingSubscriptionsListOptions(tenantId: string, request: ListRequest) {
+  return tenantBillingListOptions<StaffBillingSubscriptionItem>(tenantId, 'subscriptions', request)
+}
+
+/**
+ * `GET /platform/tenants/:id/billing/invoices` (viewer), read from the
+ * provider forward only: each page asks for the last page's cursor and the
+ * status filter, and nothing else, since the route ignores search, sort,
+ * direction, limit and total. A page may be short or empty while `hasNext`
+ * holds, so the reader keeps paging until it does not. With payments off the
+ * first page is empty, which means the provider can't be read, so the
+ * caller asks nothing then.
+ * @param tenantId - The tenant.
+ * @param status - A comma list of invoice statuses, or `undefined` for every status.
+ * @returns Infinite query options, a page per cursor.
+ */
+export function staffInvoicesQueryOptions(tenantId: string, status: string | undefined) {
+  return infiniteQueryOptions({
+    queryKey: [...billingAdminKeys.tenant(tenantId), 'invoices', { status }] as const,
+    queryFn: async ({ pageParam, signal }) =>
+      unwrap(
+        await apiClient.get<ApiSuccess<ListPage<StaffInvoiceItem>>>(
+          `/platform/tenants/${tenantId}/billing/invoices`,
+          {
+            params: {
+              ...(pageParam === undefined ? {} : { cursor: pageParam }),
+              ...(status === undefined ? {} : { status }),
+            },
+            signal,
+          }
+        )
+      ),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last: ListPage<StaffInvoiceItem>) =>
+      last.page.hasNext && last.page.nextCursor !== null ? last.page.nextCursor : undefined,
+    retry: retryList,
   })
 }
 

@@ -9,7 +9,14 @@ import {
   billingAdminKeys,
   billingAlertsList,
   billingAlertsListOptions,
+  billingEventsList,
+  billingEventsListOptions,
+  billingHistoryList,
+  billingHistoryListOptions,
   billingSettingsQueryOptions,
+  billingSubscriptionsList,
+  billingSubscriptionsListOptions,
+  staffInvoicesQueryOptions,
   staffPlansQueryOptions,
   staffTenantBillingQueryOptions,
   useAddGrant,
@@ -114,6 +121,100 @@ describe('billing reads', () => {
     await new QueryClient().fetchQuery(options)
     expect(asked?.get('limit')).toBe('5')
     expect(asked?.has('total')).toBe(false)
+  })
+})
+
+describe('tenant billing lists', () => {
+  it.each([
+    ['history', billingHistoryList, ['-at', 'at'], ['source']],
+    ['events', billingEventsList, ['-at', 'at'], ['status']],
+    ['subscriptions', billingSubscriptionsList, ['-firstSeen', 'firstSeen'], ['provider', 'mode']],
+  ] as const)(
+    'keeps the %s list’s URL keys apart under its own prefix',
+    (prefix, list, sorts, filters) => {
+      expect(list.sorts).toEqual(sorts)
+      expect(Object.keys(list.filters)).toEqual(filters)
+      expect(list.urlKey('search')).toBe(`${prefix}Search`)
+    }
+  )
+
+  it('validates all three lists’ params on one route schema', () => {
+    expect(
+      billingHistoryList.schema.parse({
+        historySource: 'staff,webhook',
+        eventsStatus: 'failed,bogus',
+        subscriptionsMode: 'live',
+        subscriptionsSort: 'firstSeen',
+      })
+    ).toEqual({
+      historySource: 'staff,webhook',
+      eventsStatus: 'failed',
+      subscriptionsMode: 'live',
+      subscriptionsSort: 'firstSeen',
+    })
+  })
+
+  it.each([
+    ['history', billingHistoryListOptions],
+    ['events', billingEventsListOptions],
+    ['subscriptions', billingSubscriptionsListOptions],
+  ] as const)(
+    'reads the %s list under the tenant’s billing key, with the request as sent',
+    async (path, options) => {
+      let asked: URLSearchParams | undefined
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/${path}`, ({ request }) => {
+          asked = new URL(request.url).searchParams
+          return ok(listPage([]), 'ok')
+        })
+      )
+      const query = options(TENANT_ID, { search: 'x', cursor: 'c2' })
+      expect(query.queryKey.slice(0, 5)).toEqual([...billingAdminKeys.tenant(TENANT_ID), path])
+      await new QueryClient().fetchQuery(query)
+      expect(asked?.get('search')).toBe('x')
+      expect(asked?.get('cursor')).toBe('c2')
+    }
+  )
+
+  it('asks the invoices route only for its cursor and status, page by page', async () => {
+    const asked: URLSearchParams[] = []
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/invoices`, ({ request }) => {
+        const params = new URL(request.url).searchParams
+        asked.push(params)
+        return ok(
+          params.has('cursor')
+            ? listPage([], { hasPrev: true })
+            : listPage([], { nextCursor: 'c2', hasNext: true }),
+          'ok'
+        )
+      })
+    )
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const options = staffInvoicesQueryOptions(TENANT_ID, 'paid')
+    expect(options.queryKey.slice(0, 4)).toEqual(billingAdminKeys.tenant(TENANT_ID))
+    const first = await client.fetchInfiniteQuery(options)
+    expect([...(asked[0]?.keys() ?? [])]).toEqual(['status'])
+    expect(options.getNextPageParam(first.pages[0]!, first.pages, undefined, [undefined])).toBe(
+      'c2'
+    )
+    await client.fetchInfiniteQuery({ ...options, pages: 2 })
+    expect(Object.fromEntries(asked.at(-1) ?? [])).toEqual({ cursor: 'c2', status: 'paid' })
+    expect(
+      options.getNextPageParam(listPage([], { hasPrev: true }), [], 'c2', [undefined, 'c2'])
+    ).toBeUndefined()
+  })
+
+  it('asks the invoices route for no status when none is picked', async () => {
+    let asked: URLSearchParams | undefined
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/invoices`, ({ request }) => {
+        asked = new URL(request.url).searchParams
+        return ok(listPage([]), 'ok')
+      })
+    )
+    await new QueryClient().fetchInfiniteQuery(staffInvoicesQueryOptions(TENANT_ID, undefined))
+    expect([...(asked?.keys() ?? [])]).toEqual([])
   })
 })
 

@@ -1,11 +1,22 @@
 import { describe, expect, it } from 'vite-plus/test'
 import {
   BILLING_ALERT_KIND_LABELS,
+  BILLING_EVENT_STATUS_BADGE,
   BILLING_SOURCE_LABELS,
   BILLING_STATE_BADGE,
   historyCauseLabel,
+  INVOICE_STATUS_BADGE,
+  providerLabel,
+  SUBSCRIPTION_STANDING_BADGE,
 } from '@/constants/billing-labels'
-import { BILLING_ALERT_KINDS, BILLING_HISTORY_SOURCES, BILLING_STATES } from '@/types/billing.types'
+import {
+  BILLING_ALERT_KINDS,
+  BILLING_EVENT_STATUSES,
+  BILLING_HISTORY_SOURCES,
+  BILLING_STATES,
+  BILLING_SUBSCRIPTION_STANDINGS,
+  INVOICE_STATUSES,
+} from '@/types/billing.types'
 
 describe('BILLING_STATE_BADGE', () => {
   it('labels and tones every billing state', () => {
@@ -61,5 +72,59 @@ describe('historyCauseLabel', () => {
 
   it('words a cause it has no label for', () => {
     expect(historyCauseLabel('payer_left_workspace')).toBe('Payer left workspace')
+  })
+})
+
+describe('BILLING_EVENT_STATUS_BADGE', () => {
+  it('labels and tones every provider event status express reports', () => {
+    expect(Object.keys(BILLING_EVENT_STATUS_BADGE).sort()).toEqual(
+      [...BILLING_EVENT_STATUSES].sort()
+    )
+    expect(BILLING_EVENT_STATUS_BADGE).toEqual({
+      processed: { label: 'Processed', tone: 'success' },
+      unused: { label: 'Unused', tone: 'muted' },
+      failed: { label: 'Failed', tone: 'destructive' },
+      pending: { label: 'Waiting', tone: 'neutral' },
+    })
+  })
+})
+
+describe('SUBSCRIPTION_STANDING_BADGE', () => {
+  it('labels and tones every standing', () => {
+    expect(Object.keys(SUBSCRIPTION_STANDING_BADGE).sort()).toEqual(
+      [...BILLING_SUBSCRIPTION_STANDINGS].sort()
+    )
+    expect(SUBSCRIPTION_STANDING_BADGE).toEqual({
+      current: { label: 'Current', tone: 'success' },
+      pending: { label: 'Pending', tone: 'neutral' },
+      next: { label: 'Next', tone: 'neutral-outline' },
+      earlier: { label: 'Earlier', tone: 'muted' },
+    })
+  })
+})
+
+describe('INVOICE_STATUS_BADGE', () => {
+  it('labels and tones every invoice status', () => {
+    expect(Object.keys(INVOICE_STATUS_BADGE).sort()).toEqual([...INVOICE_STATUSES].sort())
+    expect(INVOICE_STATUS_BADGE).toEqual({
+      issued: { label: 'Issued', tone: 'neutral' },
+      paid: { label: 'Paid', tone: 'success' },
+      cancelled: { label: 'Cancelled', tone: 'muted' },
+      expired: { label: 'Expired', tone: 'muted' },
+    })
+  })
+})
+
+describe('providerLabel', () => {
+  it.each([
+    ['razorpay', 'test', 'Razorpay (test)'],
+    ['razorpay', 'live', 'Razorpay (live)'],
+    ['fake', 'test', 'Fake (test)'],
+  ] as const)('names %s in %s mode as %s', (provider, mode, label) => {
+    expect(providerLabel(provider, mode)).toBe(label)
+  })
+
+  it('names a provider with no mode on file by itself', () => {
+    expect(providerLabel('razorpay', null)).toBe('Razorpay')
   })
 })
