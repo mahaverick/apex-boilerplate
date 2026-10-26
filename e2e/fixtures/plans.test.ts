@@ -1,11 +1,13 @@
+import { confirmInSecondTab } from '../helpers/step-up'
 import { expect, test } from '../hermetic'
 import { sidewaysOverflow } from '../layout'
 
 /**
  * The Plans page in a real browser, through the harness: a viewer reads it
  * with no edit controls, an admin lowers Free's members limit through the
- * affected-tenants confirm, and adds a price above the warning threshold,
- * with nothing scrolling sideways at 390px.
+ * affected-tenants confirm and a step-up confirmed by emailed link, and adds
+ * a price above the warning threshold, with nothing scrolling sideways at
+ * 390px.
  */
 
 test('a viewer reads both plans and the prices, with no edit controls', async ({ page }) => {
@@ -18,11 +20,21 @@ test('a viewer reads both plans and the prices, with no edit controls', async ({
   await expect(page.getByRole('textbox')).toHaveCount(0)
 })
 
-test('an admin lowers Free’s members from 3 to 2 through the affected-tenants confirm, at 390px', async ({
+test('an admin lowers Free’s members from 3 to 2 through the affected-tenants confirm and a step-up, at 390px', async ({
   page,
 }) => {
+  const saves: number[] = []
+  page.on('response', (response) => {
+    if (
+      response.request().method() === 'PATCH' &&
+      new URL(response.url()).pathname.includes('/platform/plans/')
+    ) {
+      saves.push(response.status())
+    }
+  })
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/e2e/harness/?path=/plans')
+  // `stepup=once` refuses the save until this session confirms it's the user.
+  await page.goto('/e2e/harness/?path=/plans&stepup=once')
   const free = page.getByRole('region', { name: 'Free' })
   await free.getByRole('textbox', { name: 'Members' }).fill('2')
   await free.getByRole('button', { name: 'Save Free' }).click()
@@ -37,7 +49,16 @@ test('an admin lowers Free’s members from 3 to 2 through the affected-tenants 
   await dialog.getByRole('checkbox', { name: 'I checked the tenants this affects' }).click()
   await dialog.getByRole('button', { name: 'Lower limits' }).click()
 
+  const stepUp = page.getByRole('dialog', { name: 'Confirm it’s you' })
+  await stepUp.getByRole('button', { name: 'Email me a link' }).click()
+  await expect(
+    stepUp.getByText('We sent the link to a.b@example.com.', { exact: false })
+  ).toBeVisible()
+  await confirmInSecondTab(page)
+  await expect(stepUp).toBeHidden()
+
   await expect(page.getByText('Free saved.')).toBeVisible()
+  expect(saves).toEqual([401, 200])
   await expect(dialog).toHaveCount(0)
   await expect(free.getByRole('textbox', { name: 'Members' })).toHaveValue('2')
   expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0)
