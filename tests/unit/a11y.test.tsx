@@ -29,6 +29,7 @@ import {
   testBillingSubscriptions,
   testFreeTenantBilling,
   testInvoices,
+  testBillingAlerts,
   testPlans,
   testTenantBilling,
 } from '@/tests/fixtures/billing'
@@ -2432,6 +2433,77 @@ describe('plans', () => {
     const dialog = await screen.findByRole('dialog', { name: 'New price for Paid' })
     await user.click(within(dialog).getByRole('combobox', { name: 'Interval' }))
     await expectNoViolationsIn(await screen.findByRole('listbox'))
+  })
+})
+
+/** The Trials and grace card read-only and with a field error, its Save dialog, and the billing alerts card and page. */
+describe('billing settings and alerts', () => {
+  /** Signs in as `role` and opens `path`. */
+  function open(path: string, role: 'viewer' | 'admin' = 'admin') {
+    signIn()
+    useAuthStore.setState({ user: { ...testUser, platformRole: role } })
+    renderAppAt(path)
+  }
+
+  it('the Trials and grace card, read-only for a viewer, has no axe violations', async () => {
+    open('/plans', 'viewer')
+    const card = await screen.findByRole('region', { name: 'Trials and grace' })
+    await within(card).findByText('Never changed.')
+    await screen.findByRole('region', { name: 'Free' })
+    await expectNoViolations()
+  })
+
+  it('the Trials and grace card with a field error showing has no axe violations', async () => {
+    const user = userEvent.setup()
+    open('/plans')
+    const card = await screen.findByRole('region', { name: 'Trials and grace' })
+    const length = await within(card).findByRole('textbox', { name: 'Trial length (days)' })
+    await user.clear(length)
+    await user.type(length, '0')
+    await user.click(within(card).getByRole('button', { name: 'Save billing settings' }))
+    await within(card).findByText('Enter a whole number of days from 1 to 90.')
+    await screen.findByRole('region', { name: 'Free' })
+    await expectNoViolations()
+  })
+
+  it('the open Save billing settings dialog has no axe violations', async () => {
+    const user = userEvent.setup()
+    open('/plans')
+    const card = await screen.findByRole('region', { name: 'Trials and grace' })
+    await user.click(
+      await within(card).findByRole('switch', { name: 'Give new workspaces a Paid trial' })
+    )
+    await user.click(within(card).getByRole('button', { name: 'Save billing settings' }))
+    await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    await expectNoViolations()
+  })
+
+  it('the Overview with the billing alerts card has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/billing/alerts', () => ok(listPage(testBillingAlerts), 'OK'))
+    )
+    open('/overview')
+    const card = await screen.findByRole('region', { name: 'Billing alerts' })
+    await within(card).findAllByRole('listitem')
+    await screen.findByRole('figure', { name: 'Sign-ups per day' })
+    await screen.findByText(testSystemStatus.release)
+    await expectNoViolations()
+  })
+
+  it('the Billing alerts page has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/billing/alerts', () => ok(listPage(testBillingAlerts), 'OK'))
+    )
+    open('/billing-alerts')
+    await screen.findByRole('heading', { name: 'Billing alerts', level: 1 })
+    await screen.findByRole('table', { name: 'Billing alerts' })
+    await expectNoViolations()
+  })
+
+  it('the Billing alerts page below admin has no axe violations', async () => {
+    open('/billing-alerts', 'viewer')
+    await screen.findByRole('heading', { name: 'Page not available', level: 1 })
+    await expectNoViolations()
   })
 })
 
