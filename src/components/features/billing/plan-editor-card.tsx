@@ -26,6 +26,7 @@ import { useStepUp } from '@/hooks/use-step-up'
 import { codeFrom, fieldErrorsFrom, formErrorsFrom, statusFrom } from '@/lib/api-error'
 import { refuseInForm } from '@/lib/billing-refusal'
 import {
+  detailsSentence,
   entitlementErrorFields,
   entitlementText,
   fieldsAfterConflict,
@@ -377,8 +378,13 @@ function PlanEditor({
         title={`Save ${plan.name}?`}
         description={
           confirm?.kind === 'entitlements'
-            ? `${tenantsOnPlan(confirm.preview, plan.name)}. They get these limits now.`
-            : `The new name and description show on the pricing page and in every workspace on ${plan.name} now.`
+            ? [
+                `${tenantsOnPlan(confirm.preview, plan.name)}. The changes apply to them now.`,
+                detailsSentence(confirm.body, plan.name),
+              ]
+                .filter((sentence) => sentence !== null)
+                .join(' ')
+            : (detailsSentence(confirm?.body ?? {}, plan.name) ?? '')
         }
         confirmLabel="Save"
         onConfirm={async (reason) => {
@@ -392,6 +398,7 @@ function PlanEditor({
             if (!open) setConfirm(null)
           }}
           planName={plan.name}
+          alsoChanged={detailsSentence(confirm.body, plan.name)}
           preview={confirm.preview}
           catalog={catalog}
           onConfirm={(reason) => save(confirm.body, reason)}

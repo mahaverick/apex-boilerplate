@@ -181,7 +181,7 @@ describe('Plans page', () => {
       await user.click(within(free).getByRole('button', { name: 'Save Free' }))
 
       const dialog = await screen.findByRole('alertdialog', { name: 'Save Free?' })
-      expect(dialog).toHaveTextContent('4 tenants are on Free. They get these limits now.')
+      expect(dialog).toHaveTextContent('4 tenants are on Free. The changes apply to them now.')
       await user.type(within(dialog).getByLabelText('Reason'), 'More room for small teams')
       await user.click(within(dialog).getByRole('button', { name: 'Save' }))
       await confirmStepUp(user)
@@ -206,7 +206,7 @@ describe('Plans page', () => {
 
       const dialog = await screen.findByRole('alertdialog', { name: 'Save Free?' })
       expect(dialog).toHaveTextContent(
-        'The new name and description show on the pricing page and in every workspace on Free now.'
+        'The new name shows on the pricing page and on the Billing and Members pages of every workspace on Free.'
       )
       await user.type(within(dialog).getByLabelText('Reason'), 'Rename')
       await user.click(within(dialog).getByRole('button', { name: 'Save' }))
@@ -214,6 +214,86 @@ describe('Plans page', () => {
       await waitFor(() => expect(success).toHaveBeenCalledWith('Starter saved.'))
       expect(previews).toEqual([])
       expect(saves[1]).toEqual({ version: 1, name: 'Starter', reason: 'Rename' })
+    })
+
+    it('says only the description changed when only it did', async () => {
+      recordSave(FREE, { ...FREE, version: 2, description: 'For two.' })
+      const user = userEvent.setup()
+      openPlans()
+      const free = await card('Free')
+      const description = within(free).getByRole('textbox', { name: 'Description' })
+      await user.clear(description)
+      await user.type(description, 'For two.')
+      await user.click(within(free).getByRole('button', { name: 'Save Free' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Save Free?' })
+      expect(dialog).toHaveTextContent('The new description shows on the pricing page.')
+      expect(dialog).not.toHaveTextContent('new name')
+    })
+
+    it('saves a name and a limit in one PATCH, and says both apply', async () => {
+      const previews = recordPreview(
+        FREE,
+        freePreview([{ key: 'members', from: 3, to: 5, direction: 'increase' }])
+      )
+      const saves = recordSave(FREE, {
+        ...FREE,
+        version: 2,
+        name: 'Starter',
+        entitlements: { ...FREE.entitlements, members: 5 },
+      })
+      const user = userEvent.setup()
+      openPlans()
+      const free = await card('Free')
+      const name = within(free).getByRole('textbox', { name: 'Name' })
+      await user.clear(name)
+      await user.type(name, 'Starter')
+      const members = within(free).getByRole('textbox', { name: 'Members' })
+      await user.clear(members)
+      await user.type(members, '5')
+      await user.click(within(free).getByRole('button', { name: 'Save Free' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Save Free?' })
+      expect(dialog).toHaveTextContent(
+        '4 tenants are on Free. The changes apply to them now. The new name shows on the pricing page and on the Billing and Members pages of every workspace on Free.'
+      )
+      await user.type(within(dialog).getByLabelText('Reason'), 'Rename and grow')
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+      await confirmStepUp(user)
+      await waitFor(() => expect(success).toHaveBeenCalledWith('Starter saved.'))
+      expect(previews).toEqual([{ entitlements: { members: 5 } }])
+      expect(saves[1]).toEqual({
+        version: 1,
+        name: 'Starter',
+        entitlements: { members: 5 },
+        reason: 'Rename and grow',
+      })
+    })
+
+    it('lists a raise and a cut together in the lower-limits dialog, with the rename', async () => {
+      recordPreview(
+        FREE,
+        freePreview([
+          { key: 'members', from: 3, to: 2, direction: 'decrease' },
+          { key: 'advanced_example', from: false, to: true, direction: 'increase' },
+        ])
+      )
+      const user = userEvent.setup()
+      openPlans()
+      const free = await card('Free')
+      const name = within(free).getByRole('textbox', { name: 'Name' })
+      await user.clear(name)
+      await user.type(name, 'Starter')
+      const members = within(free).getByRole('textbox', { name: 'Members' })
+      await user.clear(members)
+      await user.type(members, '2')
+      await user.click(within(free).getByRole('switch', { name: 'Workspace insights' }))
+      await user.click(within(free).getByRole('button', { name: 'Save Free' }))
+      const dialog = await screen.findByRole('alertdialog', { name: 'Lower limits on Free?' })
+      const changes = within(dialog).getByRole('list', { name: 'Changes' })
+      expect(changes).toHaveTextContent('Members: 3 → 2')
+      expect(changes).toHaveTextContent('Workspace insights: Off → On')
+      expect(dialog).toHaveTextContent(
+        'The new name shows on the pricing page and on the Billing and Members pages of every workspace on Free.'
+      )
     })
 
     it('sends No limit as null', async () => {
@@ -306,7 +386,7 @@ describe('Plans page', () => {
       await user.type(members, '4')
       await user.click(within(free).getByRole('button', { name: 'Save Free' }))
       const dialog = await screen.findByRole('alertdialog', { name: 'Save Free?' })
-      expect(dialog).toHaveTextContent('1 tenant is on Free. They get these limits now.')
+      expect(dialog).toHaveTextContent('1 tenant is on Free. The changes apply to them now.')
     })
 
     it('asks for a change when nothing changed, and posts nothing', async () => {

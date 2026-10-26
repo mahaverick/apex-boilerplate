@@ -55,6 +55,28 @@ export function tenantsOnPlan(preview: PlanChangePreview, planName: string): str
 }
 
 /**
+ * Where a saved name or description shows, for the save dialog: the name on
+ * the pricing page and on each workspace's Billing and Members pages, the
+ * description on the pricing page only (react's `pricing-table.tsx`,
+ * `billing-overview-card.tsx` and `members-limit-note.tsx`).
+ * @param changed - The save's changed name and description, if any.
+ * @param planName - The plan's name as loaded.
+ * @returns The sentences, or null when neither changed.
+ */
+export function detailsSentence(
+  changed: { name?: string; description?: string },
+  planName: string
+): string | null {
+  const sentences = [
+    changed.name === undefined
+      ? null
+      : `The new name shows on the pricing page and on the Billing and Members pages of every workspace on ${planName}.`,
+    changed.description === undefined ? null : 'The new description shows on the pricing page.',
+  ].filter((sentence) => sentence !== null)
+  return sentences.length === 0 ? null : sentences.join(' ')
+}
+
+/**
  * One change as the lower-limits dialog lists it: "Members: 3 → 2".
  * @param change - One of the preview's changes.
  * @param catalog - The entitlements this product has, for the label.

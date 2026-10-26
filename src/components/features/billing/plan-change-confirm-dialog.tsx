@@ -35,6 +35,8 @@ interface PlanChangeConfirmDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   planName: string
+  /** What the same save says about a changed name or description, or null. */
+  alsoChanged: string | null
   preview: PlanChangePreview
   catalog: readonly EntitlementCatalogEntry[]
   /** Saves the edit with the reason; resolves to close, rejects to show why. */
@@ -69,6 +71,7 @@ export function PlanChangeConfirmDialog(props: PlanChangeConfirmDialogProps) {
 function LowerLimitsForm({
   onOpenChange,
   planName,
+  alsoChanged,
   preview,
   catalog,
   onConfirm,
@@ -100,7 +103,7 @@ function LowerLimitsForm({
         <AlertDialogTitle>Lower limits on {planName}?</AlertDialogTitle>
         <AlertDialogDescription>
           {tenantsOnPlan(preview, planName)}. They get the lower limits now and keep their data. A
-          tenant over a limit can’t add more.
+          tenant over a limit can’t add more.{alsoChanged === null ? null : ` ${alsoChanged}`}
         </AlertDialogDescription>
       </AlertDialogHeader>
       <ul className="grid gap-1 text-sm" aria-label="Changes">
