@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.1.0](https://github.com/mahaverick/apex-boilerplate/compare/v8.0.4...v8.1.0) (2026-10-26)
+
+
+### Features
+
+* **billing:** staff billing — tenant Billing tab, actions, Plans page, settings and alerts ([#107](https://github.com/mahaverick/apex-boilerplate/issues/107)) ([28c7077](https://github.com/mahaverick/apex-boilerplate/commit/28c7077eac2be01acbe1ceb22e164ce21d38640a))
+
 ## [8.0.4](https://github.com/mahaverick/apex-boilerplate/compare/v8.0.3...v8.0.4) (2026-10-23)
 
 
