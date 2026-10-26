@@ -353,6 +353,23 @@ describe('/tenants/$tenantId/billing', () => {
       expect(within(card).queryByText('First charge', { selector: 'dt' })).toBeNull()
     })
 
+    it('reads a trial that lapsed while the page was open as Free: no past Trial ends date', async () => {
+      serve({
+        ...testTenantBilling,
+        state: 'trialing',
+        price: null,
+        interval: null,
+        trialEndsAt: new Date(Date.now() - 60 * 1000).toISOString(),
+        currentPeriodEnd: null,
+        providerSubscriptionId: null,
+        payer: null,
+      })
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(within(card).queryByText('Trial ends', { selector: 'dt' })).toBeNull()
+      expect(within(card).queryByText('Paid until', { selector: 'dt' })).toBeNull()
+    })
+
     it('shows no paid period for a trialing tenant whose subscription is authenticated', async () => {
       serve({
         ...testTenantBilling,

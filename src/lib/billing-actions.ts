@@ -8,10 +8,17 @@ import { platformRoleAtLeast } from '@/constants/roles'
 import { trialDaysFrom } from '@/schemas/billing.schemas'
 import type { PlatformTenantDetail } from '@/types/api.types'
 import type {
+  BillingState,
   EntitlementCatalogEntry,
   StaffCancelWhen,
   StaffTenantBilling,
 } from '@/types/billing.types'
+
+/**
+ * How long a cancelled Paid stays on after its period ends, as express's
+ * `CANCEL_BUFFER_DAYS` (3), before the tenant moves to Free.
+ */
+export const CANCEL_BUFFER_MS = 3 * 24 * 60 * 60 * 1000
 
 /**
  * The payment provider as a sentence names it: Razorpay, or "the payment
@@ -26,34 +33,55 @@ export function providerName(billing: StaffTenantBilling): string {
  * Whether express would cancel a current subscription: an id with the tenant
  * on Paid and charged or past due, as `hasCurrentSubscription` in express's
  * checkout service reads it. A Free tenant keeps its last id after Paid ends,
- * and a pending checkout is never cancelled, so neither counts. A cancelled
- * period more than `CANCEL_BUFFER_MS` past its end counts as Free, as
- * express's `effectiveBillingState` serves it, so a page left open across
- * the buffer offers what a fresh read would.
+ * and a pending checkout is never cancelled, so neither counts. The state is
+ * the one a fresh read would serve (`effectiveState`), so a page left open
+ * past a cancel's buffer or a failed payment's grace offers what a fresh
+ * read would.
  * @param billing - The tenant's billing.
  * @param now - The moment the page reads as now, in milliseconds.
  */
 function hasCurrentSubscription(billing: StaffTenantBilling, now: number): boolean {
-  return (
-    billing.providerSubscriptionId !== null &&
-    (billing.state === 'active' || billing.state === 'past_due') &&
-    !isPastCancelBuffer(billing, now)
-  )
+  const state = effectiveState(billing, now)
+  return billing.providerSubscriptionId !== null && (state === 'active' || state === 'past_due')
 }
 
 /**
- * Whether a cancelled period ended more than `CANCEL_BUFFER_MS` ago, so
- * express's `effectiveBillingState` serves the tenant as Free, whatever its
- * stored state. Fresh data never shows it as active then; a page left open
- * across the buffer can, and reads it as Free.
+ * Whether a moment has passed, as express's `now > end` reads it.
+ * @param iso - The moment, as an ISO timestamp.
+ * @param now - The moment the page reads as now, in milliseconds.
+ * @param after - How long after `iso` it ends, in milliseconds.
+ */
+function hasPassed(iso: string, now: number, after = 0): boolean {
+  return now > new Date(iso).getTime() + after
+}
+
+/**
+ * The state express's `effectiveBillingState` would serve now. The view's
+ * `state` is already that state as of the read, but a page left open moves
+ * past the moment that ends it: a trial past its end, a cancelled period
+ * more than `CANCEL_BUFFER_MS` past its end, and a failed payment past its
+ * grace each read as Free, whatever express's billing job has stored yet.
+ * An uncancelled period's end plus grace is not on the view, so it is left to
+ * the next read.
  * @param billing - The tenant's billing.
  * @param now - The moment the page reads as now, in milliseconds.
  */
-export function isPastCancelBuffer(billing: StaffTenantBilling, now: number): boolean {
-  const end = billing.currentPeriodEnd
-  return (
-    billing.cancelAtPeriodEnd && end !== null && new Date(end).getTime() + CANCEL_BUFFER_MS <= now
-  )
+export function effectiveState(billing: StaffTenantBilling, now: number): BillingState {
+  const { state, trialEndsAt, currentPeriodEnd, pastDue } = billing
+  if (state === 'trialing')
+    return trialEndsAt !== null && hasPassed(trialEndsAt, now) ? 'free' : state
+  if (state === 'active') {
+    return billing.cancelAtPeriodEnd &&
+      currentPeriodEnd !== null &&
+      hasPassed(currentPeriodEnd, now, CANCEL_BUFFER_MS)
+      ? 'free'
+      : state
+  }
+  if (state === 'past_due') {
+    const graceEndsAt = pastDue?.graceEndsAt ?? null
+    return graceEndsAt !== null && hasPassed(graceEndsAt, now) ? 'free' : state
+  }
+  return state
 }
 
 /**
@@ -97,12 +125,6 @@ export interface CancelChoice {
   /** What express does for this choice, in this tenant's case. */
   description: string
 }
-
-/**
- * How long a cancelled Paid stays on after its period ends, as express's
- * `CANCEL_BUFFER_DAYS` (3), before the tenant moves to Free.
- */
-export const CANCEL_BUFFER_MS = 3 * 24 * 60 * 60 * 1000
 
 /**
  * The day a tenant whose paid period ended moves to Free: express keeps Paid

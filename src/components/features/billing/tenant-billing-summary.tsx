@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { billingDate, billingDateTime, providerLabel } from '@/constants/billing-labels'
 import { useNow } from '@/hooks/use-now'
-import { CANCEL_BUFFER_MS, isPastCancelBuffer } from '@/lib/billing-actions'
+import { CANCEL_BUFFER_MS, effectiveState } from '@/lib/billing-actions'
 import { formatInr } from '@/lib/billing-format'
 import { relativeTime } from '@/lib/relative-time'
 import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
@@ -33,15 +33,17 @@ interface DateRow {
 
 /**
  * The summary's dated rows, as react's billing page reads the same states.
- * A trial shows only when it ends: express keeps `trialEndsAt` after a trial,
+ * A tenant a fresh read would serve as Free (`effectiveState`: a trial past
+ * its end, a cancelled period past its buffer, a failed payment past its
+ * grace, on a page left open) shows Free's dates: none, never a date that
+ * reads as still to come. A trial shows only when it ends: express keeps `trialEndsAt` after a trial,
  * so a past trial date never shows once the tenant pays or is on Free, and a
  * trialing tenant's authenticated subscription has no paid period yet. A
  * tenant that took Paid during its trial is `active` before its first charge,
  * which falls on the trial's end; it shows that charge, not a paid period.
  * Free shows no dates: express keeps the last period's end after a move to
  * Free. A cancelled period that has ended reads as ended, with the day the
- * tenant moves to Free, never as cancelling on a past date; past that day
- * it reads as Free (`isPastCancelBuffer`), as the cancel dialog does.
+ * tenant moves to Free, never as cancelling on a past date.
  * A booked next subscription (a switch, or Paid again while cancelling)
  * reads as Paid continuing, checked first as react does, never as ending.
  * A failed payment shows no period date: express ends its Paid when the
@@ -60,11 +62,11 @@ function dateRows(
   const { state, trialEndsAt, currentPeriodEnd, price, nextSwitch } = billing
   /** A date in the tenant's zone. */
   const day = (iso: string) => billingDate(iso, timeZone)
+  // Express serves a lapsed trial, cancel or grace as Free, so a page left open shows Free's dates: none.
+  if (effectiveState(billing, now) === 'free') return []
   if (state === 'trialing') {
     return trialEndsAt === null ? [] : [{ label: 'Trial ends', value: day(trialEndsAt) }]
   }
-  // Past the buffer express serves the tenant as Free, so a page left open shows Free's dates: none.
-  if (isPastCancelBuffer(billing, now)) return []
   // A failed payment's Paid ends with its grace, which the Failed payment row names; the period end is not it.
   if (state === 'past_due') return []
   if (state === 'active' && nextSwitch !== null) {
