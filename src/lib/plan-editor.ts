@@ -38,7 +38,7 @@ export function entitlementText(value: EntitlementValue | undefined): string {
  */
 export function planCountsLine(plan: StaffPlan): string {
   const counts = plan.tenantCounts
-  if (plan.key === 'free') return `${String(counts.free)} on Free`
+  if (plan.key === 'free') return `${String(counts.free)} on ${plan.name}`
   return `${String(counts.active)} paying · ${String(counts.trialing)} in trial · ${String(counts.past_due)} with a failed payment`
 }
 

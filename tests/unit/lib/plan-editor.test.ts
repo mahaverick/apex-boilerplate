@@ -26,6 +26,7 @@ describe('plan editor wording', () => {
 
   it('counts each plan by the states express serves under it', () => {
     expect(planCountsLine(FREE)).toBe('4 on Free')
+    expect(planCountsLine({ ...FREE, name: 'Starter' })).toBe('4 on Starter')
     expect(planCountsLine(PAID)).toBe('3 paying · 2 in trial · 1 with a failed payment')
   })
 
