@@ -250,8 +250,8 @@ errors onto its inputs through `useServerErrors`.
   under the singular one (`['platform', 'tenant', id]`), so refreshing a list
   never refetches an open record. `invalidateDirectory` marks both stale
   after a staff write, with every tenant's own routes, the platform audit
-  log, onboarding and the email queries, since a write may change what any
-  of them show.
+  log, onboarding, the plans' tenant counts and the email queries, since a
+  write may change what any of them show.
 - **A tenant's own routes are keyed by slug and id.** `/tenants/:slug/*`
   answers what the tenant's members see, and a tenant opened from its
   staff page adds its id to the key (`tenantKeys` in
