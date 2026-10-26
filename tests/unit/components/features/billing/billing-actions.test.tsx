@@ -347,6 +347,39 @@ describe('billing actions', () => {
       ])
     })
 
+    it('says how long to wait when billing is busy, not that the server failed', async () => {
+      serve()
+      server.use(
+        http.post(`${BASE}/resync`, () =>
+          HttpResponse.json(
+            {
+              success: false,
+              message:
+                'Our server hit an error. Try again, and contact support with the error ID if it happens again.',
+              statusCode: 503,
+              code: 'BILLING_BUSY',
+              requestId: 'test-request-id',
+            },
+            { status: 503, headers: { 'Retry-After': '30' } }
+          )
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Resync billing')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Resync billing for Acme Corp?',
+      })
+      await user.type(within(dialog).getByLabelText('Reason'), 'Owner says they paid')
+      await user.click(within(dialog).getByRole('button', { name: 'Resync' }))
+      expect(
+        await within(dialog).findByText(
+          'Billing for Acme Corp is updating. Try again in 30 seconds.'
+        )
+      ).toBeInTheDocument()
+      expect(within(dialog).queryByText(/contact support/)).toBeNull()
+    })
+
     it('names the payment provider, not Razorpay, for another provider', async () => {
       serve({ ...testTenantBilling, provider: 'fake' })
       recordWrite('resync', { ...testTenantBilling, provider: 'fake' })
@@ -1196,6 +1229,38 @@ describe('billing actions', () => {
       await waitFor(() =>
         expect(success).toHaveBeenCalledWith('We cancelled the subscription for Acme Corp.')
       )
+    })
+
+    it('says the provider didn’t answer, with the wait, on a masked 503', async () => {
+      serve()
+      server.use(
+        http.post(`${BASE}/cancel`, () =>
+          HttpResponse.json(
+            {
+              success: false,
+              message:
+                'Our server hit an error. Try again, and contact support with the error ID if it happens again.',
+              statusCode: 503,
+              code: 'PAYMENT_PROVIDER_UNAVAILABLE',
+              requestId: 'test-request-id',
+            },
+            { status: 503, headers: { 'Retry-After': '30' } }
+          )
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await openAction(user, 'Cancel subscription')
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Cancel the subscription for Acme Corp?',
+      })
+      await user.type(within(dialog).getByLabelText('Reason'), 'Customer asked')
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel subscription' }))
+      expect(
+        await within(dialog).findByText(
+          'Razorpay didn’t answer. Try again in 30 seconds. If it keeps failing, check Razorpay’s status page.'
+        )
+      ).toBeInTheDocument()
     })
 
     it('shows the API sentence when the provider refuses', async () => {

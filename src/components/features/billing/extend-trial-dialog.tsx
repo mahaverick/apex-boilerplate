@@ -122,7 +122,7 @@ function ExtendTrialForm({
         onDone()
       } catch (error) {
         onBusyChange(false)
-        refuseInForm(serverErrors, error)
+        refuseInForm(serverErrors, error, { tenantName: tenant.name, provider: billing.provider })
       }
     },
   })

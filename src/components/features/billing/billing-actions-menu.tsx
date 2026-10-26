@@ -16,6 +16,7 @@ import {
 import { useNow } from '@/hooks/use-now'
 import { useStepUp } from '@/hooks/use-step-up'
 import { billingActionsFor, providerName } from '@/lib/billing-actions'
+import { billingOutageMessage } from '@/lib/billing-refusal'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
 import { toast } from '@/lib/toast'
 import { analyticsKey } from '@/observability/telemetry'
@@ -137,6 +138,9 @@ export function BillingActionsMenu({
         title={`Resync billing for ${tenant.name}?`}
         description={`We read this tenant’s subscriptions from ${provider} and update the plan and dates. Nothing is charged.`}
         confirmLabel="Resync"
+        refusalMessage={(error) =>
+          billingOutageMessage(error, { tenantName: tenant.name, provider: billing.provider })
+        }
         onConfirm={async (reason) => {
           await stepUp.run(() => resync.mutateAsync({ reason }))
           toast.success(`Billing for ${tenant.name} matches ${provider}.`)

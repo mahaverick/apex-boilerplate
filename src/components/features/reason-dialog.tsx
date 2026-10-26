@@ -57,9 +57,10 @@ export interface ReasonDialogProps {
   /** Where focus goes when the dialog closes; omitted, it returns to the element that opened it. */
   finalFocus?: ComponentProps<typeof AlertDialogContent>['finalFocus']
   /**
-   * How a 403 or 409 reads instead of the server's sentence, for a refusal
-   * whose detail the reader's locale should word (a time); `undefined` keeps
-   * the server's.
+   * How a refusal reads instead of the server's sentence: a 403 or 409 whose
+   * detail the reader's locale should word (a time), or a 5xx whose body
+   * express masks, such as a billing outage; `undefined` keeps the server's
+   * sentence (or, for anything but a 403 or 409, `capture`'s).
    */
   refusalMessage?: (error: unknown) => string | undefined
 }
@@ -77,7 +78,8 @@ export interface ReasonDialogProps {
  * owner) unless `refusalMessage` returns a sentence to replace it; a 404 with
  * the route code `not_found`, or no code, is the role gate's, and one with any
  * other code is the server's sentence as is. A 400 `REASON_REQUIRED` goes on
- * the Reason field.
+ * the Reason field. Anything else reads as `refusalMessage` words it (a
+ * billing outage, whose 5xx body express masks), else through `capture`.
  *
  * A refusal that means the row is gone is the caller's to catch and resolve: a
  * dialog inside a list its write refetches on settle is unmounted with the row
@@ -150,6 +152,11 @@ function ReasonForm({
         }
         if (status === 403 || status === 409) {
           serverErrors.setFormErrors([refusalMessage?.(error) ?? staffMessageFrom(error)])
+          return
+        }
+        const own = refusalMessage?.(error)
+        if (own !== undefined) {
+          serverErrors.setFormErrors([own])
           return
         }
         serverErrors.capture(error)

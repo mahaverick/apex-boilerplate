@@ -130,7 +130,7 @@ function AddGrantForm({
         onDone()
       } catch (error) {
         onBusyChange(false)
-        refuseInForm(serverErrors, error)
+        refuseInForm(serverErrors, error, { tenantName: tenant.name, provider: null })
         // Express names the wire field; the form's is the date input.
         const expiry = fieldErrorsFrom(error).expiresAt
         if (expiry !== undefined) serverErrors.setFieldError('endsOn', expiry)
