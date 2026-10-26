@@ -1,5 +1,6 @@
 import { createColumnHelper } from '@tanstack/react-table'
 import { useMemo } from 'react'
+import { NoValue } from '@/components/features/billing/no-value'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { DataTable } from '@/components/shared/data-table/data-table'
 import type {
@@ -22,7 +23,8 @@ import { BILLING_EVENT_STATUSES, type StaffBillingEventItem } from '@/types/bill
 
 const column = createColumnHelper<DataTableFeatures, StaffBillingEventItem>()
 
-const none = <span className="text-muted-foreground">—</span>
+/** An empty Handled or Error cell. */
+const none = <NoValue label="None" />
 
 /**
  * The table's columns, with each event's times in the tenant's zone.

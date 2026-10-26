@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import { useId } from 'react'
 import { AlertTenant } from '@/components/features/billing/billing-alert-tenant'
 import { LoadError } from '@/components/features/load-error'
 import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
@@ -7,7 +8,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/componen
 import { BILLING_ALERT_KIND_LABELS } from '@/constants/billing-labels'
 import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/use-now'
-import { relativeTime } from '@/lib/relative-time'
+import { absoluteTime, relativeTime } from '@/lib/relative-time'
 import { isRoleDenied } from '@/lib/role-denied'
 import { billingAlertsListOptions } from '@/queries/billing-admin.queries'
 import type { BillingAlert } from '@/types/billing.types'
@@ -23,14 +24,15 @@ const CARD_ALERTS = 5
  */
 export function BillingAlertsCard() {
   const now = useNow()
+  const headingId = useId()
   const alerts = useQuery(billingAlertsListOptions({ limit: CARD_ALERTS }, { total: false }))
   if (alerts.isError && isRoleDenied(alerts.error)) return null
   return (
-    <section aria-labelledby="billing-alerts">
+    <section aria-labelledby={headingId}>
       <Card>
         <CardHeader>
           <CardTitle>
-            <h2 id="billing-alerts">Billing alerts</h2>
+            <h2 id={headingId}>Billing alerts</h2>
           </CardTitle>
           <CardAction>
             <Link to={ROUTES.billingAlerts} className="text-sm underline underline-offset-4">
@@ -74,7 +76,7 @@ function AlertRow({ alert, now }: { alert: BillingAlert; now: number }) {
         <span aria-hidden="true" className="text-muted-foreground">
           ·
         </span>
-        <time dateTime={alert.at} className="text-muted-foreground">
+        <time dateTime={alert.at} title={absoluteTime(alert.at)} className="text-muted-foreground">
           {relativeTime(alert.at, now)}
         </time>
       </div>

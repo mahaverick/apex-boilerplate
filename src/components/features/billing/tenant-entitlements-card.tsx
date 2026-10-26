@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCount } from '@/lib/format'
@@ -93,7 +94,7 @@ export function TenantEntitlementsCard({
         ) : (
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
             {rows.map((row) => (
-              <div key={row.key} className="contents">
+              <Fragment key={row.key}>
                 <dt className="text-muted-foreground">{row.label}</dt>
                 <dd className="flex flex-wrap items-center gap-2">
                   {row.value}
@@ -104,7 +105,7 @@ export function TenantEntitlementsCard({
                     <ToneBadge tone="muted">Plan</ToneBadge>
                   ) : null}
                 </dd>
-              </div>
+              </Fragment>
             ))}
           </dl>
         )}

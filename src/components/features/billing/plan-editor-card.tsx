@@ -1,6 +1,7 @@
 import { useForm, useStore } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
-import { useId, useMemo, useState } from 'react'
+import { Fragment, useId, useMemo, useState } from 'react'
+import { NoValue } from '@/components/features/billing/no-value'
 import { PlanChangeConfirmDialog } from '@/components/features/billing/plan-change-confirm-dialog'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
@@ -110,12 +111,15 @@ function PlanSummary({
     <div className="grid gap-4">
       {plan.description !== '' && <p className="text-sm">{plan.description}</p>}
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-        {catalog.map((entry) => (
-          <div key={entry.key} className="contents">
-            <dt className="text-muted-foreground">{entry.label}</dt>
-            <dd>{entitlementText(plan.entitlements[entry.key])}</dd>
-          </div>
-        ))}
+        {catalog.map((entry) => {
+          const value = plan.entitlements[entry.key]
+          return (
+            <Fragment key={entry.key}>
+              <dt className="text-muted-foreground">{entry.label}</dt>
+              <dd>{value === undefined ? <NoValue label="Not set" /> : entitlementText(value)}</dd>
+            </Fragment>
+          )
+        })}
       </dl>
     </div>
   )

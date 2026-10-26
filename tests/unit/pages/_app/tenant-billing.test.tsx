@@ -849,7 +849,37 @@ describe('/tenants/$tenantId/billing', () => {
         within(screen.getByRole('table', { name: 'Invoices' })).getByText('inv_TestPaid0001')
       ).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Load more invoices' })).toBeNull()
+      // The button went with the last page while it held focus: focus is on the card's heading, not <body>.
+      expect(screen.getByRole('heading', { name: 'Invoices', level: 2 })).toHaveFocus()
       expect(screen.queryByRole('searchbox', { name: /invoices/i })).toBeNull()
+    })
+
+    it('keeps Load more focusable and marked busy while the next page loads', async () => {
+      let release!: () => void
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      serve(testTenantBilling)
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/invoices`, async ({ request }) => {
+          if (!new URL(request.url).searchParams.has('cursor')) {
+            return ok(listPage(testInvoices, { nextCursor: 'c2', hasNext: true }), 'ok')
+          }
+          await gate
+          return ok(listPage([], { hasPrev: true }), 'ok')
+        })
+      )
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await user.click(await screen.findByRole('button', { name: 'Load more invoices' }))
+      const busy = await screen.findByRole('button', { name: 'Loading invoices…' })
+      expect(busy).toHaveAttribute('aria-disabled', 'true')
+      expect(busy).not.toBeDisabled()
+      expect(busy).toHaveFocus()
+      release()
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: 'Invoices', level: 2 })).toHaveFocus()
+      )
     })
 
     it('offers more on an empty page while the provider has more, and never says none', async () => {
@@ -966,6 +996,7 @@ describe('/tenants/$tenantId/billing', () => {
       await user.click(screen.getByRole('button', { name: 'Start again from the newest' }))
       await waitFor(() => expect(seen.invoices.length).toBeGreaterThan(before))
       expect(seen.invoices.at(-1)?.has('cursor')).toBe(false)
+      expect(screen.getByRole('heading', { name: 'Invoices', level: 2 })).toHaveFocus()
       expect(await screen.findByRole('button', { name: 'Load more invoices' })).toBeInTheDocument()
     })
 

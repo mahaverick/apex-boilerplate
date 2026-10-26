@@ -26,10 +26,10 @@ export const INTERVAL_LABELS: Record<BillingInterval, string> = {
  * number or No limit for a limit.
  * @param value - The value.
  */
-export function entitlementText(value: EntitlementValue | undefined): string {
+export function entitlementText(value: EntitlementValue): string {
   if (typeof value === 'boolean') return value ? 'On' : 'Off'
   if (value === null) return 'No limit'
-  return value === undefined ? '—' : formatCount(value)
+  return formatCount(value)
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { ToneBadge } from '@/components/features/tone-badge'
@@ -23,6 +23,7 @@ import { billingDate, INVOICE_STATUS_BADGE } from '@/constants/billing-labels'
 import { codeFrom } from '@/lib/api-error'
 import { providerName } from '@/lib/billing-actions'
 import { formatInr } from '@/lib/billing-format'
+import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
 import { isRoleDenied } from '@/lib/role-denied'
 import { staffMessageFrom } from '@/lib/staff-message'
 import { staffInvoicesQueryOptions } from '@/queries/billing-admin.queries'
@@ -105,7 +106,9 @@ function InvoicesTable({
  * newest. With payments off it asks nothing and says why. A failure shows
  * the API's sentence (`staffMessageFrom`) with Try again; a failed Load more
  * keeps the pages already read. The Status filter stays in the card for
- * simplicity: the list is forward only and the filter is one click.
+ * simplicity: the list is forward only and the filter is one click. Load
+ * more stays focusable while its page loads (`aria-disabled`), and when it
+ * or Start again goes away while focused, focus moves to the card's heading.
  */
 export function InvoicesCard({
   tenantId,
@@ -127,6 +130,9 @@ export function InvoicesCard({
   )
   const queryClient = useQueryClient()
   const query = useInfiniteQuery({ ...options, enabled: paymentsEnabled })
+  const heading = useRef<HTMLHeadingElement>(null)
+  // Load more goes after the last page, and Start again on its click: focus moves to the heading, not to <body>.
+  const keepFocusInCard = useMemo(() => focusFallbackOnRemoval(heading), [])
   const items = query.data?.pages.flatMap((page) => page.items) ?? []
   /**
    * Drops every loaded page and reads the first again, with no cursor. The
@@ -177,7 +183,13 @@ export function InvoicesCard({
           <Note tone="info">
             These invoices are out of date. The tenant’s subscriptions changed, or payments were
             turned off on this server.{' '}
-            <Button variant="link" size="sm" className="h-auto p-0" onClick={restart}>
+            <Button
+              ref={keepFocusInCard}
+              variant="link"
+              size="sm"
+              className="h-auto p-0"
+              onClick={restart}
+            >
               Start again from the newest
             </Button>
           </Note>
@@ -189,11 +201,15 @@ export function InvoicesCard({
         ) : (
           query.hasNextPage && (
             <Button
+              ref={keepFocusInCard}
               variant="outline"
               size="sm"
               className="justify-self-start"
-              disabled={query.isFetchingNextPage}
-              onClick={() => void query.fetchNextPage()}
+              // Not `disabled`: a disabled button drops focus to <body> while the page loads.
+              aria-disabled={query.isFetchingNextPage}
+              onClick={() => {
+                if (!query.isFetchingNextPage) void query.fetchNextPage()
+              }}
             >
               {query.isFetchingNextPage ? 'Loading invoices…' : 'Load more invoices'}
             </Button>
@@ -207,7 +223,9 @@ export function InvoicesCard({
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2>Invoices</h2>
+          <h2 ref={heading} tabIndex={-1} className="outline-none">
+            Invoices
+          </h2>
         </CardTitle>
         <CardDescription>
           {providerName(provider, { sentenceStart: true })} lists invoices newest first and offers

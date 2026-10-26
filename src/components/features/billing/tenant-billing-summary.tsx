@@ -1,5 +1,5 @@
 import { IconCopy } from '@tabler/icons-react'
-import type { ReactNode, Ref } from 'react'
+import { Fragment, type ReactNode, type Ref } from 'react'
 import { BillingStateBadge } from '@/components/features/billing/billing-state-badge'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { copyId } from '@/components/shared/command-palette/copy-id'
@@ -226,10 +226,10 @@ export function TenantBillingSummary({
           <dt className="text-muted-foreground">Price</dt>
           <dd>{priceText(billing, plans)}</dd>
           {dateRows(billing, now, plans, timeZone).map(({ label, value }) => (
-            <div key={label} className="contents">
+            <Fragment key={label}>
               <dt className="text-muted-foreground">{label}</dt>
               <dd>{value}</dd>
-            </div>
+            </Fragment>
           ))}
           {billing.pastDue !== null && (
             <>

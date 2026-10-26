@@ -8,7 +8,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axeCore from 'axe-core'
-import { http } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ThemeToggle } from '@/components/features/theme-toggle'
 import { recordRecent } from '@/components/shared/command-palette/recent-items'
@@ -2322,6 +2322,101 @@ describe('tenant billing', () => {
     renderAppAt(`/tenants/${TENANT_ID}/billing`)
     await user.click(await screen.findByRole('button', { name: 'Revoke the Members grant' }))
     await screen.findByRole('alertdialog', { name: 'Revoke the Members grant for Acme Corp?' })
+    await expectNoViolations()
+  })
+
+  it('the Add grant dialog with a feature chosen has no axe violations', async () => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await openBillingAction(user, 'Add grant')
+    const dialog = await screen.findByRole('dialog', { name: 'Add a grant for Acme Corp' })
+    await user.click(within(dialog).getByRole('combobox', { name: 'Limit or feature' }))
+    await user.click(await screen.findByRole('option', { name: 'Workspace insights' }))
+    await within(dialog).findByText('Turns Workspace insights on.')
+    await expectNoViolations()
+  })
+
+  it('the Add grant dialog’s open Limit or feature list has no axe violations', async () => {
+    serveBilling(ALL_ACTIONS)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await openBillingAction(user, 'Add grant')
+    const dialog = await screen.findByRole('dialog', { name: 'Add a grant for Acme Corp' })
+    await user.click(within(dialog).getByRole('combobox', { name: 'Limit or feature' }))
+    await expectNoViolationsIn(await screen.findByRole('listbox'))
+  })
+
+  it('the Start a trial dialog on a Free tenant has no axe violations', async () => {
+    serveBilling(testFreeTenantBilling)
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await openBillingAction(user, 'Extend trial')
+    const dialog = await screen.findByRole('dialog', { name: 'Start a trial for Acme Corp' })
+    await within(dialog).findByText(/^Acme Corp is on Free\. This starts a Paid trial/)
+    await expectNoViolations()
+  })
+
+  it('the Invoices card’s refused-cursor note with Start again has no axe violations', async () => {
+    serveBilling()
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/invoices`, ({ request }) =>
+        new URL(request.url).searchParams.has('cursor')
+          ? fail('Cursor is invalid.', 400, 'CURSOR_INVALID')
+          : ok(listPage(testInvoices, { nextCursor: 'i2', hasNext: true }), 'ok')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await user.click(await screen.findByRole('button', { name: 'Load more invoices' }))
+    await screen.findByRole('button', { name: 'Start again from the newest' })
+    await expectNoViolations()
+  })
+
+  it.each([
+    ['Filter by source, State history', 'State history'],
+    ['Filter by status, Provider events', 'Provider events'],
+    ['Filter by provider, Subscriptions', 'Subscriptions'],
+    ['Filter by mode, Subscriptions', 'Subscriptions'],
+  ] as const)(
+    'the Billing tab with the %s facet open has no axe violations',
+    async (facet, table) => {
+      serveBilling()
+      const user = userEvent.setup()
+      renderAppAt(`/tenants/${TENANT_ID}/billing`)
+      await screen.findByRole('table', { name: table })
+      await user.click(screen.getByRole('button', { name: facet }))
+      await screen.findByRole('dialog', { name: facet })
+      await expectNoViolations()
+    }
+  )
+
+  it('the invite form’s members-limit refusal with Open Billing has no axe violations', async () => {
+    serveTenant('active')
+    server.use(
+      http.post('/api/v1/tenants/acme/invitations', () =>
+        HttpResponse.json(
+          {
+            success: false,
+            message: 'You’ve used 3 of 3 members on Free. Upgrade to add more.',
+            statusCode: 402,
+            code: 'PLAN_LIMIT_REACHED',
+            details: { key: 'members', used: 3, limit: 3 },
+            requestId: 'test-request-id',
+          },
+          { status: 402 }
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await user.type(await screen.findByLabelText('Email'), 'x@example.com')
+    await user.click(screen.getByRole('button', { name: 'Invite member' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Send this invitation?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Owner asked by email')
+    await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
+    await screen.findByRole('link', { name: 'Open Billing' })
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     await expectNoViolations()
   })
 
