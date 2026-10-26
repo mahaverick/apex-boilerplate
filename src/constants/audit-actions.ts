@@ -4,6 +4,7 @@ import {
   type RetiredAuditAction,
 } from '@/constants/audit-action-names'
 import { templateLabel } from '@/constants/email.constants'
+import { entitlementLabel } from '@/constants/entitlements'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
 import { formatInr } from '@/lib/billing-format'
 import { formatCount, formatDate } from '@/lib/format'
@@ -184,9 +185,10 @@ function cadence(metadata: Metadata): string | undefined {
   return undefined
 }
 
-/** A grant's entitlement key, or "an entitlement" when the entry names none. */
+/** A grant's entitlement by its label ("Members"), its key when unknown, or "an entitlement" when the entry names none. */
 function grantKey(metadata: Metadata): string {
-  return text(metadata, 'key') ?? 'an entitlement'
+  const key = text(metadata, 'key')
+  return key === undefined ? 'an entitlement' : entitlementLabel(key)
 }
 
 /**

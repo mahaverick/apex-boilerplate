@@ -54,6 +54,9 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   Staff page included, sends none.
 - **`src/constants/roles.ts` mirrors express's role rules.** Change both repos
   together, or the app offers actions the API refuses, or hides ones it allows.
+- **`src/constants/entitlements.ts` mirrors express's entitlement labels**
+  (`entitlements.constants.ts`) for audit sentences, which have no catalog to
+  read. Add a key in both repos; until then it reads as its key.
 - **A new main-nav page is an entry in `src/constants/navigation.ts`** plus the
   pieces [The staff shell](ARCHITECTURE.md#the-staff-shell-this-app-only) lists.
   The sidebar's main nav and the command palette both read that list.

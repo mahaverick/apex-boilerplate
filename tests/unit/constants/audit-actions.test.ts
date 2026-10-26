@@ -113,7 +113,7 @@ describe('auditSentence', () => {
     [
       'billing.grant_expired',
       { grantId: USER_ID, key: 'members' },
-      'marked the members grant expired',
+      'marked the Members grant expired',
     ],
     ['billing.viewed', {}, 'viewed the tenant’s billing'],
     [
@@ -135,22 +135,27 @@ describe('auditSentence', () => {
     [
       'billing.grant_added',
       { key: 'members', value: null, expiresAt: null, reason: 'big team' },
-      'granted members (no limit): “big team”',
+      'granted Members (no limit): “big team”',
     ],
     [
       'billing.grant_added',
       { key: 'members', value: 10, expiresAt: '2026-12-01T12:00:00.000Z', reason: 'trial' },
-      `granted members (10) until ${formatDate('2026-12-01T12:00:00.000Z', 'medium') ?? ''}: “trial”`,
+      `granted Members (10) until ${formatDate('2026-12-01T12:00:00.000Z', 'medium') ?? ''}: “trial”`,
     ],
     [
       'billing.grant_added',
       { key: 'advanced_example', value: true, expiresAt: null, reason: 'demo' },
-      'granted advanced_example (on): “demo”',
+      'granted Workspace insights (on): “demo”',
+    ],
+    [
+      'billing.grant_revoked',
+      { key: 'seats_v2', reason: 'ended' },
+      'revoked the seats_v2 grant: “ended”',
     ],
     [
       'billing.grant_revoked',
       { key: 'members', reason: 'ended' },
-      'revoked the members grant: “ended”',
+      'revoked the Members grant: “ended”',
     ],
     [
       'billing.cancelled_by_staff',
@@ -198,7 +203,7 @@ describe('auditSentence', () => {
     [
       'billing.grant_added',
       { key: 'members', value: 'ten', expiresAt: null, reason: 'demo' },
-      'granted members: “demo”',
+      'granted Members: “demo”',
     ],
     ['tenant.created', { name: 'Acme Corp', slug: 'acme' }, 'created the tenant “Acme Corp”'],
     ['tenant.updated', { changed: ['name', 'website'] }, 'updated the tenant (name, website)'],
