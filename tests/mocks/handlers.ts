@@ -714,7 +714,7 @@ export const handlers = [
       'Suppression lifted.'
     )
   ),
-  // Tracked tenants exist but no list has a row, and any tenant reads as Acme's in-progress detail.
+  // Both plans, the default trial rules, no billing alerts, and any tenant reads as a monthly Paid customer.
   http.get('/api/v1/platform/plans', () => ok(testPlans, 'Plans retrieved.')),
   http.get('/api/v1/platform/billing-settings', () =>
     ok(testBillingSettings, 'Billing settings retrieved.')
@@ -724,6 +724,7 @@ export const handlers = [
     ok(testTenantBilling, 'Billing retrieved.')
   ),
 
+  // Tracked tenants exist but no list has a row, and any tenant reads as Acme's in-progress detail.
   http.get('/api/v1/platform/onboarding/funnel', ({ request }) =>
     ok(
       { ...testOnboardingFunnel, range: new URL(request.url).searchParams.get('range') ?? '30d' },
