@@ -1,5 +1,5 @@
 import { IconCopy } from '@tabler/icons-react'
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { BillingStateBadge } from '@/components/features/billing/billing-state-badge'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { copyId } from '@/components/shared/command-palette/copy-id'
@@ -129,17 +129,21 @@ function SubscriptionIdRow({ label, id }: { label: string; id: string }) {
  * payment, the payer, the provider and its subscription ids, and the last
  * sync. With payments off it says so and shows no provider ids, since none
  * can be acted on. The billing email is owner-only, so staff never see one.
- * `actions` is the header's slot for the billing actions a role may take.
+ * `actions` is the header's slot for the billing actions a role may take,
+ * and `headingRef` the focus target when one of them is gone.
  */
 export function TenantBillingSummary({
   billing,
   plans,
   actions,
+  headingRef,
 }: {
   billing: StaffTenantBilling
   /** The staff plans, for the retired-price mark; absent while they load or if they failed. */
   plans: StaffPlans | undefined
   actions?: ReactNode
+  /** The heading, focusable by script: where focus goes when an action's control is gone. */
+  headingRef?: Ref<HTMLHeadingElement>
 }) {
   const now = useNow()
   const showIds = billing.paymentsEnabled
@@ -152,7 +156,9 @@ export function TenantBillingSummary({
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2>Billing</h2>
+          <h2 ref={headingRef} tabIndex={-1} className="outline-none">
+            Billing
+          </h2>
         </CardTitle>
         {actions !== undefined && <CardAction>{actions}</CardAction>}
       </CardHeader>

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vite-plus/test'
 import {
   billingSettingsSchema,
   endOfDay,
+  extendTrialFormSchema,
   extendTrialSchema,
+  grantFormSchema,
   grantSchema,
   localDate,
   planDetailsSchema,
@@ -43,6 +45,65 @@ describe('extendTrialSchema', () => {
       reason: 'Pilot',
     })
     expect(extendTrialSchema.safeParse({ days: 90, reason: 'Pilot' }).success).toBe(true)
+  })
+})
+
+describe('extendTrialFormSchema', () => {
+  it('reads the typed days as a number', () => {
+    expect(extendTrialFormSchema.parse({ days: ' 14 ', reason: 'Pilot' })).toEqual({
+      days: 14,
+      reason: 'Pilot',
+    })
+  })
+
+  it('refuses empty, signed, part and non-digit days with express’s message', () => {
+    for (const days of ['', '-3', '2.5', '1e1', '0x10', 'seven', '91']) {
+      expect(messageAt(extendTrialFormSchema.safeParse({ days, reason: 'Pilot' }), 'days')).toBe(
+        'Enter a whole number of days from 1 to 90.'
+      )
+    }
+  })
+})
+
+describe('grantFormSchema', () => {
+  const form = grantFormSchema(testPlans.catalog)
+  const base = { key: 'members', value: '', noLimit: false, endsOn: '', reason: 'Team' }
+
+  it('sends a typed limit as a number', () => {
+    expect(form.parse({ ...base, value: '25' })).toEqual({
+      key: 'members',
+      value: 25,
+      expiresAt: null,
+      reason: 'Team',
+    })
+  })
+
+  it('sends No limit as null, whatever was typed', () => {
+    expect(form.parse({ ...base, value: '12', noLimit: true }).value).toBeNull()
+  })
+
+  it('sends true for a feature, whatever was typed', () => {
+    expect(form.parse({ ...base, key: 'advanced_example', value: '5' }).value).toBe(true)
+  })
+
+  it('puts a missing or bad limit on the value field', () => {
+    for (const value of ['', '0', '1.5', 'ten']) {
+      expect(messageAt(form.safeParse({ ...base, value }), 'value')).toBe(
+        'Enter a whole number from 1 to 1,000,000, or choose No limit.'
+      )
+    }
+  })
+
+  it('refuses an end date before today on the endsOn field', () => {
+    expect(messageAt(form.safeParse({ ...base, value: '5', endsOn: YESTERDAY }), 'endsOn')).toBe(
+      'Choose today or a later date, or leave it empty for no end date.'
+    )
+  })
+
+  it('asks for a choice when no key is chosen', () => {
+    expect(messageAt(form.safeParse({ ...base, key: '', value: '5' }), 'key')).toBe(
+      'Choose a limit or feature this product has.'
+    )
   })
 })
 

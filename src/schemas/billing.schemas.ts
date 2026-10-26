@@ -48,6 +48,36 @@ export const extendTrialSchema = z.object({
 })
 
 /**
+ * A text field's whole number: digits only, surrounding spaces ignored, or
+ * NaN for anything else, so the number schema it feeds refuses it with its
+ * own message. `Number` alone would take `1e1`, `0x10` and an empty string.
+ * @param text - The field's value.
+ */
+function wholeNumber(text: string): number {
+  const trimmed = text.trim()
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN
+}
+
+/**
+ * The extend-trial dialog's form: the days as typed, parsed into
+ * `extendTrialSchema`'s body.
+ */
+export const extendTrialFormSchema = z
+  .object({ days: z.string(), reason: z.string() })
+  .transform(({ days, reason }) => ({ days: wholeNumber(days), reason }))
+  .pipe(extendTrialSchema)
+
+/**
+ * The days a typed value adds, or null when the extend-trial form would
+ * refuse it, for a preview that runs as the value changes.
+ * @param text - The Days to add field's value.
+ */
+export function trialDaysFrom(text: string): number | null {
+  const result = extendTrialSchema.shape.days.safeParse(wholeNumber(text))
+  return result.success ? result.data : null
+}
+
+/**
  * A day as a date input holds it (`YYYY-MM-DD`), in the browser's zone.
  * @param date - The moment whose local calendar day to write.
  */
@@ -63,7 +93,7 @@ export function localDate(date: Date): string {
  * an expanded year (`+010000-…`), which express's `z.iso.datetime()`
  * refuses; ending at 2099 keeps clear of it.
  */
-const LATEST_GRANT_END = '2099-12-31'
+export const LATEST_GRANT_END = '2099-12-31'
 
 /** A limit grant's message: a whole number in range, or the form's No limit. */
 const GRANT_LIMIT_MESSAGE = 'Enter a whole number from 1 to 1,000,000, or choose No limit.'
@@ -125,6 +155,34 @@ export function grantSchema(catalog: readonly EntitlementCatalogEntry[]) {
       expiresAt: endsOn === '' ? null : endOfDay(endsOn).toISOString(),
       reason,
     }))
+}
+
+/**
+ * The add-grant dialog's form: the limit as typed with its No limit box,
+ * parsed into `grantSchema`'s input, so its errors land on `key`, `value`
+ * and `endsOn`. A feature's value is always `true`; No limit is `null`.
+ * @param catalog - The entitlements this product has, from `GET /platform/plans`.
+ */
+export function grantFormSchema(catalog: readonly EntitlementCatalogEntry[]) {
+  return z
+    .object({
+      key: z.string(),
+      value: z.string(),
+      noLimit: z.custom<boolean>((value) => typeof value === 'boolean'),
+      endsOn: z.string(),
+      reason: z.string(),
+    })
+    .transform(({ key, value, noLimit, endsOn, reason }) => {
+      const kind = catalog.find((entry) => entry.key === key)?.kind
+      const grantValue: unknown = kind === 'feature' ? true : noLimit ? null : wholeNumber(value)
+      return {
+        key,
+        value: grantValue,
+        endsOn,
+        reason,
+      }
+    })
+    .pipe(grantSchema(catalog))
 }
 
 /**
@@ -233,3 +291,23 @@ export const planDetailsSchema = z.object({
     )
     .refine(safeText(), 'Remove the control characters from the description.'),
 })
+
+/**
+ * The staff cancel dialog's form: when the subscription ends and why, and
+ * for a cancel now, the tenant's slug typed to confirm (surrounding spaces
+ * ignored). It parses into express's `staffCancelBodySchema` body.
+ * @param slug - The tenant's slug.
+ */
+export function cancelBillingFormSchema(slug: string) {
+  return z
+    .object({
+      when: z.enum(['cycle_end', 'now'], { error: 'Choose when the subscription ends.' }),
+      confirmation: z.string(),
+      reason: reasonSchema,
+    })
+    .refine((value) => value.when !== 'now' || value.confirmation.trim() === slug, {
+      path: ['confirmation'],
+      message: `Type ${slug} exactly to confirm.`,
+    })
+    .transform(({ when, reason }) => ({ when, reason }))
+}

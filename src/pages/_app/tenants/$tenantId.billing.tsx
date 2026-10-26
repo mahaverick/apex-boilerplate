@@ -1,11 +1,14 @@
 import { IconReceiptOff } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useRef } from 'react'
+import { BillingActionsMenu } from '@/components/features/billing/billing-actions-menu'
 import { BillingEventsCard } from '@/components/features/billing/billing-events-card'
 import { BillingHistoryCard } from '@/components/features/billing/billing-history-card'
 import { BillingSubscriptionsCard } from '@/components/features/billing/billing-subscriptions-card'
 import { GrantsCard } from '@/components/features/billing/grants-card'
 import { InvoicesCard } from '@/components/features/billing/invoices-card'
+import { RevokeGrantAction } from '@/components/features/billing/revoke-grant-dialog'
 import { TenantBillingSummary } from '@/components/features/billing/tenant-billing-summary'
 import { TenantEntitlementsCard } from '@/components/features/billing/tenant-entitlements-card'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -18,11 +21,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
 import { codeFrom } from '@/lib/api-error'
+import { billingActionsFor } from '@/lib/billing-actions'
 import {
   billingHistoryList,
   staffPlansQueryOptions,
   staffTenantBillingQueryOptions,
 } from '@/queries/billing-reads.queries'
+import { platformTenantQueryOptions } from '@/queries/tenant-admin.queries'
+import { useAuthStore } from '@/states/auth.store'
 import { TENANT_BILLING_NOT_FOUND, type StaffTenantBilling } from '@/types/billing.types'
 
 /** A tenant's Billing tab: its plan and state, usage, grants, and its billing lists. */
@@ -95,17 +101,53 @@ function BillingSkeleton() {
 /**
  * The tab's sections. The staff plans give the catalog's labels and the
  * retired-price mark; if they fail, rows show registry keys and no mark.
- * Read only: the billing actions are their own controls, in the summary's
- * header and on each active grant, for the roles that may use them.
+ * The billing actions sit in the summary's header and on each active grant,
+ * for the roles and states express accepts (`billingActionsFor`); they need
+ * the tenant's name, slug and lifecycle state from its detail, which the
+ * layout has already read. A viewer gets no actions and no actions column.
  */
 function TenantBilling({ tenantId, billing }: { tenantId: string; billing: StaffTenantBilling }) {
   const plans = useQuery(staffPlansQueryOptions())
+  const tenant = useQuery(platformTenantQueryOptions(tenantId)).data
+  const role = useAuthStore((s) => s.user?.platformRole)
+  const heading = useRef<HTMLHeadingElement>(null)
   const catalog = plans.data?.catalog ?? []
+  const canRevoke = tenant !== undefined && billingActionsFor(role, tenant, billing, catalog).revoke
+  const labels = new Map(catalog.map((entry) => [entry.key, entry.label]))
   return (
     <div className="grid gap-6">
-      <TenantBillingSummary billing={billing} plans={plans.data} />
+      <TenantBillingSummary
+        billing={billing}
+        plans={plans.data}
+        headingRef={heading}
+        actions={
+          tenant === undefined ? undefined : (
+            <BillingActionsMenu
+              tenant={tenant}
+              billing={billing}
+              catalog={catalog}
+              fallbackFocus={heading}
+            />
+          )
+        }
+      />
       <TenantEntitlementsCard billing={billing} catalog={catalog} />
-      <GrantsCard grants={billing.grants} catalog={catalog} />
+      <GrantsCard
+        grants={billing.grants}
+        catalog={catalog}
+        actions={
+          canRevoke
+            ? (grant) => (
+                <RevokeGrantAction
+                  tenant={tenant}
+                  grant={grant}
+                  label={labels.get(grant.key) ?? grant.key}
+                  fallbackFocus={heading}
+                />
+              )
+            : undefined
+        }
+      />
       <BillingHistoryCard tenantId={tenantId} />
       <BillingEventsCard tenantId={tenantId} />
       <BillingSubscriptionsCard tenantId={tenantId} />
