@@ -30,6 +30,7 @@ import {
   testFreeTenantBilling,
   testInvoices,
   testBillingAlerts,
+  testBillingSettings,
   testPlans,
   testTenantBilling,
 } from '@/tests/fixtures/billing'
@@ -2475,6 +2476,36 @@ describe('billing settings and alerts', () => {
     )
     await user.click(within(card).getByRole('button', { name: 'Save billing settings' }))
     await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    await expectNoViolations()
+  })
+
+  it('the Trials and grace card waiting on a failed reload after a conflict has no axe violations', async () => {
+    let reads = 0
+    server.use(
+      http.get('/api/v1/platform/billing-settings', () => {
+        reads += 1
+        return reads === 1 ? ok(testBillingSettings, 'OK') : fail('Boom', 500)
+      }),
+      http.patch('/api/v1/platform/billing-settings', () =>
+        fail('Someone changed the billing settings.', 409, 'PLAN_VERSION_CONFLICT')
+      )
+    )
+    const user = userEvent.setup()
+    open('/plans')
+    const card = await screen.findByRole('region', { name: 'Trials and grace' })
+    await user.click(
+      await within(card).findByRole('switch', { name: 'Give new workspaces a Paid trial' })
+    )
+    await user.click(within(card).getByRole('button', { name: 'Save billing settings' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Pause trials')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await within(card).findByText(
+      'Another staff member changed the billing settings, and their values didn’t load. Select Try again, then save again.'
+    )
+    await within(card).findByRole('button', { name: 'Try again' })
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    await screen.findByRole('region', { name: 'Free' })
     await expectNoViolations()
   })
 
