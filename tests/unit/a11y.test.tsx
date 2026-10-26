@@ -2347,7 +2347,8 @@ describe('plans', () => {
     role: 'viewer' | 'admin' = 'admin',
     direction: 'increase' | 'decrease' = 'increase'
   ) {
-    signIn({ ...testUser, platformRole: role })
+    signIn()
+    useAuthStore.setState({ user: { ...testUser, platformRole: role } })
     server.use(
       http.post(`/api/v1/platform/plans/${FREE.id}/preview`, () =>
         ok(
@@ -2375,6 +2376,7 @@ describe('plans', () => {
     openPlans('viewer')
     await screen.findByRole('region', { name: 'Free' })
     await screen.findByRole('table', { name: 'Prices' })
+    expect(screen.queryByRole('button', { name: 'New price' })).toBeNull()
     await expectNoViolations()
   })
 
