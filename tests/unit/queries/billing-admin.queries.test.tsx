@@ -168,7 +168,10 @@ describe('tenant billing lists', () => {
           return ok(listPage([]), 'ok')
         })
       )
-      const query = options(TENANT_ID, { search: 'x', cursor: 'c2' })
+      // One row's options; the union of the three item types is not one fetchQuery's type.
+      const query = options(TENANT_ID, { search: 'x', cursor: 'c2' }) as ReturnType<
+        typeof billingHistoryListOptions
+      >
       expect(query.queryKey.slice(0, 5)).toEqual([...billingAdminKeys.tenant(TENANT_ID), path])
       await new QueryClient().fetchQuery(query)
       expect(asked?.get('search')).toBe('x')

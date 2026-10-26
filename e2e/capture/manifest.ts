@@ -4,10 +4,53 @@
  * listed here. Endpoints are relative to /api/v1 (see endpoint.ts).
  */
 import type { FileRoutesByFullPath } from '@/routeTree.gen'
-import type { NavigationCapture, RouteCapture, Section } from './types'
+import { testTenantBilling } from '../../tests/fixtures/billing'
+import type { CaptureState, NavigationCapture, RouteCapture, Section } from './types'
 
 const TENANT: Section = { name: 'Tenant', endpoints: ['GET /platform/tenants/:id'] }
 const USER: Section = { name: 'User', endpoints: ['GET /platform/users/:id'] }
+
+/**
+ * The Billing tab's named states, each the seeded tenant's billing read
+ * replaced by a canned view. The platform tenant's "no billing" state is not
+ * shot: the seed names no platform tenant id, and a stub can only succeed.
+ */
+const BILLING_STATES: readonly CaptureState[] = [
+  {
+    name: 'trial',
+    note: 'A tenant in its Paid trial: no price paid yet, the trial end date.',
+    stubs: [
+      {
+        endpoint: 'GET /platform/tenants/:id/billing',
+        data: {
+          ...testTenantBilling,
+          state: 'trialing',
+          price: null,
+          interval: null,
+          trialEndsAt: '2026-11-03T00:00:00.000Z',
+          currentPeriodEnd: null,
+          providerSubscriptionId: null,
+          entitlements: { ...testTenantBilling.entitlements, state: 'trialing' },
+        },
+      },
+    ],
+  },
+  {
+    name: 'past-due',
+    note: 'A failed payment the provider is still retrying, with a dispute open.',
+    stubs: [
+      {
+        endpoint: 'GET /platform/tenants/:id/billing',
+        data: {
+          ...testTenantBilling,
+          state: 'past_due',
+          pastDue: { since: '2026-10-21T00:00:00.000Z', graceEndsAt: null, paused: false },
+          disputeOpen: true,
+        },
+      },
+    ],
+  },
+]
 
 /** Each route's capture, keyed by its full path. */
 export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
@@ -428,6 +471,24 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     url: '/tenants/{tenantId}/onboarding',
     as: 'staff',
     sections: [TENANT, { name: 'Onboarding', endpoints: ['GET /platform/tenants/:id/onboarding'] }],
+  },
+  '/tenants/$tenantId/billing': {
+    kind: 'page',
+    area: 'tenants',
+    shot: 'tenant-billing',
+    url: '/tenants/{tenantId}/billing',
+    as: 'staff',
+    sections: [
+      TENANT,
+      { name: 'Billing', endpoints: ['GET /platform/tenants/:id/billing'] },
+      { name: 'Plans', endpoints: ['GET /platform/plans'] },
+      { name: 'State history', endpoints: ['GET /platform/tenants/:id/billing/history'] },
+      { name: 'Provider events', endpoints: ['GET /platform/tenants/:id/billing/events'] },
+      { name: 'Subscriptions', endpoints: ['GET /platform/tenants/:id/billing/subscriptions'] },
+      { name: 'Invoices', endpoints: ['GET /platform/tenants/:id/billing/invoices'] },
+    ],
+    states: BILLING_STATES,
+    note: 'Every staff role reads the same tab, so there is no role-denied shot.',
   },
   '/settings/account/': { kind: 'redirect', to: '/settings/account/profile' },
   '/settings/platform/': { kind: 'redirect', to: '/settings/platform/staff' },

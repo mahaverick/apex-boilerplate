@@ -1,0 +1,607 @@
+import { screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { http } from 'msw'
+import { beforeEach, describe, expect, it } from 'vite-plus/test'
+import {
+  testBillingEvents,
+  testBillingHistory,
+  testBillingSubscriptions,
+  testFreeTenantBilling,
+  testInvoices,
+  testPlans,
+  testTenantBilling,
+} from '@/tests/fixtures/billing'
+import { PLATFORM_TENANT_ID, TENANT_ID } from '@/tests/fixtures/ids'
+import { listPage } from '@/tests/fixtures/list-page'
+import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
+import { fail, ok, testUser } from '@/tests/mocks/handlers'
+import { server } from '@/tests/mocks/server'
+import type { PlatformTenantDetail } from '@/types/api.types'
+import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
+import type { ListPage } from '@/types/list.types'
+
+const BILLING = `/tenants/${TENANT_ID}/billing`
+
+/** Acme's platform detail, or the platform tenant's. */
+function detail(platform = false): PlatformTenantDetail {
+  return {
+    id: platform ? PLATFORM_TENANT_ID : TENANT_ID,
+    name: platform ? 'Platform' : 'Acme Corp',
+    slug: platform ? 'platform' : 'acme',
+    description: null,
+    website: null,
+    logo: null,
+    lifecycleState: 'active',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-02-01T00:00:00.000Z',
+    deletedAt: null,
+    settings: { timezone: 'UTC', locale: 'en' },
+    memberCount: 2,
+    owners: [],
+    pendingInvitationCount: 0,
+    pendingOwnerInvitation: null,
+  }
+}
+
+/** The requests each billing list received, by list. */
+type Seen = Record<'history' | 'events' | 'subscriptions' | 'invoices', URLSearchParams[]>
+
+/** Each list's answer for a request; the default is one page of the fixture rows. */
+type Pages = Partial<Record<keyof Seen, (params: URLSearchParams) => ListPage<unknown>>>
+
+/**
+ * Acme's detail and billing, the plans, and the four lists, each request recorded.
+ * @param billing - The billing view to serve.
+ * @param pages - Per list, the page to answer.
+ * @param plans - The plans to serve.
+ */
+function serve(
+  billing: StaffTenantBilling = testTenantBilling,
+  pages: Pages = {},
+  plans: StaffPlans = testPlans
+): Seen {
+  const seen: Seen = { history: [], events: [], subscriptions: [], invoices: [] }
+  const rows = {
+    history: testBillingHistory,
+    events: testBillingEvents,
+    subscriptions: testBillingSubscriptions,
+    invoices: testInvoices,
+  }
+  server.use(
+    http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => ok(detail(), 'Tenant retrieved.')),
+    http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, () =>
+      ok(billing, 'Billing retrieved.')
+    ),
+    http.get('/api/v1/platform/plans', () => ok(plans, 'Plans retrieved.')),
+    ...(['history', 'events', 'subscriptions', 'invoices'] as const).map((name) =>
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/${name}`, ({ request }) => {
+        const params = new URL(request.url).searchParams
+        seen[name].push(params)
+        const page = pages[name]
+        return ok(
+          page ? page(params) : listPage<unknown>(rows[name], { nextCursor: 'c2', hasNext: true }),
+          'ok'
+        )
+      })
+    )
+  )
+  return seen
+}
+
+/** The summary card's definition list. */
+async function summary() {
+  const heading = await screen.findByRole('heading', { name: 'Billing', level: 2 })
+  const card = heading.closest('[data-slot="card"]') as HTMLElement
+  return card
+}
+
+/**
+ * The value a summary row shows.
+ * @param card - The summary card.
+ * @param term - The row's name.
+ */
+function row(card: HTMLElement, term: string): string | null | undefined {
+  const dt = within(card).getByText(term, { selector: 'dt' })
+  return dt.nextElementSibling?.textContent
+}
+
+describe('/tenants/$tenantId/billing', () => {
+  beforeEach(() => {
+    signIn({ ...testUser, platformRole: 'viewer' })
+  })
+
+  describe('the tab', () => {
+    it('sits after Onboarding, under a fixed title', async () => {
+      serve()
+      renderAppAt(BILLING)
+      const nav = await screen.findByRole('navigation', { name: 'Tenant sections' })
+      expect(
+        within(nav)
+          .getAllByRole('link')
+          .map((link) => link.textContent)
+      ).toEqual([
+        'Overview',
+        'Members',
+        'Invitations',
+        'Activity',
+        'Emails',
+        'Onboarding',
+        'Billing',
+      ])
+      expect(within(nav).getByRole('link', { name: 'Billing' })).toHaveAttribute(
+        'aria-current',
+        'page'
+      )
+      await summary()
+      await waitFor(() => expect(document.title).toBe('Tenant billing · Apex'))
+    })
+
+    it('hides the tab for the platform tenant', async () => {
+      server.use(
+        http.get(`/api/v1/platform/tenants/${PLATFORM_TENANT_ID}`, () =>
+          ok(detail(true), 'Tenant retrieved.')
+        )
+      )
+      renderAppAt(`/tenants/${PLATFORM_TENANT_ID}/members`)
+      await screen.findByRole('heading', { name: 'Platform', level: 1 })
+      const nav = screen.getByRole('navigation', { name: 'Tenant sections' })
+      expect(within(nav).queryByRole('link', { name: 'Billing' })).toBeNull()
+      expect(within(nav).getByRole('link', { name: 'Onboarding' })).toBeInTheDocument()
+    })
+
+    it('says the tenant has no billing, and asks for none of its lists', async () => {
+      const seen = serve()
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, () =>
+          fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
+        )
+      )
+      renderAppAt(BILLING)
+      expect(
+        await screen.findByRole('heading', { name: 'This tenant has no billing.' })
+      ).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Back to tenants' })).toHaveAttribute(
+        'href',
+        '/tenants'
+      )
+      expect(screen.queryByText(/Your role can’t see this any more/)).toBeNull()
+      expect(seen).toEqual({ history: [], events: [], subscriptions: [], invoices: [] })
+    })
+
+    it('renders RoleDenied for a role 404', async () => {
+      serve()
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, () =>
+          fail('Route not found', 404, 'not_found')
+        )
+      )
+      renderAppAt(BILLING)
+      expect(await screen.findByText('Your role can’t see this any more.')).toBeInTheDocument()
+      expect(screen.queryByText('This tenant has no billing.')).toBeNull()
+    })
+
+    it('shows a viewer no actions', async () => {
+      serve()
+      renderAppAt(BILLING)
+      await screen.findByRole('table', { name: 'Invoices' })
+      expect(
+        screen.queryByRole('button', { name: /resync|extend|grant|revoke|cancel|actions/i })
+      ).toBeNull()
+      expect(
+        within(screen.getByRole('table', { name: 'Grants' })).getAllByRole('columnheader')
+      ).toHaveLength(6)
+    })
+  })
+
+  describe('the summary', () => {
+    it('shows the summary of a paying tenant', async () => {
+      serve()
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(row(card, 'Plan')).toBe('PaidPaid')
+      expect(within(card).getByText('Paid', { selector: '[data-tone]' })).toHaveAttribute(
+        'data-tone',
+        'success'
+      )
+      expect(row(card, 'Price')).toBe('₹999 per month')
+      expect(row(card, 'Paid until')).toMatch(/2026/)
+      expect(row(card, 'Payer')).toBe('A B')
+      expect(row(card, 'Payment provider')).toBe('Razorpay (test)')
+      expect(row(card, 'Subscription ID')).toBe('sub_TestActive0001')
+      expect(within(card).getByRole('button', { name: 'Copy subscription ID' })).toBeInTheDocument()
+      expect(within(card).queryByText('Pending subscription ID')).toBeNull()
+      expect(within(card).queryByText('Dispute open')).toBeNull()
+      expect(within(card).getByText('Last synced', { selector: 'dt' })).toBeInTheDocument()
+      expect(within(card).queryByText(/billing email/i)).toBeNull()
+    })
+
+    it('shows the retired price label', async () => {
+      const paid = testPlans.plans[1]!
+      serve(
+        testTenantBilling,
+        {},
+        {
+          ...testPlans,
+          plans: [
+            testPlans.plans[0]!,
+            {
+              ...paid,
+              prices: paid.prices.map((price) =>
+                price.interval === 'month'
+                  ? { ...price, active: false, retiredAt: '2026-10-15T00:00:00.000Z' }
+                  : price
+              ),
+            },
+          ],
+        }
+      )
+      renderAppAt(BILLING)
+      const card = await summary()
+      await waitFor(() => expect(row(card, 'Price')).toBe('₹999 per month (retired price)'))
+    })
+
+    it('says the provider is still retrying while graceEndsAt is null', async () => {
+      serve({
+        ...testTenantBilling,
+        state: 'past_due',
+        pastDue: { since: '2026-10-21T00:00:00.000Z', graceEndsAt: null, paused: true },
+        disputeOpen: true,
+        cancelAtPeriodEnd: true,
+        payer: { userId: 'u', name: 'A B', isMember: false },
+      })
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(row(card, 'Failed payment')).toMatch(
+        /^Payment failed on .+\. The payment provider is still retrying\. Subscription paused\.$/
+      )
+      expect(within(card).getByText('Dispute open')).toHaveAttribute('data-tone', 'destructive')
+      expect(row(card, 'Cancels on')).toMatch(/2026/)
+      expect(row(card, 'Payer')).toBe('A B (left the workspace)')
+    })
+
+    it('says when Paid ends after a failed payment with a grace end', async () => {
+      serve({
+        ...testTenantBilling,
+        state: 'past_due',
+        pastDue: {
+          since: '2026-10-21T00:00:00.000Z',
+          graceEndsAt: '2026-10-28T00:00:00.000Z',
+          paused: false,
+        },
+      })
+      renderAppAt(BILLING)
+      expect(row(await summary(), 'Failed payment')).toMatch(
+        /^Payment failed on .+\. Paid ends on .+2026\.$/
+      )
+    })
+
+    it('shows the state with no provider ids and no invoices while payments are off', async () => {
+      const seen = serve({ ...testTenantBilling, paymentsEnabled: false })
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(
+        within(card).getByText(/Payments are off on this server\. The plan and dates show/)
+      ).toBeInTheDocument()
+      expect(row(card, 'Plan')).toBe('PaidPaid')
+      expect(within(card).queryByText('Subscription ID')).toBeNull()
+      expect(within(card).queryByRole('button', { name: /^Copy/ })).toBeNull()
+      expect(
+        await screen.findByText(/invoices can’t be read from the payment provider/)
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('table', { name: 'Invoices' })).toBeNull()
+      await screen.findByRole('table', { name: 'Subscriptions' })
+      expect(seen.invoices).toEqual([])
+    })
+
+    it('shows a Free tenant with no price, payer or subscription', async () => {
+      serve(testFreeTenantBilling)
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(row(card, 'Plan')).toBe('FreeFree')
+      expect(row(card, 'Price')).toBe('None')
+      expect(row(card, 'Payer')).toBe('None')
+      expect(within(card).queryByText('Subscription ID')).toBeNull()
+    })
+  })
+
+  describe('usage and grants', () => {
+    it('labels each entitlement from the catalog with its source', async () => {
+      serve(testFreeTenantBilling)
+      renderAppAt(BILLING)
+      const heading = await screen.findByRole('heading', { name: 'Usage and access' })
+      const card = heading.closest('[data-slot="card"]') as HTMLElement
+      await waitFor(() => expect(row(card, 'Members')).toBe('4 of 50 membersGrant'))
+      expect(row(card, 'Workspace insights')).toBe('OffPlan')
+    })
+
+    it('flags a limit that is reached', async () => {
+      serve({
+        ...testFreeTenantBilling,
+        entitlements: {
+          ...testFreeTenantBilling.entitlements,
+          limits: { members: { limit: 3, used: 3, approaching: false } },
+        },
+        sources: { members: 'plan', advanced_example: 'plan' },
+      })
+      renderAppAt(BILLING)
+      const heading = await screen.findByRole('heading', { name: 'Usage and access' })
+      const card = heading.closest('[data-slot="card"]') as HTMLElement
+      await waitFor(() => expect(row(card, 'Members')).toBe('3 of 3 membersAt limitPlan'))
+    })
+
+    it('falls back to registry keys when the plans can’t be read', async () => {
+      serve()
+      server.use(http.get('/api/v1/platform/plans', () => fail('Not found', 404)))
+      renderAppAt(BILLING)
+      const heading = await screen.findByRole('heading', { name: 'Usage and access' })
+      const card = heading.closest('[data-slot="card"]') as HTMLElement
+      await waitFor(() => expect(row(card, 'members')).toBe('4 members · No limitPlan'))
+      expect(row(card, 'advanced_example')).toBe('OnPlan')
+      expect(row(await summary(), 'Price')).toBe('₹999 per month')
+    })
+
+    it('lists each grant with its value, end, status, author and reason', async () => {
+      serve()
+      renderAppAt(BILLING)
+      const table = await screen.findByRole('table', { name: 'Grants' })
+      const cells = within(within(table).getAllByRole('row')[1]!)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent)
+      expect(cells).toEqual([
+        'Members',
+        '50',
+        'No end date',
+        'Active',
+        'Staff Admin',
+        'Pilot with a large team',
+      ])
+    })
+
+    it('says a tenant has no grants', async () => {
+      serve({ ...testTenantBilling, grants: [] })
+      renderAppAt(BILLING)
+      expect(await screen.findByText('No grants.')).toBeInTheDocument()
+      expect(
+        screen.getByText('A grant raises a limit or turns on a feature beyond the plan.')
+      ).toBeInTheDocument()
+    })
+  })
+
+  describe('the state history list', () => {
+    it('lists each change with its cause, source and time', async () => {
+      serve()
+      renderAppAt(BILLING)
+      const table = await screen.findByRole('table', { name: 'State history' })
+      const rows = within(table).getAllByRole('row')
+      expect(within(rows[1]!).getByText('Trial → Paid')).toBeInTheDocument()
+      expect(within(rows[1]!).getByText('First payment taken')).toBeInTheDocument()
+      expect(within(rows[1]!).getByText('Payment provider')).toBeInTheDocument()
+      expect(within(rows[2]!).getByText('Created → Trial')).toBeInTheDocument()
+    })
+
+    it('sends its search, source filter and sort, and pages with the cursor', async () => {
+      const seen = serve()
+      const user = userEvent.setup()
+      const router = renderAppAt(BILLING)
+      const table = await screen.findByRole('table', { name: 'State history' })
+      expect(seen.history.at(-1)?.get('total')).toBe('1')
+
+      await user.type(screen.getByRole('searchbox', { name: 'Search state history' }), 'past_due')
+      await waitFor(() => expect(seen.history.at(-1)?.get('search')).toBe('past_due'))
+      expect(router.state.location.search).toEqual({ historySearch: 'past_due' })
+
+      await user.click(screen.getByRole('button', { name: 'Filter by source, State history' }))
+      const popup = await screen.findByRole('dialog', { name: 'Filter by source, State history' })
+      await user.click(within(popup).getByRole('checkbox', { name: 'Staff' }))
+      await waitFor(() => expect(seen.history.at(-1)?.get('source')).toBe('staff'))
+      await user.keyboard('{Escape}')
+
+      await user.click(within(table).getByRole('button', { name: /^When/ }))
+      await waitFor(() => expect(seen.history.at(-1)?.get('sort')).toBe('at'))
+
+      const nav = screen.getByRole('navigation', { name: 'State history pagination' })
+      await user.click(within(nav).getByRole('button', { name: 'Next page' }))
+      await waitFor(() => expect(seen.history.at(-1)?.get('cursor')).toBe('c2'))
+      expect(router.state.location.search).toMatchObject({
+        historyCursor: 'c2',
+        historySource: 'staff',
+        historySort: 'at',
+      })
+      expect(seen.events.every((params) => !params.has('search'))).toBe(true)
+    })
+
+    it('says so when no state changes are recorded', async () => {
+      serve(testTenantBilling, { history: () => listPage([]) })
+      renderAppAt(BILLING)
+      expect(await screen.findByText('No state changes recorded.')).toBeInTheDocument()
+    })
+  })
+
+  describe('the provider events list', () => {
+    it('lists each event with its status and error', async () => {
+      serve()
+      renderAppAt(BILLING)
+      const table = await screen.findByRole('table', { name: 'Provider events' })
+      const failed = within(table).getByText('subscription.activated').closest('tr')!
+      expect(within(failed).getByText('Failed')).toHaveAttribute('data-tone', 'destructive')
+      expect(within(failed).getByText('Provider timed out on every retry')).toHaveClass(
+        'text-destructive'
+      )
+      expect(within(failed).getByText('Not yet')).toBeInTheDocument()
+    })
+
+    it('sends its search, status filter and sort, and pages with the cursor', async () => {
+      const seen = serve()
+      const user = userEvent.setup()
+      const router = renderAppAt(BILLING)
+      const table = await screen.findByRole('table', { name: 'Provider events' })
+
+      await user.type(screen.getByRole('searchbox', { name: 'Search provider events' }), 'charged')
+      await waitFor(() => expect(seen.events.at(-1)?.get('search')).toBe('charged'))
+
+      await user.click(screen.getByRole('button', { name: 'Filter by status, Provider events' }))
+      const popup = await screen.findByRole('dialog', {
+        name: 'Filter by status, Provider events',
+      })
+      await user.click(within(popup).getByRole('checkbox', { name: 'Failed' }))
+      await user.click(within(popup).getByRole('checkbox', { name: 'Waiting' }))
+      await waitFor(() => expect(seen.events.at(-1)?.get('status')).toBe('failed,pending'))
+      await user.keyboard('{Escape}')
+
+      await user.click(within(table).getByRole('button', { name: /^Received/ }))
+      await waitFor(() => expect(seen.events.at(-1)?.get('sort')).toBe('at'))
+
+      const nav = screen.getByRole('navigation', { name: 'Provider events pagination' })
+      await user.click(within(nav).getByRole('button', { name: 'Next page' }))
+      await waitFor(() => expect(seen.events.at(-1)?.get('cursor')).toBe('c2'))
+      expect(router.state.location.search).toMatchObject({
+        eventsSearch: 'charged',
+        eventsStatus: 'failed,pending',
+        eventsSort: 'at',
+        eventsCursor: 'c2',
+      })
+    })
+
+    it('says so when the provider sent no events for the tenant', async () => {
+      serve(testTenantBilling, { events: () => listPage([]) })
+      renderAppAt(BILLING)
+      expect(
+        await screen.findByText('No payment provider events for this tenant.')
+      ).toBeInTheDocument()
+    })
+  })
+
+  describe('the subscriptions list', () => {
+    it('sends its search, provider and mode filters and sort, and pages with the cursor', async () => {
+      const seen = serve()
+      const user = userEvent.setup()
+      const router = renderAppAt(BILLING)
+      const table = await screen.findByRole('table', { name: 'Subscriptions' })
+      expect(within(table).getByText('sub_TestActive0001')).toBeInTheDocument()
+      expect(within(table).getByText('Current')).toHaveAttribute('data-tone', 'success')
+
+      await user.type(screen.getByRole('searchbox', { name: 'Search subscriptions' }), 'sub_')
+      await waitFor(() => expect(seen.subscriptions.at(-1)?.get('search')).toBe('sub_'))
+
+      await user.click(screen.getByRole('button', { name: 'Filter by provider, Subscriptions' }))
+      let popup = await screen.findByRole('dialog', { name: 'Filter by provider, Subscriptions' })
+      await user.click(within(popup).getByRole('checkbox', { name: 'Razorpay' }))
+      await waitFor(() => expect(seen.subscriptions.at(-1)?.get('provider')).toBe('razorpay'))
+      await user.keyboard('{Escape}')
+
+      await user.click(screen.getByRole('button', { name: 'Filter by mode, Subscriptions' }))
+      popup = await screen.findByRole('dialog', { name: 'Filter by mode, Subscriptions' })
+      await user.click(within(popup).getByRole('checkbox', { name: 'Live' }))
+      await waitFor(() => expect(seen.subscriptions.at(-1)?.get('mode')).toBe('live'))
+      await user.keyboard('{Escape}')
+
+      await user.click(within(table).getByRole('button', { name: /^First seen/ }))
+      await waitFor(() => expect(seen.subscriptions.at(-1)?.get('sort')).toBe('firstSeen'))
+
+      const nav = screen.getByRole('navigation', { name: 'Subscriptions pagination' })
+      await user.click(within(nav).getByRole('button', { name: 'Next page' }))
+      await waitFor(() => expect(seen.subscriptions.at(-1)?.get('cursor')).toBe('c2'))
+      expect(router.state.location.search).toMatchObject({
+        subscriptionsProvider: 'razorpay',
+        subscriptionsMode: 'live',
+        subscriptionsSort: 'firstSeen',
+        subscriptionsCursor: 'c2',
+      })
+    })
+
+    it('says so when the tenant held no subscription', async () => {
+      serve(testTenantBilling, { subscriptions: () => listPage([]) })
+      renderAppAt(BILLING)
+      expect(await screen.findByText('No subscriptions recorded.')).toBeInTheDocument()
+    })
+  })
+
+  describe('the invoices list', () => {
+    it('lists each invoice, and loads more with only the cursor and status', async () => {
+      const seen = serve(testTenantBilling, {
+        invoices: (params) =>
+          params.has('cursor')
+            ? listPage([{ ...testInvoices[0]!, id: 'inv_TestPaid0000' }], { hasPrev: true })
+            : listPage(testInvoices, { nextCursor: 'c2', hasNext: true }),
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      const table = await screen.findByRole('table', { name: 'Invoices' })
+      const cells = within(within(table).getAllByRole('row')[1]!)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent)
+      expect(cells.slice(0, 4)).toEqual(['inv_TestPaid0001', 'sub_TestActive0001', '₹999', 'Paid'])
+      expect([...(seen.invoices[0]?.keys() ?? [])]).toEqual([])
+
+      await user.click(screen.getByRole('button', { name: 'Filter by status, Invoices' }))
+      const popup = await screen.findByRole('dialog', { name: 'Filter by status, Invoices' })
+      await user.click(within(popup).getByRole('checkbox', { name: 'Paid' }))
+      await waitFor(() => expect(seen.invoices.at(-1)?.get('status')).toBe('paid'))
+      await user.keyboard('{Escape}')
+
+      await user.click(await screen.findByRole('button', { name: 'Load more invoices' }))
+      expect(await screen.findByText('inv_TestPaid0000')).toBeInTheDocument()
+      expect(Object.fromEntries(seen.invoices.at(-1) ?? [])).toEqual({
+        cursor: 'c2',
+        status: 'paid',
+      })
+      expect(
+        within(screen.getByRole('table', { name: 'Invoices' })).getByText('inv_TestPaid0001')
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Load more invoices' })).toBeNull()
+      expect(screen.queryByRole('searchbox', { name: /invoices/i })).toBeNull()
+    })
+
+    it('offers more on an empty page while the provider has more, and never says none', async () => {
+      serve(testTenantBilling, {
+        invoices: (params) =>
+          params.has('cursor')
+            ? listPage(testInvoices, { hasPrev: true })
+            : listPage([], { nextCursor: 'c2', hasNext: true }),
+      })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      expect(
+        await screen.findByText(
+          'No invoices found yet. Older subscriptions may have some. Select Load more invoices.'
+        )
+      ).toBeInTheDocument()
+      expect(screen.queryByText('No invoices for this tenant.')).toBeNull()
+      await user.click(screen.getByRole('button', { name: 'Load more invoices' }))
+      expect(await screen.findByRole('table', { name: 'Invoices' })).toBeInTheDocument()
+    })
+
+    it('says the tenant has no invoices once the provider has no more', async () => {
+      serve(testTenantBilling, { invoices: () => listPage([]) })
+      renderAppAt(BILLING)
+      expect(await screen.findByText('No invoices for this tenant.')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Load more invoices' })).toBeNull()
+    })
+
+    it('starts again from the newest when the provider refuses the cursor', async () => {
+      const seen = serve(testTenantBilling, {
+        invoices: () => listPage(testInvoices, { nextCursor: 'c2', hasNext: true }),
+      })
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/invoices`, ({ request }) => {
+          const params = new URL(request.url).searchParams
+          seen.invoices.push(params)
+          return params.has('cursor')
+            ? fail('Cursor is invalid.', 400, 'CURSOR_INVALID')
+            : ok(listPage(testInvoices, { nextCursor: 'c2', hasNext: true }), 'ok')
+        })
+      )
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      await user.click(await screen.findByRole('button', { name: 'Load more invoices' }))
+      expect(
+        await screen.findByText(/This tenant’s subscriptions changed since the list opened\./)
+      ).toBeInTheDocument()
+      const before = seen.invoices.length
+      await user.click(screen.getByRole('button', { name: 'Start again from the newest' }))
+      await waitFor(() => expect(seen.invoices.length).toBeGreaterThan(before))
+      expect(seen.invoices.at(-1)?.has('cursor')).toBe(false)
+      expect(await screen.findByRole('button', { name: 'Load more invoices' })).toBeInTheDocument()
+    })
+  })
+})

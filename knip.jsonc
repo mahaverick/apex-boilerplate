@@ -14,10 +14,6 @@
     "src/observability/telemetry/index.ts": ["exports", "types"],
     // That barrel re-exports `AnalyticsConsentMode` from here.
     "src/observability/telemetry/config.ts": ["types"],
-    // Byte-identical with react's copy. React's capture manifest imports
-    // `CaptureState` for its billing page's state shots; this app's manifest
-    // does not import it.
-    "e2e/capture/types.ts": ["types"],
     // A config file Vite reads by path (`--config`) in playwright.config.ts's webServer command.
     "e2e/harness.vite.config.ts": ["exports"],
   },

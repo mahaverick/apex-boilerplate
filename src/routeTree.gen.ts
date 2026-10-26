@@ -50,6 +50,7 @@ import { Route as AppSettingsPlatformMaintenanceRouteImport } from './pages/_app
 import { Route as AppSettingsPlatformStaffRouteImport } from './pages/_app/settings/platform.staff'
 import { Route as AppTenantsTenantIdIndexRouteImport } from './pages/_app/tenants/$tenantId.index'
 import { Route as AppTenantsTenantIdActivityRouteImport } from './pages/_app/tenants/$tenantId.activity'
+import { Route as AppTenantsTenantIdBillingRouteImport } from './pages/_app/tenants/$tenantId.billing'
 import { Route as AppTenantsTenantIdEmailsRouteImport } from './pages/_app/tenants/$tenantId.emails'
 import { Route as AppTenantsTenantIdFlagsRouteImport } from './pages/_app/tenants/$tenantId.flags'
 import { Route as AppTenantsTenantIdInvitationsRouteImport } from './pages/_app/tenants/$tenantId.invitations'
@@ -267,6 +268,12 @@ const AppTenantsTenantIdActivityRoute =
     path: '/activity',
     getParentRoute: () => AppTenantsTenantIdRoute,
   } as any)
+const AppTenantsTenantIdBillingRoute =
+  AppTenantsTenantIdBillingRouteImport.update({
+    id: '/billing',
+    path: '/billing',
+    getParentRoute: () => AppTenantsTenantIdRoute,
+  } as any)
 const AppTenantsTenantIdEmailsRoute =
   AppTenantsTenantIdEmailsRouteImport.update({
     id: '/emails',
@@ -339,6 +346,7 @@ export interface FileRoutesByFullPath {
   '/settings/platform/maintenance': typeof AppSettingsPlatformMaintenanceRoute
   '/settings/platform/staff': typeof AppSettingsPlatformStaffRoute
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
+  '/tenants/$tenantId/billing': typeof AppTenantsTenantIdBillingRoute
   '/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/tenants/$tenantId/flags': typeof AppTenantsTenantIdFlagsRoute
   '/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
@@ -383,6 +391,7 @@ export interface FileRoutesByTo {
   '/settings/platform/maintenance': typeof AppSettingsPlatformMaintenanceRoute
   '/settings/platform/staff': typeof AppSettingsPlatformStaffRoute
   '/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
+  '/tenants/$tenantId/billing': typeof AppTenantsTenantIdBillingRoute
   '/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/tenants/$tenantId/flags': typeof AppTenantsTenantIdFlagsRoute
   '/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
@@ -433,6 +442,7 @@ export interface FileRoutesById {
   '/_app/settings/platform/maintenance': typeof AppSettingsPlatformMaintenanceRoute
   '/_app/settings/platform/staff': typeof AppSettingsPlatformStaffRoute
   '/_app/tenants/$tenantId/activity': typeof AppTenantsTenantIdActivityRoute
+  '/_app/tenants/$tenantId/billing': typeof AppTenantsTenantIdBillingRoute
   '/_app/tenants/$tenantId/emails': typeof AppTenantsTenantIdEmailsRoute
   '/_app/tenants/$tenantId/flags': typeof AppTenantsTenantIdFlagsRoute
   '/_app/tenants/$tenantId/invitations': typeof AppTenantsTenantIdInvitationsRoute
@@ -482,6 +492,7 @@ export interface FileRouteTypes {
     | '/settings/platform/maintenance'
     | '/settings/platform/staff'
     | '/tenants/$tenantId/activity'
+    | '/tenants/$tenantId/billing'
     | '/tenants/$tenantId/emails'
     | '/tenants/$tenantId/flags'
     | '/tenants/$tenantId/invitations'
@@ -526,6 +537,7 @@ export interface FileRouteTypes {
     | '/settings/platform/maintenance'
     | '/settings/platform/staff'
     | '/tenants/$tenantId/activity'
+    | '/tenants/$tenantId/billing'
     | '/tenants/$tenantId/emails'
     | '/tenants/$tenantId/flags'
     | '/tenants/$tenantId/invitations'
@@ -575,6 +587,7 @@ export interface FileRouteTypes {
     | '/_app/settings/platform/maintenance'
     | '/_app/settings/platform/staff'
     | '/_app/tenants/$tenantId/activity'
+    | '/_app/tenants/$tenantId/billing'
     | '/_app/tenants/$tenantId/emails'
     | '/_app/tenants/$tenantId/flags'
     | '/_app/tenants/$tenantId/invitations'
@@ -892,6 +905,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTenantsTenantIdActivityRouteImport
       parentRoute: typeof AppTenantsTenantIdRoute
     }
+    '/_app/tenants/$tenantId/billing': {
+      id: '/_app/tenants/$tenantId/billing'
+      path: '/billing'
+      fullPath: '/tenants/$tenantId/billing'
+      preLoaderRoute: typeof AppTenantsTenantIdBillingRouteImport
+      parentRoute: typeof AppTenantsTenantIdRoute
+    }
     '/_app/tenants/$tenantId/emails': {
       id: '/_app/tenants/$tenantId/emails'
       path: '/emails'
@@ -965,6 +985,7 @@ const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
 
 interface AppTenantsTenantIdRouteChildren {
   AppTenantsTenantIdActivityRoute: typeof AppTenantsTenantIdActivityRoute
+  AppTenantsTenantIdBillingRoute: typeof AppTenantsTenantIdBillingRoute
   AppTenantsTenantIdEmailsRoute: typeof AppTenantsTenantIdEmailsRoute
   AppTenantsTenantIdFlagsRoute: typeof AppTenantsTenantIdFlagsRoute
   AppTenantsTenantIdInvitationsRoute: typeof AppTenantsTenantIdInvitationsRoute
@@ -975,6 +996,7 @@ interface AppTenantsTenantIdRouteChildren {
 
 const AppTenantsTenantIdRouteChildren: AppTenantsTenantIdRouteChildren = {
   AppTenantsTenantIdActivityRoute: AppTenantsTenantIdActivityRoute,
+  AppTenantsTenantIdBillingRoute: AppTenantsTenantIdBillingRoute,
   AppTenantsTenantIdEmailsRoute: AppTenantsTenantIdEmailsRoute,
   AppTenantsTenantIdFlagsRoute: AppTenantsTenantIdFlagsRoute,
   AppTenantsTenantIdInvitationsRoute: AppTenantsTenantIdInvitationsRoute,

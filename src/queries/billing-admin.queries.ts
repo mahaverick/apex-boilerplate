@@ -58,7 +58,7 @@ export const billingAdminKeys = {
 }
 
 /** Whether asking again could change a refusal: a 404 answers who is asking, so it never can. */
-function retryUnlessNotFound(failureCount: number, error: unknown): boolean {
+function retryUnlessNotFound(failureCount: number, error: Error): boolean {
   return statusFrom(error) !== 404 && failureCount < 1
 }
 

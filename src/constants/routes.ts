@@ -28,6 +28,7 @@ export const ROUTES = {
   tenantActivity: '/tenants/$tenantId/activity',
   tenantEmails: '/tenants/$tenantId/emails',
   tenantOnboarding: '/tenants/$tenantId/onboarding',
+  tenantBilling: '/tenants/$tenantId/billing',
   tenantFlags: '/tenants/$tenantId/flags',
   emails: '/emails',
   email: '/emails/$emailId',

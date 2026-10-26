@@ -1,10 +1,3 @@
-/**
- * @file Billing fixtures as express's staff routes serve them, with the
- * catalog of express's entitlement registry. Apex's own: react's
- * `tests/fixtures/billing.ts` holds the customer views. `testPlans` keeps
- * react's name, so the shared `plural.test.ts` reads it in both apps.
- */
-import { STAFF_USER_ID, USER_ID } from '@/tests/fixtures/ids'
 import type {
   BillingSettings,
   StaffBillingEventItem,
@@ -14,6 +7,15 @@ import type {
   StaffPlans,
   StaffTenantBilling,
 } from '@/types/billing.types'
+/**
+ * @file Billing fixtures as express's staff routes serve them, with the
+ * catalog of express's entitlement registry. Apex's own: react's
+ * `tests/fixtures/billing.ts` holds the customer views. `testPlans` keeps
+ * react's name, so the shared `plural.test.ts` reads it in both apps. The
+ * harness and the capture manifest import it too, where the `@/tests` alias
+ * does not resolve, so it imports `ids` by path.
+ */
+import { STAFF_USER_ID, USER_ID } from './ids'
 
 /**
  * `GET /platform/plans` as express serves it: Free (3 members, no
