@@ -180,6 +180,11 @@ describe('auditSentence', () => {
     ],
     [
       'billing.settings_updated',
+      { changedFields: [1, null], reason: 'checked' },
+      'changed the billing settings: “checked”',
+    ],
+    [
+      'billing.settings_updated',
       { changedFields: [], reason: 'checked' },
       'saved the billing settings with no changes: “checked”',
     ],

@@ -237,13 +237,15 @@ const BILLING_SETTING_WORDS: Readonly<Record<string, string>> = {
 
 /**
  * A billing settings save: the settings it changed, in words, or a save
- * with no changes, which express records too. express stores the field
+ * with no changes, which express records too. A list with no field names
+ * in it says nothing about what changed, so it reads as a plain change. express stores the field
  * names under `changedFields`, not the `changed` other updates use.
  */
 function settingsChange(metadata: Metadata): string {
   if (!Array.isArray(metadata.changedFields)) return 'changed the billing settings'
+  if (metadata.changedFields.length === 0) return 'saved the billing settings with no changes'
   const fields = texts(metadata, 'changedFields')
-  if (fields.length === 0) return 'saved the billing settings with no changes'
+  if (fields.length === 0) return 'changed the billing settings'
   const words = fields.map((field) => BILLING_SETTING_WORDS[field] ?? field)
   return `changed the billing settings (${words.join(', ')})`
 }
