@@ -137,6 +137,31 @@ describe('/tenants/$tenantId/billing', () => {
       await waitFor(() => expect(document.title).toBe('Tenant billing · Apex'))
     })
 
+    it('preloads the plans but not the audited billing read on a hover', async () => {
+      serve()
+      const billingReads: string[] = []
+      const planReads: string[] = []
+      server.use(
+        http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing`, ({ request }) => {
+          billingReads.push(request.url)
+          return ok(testTenantBilling, 'Billing retrieved.')
+        }),
+        http.get('/api/v1/platform/plans', ({ request }) => {
+          planReads.push(request.url)
+          return ok(testPlans, 'Plans retrieved.')
+        })
+      )
+      const router = renderAppAt(`/tenants/${TENANT_ID}`)
+      await screen.findByRole('heading', { name: 'Acme Corp', level: 1 })
+      // A hover on a Billing link runs this preload ('intent'); express audits every billing read as `billing.viewed`.
+      await router.preloadRoute({
+        to: '/tenants/$tenantId/billing',
+        params: { tenantId: TENANT_ID },
+      })
+      await waitFor(() => expect(planReads).toHaveLength(1))
+      expect(billingReads).toEqual([])
+    })
+
     it('hides the tab for the platform tenant', async () => {
       server.use(
         http.get(`/api/v1/platform/tenants/${PLATFORM_TENANT_ID}`, () =>

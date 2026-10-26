@@ -37,9 +37,11 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/billing')({
   // One schema for the tab's three URL lists, each under its own prefix.
   validateSearch: billingHistoryList.schema,
   // Started, not awaited: the tab renders its skeleton while these run.
-  loader: ({ context, params }) => {
-    void context.queryClient.prefetchQuery(staffTenantBillingQueryOptions(params.tenantId))
+  loader: ({ context, params, preload }) => {
     void context.queryClient.prefetchQuery(staffPlansQueryOptions())
+    // Express audits every billing read as `billing.viewed`, so a hover preload must not read it.
+    if (preload) return
+    void context.queryClient.prefetchQuery(staffTenantBillingQueryOptions(params.tenantId))
   },
   head: () => ({ meta: [{ title: pageTitle('Tenant billing') }] }),
   staticData: { crumb: 'Billing' },
