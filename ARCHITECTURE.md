@@ -391,21 +391,21 @@ and the `empty` state; the rest is optional (`search`, `filters`, `toolbar`,
    (`renderTestList`, `serveTestItems`, `testColumns`, `atPhoneWidth`) and
    answer in `listPage(items, page?, total?)` from `tests/fixtures/list-page.ts`.
 
-A route schema keeps zod classes out of the entry chunk. Use `z.custom` rather
-than `z.number`, `z.literal` or `z.boolean` in a route's search schema, as
-`list.schemas.ts` does for `limit` and the yes/no filter, and keep
+Zod ships as one shared first-visit chunk, trimmed to the types used anywhere
+in the app, so a zod type costs first-visit bytes once, wherever it is used.
+`z.number` and `z.boolean` already load on the first visit, because the staff
+billing forms mirror express with them, so a route's search schema may use
+them freely. `z.literal` is still used nowhere: keep `z.custom` where it would
+be the first use, as `list.schemas.ts` does for `limit` and the yes/no filter, or measure
+the cost with `pnpm check:bundle` first. Keep
 `components/shared/data-table/**` (and TanStack Table) out of anything the
 entry imports: the switcher, the bell, `nav-secondary` and the guard never
-import from it. `pnpm check:bundle` enforces the budget, and the lists did
-not raise it: `ENTRY_BUDGET_BYTES` stayed 598,500. The entry started the lists
-at 594,895 B and ended at 589,247 B. The shared schemas use `z.custom`, which
-took it down; the 13 definitions' schemas, which every list route's
-`validateSearch` reaches, put 4,370 B back; deleting each page's old
-schema, options and hooks in the commit that adopted the table took the rest
-off. Zod ships as one shared first-visit chunk trimmed to the types used
-anywhere, so this holds only while no form uses those types either. The
-staff billing forms mirror express with `z.number()` and `z.boolean()`, and
-the budget rose to 608,000 with them; its history is in
+import from it. The lists did not raise the budget: the entry started them at
+594,895 B and ended at 589,247 B. The shared schemas' `z.custom` took it down
+then; the 13 definitions' schemas, which every list route's `validateSearch`
+reaches, put 4,370 B back; deleting each page's old schema, options and hooks
+in the commit that adopted the table took the rest off. The billing forms
+raised the budget to 608,000; its history is in
 `scripts/check-bundle.mjs`.
 
 ### Apex's lists
