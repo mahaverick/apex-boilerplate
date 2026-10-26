@@ -203,6 +203,23 @@ export function billingDateTime(iso: string, timeZone: string | undefined): stri
 }
 
 /**
+ * A zone as a billing date-time names it ("GMT-11", "GMT+5:30", "UTC"), so
+ * one zone has one form on the page. An unknown zone reads as UTC.
+ * @param timeZone - An IANA zone name.
+ * @param at - The moment whose offset to name, in milliseconds.
+ */
+export function zoneLabel(timeZone: string, at: number): string {
+  let parts: Intl.DateTimeFormatPart[]
+  try {
+    parts = new Intl.DateTimeFormat('en-GB', { timeZone, timeZoneName: 'short' }).formatToParts(at)
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error
+    return 'UTC'
+  }
+  return parts.find((part) => part.type === 'timeZoneName')?.value ?? timeZone
+}
+
+/**
  * The date and time in one zone, month spelled out and the zone named.
  * @param date - A valid moment.
  * @param timeZone - An IANA zone name; an unknown one throws `RangeError`.

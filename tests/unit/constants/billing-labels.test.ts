@@ -6,6 +6,7 @@ import {
   BILLING_STATE_BADGE,
   billingDate,
   billingDateTime,
+  zoneLabel,
   historyCauseLabel,
   historySearchCode,
   INVOICE_STATUS_BADGE,
@@ -151,6 +152,14 @@ describe('billingDate and billingDateTime', () => {
     expect(billingDateTime('2026-11-20T00:00:00.000Z', 'Asia/Kolkata')).toBe(
       '20 November 2026 at 05:30 GMT+5:30'
     )
+  })
+
+  it('name a zone as the date-times do', () => {
+    const at = Date.parse('2026-11-20T00:00:00.000Z')
+    expect(zoneLabel('Pacific/Pago_Pago', at)).toBe('GMT-11')
+    expect(zoneLabel('Asia/Kolkata', at)).toBe('GMT+5:30')
+    expect(zoneLabel('UTC', at)).toBe('UTC')
+    expect(zoneLabel('Mars/Olympus', at)).toBe('UTC')
   })
 
   it('read an unknown zone as UTC', () => {

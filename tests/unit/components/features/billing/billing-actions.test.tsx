@@ -604,7 +604,7 @@ describe('billing actions', () => {
       expect(endsOn).toHaveAttribute('min', localDate(new Date(), 'Pacific/Pago_Pago'))
       expect(endsOn).toHaveAttribute('max', '2099-12-31')
       expect(dialog).toHaveTextContent(
-        'Empty means no end date. A date ends the grant at the end of that day in the tenant’s time zone (Pacific/Pago_Pago).'
+        'Empty means no end date. A date ends the grant at the end of that day in the tenant’s time zone (GMT-11).'
       )
       expect(dialog).toHaveTextContent('Recorded in the audit log with your name.')
       await user.type(within(dialog).getByLabelText('New limit'), '25')

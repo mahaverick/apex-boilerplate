@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { zoneLabel } from '@/constants/billing-labels'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useNow } from '@/hooks/use-now'
 import { useServerErrors } from '@/hooks/use-server-errors'
@@ -114,7 +115,8 @@ function AddGrantForm({
   const serverErrors = useServerErrors()
   const timeZone = tenant.settings.timezone
   const schema = useMemo(() => grantFormSchema(catalog, timeZone), [catalog, timeZone])
-  const today = localDate(new Date(useNow()), timeZone)
+  const now = useNow()
+  const today = localDate(new Date(now), timeZone)
   const form = useForm({
     defaultValues: { key: '', value: '', noLimit: false, endsOn: '', reason: '' },
     validators: { onSubmit: schema },
@@ -235,7 +237,7 @@ function AddGrantForm({
             </FormControl>
             <FormDescription>
               Empty means no end date. A date ends the grant at the end of that day in the tenant’s
-              time zone ({timeZone}).
+              time zone ({zoneLabel(timeZone, now)}).
             </FormDescription>
             <FormMessage />
           </FormItem>
