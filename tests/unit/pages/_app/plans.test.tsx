@@ -1211,4 +1211,49 @@ describe('Plans page: trials and grace', () => {
     await waitFor(() => expect(success).toHaveBeenCalledWith('Billing settings saved.'))
     expect(saves[1]).toEqual({ version: 2, trialDays: 30, reason: 'Longer trials' })
   })
+
+  it('reads 014 trial days as the stored 14: no change, express’s message, and nothing posted', async () => {
+    const saves = recordSettingsSave(testBillingSettings)
+    const user = userEvent.setup()
+    openPlans('admin')
+    const settings = await settingsCard()
+    const length = await within(settings).findByRole('textbox', { name: 'Trial length (days)' })
+    await user.clear(length)
+    await user.type(length, '014')
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    expect(await within(settings).findByText(NO_SETTING_CHANGED)).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(saves).toEqual([])
+  })
+
+  it('after a conflict, loads their grace over a typed 07 that equals the stored 7', async () => {
+    const theirs: BillingSettings = { ...testBillingSettings, version: 2, pastDueGraceDays: 10 }
+    serveSettings(testBillingSettings, theirs)
+    const saves: unknown[] = []
+    server.use(
+      http.patch('/api/v1/platform/billing-settings', async ({ request }) => {
+        saves.push(await request.json())
+        return fail('Someone changed the billing settings.', 409, 'PLAN_VERSION_CONFLICT')
+      })
+    )
+    const user = userEvent.setup()
+    openPlans('admin')
+    const settings = await settingsCard()
+    const length = await within(settings).findByRole('textbox', { name: 'Trial length (days)' })
+    const grace = within(settings).getByRole('textbox', {
+      name: 'Days to keep Paid after the last failed payment',
+    })
+    await user.clear(length)
+    await user.type(length, '30')
+    await user.clear(grace)
+    await user.type(grace, '07')
+    await user.click(within(settings).getByRole('button', { name: 'Save billing settings' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Save billing settings?' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Longer trials')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    expect(saves[0]).toEqual({ version: 1, trialDays: 30, reason: 'Longer trials' })
+    await waitFor(() => expect(grace).toHaveValue('10'))
+    expect(length).toHaveValue('30')
+  })
 })

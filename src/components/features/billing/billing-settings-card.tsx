@@ -51,6 +51,18 @@ const CONFLICT_UNLOADED =
 /** The grace field's label, which the read-only view shares. */
 const GRACE_LABEL = 'Days to keep Paid after the last failed payment'
 
+/**
+ * A field's value as the API reads it: the days parsed to a whole number,
+ * or undefined when they don't parse. `useChangedFields` diffs the text, so
+ * a typed `014` differs from a stored `14`; comparing parsed values doesn't.
+ * @param name - The field.
+ * @param value - Its value as the form holds it.
+ */
+function parsedField(name: keyof BillingSettingsForm, value: unknown): unknown {
+  const result = billingSettingsFormSchema.shape[name].safeParse(value)
+  return result.success ? result.data : undefined
+}
+
 /** The settings' version and values a save diffs against and sends back. */
 type SettingsBody = Partial<
   Pick<BillingSettings, 'trialEnabled' | 'trialDays' | 'pastDueGraceDays'>
@@ -183,9 +195,26 @@ function SettingsEditor({ settings }: { settings: BillingSettings }) {
         loadTheirs()
         return
       }
-      const changed = changes.changedBody(value)
-      if (changed === null) return
+      const changedText = changes.changedBody(value)
+      if (changedText === null) return
+      // Only a field whose number differs from the stored one is a change: a typed 014 is the stored 14.
+      const changed = Object.fromEntries(
+        Object.entries(changedText).filter(
+          ([name, parsed]) =>
+            !Object.is(
+              parsed,
+              parsedField(
+                name as keyof BillingSettingsForm,
+                changes.baseline[name as keyof BillingSettingsForm]
+              )
+            )
+        )
+      ) as typeof changedText
       serverErrors.reset()
+      if (Object.keys(changed).length === 0) {
+        serverErrors.setFormErrors([UNCHANGED])
+        return
+      }
       setPending({ version, ...changed })
     },
   })
@@ -207,9 +236,8 @@ function SettingsEditor({ settings }: { settings: BillingSettings }) {
     const freshForm = billingSettingsForm(fresh)
     for (const name of Object.keys(freshForm) as Array<keyof BillingSettingsForm>) {
       const now = form.state.values[name]
-      if (Object.is(now, loaded[name]) && !Object.is(now, freshForm[name])) {
-        form.setFieldValue(name, freshForm[name])
-      }
+      const leftAlone = Object.is(parsedField(name, now), parsedField(name, loaded[name]))
+      if (leftAlone && !Object.is(now, freshForm[name])) form.setFieldValue(name, freshForm[name])
     }
     changes.rebase(freshForm)
     holdVersion(fresh.version)
