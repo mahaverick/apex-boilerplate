@@ -6,6 +6,7 @@
  * `@/constants/settings`, not here.
  */
 import {
+  IconAlertTriangle,
   IconBuilding,
   IconGauge,
   IconHistory,
@@ -39,6 +40,7 @@ export type NavPath =
   | typeof ROUTES.suppressions
   | typeof ROUTES.onboarding
   | typeof ROUTES.plans
+  | typeof ROUTES.billingAlerts
   | typeof ROUTES.activity
 
 /** One page in the staff navigation, with who sees it and where it sits. */
@@ -83,6 +85,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
     to: ROUTES.suppressions,
     Icon: IconMailX,
     minRole: 'viewer',
+    group: 'Operations',
+  },
+  // The API serves the alerts to admins only, so the page and its entry are admin-only.
+  {
+    label: 'Billing alerts',
+    to: ROUTES.billingAlerts,
+    Icon: IconAlertTriangle,
+    minRole: 'admin',
     group: 'Operations',
   },
   {

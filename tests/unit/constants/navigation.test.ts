@@ -30,7 +30,7 @@ const ITEMS: readonly NavItem[] = [
 
 describe('navigation', () => {
   it.each(['viewer', 'manager'] as const)(
-    'gives a %s the Directory, Operations and Growth pages, Plans included, not the activity log',
+    'gives a %s the Directory, Operations and Growth pages, Plans included, not the billing alerts or the activity log',
     (role) => {
       expect(navItemsFor(role).map((item) => item.label)).toEqual([
         'Overview',
@@ -53,6 +53,7 @@ describe('navigation', () => {
       'Emails',
       'Deliverability',
       'Suppressions',
+      'Billing alerts',
       'Onboarding',
       'Plans',
       'Activity log',
@@ -77,7 +78,7 @@ describe('navigation', () => {
     ).toEqual([
       ['General', ['Overview']],
       ['Directory', ['Tenants', 'Users']],
-      ['Operations', ['Emails', 'Deliverability', 'Suppressions']],
+      ['Operations', ['Emails', 'Deliverability', 'Suppressions', 'Billing alerts']],
       ['Growth', ['Onboarding', 'Plans']],
       ['Security', ['Activity log']],
     ])

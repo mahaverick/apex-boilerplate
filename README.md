@@ -3,9 +3,9 @@
 A React 19 + TypeScript single-page app for the people who run a product, not
 the people who use it: the staff console. Its sibling, `react-boilerplate`, is
 the customer app, and both are built on the `express-boilerplate` API. Apex ships
-a sign-in, a sectioned, collapsible sidebar shell, a ⌘K command palette, eight staff pages
-(Overview, Tenants, Users, Emails, Deliverability, Suppressions, Onboarding and the
-Activity log) and a Settings area: Profile and Security for your own account, and
+a sign-in, a sectioned, collapsible sidebar shell, a ⌘K command palette, ten staff pages
+(Overview, Tenants, Users, Emails, Deliverability, Suppressions, Billing alerts,
+Onboarding, Plans and the Activity log) and a Settings area: Profile and Security for your own account, and
 Staff, Feature flags and Maintenance for the platform.
 
 Only platform staff get in. A signed-in user with no platform role lands on

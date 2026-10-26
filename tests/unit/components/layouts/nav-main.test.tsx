@@ -80,6 +80,7 @@ describe('NavMain', () => {
       'Emails',
       'Deliverability',
       'Suppressions',
+      'Billing alerts',
       'Onboarding',
       'Plans',
       'Activity log',
@@ -144,7 +145,7 @@ describe('NavMain', () => {
     renderNavAt('/overview', false)
 
     const nav = await screen.findByRole('navigation', { name: 'Main' })
-    expect(within(nav).getAllByRole('link')).toHaveLength(9)
+    expect(within(nav).getAllByRole('link')).toHaveLength(10)
   })
 
   describe('in the phone drawer', () => {
