@@ -2351,7 +2351,7 @@ describe('tenant billing', () => {
     serveBilling(testFreeTenantBilling)
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/billing`)
-    await openBillingAction(user, 'Extend trial')
+    await openBillingAction(user, 'Start trial')
     const dialog = await screen.findByRole('dialog', { name: 'Start a trial for Acme Corp' })
     await within(dialog).findByText(/^Acme Corp is on Free\. This starts a Paid trial/)
     await expectNoViolations()

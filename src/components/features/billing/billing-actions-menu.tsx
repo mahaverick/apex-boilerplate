@@ -16,7 +16,7 @@ import {
 import { providerName } from '@/constants/billing-labels'
 import { useNow } from '@/hooks/use-now'
 import { useStepUp } from '@/hooks/use-step-up'
-import { billingActionsFor } from '@/lib/billing-actions'
+import { billingActionsFor, isRunningTrial } from '@/lib/billing-actions'
 import { billingOutageMessage } from '@/lib/billing-refusal'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
 import { toast } from '@/lib/toast'
@@ -29,10 +29,14 @@ import type { EntitlementCatalogEntry, StaffTenantBilling } from '@/types/billin
 /** Which billing action's dialog is open, if any. */
 type Open = 'resync' | 'extend' | 'grant' | 'cancel' | null
 
-/** Each action's menu label and the fixed key the palette sends for it, in menu order. */
+/**
+ * Each action's menu label and the fixed key the palette sends for it, in
+ * menu order. The trial item's label depends on the tenant (`trialLabel`), so
+ * it has none here; its key stays the same either way.
+ */
 const PALETTE_ACTIONS = [
   { open: 'resync', label: 'Resync billing', action: analyticsKey('page_action_resync_billing') },
-  { open: 'extend', label: 'Extend trial', action: analyticsKey('page_action_extend_trial') },
+  { open: 'extend', label: null, action: analyticsKey('page_action_extend_trial') },
   { open: 'grant', label: 'Add grant', action: analyticsKey('page_action_add_grant') },
   {
     open: 'cancel',
@@ -40,6 +44,17 @@ const PALETTE_ACTIONS = [
     action: analyticsKey('page_action_cancel_billing'),
   },
 ] as const
+
+/**
+ * The trial item's label, by the dialog's own rule: "Extend trial" while a
+ * trial runs, else "Start trial", since on a Free tenant or a lapsed trial
+ * the dialog starts a new one.
+ * @param billing - The tenant's billing.
+ * @param now - The moment the page reads as now, in milliseconds.
+ */
+function trialLabel(billing: StaffTenantBilling, now: number): string {
+  return isRunningTrial(billing, now) ? 'Extend trial' : 'Start trial'
+}
 
 /**
  * The Billing card's actions menu ("Billing actions"), with the palette's
@@ -73,12 +88,13 @@ export function BillingActionsMenu({
   const now = useNow()
   const can = billingActionsFor(role, tenant, billing, catalog, now)
   const hasActions = can.resync || can.extend || can.grant || can.cancel
+  const extendLabel = trialLabel(billing, now)
 
   usePaletteCommands(
     'billing-actions',
     PALETTE_ACTIONS.filter((entry) => can[entry.open]).map((entry): PaletteCommand => ({
       id: entry.open,
-      label: entry.label,
+      label: entry.label ?? extendLabel,
       action: entry.action,
       timing: 'afterClose',
       run: () => {
@@ -119,7 +135,7 @@ export function BillingActionsMenu({
             )}
             {can.extend && (
               <DropdownMenuItem onClick={() => openFromMenu('extend')}>
-                Extend trial
+                {extendLabel}
               </DropdownMenuItem>
             )}
             {can.grant && (

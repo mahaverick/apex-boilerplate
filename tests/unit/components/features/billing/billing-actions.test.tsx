@@ -195,7 +195,7 @@ describe('billing actions', () => {
       })
       const user = userEvent.setup()
       renderAppAt(BILLING)
-      expect((await openMenu(user)).names).toEqual(['Resync billing', 'Extend trial', 'Add grant'])
+      expect((await openMenu(user)).names).toEqual(['Resync billing', 'Start trial', 'Add grant'])
     })
 
     it('hides Cancel on a stale trialing row that still holds a subscription id', async () => {
@@ -212,18 +212,18 @@ describe('billing actions', () => {
       expect((await openMenu(user)).names).toEqual(['Add grant'])
     })
 
-    it('offers Extend trial on a Free tenant', async () => {
+    it('offers Start trial, not Extend trial, on a Free tenant, whose dialog starts one', async () => {
       serve(testFreeTenantBilling)
       const user = userEvent.setup()
       renderAppAt(BILLING)
-      expect((await openMenu(user)).names).toEqual(['Resync billing', 'Extend trial', 'Add grant'])
+      expect((await openMenu(user)).names).toEqual(['Resync billing', 'Start trial', 'Add grant'])
     })
 
     it('hides Resync while payments are off, and Cancel with no subscription', async () => {
       serve({ ...testFreeTenantBilling, paymentsEnabled: false })
       const user = userEvent.setup()
       renderAppAt(BILLING)
-      expect((await openMenu(user)).names).toEqual(['Extend trial', 'Add grant'])
+      expect((await openMenu(user)).names).toEqual(['Start trial', 'Add grant'])
     })
 
     it('offers an archived tenant Resync, Cancel and Revoke, not Extend trial or Add grant', async () => {
@@ -248,7 +248,7 @@ describe('billing actions', () => {
       expect(screen.queryByRole('button', { name: /revoke/i })).toBeNull()
     })
 
-    it('offers Extend trial on a past-due tenant past its grace, which express serves as Free', async () => {
+    it('offers Start trial on a past-due tenant past its grace, which express serves as Free', async () => {
       signIn({ ...testUser, platformRole: 'manager' })
       serve({
         ...testTenantBilling,
@@ -261,10 +261,17 @@ describe('billing actions', () => {
       })
       const user = userEvent.setup()
       renderAppAt(BILLING)
-      expect((await openMenu(user)).names).toContain('Extend trial')
+      expect((await openMenu(user)).names).toContain('Start trial')
     })
 
-    it('offers no Extend trial on a past-due tenant still in its grace', async () => {
+    it('offers Start trial, not Extend trial, on a trial that lapsed before the billing job moved it', async () => {
+      serve({ ...TRIALING, trialEndsAt: '2026-01-15T00:00:00.000Z' })
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      expect((await openMenu(user)).names).toEqual(['Resync billing', 'Start trial', 'Add grant'])
+    })
+
+    it('offers no trial action on a past-due tenant still in its grace', async () => {
       signIn({ ...testUser, platformRole: 'manager' })
       serve({
         ...testTenantBilling,
@@ -277,7 +284,9 @@ describe('billing actions', () => {
       })
       const user = userEvent.setup()
       renderAppAt(BILLING)
-      expect((await openMenu(user)).names).not.toContain('Extend trial')
+      const names = (await openMenu(user)).names
+      expect(names).not.toContain('Extend trial')
+      expect(names).not.toContain('Start trial')
     })
 
     it('hides Add grant when the plans fail', async () => {
@@ -324,6 +333,15 @@ describe('billing actions', () => {
           ['Extend trial', 'page_action_extend_trial', 'afterClose'],
           ['Add grant', 'page_action_add_grant', 'afterClose'],
           ['Cancel subscription', 'page_action_cancel_billing', 'afterClose'],
+        ],
+      ],
+      [
+        'manager',
+        testFreeTenantBilling,
+        [
+          ['Resync billing', 'page_action_resync_billing', 'afterClose'],
+          ['Start trial', 'page_action_extend_trial', 'afterClose'],
+          ['Add grant', 'page_action_add_grant', 'afterClose'],
         ],
       ],
     ])('registers exactly the menu’s actions for a %s', async (role, billing, expected) => {
@@ -496,7 +514,7 @@ describe('billing actions', () => {
       recordWrite('extend-trial', { ...TRIALING, trialEndsAt: '2099-01-25T00:00:00.000Z' })
       const user = userEvent.setup()
       renderAppAt(BILLING)
-      await openAction(user, 'Extend trial')
+      await openAction(user, 'Start trial')
       const dialog = await screen.findByRole('dialog', { name: 'Start a trial for Acme Corp' })
       expect(within(dialog).getByLabelText('Trial length (days)')).toHaveValue('7')
       expect(
@@ -523,7 +541,7 @@ describe('billing actions', () => {
       serve({ ...TRIALING, trialEndsAt: '2026-01-15T00:00:00.000Z' })
       const user = userEvent.setup()
       renderAppAt(BILLING)
-      await openAction(user, 'Extend trial')
+      await openAction(user, 'Start trial')
       const dialog = await screen.findByRole('dialog', { name: 'Start a trial for Acme Corp' })
       const ended = `Acme Corp’s trial ended on ${billingDate('2026-01-15T00:00:00.000Z', 'UTC')}.`
       expect(
