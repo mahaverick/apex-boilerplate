@@ -18,6 +18,8 @@ export interface ApiErrorBody {
   code?: string
   /** Field-level validator detail, shaped by the backend's Zod flatten. */
   errors?: Record<string, string[]>
+  /** Structured detail for a refusal, e.g. `{ key, used, limit }` on a 402 `PLAN_LIMIT_REACHED`. */
+  details?: Record<string, unknown>
   requestId: string
 }
 
