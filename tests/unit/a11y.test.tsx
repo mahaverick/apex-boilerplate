@@ -2389,7 +2389,9 @@ describe('plans', () => {
     const user = userEvent.setup()
     openPlans()
     await saveFreeMembers(user, '0')
-    await screen.findByText('Enter a whole number from 1 to 1,000,000, or choose No limit.')
+    await screen.findByText(
+      'Members: enter a whole number from 1 to 1,000,000, or choose No limit.'
+    )
     await expectNoViolations()
   })
 

@@ -324,7 +324,7 @@ describe('Plans page', () => {
       await user.click(within(free).getByRole('button', { name: 'Save Free' }))
       expect(
         await within(free).findByText(
-          'Enter a whole number from 1 to 1,000,000, or choose No limit.'
+          'Members: enter a whole number from 1 to 1,000,000, or choose No limit.'
         )
       ).toBeInTheDocument()
       expect(previews).toEqual([])

@@ -101,7 +101,7 @@ describe('grantFormSchema', () => {
 
   it('refuses an end date before today on the endsOn field', () => {
     expect(messageAt(form.safeParse({ ...base, value: '5', endsOn: YESTERDAY }), 'endsOn')).toBe(
-      'Choose today or a later date, or leave it empty for no end date.'
+      'Choose today or a date after it, or leave it empty for no end date.'
     )
   })
 
@@ -158,7 +158,7 @@ describe('grantSchema', () => {
   it('refuses an end date before today', () => {
     const result = grant.safeParse({ key: 'members', value: 10, endsOn: YESTERDAY, reason: 'Team' })
     expect(messageAt(result, 'endsOn')).toBe(
-      'Choose today or a later date, or leave it empty for no end date.'
+      'Choose today or a date after it, or leave it empty for no end date.'
     )
   })
 
@@ -167,7 +167,7 @@ describe('grantSchema', () => {
     (endsOn) => {
       const result = grant.safeParse({ key: 'members', value: 10, endsOn, reason: 'Team' })
       expect(messageAt(result, 'endsOn')).toBe(
-        'Choose today or a later date, or leave it empty for no end date.'
+        'Choose today or a date after it, or leave it empty for no end date.'
       )
     }
   )
@@ -325,9 +325,16 @@ describe('planEntitlementChanges', () => {
     for (const typed of ['0', '2.5', '1000001', 'ten', '']) {
       const result = changes.safeParse({ ...form, limits: { members: typed } })
       expect(messageAt(result, 'limits.members')).toBe(
-        'Enter a whole number from 1 to 1,000,000, or choose No limit.'
+        'Members: enter a whole number from 1 to 1,000,000, or choose No limit.'
       )
     }
+  })
+
+  it('refuses a feature that is neither on nor off, with express’s message', () => {
+    const result = changes.safeParse({ ...form, features: {} })
+    expect(messageAt(result, 'features.advanced_example')).toBe(
+      'Workspace insights: choose whether the plan includes this feature.'
+    )
   })
 
   it('leaves alone a stored value today’s rules would refuse, while it is unchanged', () => {

@@ -587,7 +587,7 @@ describe('billing actions', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Add grant' }))
       expect(
         await within(dialog).findByText(
-          'Choose today or a later date, or leave it empty for no end date.'
+          'Choose today or a date after it, or leave it empty for no end date.'
         )
       ).toBeInTheDocument()
       expect(bodies).toEqual([])

@@ -130,7 +130,7 @@ export function grantSchema(catalog: readonly EntitlementCatalogEntry[]) {
         context.addIssue({
           code: 'custom',
           path: ['endsOn'],
-          message: 'Choose today or a later date, or leave it empty for no end date.',
+          message: 'Choose today or a date after it, or leave it empty for no end date.',
         })
       } else if (form.endsOn > LATEST_GRANT_END) {
         context.addIssue({
@@ -345,8 +345,9 @@ export function planEditForm(
  * each limit parsed (No limit is null), each feature on or off. An unchanged
  * entry is neither checked nor sent, so a stored value today's rules refuse
  * blocks nothing. A changed limit must be a whole number from 1 to
- * 1,000,000, as express's `planEntitlementsSchema` takes it; its issue lands
- * on `limits.<key>`.
+ * 1,000,000 and a feature on or off, as express's `planEntitlementsSchema`
+ * takes them, with its messages; an issue lands on `limits.<key>` or
+ * `features.<key>`.
  * @param catalog - The entitlements this product has.
  * @param baseline - The plan's stored values the edit diffs against.
  */
@@ -356,16 +357,28 @@ export function planEntitlementChanges(
 ) {
   return z.custom<PlanEditForm>().transform((form, context) => {
     const changed: Record<string, boolean | number | null> = {}
-    for (const { key, kind } of catalog) {
+    for (const { key, kind, label } of catalog) {
       const value =
         kind === 'feature'
           ? form.features[key] === true
           : form.noLimit[key] === true
             ? null
             : wholeNumber(form.limits[key] ?? '')
+      if (kind === 'feature' && typeof form.features[key] !== 'boolean') {
+        context.addIssue({
+          code: 'custom',
+          path: ['features', key],
+          message: `${label}: choose whether the plan includes this feature.`,
+        })
+        continue
+      }
       if (Object.is(value, baseline[key])) continue
       if (kind === 'limit' && !isLimitValue(value)) {
-        context.addIssue({ code: 'custom', path: ['limits', key], message: GRANT_LIMIT_MESSAGE })
+        context.addIssue({
+          code: 'custom',
+          path: ['limits', key],
+          message: `${label}: enter a whole number from 1 to 1,000,000, or choose No limit.`,
+        })
         continue
       }
       changed[key] = value
