@@ -48,11 +48,14 @@ function wrapperWith(client: QueryClient) {
 /** A cached platform audit page and tenants list, so a test can see a write mark them stale. */
 const AUDIT_KEY: QueryKey = [...auditKeys.platformAll, 'list', {}]
 const TENANTS_KEY: QueryKey = [...tenantAdminKeys.all, 'list', {}]
+/** The Staff page's activity log: the platform tenant's own log, where express records plan and settings writes. */
+const STAFF_AUDIT_KEY: QueryKey = [...auditKeys.tenantAll('platform'), 'list', {}]
 
 /** A client holding every key a billing write may touch. */
 function seededClient() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   client.setQueryData(AUDIT_KEY, listPage([]))
+  client.setQueryData(STAFF_AUDIT_KEY, listPage([]))
   client.setQueryData(TENANTS_KEY, listPage([]))
   client.setQueryData(tenantAdminKeys.detail(TENANT_ID), { id: TENANT_ID })
   client.setQueryData(billingAdminKeys.tenant(TENANT_ID), testTenantBilling)
@@ -429,6 +432,7 @@ describe('plan writes', () => {
     expect(stale(client, billingAdminKeys.tenant(TENANT_ID))).toBe(true)
     expect(stale(client, TENANTS_KEY)).toBe(true)
     expect(stale(client, AUDIT_KEY)).toBe(true)
+    expect(stale(client, STAFF_AUDIT_KEY)).toBe(true)
   })
 
   it('reloads the plans on a version conflict', async () => {
@@ -464,6 +468,7 @@ describe('plan writes', () => {
         ?.plans.find((plan) => plan.id === PAID_ID)?.version
     ).toBe(2)
     expect(stale(client, AUDIT_KEY)).toBe(true)
+    expect(stale(client, STAFF_AUDIT_KEY)).toBe(true)
     expect(stale(client, billingAdminKeys.tenant(TENANT_ID))).toBe(false)
     expect(stale(client, TENANTS_KEY)).toBe(false)
     expect(stale(client, tenantAdminKeys.detail(TENANT_ID))).toBe(false)
@@ -527,6 +532,7 @@ describe('billing settings writes', () => {
     expect(client.getQueryData(billingAdminKeys.settings)).toEqual(saved)
     expect(stale(client, billingAdminKeys.tenant(TENANT_ID))).toBe(true)
     expect(stale(client, AUDIT_KEY)).toBe(true)
+    expect(stale(client, STAFF_AUDIT_KEY)).toBe(true)
   })
 
   it('reloads the settings on a version conflict', async () => {

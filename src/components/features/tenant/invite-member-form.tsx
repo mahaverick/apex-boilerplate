@@ -38,6 +38,7 @@ import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-
 import { codeFrom, fieldErrorsFrom } from '@/lib/api-error'
 import { planRefusalFrom, type PlanRefusal } from '@/lib/plan-refusal'
 import { staffMessageFrom } from '@/lib/staff-message'
+import { isPlatformTenant } from '@/lib/staff-team'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { toast } from '@/lib/toast'
 import { billingAdminKeys, staffPlansQueryOptions } from '@/queries/billing-reads.queries'
@@ -169,11 +170,14 @@ export function InviteMemberForm({
 
   /**
    * Shows a members-limit refusal at form level in staff words.
-   * @returns Whether the refusal was one, on a tenant page that can link its Billing tab.
+   * @returns Whether the refusal was one, on a customer tenant's page, which can link its Billing tab.
    */
   async function showFull(error: unknown): Promise<boolean> {
     const refusal = planRefusalFrom(error)
-    if (refusal?.kind !== 'limit' || tenantId === undefined) return false
+    // The platform tenant has no Billing tab to link; its refusal shows as the API's sentence.
+    if (refusal?.kind !== 'limit' || tenantId === undefined || isPlatformTenant({ slug })) {
+      return false
+    }
     const sentence = await membersLimitSentence(queryClient, tenantId, refusal, canGrant)
     serverErrors.setFormErrors([sentence])
     setFull(true)

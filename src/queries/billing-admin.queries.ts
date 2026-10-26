@@ -152,6 +152,23 @@ function invalidateTenantBillingViews(queryClient: QueryClient): Promise<void> {
 }
 
 /**
+ * Every audit log: the platform log, and each tenant's. Express records a
+ * plan, price or settings write against the platform tenant, whose log is the
+ * Staff page's activity, and this module has no platform slug to name it by.
+ * Only the logs on screen refetch.
+ * @param queryClient - The app's query client.
+ */
+function invalidateAuditLogs(queryClient: QueryClient): Promise<void> {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: auditKeys.platformAll }),
+    queryClient.invalidateQueries({
+      queryKey: ['tenants'],
+      predicate: (query) => query.queryKey[2] === 'audit-log',
+    }),
+  ]).then(() => undefined)
+}
+
+/**
  * A write on one tenant's billing. Each answers the tenant's staff view,
  * which replaces the cached one; the rest of the tenant's directory
  * refreshes (its detail, the tenants list's plan column, the audit log,
@@ -324,7 +341,7 @@ export function useUpdatePlan(planId: string) {
         queryClient.invalidateQueries({ queryKey: billingAdminKeys.plans }),
         queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all }),
         invalidateTenantBillingViews(queryClient),
-        queryClient.invalidateQueries({ queryKey: auditKeys.platformAll }),
+        invalidateAuditLogs(queryClient),
       ])
     },
     onError: async (error) => {
@@ -352,7 +369,7 @@ export function useCreatePrice(planId: string) {
       cachePlan(queryClient, plan)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: billingAdminKeys.plans }),
-        queryClient.invalidateQueries({ queryKey: auditKeys.platformAll }),
+        invalidateAuditLogs(queryClient),
       ])
     },
     onError: async (error) => {
@@ -390,7 +407,7 @@ export function useUpdateBillingSettings() {
       queryClient.setQueryData(billingAdminKeys.settings, settings)
       await Promise.all([
         invalidateTenantBillingViews(queryClient),
-        queryClient.invalidateQueries({ queryKey: auditKeys.platformAll }),
+        invalidateAuditLogs(queryClient),
       ])
     },
     onError: async (error) => {

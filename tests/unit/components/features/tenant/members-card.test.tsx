@@ -107,15 +107,19 @@ function mockPlatformDetail() {
   )
 }
 
-/** Express's 402 for an invite into a tenant at its members limit, with the customer's sentence. */
-function fullTenantRefusal() {
+/**
+ * Express's 402 for an invite into a tenant at its members limit, with the customer's sentence.
+ * @param used - The members the tenant has.
+ * @param limit - Its members limit.
+ */
+function fullTenantRefusal(used = 3, limit = 3) {
   return HttpResponse.json(
     {
       success: false,
-      message: 'You’ve used 3 of 3 members on Free. Upgrade to add more.',
+      message: `You’ve used ${String(used)} of ${String(limit)} members on Free. Upgrade to add more.`,
       statusCode: 402,
       code: 'PLAN_LIMIT_REACHED',
-      details: { key: 'members', used: 3, limit: 3 },
+      details: { key: 'members', used, limit },
       requestId: 'test-request-id',
     },
     { status: 402 }
@@ -1075,6 +1079,29 @@ describe('inviting, and the pending invitations', () => {
     const link = screen.getByRole('link', { name: 'Open Billing' })
     await waitFor(() => expect(link).toHaveFocus())
     expect(billingReads).toBe(0)
+  })
+
+  it('offers no Billing link on the platform tenant, which has no Billing tab', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () =>
+        ok({ ...PLATFORM_DETAIL, name: 'Platform', slug: 'platform' }, 'Tenant retrieved.')
+      ),
+      http.get('/api/v1/tenants/platform', () =>
+        ok(tenantDetail({ ...TENANT, slug: 'platform' }, 'owner'), 'Tenant retrieved.')
+      ),
+      http.get('/api/v1/tenants/platform/invitations', () =>
+        ok(listPage([]), 'Invitations retrieved.')
+      ),
+      http.post('/api/v1/tenants/platform/invitations', () => fullTenantRefusal())
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    await user.type(await screen.findByLabelText('Email'), 'x@example.com')
+    await user.click(screen.getByRole('button', { name: 'Invite member' }))
+    expect(
+      await screen.findByText('You’ve used 3 of 3 members on Free. Upgrade to add more.')
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open Billing' })).toBeNull()
   })
 
   it('sends an invitation, says so, and refreshes the pending list', async () => {
