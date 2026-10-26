@@ -4,6 +4,10 @@
  * the form field is the field express validates. A form whose field differs
  * from the wire (a price in rupees, a grant's end as a date, a limit's "No
  * limit") words its own message, and parsing turns it into express's body.
+ * Numbers and booleans are checked with `z.custom`, never `z.number()`,
+ * `z.boolean()` or `z.unknown()`: zod ships as one shared first-visit chunk
+ * that holds every zod type the app uses anywhere, and those three would add
+ * about 5.4 KB to it, past the `pnpm check:bundle` budget.
  */
 import '@/lib/zod-jitless'
 import { z } from 'zod'
@@ -30,7 +34,11 @@ const MAX_PRICE_RUPEES = 100_000
  */
 function daysSchema(max: number) {
   const message = `Enter a whole number of days from 1 to ${String(max)}.`
-  return z.number({ error: message }).int(message).min(1, message).max(max, message)
+  return z.custom<number>(
+    (value) =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= max,
+    { error: message }
+  )
 }
 
 /** The extend-trial form: express's `extendTrialBodySchema`. */
@@ -72,7 +80,7 @@ export function grantSchema(catalog: readonly EntitlementCatalogEntry[]) {
   return z
     .object({
       key: z.string(),
-      value: z.unknown(),
+      value: z.custom<unknown>(() => true),
       endsOn: z.string(),
       reason: reasonSchema,
     })
@@ -171,11 +179,14 @@ const PRICE_MESSAGE = 'Enter a whole number of rupees from ₹1 to ₹1,00,000.'
 export const priceSchema = z
   .object({
     interval: z.enum(BILLING_INTERVALS, { error: 'Choose month or year.' }),
-    amountRupees: z
-      .number({ error: PRICE_MESSAGE })
-      .int(PRICE_MESSAGE)
-      .min(MIN_PRICE_RUPEES, PRICE_MESSAGE)
-      .max(MAX_PRICE_RUPEES, PRICE_MESSAGE),
+    amountRupees: z.custom<number>(
+      (value) =>
+        typeof value === 'number' &&
+        Number.isSafeInteger(value) &&
+        value >= MIN_PRICE_RUPEES &&
+        value <= MAX_PRICE_RUPEES,
+      { error: PRICE_MESSAGE }
+    ),
     reason: reasonSchema,
   })
   .transform(({ interval, amountRupees, reason }) => ({
@@ -190,7 +201,9 @@ export const priceSchema = z
  * and a reason.
  */
 export const billingSettingsSchema = z.object({
-  trialEnabled: z.boolean({ error: 'Choose whether new workspaces get a Paid trial.' }),
+  trialEnabled: z.custom<boolean>((value) => typeof value === 'boolean', {
+    error: 'Choose whether new workspaces get a Paid trial.',
+  }),
   trialDays: daysSchema(MAX_TRIAL_DAYS),
   pastDueGraceDays: daysSchema(MAX_PAST_DUE_GRACE_DAYS),
 })
