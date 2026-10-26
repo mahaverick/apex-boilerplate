@@ -281,112 +281,109 @@ function because(metadata: Metadata): string {
   return reason ? `: “${reason}”` : ''
 }
 
-/**
- * Each action's sentence, from its metadata and, for the billing dates, the
- * tenant's zone (undefined on a log across tenants).
- */
-const SENTENCES: Record<AuditAction, (metadata: Metadata, timeZone: string | undefined) => string> =
-  {
-    'tenant.created': (m) => `created the tenant “${text(m, 'name') ?? 'unnamed'}”`,
-    'tenant.updated': (m) => `updated the tenant${changedFields(m)}`,
-    'tenant.settings_updated': (m) => `changed the settings${changedFields(m)}`,
-    'member.role_changed': (m) =>
-      `changed a member’s role from ${roleLabel(m, 'from')} to ${roleLabel(m, 'to')}`,
-    'member.removed': (m) =>
-      m.self === true ? 'left the tenant' : `removed a member (${roleLabel(m, 'role')})`,
-    'member.left': () => 'left the tenant',
-    'invitation.created': (m) => `invited someone at ${domain(m)} as ${roleLabel(m, 'role')}`,
-    'invitation.resent': (m) => `resent the invitation to someone at ${domain(m)}`,
-    'invitation.revoked': (m) => `revoked the invitation to someone at ${domain(m)}`,
-    'invitation.accepted': (m) => `accepted an invitation as ${roleLabel(m, 'role')}`,
-    'platform.member.granted': (m) => `granted a platform member the ${roleLabel(m, 'role')} role`,
-    'tenant.accessed_by_platform': (m) =>
-      `opened this tenant as platform staff (${roleLabel(m, 'platformRole')})`,
-    'tenant.suspended': (m) => `suspended the tenant${because(m)}`,
-    'tenant.reactivated': (m) => `reactivated the tenant${because(m)}`,
-    'tenant.archived': (m) => `archived the tenant${because(m)}`,
-    'tenant.owner_invited': (m) => `invited someone at ${domain(m)} as the owner${because(m)}`,
-    'user.created': (m) => `created an account for someone at ${domain(m)}`,
-    'user.updated': (m) => `updated a user${changedFields(m)}`,
-    'user.deactivated': (m) => `deactivated a user${because(m)}`,
-    'user.reactivated': (m) => `reactivated a user${because(m)}`,
-    'user.signed_out': (m) => `signed a user out everywhere${because(m)}`,
-    'user.sign_in_link_sent': (m) =>
-      m.app === 'apex'
-        ? 'sent a staff member a sign-in link to Apex'
-        : 'sent a user a sign-in link',
-    'user.passkey_created': (m) => `created a passkey${providerNote(m)}${where(m)}`,
-    'user.passkey_deleted': (m) => `deleted a passkey${providerNote(m)}${where(m)}`,
-    'user.passkeys_cleared_on_claim': (m) =>
-      typeof m.count === 'number'
-        ? `deleted ${m.count} ${m.count === 1 ? 'passkey' : 'passkeys'} from an unverified account when its owner claimed it`
-        : 'deleted the passkeys on an unverified account when its owner claimed it',
-    'user.deleted': (m) => `deleted a user${because(m)}`,
-    'user.purged': (m) => `permanently deleted a user${because(m)}`,
-    'tenant.purged': (m) => {
-      const name = text(m, 'name')
-      return `permanently deleted ${name ? `the tenant ${name}` : 'a tenant'}${because(m)}`
-    },
-    // Apex confirms by passkey or email link; the `'google'` arms label rows written before Google step-up was dropped.
-    'auth.step_up_confirmed': (m) =>
-      m.method === 'google'
-        ? 'confirmed it was them with Google'
-        : m.method === 'passkey'
-          ? 'confirmed it was them with a passkey'
-          : 'confirmed it was them by email link',
-    'auth.step_up_refused': (m) =>
-      m.method === 'google'
-        ? 'failed a Google identity check'
-        : 'failed an email-link identity check',
-    'email.resent': (m) => {
-      const template = text(m, 'templateKey')
-      const which = template === undefined ? '' : ` (${templateLabel(template)})`
-      return `resent an email${which} to someone at ${domain(m)}${because(m)}`
-    },
-    'email.suppression_lifted': (m) =>
-      `lifted the email suppression on an address at ${domain(m)}${because(m)}`,
-    'onboarding.dismissed': () => 'dismissed the getting-started checklist',
-    'onboarding.undismissed': () => 'brought back the getting-started checklist',
-    'onboarding.step_completed': (m) => {
-      const step = text(m, 'stepKey')
-      const which = step === undefined ? 'an onboarding step' : `the onboarding step “${step}”`
-      return `marked ${which} complete${because(m)}`
-    },
-    'onboarding.reminder_sent': (m) =>
-      `sent an onboarding reminder to ${reminderRecipients(m)}${because(m)}`,
-    'user.flags_evaluated': (m) => `evaluated a user’s feature flags${flagsEvaluatedFor(m)}`,
-    'platform.maintenance_mode_changed': (m) => `${maintenanceChange(m)}${because(m)}`,
-    'billing.checkout_started': (m) => {
-      const every = cadence(m)
-      return every === undefined ? 'started a Paid checkout' : `started a ${every} Paid checkout`
-    },
-    // Express records a cycle-end cancel, a past-due cancel and an uncharged one (both now) alike, with no metadata.
-    'billing.cancel_scheduled': () => 'cancelled Paid',
-    'billing.interval_switch_scheduled': (m) => {
-      const every = cadence(m)
-      return every === undefined
-        ? 'scheduled a billing switch'
-        : `scheduled a switch to ${every} billing`
-    },
-    'billing.card_change_started': () => 'started a payment method change',
-    'billing.grant_expired': (m) => `marked the ${grantKey(m)} grant expired`,
-    'billing.viewed': () => 'viewed the tenant’s billing',
-    'billing.resynced': (m) => `resynced billing with the payment provider${because(m)}`,
-    'billing.trial_extended': (m, zone) => `${trialSet(m, zone)}${because(m)}`,
-    'billing.grant_added': (m, zone) => `${grantAdded(m, zone)}${because(m)}`,
-    'billing.grant_revoked': (m) => `revoked the ${grantKey(m)} grant${because(m)}`,
-    'billing.cancelled_by_staff': (m) => {
-      const when = text(m, 'when')
-      const at = when === 'now' ? ' now' : when === 'cycle_end' ? ' at its period end' : ''
-      return `cancelled the subscription${at}${because(m)}`
-    },
-    'plan.updated': (m) => {
-      const name = editedPlanName(m)
-      return `${name === undefined ? 'edited a plan' : `edited the ${name} plan`}${because(m)}`
-    },
-    'plan.price_created': (m) => `${priceCreated(m)}${because(m)}`,
-    'billing.settings_updated': (m) => `${settingsChange(m)}${because(m)}`,
-  }
+/** One action's sentence, from its metadata and the tenant's zone (undefined on a log across tenants). */
+type Sentence = (metadata: Metadata, timeZone: string | undefined) => string
+
+/** Each action's sentence; only the billing dates read the zone. */
+const SENTENCES: Record<AuditAction, Sentence> = {
+  'tenant.created': (m) => `created the tenant “${text(m, 'name') ?? 'unnamed'}”`,
+  'tenant.updated': (m) => `updated the tenant${changedFields(m)}`,
+  'tenant.settings_updated': (m) => `changed the settings${changedFields(m)}`,
+  'member.role_changed': (m) =>
+    `changed a member’s role from ${roleLabel(m, 'from')} to ${roleLabel(m, 'to')}`,
+  'member.removed': (m) =>
+    m.self === true ? 'left the tenant' : `removed a member (${roleLabel(m, 'role')})`,
+  'member.left': () => 'left the tenant',
+  'invitation.created': (m) => `invited someone at ${domain(m)} as ${roleLabel(m, 'role')}`,
+  'invitation.resent': (m) => `resent the invitation to someone at ${domain(m)}`,
+  'invitation.revoked': (m) => `revoked the invitation to someone at ${domain(m)}`,
+  'invitation.accepted': (m) => `accepted an invitation as ${roleLabel(m, 'role')}`,
+  'platform.member.granted': (m) => `granted a platform member the ${roleLabel(m, 'role')} role`,
+  'tenant.accessed_by_platform': (m) =>
+    `opened this tenant as platform staff (${roleLabel(m, 'platformRole')})`,
+  'tenant.suspended': (m) => `suspended the tenant${because(m)}`,
+  'tenant.reactivated': (m) => `reactivated the tenant${because(m)}`,
+  'tenant.archived': (m) => `archived the tenant${because(m)}`,
+  'tenant.owner_invited': (m) => `invited someone at ${domain(m)} as the owner${because(m)}`,
+  'user.created': (m) => `created an account for someone at ${domain(m)}`,
+  'user.updated': (m) => `updated a user${changedFields(m)}`,
+  'user.deactivated': (m) => `deactivated a user${because(m)}`,
+  'user.reactivated': (m) => `reactivated a user${because(m)}`,
+  'user.signed_out': (m) => `signed a user out everywhere${because(m)}`,
+  'user.sign_in_link_sent': (m) =>
+    m.app === 'apex' ? 'sent a staff member a sign-in link to Apex' : 'sent a user a sign-in link',
+  'user.passkey_created': (m) => `created a passkey${providerNote(m)}${where(m)}`,
+  'user.passkey_deleted': (m) => `deleted a passkey${providerNote(m)}${where(m)}`,
+  'user.passkeys_cleared_on_claim': (m) =>
+    typeof m.count === 'number'
+      ? `deleted ${m.count} ${m.count === 1 ? 'passkey' : 'passkeys'} from an unverified account when its owner claimed it`
+      : 'deleted the passkeys on an unverified account when its owner claimed it',
+  'user.deleted': (m) => `deleted a user${because(m)}`,
+  'user.purged': (m) => `permanently deleted a user${because(m)}`,
+  'tenant.purged': (m) => {
+    const name = text(m, 'name')
+    return `permanently deleted ${name ? `the tenant ${name}` : 'a tenant'}${because(m)}`
+  },
+  // Apex confirms by passkey or email link; the `'google'` arms label rows written before Google step-up was dropped.
+  'auth.step_up_confirmed': (m) =>
+    m.method === 'google'
+      ? 'confirmed it was them with Google'
+      : m.method === 'passkey'
+        ? 'confirmed it was them with a passkey'
+        : 'confirmed it was them by email link',
+  'auth.step_up_refused': (m) =>
+    m.method === 'google'
+      ? 'failed a Google identity check'
+      : 'failed an email-link identity check',
+  'email.resent': (m) => {
+    const template = text(m, 'templateKey')
+    const which = template === undefined ? '' : ` (${templateLabel(template)})`
+    return `resent an email${which} to someone at ${domain(m)}${because(m)}`
+  },
+  'email.suppression_lifted': (m) =>
+    `lifted the email suppression on an address at ${domain(m)}${because(m)}`,
+  'onboarding.dismissed': () => 'dismissed the getting-started checklist',
+  'onboarding.undismissed': () => 'brought back the getting-started checklist',
+  'onboarding.step_completed': (m) => {
+    const step = text(m, 'stepKey')
+    const which = step === undefined ? 'an onboarding step' : `the onboarding step “${step}”`
+    return `marked ${which} complete${because(m)}`
+  },
+  'onboarding.reminder_sent': (m) =>
+    `sent an onboarding reminder to ${reminderRecipients(m)}${because(m)}`,
+  'user.flags_evaluated': (m) => `evaluated a user’s feature flags${flagsEvaluatedFor(m)}`,
+  'platform.maintenance_mode_changed': (m) => `${maintenanceChange(m)}${because(m)}`,
+  'billing.checkout_started': (m) => {
+    const every = cadence(m)
+    return every === undefined ? 'started a Paid checkout' : `started a ${every} Paid checkout`
+  },
+  // Express records a cycle-end cancel, a past-due cancel and an uncharged one (both now) alike, with no metadata.
+  'billing.cancel_scheduled': () => 'cancelled Paid',
+  'billing.interval_switch_scheduled': (m) => {
+    const every = cadence(m)
+    return every === undefined
+      ? 'scheduled a billing switch'
+      : `scheduled a switch to ${every} billing`
+  },
+  'billing.card_change_started': () => 'started a payment method change',
+  'billing.grant_expired': (m) => `marked the ${grantKey(m)} grant expired`,
+  'billing.viewed': () => 'viewed the tenant’s billing',
+  'billing.resynced': (m) => `resynced billing with the payment provider${because(m)}`,
+  'billing.trial_extended': (m, zone) => `${trialSet(m, zone)}${because(m)}`,
+  'billing.grant_added': (m, zone) => `${grantAdded(m, zone)}${because(m)}`,
+  'billing.grant_revoked': (m) => `revoked the ${grantKey(m)} grant${because(m)}`,
+  'billing.cancelled_by_staff': (m) => {
+    const when = text(m, 'when')
+    const at = when === 'now' ? ' now' : when === 'cycle_end' ? ' at its period end' : ''
+    return `cancelled the subscription${at}${because(m)}`
+  },
+  'plan.updated': (m) => {
+    const name = editedPlanName(m)
+    return `${name === undefined ? 'edited a plan' : `edited the ${name} plan`}${because(m)}`
+  },
+  'plan.price_created': (m) => `${priceCreated(m)}${because(m)}`,
+  'billing.settings_updated': (m) => `${settingsChange(m)}${because(m)}`,
+}
 
 /**
  * Sentences for the retired password-era actions, whose rows stay in the log
