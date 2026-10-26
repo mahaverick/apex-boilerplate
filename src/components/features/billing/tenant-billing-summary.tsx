@@ -23,12 +23,20 @@ import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
 /**
  * What staff read when payments are off on the server. Express then holds no
  * provider keys, so it can't reach a subscription made earlier, which still
- * charges at the provider; the next step is the provider's dashboard.
- * @param provider - The tenant's payment provider.
+ * charges at the provider; when the tenant holds one (a current, pending or
+ * next id, express's `heldSubscriptionIds`), the next step is the provider's
+ * dashboard. A tenant that never subscribed has nothing to cancel there.
+ * @param billing - The tenant's billing.
  */
-function paymentsOffNote(provider: StaffTenantBilling['provider']): string {
-  const at = providerName(provider)
-  return `Payments are off on this server, so it can’t charge, sync or cancel. A subscription made earlier still charges at ${at}; cancel it in ${providerDashboard(provider)}.`
+function paymentsOffNote(billing: StaffTenantBilling): string {
+  const off = 'Payments are off on this server, so it can’t charge, sync or cancel.'
+  const held = [
+    billing.providerSubscriptionId,
+    billing.pendingSubscriptionId,
+    billing.nextSubscriptionId,
+  ].some((id) => id !== null)
+  if (!held) return off
+  return `${off} A subscription made earlier still charges at ${providerName(billing.provider)}; cancel it in ${providerDashboard(billing.provider)}.`
 }
 
 /** One dated row of the summary: its name and its date. */
@@ -249,7 +257,7 @@ export function TenantBillingSummary({
         {actions !== undefined && <CardAction>{actions}</CardAction>}
       </CardHeader>
       <CardContent className="grid gap-4">
-        {!billing.paymentsEnabled && <Note tone="info">{paymentsOffNote(billing.provider)}</Note>}
+        {!billing.paymentsEnabled && <Note tone="info">{paymentsOffNote(billing)}</Note>}
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
           <dt className="text-muted-foreground">Plan</dt>
           <dd className="flex flex-wrap items-center gap-2">

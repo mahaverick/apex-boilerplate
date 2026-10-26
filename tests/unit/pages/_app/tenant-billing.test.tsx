@@ -358,6 +358,41 @@ describe('/tenants/$tenantId/billing', () => {
       expect(within(card).queryByText('Paid until', { selector: 'dt' })).toBeNull()
     })
 
+    it.each([
+      ['a current', { providerSubscriptionId: 'sub_TestActive0001' }],
+      ['a pending', { pendingSubscriptionId: 'sub_TestPending0001' }],
+      ['a next', { nextSubscriptionId: 'sub_TestNext0001' }],
+    ])(
+      'sends staff to the dashboard with payments off when the tenant holds %s subscription',
+      async (_kind, held) => {
+        serve({ ...testFreeTenantBilling, paymentsEnabled: false, ...held })
+        renderAppAt(BILLING)
+        const card = await summary()
+        expect(
+          within(card).getByText(
+            'Payments are off on this server, so it can’t charge, sync or cancel. A subscription made earlier still charges at Razorpay; cancel it in the Razorpay dashboard.'
+          )
+        ).toBeInTheDocument()
+      }
+    )
+
+    it('names no subscription with payments off when the tenant never held one', async () => {
+      serve({
+        ...testFreeTenantBilling,
+        paymentsEnabled: false,
+        provider: null,
+        providerMode: null,
+      })
+      renderAppAt(BILLING)
+      const card = await summary()
+      expect(
+        within(card).getByText(
+          'Payments are off on this server, so it can’t charge, sync or cancel.'
+        )
+      ).toBeInTheDocument()
+      expect(within(card).queryByText(/still charges/)).toBeNull()
+    })
+
     it('shows the state with no provider ids and no invoices while payments are off', async () => {
       const seen = serve({ ...testTenantBilling, paymentsEnabled: false })
       renderAppAt(BILLING)
