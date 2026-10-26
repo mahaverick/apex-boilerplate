@@ -206,13 +206,34 @@ describe('/tenants', () => {
     expect(seen.at(-1)?.get('state')).toBeNull()
   })
 
-  it('sends no billingState for the default view and ignores a bogus one', async () => {
+  it('sends no billingState for the default view', async () => {
     const seen: URLSearchParams[] = []
     twoPages(seen)
-    const router = renderAppAt('/tenants?billingState=bogus')
+    const router = renderAppAt('/tenants')
     await screen.findByText('Tenant 01')
     expect(seen.at(-1)?.has('billingState')).toBe(false)
     expect(router.state.location.search).toEqual({})
+  })
+
+  it('keeps a known plan state from the URL and drops a bogus one', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    const router = renderAppAt('/tenants?billingState=past_due,bogus')
+    await screen.findByText('Tenant 01')
+    expect(seen.at(-1)?.get('billingState')).toBe('past_due')
+    expect(router.state.location.search).toEqual({ billingState: 'past_due' })
+  })
+
+  it('opens a deep link with its plan facet applied', async () => {
+    const seen: URLSearchParams[] = []
+    twoPages(seen)
+    renderAppAt('/tenants?billingState=past_due,trialing')
+    await screen.findByText('Tenant 01')
+    expect(seen[0]?.get('billingState')).toBe('past_due,trialing')
+    expect(
+      screen.getByRole('button', { name: 'Remove filter: Plan: Payment failed' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove filter: Plan: Trial' })).toBeInTheDocument()
   })
 
   it('drops the cursor when a filter changes', async () => {
