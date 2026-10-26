@@ -74,9 +74,7 @@ test('an admin adds a yearly price above the warning threshold, and it replaces 
   await page.getByRole('option', { name: 'Yearly' }).click()
   await dialog.getByRole('textbox', { name: 'Amount in rupees' }).fill('18000')
   await expect(dialog.getByText(/need the customer to approve each payment/)).toBeVisible()
-  await expect(dialog).toContainText(
-    'Current subscribers keep the price they signed up at. New subscribers pay ₹18,000.'
-  )
+  await expect(dialog.getByText(/^New subscribers pay/)).toHaveText('New subscribers pay ₹18,000.')
   await dialog.getByLabel('Reason').fill('Yearly repricing')
   await dialog.getByRole('button', { name: 'Add price' }).click()
 

@@ -81,21 +81,6 @@ export function NewPriceDialog(props: NewPriceDialogProps) {
   )
 }
 
-/**
- * The line that says who pays what once the price is added.
- * @param plan - The plan.
- * @param interval - The chosen interval.
- * @param amountMinor - The new amount, in paise.
- */
-function whoPaysWhat(plan: StaffPlan, interval: string, amountMinor: number): string {
-  const active = plan.prices.find((price) => price.active && price.interval === interval)
-  const pays = `New subscribers pay ${formatInr(amountMinor)}.`
-  // Subscribers on older retired prices keep those too, so the line names no single old amount.
-  return active === undefined
-    ? pays
-    : `Current subscribers keep the price they signed up at. ${pays}`
-}
-
 /** The new-price form inside the open dialog; `onBusyChange` holds the dialog still while it runs. */
 function NewPriceForm({
   plan,
@@ -204,7 +189,7 @@ function NewPriceForm({
           </Note>
         )}
         {amountMinor !== null && (
-          <p className="text-sm">{whoPaysWhat(plan, interval, amountMinor)}</p>
+          <p className="text-sm">New subscribers pay {formatInr(amountMinor)}.</p>
         )}
         <FormField form={form} name="reason">
           {(field) => (

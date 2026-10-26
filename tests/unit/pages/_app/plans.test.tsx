@@ -766,9 +766,11 @@ describe('Plans page', () => {
       await user.click(within(dialog).getByRole('combobox', { name: 'Interval' }))
       await user.click(await screen.findByRole('option', { name: 'Yearly' }))
       await user.type(within(dialog).getByRole('textbox', { name: 'Amount in rupees' }), '12000')
-      expect(dialog).toHaveTextContent(
-        'Current subscribers keep the price they signed up at. New subscribers pay ₹12,000.'
+      // The description already says subscribers keep their price, so the line says it no second time.
+      expect(within(dialog).getByText(/^New subscribers pay/)).toHaveTextContent(
+        /^New subscribers pay ₹12,000\.$/
       )
+      expect(dialog).not.toHaveTextContent('Current subscribers')
       await user.type(within(dialog).getByLabelText('Reason'), 'Yearly repricing')
       await user.click(within(dialog).getByRole('button', { name: 'Add price' }))
       await confirmStepUp(user)
