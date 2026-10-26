@@ -56,9 +56,10 @@ export function tenantsOnPlan(preview: PlanChangePreview, planName: string): str
 
 /**
  * Where a saved name or description shows, for the save dialog: the name on
- * the pricing page and on each workspace's Billing and Members pages, the
- * description on the pricing page only (react's `pricing-table.tsx`,
- * `billing-overview-card.tsx` and `members-limit-note.tsx`).
+ * the pricing page and on each workspace's Billing page, the description on
+ * the pricing page only (react's `pricing-table.tsx` and
+ * `billing-overview-card.tsx`). React's Members page names the plan only on
+ * a workspace at its members limit, so the sentence leaves it out.
  * @param changed - The save's changed name and description, if any.
  * @param planName - The plan's name as loaded.
  * @returns The sentences, or null when neither changed.
@@ -70,7 +71,7 @@ export function detailsSentence(
   const sentences = [
     changed.name === undefined
       ? null
-      : `The new name shows on the pricing page and on the Billing and Members pages of every workspace on ${planName}.`,
+      : `The new name shows on the pricing page and on the Billing page of every workspace on ${planName}.`,
     changed.description === undefined ? null : 'The new description shows on the pricing page.',
   ].filter((sentence) => sentence !== null)
   return sentences.length === 0 ? null : sentences.join(' ')
