@@ -334,9 +334,37 @@ describe('tenant billing writes', () => {
 
   it.each([
     [404, 'not_found'],
+    [404, 'tenant_not_found'],
+    [500, 'INTERNAL_ERROR'],
     [502, 'PAYMENT_PROVIDER_UNAVAILABLE'],
     [503, 'BILLING_BUSY'],
-  ])('leaves the cached view alone on a %i', async (status, code) => {
+  ])(
+    'refetches the tenant, the tenants list and the plans after a %i %s, which may follow a change',
+    async (status, code) => {
+      server.use(
+        http.post(`/api/v1/platform/tenants/${TENANT_ID}/billing/cancel`, () =>
+          fail('Refused.', status, code)
+        )
+      )
+      const client = seededClient()
+      const { result } = renderHook(() => useCancelBillingByStaff(TENANT_ID), {
+        wrapper: wrapperWith(client),
+      })
+      result.current.mutate({ when: 'now', reason: 'Fraud' })
+      await waitFor(() => expect(result.current.isError).toBe(true))
+      expect(stale(client, billingAdminKeys.tenant(TENANT_ID))).toBe(true)
+      expect(stale(client, tenantAdminKeys.detail(TENANT_ID))).toBe(true)
+      expect(stale(client, TENANTS_KEY)).toBe(true)
+      expect(stale(client, billingAdminKeys.plans)).toBe(true)
+      expect(stale(client, billingAdminKeys.tenant(TENANT_ID_2))).toBe(false)
+      expect(stale(client, AUDIT_KEY)).toBe(false)
+    }
+  )
+
+  it.each([
+    [400, 'VALIDATION_ERROR'],
+    [401, 'REAUTH_REQUIRED'],
+  ])('leaves the cache alone on a %i %s, which wrote nothing', async (status, code) => {
     server.use(
       http.post(`/api/v1/platform/tenants/${TENANT_ID}/billing/cancel`, () =>
         fail('Refused.', status, code)

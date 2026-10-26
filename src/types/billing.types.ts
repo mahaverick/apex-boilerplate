@@ -326,6 +326,3 @@ export const CURSOR_INVALID = 'CURSOR_INVALID'
 
 /** `code` on the 404 for a staff billing read of a tenant with no billing record: the platform tenant. */
 export const TENANT_BILLING_NOT_FOUND = 'tenant_billing_not_found'
-
-/** `code` on the 404 for a grant revoke naming a grant this tenant does not have. */
-export const GRANT_NOT_FOUND = 'grant_not_found'

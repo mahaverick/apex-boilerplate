@@ -17,6 +17,7 @@ import {
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { codeFrom, statusFrom } from '@/lib/api-error'
+import { isReauthRequired } from '@/lib/step-up'
 import { auditKeys } from '@/queries/audit.queries'
 import { billingAdminKeys } from '@/queries/billing-reads.queries'
 import { listQueryOptions, retryList } from '@/queries/list.queries'
@@ -24,7 +25,6 @@ import { invalidateDirectory } from '@/queries/platform.queries'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import type { ApiSuccess } from '@/types/api.types'
 import {
-  GRANT_NOT_FOUND,
   PLAN_VERSION_CONFLICT,
   type BillingAlert,
   type BillingInterval,
@@ -155,12 +155,16 @@ function invalidateTenantBillingViews(queryClient: QueryClient): Promise<void> {
  * A write on one tenant's billing. Each answers the tenant's staff view,
  * which replaces the cached one; the rest of the tenant's directory
  * refreshes (its detail, the tenants list's plan column, the audit log,
- * and the plans, whose tenant counts may have moved). A 409 means the
- * cached state was stale (a trial that is no longer extendable, a
- * subscription already ending), so the view, the tenants list and the plan
- * counts refetch to show the real state. A 404 `grant_not_found` means the
- * grant shown is gone, so the view refetches. Any other failure changed
- * nothing, so the cache stays.
+ * and the plans, whose tenant counts may have moved). A failure may still
+ * have changed something: a cancel commits the current subscription's end
+ * before a next subscription's cancel fails (502, 503), or the provider
+ * cancels before express's own write fails (404, 500); a 409 means the
+ * cached state was stale; a 404 `grant_not_found` or `tenant_not_found`
+ * means what the page shows is gone. So every failure refetches the
+ * tenant (its detail and billing view), the tenants list and the plans,
+ * except two that prove nothing was written: a step-up refusal
+ * (`REAUTH_REQUIRED`), which the retry answers, and a 400, which express
+ * refuses before reading the tenant.
  * @param tenantId - The tenant's id.
  * @param post - Sends the write and returns the answered view.
  */
@@ -176,15 +180,12 @@ function useTenantBillingWrite<Input>(
       await invalidateDirectory(queryClient, billingAdminKeys.tenant(tenantId))
     },
     onError: async (error) => {
-      if (statusFrom(error) === 409) {
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: billingAdminKeys.tenant(tenantId) }),
-          queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all }),
-          queryClient.invalidateQueries({ queryKey: billingAdminKeys.plans }),
-        ])
-      } else if (codeFrom(error) === GRANT_NOT_FOUND) {
-        await queryClient.invalidateQueries({ queryKey: billingAdminKeys.tenant(tenantId) })
-      }
+      if (isReauthRequired(error) || statusFrom(error) === 400) return
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: tenantAdminKeys.detail(tenantId) }),
+        queryClient.invalidateQueries({ queryKey: tenantAdminKeys.all }),
+        queryClient.invalidateQueries({ queryKey: billingAdminKeys.plans }),
+      ])
     },
   })
 }
