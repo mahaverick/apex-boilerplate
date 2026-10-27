@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.1.2](https://github.com/mahaverick/apex-boilerplate/compare/v8.1.1...v8.1.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* **e2e:** fresh sessions for dark and customer captures; quiet passkey autofill ([#112](https://github.com/mahaverick/apex-boilerplate/issues/112)) ([c7dffbb](https://github.com/mahaverick/apex-boilerplate/commit/c7dffbb8b3d75e4f984dd8c33837d15ce2246dc2))
+
 ## [8.1.1](https://github.com/mahaverick/apex-boilerplate/compare/v8.1.0...v8.1.1) (2026-10-27)
 
 
