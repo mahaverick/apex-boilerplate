@@ -609,7 +609,10 @@ sends `app: 'apex'` (`FRONTEND_APP`, `src/constants/frontend-app.ts`).
 - **Sign-in.** `/login` shows "Sign in with a passkey" when the mode is not
   `off` and the browser supports WebAuthn, and starts a conditional (autofill)
   request on the email field (`use-passkey-autofill.ts`). Clicking the button,
-  sending a link or leaving the page cancels that request first. A passkey
+  sending a link or leaving the page cancels that request first. Nobody asked
+  for that request, so a failure before a pick (the options request, or the
+  browser refusing it, as headless Chrome does with `NotSupportedError`) ends
+  quietly; the button reports its own. A passkey
   that express refuses with 403 `PASSKEY_NO_ACCESS` (a customer's passkey)
   toasts express's message, keeps the page on `/login`, starts no session and
   sends no signal to the browser.
