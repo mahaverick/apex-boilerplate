@@ -530,7 +530,10 @@ with `E2E_LIVE=1`. Sign-in is by emailed link, so the helpers in
 - **`logIn`** hands the kept session's refresh cookie to a page once, because
   the cookie rotates on first use; after that staff sign in through the page and
   a new link. Apex creates no account, so `createUser` makes a customer through
-  a customer-app link.
+  a customer-app link. `restoreSession` returns only once the rotated cookie
+  is in the context: a page closed before the refresh answers keeps the spent
+  cookie, and its next use after express's 10-second grace is a replay that
+  revokes the session.
 
 Nothing is cleaned up: every run leaves its accounts, tenants, invitations and
 audit entries in that API's database. What the express under test needs is in
