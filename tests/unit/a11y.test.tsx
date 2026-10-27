@@ -832,7 +832,7 @@ describe('signed-in pages', () => {
     useAuthStore.setState({ user: { ...testUser, platformRole: 'admin' } })
     const entries: PlatformAuditEntry[] = AUDIT_ENTRIES.map((entry) => ({
       ...entry,
-      tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
+      tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme', timezone: 'UTC' },
     }))
     server.use(
       http.get('/api/v1/platform/audit-log', () => ok(listPage(entries), 'Audit log retrieved.'))
@@ -2351,7 +2351,7 @@ describe('tenant billing', () => {
     serveBilling(testFreeTenantBilling)
     const user = userEvent.setup()
     renderAppAt(`/tenants/${TENANT_ID}/billing`)
-    await openBillingAction(user, 'Extend trial')
+    await openBillingAction(user, 'Start trial')
     const dialog = await screen.findByRole('dialog', { name: 'Start a trial for Acme Corp' })
     await within(dialog).findByText(/^Acme Corp is on Free\. This starts a Paid trial/)
     await expectNoViolations()

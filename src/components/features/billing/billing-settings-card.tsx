@@ -18,13 +18,13 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { billingDate } from '@/constants/billing-labels'
 import { useChangedFields } from '@/hooks/use-changed-fields'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { useStepUp } from '@/hooks/use-step-up'
 import { codeFrom, fieldErrorsFrom, statusFrom } from '@/lib/api-error'
 import { refuseInForm } from '@/lib/billing-refusal'
-import { formatDate } from '@/lib/format'
 import { countOf } from '@/lib/plural'
 import { toast } from '@/lib/toast'
 import { useUpdateBillingSettings } from '@/queries/billing-admin.queries'
@@ -137,13 +137,16 @@ function SettingsSummary({ settings }: { settings: BillingSettings }) {
 }
 
 /**
- * Who changed the settings last, and when. Express sends no editor before
- * the first staff edit (version 1), or once the editor's account is gone.
- * A date that doesn't parse is left out rather than guessed.
+ * Who changed the settings last, and when, the date written as the prices
+ * table beside it writes one ("20 October 2026", in the reader's zone, since
+ * no one tenant owns the settings). Express sends no editor before the first
+ * staff edit (version 1), or once the editor's account is gone. A date that
+ * doesn't parse is left out rather than guessed.
  */
 function LastChanged({ settings }: { settings: BillingSettings }) {
-  const date = formatDate(settings.updatedAt, 'medium')
-  const on = date === null ? '' : ` on ${date}`
+  const on = Number.isNaN(Date.parse(settings.updatedAt))
+    ? ''
+    : ` on ${billingDate(settings.updatedAt, undefined)}`
   return (
     <p className="text-xs text-muted-foreground">
       {settings.updatedBy !== null ? (

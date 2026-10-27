@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import { RETIRED_AUDIT_ACTIONS, STORED_AUDIT_ACTIONS } from '@/constants/audit-action-names'
 import {
   actorName,
@@ -7,7 +7,6 @@ import {
   auditSentence,
   isAuditAction,
 } from '@/constants/audit-actions'
-import { formatDate } from '@/lib/format'
 import { EMAIL_ID, EMAIL_ID_2, INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
 describe('AUDIT_ACTIONS', () => {
@@ -99,6 +98,57 @@ describe('AUDIT_ACTIONS', () => {
   })
 })
 
+describe('auditSentence dates, read ahead of UTC', () => {
+  /** The reader's zone before the test moved it. */
+  let readerZone: string | undefined
+  beforeEach(() => {
+    readerZone = process.env.TZ
+    process.env.TZ = 'Asia/Kolkata'
+  })
+  afterEach(() => {
+    if (readerZone === undefined) delete process.env.TZ
+    else process.env.TZ = readerZone
+  })
+
+  /** A grant chosen to end on 26 November, stored as the end of that day in `zone`. */
+  const grantUntil = (expiresAt: string) => ({
+    action: 'billing.grant_added',
+    metadata: { key: 'members', value: null, expiresAt, reason: 'big team' },
+  })
+
+  it('names the day the grant ends in the tenant’s zone, not the reader’s', () => {
+    expect(auditSentence(grantUntil('2026-11-26T23:59:59.999Z'), 'UTC')).toBe(
+      'granted Members (no limit) until 26 November 2026: “big team”'
+    )
+    expect(auditSentence(grantUntil('2026-11-27T04:59:59.999Z'), 'America/New_York')).toBe(
+      'granted Members (no limit) until 26 November 2026: “big team”'
+    )
+  })
+
+  it('names the day the trial ends in the tenant’s zone, not the reader’s', () => {
+    const entry = {
+      action: 'billing.trial_extended',
+      metadata: { days: 7, reason: 'pilot', trialEndsAt: '2026-11-09T20:00:00.000Z' },
+    }
+    expect(auditSentence(entry, 'UTC')).toBe(
+      'set the trial to end on 9 November 2026 (7 days): “pilot”'
+    )
+  })
+
+  it('names the moment in UTC, zone named, where no tenant zone is at hand', () => {
+    expect(auditSentence(grantUntil('2026-11-26T23:59:59.999Z'))).toBe(
+      'granted Members (no limit) until 26 November 2026 at 23:59 UTC: “big team”'
+    )
+  })
+
+  // A guard for billingDay's null path, not a regression test: main left such an end out too.
+  it('leaves out an end that is not a date, whatever the zone', () => {
+    expect(auditSentence(grantUntil('not a date'), 'UTC')).toBe(
+      'granted Members (no limit): “big team”'
+    )
+  })
+})
+
 describe('auditSentence', () => {
   it.each([
     ['billing.checkout_started', { interval: 'year' }, 'started a yearly Paid checkout'],
@@ -124,7 +174,7 @@ describe('auditSentence', () => {
     [
       'billing.trial_extended',
       { days: 7, reason: 'pilot', trialEndsAt: '2026-11-09T12:00:00.000Z' },
-      `set the trial to end on ${formatDate('2026-11-09T12:00:00.000Z', 'medium') ?? ''} (7 days): “pilot”`,
+      'set the trial to end on 9 November 2026 at 12:00 UTC (7 days): “pilot”',
     ],
     [
       'billing.trial_extended',
@@ -140,7 +190,7 @@ describe('auditSentence', () => {
     [
       'billing.grant_added',
       { key: 'members', value: 10, expiresAt: '2026-12-01T12:00:00.000Z', reason: 'trial' },
-      `granted Members (10) until ${formatDate('2026-12-01T12:00:00.000Z', 'medium') ?? ''}: “trial”`,
+      'granted Members (10) until 1 December 2026 at 12:00 UTC: “trial”',
     ],
     [
       'billing.grant_added',

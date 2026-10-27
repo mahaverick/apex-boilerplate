@@ -18,6 +18,8 @@ interface HistoryCardProps {
   emptyMessage: string
   /** Whether the entries name their tenant: the user's card lists every tenant's. */
   showTenant?: boolean
+  /** The tenant's `settings.timezone` when every entry is one tenant's, for its billing dates. */
+  timeZone?: string
 }
 
 /**
@@ -32,7 +34,14 @@ function HistoryCard(props: HistoryCardProps) {
 }
 
 /** The card's body, mounted only for a role that may read the platform audit log. */
-function History({ filters, subjectId, title, emptyMessage, showTenant }: HistoryCardProps) {
+function History({
+  filters,
+  subjectId,
+  title,
+  emptyMessage,
+  showTenant,
+  timeZone,
+}: HistoryCardProps) {
   const list = useListSearch(historyList)
   // The card's fixed filter is spread last; `historyList` filters only by `action`, so the two never name the same param.
   const log = useListQuery(list, (request) => platformAuditListOptions({ ...request, ...filters }))
@@ -52,6 +61,7 @@ function History({ filters, subjectId, title, emptyMessage, showTenant }: Histor
             landmark={false}
             subjectId={subjectId}
             showTenant={showTenant}
+            timeZone={timeZone}
             filters={[ACTION_FILTER]}
             empty={<EmptyState size="compact" title={emptyMessage} />}
           />
@@ -82,12 +92,13 @@ export function UserHistoryCard({ userId }: { userId: string }) {
  * Entries filed under this tenant with `access: 'platform'`, meaning staff did
  * them: among them its creation by staff, lifecycle changes, owner
  * invitations, revoked invitations and staff visits. Its members' own
- * activity is on the Activity tab.
+ * activity is on the Activity tab. Its billing dates read in the tenant's zone.
  */
-export function TenantHistoryCard({ tenantId }: { tenantId: string }) {
+export function TenantHistoryCard({ tenantId, timeZone }: { tenantId: string; timeZone: string }) {
   return (
     <HistoryCard
       filters={{ tenant: tenantId, access: 'platform' }}
+      timeZone={timeZone}
       subjectId={tenantId}
       title="Staff actions on this tenant"
       emptyMessage="No staff actions recorded yet."

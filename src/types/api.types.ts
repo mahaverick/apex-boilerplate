@@ -215,7 +215,8 @@ export interface AuditEntry {
 
 /** One row of `GET /platform/audit-log`: the same entry, plus where it happened. */
 export interface PlatformAuditEntry extends AuditEntry {
-  tenant: { id: string; name: string; slug: string }
+  /** `timezone` is the tenant's IANA zone, `UTC` when it has none; never null. */
+  tenant: { id: string; name: string; slug: string; timezone: string }
 }
 
 /** One sign-in method linked to the account, as `GET /auth/providers` lists it. */

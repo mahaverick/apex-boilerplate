@@ -3,11 +3,12 @@ import {
   type AuditAction,
   type RetiredAuditAction,
 } from '@/constants/audit-action-names'
+import { billingDateTime } from '@/constants/billing-labels'
 import { templateLabel } from '@/constants/email.constants'
 import { entitlementLabel } from '@/constants/entitlements'
 import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/roles'
-import { formatInr } from '@/lib/billing-format'
-import { formatCount, formatDate } from '@/lib/format'
+import { formatBillingDate, formatInr } from '@/lib/billing-format'
+import { formatCount } from '@/lib/format'
 import { countOf } from '@/lib/plural'
 
 export { AUDIT_ACTIONS, type AuditAction }
@@ -192,21 +193,38 @@ function grantKey(metadata: Metadata): string {
 }
 
 /**
- * A trial staff set, which extends a running trial or starts one on a Free
- * tenant: "set the trial to end on 9 Nov 2026 (7 days)". The end and the days
- * are each left out when missing or mistyped.
+ * The day a billing entry's moment falls on in the tenant's zone, as the
+ * Billing tab writes it ("26 November 2026"), so the log and the tab name the
+ * same day. Without a zone (an entry with no tenant) the day alone would be a
+ * guess, so it names the moment in UTC with the zone said: "26 November 2026
+ * at 23:59 UTC". Null when the value is missing or not a date.
+ * @param iso - The stored moment.
+ * @param timeZone - The tenant's zone, or undefined for an entry with no tenant.
  */
-function trialSet(metadata: Metadata): string {
+function billingDay(iso: string | undefined, timeZone: string | undefined): string | null {
+  if (iso === undefined || Number.isNaN(new Date(iso).getTime())) return null
+  return timeZone === undefined ? billingDateTime(iso, 'UTC') : formatBillingDate(iso, timeZone)
+}
+
+/**
+ * A trial staff set, which extends a running trial or starts one on a Free
+ * tenant: "set the trial to end on 9 November 2026 (7 days)". The end and the
+ * days are each left out when missing or mistyped.
+ */
+function trialSet(metadata: Metadata, timeZone: string | undefined): string {
   const days = metadata.days
-  const ends = text(metadata, 'trialEndsAt')
-  const date = ends === undefined ? null : formatDate(ends, 'medium')
+  const date = billingDay(text(metadata, 'trialEndsAt'), timeZone)
   const length = typeof days === 'number' ? countOf(days, 'days') : null
   if (date === null) return length === null ? 'set the trial' : `set the trial (${length})`
   return `set the trial to end on ${date}${length === null ? '' : ` (${length})`}`
 }
 
-/** A grant's value and end: "granted members (10) until 1 Dec 2026", "granted members (no limit)". */
-function grantAdded(metadata: Metadata): string {
+/**
+ * A grant's value and end: "granted Members (10) until 1 December 2026",
+ * "granted Members (no limit)". The end is the last moment of the day staff
+ * chose, in the tenant's zone, so it reads as that day there.
+ */
+function grantAdded(metadata: Metadata, timeZone: string | undefined): string {
   const value = metadata.value
   const shown =
     value === null
@@ -216,8 +234,7 @@ function grantAdded(metadata: Metadata): string {
         : typeof value === 'number'
           ? ` (${formatCount(value)})`
           : ''
-  const expires = text(metadata, 'expiresAt')
-  const until = expires === undefined ? null : formatDate(expires, 'medium')
+  const until = billingDay(text(metadata, 'expiresAt'), timeZone)
   return `granted ${grantKey(metadata)}${shown}${until === null ? '' : ` until ${until}`}`
 }
 
@@ -264,7 +281,11 @@ function because(metadata: Metadata): string {
   return reason ? `: “${reason}”` : ''
 }
 
-const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
+/** One action's sentence, from its metadata and the tenant's zone (undefined for an entry with no tenant). */
+type Sentence = (metadata: Metadata, timeZone: string | undefined) => string
+
+/** Each action's sentence; only the billing dates read the zone. */
+const SENTENCES: Record<AuditAction, Sentence> = {
   'tenant.created': (m) => `created the tenant “${text(m, 'name') ?? 'unnamed'}”`,
   'tenant.updated': (m) => `updated the tenant${changedFields(m)}`,
   'tenant.settings_updated': (m) => `changed the settings${changedFields(m)}`,
@@ -348,8 +369,8 @@ const SENTENCES: Record<AuditAction, (metadata: Metadata) => string> = {
   'billing.grant_expired': (m) => `marked the ${grantKey(m)} grant expired`,
   'billing.viewed': () => 'viewed the tenant’s billing',
   'billing.resynced': (m) => `resynced billing with the payment provider${because(m)}`,
-  'billing.trial_extended': (m) => `${trialSet(m)}${because(m)}`,
-  'billing.grant_added': (m) => `${grantAdded(m)}${because(m)}`,
+  'billing.trial_extended': (m, zone) => `${trialSet(m, zone)}${because(m)}`,
+  'billing.grant_added': (m, zone) => `${grantAdded(m, zone)}${because(m)}`,
   'billing.grant_revoked': (m) => `revoked the ${grantKey(m)} grant${because(m)}`,
   'billing.cancelled_by_staff': (m) => {
     const when = text(m, 'when')
@@ -393,9 +414,15 @@ export function readableAction(action: string): string {
 /**
  * What the actor did, as the rest of a sentence their name begins. Reads the
  * metadata defensively, so a row whose fields are missing or mistyped still renders.
+ * @param entry - The audit entry.
+ * @param timeZone - The tenant's zone (the page's tenant, or the entry's own on a log across tenants), so a
+ * billing date names the tenant's day; undefined for an entry with no tenant.
  */
-export function auditSentence(entry: { action: string; metadata: Metadata }): string {
-  if (isAuditAction(entry.action)) return SENTENCES[entry.action](entry.metadata)
+export function auditSentence(
+  entry: { action: string; metadata: Metadata },
+  timeZone?: string
+): string {
+  if (isAuditAction(entry.action)) return SENTENCES[entry.action](entry.metadata, timeZone)
   if (hasRetiredSentence(entry.action)) return RETIRED_SENTENCES[entry.action]
   return `performed ${readableAction(entry.action)}`
 }

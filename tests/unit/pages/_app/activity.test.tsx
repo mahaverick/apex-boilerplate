@@ -35,7 +35,7 @@ const STAFF_VISIT: PlatformAuditEntry = {
   actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
   target: { type: 'tenant', id: TENANT_ID },
   metadata: { platformRole: 'viewer' },
-  tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme' },
+  tenant: { id: TENANT_ID, name: 'Acme Corp', slug: 'acme', timezone: 'UTC' },
 }
 
 /** Signs in as `testUser` with `platformRole`; `null` is a signed-in user who is not staff. */
@@ -207,6 +207,37 @@ describe('platform activity page', () => {
     )
     expect(row.getByText('Staff')).toBeInTheDocument()
   })
+
+  it.each([
+    ['a UTC', 'UTC', '2026-11-26T23:59:59.999Z'],
+    ['a New York (west of UTC)', 'America/New_York', '2026-11-27T04:59:59.999Z'],
+  ])(
+    'names a grant’s end as its own tenant’s day on the log across tenants, for %s tenant',
+    async (_which, timezone, expiresAt) => {
+      const readerZone = process.env.TZ
+      process.env.TZ = 'Asia/Kolkata'
+      try {
+        signInAs('admin')
+        mockLog(() =>
+          page([
+            {
+              ...STAFF_VISIT,
+              action: 'billing.grant_added',
+              metadata: { key: 'members', value: null, expiresAt, reason: 'pilot' },
+              tenant: { ...STAFF_VISIT.tenant, timezone },
+            },
+          ])
+        )
+        renderPlatformActivity()
+        expect(
+          await screen.findByText('granted Members (no limit) until 26 November 2026: “pilot”')
+        ).toBeInTheDocument()
+      } finally {
+        if (readerZone === undefined) delete process.env.TZ
+        else process.env.TZ = readerZone
+      }
+    }
+  )
 
   // A relative time read once at render froze at "just now" while the page stayed open.
   it('moves its relative times on as the clock ticks', async () => {
@@ -624,7 +655,7 @@ describe('platform activity page', () => {
           actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
           target: { type: 'user', id: USER_ID_2 },
           metadata: { reason: 'left the company' },
-          tenant: { id: PLATFORM_TENANT_ID, name: 'Platform', slug: 'platform' },
+          tenant: { id: PLATFORM_TENANT_ID, name: 'Platform', slug: 'platform', timezone: 'UTC' },
         },
       ])
     )

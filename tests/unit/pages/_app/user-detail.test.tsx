@@ -855,7 +855,7 @@ describe('/users/$userId', () => {
       actor: { id: STAFF_USER_ID, name: 'Sam Staff', email: 'sam@platform.test' },
       target: { type: 'user', id: USER_ID_2 },
       metadata: { reason: 'left the company' },
-      tenant: { id: PLATFORM_TENANT_ID, name: 'Platform', slug: 'platform' },
+      tenant: { id: PLATFORM_TENANT_ID, name: 'Platform', slug: 'platform', timezone: 'UTC' },
     }
   }
 
