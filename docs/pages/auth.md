@@ -10,8 +10,6 @@ Staff sign in by emailed link, Google or, when the API turns passkeys on, a pass
 
 ![Sign in](img/auth/login--default.jpg)
 
-In all three login shots the passkey autofill request ended in the generic error toast "We couldn’t complete that. Refresh the page, then try again." Headless Chromium reports autofill support, then rejects the conditional request with `NotSupportedError` because it has no authenticator, and the autofill hook toasted every failure. It now fails quietly before a passkey is picked (`use-passkey-autofill.ts`), so the next capture shows no toast; these shots predate the fix.
-
 |                     |                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Purpose             | Ask for a sign-in link by email, sign in with Google, or sign in with a passkey.                                                                                                                                                                                                                                                                                                    |
@@ -183,7 +181,7 @@ States: "Joining your team" while the confirm runs; "This link is incomplete" wi
 
 ### `/no-access` — No platform access
 
-No shot: in this capture run the customer session was signed out (`POST /auth/refresh` answered 401), so the shot showed `/login`.
+![No platform access](img/auth/no-access--default.jpg)
 
 |                     |                                                                                                                                                                                                                                 |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

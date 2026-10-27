@@ -41,7 +41,10 @@ Paid with no price shows "No prices yet." in the Prices card; the capture has no
 | ![](img/plans/plans--mobile.jpg)                        |
 | The plan cards stack, Free first, each form full width. |
 
-No dark shot: in this capture run the dark context was signed out, so its shot showed the sign-in page.
+| Dark                                       |
+| ------------------------------------------ |
+| ![](img/plans/plans--dark.jpg)             |
+| The plan cards and forms on dark surfaces. |
 
 | Role-denied                                                                                                                                       |
 | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -73,7 +76,10 @@ No dark shot: in this capture run the dark context was signed out, so its shot s
 | ![](img/plans/billing-alerts--mobile.jpg)                |
 | Each alert is a card; Sort joins Columns above the list. |
 
-No dark shot, for the same reason as the Plans page's.
+| Dark                                    |
+| --------------------------------------- |
+| ![](img/plans/billing-alerts--dark.jpg) |
+| The alerts table on dark surfaces.      |
 
 | Role-denied                                                                                                       |
 | ----------------------------------------------------------------------------------------------------------------- |
