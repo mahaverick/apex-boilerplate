@@ -6,7 +6,9 @@ The Free and Paid plans, their entitlements, Paid's prices and the trial and gra
 
 ### `/plans` — Plans
 
-No screenshot yet: the page needs a capture run against a dev stack on express with billing (`CAPTURE_ONLY=plans pnpm capture:pages`).
+![Plans](img/plans/plans--default.jpg)
+
+In the shots the capture's staff account has no name, so the Trials and grace line reads "Last changed by on Oct 27, 2026.". The shots are of apex 8.1.0; since 8.1.1 that date reads "27 October 2026".
 
 |                     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -27,13 +29,28 @@ No screenshot yet: the page needs a capture run against a dev stack on express w
 
 **A new price** is whole rupees, sent as `amountMinor` in paise. Above `priceWarningAboveMinor` a warning note reads "Charges above ₹15,000 need the customer to approve each payment. Keep {monthly|yearly} prices at ₹15,000 or less.", with the chosen interval. The description says the new price replaces the active one for its interval and subscribers keep the price they pay, and the line under the amount says "New subscribers pay ₹{new} per {month|year}." The toast is "New {monthly|yearly} price: ₹{new}."
 
-| Loading                                                             | Error                                                               | Empty                                                   |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------- |
-| skeleton · two `h-96` plan blocks side by side over an `h-56` block | alert · `LoadError` "We couldn’t load the plans. Select Try again." | Paid with no price: "No prices yet." in the Prices card |
+Paid with no price shows "No prices yet." in the Prices card; the capture has no shot of it.
+
+| Loading                                                                                                                               | Error                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![](img/plans/plans--loading.jpg)                                                                                                     | ![](img/plans/plans--error.jpg)                                                                                                                                     |
+| skeleton · two `h-96` plan blocks side by side over an `h-56` block; the Trials and grace card shows its own skeleton under its title | alert · `LoadError` "We couldn’t load the plans. Select Try again.", and the Trials and grace card's own "We couldn’t load the billing settings. Select Try again." |
+
+| Mobile                                                  |
+| ------------------------------------------------------- |
+| ![](img/plans/plans--mobile.jpg)                        |
+| The plan cards stack, Free first, each form full width. |
+
+No dark shot: in this capture run the dark context was signed out, so its shot showed the sign-in page.
+
+| Role-denied                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![](img/plans/plans--role-denied.jpg)                                                                                                             |
+| A viewer: the plans, prices, trials and grace as text, with no edit controls and no New price; the sidebar has no Billing alerts or Activity log. |
 
 ### `/billing-alerts` — Billing alerts
 
-No screenshot yet: the page needs a capture run against a dev stack on express with billing (`CAPTURE_ONLY=plans pnpm capture:pages`, which shoots the Plans page too).
+![Billing alerts](img/plans/billing-alerts--default.jpg)
 
 |                     |                                                                                                                                                                                                                                                                                                                          |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -46,6 +63,19 @@ No screenshot yet: the page needs a capture run against a dev stack on express w
 | Components          | `BillingAlertsList` (`src/components/features/billing/billing-alerts-list.tsx`, so the route file imports only `billing-reads`), `Card`, `DataTable`, `EmptyState`, `RoleDenied`, `PlatformNotFound`                                                                                                                     |
 | Transitions         | a tenant link → `/tenants/$tenantId/billing`                                                                                                                                                                                                                                                                             |
 
-| Loading                   | Error                                                                        | Empty                                     |
-| ------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------- |
-| the table's skeleton rows | alert · `LoadError` "We couldn’t load the billing alerts. Select Try again." | compact `EmptyState` "No billing alerts." |
+| Loading                                    | Error                                                                        | Empty                                     |
+| ------------------------------------------ | ---------------------------------------------------------------------------- | ----------------------------------------- |
+| ![](img/plans/billing-alerts--loading.jpg) | ![](img/plans/billing-alerts--error.jpg)                                     | ![](img/plans/billing-alerts--empty.jpg)  |
+| the table's skeleton rows                  | alert · `LoadError` "We couldn’t load the billing alerts. Select Try again." | compact `EmptyState` "No billing alerts." |
+
+| Mobile                                                   |
+| -------------------------------------------------------- |
+| ![](img/plans/billing-alerts--mobile.jpg)                |
+| Each alert is a card; Sort joins Columns above the list. |
+
+No dark shot, for the same reason as the Plans page's.
+
+| Role-denied                                                                                                       |
+| ----------------------------------------------------------------------------------------------------------------- |
+| ![](img/plans/billing-alerts--role-denied.jpg)                                                                    |
+| A viewer: the not-found card "Page not available" and no alerts request; the sidebar has no Billing alerts entry. |

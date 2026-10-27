@@ -231,7 +231,9 @@ Findings: [F-tenants-3](findings.md#f-tenants-3)
 
 ### `/tenants/$tenantId/billing` — Billing
 
-Not captured yet: the capture manifest lists the default shot and the `trial` and `past-due` states.
+![Billing](img/tenants/tenant-billing--default.jpg)
+
+The default shot is the seeded tenant in its Paid trial, with no payment provider yet.
 
 |                     |                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -261,6 +263,18 @@ Usage and access lists each catalog entry: a limit as "{used} of {limit} {label}
 State history's search box reads "Search by state or cause, such as Payment failed" and sends a whole state or cause label ("Payment failed", any case) as its stored code (`past_due`), since express matches stored codes; any other term goes as typed. Provider events read "Not yet" in Handled while pending and "Gave up" once failed; only a failed event's error is red, and an unused event's reason is muted.
 
 The Invoices card ("Razorpay lists invoices newest first and offers no search or sort."; an issued invoice reads "Not paid", as react words it) reads the provider forward only, newest subscription first, 20 invoices a page at most. It has a Status filter, kept in the card for simplicity, and no search or sort, which the provider does not offer. Its query does not refetch on window focus, since each loaded page is a provider read. A page can come back short or empty while more remain, so "Load more invoices" stays while the provider says there is more, and "No invoices for this tenant." shows only once it says there is none. A refused cursor (the subscriptions changed, or payments were turned off) offers "Start again from the newest", which also reads the billing again, so payments turned off show as the payments-off note. A failure shows the API's sentence with Try again; a failed Load more keeps the invoices already read. Invoices carry no link: the provider's page shows the payer's contact details.
+
+| Loading                                                                                                | Error                                                                                                            |
+| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| ![](img/tenants/tenant-billing--loading.jpg)                                                           | ![](img/tenants/tenant-billing--error.jpg)                                                                       |
+| skeleton · the layout's header bars over the real tab row, then one card of a title bar and eight rows | alert · the layout's `LoadError` "We couldn’t load this tenant. Select Try again." (the billing read failed too) |
+
+| Trial                                                                                                              | Payment failed                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![](img/tenants/tenant-billing--state-trial.jpg)                                                                   | ![](img/tenants/tenant-billing--state-past-due.jpg)                                                                                                                                     |
+| A stubbed Paid trial: Trial ends, no price or payer, Razorpay (test) as the provider, and an active Members grant. | A stubbed failed payment: Payment failed and Dispute open, "Payment failed on {date}. Razorpay is still retrying the payment.", the payer and the subscription ID with its copy button. |
+
+Every staff role reads the same tab, so there is no role-denied shot.
 
 ### `/tenants/$tenantId/flags` — Flags
 
