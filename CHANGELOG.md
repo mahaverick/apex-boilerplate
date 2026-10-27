@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.1.1](https://github.com/mahaverick/apex-boilerplate/compare/v8.1.0...v8.1.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **billing:** grant dates in the tenant's zone, Start trial label, one date format ([#109](https://github.com/mahaverick/apex-boilerplate/issues/109)) ([90a94fb](https://github.com/mahaverick/apex-boilerplate/commit/90a94fb66c5d89324fb3a88905dc26a6b34cebbe))
+
 ## [8.1.0](https://github.com/mahaverick/apex-boilerplate/compare/v8.0.4...v8.1.0) (2026-10-26)
 
 
