@@ -58,7 +58,7 @@ Findings: [F-settings-1](findings.md#f-settings-1)
 
 ### `/settings/account/security` — Security
 
-No shot yet: the page is retaken once a live express 6 stack runs.
+![Security](img/settings/account-security--default.jpg)
 
 |                     |                                                                                                                                                                                                                                                                                      |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -74,6 +74,11 @@ No shot yet: the page is retaken once a live express 6 stack runs.
 **Passkeys** (`passkeys-section.tsx`, `passkey-dialogs.tsx`, shared with react, loaded on demand) sits between Sign-in methods and Other sessions, and renders only when the passkey mode is not `off`. Its lead reads "Sign in and confirm it’s you with Face ID, Touch ID, Windows Hello, a device PIN or a security key." Each row shows the passkey’s name inside `Pii`, "Synced" or "This device only", its created date and "Last used {date}" or "Never used", with Rename and Delete. Create a passkey runs through "Confirm it’s you" and toasts "Passkey created."; a browser without WebAuthn shows "This browser can’t create passkeys. Use a current version of Chrome, Edge, Firefox or Safari." Deleting the only passkey warns first ("This is your only passkey. You’ll sign in with an email link or Google until you create another."); in required mode the dialog refuses it instead ("Create another passkey before you delete this one. Your account needs at least one."). A failed passkey list shows "We couldn’t load your passkeys. Select Try again to load them." in the section alone. Nothing about passkeys shows anywhere else except the setup screen.
 
 There is no password control. Other sessions renders at once and does not wait on the providers request; only the sign-in methods hold their place with a heading and two method rows while it loads. A failed providers request shows `LoadError` "We couldn’t load your sign-in methods. Select Try again to load them." in their place, and a 404 from `GET /auth/providers` is read as a role refusal (`RoleDenied`) by this app's rule.
+
+| Loading                                                                                                                               | Error                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| ![](img/settings/account-security--loading.jpg)                                                                                       | ![](img/settings/account-security--error.jpg)                                                                                 |
+| skeleton · a heading bar and two method rows in place of Sign-in methods; Passkeys is not drawn yet, and Other sessions shows at once | alert · `LoadError` "We couldn’t load your sign-in methods. Select Try again to load them."; Passkeys and Other sessions stay |
 
 Findings: [F-settings-2](findings.md#f-settings-2)
 
