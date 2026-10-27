@@ -346,7 +346,7 @@ export async function logIn(page: Page, email: string): Promise<void> {
     return
   }
   kept.used = true
-  await restoreSession(page, kept.session.refreshCookie)
+  await restoreSession(page, kept.session)
 }
 
 /**
@@ -358,8 +358,33 @@ function nextRefresh(page: Page): Promise<Response> {
   return page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
-      new URL(response.url()).pathname === '/api/v1/auth/refresh'
+      new URL(response.url()).pathname === '/api/v1/auth/refresh',
+    { timeout: 15_000 }
   )
+}
+
+/**
+ * Waits for `refresh`, naming `what` it was for when no answer comes.
+ * @param refresh - A `nextRefresh` registered before its navigation.
+ * @param what - The refresh, for the failure: "the sign-in page's boot refresh".
+ * @throws When no refresh answers within 15 seconds.
+ */
+async function awaitRefresh(refresh: Promise<Response>, what: string): Promise<Response> {
+  try {
+    return await refresh
+  } catch (error) {
+    throw new Error(`${what} never answered within 15 s`, { cause: error })
+  }
+}
+
+/**
+ * The `sub` claim of an access token: the user it was issued to. The payload is
+ * read, not verified; both tokens compared come from the API under test.
+ * @param accessToken - A JWT the API issued.
+ */
+function tokenSubject(accessToken: string): unknown {
+  const payload = accessToken.split('.')[1] ?? ''
+  return (JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { sub?: unknown }).sub
 }
 
 /** Where a restored session lands: staff on Overview, anyone else on No access. */
@@ -371,22 +396,21 @@ const SIGNED_IN = /\/(overview|no-access)(\?|$)/
  * replaced the injected one in the context. The refresh consumes the injected
  * token, so a caller that closed the page before the answer's `Set-Cookie`
  * landed would keep the spent token, and its next load, after express's
- * 10-second reuse grace, is a replay that revokes the whole session.
+ * 10-second reuse grace, is a replay that revokes the whole session. The
+ * refreshed session must belong to the session's own user, so a stale cookie
+ * for someone else cannot pass.
  * @param page - The page to sign in.
- * @param cookie - The refresh cookie, unused.
- * @throws When the refresh refuses the cookie or the page does not land signed in.
+ * @param session - The session the API issued, its refresh cookie not yet spent.
+ * @throws When a refresh never answers, the refresh refuses the cookie or signs in another user, or the page does not land signed in.
  */
-export async function restoreSession(
-  page: Page,
-  cookie: LiveSession['refreshCookie']
-): Promise<void> {
+export async function restoreSession(page: Page, session: LiveSession): Promise<void> {
   // The sign-in page's own boot refresh must answer before the cookie goes in, or it spends the cookie in a page that is navigating away.
   const signedOut = nextRefresh(page)
   // The origin is the page's own, which may be the dev server or the production image.
   await page.goto('/login')
-  await signedOut
+  await awaitRefresh(signedOut, "the sign-in page's boot refresh")
   const { hostname } = new URL(page.url())
-  const { name, value, path } = cookie
+  const { name, value, path } = session.refreshCookie
   await page.context().addCookies([
     {
       name,
@@ -401,7 +425,13 @@ export async function restoreSession(
   ])
   const restored = nextRefresh(page)
   await page.goto('/overview')
-  expect((await restored).status(), 'the refresh refused the injected cookie').toBe(200)
+  const refreshed = await awaitRefresh(restored, 'the refresh with the injected cookie')
+  expect(refreshed.status(), 'the refresh refused the injected cookie').toBe(200)
+  const body = (await refreshed.json()) as { data?: { accessToken?: string } }
+  expect(
+    tokenSubject(body.data?.accessToken ?? ''),
+    'the refresh signed in a different user than the session it restored'
+  ).toBe(tokenSubject(session.accessToken))
   await expect
     .poll(
       async () => (await page.context().cookies()).find((stored) => stored.name === name)?.value,
