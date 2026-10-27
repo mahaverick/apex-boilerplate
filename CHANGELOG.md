@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.1.3](https://github.com/mahaverick/apex-boilerplate/compare/v8.1.2...v8.1.3) (2026-10-27)
+
+
+### Bug Fixes
+
+* **e2e:** bound restoreSession's waits and check the restored user; picked autofill flag ([#114](https://github.com/mahaverick/apex-boilerplate/issues/114)) ([ae1a27f](https://github.com/mahaverick/apex-boilerplate/commit/ae1a27f6eea2a12e70c098bdcbe4bb60a48ee8b6))
+
 ## [8.1.2](https://github.com/mahaverick/apex-boilerplate/compare/v8.1.1...v8.1.2) (2026-10-27)
 
 
