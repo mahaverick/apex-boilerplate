@@ -7,7 +7,7 @@
 import { execFile as execFileCallback } from 'node:child_process'
 import { readFileSync, realpathSync } from 'node:fs'
 import { promisify } from 'node:util'
-import { expect, type Page } from '@playwright/test'
+import { expect, type Page, type Response } from '@playwright/test'
 import type { MembershipRole } from '@/constants/roles'
 import { apiDirPlan } from '../../scripts/api-dir-guard.mjs'
 import { mailedLink } from '../capture/mailpit'
@@ -67,7 +67,7 @@ async function json(url: string, init?: RequestInit) {
 }
 
 /** A session the API issued: its access token and the refresh cookie it set. */
-interface LiveSession {
+export interface LiveSession {
   accessToken: string
   refreshCookie: { name: string; value: string; path: string }
 }
@@ -346,10 +346,47 @@ export async function logIn(page: Page, email: string): Promise<void> {
     return
   }
   kept.used = true
+  await restoreSession(page, kept.session.refreshCookie)
+}
+
+/**
+ * The next `POST /api/v1/auth/refresh` answer `page` gets. Register it
+ * before the navigation that makes the request.
+ * @param page - The page that refreshes.
+ */
+function nextRefresh(page: Page): Promise<Response> {
+  return page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      new URL(response.url()).pathname === '/api/v1/auth/refresh'
+  )
+}
+
+/** Where a restored session lands: staff on Overview, anyone else on No access. */
+const SIGNED_IN = /\/(overview|no-access)(\?|$)/
+
+/**
+ * Puts a refresh cookie the API issued into `page`'s context and opens the
+ * app, whose boot refresh spends it. Resolves only once the rotated cookie has
+ * replaced the injected one in the context. The refresh consumes the injected
+ * token, so a caller that closed the page before the answer's `Set-Cookie`
+ * landed would keep the spent token, and its next load, after express's
+ * 10-second reuse grace, is a replay that revokes the whole session.
+ * @param page - The page to sign in.
+ * @param cookie - The refresh cookie, unused.
+ * @throws When the refresh refuses the cookie or the page does not land signed in.
+ */
+export async function restoreSession(
+  page: Page,
+  cookie: LiveSession['refreshCookie']
+): Promise<void> {
+  // The sign-in page's own boot refresh must answer before the cookie goes in, or it spends the cookie in a page that is navigating away.
+  const signedOut = nextRefresh(page)
   // The origin is the page's own, which may be the dev server or the production image.
   await page.goto('/login')
+  await signedOut
   const { hostname } = new URL(page.url())
-  const { name, value, path } = kept.session.refreshCookie
+  const { name, value, path } = cookie
   await page.context().addCookies([
     {
       name,
@@ -362,8 +399,16 @@ export async function logIn(page: Page, email: string): Promise<void> {
       secure: name.startsWith('__'),
     },
   ])
+  const restored = nextRefresh(page)
   await page.goto('/overview')
-  await expect(page).not.toHaveURL(SIGNING_IN, { timeout: 15_000 })
+  expect((await restored).status(), 'the refresh refused the injected cookie').toBe(200)
+  await expect
+    .poll(
+      async () => (await page.context().cookies()).find((stored) => stored.name === name)?.value,
+      { message: 'the rotated refresh cookie never replaced the injected one', timeout: 15_000 }
+    )
+    .not.toBe(value)
+  await expect(page).toHaveURL(SIGNED_IN, { timeout: 15_000 })
 }
 
 /**
