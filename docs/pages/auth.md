@@ -4,9 +4,13 @@ The signed-out pages, the pages a mailed link opens, and the page for a signed-i
 
 All of them render inside `AuthLayout` (`src/components/layouts/auth-layout.tsx`): a muted full-height page with one narrow centred column (`max-w-sm`), which `AuthCard` (`src/components/layouts/auth-card.tsx`) fills with the app's mark and name over one card. The card's header holds the page's `h1` and description, centred, over its content. There is no brand panel and no terms line: Apex is an internal tool. `/login` sits under the `_auth` layout route, whose `beforeLoad` sends a signed-in user to `/overview` (and from there `_app` sends a non-staff account on to `/no-access`). `/auth/callback`, `/auth/link`, `/auth/confirm`, `/invitations/accept`, `/invitations/confirm` and `/no-access` are top-level routes outside `_auth`, because a signed-in user opens them too; each renders `AuthLayout` itself. None of these pages awaits a request before it renders, beyond the boot's `POST /auth/refresh` ([boot.md](boot.md#what-happens)).
 
-Staff sign in by emailed link, Google or, when the API turns passkeys on, a passkey. There is no password, no registration, no password reset and no email verification. Apex has no public sign-up, and an Apex link or Google sign-in never creates an account: a new staff member joins by invitation. The shots of these pages are retaken once a live express 6 stack runs (`pnpm capture:pages`); until then the pages below have no shot.
+Staff sign in by emailed link, Google or, when the API turns passkeys on, a passkey. There is no password, no registration, no password reset and no email verification. Apex has no public sign-up, and an Apex link or Google sign-in never creates an account: a new staff member joins by invitation. The shots are of apex 8.1.0, with passkeys on.
 
 ### `/login` — Sign in
+
+![Sign in](img/auth/login--default.jpg)
+
+In all three login shots the passkey autofill request ended in the generic error toast "We couldn’t complete that. Refresh the page, then try again." after `POST /auth/passkeys/sign-in/options` answered 200. The capture runs headless Chromium; whether a browser with passkey autofill shows the toast on load is not checked here.
 
 |                     |                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -35,7 +39,18 @@ Staff sign in by emailed link, Google or, when the API turns passkeys on, a pass
 
 On Apex every refused Google profile (unknown, a customer, a deactivated account) is the one `google_auth_failed`, in every maintenance mode, so no toast says which.
 
+| Dark                          | Mobile                                    |
+| ----------------------------- | ----------------------------------------- |
+| ![](img/auth/login--dark.jpg) | ![](img/auth/login--mobile.jpg)           |
+| The card on dark surfaces.    | The card fills the width less the gutter. |
+
+Check your inbox needs a click the capture does not make, so it has no shot.
+
 ### `/auth/link` — Sign in by emailed link
+
+![Sign in by emailed link](img/auth/sign-in-link--default.jpg)
+
+The default shot opens the seed owner's spent link, so it is the dead link with the address filled in.
 
 |                     |                                                                                                                                                                                                                         |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -55,6 +70,11 @@ The page has these states:
 4. **Signed in as the link's address:** goes straight on to the link's `redirect` or `/overview`, spending nothing.
 5. **Signed in as someone else:** "Switch account?", "You’re signed in as {current}. This link is for {target}.", Continue as {target} (signs out and reloads this URL as it opened, which then verifies) and Stay signed in as {current} (→ `/overview`).
 
+| Loading                                                                  | Error                                                                                                                            |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| ![](img/auth/sign-in-link--loading.jpg)                                  | ![](img/auth/sign-in-link--error.jpg)                                                                                            |
+| spinner · Verifying: "Signing you in…" and "This link is for {address}." | Retryable failure: "We couldn’t sign you in" and Try again. The reason is the capture's stubbed 500 message, "Captured failure". |
+
 ### `/auth/callback` — Google sign-in return
 
 No shot: the page redirects as soon as it mounts.
@@ -73,7 +93,9 @@ A Google failure the API detects itself never reaches this page: the API redirec
 
 ### `/auth/confirm` — Confirm it’s you
 
-No shot yet.
+![Confirm it’s you](img/auth/auth-confirm--default.jpg)
+
+The default shot is signed in with a token no session asked for, so it is the 400 card. Confirmed and Sign in to confirm need a mailed link and a waiting tab, so they have no shot.
 
 |                     |                                                                                                                                                                                                                                                          |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -96,11 +118,20 @@ The page has these states:
 7. **401** after the one refresh: "Your session ended", "Sign in again, then repeat the action.", and Sign in (a full page load).
 8. **Anything else:** "We couldn’t confirm it’s you", the reason and Try again. The token stays in the URL, so a reload tries again.
 
+| Loading                                      | Error                                                                                                                             |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| ![](img/auth/auth-confirm--loading.jpg)      | ![](img/auth/auth-confirm--error.jpg)                                                                                             |
+| spinner · Confirming: "Confirming it’s you…" | Anything else: "We couldn’t confirm it’s you" and Try again. The reason is the capture's stubbed 500 message, "Captured failure". |
+
 ### `/register`, `/forgot-password`, `/reset-password`, `/verify-email` — retired
 
 Each redirects in `beforeLoad` to `/login?notice=sign-in-link`, dropping any `?token=`, before anything renders (`src/pages/{register,forgot-password,reset-password,verify-email}.tsx`). Old mailed links and bookmarks still reach them. The boot shell paints the auth card for them (`public/boot-variant.js`).
 
 ### `/invitations/accept` — Accept an invitation
+
+![Accept an invitation](img/auth/invitation-accept--default.jpg)
+
+Signed out, a staff invitation always confirms by a mailed link, so the default shot is Check your inbox; the platform tenant reads as "the staff team".
 
 |                     |                                                                                                                                                                                                                                                                                                         |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -125,11 +156,18 @@ The page has these states (`AcceptInvitationPage` and `InvitationForToken`):
 8. **Signed in as another address:** "Join {tenant}", the invitation sentence, "This invitation is for {invited}. You’re signed in as {current}.", Continue (signs out and reloads this page signed out, which then verifies) and Cancel (→ `/overview`).
 9. **Used link, signed in as the invitee:** the accept answers `alreadyMember`, and the page lands with "You’ve already joined {tenant} as {address}."
 
+| Loading                                                                                         | Error                                                                                                                          | Empty                                      |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| ![](img/auth/invitation-accept--loading.jpg)                                                    | ![](img/auth/invitation-accept--error.jpg)                                                                                     | ![](img/auth/invitation-accept--empty.jpg) |
+| skeleton · Preview pending: "Checking your invitation" over a sentence bar and three block bars | alert · Preview failed: "We couldn’t check this invitation", `LoadError` "Your invitation link still works. Select Try again." | No `?token`: "This link is incomplete"     |
+
 Findings: [F-auth-3](findings.md#f-auth-3), [F-auth-4](findings.md#f-auth-4)
 
 ### `/invitations/confirm` — Confirm a join
 
-No shot yet.
+![Confirm a join](img/auth/invitation-confirm--default.jpg)
+
+The shot has no token, so it is the incomplete link: "Part of this link is missing. Open the most recent email from us and select its link." The joining, switch-account, dead and failed states need a mailed confirmation link, so they have no shot.
 
 |                     |                                                                                                                                                                                                                   |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -145,7 +183,7 @@ States: "Joining your team" while the confirm runs; "This link is incomplete" wi
 
 ### `/no-access` — No platform access
 
-No shot yet: the copy changed with the passwordless release.
+No shot: in this capture run the customer session was signed out (`POST /auth/refresh` answered 401), so the shot showed `/login`.
 
 |                     |                                                                                                                                                                                                                                 |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
