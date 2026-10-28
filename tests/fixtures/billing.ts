@@ -330,10 +330,10 @@ export const testTaxDetails: StaffTaxDetails = {
 }
 
 /**
- * `GET …/billing/tax-documents` rows, newest first as express would sort
- * them by issue date: a ₹999 intra-state invoice with ₹500 credited by one
- * automatic credit note, that note, a manual ₹100 credit note, and an
- * inter-state invoice credited in full.
+ * `GET …/billing/tax-documents` rows, oldest first by issue date (the
+ * route's default is newest first): a ₹999 intra-state invoice with ₹600
+ * credited by an automatic ₹500 credit note and a manual ₹100 one, those two
+ * notes, and an inter-state invoice credited in full.
  */
 export const testTaxDocuments: StaffTaxDocumentItem[] = [
   {
@@ -354,8 +354,11 @@ export const testTaxDocuments: StaffTaxDocumentItem[] = [
     placeOfSupply: { code: '29', name: 'Karnataka' },
     buyerGstin: '29ABCDE1234F1ZW',
     invoice: null,
-    creditNotes: [{ id: '96000000-0000-4000-8000-000000000002', number: 'CN/26-27/00001' }],
-    creditedMinor: 50_000,
+    creditNotes: [
+      { id: '96000000-0000-4000-8000-000000000002', number: 'CN/26-27/00001' },
+      { id: '96000000-0000-4000-8000-000000000003', number: 'CN/26-27/00002' },
+    ],
+    creditedMinor: 60_000,
     noTaxReduction: false,
     reason: null,
     paymentId: 'pay_TestPaid0001',
