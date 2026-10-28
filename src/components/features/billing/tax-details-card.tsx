@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { TaxDetailsDialog } from '@/components/features/billing/tax-details-dialog'
+import { LoadError } from '@/components/features/load-error'
+import { RoleDenied } from '@/components/features/role-denied'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Note } from '@/components/shared/note'
 import { Pii } from '@/components/shared/pii'
@@ -14,11 +16,17 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { billingDate } from '@/constants/billing-labels'
+import { codeFrom } from '@/lib/api-error'
+import { isRoleDenied } from '@/lib/role-denied'
 import { staffMessageFrom } from '@/lib/staff-message'
 import { IST } from '@/lib/tax-format'
 import { staffTaxDetailsQueryOptions } from '@/queries/billing-admin.queries'
 import type { PlatformTenantDetail } from '@/types/api.types'
-import type { StaffTaxDetails, StaffTenantBilling } from '@/types/billing.types'
+import {
+  TAX_DOCUMENTS_DISABLED,
+  type StaffTaxDetails,
+  type StaffTenantBilling,
+} from '@/types/billing.types'
 
 /**
  * The address on one line: each part that is set, or an em dash when none is.
@@ -29,6 +37,21 @@ function addressText(details: StaffTaxDetails): string {
     (part): part is string => part !== null
   )
   return parts.length === 0 ? '—' : parts.join(', ')
+}
+
+/**
+ * A failed read of the details. A 404 `tax_documents_disabled` keeps express's
+ * sentence in a note; any other 404 is the role gate (`RoleDenied`); anything
+ * else offers a retry.
+ * @param props.error - The read's error.
+ * @param props.onRetry - Reads again.
+ */
+function ReadError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  if (codeFrom(error) === TAX_DOCUMENTS_DISABLED) {
+    return <Note tone="warning">{staffMessageFrom(error)}</Note>
+  }
+  if (isRoleDenied(error)) return <RoleDenied />
+  return <LoadError message={staffMessageFrom(error)} onRetry={onRetry} />
 }
 
 /**
@@ -79,7 +102,7 @@ export function TaxDetailsCard({
             issued document stays downloadable.
           </Note>
         )}
-        {query.isError && <Note tone="warning">{staffMessageFrom(query.error)}</Note>}
+        {query.isError && <ReadError error={query.error} onRetry={() => void query.refetch()} />}
         {details === null && (
           <EmptyState
             size="compact"

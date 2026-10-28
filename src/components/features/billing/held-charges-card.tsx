@@ -1,7 +1,6 @@
 import { IconCopy } from '@tabler/icons-react'
-import { useLocation } from '@tanstack/react-router'
 import { createColumnHelper } from '@tanstack/react-table'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ReasonDialog } from '@/components/features/reason-dialog'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { copyId } from '@/components/shared/command-palette/copy-id'
@@ -18,6 +17,7 @@ import { Pii } from '@/components/shared/pii'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { billingDate, TAX_HELD_STATUS_BADGE } from '@/constants/billing-labels'
+import { useHashFocus } from '@/hooks/use-hash-focus'
 import { useStepUp } from '@/hooks/use-step-up'
 import { codeFrom } from '@/lib/api-error'
 import { formatInr } from '@/lib/billing-format'
@@ -190,11 +190,7 @@ export function HeldChargesCard({
   const list = useListSearch(taxHeldChargesList)
   const query = useListQuery(list, (request) => taxHeldChargesListOptions(tenant.id, request))
   const disabled = query.query.isError && codeFrom(query.query.error) === TAX_DOCUMENTS_DISABLED
-  const heading = useRef<HTMLHeadingElement>(null)
-  const hash = useLocation({ select: (location) => location.hash })
-  useEffect(() => {
-    if (hash === HELD_HASH) heading.current?.focus()
-  }, [hash])
+  const heading = useHashFocus(HELD_HASH)
   return (
     <Card id={HELD_HASH}>
       <CardHeader>

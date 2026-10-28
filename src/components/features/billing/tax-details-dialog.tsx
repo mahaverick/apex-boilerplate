@@ -94,7 +94,9 @@ export function TaxDetailsDialog({
       {/* Nine fields outgrow a laptop screen, so the dialog scrolls inside it rather than off it. */}
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Correct tax details for {tenant.name}</DialogTitle>
+          <DialogTitle>
+            {details === null ? 'Add' : 'Correct'} tax details for {tenant.name}
+          </DialogTitle>
           <DialogDescription>
             Invoices issued from now on use these details. Issued invoices and credit notes don’t
             change.

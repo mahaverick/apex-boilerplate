@@ -1,6 +1,6 @@
 import { IconChevronDown } from '@tabler/icons-react'
 import { createColumnHelper } from '@tanstack/react-table'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { CreditNoteDialog } from '@/components/features/billing/credit-note-dialog'
 import { TaxDocumentDownload } from '@/components/features/billing/tax-document-download'
 import { ToneBadge } from '@/components/features/tone-badge'
@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { billingDate, TAX_DOCUMENT_TYPE_LABELS } from '@/constants/billing-labels'
+import { useHashFocus } from '@/hooks/use-hash-focus'
 import { useSaveTaxDocument } from '@/hooks/use-save-tax-document'
 import { codeFrom } from '@/lib/api-error'
 import { formatInr } from '@/lib/billing-format'
@@ -82,6 +83,7 @@ function RowActions({
 }) {
   const { busy, save } = useSaveTaxDocument(tenant.id, document)
   const [open, setOpen] = useState(false)
+  const trigger = useRef<HTMLButtonElement>(null)
   const offered =
     canCredit && document.type === 'invoice' && remainingCreditMinor(document) >= MIN_CREDIT_MINOR
   if (!offered && !open) return <TaxDocumentDownload tenantId={tenant.id} document={document} />
@@ -90,7 +92,12 @@ function RowActions({
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button variant="outline" size="sm" aria-label={`Actions for ${document.number}`} />
+            <Button
+              ref={trigger}
+              variant="outline"
+              size="sm"
+              aria-label={`Actions for ${document.number}`}
+            />
           }
         >
           Actions
@@ -109,6 +116,8 @@ function RowActions({
         provider={provider}
         open={open}
         onOpenChange={setOpen}
+        // The menu item that opened the dialog is gone once the menu closes.
+        finalFocus={trigger}
       />
     </>
   )
@@ -194,6 +203,9 @@ const columnsFor = (
     }),
   ])
 
+/** The hash that sends staff to this card. */
+const TAX_DOCUMENTS_HASH = 'tax-documents'
+
 /** The Type facet over the two kinds of tax document. */
 const FILTERS: readonly DataTableFilter[] = [
   {
@@ -237,11 +249,14 @@ export function TaxDocumentsCard({
   const list = useListSearch(taxDocumentsList)
   const query = useListQuery(list, (request) => taxDocumentsListOptions(tenantId, request))
   const disabled = query.query.isError && codeFrom(query.query.error) === TAX_DOCUMENTS_DISABLED
+  const heading = useHashFocus(TAX_DOCUMENTS_HASH)
   return (
-    <Card id="tax-documents">
+    <Card id={TAX_DOCUMENTS_HASH}>
       <CardHeader>
         <CardTitle>
-          <h2>Tax documents</h2>
+          <h2 ref={heading} tabIndex={-1} className="outline-none">
+            Tax documents
+          </h2>
         </CardTitle>
         <CardDescription>
           Tax invoices and credit notes, newest first. Dates are in India Standard Time (IST), as

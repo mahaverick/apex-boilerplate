@@ -1,4 +1,5 @@
 import { useForm } from '@tanstack/react-form'
+import { useQueryClient } from '@tanstack/react-query'
 import { useState, type ComponentProps } from 'react'
 import { BusyButton } from '@/components/shared/busy-button'
 import {
@@ -25,14 +26,21 @@ import { providerName } from '@/constants/billing-labels'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
+import { codeFrom, fieldErrorsFrom, statusFrom } from '@/lib/api-error'
 import { formatInr } from '@/lib/billing-format'
 import { refuseInForm } from '@/lib/billing-refusal'
+import { staffMessageFrom } from '@/lib/staff-message'
 import { remainingCreditMinor } from '@/lib/tax-format'
 import { toast } from '@/lib/toast'
 import { useIssueManualCreditNote } from '@/queries/billing-admin.queries'
+import { billingAdminKeys } from '@/queries/billing-reads.queries'
 import { creditCapMinor, creditNoteSchema } from '@/schemas/tax.schemas'
 import type { PlatformTenantDetail } from '@/types/api.types'
-import type { StaffTaxDocumentItem, StaffTenantBilling } from '@/types/billing.types'
+import {
+  TAX_DOCUMENTS_DISABLED,
+  type StaffTaxDocumentItem,
+  type StaffTenantBilling,
+} from '@/types/billing.types'
 
 /**
  * Issue a credit note against an invoice by hand, for a payment dispute the
@@ -101,6 +109,7 @@ function CreditNoteForm({
   onBusyChange: (busy: boolean) => void
 }) {
   const issue = useIssueManualCreditNote(tenant.id)
+  const queryClient = useQueryClient()
   const stepUp = useStepUp()
   const waiting = useStepUpWaiting()
   const serverErrors = useServerErrors()
@@ -122,10 +131,31 @@ function CreditNoteForm({
         onDone()
       } catch (error) {
         onBusyChange(false)
-        refuseInForm(serverErrors, error, { tenantName: tenant.name, provider })
+        await refuse(error)
       }
     },
   })
+
+  /** Shows a refused credit note: a toast for a switched-off registration, else in the form. */
+  async function refuse(error: unknown) {
+    if (statusFrom(error) === 404 && codeFrom(error) === TAX_DOCUMENTS_DISABLED) {
+      // The refetch removes the credit note controls and unmounts this dialog, so the sentence goes in a toast.
+      toast.error(staffMessageFrom(error))
+      onDone()
+      await queryClient.invalidateQueries({
+        queryKey: billingAdminKeys.tenant(tenant.id),
+        exact: true,
+      })
+      return
+    }
+    const amount = fieldErrorsFrom(error).amountMinor
+    if (amount !== undefined) {
+      // The form's field is in rupees; express's is in paise.
+      serverErrors.setFieldError('amountRupees', amount)
+      return
+    }
+    refuseInForm(serverErrors, error, { tenantName: tenant.name, provider })
+  }
 
   return (
     <>

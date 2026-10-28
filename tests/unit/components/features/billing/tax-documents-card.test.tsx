@@ -120,6 +120,21 @@ describe('the Tax documents card', () => {
     expect(asked).toEqual([])
   })
 
+  it('focuses the heading when the page opens on #tax-documents', async () => {
+    serve()
+    renderAppAt(`${BILLING}#tax-documents`)
+    const heading = await screen.findByRole('heading', { name: 'Tax documents', level: 2 })
+    await waitFor(() => expect(heading).toHaveFocus())
+  })
+
+  it('leaves focus alone without the hash', async () => {
+    serve()
+    renderAppAt(BILLING)
+    const heading = await screen.findByRole('heading', { name: 'Tax documents', level: 2 })
+    await screen.findByRole('table', { name: 'Tax documents' })
+    expect(heading).not.toHaveFocus()
+  })
+
   it('lists each document with its type, IST date, total, tax split, buyer and link', async () => {
     serve()
     renderAppAt(BILLING)

@@ -209,7 +209,13 @@ export function createTaxHarness(deps: TaxHarnessDeps) {
    * @param errors - Each field's messages.
    */
   function validationFailure(errors: Record<string, string[]>) {
-    return fail('Validation failed.', 400, 'VALIDATION_ERROR', undefined, { errors })
+    return fail(
+      'Check the highlighted fields, then try again.',
+      400,
+      'VALIDATION_ERROR',
+      undefined,
+      { errors }
+    )
   }
 
   /** The tax details fields express takes, and the ones a `null` clears. */
@@ -648,13 +654,14 @@ export function createTaxHarness(deps: TaxHarnessDeps) {
     http.get('/api/v1/platform/billing/tax-export', ({ request }) => {
       const refusal = billingStepUpRefusal(request)
       if (refusal) return refusal
-      if (!taxDocumentsExist) return fail(TAX_OFF.export, 404, 'tax_documents_disabled')
+      // Express checks the period before it checks registration.
       const period = new URL(request.url).searchParams.get('period') ?? ''
       if (!/^\d{4}-(?:0[1-9]|1[0-2]|Q[1-4])$/.test(period)) {
         return validationFailure({
           period: ['Use YYYY-MM for a month or YYYY-Q1 to YYYY-Q4 for a quarter.'],
         })
       }
+      if (!taxDocumentsExist) return fail(TAX_OFF.export, 404, 'tax_documents_disabled')
       return fileResponse(emptyZip(), 'application/zip', `gstr1-${period}.zip`)
     }),
   ]

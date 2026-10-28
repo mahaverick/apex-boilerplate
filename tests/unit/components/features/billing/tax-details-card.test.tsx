@@ -93,7 +93,8 @@ function recordPlainPatch(answer: () => Response | Promise<Response>) {
  */
 async function openDialog(user: ReturnType<typeof userEvent.setup>, name = 'Correct tax details') {
   await user.click(await screen.findByRole('button', { name }))
-  return screen.findByRole('dialog', { name: /^Correct tax details for Acme Corp/ })
+  const verb = name.startsWith('Add') ? 'Add' : 'Correct'
+  return screen.findByRole('dialog', { name: new RegExp(`^${verb} tax details for Acme Corp`) })
 }
 
 /**
@@ -406,5 +407,53 @@ describe('the Tax details card', () => {
     expect(within(dialog).queryByText('Required with a GSTIN.')).toBeNull()
     await user.type(within(dialog).getByLabelText('GSTIN (optional)'), '29ABCDE1234F1ZW')
     expect(within(dialog).getAllByText('Required with a GSTIN.')).toHaveLength(3)
+  })
+
+  it('titles the first-save dialog Add, not Correct', async () => {
+    serve(null)
+    const user = userEvent.setup()
+    renderAppAt(BILLING)
+    const dialog = await openDialog(user, 'Add tax details')
+    expect(within(dialog).getByText('Add tax details for Acme Corp')).toBeVisible()
+  })
+
+  describe('when the details fail to load', () => {
+    it('shows RoleDenied for a role-gate 404', async () => {
+      serve()
+      server.use(http.get(`${BASE}/tax-details`, () => fail('Not found.', 404, 'not_found')))
+      renderAppAt(BILLING)
+      expect(await screen.findByText('Your role can’t see this any more.')).toBeVisible()
+      expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+    })
+
+    it('keeps express’s note for a 404 tax_documents_disabled', async () => {
+      serve()
+      server.use(
+        http.get(`${BASE}/tax-details`, () =>
+          fail('Tax documents are off on this server.', 404, 'tax_documents_disabled')
+        )
+      )
+      renderAppAt(BILLING)
+      expect(await screen.findByText('Tax documents are off on this server.')).toBeVisible()
+      expect(screen.queryByText('Your role can’t see this any more.')).toBeNull()
+    })
+
+    it('offers Try again for a 5xx, and reads again on select', async () => {
+      serve()
+      let healed = false
+      server.use(
+        http.get(`${BASE}/tax-details`, () =>
+          healed
+            ? ok(testTaxDetails, 'Tax details retrieved.')
+            : fail('Our server hit an error.', 500, 'INTERNAL_ERROR')
+        )
+      )
+      const user = userEvent.setup()
+      renderAppAt(BILLING)
+      const retry = await screen.findByRole('button', { name: 'Try again' })
+      healed = true
+      await user.click(retry)
+      expect(await screen.findByText('29ABCDE1234F1ZW')).toBeVisible()
+    })
   })
 })

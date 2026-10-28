@@ -201,19 +201,46 @@ describe('GST return export card', () => {
     )
   })
 
-  it('toasts express’s field message for a 400', async () => {
+  it('toasts express’s period message for a 400, as express sends it', async () => {
     const user = userEvent.setup()
     const error = vi.spyOn(toast, 'error')
     server.use(
       http.get(EXPORT, () =>
-        fail('Period must be before the next period.', 400, 'VALIDATION_ERROR')
+        HttpResponse.json(
+          {
+            success: false,
+            message: 'Check the highlighted fields, then try again.',
+            statusCode: 400,
+            requestId: 'test-request-id',
+            errors: { period: ['Use YYYY-MM for a month or YYYY-Q1 to YYYY-Q4 for a quarter.'] },
+          },
+          { status: 400 }
+        )
       )
     )
     openPlans()
     const card = await exportCard()
     await user.click(within(card).getByRole('button', { name: 'Download export' }))
     await waitFor(() =>
-      expect(error).toHaveBeenCalledWith('Period must be before the next period.')
+      expect(error).toHaveBeenCalledWith(
+        'Use YYYY-MM for a month or YYYY-Q1 to YYYY-Q4 for a quarter.'
+      )
     )
+  })
+
+  it('says so when the person dismisses the confirmation', async () => {
+    const user = userEvent.setup()
+    const error = vi.spyOn(toast, 'error')
+    server.use(http.get(EXPORT, () => fail('Recent sign-in required', 401, REAUTH_REQUIRED)))
+    openPlans()
+    const card = await exportCard()
+    await user.click(within(card).getByRole('button', { name: 'Download export' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Confirm it’s you' })
+    // The dialog hides the card from the accessibility tree, so look past it.
+    expect(
+      within(card).getByRole('button', { name: 'Waiting for you to confirm…', hidden: true })
+    ).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(error).toHaveBeenCalledWith('Confirm it’s you to continue.'))
   })
 })

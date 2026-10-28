@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { toast } from '@/lib/toast'
 import {
@@ -293,6 +293,58 @@ describe('the credit note dialog', () => {
     expect(await within(dialog).findByText(sentence)).toBeVisible()
     await settle(300, 'a refetch that must not happen has no event to wait for')
     expect(reads).toBe(before)
+  })
+
+  it('toasts express’s sentence on a switched-off registration, closes, and reloads the billing view', async () => {
+    serve()
+    let reads = 0
+    const sentence = 'GST registration is off. Turn it on to issue a credit note.'
+    const error = vi.spyOn(toast, 'error').mockImplementation(() => '')
+    server.use(
+      http.get(BASE, () => {
+        reads += 1
+        return ok(REGISTERED, 'Billing retrieved.')
+      }),
+      http.post(`${BASE}/tax-documents/${INVOICE.id}/credit-notes`, () =>
+        fail(sentence, 404, 'tax_documents_disabled')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(BILLING)
+    const dialog = await openDialog(user)
+    const before = reads
+    await submit(user, dialog, '300')
+    await waitFor(() => expect(error).toHaveBeenCalledWith(sentence))
+    await waitFor(() => expect(reads).toBeGreaterThan(before))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: TITLE })).toBeNull())
+    expect(success).not.toHaveBeenCalled()
+  })
+
+  it('shows a server error on amountMinor under the rupee amount', async () => {
+    serve()
+    const sentence = 'Amount must be at least 100 paise.'
+    server.use(
+      http.post(`${BASE}/tax-documents/${INVOICE.id}/credit-notes`, () =>
+        HttpResponse.json(
+          {
+            success: false,
+            message: 'Check the highlighted fields, then try again.',
+            statusCode: 400,
+            requestId: 'test-request-id',
+            errors: { amountMinor: [sentence] },
+          },
+          { status: 400 }
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(BILLING)
+    const dialog = await openDialog(user)
+    await submit(user, dialog, '300')
+    expect(await within(dialog).findByText(sentence)).toBeVisible()
+    expect(within(dialog).getByLabelText('Amount (₹)')).toHaveAccessibleDescription(
+      expect.stringContaining(sentence)
+    )
   })
 
   it.each([

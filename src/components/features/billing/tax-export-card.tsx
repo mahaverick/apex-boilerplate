@@ -12,9 +12,9 @@ import {
 } from '@/components/ui/select'
 import { useNow } from '@/hooks/use-now'
 import { STEP_UP_WAITING_LABEL, useStepUp, useStepUpWaiting } from '@/hooks/use-step-up'
-import { codeFrom } from '@/lib/api-error'
+import { codeFrom, fieldErrorsFrom } from '@/lib/api-error'
 import { staffMessageFrom } from '@/lib/staff-message'
-import { isReauthRequired } from '@/lib/step-up'
+import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { defaultPeriod, exportPeriods } from '@/lib/tax-export'
 import { toast } from '@/lib/toast'
 import { useDownloadTaxExport } from '@/queries/billing-admin.queries'
@@ -30,7 +30,7 @@ type PeriodKind = 'month' | 'quarter'
  * to the GST start date. The download runs behind step-up. A 404
  * `tax_documents_disabled` (registration turned off since the page loaded)
  * also reloads the billing settings, which may remove this card, so every
- * refusal shows express's sentence in a toast. The route is a GET, so
+ * refusal shows express's sentence in a toast (a 400 shows the `period` field's). The route is a GET, so
  * there is no reason field.
  * @param props.effectiveFrom - The GST start date as `YYYY-MM-DD` in IST, or `null`.
  */
@@ -43,6 +43,7 @@ export function TaxExportCard({ effectiveFrom }: { effectiveFrom: string | null 
   const download = useDownloadTaxExport()
   const [kind, setKind] = useState<PeriodKind>('month')
   const [picked, setPicked] = useState<string | null>(null)
+  const busy = download.isPending || waiting
   const periods = exportPeriods(now, kind, effectiveFrom)
   const period =
     picked !== null && periods.some((option) => option.value === picked)
@@ -51,16 +52,19 @@ export function TaxExportCard({ effectiveFrom }: { effectiveFrom: string | null 
 
   /** Downloads the period, and says where a refusal came from. */
   const run = async () => {
-    if (download.isPending) return
+    if (download.isPending || waiting) return
     try {
       const { filename } = await stepUp.run(() => download.mutateAsync(period))
       toast.success(`${filename} downloaded.`)
     } catch (error) {
-      if (isReauthRequired(error)) return
+      if (isReauthRequired(error)) {
+        toast.error(stepUpRefusal(error))
+        return
+      }
       if (codeFrom(error) === TAX_DOCUMENTS_DISABLED) {
         await queryClient.invalidateQueries({ queryKey: billingAdminKeys.settings })
       }
-      toast.error(staffMessageFrom(error))
+      toast.error(fieldErrorsFrom(error).period?.[0] ?? staffMessageFrom(error))
     }
   }
 
@@ -126,12 +130,8 @@ export function TaxExportCard({ effectiveFrom }: { effectiveFrom: string | null 
           </Select>
         </div>
         <div>
-          <Button aria-disabled={download.isPending} onClick={() => void run()}>
-            {download.isPending
-              ? waiting
-                ? STEP_UP_WAITING_LABEL
-                : 'Preparing export…'
-              : 'Download export'}
+          <Button aria-disabled={busy} onClick={() => void run()}>
+            {busy ? (waiting ? STEP_UP_WAITING_LABEL : 'Preparing export…') : 'Download export'}
           </Button>
         </div>
       </CardContent>
