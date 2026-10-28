@@ -31,8 +31,10 @@ import {
   testInvoices,
   testBillingAlerts,
   testBillingSettings,
+  testHeldCharges,
   testPlans,
   testTaxDetails,
+  testTaxDocuments,
   testTenantBilling,
 } from '@/tests/fixtures/billing'
 import { byContent } from '@/tests/fixtures/content'
@@ -2310,6 +2312,68 @@ describe('tenant billing', () => {
     await expectNoViolations()
   })
 
+  /** Acme with registration on and one open held charge, and its three tax reads filled. */
+  function serveTax() {
+    serveBilling({
+      ...testTenantBilling,
+      taxDocumentsEnabled: true,
+      hasTaxDocuments: true,
+      openHeldCharges: 1,
+    })
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-details`, () =>
+        ok(testTaxDetails, 'Tax details retrieved.')
+      ),
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-documents`, () =>
+        ok(listPage(testTaxDocuments), 'ok')
+      ),
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-held-charges`, () =>
+        ok(listPage(testHeldCharges), 'ok')
+      )
+    )
+  }
+
+  it('a tenant’s Billing tab with the three tax cards filled has no axe violations', async () => {
+    serveTax()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await screen.findByText('Acme Corp Private Limited')
+    await screen.findByRole('table', { name: 'Tax documents' })
+    await screen.findByRole('table', { name: 'Held SEZ charges' })
+    await screen.findByRole('table', { name: 'Invoices' })
+    await expectNoViolations()
+  })
+
+  it('the open credit note dialog has no axe violations', async () => {
+    serveTax()
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await user.click(await screen.findByRole('button', { name: 'Actions for INV/26-27/00001' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Issue credit note' }))
+    await screen.findByRole('dialog', { name: 'Issue a credit note against INV/26-27/00001' })
+    await expectNoViolations()
+  })
+
+  it('the open Mark resolved dialog has no axe violations', async () => {
+    serveTax()
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await user.click(
+      await screen.findByRole('button', { name: 'Mark resolved: payment pay_TestHeld0002' })
+    )
+    await screen.findByRole('alertdialog', { name: 'Mark payment pay_TestHeld0002 resolved?' })
+    await expectNoViolations()
+  })
+
+  it('the Billing tab with the tax documents Type filter open has no axe violations', async () => {
+    serveTax()
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await screen.findByRole('table', { name: 'Tax documents' })
+    await user.click(screen.getByRole('button', { name: 'Filter by type, Tax documents' }))
+    await screen.findByRole('dialog', { name: 'Filter by type, Tax documents' })
+    await expectNoViolations()
+  })
+
   it('the Cancel subscription dialog with Now chosen has no axe violations', async () => {
     serveBilling()
     const user = userEvent.setup()
@@ -2542,6 +2606,27 @@ describe('plans', () => {
     const dialog = await screen.findByRole('dialog', { name: 'New price for Paid' })
     await user.type(within(dialog).getByRole('textbox', { name: 'Amount in rupees' }), '20000')
     await within(dialog).findByText(/need the customer to approve each payment/)
+    await expectNoViolations()
+  })
+
+  it('the Plans page with the GST return export card has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/billing-settings', () =>
+        ok(
+          {
+            ...testBillingSettings,
+            taxDocumentsEnabled: true,
+            hasTaxDocuments: true,
+            gstEffectiveFrom: '2026-04-01',
+          },
+          'OK'
+        )
+      )
+    )
+    openPlans()
+    const card = await screen.findByRole('region', { name: 'GST return export' })
+    await within(card).findByRole('button', { name: 'Download export' })
+    await screen.findByRole('region', { name: 'Free' })
     await expectNoViolations()
   })
 
