@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.2.1](https://github.com/mahaverick/apex-boilerplate/compare/v8.2.0...v8.2.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **billing:** keep held-charge history visible and move focus after a full credit ([#119](https://github.com/mahaverick/apex-boilerplate/issues/119)) ([a36d5a9](https://github.com/mahaverick/apex-boilerplate/commit/a36d5a9684c62d083bce99589c1321e7c2e5738e))
+
 ## [8.2.0](https://github.com/mahaverick/apex-boilerplate/compare/v8.1.3...v8.2.0) (2026-10-28)
 
 
