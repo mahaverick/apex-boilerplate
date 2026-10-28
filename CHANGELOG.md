@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.2.0](https://github.com/mahaverick/apex-boilerplate/compare/v8.1.3...v8.2.0) (2026-10-28)
+
+
+### Features
+
+* **billing:** show GST tax documents, credit notes and the GSTR-1 export to staff ([#117](https://github.com/mahaverick/apex-boilerplate/issues/117)) ([7b71e9a](https://github.com/mahaverick/apex-boilerplate/commit/7b71e9a565d6b2c6d45df92ea1aca57579e9d964))
+
 ## [8.1.3](https://github.com/mahaverick/apex-boilerplate/compare/v8.1.2...v8.1.3) (2026-10-27)
 
 
