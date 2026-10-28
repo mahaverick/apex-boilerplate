@@ -1,10 +1,11 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { apiClient } from '@/http/client'
 import { ROLE_DENIED_ACTION } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
+import { queryClient } from '@/router'
 import {
   testInvoices,
   testTaxDetails,
@@ -480,5 +481,52 @@ describe('the invoices card’s Tax documents column', () => {
     expect(last(rows[0]!)).toHaveTextContent('Held: SEZ')
     expect(last(rows[1]!)).toHaveTextContent('Tax invoice on its way')
     expect(last(rows[2]!)).toHaveTextContent('—')
+  })
+})
+
+describe('the invoice row actions of an admin', () => {
+  /** The invoice with ₹999 left to credit. */
+  const OFFERED = [{ ...INVOICE, creditedMinor: 0, creditNotes: [] }]
+  /** The same invoice, fully credited. */
+  const SPENT = [{ ...INVOICE, creditedMinor: INVOICE.amounts.totalMinor }]
+
+  beforeEach(() => {
+    signIn({ ...testUser, platformRole: 'admin' })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  /** Serves the fully credited invoice and refetches the list. */
+  async function fullyCredit() {
+    server.use(
+      http.get(`${BASE}/tax-documents`, () => ok(listPage(SPENT), 'Tax documents retrieved.'))
+    )
+    await queryClient.invalidateQueries({ queryKey: ['platform'] })
+  }
+
+  it('moves focus to the PDF button when a full credit removes the menu from under it', async () => {
+    serve({ documents: OFFERED })
+    renderAppAt(BILLING)
+    const trigger = await screen.findByRole('button', { name: 'Actions for INV/26-27/00001' })
+    act(() => trigger.focus())
+    expect(trigger).toHaveFocus()
+    await fullyCredit()
+    const pdf = await screen.findByRole('button', { name: 'Download INV/26-27/00001 as a PDF' })
+    expect(screen.queryByRole('button', { name: 'Actions for INV/26-27/00001' })).toBeNull()
+    await waitFor(() => expect(pdf).toHaveFocus())
+  })
+
+  it('leaves focus where it is when the menu goes while focus is elsewhere', async () => {
+    serve({ documents: OFFERED })
+    renderAppAt(BILLING)
+    await screen.findByRole('button', { name: 'Actions for INV/26-27/00001' })
+    const search = await screen.findByRole('searchbox', { name: 'Search tax documents' })
+    act(() => search.focus())
+    await fullyCredit()
+    const pdf = await screen.findByRole('button', { name: 'Download INV/26-27/00001 as a PDF' })
+    expect(search).toHaveFocus()
+    expect(pdf).not.toHaveFocus()
   })
 })

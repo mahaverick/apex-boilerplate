@@ -1,6 +1,6 @@
 import { IconChevronDown } from '@tabler/icons-react'
 import { createColumnHelper } from '@tanstack/react-table'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CreditNoteDialog } from '@/components/features/billing/credit-note-dialog'
 import { TaxDocumentDownload } from '@/components/features/billing/tax-document-download'
 import { ToneBadge } from '@/components/features/tone-badge'
@@ -69,6 +69,8 @@ function CreditNoteLink({ document }: { document: StaffTaxDocumentItem }) {
  * note, and the credit note dialog. A credit note, or an invoice with less
  * than ₹1 left to credit, gets the plain PDF button. The dialog stays
  * mounted while open, so a refusal that leaves nothing to credit still reads.
+ * When a credit note leaves nothing to credit, the menu gives way to the PDF
+ * button and focus moves there, if it was on the menu or its dialog.
  */
 function RowActions({
   tenant,
@@ -84,9 +86,29 @@ function RowActions({
   const { busy, save } = useSaveTaxDocument(tenant.id, document)
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
+  const pdf = useRef<HTMLButtonElement>(null)
   const offered =
     canCredit && document.type === 'invoice' && remainingCreditMinor(document) >= MIN_CREDIT_MINOR
-  if (!offered && !open) return <TaxDocumentDownload tenantId={tenant.id} document={document} />
+  const menuShown = offered || open
+  const onTrigger = useRef(false)
+  const before = useRef({ menuShown, open })
+  useEffect(() => {
+    const { menuShown: wasShown, open: wasOpen } = before.current
+    before.current = { menuShown, open }
+    if (!wasShown || menuShown) return
+    // A removed trigger drops focus on the body; focus elsewhere stays put.
+    const active = globalThis.document.activeElement
+    if (
+      (onTrigger.current || wasOpen) &&
+      (active === null || active === globalThis.document.body)
+    ) {
+      pdf.current?.focus()
+    }
+    onTrigger.current = false
+  }, [menuShown, open])
+  if (!menuShown) {
+    return <TaxDocumentDownload ref={pdf} tenantId={tenant.id} document={document} />
+  }
   return (
     <>
       <DropdownMenu>
@@ -94,6 +116,13 @@ function RowActions({
           render={
             <Button
               ref={trigger}
+              onFocus={() => {
+                onTrigger.current = true
+              }}
+              // A null relatedTarget is the browser dropping a removed element, not a move.
+              onBlur={(event) => {
+                if (event.relatedTarget !== null) onTrigger.current = false
+              }}
               variant="outline"
               size="sm"
               aria-label={`Actions for ${document.number}`}

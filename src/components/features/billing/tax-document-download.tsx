@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import { Button } from '@/components/ui/button'
 import { useSaveTaxDocument } from '@/hooks/use-save-tax-document'
 import type { TaxDocumentRef } from '@/types/billing.types'
@@ -11,19 +12,23 @@ import type { TaxDocumentRef } from '@/types/billing.types'
  * @param props.tenantId - The tenant that owns the document.
  * @param props.document - The document's id and number.
  * @param props.label - `number` shows the document number as the text; the default shows `PDF`.
+ * @param props.ref - The button, for a caller that moves focus to it.
  */
 export function TaxDocumentDownload({
   tenantId,
   document,
   label,
+  ref,
 }: {
   tenantId: string
   document: TaxDocumentRef
   label?: 'number'
+  ref?: Ref<HTMLButtonElement>
 }) {
   const { busy, save } = useSaveTaxDocument(tenantId, document)
   return (
     <Button
+      ref={ref}
       variant={label === 'number' ? 'link' : 'outline'}
       size="sm"
       className={label === 'number' ? 'h-auto p-0' : undefined}
