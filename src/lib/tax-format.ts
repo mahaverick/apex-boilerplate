@@ -4,7 +4,7 @@
  * tenant keeps.
  */
 import { formatInr } from '@/lib/billing-format'
-import type { SupplyKind, TaxAmounts } from '@/types/billing.types'
+import type { StaffTaxDocumentItem, SupplyKind, TaxAmounts } from '@/types/billing.types'
 
 /** The zone every tax document, credit note, held charge and export period is dated in. */
 export const IST = 'Asia/Kolkata'
@@ -20,3 +20,10 @@ export function taxSplitText(amounts: TaxAmounts, supply: SupplyKind): string {
     ? `CGST ${formatInr(amounts.cgstMinor)} + SGST ${formatInr(amounts.sgstMinor)}`
     : `IGST ${formatInr(amounts.igstMinor)}`
 }
+
+/**
+ * What an invoice can still be credited, in paise.
+ * @param invoice - A tax document row.
+ */
+export const remainingCreditMinor = (invoice: StaffTaxDocumentItem) =>
+  invoice.amounts.totalMinor - invoice.creditedMinor

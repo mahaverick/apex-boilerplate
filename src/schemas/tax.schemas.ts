@@ -12,7 +12,7 @@ import { reasonSchema } from '@/schemas/reason.schemas'
 const RUPEES_PATTERN = /^(\d{1,7})(?:\.(\d{1,2}))?$/
 
 /** The smallest credit note: ₹1, in paise. */
-const MIN_CREDIT_MINOR = 100
+export const MIN_CREDIT_MINOR = 100
 
 const AMOUNT_MESSAGE = 'Enter an amount in rupees, such as 499 or 499.50.'
 

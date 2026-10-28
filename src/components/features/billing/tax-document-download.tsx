@@ -1,8 +1,5 @@
-import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { documentFilename, downloadFile } from '@/lib/download-file'
-import { staffMessageFrom } from '@/lib/staff-message'
-import { toast } from '@/lib/toast'
+import { useSaveTaxDocument } from '@/hooks/use-save-tax-document'
 import type { TaxDocumentRef } from '@/types/billing.types'
 
 /**
@@ -24,22 +21,7 @@ export function TaxDocumentDownload({
   document: TaxDocumentRef
   label?: 'number'
 }) {
-  const [busy, setBusy] = useState(false)
-  /** Fetches and saves the PDF; a second click while it loads does nothing. */
-  const save = async () => {
-    if (busy) return
-    setBusy(true)
-    try {
-      await downloadFile(
-        `/platform/tenants/${tenantId}/billing/tax-documents/${document.id}/pdf`,
-        documentFilename(document.number)
-      )
-    } catch (error) {
-      toast.error(staffMessageFrom(error))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const { busy, save } = useSaveTaxDocument(tenantId, document)
   return (
     <Button
       variant={label === 'number' ? 'link' : 'outline'}

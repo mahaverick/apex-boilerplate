@@ -143,6 +143,7 @@ function TenantBilling({
   const {
     revoke: canRevoke,
     taxDetails: canEditTax,
+    creditNote: canCredit,
     resolveHeld: canResolve,
   } = billingActionsFor(role, tenant, billing, catalog, now)
   const labels = new Map(catalog.map((entry) => [entry.key, entry.label]))
@@ -195,7 +196,14 @@ function TenantBilling({
         taxColumn={showTax}
       />
       {showTax && <TaxDetailsCard tenant={tenant} billing={billing} canEdit={canEditTax} />}
-      {showTax && <TaxDocumentsCard tenantId={tenantId} timeZone={timeZone} />}
+      {showTax && (
+        <TaxDocumentsCard
+          tenant={tenant}
+          provider={billing.provider}
+          canCredit={canCredit}
+          timeZone={timeZone}
+        />
+      )}
       {(billing.openHeldCharges > 0 || billing.taxDocumentsEnabled) && (
         <HeldChargesCard tenant={tenant} canResolve={canResolve} />
       )}
