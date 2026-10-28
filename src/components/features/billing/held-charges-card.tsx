@@ -66,7 +66,7 @@ function ResolveAction({
       <Button
         variant="outline"
         size="sm"
-        aria-label={`Mark payment ${charge.paymentId} resolved`}
+        aria-label={`Mark resolved: payment ${charge.paymentId}`}
         onClick={() => setOpen(true)}
       >
         Mark resolved

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import { useAuthStore } from '@/states/auth.store'
-import { testBillingAlerts, testHeldRefundAlert, testHeldSezAlert } from '@/tests/fixtures/billing'
+import { testBillingAlerts, testHeldSezAlert } from '@/tests/fixtures/billing'
 import { TENANT_ID } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
@@ -59,29 +59,38 @@ describe('/billing-alerts', () => {
     expect(seen.at(-1)?.get('total')).toBe('1')
   })
 
-  it('links a tax alert to the card that fixes it', async () => {
+  it('links each tax alert to the card that fixes it, and others to the tab', async () => {
+    const kinds = [
+      ['tax_held_sez', '#held-charges'],
+      ['tax_issue_failed', '#tax-documents'],
+      ['tax_invoice_late', '#tax-documents'],
+      ['tax_credit_note_late', '#tax-documents'],
+      ['duplicate_refunded', ''],
+    ] as const
     server.use(
       http.get('/api/v1/platform/billing/alerts', () =>
         ok(
-          listPage([
-            testHeldSezAlert,
-            { ...testHeldRefundAlert, kind: 'tax_issue_failed' as const },
-          ]),
+          listPage(
+            kinds.map(([kind], index) => ({
+              ...testHeldSezAlert,
+              id: `94000000-0000-4000-8000-00000000010${String(index)}`,
+              kind,
+            }))
+          ),
           'Billing alerts retrieved.'
         )
       )
     )
     renderAppAt('/billing-alerts')
     const table = await screen.findByRole('table', { name: 'Billing alerts' })
-    const [held, failed] = within(table).getAllByRole('row').slice(1)
-    expect(within(held!).getByRole('link', { name: 'Acme Corp' })).toHaveAttribute(
-      'href',
-      `/tenants/${TENANT_ID}/billing#held-charges`
-    )
-    expect(within(failed!).getByRole('link', { name: 'Acme Corp' })).toHaveAttribute(
-      'href',
-      `/tenants/${TENANT_ID}/billing#tax-documents`
-    )
+    const rows = within(table).getAllByRole('row').slice(1)
+    expect(rows).toHaveLength(kinds.length)
+    kinds.forEach(([, hash], index) => {
+      expect(within(rows[index]!).getByRole('link', { name: 'Acme Corp' })).toHaveAttribute(
+        'href',
+        `/tenants/${TENANT_ID}/billing${hash}`
+      )
+    })
   })
 
   it('sorts oldest first from the When header, in the URL', async () => {

@@ -154,9 +154,9 @@ describe('the Held SEZ charges card', () => {
     const user = userEvent.setup()
     renderAppAt(BILLING)
     const table = await heldTable()
-    expect(within(table).getAllByRole('button', { name: /Mark .* resolved/ })).toHaveLength(1)
+    expect(within(table).getAllByRole('button', { name: /^Mark resolved/ })).toHaveLength(1)
     await user.click(
-      within(table).getByRole('button', { name: 'Mark payment pay_TestHeld0002 resolved' })
+      within(table).getByRole('button', { name: 'Mark resolved: payment pay_TestHeld0002' })
     )
     const dialog = await screen.findByRole('alertdialog', {
       name: 'Mark payment pay_TestHeld0002 resolved?',
@@ -171,13 +171,42 @@ describe('the Held SEZ charges card', () => {
     expect(bodies).toEqual([{ reason: REASON }, { reason: REASON }])
   })
 
+  it('lets an admin resolve a charge while registration is off', async () => {
+    serve({ ...testTenantBilling, openHeldCharges: 1 })
+    const bodies: unknown[] = []
+    server.use(
+      http.post(`${BASE}/tax-held-charges/${OPEN.id}/resolve`, async ({ request }) => {
+        bodies.push(await request.json())
+        return ok({ ...OPEN, resolvedAt: '2026-10-28T09:00:00.000Z', resolution: REASON }, 'Done.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(BILLING)
+    const table = await heldTable()
+    await user.click(
+      within(table).getByRole('button', { name: 'Mark resolved: payment pay_TestHeld0002' })
+    )
+    const dialog = await screen.findByRole('alertdialog')
+    await user.type(within(dialog).getByLabelText('Reason'), REASON)
+    await user.click(within(dialog).getByRole('button', { name: 'Mark resolved' }))
+    await waitFor(() => expect(success).toHaveBeenCalledWith('Held charge marked resolved.'))
+    expect(bodies).toEqual([{ reason: REASON }])
+  })
+
+  it.each(['', '#tax-documents'])('does not focus the heading with hash %j', async (hash) => {
+    serve()
+    renderAppAt(`${BILLING}${hash}`)
+    const heading = await screen.findByRole('heading', { name: 'Held SEZ charges' })
+    await heldTable()
+    expect(heading).not.toHaveFocus()
+  })
+
   it('gives a manager no Mark resolved button', async () => {
     signIn({ ...testUser, platformRole: 'manager' })
     serve()
     renderAppAt(BILLING)
     const table = await heldTable()
-    expect(within(table).queryByRole('button', { name: /Mark payment/ })).toBeNull()
-    expect(within(table).queryByRole('button', { name: 'Mark resolved' })).toBeNull()
+    expect(within(table).queryByRole('button', { name: /^Mark resolved/ })).toBeNull()
   })
 
   it('shows express’s sentence when the charge was already resolved', async () => {
@@ -192,7 +221,7 @@ describe('the Held SEZ charges card', () => {
     renderAppAt(BILLING)
     const table = await heldTable()
     await user.click(
-      within(table).getByRole('button', { name: 'Mark payment pay_TestHeld0002 resolved' })
+      within(table).getByRole('button', { name: 'Mark resolved: payment pay_TestHeld0002' })
     )
     const dialog = await screen.findByRole('alertdialog')
     await user.type(within(dialog).getByLabelText('Reason'), REASON)
