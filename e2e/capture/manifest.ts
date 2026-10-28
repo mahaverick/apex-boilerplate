@@ -4,7 +4,13 @@
  * listed here. Endpoints are relative to /api/v1 (see endpoint.ts).
  */
 import type { FileRoutesByFullPath } from '@/routeTree.gen'
-import { testTenantBilling } from '../../tests/fixtures/billing'
+import {
+  testHeldCharges,
+  testTaxDetails,
+  testTaxDocuments,
+  testTenantBilling,
+} from '../../tests/fixtures/billing'
+import { listPage } from '../../tests/fixtures/list-page'
 import type { CaptureState, NavigationCapture, RouteCapture, Section } from './types'
 
 const TENANT: Section = { name: 'Tenant', endpoints: ['GET /platform/tenants/:id'] }
@@ -72,6 +78,52 @@ const BILLING_STATES: readonly CaptureState[] = [
             pastDue: { since: daysFromNow(-5), graceEndsAt: null, paused: false },
           },
         },
+      },
+    ],
+  },
+  {
+    name: 'tax',
+    note: 'A GST-registered tenant: tax details, documents and a resolved held charge.',
+    stubs: [
+      {
+        endpoint: 'GET /platform/tenants/:id/billing',
+        data: { ...testTenantBilling, taxDocumentsEnabled: true, hasTaxDocuments: true },
+      },
+      { endpoint: 'GET /platform/tenants/:id/billing/tax-details', data: testTaxDetails },
+      {
+        endpoint: 'GET /platform/tenants/:id/billing/tax-documents',
+        data: listPage([...testTaxDocuments].reverse()),
+      },
+      {
+        endpoint: 'GET /platform/tenants/:id/billing/tax-held-charges',
+        data: listPage(testHeldCharges.filter((charge) => charge.resolvedAt !== null)),
+      },
+    ],
+  },
+  {
+    name: 'sez-held',
+    note: 'An SEZ tenant with one charge held for staff.',
+    stubs: [
+      {
+        endpoint: 'GET /platform/tenants/:id/billing',
+        data: {
+          ...testTenantBilling,
+          taxDocumentsEnabled: true,
+          hasTaxDocuments: true,
+          openHeldCharges: 1,
+        },
+      },
+      {
+        endpoint: 'GET /platform/tenants/:id/billing/tax-details',
+        data: { ...testTaxDetails, isSez: true },
+      },
+      {
+        endpoint: 'GET /platform/tenants/:id/billing/tax-documents',
+        data: listPage([...testTaxDocuments].reverse()),
+      },
+      {
+        endpoint: 'GET /platform/tenants/:id/billing/tax-held-charges',
+        data: listPage(testHeldCharges),
       },
     ],
   },
@@ -161,6 +213,8 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
     sections: [
       { name: 'Plans (Free, Paid, Prices)', endpoints: ['GET /platform/plans'] },
       { name: 'Trials and grace', endpoints: ['GET /platform/billing-settings'] },
+      // Shown to an admin once the API issues tax documents or holds some.
+      { name: 'GST return export', endpoints: ['GET /platform/billing-settings'] },
     ],
   },
   '/overview': {

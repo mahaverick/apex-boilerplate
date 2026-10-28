@@ -331,8 +331,10 @@ function harnessToken(authTime = sessionAuthTime()): string {
  * with the suspended tenant, which the tenant's page then reads. So only a
  * retry that carries the confirmed token lands. Without it, every suspend is
  * refused. The staff billing writes (a tenant's resync, extend trial, grants
- * and cancel; a plan save, a new price and the billing settings) take the
- * same check under it, and pass without it (`billingStepUpRefusal`).
+ * and cancel; a plan save, a new price and the billing settings; a tax
+ * details correction, a credit note, a held charge resolved and the GSTR-1
+ * export) take the same check under it, and pass without it
+ * (`billingStepUpRefusal`).
  */
 const stepUpOnce = params.get('stepup') === 'once'
 /** Whether Acme is suspended now, in this page load. */
