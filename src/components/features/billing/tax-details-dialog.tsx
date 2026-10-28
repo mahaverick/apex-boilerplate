@@ -91,7 +91,8 @@ export function TaxDetailsDialog({
         onOpenChange(next)
       }}
     >
-      <DialogContent>
+      {/* Nine fields outgrow a laptop screen, so the dialog scrolls inside it rather than off it. */}
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Correct tax details for {tenant.name}</DialogTitle>
           <DialogDescription>
