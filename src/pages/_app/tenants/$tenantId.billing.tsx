@@ -9,6 +9,7 @@ import { BillingSubscriptionsCard } from '@/components/features/billing/billing-
 import { GrantsCard } from '@/components/features/billing/grants-card'
 import { InvoicesCard } from '@/components/features/billing/invoices-card'
 import { RevokeGrantAction } from '@/components/features/billing/revoke-grant-dialog'
+import { TaxDocumentsCard } from '@/components/features/billing/tax-documents-card'
 import { TenantBillingSummary } from '@/components/features/billing/tenant-billing-summary'
 import { TenantEntitlementsCard } from '@/components/features/billing/tenant-entitlements-card'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -141,6 +142,8 @@ function TenantBilling({
   const labels = new Map(catalog.map((entry) => [entry.key, entry.label]))
   // Express and react date a tenant's billing in its zone.
   const timeZone = tenant.settings.timezone
+  // No tax card, column or request while registration is off and the workspace has no documents.
+  const showTax = billing.taxDocumentsEnabled || billing.hasTaxDocuments
   return (
     <div className="grid gap-6">
       <TenantBillingSummary
@@ -183,7 +186,9 @@ function TenantBilling({
         paymentsEnabled={billing.paymentsEnabled}
         provider={billing.provider}
         timeZone={timeZone}
+        taxColumn={showTax}
       />
+      {showTax && <TaxDocumentsCard tenantId={tenantId} timeZone={timeZone} />}
     </div>
   )
 }

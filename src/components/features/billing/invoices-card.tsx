@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useRef, useState } from 'react'
+import { TaxDocumentDownload } from '@/components/features/billing/tax-document-download'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { ToneBadge } from '@/components/features/tone-badge'
@@ -46,13 +47,48 @@ const STATUS_FILTER: DataTableFilter = {
   options: INVOICE_STATUSES.map((value) => ({ value, label: INVOICE_STATUS_BADGE[value].label })),
 }
 
+/** What an invoice row says about its tax documents: the PDFs, a hold, a wait, or nothing. */
+function InvoiceTaxDocuments({
+  tenantId,
+  invoice,
+}: {
+  tenantId: string
+  invoice: StaffInvoiceItem
+}) {
+  const documents = [
+    ...(invoice.taxDocument === null ? [] : [invoice.taxDocument]),
+    ...invoice.creditNotes,
+  ]
+  if (documents.length > 0) {
+    return (
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {documents.map((document) => (
+          <TaxDocumentDownload
+            key={document.id}
+            tenantId={tenantId}
+            document={document}
+            label="number"
+          />
+        ))}
+      </div>
+    )
+  }
+  if (invoice.taxStatus === 'held') return <ToneBadge tone="warning">Held: SEZ</ToneBadge>
+  if (invoice.taxStatus === 'pending') return 'Tax invoice on its way'
+  return '—'
+}
+
 /** The loaded invoices as a table, dated in the tenant's zone. */
 function InvoicesTable({
   items,
+  tenantId,
   timeZone,
+  taxColumn,
 }: {
   items: readonly StaffInvoiceItem[]
+  tenantId: string
   timeZone: string
+  taxColumn: boolean
 }) {
   return (
     <Table aria-label="Invoices">
@@ -65,6 +101,7 @@ function InvoicesTable({
           <TableHead scope="col">Status</TableHead>
           <TableHead scope="col">Issued</TableHead>
           <TableHead scope="col">Paid</TableHead>
+          {taxColumn && <TableHead scope="col">Tax documents</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -86,6 +123,11 @@ function InvoicesTable({
               <TableCell>
                 {invoice.paidAt === null ? 'Not paid' : billingDate(invoice.paidAt, timeZone)}
               </TableCell>
+              {taxColumn && (
+                <TableCell>
+                  <InvoiceTaxDocuments tenantId={tenantId} invoice={invoice} />
+                </TableCell>
+              )}
             </TableRow>
           )
         })}
@@ -114,6 +156,7 @@ export function InvoicesCard({
   paymentsEnabled,
   provider,
   timeZone,
+  taxColumn,
 }: {
   tenantId: string
   paymentsEnabled: boolean
@@ -121,6 +164,8 @@ export function InvoicesCard({
   provider: StaffTenantBilling['provider']
   /** The tenant's time zone, for the invoice dates. */
   timeZone: string
+  /** Whether to show the Tax documents column: registration is on, or the workspace has documents. */
+  taxColumn: boolean
 }) {
   const [status, setStatus] = useState<readonly string[]>([])
   const options = staffInvoicesQueryOptions(
@@ -155,7 +200,7 @@ export function InvoicesCard({
     if (query.data === undefined) {
       return (
         <div role="status" aria-label="Loading">
-          <TableRowsSkeleton rows={3} columns={6} />
+          <TableRowsSkeleton rows={3} columns={taxColumn ? 7 : 6} />
         </div>
       )
     }
@@ -163,7 +208,12 @@ export function InvoicesCard({
     return (
       <div className="grid gap-3">
         {items.length > 0 ? (
-          <InvoicesTable items={items} timeZone={timeZone} />
+          <InvoicesTable
+            items={items}
+            tenantId={tenantId}
+            timeZone={timeZone}
+            taxColumn={taxColumn}
+          />
         ) : query.hasNextPage ? (
           <p className="text-sm text-muted-foreground">
             This page had no invoices, and more remain. Select Load more invoices to read the next

@@ -10,6 +10,7 @@ import {
   testFreeTenantBilling,
   testInvoices,
   testPlans,
+  testTaxDocuments,
   testTenantBilling,
 } from '@/tests/fixtures/billing'
 import { PLATFORM_TENANT_ID, TENANT_ID } from '@/tests/fixtures/ids'
@@ -1140,5 +1141,26 @@ describe('/tenants/$tenantId/billing', () => {
       ).toBeInTheDocument()
       expect(screen.queryByText('No invoices for this tenant.')).toBeNull()
     })
+  })
+})
+
+describe('/tenants/$tenantId/billing with tax documents', () => {
+  beforeEach(() => {
+    signIn({ ...testUser, platformRole: 'viewer' })
+  })
+
+  it('mounts the Tax documents card after Invoices inside one main and one h1', async () => {
+    serve({ ...testTenantBilling, taxDocumentsEnabled: true, hasTaxDocuments: true })
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-documents`, () =>
+        ok(listPage(testTaxDocuments), 'Tax documents retrieved.')
+      )
+    )
+    renderAppAt(BILLING)
+    await screen.findByRole('table', { name: 'Tax documents' })
+    const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+    expect(headings.indexOf('Tax documents')).toBe(headings.indexOf('Invoices') + 1)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getAllByRole('main')).toHaveLength(1)
   })
 })
