@@ -375,7 +375,7 @@ describe('/tenants/$tenantId', () => {
         'owner' as const,
         detail({ lifecycleState: 'archived', deletedAt: '2026-09-01T00:00:00.000Z' }),
         'Permanently delete Acme Corp?',
-        'This removes the tenant, its settings, memberships, invitations and its own activity log for good. Only a record of the deletion stays in the platform log. It can’t be undone. Cancel any Paid subscription first; we refuse the delete while one can still charge a card.',
+        'This removes the tenant, its settings, memberships, invitations and its own activity log for good. Its tax invoices and credit notes stay for the 6 years GST law requires, and stay in the GST return export. It can’t be undone. Cancel any Paid subscription first; we refuse the delete while one can still charge a card.',
       ],
     ])('says what %s does to billing', async (item, role, tenant, title, description) => {
       signIn({ ...testUser, platformRole: role })
