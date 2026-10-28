@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { apiClient } from '@/http/client'
+import { ROLE_DENIED_ACTION } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
 import { testInvoices, testTaxDocuments, testTenantBilling } from '@/tests/fixtures/billing'
 import { TENANT_ID } from '@/tests/fixtures/ids'
@@ -243,6 +244,14 @@ describe('the Tax documents card', () => {
     expect(screen.getByRole('heading', { name: 'Tax documents', level: 2 })).toBeVisible()
   })
 
+  it('shows RoleDenied, not the registration note, for a role-gate 404 on the list', async () => {
+    serve()
+    server.use(http.get(`${BASE}/tax-documents`, () => fail('Route not found', 404, 'not_found')))
+    renderAppAt(BILLING)
+    expect(await screen.findByText('Your role can’t see this any more.')).toBeVisible()
+    expect(screen.queryByText(/Tax documents are off/)).toBeNull()
+  })
+
   it('offers Try again when the list fails to load', async () => {
     serve()
     server.use(http.get(`${BASE}/tax-documents`, () => fail('Boom', 500)))
@@ -320,6 +329,56 @@ describe('a tax document PDF', () => {
     await waitFor(() => expect(error).toHaveBeenCalledWith('That tax document no longer exists.'))
     expect(screen.getByRole('table', { name: 'Tax documents' })).toBeVisible()
     expect(screen.queryByText(/Your role can’t see this any more/)).toBeNull()
+  })
+
+  it('toasts the staff copy for a role-gate 404 on the PDF', async () => {
+    const error = vi.spyOn(toast, 'error')
+    serve()
+    server.use(
+      http.get(`${BASE}/tax-documents/${INVOICE.id}/pdf`, () =>
+        fail('Route not found', 404, 'not_found')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(BILLING)
+    const table = await taxTable()
+    await user.click(
+      within(rowOf(table, 'INV/26-27/00001')).getByRole('button', {
+        name: 'Download INV/26-27/00001 as a PDF',
+      })
+    )
+    await waitFor(() => expect(error).toHaveBeenCalledWith(ROLE_DENIED_ACTION))
+  })
+
+  it('ignores a second click while the file loads', async () => {
+    serve()
+    let asked = 0
+    let release: (() => void) | undefined
+    const gate = new Promise<void>(
+      /** Hands the test the way to let the PDF answer. */
+      (resolve) => {
+        release = resolve
+      }
+    )
+    server.use(
+      http.get(`${BASE}/tax-documents/${INVOICE.id}/pdf`, async () => {
+        asked += 1
+        await gate
+        return new HttpResponse('%PDF-1.4', { headers: { 'content-type': 'application/pdf' } })
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(BILLING)
+    const table = await taxTable()
+    const button = within(rowOf(table, 'INV/26-27/00001')).getByRole('button', {
+      name: 'Download INV/26-27/00001 as a PDF',
+    })
+    await user.click(button)
+    await waitFor(() => expect(button).toHaveTextContent('Downloading…'))
+    await user.click(button)
+    release?.()
+    await waitFor(() => expect(button).toHaveTextContent('PDF'))
+    expect(asked).toBe(1)
   })
 
   it('keeps the button focusable and says Downloading… while the file loads', async () => {

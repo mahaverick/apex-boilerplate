@@ -33,7 +33,7 @@ const column = createColumnHelper<DataTableFeatures, StaffTaxDocumentItem>()
 function CreditNoteLink({ document }: { document: StaffTaxDocumentItem }) {
   return (
     <span>
-      Reduces {document.invoice?.number}
+      {document.invoice !== null && `Reduces ${document.invoice.number}`}
       {document.manual && (
         <>
           {' '}
