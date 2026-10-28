@@ -27,6 +27,7 @@ import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import type { ApiSuccess } from '@/types/api.types'
 import {
   PLAN_VERSION_CONFLICT,
+  CREDIT_NOTE_REPEATED,
   TAX_DETAILS_VERSION_CONFLICT,
   type BillingAlert,
   type BillingInterval,
@@ -509,9 +510,10 @@ export function useSaveStaffTaxDetails(tenantId: string) {
 /**
  * `POST …/billing/tax-documents/:docId/credit-notes` (admin): a credit note
  * by hand, for a lost dispute. The tax documents, the invoices (whose rows
- * list their credit notes) and the audit log refresh. Any 409
- * (`NOT_AN_INVOICE`, `CREDIT_EXCEEDS_INVOICE`, `CREDIT_NOTE_REPEATED`) means
- * the cached documents were stale, so they reload.
+ * list their credit notes) and the audit log refresh. A 409 such as
+ * `NOT_AN_INVOICE` or `CREDIT_EXCEEDS_INVOICE` means the cached documents were
+ * stale, so they reload. A 409 `CREDIT_NOTE_REPEATED` means the same note was
+ * just issued, so nothing reloads.
  */
 export function useIssueManualCreditNote(tenantId: string) {
   const queryClient = useQueryClient()
@@ -541,7 +543,7 @@ export function useIssueManualCreditNote(tenantId: string) {
       ])
     },
     onError: async (error) => {
-      if (statusFrom(error) === 409) {
+      if (statusFrom(error) === 409 && codeFrom(error) !== CREDIT_NOTE_REPEATED) {
         await queryClient.invalidateQueries({ queryKey: documents })
       }
     },

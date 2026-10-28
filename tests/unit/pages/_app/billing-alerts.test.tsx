@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import { useAuthStore } from '@/states/auth.store'
-import { testBillingAlerts, testHeldSezAlert } from '@/tests/fixtures/billing'
+import { testBillingAlerts, testHeldRefundAlert, testHeldSezAlert } from '@/tests/fixtures/billing'
 import { TENANT_ID } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
@@ -91,6 +91,20 @@ describe('/billing-alerts', () => {
         `/tenants/${TENANT_ID}/billing${hash}`
       )
     })
+  })
+
+  it('links the held refund alert to the held charges card', async () => {
+    server.use(
+      http.get('/api/v1/platform/billing/alerts', () =>
+        ok(listPage([testHeldRefundAlert]), 'Billing alerts retrieved.')
+      )
+    )
+    renderAppAt('/billing-alerts')
+    const table = await screen.findByRole('table', { name: 'Billing alerts' })
+    expect(within(table).getByRole('link', { name: 'Acme Corp' })).toHaveAttribute(
+      'href',
+      `/tenants/${TENANT_ID}/billing#held-charges`
+    )
   })
 
   it('sorts oldest first from the When header, in the URL', async () => {

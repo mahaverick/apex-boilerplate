@@ -12,6 +12,7 @@ import {
 import { TENANT_ID } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
+import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 import { confirmStepUp } from '@/tests/mocks/step-up'
@@ -21,7 +22,6 @@ import type { StaffTaxDocumentItem, StaffTenantBilling } from '@/types/billing.t
 const BILLING = `/tenants/${TENANT_ID}/billing`
 const BASE = `/api/v1/platform/tenants/${TENANT_ID}/billing`
 const INVOICE = testTaxDocuments[0]!
-const FULLY_CREDITED = testTaxDocuments[3]!
 const CREDIT_NOTE = testTaxDocuments[1]!
 const TITLE = 'Issue a credit note against INV/26-27/00001'
 
@@ -146,6 +146,11 @@ describe('the credit note dialog', () => {
     )
     expect(dialog).toHaveTextContent('₹399 of ₹999 is left to credit.')
     expect(within(dialog).getByText('From ₹1 to ₹399.')).toBeVisible()
+    expect(
+      within(dialog).getByText(
+        'Printed on the customer’s credit note. Use English letters, digits and common punctuation.'
+      )
+    ).toBeVisible()
     expect(within(dialog).getByLabelText('Amount (₹)')).toBeVisible()
   })
 
@@ -249,6 +254,64 @@ describe('the credit note dialog', () => {
     expect(success).not.toHaveBeenCalled()
   })
 
+  it('caps the hint and the amount at ₹1,00,000 on a large invoice', async () => {
+    serve({
+      documents: testTaxDocuments.map((document) =>
+        document.id === INVOICE.id
+          ? {
+              ...document,
+              amounts: { ...document.amounts, totalMinor: 20_000_000 },
+              creditedMinor: 0,
+            }
+          : document
+      ),
+    })
+    const user = userEvent.setup()
+    renderAppAt(BILLING)
+    const dialog = await openDialog(user)
+    expect(within(dialog).getByText('From ₹1 to ₹1,00,000.')).toBeVisible()
+  })
+
+  it('shows express’s sentence on a repeated note and does not reload the documents', async () => {
+    serve()
+    let reads = 0
+    const sentence = 'You issued this credit note a moment ago. Refresh to see it.'
+    server.use(
+      http.get(`${BASE}/tax-documents`, () => {
+        reads += 1
+        return ok(listPage(testTaxDocuments), 'Tax documents retrieved.')
+      }),
+      http.post(`${BASE}/tax-documents/${INVOICE.id}/credit-notes`, () =>
+        fail(sentence, 409, 'CREDIT_NOTE_REPEATED')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(BILLING)
+    const dialog = await openDialog(user)
+    const before = reads
+    await submit(user, dialog, '300')
+    expect(await within(dialog).findByText(sentence)).toBeVisible()
+    await settle(300, 'a refetch that must not happen has no event to wait for')
+    expect(reads).toBe(before)
+  })
+
+  it.each([
+    [99, false],
+    [100, true],
+  ])('with %i paise left, the credit note action shows: %s', async (left, shown) => {
+    serve({
+      documents: testTaxDocuments.map((document) =>
+        document.id === INVOICE.id
+          ? { ...document, creditedMinor: document.amounts.totalMinor - left }
+          : document
+      ),
+    })
+    renderAppAt(BILLING)
+    const row = await rowOf('INV/26-27/00001')
+    const menu = within(row).queryByRole('button', { name: 'Actions for INV/26-27/00001' })
+    expect(menu !== null).toBe(shown)
+  })
+
   it.each([
     ['a credit note row', 'CN/26-27/00001'],
     ['a fully credited invoice', 'INV/26-27/00002'],
@@ -258,7 +321,6 @@ describe('the credit note dialog', () => {
     const row = await rowOf(number)
     expect(within(row).getByRole('button', { name: `Download ${number} as a PDF` })).toBeVisible()
     expect(within(row).queryByRole('button', { name: /^Actions for/ })).toBeNull()
-    expect(FULLY_CREDITED.number).toBe('INV/26-27/00002')
   })
 
   it('offers none to a manager', async () => {

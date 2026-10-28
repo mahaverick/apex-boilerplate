@@ -100,6 +100,15 @@ describe('the Held SEZ charges card', () => {
     expect(resolved).toHaveTextContent('21 October 2026 by Cleo D')
   })
 
+  it('shows a dash for a held charge with no subscription', async () => {
+    serve(WITH_HOLDS, [{ ...OPEN, subscriptionId: null }])
+    renderAppAt(BILLING)
+    const table = await heldTable()
+    const row = within(table).getByText(OPEN.paymentId).closest('tr')!
+    expect(within(row).getAllByText('—').length).toBeGreaterThanOrEqual(2)
+    expect(within(row).queryByText('sub_TestActive0001')).toBeNull()
+  })
+
   it('shows the card root id and the empty state', async () => {
     serve(WITH_HOLDS, [])
     renderAppAt(BILLING)

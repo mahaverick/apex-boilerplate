@@ -97,7 +97,7 @@ function RowActions({
           <IconChevronDown aria-hidden="true" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-44">
-          <DropdownMenuItem onClick={() => void save()}>
+          <DropdownMenuItem aria-disabled={busy} onClick={() => void save()}>
             {busy ? 'Downloading…' : 'Download PDF'}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setOpen(true)}>Issue credit note</DropdownMenuItem>

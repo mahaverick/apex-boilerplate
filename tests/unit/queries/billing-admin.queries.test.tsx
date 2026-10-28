@@ -716,7 +716,7 @@ describe('tax writes', () => {
     expect(stale(client, listKey('tax-held-charges'))).toBe(false)
   })
 
-  it.each(['CREDIT_EXCEEDS_INVOICE', 'CREDIT_NOTE_REPEATED', 'NOT_AN_INVOICE'])(
+  it.each(['CREDIT_EXCEEDS_INVOICE', 'NOT_AN_INVOICE'])(
     'refreshes the tax documents on a 409 %s',
     async (code) => {
       server.use(
@@ -735,6 +735,21 @@ describe('tax writes', () => {
       expect(stale(client, AUDIT_KEY)).toBe(false)
     }
   )
+
+  it('leaves the tax documents alone on a 409 CREDIT_NOTE_REPEATED', async () => {
+    server.use(
+      http.post(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-documents/d1/credit-notes`, () =>
+        fail('Express’s sentence.', 409, 'CREDIT_NOTE_REPEATED')
+      )
+    )
+    const client = taxClient()
+    const { result } = renderHook(() => useIssueManualCreditNote(TENANT_ID), {
+      wrapper: wrapperWith(client),
+    })
+    result.current.mutate({ docId: 'd1', amountMinor: 20_000, reason: 'r' })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(stale(client, listKey('tax-documents'))).toBe(false)
+  })
 
   it('resolves a held charge and refreshes the billing view exactly, the lists and the log', async () => {
     const held = testHeldCharges[1]

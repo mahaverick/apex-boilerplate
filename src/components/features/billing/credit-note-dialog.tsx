@@ -1,6 +1,5 @@
 import { useForm } from '@tanstack/react-form'
 import { useState, type ComponentProps } from 'react'
-import { ReasonHint } from '@/components/features/reason-dialog'
 import { BusyButton } from '@/components/shared/busy-button'
 import {
   Dialog,
@@ -31,7 +30,7 @@ import { refuseInForm } from '@/lib/billing-refusal'
 import { remainingCreditMinor } from '@/lib/tax-format'
 import { toast } from '@/lib/toast'
 import { useIssueManualCreditNote } from '@/queries/billing-admin.queries'
-import { creditNoteSchema } from '@/schemas/tax.schemas'
+import { creditCapMinor, creditNoteSchema } from '@/schemas/tax.schemas'
 import type { PlatformTenantDetail } from '@/types/api.types'
 import type { StaffTaxDocumentItem, StaffTenantBilling } from '@/types/billing.types'
 
@@ -153,7 +152,9 @@ function CreditNoteForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
               </FormControl>
-              <FormDescription>From ₹1 to {formatInr(remainingMinor)}.</FormDescription>
+              <FormDescription>
+                From ₹1 to {formatInr(creditCapMinor(remainingMinor))}.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -170,7 +171,10 @@ function CreditNoteForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
               </FormControl>
-              <ReasonHint />
+              <FormDescription>
+                Printed on the customer’s credit note. Use English letters, digits and common
+                punctuation.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

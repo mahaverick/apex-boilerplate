@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test'
+import { TEXT_PATTERN_MESSAGE } from '@/schemas/tax-details.schemas'
 import { creditNoteSchema } from '@/schemas/tax.schemas'
 
 const AMOUNT_MESSAGE = 'Enter an amount in rupees, such as 499 or 499.50.'
@@ -56,5 +57,39 @@ describe('creditNoteSchema', () => {
     const paths = result.error?.issues.map((issue) => issue.path.join('.'))
     expect(paths).toContain('amountRupees')
     expect(paths).toContain('reason')
+  })
+
+  it('caps the amount at ₹1,00,000 however much is left', () => {
+    expect(messageOf('100000.01', 20_000_000)).toBe('Enter ₹1 to ₹1,00,000.')
+    expect(
+      creditNoteSchema(20_000_000).parse({ amountRupees: '100000', reason: 'r' }).amountMinor
+    ).toBe(10_000_000)
+  })
+
+  describe('the reason', () => {
+    /** Parses a ₹10 note with the given reason. */
+    const parse = (reason: string) =>
+      creditNoteSchema(1_000_000).safeParse({ amountRupees: '10', reason })
+
+    it('accepts one line of plain text', () => {
+      expect(parse('Chargeback lost').data?.reason).toBe('Chargeback lost')
+    })
+
+    it('refuses Devanagari with the shared message', () => {
+      const result = parse('चार्जबैक')
+      expect(result.error?.issues[0]?.message).toBe(TEXT_PATTERN_MESSAGE)
+    })
+
+    it('refuses a line break', () => {
+      expect(parse('a\nb').success).toBe(false)
+    })
+
+    it('accepts a curly apostrophe and sends it straight', () => {
+      expect(parse('Customer’s dispute').data?.reason).toBe("Customer's dispute")
+    })
+
+    it('refuses more than 500 characters', () => {
+      expect(parse('a'.repeat(501)).success).toBe(false)
+    })
   })
 })
