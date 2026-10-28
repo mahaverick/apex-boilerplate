@@ -36,6 +36,15 @@ function openPlans(role: MembershipRole = 'admin') {
   renderAppAt('/plans')
 }
 
+/** Waits until the page holds the billing settings, so an absent card is the gate's doing. */
+async function settingsLoaded() {
+  await screen.findByRole('region', { name: 'Trials and grace' })
+  await waitFor(() =>
+    expect(queryClient.getQueryData(['platform', 'billing-settings'])).toBeDefined()
+  )
+  await screen.findByText('Never changed.')
+}
+
 /** The export card, found by its heading. */
 const exportCard = () => screen.findByRole('region', { name: 'GST return export' })
 
@@ -54,14 +63,14 @@ describe('GST return export card', () => {
 
   it.each(['viewer', 'manager'] as const)('shows a %s no export card', async (role) => {
     openPlans(role)
-    await screen.findByRole('region', { name: 'Trials and grace' })
+    await settingsLoaded()
     expect(screen.queryByRole('region', { name: 'GST return export' })).not.toBeInTheDocument()
   })
 
   it('hides the card from an admin when registration is off and no document exists', async () => {
     serve({ ...ON, taxDocumentsEnabled: false, hasTaxDocuments: false })
     openPlans()
-    await screen.findByRole('region', { name: 'Trials and grace' })
+    await settingsLoaded()
     expect(screen.queryByRole('region', { name: 'GST return export' })).not.toBeInTheDocument()
   })
 
@@ -157,8 +166,9 @@ describe('GST return export card', () => {
     await waitFor(() => expect(periods).toEqual(['2026-Q3']))
   })
 
-  it('shows express’s sentence in a note when registration was switched off, and reloads the settings', async () => {
+  it('toasts express’s sentence when registration was switched off, and reloads the settings', async () => {
     const user = userEvent.setup()
+    const error = vi.spyOn(toast, 'error')
     let reads = 0
     server.use(
       http.get('/api/v1/platform/billing-settings', () => {
@@ -173,8 +183,8 @@ describe('GST return export card', () => {
     const card = await exportCard()
     const before = reads
     await user.click(within(card).getByRole('button', { name: 'Download export' }))
-    expect(await within(card).findByRole('status')).toHaveTextContent(
-      'GST registration is off. There is nothing to export.'
+    await waitFor(() =>
+      expect(error).toHaveBeenCalledWith('GST registration is off. There is nothing to export.')
     )
     await waitFor(() => expect(reads).toBeGreaterThan(before))
   })
