@@ -49,4 +49,12 @@ describe('creditNoteSchema', () => {
     expect(result.success).toBe(false)
     expect(result.error?.issues[0]?.path).toEqual(['reason'])
   })
+
+  it('reports a bad amount and a missing reason together', () => {
+    const result = creditNoteSchema(49950).safeParse({ amountRupees: '1e3', reason: '' })
+    expect(result.success).toBe(false)
+    const paths = result.error?.issues.map((issue) => issue.path.join('.'))
+    expect(paths).toContain('amountRupees')
+    expect(paths).toContain('reason')
+  })
 })

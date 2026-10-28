@@ -24,30 +24,24 @@ const AMOUNT_MESSAGE = 'Enter an amount in rupees, such as 499 or 499.50.'
  */
 export function creditNoteSchema(remainingMinor: number) {
   const rangeMessage = `Enter ₹1 to ${formatInr(remainingMinor)}.`
-  return z
-    .object({ amountRupees: z.string().trim(), reason: reasonSchema })
-    .transform(({ amountRupees, reason }, context) => {
+  const amountMinor = z
+    .string()
+    .trim()
+    .transform((amountRupees, context) => {
       const match = RUPEES_PATTERN.exec(amountRupees)
       if (!match) {
-        context.issues.push({
-          code: 'custom',
-          message: AMOUNT_MESSAGE,
-          input: amountRupees,
-          path: ['amountRupees'],
-        })
+        context.issues.push({ code: 'custom', message: AMOUNT_MESSAGE, input: amountRupees })
         return z.NEVER
       }
       const paise = Number((match[2] ?? '').padEnd(2, '0'))
-      const amountMinor = Number(match[1]) * 100 + paise
-      if (amountMinor < MIN_CREDIT_MINOR || amountMinor > remainingMinor) {
-        context.issues.push({
-          code: 'custom',
-          message: rangeMessage,
-          input: amountRupees,
-          path: ['amountRupees'],
-        })
+      const minor = Number(match[1]) * 100 + paise
+      if (minor < MIN_CREDIT_MINOR || minor > remainingMinor) {
+        context.issues.push({ code: 'custom', message: rangeMessage, input: amountRupees })
         return z.NEVER
       }
-      return { amountMinor, reason }
+      return minor
     })
+  return z
+    .object({ amountRupees: amountMinor, reason: reasonSchema })
+    .transform(({ amountRupees, reason }) => ({ amountMinor: amountRupees, reason }))
 }
