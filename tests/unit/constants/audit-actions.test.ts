@@ -9,8 +9,22 @@ import {
 } from '@/constants/audit-actions'
 import { EMAIL_ID, EMAIL_ID_2, INVITATION_ID, USER_ID, USER_ID_2 } from '@/tests/fixtures/ids'
 
+describe('tax audit labels', () => {
+  it('words each tax action as a label', () => {
+    expect(AUDIT_ACTION_LABELS['billing.tax_details_updated']).toBe('Tax details changed')
+    expect(AUDIT_ACTION_LABELS['billing.tax_document_issued']).toBe('Tax document issued')
+    expect(AUDIT_ACTION_LABELS['billing.credit_note_issued_by_staff']).toBe(
+      'Credit note issued by staff'
+    )
+    expect(AUDIT_ACTION_LABELS['billing.held_charge_resolved']).toBe('Held SEZ charge resolved')
+    expect(AUDIT_ACTION_LABELS['billing.tax_export_downloaded']).toBe(
+      'GST return export downloaded'
+    )
+  })
+})
+
 describe('AUDIT_ACTIONS', () => {
-  it('lists exactly the fifty-two actions the API writes', () => {
+  it('lists exactly the fifty-seven actions the API writes', () => {
     expect([...AUDIT_ACTIONS].sort()).toEqual(
       [
         'invitation.accepted',
@@ -61,12 +75,18 @@ describe('AUDIT_ACTIONS', () => {
         'billing.interval_switch_scheduled',
         'billing.resynced',
         'billing.settings_updated',
+        'billing.credit_note_issued_by_staff',
+        'billing.held_charge_resolved',
+        'billing.tax_details_updated',
+        'billing.tax_document_issued',
+        'billing.tax_export_downloaded',
         'billing.trial_extended',
         'billing.viewed',
         'plan.price_created',
         'plan.updated',
       ].sort()
     )
+    expect(AUDIT_ACTIONS).toHaveLength(57)
     for (const action of AUDIT_ACTIONS) {
       expect(AUDIT_ACTION_LABELS[action]).not.toBe('')
       expect(auditSentence({ action, metadata: {} })).not.toMatch(/^performed /)
@@ -250,6 +270,56 @@ describe('auditSentence', () => {
       { changedFields: [], reason: 'checked' },
       'saved the billing settings with no changes: “checked”',
     ],
+    [
+      'billing.tax_details_updated',
+      { changedFields: ['gstin', 'pincode'] },
+      'changed the tax details (GSTIN, PIN code)',
+    ],
+    [
+      'billing.tax_details_updated',
+      {
+        changedFields: ['legalName', 'addressLine1', 'addressLine2', 'city', 'stateCode', 'isSez'],
+        reason: 'Customer sent a certificate',
+      },
+      'changed the tax details (legal name, address line 1, address line 2, city, state, SEZ unit): “Customer sent a certificate”',
+    ],
+    [
+      'billing.tax_details_updated',
+      { changedFields: ['gstin', 'newField'] },
+      'changed the tax details (GSTIN, newField)',
+    ],
+    ['billing.tax_details_updated', { changedFields: [] }, 'saved the tax details with no changes'],
+    ['billing.tax_details_updated', {}, 'changed the tax details'],
+    ['billing.tax_document_issued', { type: 'invoice' }, 'issued a tax invoice'],
+    ['billing.tax_document_issued', { type: 'credit_note' }, 'issued a credit note'],
+    ['billing.tax_document_issued', {}, 'issued a tax document'],
+    [
+      'billing.credit_note_issued_by_staff',
+      { invoiceId: 'x', reason: 'Chargeback lost' },
+      'issued a credit note by hand: “Chargeback lost”',
+    ],
+    [
+      'billing.held_charge_resolved',
+      { heldChargeId: 'x', reason: 'Invoiced by hand' },
+      'marked a held SEZ charge resolved: “Invoiced by hand”',
+    ],
+    [
+      'billing.tax_export_downloaded',
+      { period: '2026-09' },
+      'downloaded the GST return export for September 2026',
+    ],
+    [
+      'billing.tax_export_downloaded',
+      { period: '2026-Q3' },
+      'downloaded the GST return export for Q3 2026-27',
+    ],
+    [
+      'billing.tax_export_downloaded',
+      { period: '2026-Q4' },
+      'downloaded the GST return export for Q4 2026-27',
+    ],
+    ['billing.tax_export_downloaded', { period: '2026-13' }, 'downloaded the GST return export'],
+    ['billing.tax_export_downloaded', {}, 'downloaded the GST return export'],
     [
       'billing.grant_added',
       { key: 'members', value: 'ten', expiresAt: null, reason: 'demo' },

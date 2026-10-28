@@ -20,6 +20,11 @@ const NAMES = [
   'Evangeline',
   'Featherstonehaugh',
   'Pii Probe’s phone',
+  'Acme Corp Private Limited',
+  '29ABCDE1234F1ZW',
+  'Issued SEZ invoice by hand, emailed 21 Oct 2026',
+  'Chargeback lost on 20 Oct 2026',
+  '12 MG Road',
 ]
 
 const ACME = '/tenants/10000000-0000-4000-8000-000000000001'
@@ -46,6 +51,7 @@ for (const [name, path, ready] of [
   ['a tenant’s emails', `${ACME}/emails`, 'Acme Corp'],
   ['a tenant’s onboarding', `${ACME}/onboarding`, 'Acme Corp'],
   ['a tenant’s billing', `${ACME}/billing`, 'Acme Corp'],
+  ['a tenant’s tax documents', `${ACME}/billing&tax=sez`, 'Acme Corp'],
   ['the emails list', '/emails', 'Emails'],
   ['an email', DELIVERED, 'cleo.d@example.com'],
   ['an email’s preview', `${DELIVERED}?tab=preview`, 'cleo.d@example.com'],

@@ -11,21 +11,25 @@
  */
 import {
   infiniteQueryOptions,
+  queryOptions,
   useMutation,
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { codeFrom, statusFrom } from '@/lib/api-error'
+import { downloadFile } from '@/lib/download-file'
 import { isReauthRequired } from '@/lib/step-up'
 import { auditKeys } from '@/queries/audit.queries'
-import { billingAdminKeys } from '@/queries/billing-reads.queries'
+import { billingAdminKeys, retryRead } from '@/queries/billing-reads.queries'
 import { listQueryOptions, retryList } from '@/queries/list.queries'
 import { invalidateDirectory } from '@/queries/platform.queries'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
 import type { ApiSuccess } from '@/types/api.types'
 import {
   PLAN_VERSION_CONFLICT,
+  CREDIT_NOTE_REPEATED,
+  TAX_DETAILS_VERSION_CONFLICT,
   type BillingAlert,
   type BillingInterval,
   type BillingSettings,
@@ -38,7 +42,11 @@ import {
   type StaffInvoiceItem,
   type StaffPlan,
   type StaffPlans,
+  type StaffTaxDetails,
+  type StaffTaxDetailsPatch,
+  type StaffTaxDocumentItem,
   type StaffTenantBilling,
+  type TaxHeldCharge,
 } from '@/types/billing.types'
 import type { ListPage, ListRequest } from '@/types/list.types'
 
@@ -104,6 +112,47 @@ export function billingEventsListOptions(tenantId: string, request: ListRequest)
  */
 export function billingSubscriptionsListOptions(tenantId: string, request: ListRequest) {
   return tenantBillingListOptions<StaffBillingSubscriptionItem>(tenantId, 'subscriptions', request)
+}
+
+/**
+ * One page of `GET /platform/tenants/:id/billing/tax-documents` (viewer):
+ * search matches the document number.
+ * @param tenantId - The tenant.
+ * @param request - From `listRequest(taxDocumentsList, …)`.
+ * @returns Query options for `useListQuery`.
+ */
+export function taxDocumentsListOptions(tenantId: string, request: ListRequest) {
+  return tenantBillingListOptions<StaffTaxDocumentItem>(tenantId, 'tax-documents', request)
+}
+
+/**
+ * One page of `GET /platform/tenants/:id/billing/tax-held-charges` (viewer).
+ * @param tenantId - The tenant.
+ * @param request - From `listRequest(taxHeldChargesList, …)`.
+ * @returns Query options for `useListQuery`.
+ */
+export function taxHeldChargesListOptions(tenantId: string, request: ListRequest) {
+  return tenantBillingListOptions<TaxHeldCharge>(tenantId, 'tax-held-charges', request)
+}
+
+/**
+ * `GET /platform/tenants/:id/billing/tax-details` (viewer): the workspace's
+ * tax details, or `null` when never saved. A 404 is a role refusal, or one
+ * of the tax codes; none changes on a retry.
+ * @param tenantId - The tenant.
+ */
+export function staffTaxDetailsQueryOptions(tenantId: string) {
+  return queryOptions({
+    queryKey: [...billingAdminKeys.tenant(tenantId), 'tax-details'] as const,
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await apiClient.get<ApiSuccess<StaffTaxDetails | null>>(
+          `/platform/tenants/${tenantId}/billing/tax-details`,
+          { signal }
+        )
+      ),
+    retry: retryRead,
+  })
 }
 
 /**
@@ -427,5 +476,128 @@ export function useUpdateBillingSettings() {
         await queryClient.invalidateQueries({ queryKey: billingAdminKeys.settings })
       }
     },
+  })
+}
+
+/**
+ * `PATCH /platform/tenants/:id/billing/tax-details` (manager): the changed
+ * fields, the version read and a reason. The answer replaces the cached
+ * details and the audit log refreshes. A 409 `TAX_DETAILS_VERSION_CONFLICT`
+ * means someone saved first, so the details reload.
+ */
+export function useSaveStaffTaxDetails(tenantId: string) {
+  const queryClient = useQueryClient()
+  const key = [...billingAdminKeys.tenant(tenantId), 'tax-details'] as const
+  return useMutation({
+    mutationFn: async (input: StaffTaxDetailsPatch) =>
+      unwrap(
+        await apiClient.patch<ApiSuccess<StaffTaxDetails>>(
+          `/platform/tenants/${tenantId}/billing/tax-details`,
+          input
+        )
+      ),
+    onSuccess: async (details) => {
+      queryClient.setQueryData(key, details)
+      await invalidateAuditLogs(queryClient)
+    },
+    onError: async (error) => {
+      if (codeFrom(error) === TAX_DETAILS_VERSION_CONFLICT) {
+        await queryClient.invalidateQueries({ queryKey: key })
+      }
+    },
+  })
+}
+
+/**
+ * `POST …/billing/tax-documents/:docId/credit-notes` (admin): a credit note
+ * by hand, for a lost dispute. The tax documents, the invoices (whose rows
+ * list their credit notes) and the audit log refresh. A 409 such as
+ * `NOT_AN_INVOICE` or `CREDIT_EXCEEDS_INVOICE` means the cached documents were
+ * stale, so they reload. A 409 `CREDIT_NOTE_REPEATED` means the same note was
+ * just issued, so nothing reloads.
+ */
+export function useIssueManualCreditNote(tenantId: string) {
+  const queryClient = useQueryClient()
+  const documents = [...billingAdminKeys.tenant(tenantId), 'tax-documents'] as const
+  return useMutation({
+    mutationFn: async ({
+      docId,
+      ...body
+    }: {
+      docId: string
+      amountMinor: number
+      reason: string
+    }) =>
+      unwrap(
+        await apiClient.post<ApiSuccess<StaffTaxDocumentItem>>(
+          `/platform/tenants/${tenantId}/billing/tax-documents/${docId}/credit-notes`,
+          body
+        )
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: documents }),
+        queryClient.invalidateQueries({
+          queryKey: [...billingAdminKeys.tenant(tenantId), 'invoices'],
+        }),
+        invalidateAuditLogs(queryClient),
+      ])
+    },
+    onError: async (error) => {
+      if (statusFrom(error) === 409 && codeFrom(error) !== CREDIT_NOTE_REPEATED) {
+        await queryClient.invalidateQueries({ queryKey: documents })
+      }
+    },
+  })
+}
+
+/**
+ * `POST …/billing/tax-held-charges/:heldId/resolve` (admin): records that
+ * staff issued the held SEZ charge's invoice by hand. The held list, the
+ * tenant's billing view (its `openHeldCharges`), the invoices and the audit
+ * log refresh. A 409 `HELD_CHARGE_RESOLVED` means the list was stale, so it
+ * reloads.
+ */
+export function useResolveHeldCharge(tenantId: string) {
+  const queryClient = useQueryClient()
+  const held = [...billingAdminKeys.tenant(tenantId), 'tax-held-charges'] as const
+  return useMutation({
+    mutationFn: async ({ heldId, reason }: { heldId: string; reason: string }) =>
+      unwrap(
+        await apiClient.post<ApiSuccess<TaxHeldCharge>>(
+          `/platform/tenants/${tenantId}/billing/tax-held-charges/${heldId}/resolve`,
+          { reason }
+        )
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: held }),
+        queryClient.invalidateQueries({ queryKey: billingAdminKeys.tenant(tenantId), exact: true }),
+        queryClient.invalidateQueries({
+          queryKey: [...billingAdminKeys.tenant(tenantId), 'invoices'],
+        }),
+        invalidateAuditLogs(queryClient),
+      ])
+    },
+    onError: async (error) => {
+      if (statusFrom(error) === 409) {
+        await queryClient.invalidateQueries({ queryKey: held })
+      }
+    },
+  })
+}
+
+/**
+ * `GET /platform/billing/tax-export?period=` (admin, step-up): saves one
+ * month or quarter of tax documents as a ZIP of GSTR-1 CSV files. It
+ * resolves the name the file was saved under. Express records the download
+ * in the audit log, so the logs refresh.
+ */
+export function useDownloadTaxExport() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (period: string) =>
+      downloadFile('/platform/billing/tax-export', `gstr1-${period}.zip`, { params: { period } }),
+    onSuccess: () => invalidateAuditLogs(queryClient),
   })
 }

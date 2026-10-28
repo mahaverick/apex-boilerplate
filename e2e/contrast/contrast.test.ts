@@ -147,8 +147,26 @@ const SURFACES = [
     url: `/e2e/harness/?path=${ACME_PAGE}/billing&billing=past_due`,
     heading: 'Usage and access',
   },
+  // The tax cards: details, the documents' type and Manual badges, and the invoice rows' tax column.
+  {
+    name: 'tenant billing (tax)',
+    url: `/e2e/harness/?path=${ACME_PAGE}/billing&tax=on`,
+    heading: /^Tax documents$/,
+  },
+  // The held SEZ charges' Open and Resolved badges and their Mark resolved button.
+  {
+    name: 'tenant billing (SEZ held)',
+    url: `/e2e/harness/?path=${ACME_PAGE}/billing&tax=sez`,
+    heading: /^Held SEZ charges$/,
+  },
   // The plan editor's inputs, switches and checkboxes, the prices table and the trials and grace card.
   { name: 'plans', url: '/e2e/harness/?path=/plans', heading: 'Trials and grace' },
+  // The GST return export's radios, period select and download button.
+  {
+    name: 'plans (export)',
+    url: '/e2e/harness/?path=/plans&tax=on',
+    heading: /^GST return export$/,
+  },
   {
     name: 'plans (viewer)',
     url: '/e2e/harness/?path=/plans&role=viewer',

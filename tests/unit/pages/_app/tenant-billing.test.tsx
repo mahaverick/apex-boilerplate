@@ -10,6 +10,7 @@ import {
   testFreeTenantBilling,
   testInvoices,
   testPlans,
+  testTaxDocuments,
   testTenantBilling,
 } from '@/tests/fixtures/billing'
 import { PLATFORM_TENANT_ID, TENANT_ID } from '@/tests/fixtures/ids'
@@ -341,19 +342,20 @@ describe('/tenants/$tenantId/billing', () => {
       expect(row(card, 'Payer')).toBe('A B (left the tenant)')
     })
 
+    // The grace end is far ahead because the real clock decides whether a grace has ended.
     it('says when Paid ends after a failed payment with a grace end', async () => {
       serve({
         ...testTenantBilling,
         state: 'past_due',
         pastDue: {
-          since: '2026-10-21T00:00:00.000Z',
-          graceEndsAt: '2026-10-28T00:00:00.000Z',
+          since: '2099-10-21T00:00:00.000Z',
+          graceEndsAt: '2099-10-28T00:00:00.000Z',
           paused: false,
         },
       })
       renderAppAt(BILLING)
       const card = await summary()
-      expect(row(card, 'Failed payment')).toMatch(/^Payment failed on .+\. Paid ends on .+2026\.$/)
+      expect(row(card, 'Failed payment')).toMatch(/^Payment failed on .+\. Paid ends on .+2099\.$/)
       // Express ends a failed payment's Paid with its grace, so the period end (the failed renewal) is no row.
       expect(within(card).queryByText('Paid until', { selector: 'dt' })).toBeNull()
     })
@@ -1139,5 +1141,27 @@ describe('/tenants/$tenantId/billing', () => {
       ).toBeInTheDocument()
       expect(screen.queryByText('No invoices for this tenant.')).toBeNull()
     })
+  })
+})
+
+describe('/tenants/$tenantId/billing with tax documents', () => {
+  beforeEach(() => {
+    signIn({ ...testUser, platformRole: 'viewer' })
+  })
+
+  it('mounts the Tax details and Tax documents cards after Invoices inside one main and one h1', async () => {
+    serve({ ...testTenantBilling, taxDocumentsEnabled: true, hasTaxDocuments: true })
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-documents`, () =>
+        ok(listPage(testTaxDocuments), 'Tax documents retrieved.')
+      )
+    )
+    renderAppAt(BILLING)
+    await screen.findByRole('table', { name: 'Tax documents' })
+    const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+    expect(headings.indexOf('Tax details')).toBe(headings.indexOf('Invoices') + 1)
+    expect(headings.indexOf('Tax documents')).toBe(headings.indexOf('Invoices') + 2)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getAllByRole('main')).toHaveLength(1)
   })
 })

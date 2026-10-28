@@ -16,7 +16,7 @@ describe('EMAIL_TEMPLATES', () => {
     for (const key of EMAIL_TEMPLATE_KEYS) expect(EMAIL_TEMPLATES[key].label).not.toBe('')
   })
 
-  it('matches express’s template keys, the twenty-four it sends and the five it retired', () => {
+  it('matches express’s template keys, the twenty-five it sends and the five it retired', () => {
     expect([...EMAIL_TEMPLATE_KEYS].sort()).toEqual(
       [
         'tenant_invitation',
@@ -43,6 +43,7 @@ describe('EMAIL_TEMPLATES', () => {
         'upgrade_requested',
         'upgrade_request_fulfilled',
         'winback',
+        'tax_document_issued',
         'email_verification',
         'password_reset',
         'registration_attempt',
@@ -50,6 +51,13 @@ describe('EMAIL_TEMPLATES', () => {
         'account_setup',
       ].sort()
     )
+  })
+
+  it('labels the tax document notice and offers no resend', () => {
+    expect(EMAIL_TEMPLATES.tax_document_issued).toEqual({
+      label: 'Tax document issued',
+      resendLabel: null,
+    })
   })
 
   it('offers a resend for sign_in_link and welcome, and none for step_up_link or a retired key', () => {

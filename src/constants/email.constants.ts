@@ -16,7 +16,7 @@ import type {
  * Resend dialog shows: a sign-in link or welcome message mails a fresh
  * sign-in link, and an invitation or its confirmation sends the invitation
  * again. The identity confirmation link, the onboarding reminder, the
- * maintenance-mode notice, the two passkey notices, the fifteen billing
+ * maintenance-mode notice, the two passkey notices, the sixteen billing
  * notices and the five retired templates have no resend.
  */
 export const EMAIL_TEMPLATES: Record<
@@ -50,6 +50,7 @@ export const EMAIL_TEMPLATES: Record<
   upgrade_requested: { label: 'Upgrade requested', resendLabel: null },
   upgrade_request_fulfilled: { label: 'Upgrade request fulfilled', resendLabel: null },
   winback: { label: 'Win-back', resendLabel: null },
+  tax_document_issued: { label: 'Tax document issued', resendLabel: null },
   email_verification: { label: 'Email verification', resendLabel: null },
   password_reset: { label: 'Password reset', resendLabel: null },
   registration_attempt: { label: 'Registration attempt', resendLabel: null },

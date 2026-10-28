@@ -72,7 +72,7 @@ function AlertRow({ alert, now }: { alert: BillingAlert; now: number }) {
         <span aria-hidden="true" className="text-muted-foreground">
           ·
         </span>
-        <AlertTenant tenant={alert.tenant} />
+        <AlertTenant tenant={alert.tenant} kind={alert.kind} />
         <span aria-hidden="true" className="text-muted-foreground">
           ·
         </span>

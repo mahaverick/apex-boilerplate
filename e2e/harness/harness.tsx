@@ -31,7 +31,6 @@ import {
   testBillingSettings,
   testBillingHistory,
   testBillingSubscriptions,
-  testInvoices,
   testPlans,
   testTenantBilling,
 } from '../../tests/fixtures/billing'
@@ -61,6 +60,7 @@ import {
 } from '../../tests/fixtures/ids'
 import { listPage } from '../../tests/fixtures/list-page'
 import { USER_HANDLE } from '../../tests/fixtures/user-handle'
+import { createTaxHarness, SEZ_ALERTS, taxDocumentsExist, taxEnabled, withTaxState } from './tax'
 
 /** The one tenant the activity rows and the tenant filter name. */
 /** The Activity page's third entry: a suspension whose reason names a person. */
@@ -305,8 +305,10 @@ function harnessToken(authTime = sessionAuthTime()): string {
  * with the suspended tenant, which the tenant's page then reads. So only a
  * retry that carries the confirmed token lands. Without it, every suspend is
  * refused. The staff billing writes (a tenant's resync, extend trial, grants
- * and cancel; a plan save, a new price and the billing settings) take the
- * same check under it, and pass without it (`billingStepUpRefusal`).
+ * and cancel; a plan save, a new price and the billing settings; a tax
+ * details correction, a credit note, a held charge resolved and the GSTR-1
+ * export) take the same check under it, and pass without it
+ * (`billingStepUpRefusal`).
  */
 const stepUpOnce = params.get('stepup') === 'once'
 /** Whether Acme is suspended now, in this page load. */
@@ -322,15 +324,20 @@ const billingSettings: { value: BillingSettings } = {
     version: 2,
     updatedAt: '2026-10-20T10:00:00.000Z',
     updatedBy: { userId: STAFF_USER_ID, name: 'Sam Staff' },
+    taxDocumentsEnabled: taxEnabled,
+    hasTaxDocuments: taxDocumentsExist,
+    gstEffectiveFrom: taxDocumentsExist ? '2026-04-01' : null,
   },
 }
 
 /**
  * Seven billing alerts, newest first, so the Overview card shows five and
  * the full list has more: every kind, one with no tenant, and one message
- * at express's 280-character cap for the overflow check.
+ * at express's 280-character cap for the overflow check. `?tax=sez` puts its
+ * two alerts first.
  */
 const BILLING_ALERTS: BillingAlert[] = [
+  ...SEZ_ALERTS,
   ...testBillingAlerts,
   {
     id: '94000000-0000-4000-8000-000000000003',
@@ -499,7 +506,7 @@ function initialBilling(): StaffTenantBilling | null {
 }
 
 /** Every customer tenant's billing view as staff writes leave it in this page load; null under `?billing=none`. */
-const billing: { view: StaffTenantBilling | null } = { view: initialBilling() }
+const billing: { view: StaffTenantBilling | null } = { view: withTaxState(initialBilling()) }
 
 /**
  * The view with its entitlements worked out again from its plan and its
@@ -1763,11 +1770,15 @@ const passkeyHandlers = [
   }),
 ]
 
+/** The staff tax routes and the invoice rows' tax column, for `?tax=`. */
+const taxHarness = createTaxHarness({ ok, fail, serveList, billing, billingStepUpRefusal })
+
 const worker = setupWorker(
   // Under `?setup=1` every platform call is refused until the first passkey exists, `?hold=` and `?fail=` included; it falls through once it does.
   http.all('/api/v1/platform/*', () => setupRefusal() ?? undefined),
   ...sectionHandlers,
   ...passkeyHandlers,
+  ...taxHarness.handlers,
   // The Overview, the default route: its KPI cards and both charts.
   http.get('/api/v1/platform/stats', ({ request }) =>
     ok(
@@ -2264,7 +2275,9 @@ const worker = setupWorker(
   http.get('/api/v1/platform/tenants/:tenantId/billing/invoices', ({ request }) => {
     const params = new URL(request.url).searchParams
     const status = params.get('status')?.split(',')
-    const items = testInvoices.filter((row) => status === undefined || status.includes(row.status))
+    const items = taxHarness
+      .invoiceRows()
+      .filter((row) => status === undefined || status.includes(row.status))
     return ok(
       params.has('cursor')
         ? listPage(items, { hasPrev: true })

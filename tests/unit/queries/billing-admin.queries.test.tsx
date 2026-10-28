@@ -11,10 +11,16 @@ import {
   billingHistoryListOptions,
   billingSubscriptionsListOptions,
   staffInvoicesQueryOptions,
+  staffTaxDetailsQueryOptions,
+  taxDocumentsListOptions,
+  taxHeldChargesListOptions,
   useAddGrant,
   useCancelBillingByStaff,
   useCreatePrice,
   useExtendTrial,
+  useIssueManualCreditNote,
+  useResolveHeldCharge,
+  useSaveStaffTaxDetails,
   usePreviewPlanChange,
   useResyncBilling,
   useRevokeGrant,
@@ -30,9 +36,19 @@ import {
   billingSubscriptionsList,
   staffPlansQueryOptions,
   staffTenantBillingQueryOptions,
+  taxDocumentsList,
+  taxHeldChargesList,
 } from '@/queries/billing-reads.queries'
 import { tenantAdminKeys } from '@/queries/tenant-admin.queries'
-import { testBillingSettings, testPlans, testTenantBilling } from '@/tests/fixtures/billing'
+import { listRequest, listValues } from '@/schemas/list-request.schemas'
+import {
+  testBillingSettings,
+  testHeldCharges,
+  testPlans,
+  testTaxDetails,
+  testTaxDocuments,
+  testTenantBilling,
+} from '@/tests/fixtures/billing'
 import { TENANT_ID, TENANT_ID_2 } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { fail, ok } from '@/tests/mocks/handlers'
@@ -557,5 +573,223 @@ describe('billing settings writes', () => {
     result.current.mutate({ version: 1, trialDays: 21, reason: 'Longer trials' })
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(stale(client, billingAdminKeys.settings)).toBe(false)
+  })
+})
+
+describe('tax lists', () => {
+  it('keeps the tax lists’ URL keys apart and joins them to the Billing tab’s one schema', () => {
+    expect(taxDocumentsList.sorts).toEqual(['-issued', 'issued'])
+    expect(Object.keys(taxDocumentsList.filters)).toEqual(['type'])
+    expect(taxDocumentsList.urlKey('search')).toBe('taxSearch')
+    expect(taxHeldChargesList.sorts).toEqual(['-heldAt'])
+    expect(Object.keys(taxHeldChargesList.filters)).toEqual(['status'])
+    expect(taxHeldChargesList.urlKey('search')).toBe('heldSearch')
+    expect(
+      billingHistoryList.schema.parse({
+        taxSort: 'issued',
+        taxType: 'credit_note,bogus',
+        heldStatus: 'open',
+      })
+    ).toEqual({ taxSort: 'issued', taxType: 'credit_note', heldStatus: 'open' })
+  })
+
+  it('sends a tax documents URL round trip as sort and type', () => {
+    const search = billingHistoryList.schema.parse({ taxSort: 'issued', taxType: 'credit_note' })
+    expect(listRequest(taxDocumentsList, listValues(taxDocumentsList, search))).toEqual({
+      sort: 'issued',
+      type: 'credit_note',
+    })
+  })
+
+  it('never sends the held list’s one sort, which is its default', () => {
+    const search = billingHistoryList.schema.parse({ heldSort: '-heldAt', heldStatus: 'open' })
+    const request = listRequest(taxHeldChargesList, listValues(taxHeldChargesList, search))
+    expect(request).toEqual({ status: 'open' })
+    expect('sort' in request).toBe(false)
+  })
+
+  it.each([
+    ['tax-documents', taxDocumentsListOptions],
+    ['tax-held-charges', taxHeldChargesListOptions],
+  ] as const)('reads the %s list under the tenant’s billing key', async (path, options) => {
+    let asked: URLSearchParams | undefined
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/${path}`, ({ request }) => {
+        asked = new URL(request.url).searchParams
+        return ok(listPage([]), 'ok')
+      })
+    )
+    const query = options(TENANT_ID, { search: 'INV', cursor: 'c2' }) as ReturnType<
+      typeof taxDocumentsListOptions
+    >
+    expect(query.queryKey.slice(0, 5)).toEqual([...billingAdminKeys.tenant(TENANT_ID), path])
+    await new QueryClient().fetchQuery(query)
+    expect(asked?.get('search')).toBe('INV')
+    expect(asked?.get('cursor')).toBe('c2')
+  })
+
+  it('reads the staff tax details under the tenant’s billing key, null when never saved', async () => {
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-details`, () => ok(null, 'none'))
+    )
+    const options = staffTaxDetailsQueryOptions(TENANT_ID)
+    expect(options.queryKey).toEqual([...billingAdminKeys.tenant(TENANT_ID), 'tax-details'])
+    expect(await new QueryClient().fetchQuery(options)).toBeNull()
+  })
+})
+
+describe('tax writes', () => {
+  /** The tenant's tax documents, invoices and held lists, cached, so a write can mark them stale. */
+  function taxClient() {
+    const client = seededClient()
+    for (const name of ['tax-documents', 'invoices', 'tax-held-charges']) {
+      client.setQueryData([...billingAdminKeys.tenant(TENANT_ID), name, {}], listPage([]))
+    }
+    client.setQueryData([...billingAdminKeys.tenant(TENANT_ID), 'tax-details'], testTaxDetails)
+    return client
+  }
+  /** One cached tenant list's key. */
+  const listKey = (name: string): QueryKey => [...billingAdminKeys.tenant(TENANT_ID), name, {}]
+
+  it('saves tax details, caches the answer and refreshes the log', async () => {
+    const saved = { ...testTaxDetails, version: 4 }
+    let body: unknown
+    server.use(
+      http.patch(
+        `/api/v1/platform/tenants/${TENANT_ID}/billing/tax-details`,
+        async ({ request }) => {
+          body = await request.json()
+          return ok(saved, 'Saved.')
+        }
+      )
+    )
+    const client = taxClient()
+    const { result } = renderHook(() => useSaveStaffTaxDetails(TENANT_ID), {
+      wrapper: wrapperWith(client),
+    })
+    result.current.mutate({ version: 3, pincode: '560002', reason: 'Fix' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(body).toEqual({ version: 3, pincode: '560002', reason: 'Fix' })
+    expect(client.getQueryData([...billingAdminKeys.tenant(TENANT_ID), 'tax-details'])).toEqual(
+      saved
+    )
+    expect(stale(client, AUDIT_KEY)).toBe(true)
+  })
+
+  it('refetches the details on a 409 TAX_DETAILS_VERSION_CONFLICT', async () => {
+    server.use(
+      http.patch(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-details`, () =>
+        fail('Express’s conflict sentence.', 409, 'TAX_DETAILS_VERSION_CONFLICT')
+      )
+    )
+    const client = taxClient()
+    const { result } = renderHook(() => useSaveStaffTaxDetails(TENANT_ID), {
+      wrapper: wrapperWith(client),
+    })
+    result.current.mutate({ version: 2, city: 'Pune', reason: 'Fix' })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(stale(client, [...billingAdminKeys.tenant(TENANT_ID), 'tax-details'])).toBe(true)
+  })
+
+  it('posts a manual credit note and refreshes the tax documents, the invoices and the log', async () => {
+    const note = testTaxDocuments[2]
+    let body: unknown
+    server.use(
+      http.post(
+        `/api/v1/platform/tenants/${TENANT_ID}/billing/tax-documents/d1/credit-notes`,
+        async ({ request }) => {
+          body = await request.json()
+          return ok(note, 'Issued.', 201)
+        }
+      )
+    )
+    const client = taxClient()
+    const { result } = renderHook(() => useIssueManualCreditNote(TENANT_ID), {
+      wrapper: wrapperWith(client),
+    })
+    result.current.mutate({ docId: 'd1', amountMinor: 20_000, reason: 'r' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(body).toEqual({ amountMinor: 20_000, reason: 'r' })
+    expect(stale(client, listKey('tax-documents'))).toBe(true)
+    expect(stale(client, listKey('invoices'))).toBe(true)
+    expect(stale(client, AUDIT_KEY)).toBe(true)
+    expect(stale(client, listKey('tax-held-charges'))).toBe(false)
+  })
+
+  it.each(['CREDIT_EXCEEDS_INVOICE', 'NOT_AN_INVOICE'])(
+    'refreshes the tax documents on a 409 %s',
+    async (code) => {
+      server.use(
+        http.post(
+          `/api/v1/platform/tenants/${TENANT_ID}/billing/tax-documents/d1/credit-notes`,
+          () => fail('Express’s sentence.', 409, code)
+        )
+      )
+      const client = taxClient()
+      const { result } = renderHook(() => useIssueManualCreditNote(TENANT_ID), {
+        wrapper: wrapperWith(client),
+      })
+      result.current.mutate({ docId: 'd1', amountMinor: 20_000, reason: 'r' })
+      await waitFor(() => expect(result.current.isError).toBe(true))
+      expect(stale(client, listKey('tax-documents'))).toBe(true)
+      expect(stale(client, AUDIT_KEY)).toBe(false)
+    }
+  )
+
+  it('leaves the tax documents alone on a 409 CREDIT_NOTE_REPEATED', async () => {
+    server.use(
+      http.post(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-documents/d1/credit-notes`, () =>
+        fail('Express’s sentence.', 409, 'CREDIT_NOTE_REPEATED')
+      )
+    )
+    const client = taxClient()
+    const { result } = renderHook(() => useIssueManualCreditNote(TENANT_ID), {
+      wrapper: wrapperWith(client),
+    })
+    result.current.mutate({ docId: 'd1', amountMinor: 20_000, reason: 'r' })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(stale(client, listKey('tax-documents'))).toBe(false)
+  })
+
+  it('resolves a held charge and refreshes the billing view exactly, the lists and the log', async () => {
+    const held = testHeldCharges[1]
+    let body: unknown
+    server.use(
+      http.post(
+        `/api/v1/platform/tenants/${TENANT_ID}/billing/tax-held-charges/h1/resolve`,
+        async ({ request }) => {
+          body = await request.json()
+          return ok(held, 'Resolved.')
+        }
+      )
+    )
+    const client = taxClient()
+    const { result } = renderHook(() => useResolveHeldCharge(TENANT_ID), {
+      wrapper: wrapperWith(client),
+    })
+    result.current.mutate({ heldId: 'h1', reason: 'Issued by hand' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(body).toEqual({ reason: 'Issued by hand' })
+    expect(stale(client, billingAdminKeys.tenant(TENANT_ID))).toBe(true)
+    expect(stale(client, listKey('tax-held-charges'))).toBe(true)
+    expect(stale(client, listKey('invoices'))).toBe(true)
+    expect(stale(client, AUDIT_KEY)).toBe(true)
+    expect(stale(client, billingAdminKeys.tenant(TENANT_ID_2))).toBe(false)
+  })
+
+  it('refreshes the held list on a 409 HELD_CHARGE_RESOLVED', async () => {
+    server.use(
+      http.post(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-held-charges/h1/resolve`, () =>
+        fail('Express’s sentence.', 409, 'HELD_CHARGE_RESOLVED')
+      )
+    )
+    const client = taxClient()
+    const { result } = renderHook(() => useResolveHeldCharge(TENANT_ID), {
+      wrapper: wrapperWith(client),
+    })
+    result.current.mutate({ heldId: 'h1', reason: 'r' })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(stale(client, listKey('tax-held-charges'))).toBe(true)
+    expect(stale(client, AUDIT_KEY)).toBe(false)
   })
 })

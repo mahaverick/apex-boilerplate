@@ -13,7 +13,9 @@ import { statusFrom } from '@/lib/api-error'
  * `/platform/email-suppressions` before 1.3.0, `/platform/onboarding/*` and
  * `/platform/tenants/:id/onboarding` before 1.4.0,
  * `/platform/system/status` before 1.7.0, `/platform/flags*` before 1.8.0,
- * `/platform/maintenance-mode` before 1.9.0), so it reads as role-denied.
+ * `/platform/maintenance-mode` before 1.9.0, the tax routes under
+ * `/platform/tenants/:id/billing/tax-*` and `/platform/billing/tax-export`
+ * before 10.0.0), so it reads as role-denied.
  * @param error - A query or mutation error.
  * @returns True for a 404.
  */

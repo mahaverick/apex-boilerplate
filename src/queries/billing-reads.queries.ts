@@ -19,6 +19,8 @@ import {
   BILLING_HISTORY_SOURCES,
   BILLING_PROVIDER_MODES,
   BILLING_PROVIDERS,
+  TAX_DOCUMENT_TYPES,
+  TAX_HELD_STATUSES,
   type BillingSettings,
   type StaffPlans,
   type StaffTenantBilling,
@@ -44,7 +46,7 @@ export const billingAdminKeys = {
  * @param failureCount - Failures so far.
  * @param error - The last failure.
  */
-function retryRead(failureCount: number, error: Error): boolean {
+export function retryRead(failureCount: number, error: Error): boolean {
   return retryList(failureCount, error)
 }
 
@@ -108,10 +110,30 @@ export const billingSubscriptionsList = defineList({
   prefix: 'subscriptions',
 })
 
+/** The tax documents list's URL contract on a tenant's Billing tab: newest issued first, by type. */
+export const taxDocumentsList = defineList({
+  sorts: ['-issued', 'issued'],
+  filters: { type: listFilter(TAX_DOCUMENT_TYPES) },
+  table: analyticsKey('tax_documents'),
+  prefix: 'tax',
+})
+
+/**
+ * The held SEZ charges list's URL contract on a tenant's Billing tab, by
+ * status. Its one sort, `-heldAt`, is the route's default, so a request
+ * never sends it.
+ */
+export const taxHeldChargesList = defineList({
+  sorts: ['-heldAt'],
+  filters: { status: listFilter(TAX_HELD_STATUSES) },
+  table: analyticsKey('tax_held_charges'),
+  prefix: 'held',
+})
+
 /**
  * The state history list's URL contract on a tenant's Billing tab: newest
- * first, by source. Each of the tab's three lists has its own prefix, and
- * this one carries the other two, so its `schema` is the route's one
+ * first, by source. Each of the tab's five lists has its own prefix, and
+ * this one carries the other four, so its `schema` is the route's one
  * `validateSearch`.
  */
 export const billingHistoryList = defineList({
@@ -119,7 +141,7 @@ export const billingHistoryList = defineList({
   filters: { source: listFilter(BILLING_HISTORY_SOURCES) },
   table: analyticsKey('billing_history'),
   prefix: 'history',
-  also: [billingEventsList, billingSubscriptionsList],
+  also: [billingEventsList, billingSubscriptionsList, taxDocumentsList, taxHeldChargesList],
 })
 
 /** The billing alerts list's URL contract on its own page: newest first, searched by message. */

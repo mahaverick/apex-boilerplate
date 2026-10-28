@@ -1,4 +1,5 @@
 import { IconCopy } from '@tabler/icons-react'
+import { Link, useParams } from '@tanstack/react-router'
 import { Fragment, type ReactNode, type Ref } from 'react'
 import { BillingStateBadge } from '@/components/features/billing/billing-state-badge'
 import { ToneBadge } from '@/components/features/tone-badge'
@@ -14,9 +15,11 @@ import {
   providerLabel,
   providerName,
 } from '@/constants/billing-labels'
+import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/use-now'
 import { CANCEL_BUFFER_MS, effectiveState } from '@/lib/billing-actions'
 import { formatInr } from '@/lib/billing-format'
+import { nounFor } from '@/lib/plural'
 import { relativeTime } from '@/lib/relative-time'
 import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
 
@@ -235,6 +238,7 @@ export function TenantBillingSummary({
   headingRef?: Ref<HTMLHeadingElement>
 }) {
   const now = useNow()
+  const { tenantId } = useParams({ strict: false })
   // A page left open past a trial's end, a cancel's buffer or a grace reads as the Free a fresh read would serve.
   const lapsed = billing.state !== 'free' && effectiveState(billing, now) === 'free'
   const planName = lapsed
@@ -263,6 +267,22 @@ export function TenantBillingSummary({
           <dd className="flex flex-wrap items-center gap-2">
             {planName}
             <BillingStateBadge state={lapsed ? 'free' : billing.state} />
+            {billing.openHeldCharges > 0 && (
+              <>
+                <ToneBadge tone="warning">Held: SEZ</ToneBadge>
+                {tenantId !== undefined && (
+                  <Link
+                    to={ROUTES.tenantBilling}
+                    params={{ tenantId }}
+                    hash="held-charges"
+                    className="underline-offset-4 hover:underline"
+                  >
+                    {billing.openHeldCharges} {nounFor(billing.openHeldCharges, 'charges')} to
+                    invoice by hand
+                  </Link>
+                )}
+              </>
+            )}
             {billing.disputeOpen && <ToneBadge tone="destructive">Dispute open</ToneBadge>}
           </dd>
           <dt className="text-muted-foreground">Price</dt>

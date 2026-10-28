@@ -412,31 +412,33 @@ raised the budget to 608,000; its history is in
 
 ### Apex's lists
 
-| List                       | Definition (`src/queries/`)                                                     | Route                                   | Page                                                               |
-| -------------------------- | ------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------ |
-| Tenants                    | `tenantsList`, `tenant-admin.queries.ts`                                        | `/tenants`                              | `tenants/tenants-table.tsx`                                        |
-| Users                      | `usersList`, `user-admin.queries.ts`                                            | `/users`                                | `users/users-table.tsx`                                            |
-| Emails                     | `emailsList`, `email.queries.ts`                                                | `/emails`                               | `emails/emails-table.tsx`                                          |
-| A tenant's Emails          | `tenantEmailsList`, `email.queries.ts`                                          | `/tenants/$tenantId/emails`             | `emails/emails-table.tsx`, the tenant fixed by the page            |
-| Suppressions               | `suppressionsList`, `email.queries.ts`                                          | `/suppressions`                         | `suppressions/suppressions-table.tsx`                              |
-| Onboarding tenants         | `onboardingTenantsList`                                                         | `/onboarding`                           | `onboarding/onboarding-tenants-table.tsx`                          |
-| Activity                   | `platformActivityList`, `audit.queries.ts`                                      | `/activity`                             | `activity/activity-table.tsx`                                      |
-| A tenant's Activity        | `tenantActivityList`, `audit.queries.ts`                                        | `/tenants/$tenantId/activity`           | `activity/activity-table.tsx`                                      |
-| History cards              | `historyList` (prefix `history`)                                                | `/tenants/$tenantId`, `/users/$userId`  | `history-card.tsx`, over `activity-table.tsx`                      |
-| Members                    | `membersList`, `tenant.queries.ts`                                              | `/tenants/$tenantId/members`, Staff     | `tenant/members-card.tsx`                                          |
-| Pending invitations        | `invitationsList` (prefix `invitations`)                                        | `/tenants/$tenantId/invitations`, Staff | `tenant/pending-invitations.tsx`                                   |
-| Registered flags           | `flagsList`, `flag-inspector.queries.ts`                                        | `/settings/platform/flags`              | `flags/flag-registry-table.tsx`                                    |
-| Unregistered flags         | `unregisteredFlagsList` (prefix)                                                | `/settings/platform/flags`              | `flags/unregistered-flags-table.tsx`                               |
-| A tenant's state history   | `billingHistoryList` (prefix `history`), `billing-reads.queries.ts`             | `/tenants/$tenantId/billing`            | `billing/billing-history-card.tsx`                                 |
-| A tenant's provider events | `billingEventsList` (prefix `events`), `billing-reads.queries.ts`               | `/tenants/$tenantId/billing`            | `billing/billing-events-card.tsx`                                  |
-| A tenant's subscriptions   | `billingSubscriptionsList` (prefix `subscriptions`), `billing-reads.queries.ts` | `/tenants/$tenantId/billing`            | `billing/billing-subscriptions-card.tsx`                           |
-| Billing alerts             | `billingAlertsList`, `billing-reads.queries.ts`                                 | `/billing-alerts`                       | `billing/billing-alerts-list.tsx`, over `billing-alerts-table.tsx` |
+| List                        | Definition (`src/queries/`)                                                     | Route                                   | Page                                                               |
+| --------------------------- | ------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| Tenants                     | `tenantsList`, `tenant-admin.queries.ts`                                        | `/tenants`                              | `tenants/tenants-table.tsx`                                        |
+| Users                       | `usersList`, `user-admin.queries.ts`                                            | `/users`                                | `users/users-table.tsx`                                            |
+| Emails                      | `emailsList`, `email.queries.ts`                                                | `/emails`                               | `emails/emails-table.tsx`                                          |
+| A tenant's Emails           | `tenantEmailsList`, `email.queries.ts`                                          | `/tenants/$tenantId/emails`             | `emails/emails-table.tsx`, the tenant fixed by the page            |
+| Suppressions                | `suppressionsList`, `email.queries.ts`                                          | `/suppressions`                         | `suppressions/suppressions-table.tsx`                              |
+| Onboarding tenants          | `onboardingTenantsList`                                                         | `/onboarding`                           | `onboarding/onboarding-tenants-table.tsx`                          |
+| Activity                    | `platformActivityList`, `audit.queries.ts`                                      | `/activity`                             | `activity/activity-table.tsx`                                      |
+| A tenant's Activity         | `tenantActivityList`, `audit.queries.ts`                                        | `/tenants/$tenantId/activity`           | `activity/activity-table.tsx`                                      |
+| History cards               | `historyList` (prefix `history`)                                                | `/tenants/$tenantId`, `/users/$userId`  | `history-card.tsx`, over `activity-table.tsx`                      |
+| Members                     | `membersList`, `tenant.queries.ts`                                              | `/tenants/$tenantId/members`, Staff     | `tenant/members-card.tsx`                                          |
+| Pending invitations         | `invitationsList` (prefix `invitations`)                                        | `/tenants/$tenantId/invitations`, Staff | `tenant/pending-invitations.tsx`                                   |
+| Registered flags            | `flagsList`, `flag-inspector.queries.ts`                                        | `/settings/platform/flags`              | `flags/flag-registry-table.tsx`                                    |
+| Unregistered flags          | `unregisteredFlagsList` (prefix)                                                | `/settings/platform/flags`              | `flags/unregistered-flags-table.tsx`                               |
+| A tenant's state history    | `billingHistoryList` (prefix `history`), `billing-reads.queries.ts`             | `/tenants/$tenantId/billing`            | `billing/billing-history-card.tsx`                                 |
+| A tenant's provider events  | `billingEventsList` (prefix `events`), `billing-reads.queries.ts`               | `/tenants/$tenantId/billing`            | `billing/billing-events-card.tsx`                                  |
+| A tenant's subscriptions    | `billingSubscriptionsList` (prefix `subscriptions`), `billing-reads.queries.ts` | `/tenants/$tenantId/billing`            | `billing/billing-subscriptions-card.tsx`                           |
+| Billing alerts              | `billingAlertsList`, `billing-reads.queries.ts`                                 | `/billing-alerts`                       | `billing/billing-alerts-list.tsx`, over `billing-alerts-table.tsx` |
+| A tenant's tax documents    | `taxDocumentsList` (prefix `tax`), `billing-reads.queries.ts`                   | `/tenants/$tenantId/billing`            | `billing/tax-documents-card.tsx`                                   |
+| A tenant's held SEZ charges | `taxHeldChargesList` (prefix `held`), `billing-reads.queries.ts`                | `/tenants/$tenantId/billing`            | `billing/held-charges-card.tsx`                                    |
 
 Staff (`/settings/platform/staff`) is the platform tenant's Members and
 Pending invitations lists, under the keys they have on a tenant's own tabs.
 
-A tenant's Billing tab holds three lists, so each takes a prefix and
-`billingHistoryList` names the other two in `also`. Its Invoices card is
+A tenant's Billing tab holds five lists, so each takes a prefix and
+`billingHistoryList` names the other four in `also`. Its Invoices card is
 not a list query: express reads invoices from the provider, forward only,
 with a Status filter and no search, sort or total, so it pages with Load
 more and keeps the filter in component state. The billing list
@@ -445,6 +447,18 @@ route's `validateSearch` and loader land in the entry chunk; the writes and
 the list options live in `billing-admin.queries.ts`, which only the billing
 components import, and `pnpm check:bundle` fails if it reaches a
 first-visit chunk.
+
+The tab's GST cards (Tax details, Tax documents and Held SEZ charges) show
+only when the billing view says registration is on or the tenant has
+documents (`taxDocumentsEnabled`, `hasTaxDocuments`, `openHeldCharges`),
+never because a read answered 404, and they read on mount, after the
+billing view: express audits every billing read, so none is prefetched. A
+404 `tax_documents_disabled` on a list shows express's sentence in a note,
+never `RoleDenied`. A PDF, and the Plans page's GSTR-1 export, come
+through react's shared `downloadFile` behind the Bearer token, on click
+only, since express counts a download as a read. Document, credit note,
+held charge and export period dates are in India Standard Time, as the
+documents print them; the rest of the tab keeps the tenant's zone.
 
 What is particular to this app:
 
@@ -1122,6 +1136,7 @@ request, and the description says what happened there.
 | `src/components/features/profile/{passkeys-section,passkey-dialogs}.tsx`, `src/components/features/passkeys/passkey-setup-screen.tsx`, `src/states/passkey-setup.store.ts`, `src/lib/passkey-setup.ts` and their tests (`passkey-dialogs.tsx` is covered by the Passkeys section's test)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | The Passkeys section and its dialogs, the required-mode setup screen, and the setup flag with its interceptor.                                                                                                                                                                                                                                                                                                                                             |
 | `src/components/layouts/app-shell.tsx`, `src/components/shared/lazy-boundary.tsx`, `e2e/helpers/virtual-authenticator.ts`, `tests/unit/components/shared/lazy-boundary.test.tsx`, `tests/unit/components/layouts/app-shell-chunk-failure.test.tsx`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | The shell that mounts `StepUpProvider` and swaps in the setup screen; the error boundary that keeps a failed lazy passkey chunk from taking out the route; the CDP virtual authenticator for e2e. Apex's `_app.tsx` renders `AppShell`, and its `router.tsx` calls `installPasskeySetupInterceptor(apiClient)`.                                                                                                                                            |
 | `src/constants/frontend-app.ts`, `src/lib/action-message.ts` and `tests/mocks/setup-refusal.ts` (per app, not shared)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | The three seam files. `FRONTEND_APP` is `'apex'` here and `'web'` in react; `actionMessageFrom` is `staffMessageFrom` here and `messageFrom` there; `refuseShellUntilCreated` refuses the first read the app's shell makes (apex: `GET /api/v1/platform/me/flags`; react: `GET /api/v1/tenants`), which the setup screen's test needs. Shared passkey files and tests import them, so they differ on purpose.                                              |
+| `src/lib/gst.ts`, `src/schemas/tax-details.schemas.ts`, `src/lib/download-file.ts`, the blob-error decoder in `src/http/interceptors.ts`, and their tests `tests/unit/lib/gst.test.ts`, `tests/unit/schemas/tax-details.schemas.test.ts`, `tests/unit/lib/download-file.test.ts`, `tests/unit/http/interceptors.blob.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | One GSTIN rule and state table with express's, one tax-details form, and one way to save a file the API answers behind the Bearer token                                                                                                                                                                                                                                                                                                                    |
 
 Every passkey and step-up file above is a byte-for-byte copy of react's
 (`cmp` clean), apart from the three per-app seam files. Change a shared file in
