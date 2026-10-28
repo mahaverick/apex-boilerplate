@@ -70,7 +70,7 @@ function CreditNoteLink({ document }: { document: StaffTaxDocumentItem }) {
  * than ₹1 left to credit, gets the plain PDF button. The dialog stays
  * mounted while open, so a refusal that leaves nothing to credit still reads.
  * When a credit note leaves nothing to credit, the menu gives way to the PDF
- * button and focus moves there, if it was on the menu or its dialog.
+ * button, and the dialog's close returns focus there.
  */
 function RowActions({
   tenant,
@@ -91,63 +91,63 @@ function RowActions({
     canCredit && document.type === 'invoice' && remainingCreditMinor(document) >= MIN_CREDIT_MINOR
   const menuShown = offered || open
   const onTrigger = useRef(false)
-  const before = useRef({ menuShown, open })
+  const before = useRef(menuShown)
   useEffect(() => {
-    const { menuShown: wasShown, open: wasOpen } = before.current
-    before.current = { menuShown, open }
+    const wasShown = before.current
+    before.current = menuShown
     if (!wasShown || menuShown) return
-    // A removed trigger drops focus on the body; focus elsewhere stays put.
+    // The dialog's own close restores focus when it closes last; this covers a menu that goes after.
     const active = globalThis.document.activeElement
-    if (
-      (onTrigger.current || wasOpen) &&
-      (active === null || active === globalThis.document.body)
-    ) {
+    if (onTrigger.current && (active === null || active === globalThis.document.body)) {
       pdf.current?.focus()
     }
     onTrigger.current = false
-  }, [menuShown, open])
-  if (!menuShown) {
-    return <TaxDocumentDownload ref={pdf} tenantId={tenant.id} document={document} />
-  }
+  }, [menuShown])
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              ref={trigger}
-              onFocus={() => {
-                onTrigger.current = true
-              }}
-              // A null relatedTarget is the browser dropping a removed element, not a move.
-              onBlur={(event) => {
-                if (event.relatedTarget !== null) onTrigger.current = false
-              }}
-              variant="outline"
-              size="sm"
-              aria-label={`Actions for ${document.number}`}
-            />
-          }
-        >
-          Actions
-          <IconChevronDown aria-hidden="true" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-44">
-          <DropdownMenuItem aria-disabled={busy} onClick={() => void save()}>
-            {busy ? 'Downloading…' : 'Download PDF'}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setOpen(true)}>Issue credit note</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <CreditNoteDialog
-        tenant={tenant}
-        invoice={document}
-        provider={provider}
-        open={open}
-        onOpenChange={setOpen}
-        // The menu item that opened the dialog is gone once the menu closes.
-        finalFocus={trigger}
-      />
+      {menuShown ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                ref={trigger}
+                onFocus={() => {
+                  onTrigger.current = true
+                }}
+                // A null relatedTarget is the browser dropping a removed element, not a move.
+                onBlur={(event) => {
+                  if (event.relatedTarget !== null) onTrigger.current = false
+                }}
+                variant="outline"
+                size="sm"
+                aria-label={`Actions for ${document.number}`}
+              />
+            }
+          >
+            Actions
+            <IconChevronDown aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-44">
+            <DropdownMenuItem aria-disabled={busy} onClick={() => void save()}>
+              {busy ? 'Downloading…' : 'Download PDF'}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setOpen(true)}>Issue credit note</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <TaxDocumentDownload ref={pdf} tenantId={tenant.id} document={document} />
+      )}
+      {canCredit && document.type === 'invoice' && (
+        <CreditNoteDialog
+          tenant={tenant}
+          invoice={document}
+          provider={provider}
+          open={open}
+          onOpenChange={setOpen}
+          // The dialog outlives the menu: a full credit swaps the trigger for the PDF button.
+          finalFocus={() => trigger.current ?? pdf.current}
+        />
+      )}
     </>
   )
 }

@@ -518,6 +518,33 @@ describe('the invoice row actions of an admin', () => {
     await waitFor(() => expect(pdf).toHaveFocus())
   })
 
+  it('returns the dialog\u2019s focus to the PDF button when the refetch lands before it closes', async () => {
+    serve({ documents: OFFERED })
+    server.use(
+      http.post(`${BASE}/tax-documents/${INVOICE.id}/credit-notes`, () => {
+        // The list is fully credited by the time the dialog's write answers.
+        server.use(
+          http.get(`${BASE}/tax-documents`, () => ok(listPage(SPENT), 'Tax documents retrieved.'))
+        )
+        return ok(testTaxDocuments[1], 'Done.')
+      })
+    )
+    const user = userEvent.setup()
+    renderAppAt(BILLING)
+    await user.click(await screen.findByRole('button', { name: 'Actions for INV/26-27/00001' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Issue credit note' }))
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Issue a credit note against INV/26-27/00001',
+    })
+    await user.type(within(dialog).getByLabelText('Amount (\u20B9)'), '999')
+    await user.type(within(dialog).getByLabelText('Reason'), 'Chargeback lost')
+    await user.click(within(dialog).getByRole('button', { name: 'Issue credit note' }))
+    const pdf = await screen.findByRole('button', { name: 'Download INV/26-27/00001 as a PDF' })
+    await waitFor(() => expect(pdf).toHaveFocus())
+    await waitFor(() => expect(dialog).not.toBeInTheDocument())
+    expect(pdf).toHaveFocus()
+  })
+
   it('leaves focus where it is when the menu goes while focus is elsewhere', async () => {
     serve({ documents: OFFERED })
     renderAppAt(BILLING)
