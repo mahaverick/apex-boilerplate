@@ -21,6 +21,7 @@ export const AUDIT_TARGET_LABELS: Record<KnownAuditTargetType, string> = {
   platform: 'Platform',
   plan: 'Plan',
   billing: 'Billing',
+  tax_document: 'Tax document',
 }
 
 /**

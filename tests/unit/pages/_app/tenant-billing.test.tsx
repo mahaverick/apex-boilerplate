@@ -341,19 +341,20 @@ describe('/tenants/$tenantId/billing', () => {
       expect(row(card, 'Payer')).toBe('A B (left the tenant)')
     })
 
+    // The grace end is far ahead because the real clock decides whether a grace has ended.
     it('says when Paid ends after a failed payment with a grace end', async () => {
       serve({
         ...testTenantBilling,
         state: 'past_due',
         pastDue: {
-          since: '2026-10-21T00:00:00.000Z',
-          graceEndsAt: '2026-10-28T00:00:00.000Z',
+          since: '2099-10-21T00:00:00.000Z',
+          graceEndsAt: '2099-10-28T00:00:00.000Z',
           paused: false,
         },
       })
       renderAppAt(BILLING)
       const card = await summary()
-      expect(row(card, 'Failed payment')).toMatch(/^Payment failed on .+\. Paid ends on .+2026\.$/)
+      expect(row(card, 'Failed payment')).toMatch(/^Payment failed on .+\. Paid ends on .+2099\.$/)
       // Express ends a failed payment's Paid with its grace, so the period end (the failed renewal) is no row.
       expect(within(card).queryByText('Paid until', { selector: 'dt' })).toBeNull()
     })

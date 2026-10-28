@@ -543,6 +543,10 @@ export function ok<T>(data: T, message = 'OK', statusCode = 200) {
   return HttpResponse.json({ success: true, message, statusCode, data }, { status: statusCode })
 }
 
+/** Express's 404 sentence for a tax read while registration is off and the workspace has no documents (GC§3.1). */
+const TAX_DOCUMENTS_DISABLED_READ =
+  'Tax documents are off, and this workspace has none to download.'
+
 /**
  * An error envelope as express sends it, with a fixed `requestId`; `statusCode` is also the HTTP status
  * and `code` the machine-readable error code, when the case has one.
@@ -734,6 +738,16 @@ export const handlers = [
   ),
   http.get('/api/v1/platform/tenants/:tenantId/billing/invoices', () =>
     ok(listPage([]), 'Invoices retrieved.')
+  ),
+  // Registration off and no documents: every tax read answers 404 tax_documents_disabled, so a default tenant shows no tax UI.
+  http.get('/api/v1/platform/tenants/:tenantId/billing/tax-details', () =>
+    fail(TAX_DOCUMENTS_DISABLED_READ, 404, 'tax_documents_disabled')
+  ),
+  http.get('/api/v1/platform/tenants/:tenantId/billing/tax-documents', () =>
+    fail(TAX_DOCUMENTS_DISABLED_READ, 404, 'tax_documents_disabled')
+  ),
+  http.get('/api/v1/platform/tenants/:tenantId/billing/tax-held-charges', () =>
+    fail(TAX_DOCUMENTS_DISABLED_READ, 404, 'tax_documents_disabled')
   ),
 
   // Tracked tenants exist but no list has a row, and any tenant reads as Acme's in-progress detail.

@@ -16,6 +16,8 @@ import type {
   BillingState,
   BillingSubscriptionStanding,
   InvoiceStatus,
+  TaxDocumentType,
+  TaxHeldStatus,
 } from '@/types/billing.types'
 
 /** Each billing state's badge: Paid covers `active`; a trial and a failed payment are Paid too. */
@@ -37,6 +39,22 @@ export const BILLING_ALERT_KIND_LABELS: Record<BillingAlertKind, string> = {
   reconcile_repair: 'Billing job needs attention',
   dispute: 'Payment dispute',
   subscription_completed: 'Subscription ended',
+  tax_held_sez: 'SEZ charge held',
+  tax_issue_failed: 'Tax documents not issued',
+  tax_invoice_late: 'Tax invoice issued late',
+  tax_credit_note_late: 'Late credit note',
+}
+
+/** What each kind of tax document is called. */
+export const TAX_DOCUMENT_TYPE_LABELS: Record<TaxDocumentType, string> = {
+  invoice: 'Tax invoice',
+  credit_note: 'Credit note',
+}
+
+/** A held SEZ charge's badge: open waits for staff to invoice it by hand. */
+export const TAX_HELD_STATUS_BADGE: Record<TaxHeldStatus, { label: string; tone: BadgeTone }> = {
+  open: { label: 'Held: SEZ', tone: 'warning' },
+  resolved: { label: 'Resolved', tone: 'success' },
 }
 
 /** What moved a tenant between billing states, as the history names it. */

@@ -10,6 +10,7 @@ import { MEMBERSHIP_ROLES, ROLE_LABELS, type MembershipRole } from '@/constants/
 import { formatBillingDate, formatInr } from '@/lib/billing-format'
 import { formatCount } from '@/lib/format'
 import { countOf } from '@/lib/plural'
+import { periodLabel } from '@/lib/tax-export'
 
 export { AUDIT_ACTIONS, type AuditAction }
 
@@ -72,6 +73,11 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'plan.updated': 'Plan edited',
   'plan.price_created': 'Price added',
   'billing.settings_updated': 'Billing settings changed',
+  'billing.tax_details_updated': 'Tax details changed',
+  'billing.tax_document_issued': 'Tax document issued',
+  'billing.credit_note_issued_by_staff': 'Credit note issued by staff',
+  'billing.held_charge_resolved': 'Held SEZ charge resolved',
+  'billing.tax_export_downloaded': 'GST return export downloaded',
 }
 
 /** An audit entry's free-form metadata, whose fields are checked before use. */
@@ -275,6 +281,38 @@ function settingsChange(metadata: Metadata): string {
   return `changed the billing settings (${words.join(', ')})`
 }
 
+/** Each tax detail field as a sentence names it; a field this build does not know keeps its name. */
+const TAX_DETAIL_FIELD_WORDS: Readonly<Record<string, string>> = {
+  gstin: 'GSTIN',
+  legalName: 'legal name',
+  addressLine1: 'address line 1',
+  addressLine2: 'address line 2',
+  city: 'city',
+  pincode: 'PIN code',
+  stateCode: 'state',
+  isSez: 'SEZ unit',
+}
+
+/**
+ * A tax details save: the fields it changed, in words (names only, never
+ * values), or a save with no changes. A missing list reads as a plain change.
+ */
+function taxDetailsChange(metadata: Metadata): string {
+  if (!Array.isArray(metadata.changedFields)) return 'changed the tax details'
+  if (metadata.changedFields.length === 0) return 'saved the tax details with no changes'
+  const fields = texts(metadata, 'changedFields')
+  if (fields.length === 0) return 'changed the tax details'
+  const words = fields.map((field) => TAX_DETAIL_FIELD_WORDS[field] ?? field)
+  return `changed the tax details (${words.join(', ')})`
+}
+
+/** " for September 2026", or nothing when the period is missing or malformed. */
+function exportPeriod(metadata: Metadata): string {
+  const period = text(metadata, 'period')
+  const label = period === undefined ? null : periodLabel(period)
+  return label === null ? '' : ` for ${label}`
+}
+
 /** `: “why”`, or nothing when the entry carries no reason. */
 function because(metadata: Metadata): string {
   const reason = text(metadata, 'reason')
@@ -383,6 +421,15 @@ const SENTENCES: Record<AuditAction, Sentence> = {
   },
   'plan.price_created': (m) => `${priceCreated(m)}${because(m)}`,
   'billing.settings_updated': (m) => `${settingsChange(m)}${because(m)}`,
+  'billing.tax_details_updated': (m) => `${taxDetailsChange(m)}${because(m)}`,
+  'billing.tax_document_issued': (m) => {
+    const type = text(m, 'type')
+    if (type === 'invoice') return 'issued a tax invoice'
+    return type === 'credit_note' ? 'issued a credit note' : 'issued a tax document'
+  },
+  'billing.credit_note_issued_by_staff': (m) => `issued a credit note by hand${because(m)}`,
+  'billing.held_charge_resolved': (m) => `marked a held SEZ charge resolved${because(m)}`,
+  'billing.tax_export_downloaded': (m) => `downloaded the GST return export${exportPeriod(m)}`,
 }
 
 /**

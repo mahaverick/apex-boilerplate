@@ -12,7 +12,10 @@ import {
   INVOICE_STATUS_BADGE,
   providerLabel,
   SUBSCRIPTION_STANDING_BADGE,
+  TAX_DOCUMENT_TYPE_LABELS,
+  TAX_HELD_STATUS_BADGE,
 } from '@/constants/billing-labels'
+import { testHeldRefundAlert, testHeldSezAlert } from '@/tests/fixtures/billing'
 import {
   BILLING_ALERT_KINDS,
   BILLING_EVENT_STATUSES,
@@ -43,6 +46,31 @@ describe('BILLING_ALERT_KIND_LABELS', () => {
       reconcile_repair: 'Billing job needs attention',
       dispute: 'Payment dispute',
       subscription_completed: 'Subscription ended',
+      tax_held_sez: 'SEZ charge held',
+      tax_issue_failed: 'Tax documents not issued',
+      tax_invoice_late: 'Tax invoice issued late',
+      tax_credit_note_late: 'Late credit note',
+    })
+  })
+})
+
+describe('tax alert fixtures', () => {
+  it('carry kinds this build labels, with express’s refund text', () => {
+    for (const alert of [testHeldSezAlert, testHeldRefundAlert]) {
+      expect(BILLING_ALERT_KIND_LABELS[alert.kind]).toBe('SEZ charge held')
+    }
+    expect(testHeldRefundAlert.message).toMatch(
+      /^Payment \S+ of a held SEZ invoice was refunded ₹500 \(refund \S+\)\. Issue a credit note by hand\.$/
+    )
+  })
+})
+
+describe('tax labels', () => {
+  it('names each document type and held status', () => {
+    expect(TAX_DOCUMENT_TYPE_LABELS).toEqual({ invoice: 'Tax invoice', credit_note: 'Credit note' })
+    expect(TAX_HELD_STATUS_BADGE).toEqual({
+      open: { label: 'Held: SEZ', tone: 'warning' },
+      resolved: { label: 'Resolved', tone: 'success' },
     })
   })
 })

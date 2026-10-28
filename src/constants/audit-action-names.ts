@@ -62,6 +62,11 @@ export const AUDIT_ACTIONS = [
   'plan.updated',
   'plan.price_created',
   'billing.settings_updated',
+  'billing.tax_details_updated',
+  'billing.tax_document_issued',
+  'billing.credit_note_issued_by_staff',
+  'billing.held_charge_resolved',
+  'billing.tax_export_downloaded',
 ] as const
 /** An audit action as the API names it (`area.event`) that this build has wording for. */
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]

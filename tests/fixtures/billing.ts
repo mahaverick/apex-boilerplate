@@ -6,7 +6,10 @@ import type {
   StaffBillingSubscriptionItem,
   StaffInvoiceItem,
   StaffPlans,
+  StaffTaxDetails,
+  StaffTaxDocumentItem,
   StaffTenantBilling,
+  TaxHeldCharge,
 } from '@/types/billing.types'
 /**
  * @file Billing fixtures as express's staff routes serve them, with the
@@ -110,6 +113,9 @@ export const testTenantBilling: StaffTenantBilling = {
   billingEmail: null,
   paymentsEnabled: true,
   dismissedBanners: [],
+  taxDocumentsEnabled: false,
+  hasTaxDocuments: false,
+  openHeldCharges: 0,
   provider: 'razorpay',
   providerMode: 'test',
   providerSubscriptionId: 'sub_TestActive0001',
@@ -207,6 +213,9 @@ export const testBillingSettings: BillingSettings = {
   version: 1,
   updatedAt: '2026-10-01T00:00:00.000Z',
   updatedBy: null,
+  taxDocumentsEnabled: false,
+  hasTaxDocuments: false,
+  gstEffectiveFrom: null,
 }
 
 /** `GET …/billing/history` rows for the Paid tenant, newest first: created in a trial, then paid. */
@@ -277,6 +286,9 @@ export const testInvoices: StaffInvoiceItem[] = [
     status: 'paid',
     issuedAt: '2026-10-20T09:00:00.000Z',
     paidAt: '2026-10-20T09:00:01.000Z',
+    taxDocument: null,
+    creditNotes: [],
+    taxStatus: 'not_applicable',
   },
 ]
 
@@ -301,3 +313,181 @@ export const testBillingAlerts: BillingAlert[] = [
     at: '2026-10-25T18:30:00.000Z',
   },
 ]
+
+/** `GET …/billing/tax-details` for Acme Corp: a registered Karnataka buyer, saved three times. */
+export const testTaxDetails: StaffTaxDetails = {
+  gstin: '29ABCDE1234F1ZW',
+  legalName: 'Acme Corp Private Limited',
+  addressLine1: '12 MG Road',
+  addressLine2: null,
+  city: 'Bengaluru',
+  pincode: '560001',
+  state: { code: '29', name: 'Karnataka' },
+  isSez: false,
+  version: 3,
+  updatedAt: '2026-10-22T09:00:00.000Z',
+  updatedBy: { userId: STAFF_USER_ID, name: 'Cleo D' },
+}
+
+/**
+ * `GET …/billing/tax-documents` rows, newest first as express would sort
+ * them by issue date: a ₹999 intra-state invoice with ₹500 credited by one
+ * automatic credit note, that note, a manual ₹100 credit note, and an
+ * inter-state invoice credited in full.
+ */
+export const testTaxDocuments: StaffTaxDocumentItem[] = [
+  {
+    id: '96000000-0000-4000-8000-000000000001',
+    type: 'invoice',
+    number: 'INV/26-27/00001',
+    financialYear: '26-27',
+    issuedAt: '2026-10-20T09:00:05.000Z',
+    amounts: {
+      totalMinor: 99_900,
+      taxableMinor: 84_661,
+      cgstMinor: 7619,
+      sgstMinor: 7620,
+      igstMinor: 0,
+      ratePercent: 18,
+    },
+    supply: 'intra',
+    placeOfSupply: { code: '29', name: 'Karnataka' },
+    buyerGstin: '29ABCDE1234F1ZW',
+    invoice: null,
+    creditNotes: [{ id: '96000000-0000-4000-8000-000000000002', number: 'CN/26-27/00001' }],
+    creditedMinor: 50_000,
+    noTaxReduction: false,
+    reason: null,
+    paymentId: 'pay_TestPaid0001',
+    refundId: null,
+    manual: false,
+    createdBy: null,
+  },
+  {
+    id: '96000000-0000-4000-8000-000000000002',
+    type: 'credit_note',
+    number: 'CN/26-27/00001',
+    financialYear: '26-27',
+    issuedAt: '2026-10-21T09:00:00.000Z',
+    amounts: {
+      totalMinor: 50_000,
+      taxableMinor: 42_373,
+      cgstMinor: 3813,
+      sgstMinor: 3814,
+      igstMinor: 0,
+      ratePercent: 18,
+    },
+    supply: 'intra',
+    placeOfSupply: { code: '29', name: 'Karnataka' },
+    buyerGstin: '29ABCDE1234F1ZW',
+    invoice: { id: '96000000-0000-4000-8000-000000000001', number: 'INV/26-27/00001' },
+    creditNotes: [],
+    creditedMinor: 0,
+    noTaxReduction: false,
+    reason: 'Refund of ₹500',
+    paymentId: 'pay_TestPaid0001',
+    refundId: 'rfnd_TestRefund0001',
+    manual: false,
+    createdBy: null,
+  },
+  {
+    id: '96000000-0000-4000-8000-000000000003',
+    type: 'credit_note',
+    number: 'CN/26-27/00002',
+    financialYear: '26-27',
+    issuedAt: '2026-10-22T09:00:00.000Z',
+    amounts: {
+      totalMinor: 10_000,
+      taxableMinor: 8475,
+      cgstMinor: 762,
+      sgstMinor: 763,
+      igstMinor: 0,
+      ratePercent: 18,
+    },
+    supply: 'intra',
+    placeOfSupply: { code: '29', name: 'Karnataka' },
+    buyerGstin: '29ABCDE1234F1ZW',
+    invoice: { id: '96000000-0000-4000-8000-000000000001', number: 'INV/26-27/00001' },
+    creditNotes: [],
+    creditedMinor: 0,
+    noTaxReduction: false,
+    reason: 'Chargeback lost on 20 Oct 2026',
+    paymentId: null,
+    refundId: null,
+    manual: true,
+    createdBy: { userId: STAFF_USER_ID, name: 'Cleo D' },
+  },
+  {
+    id: '96000000-0000-4000-8000-000000000004',
+    type: 'invoice',
+    number: 'INV/26-27/00002',
+    financialYear: '26-27',
+    issuedAt: '2026-10-23T09:00:05.000Z',
+    amounts: {
+      totalMinor: 99_900,
+      taxableMinor: 84_661,
+      cgstMinor: 0,
+      sgstMinor: 0,
+      igstMinor: 15_239,
+      ratePercent: 18,
+    },
+    supply: 'inter',
+    placeOfSupply: { code: '27', name: 'Maharashtra' },
+    buyerGstin: null,
+    invoice: null,
+    creditNotes: [],
+    creditedMinor: 99_900,
+    noTaxReduction: false,
+    reason: null,
+    paymentId: 'pay_TestPaid0002',
+    refundId: null,
+    manual: false,
+    createdBy: null,
+  },
+]
+
+/** `GET …/billing/tax-held-charges` rows: an open SEZ hold, and one staff resolved by issuing the invoice by hand. */
+export const testHeldCharges: TaxHeldCharge[] = [
+  {
+    id: '97000000-0000-4000-8000-000000000002',
+    paymentId: 'pay_TestHeld0002',
+    subscriptionId: 'sub_TestActive0001',
+    amountMinor: 99_900,
+    paidAt: '2026-10-24T09:00:00.000Z',
+    heldAt: '2026-10-24T09:00:05.000Z',
+    resolvedAt: null,
+    resolvedBy: null,
+    resolution: null,
+  },
+  {
+    id: '97000000-0000-4000-8000-000000000001',
+    paymentId: 'pay_TestHeld0001',
+    subscriptionId: 'sub_TestActive0001',
+    amountMinor: 99_900,
+    paidAt: '2026-10-20T09:00:00.000Z',
+    heldAt: '2026-10-20T09:00:05.000Z',
+    resolvedAt: '2026-10-21T09:00:00.000Z',
+    resolvedBy: { userId: STAFF_USER_ID, name: 'Cleo D' },
+    resolution: 'Issued SEZ invoice by hand, emailed 21 Oct 2026',
+  },
+]
+
+/** The `tax_held_sez` alert for the open hold above, with express's text. */
+export const testHeldSezAlert: BillingAlert = {
+  id: '94000000-0000-4000-8000-000000000003',
+  kind: 'tax_held_sez',
+  tenant: { id: TENANT_ID, name: 'Acme Corp' },
+  message:
+    'Payment pay_TestHeld0002 of ₹999 is held: this workspace is an SEZ unit. Issue its tax invoice by hand, then mark it resolved on the workspace’s Billing tab.',
+  at: '2026-10-24T09:00:05.000Z',
+}
+
+/** The `tax_held_sez` alert for a held charge's payment that was refunded, with express's text. */
+export const testHeldRefundAlert: BillingAlert = {
+  id: '94000000-0000-4000-8000-000000000004',
+  kind: 'tax_held_sez',
+  tenant: { id: TENANT_ID, name: 'Acme Corp' },
+  message:
+    'Payment pay_TestHeld0001 of a held SEZ invoice was refunded ₹500 (refund rfnd_TestRefund0002). Issue a credit note by hand.',
+  at: '2026-10-25T09:00:00.000Z',
+}

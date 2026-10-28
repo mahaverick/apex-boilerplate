@@ -76,6 +76,10 @@ export const BILLING_ALERT_KINDS = [
   'reconcile_repair',
   'dispute',
   'subscription_completed',
+  'tax_held_sez',
+  'tax_issue_failed',
+  'tax_invoice_late',
+  'tax_credit_note_late',
 ] as const
 
 /** One kind of billing alert. */
@@ -153,6 +157,10 @@ interface TenantBilling {
   billingEmail: string | null
   paymentsEnabled: boolean
   dismissedBanners: string[]
+  /** Registration is on: express can issue tax documents. */
+  taxDocumentsEnabled: boolean
+  /** The workspace has at least one tax document; real for staff. */
+  hasTaxDocuments: boolean
 }
 
 /** An entitlement override staff granted a workspace. A feature grant's value is always `true`. */
@@ -179,6 +187,8 @@ export interface StaffTenantBilling extends TenantBilling {
   syncedAt: string | null
   disputeOpen: boolean
   entitlements: TenantEntitlements
+  /** Unresolved held SEZ charges, for the Held: SEZ badge. */
+  openHeldCharges: number
   sources: Record<string, 'plan' | 'grant'>
   grants: Grant[]
   /** The newest 20; the full list is `GET …/billing/history`. */
@@ -249,6 +259,11 @@ export interface StaffInvoiceItem {
   status: InvoiceStatus
   issuedAt: string
   paidAt: string | null
+  /** The tax invoice for this row's payment. */
+  taxDocument: TaxDocumentRef | null
+  /** Its credit notes, oldest first. */
+  creditNotes: TaxDocumentRef[]
+  taxStatus: TaxStatus
 }
 
 /** One plan on the staff plans screen. */
@@ -296,6 +311,12 @@ export interface BillingSettings {
   version: number
   updatedAt: string
   updatedBy: { userId: string; name: string } | null
+  /** Registration is on. */
+  taxDocumentsEnabled: boolean
+  /** At least one tax document exists on the platform, any tenant's, purged ones included. */
+  hasTaxDocuments: boolean
+  /** `BILLING_GST_EFFECTIVE_FROM` as a `YYYY-MM-DD` IST date, whether or not registration is on; `null` when unset. */
+  gstEffectiveFrom: string | null
 }
 
 /** One row of `GET /platform/billing/alerts`. */
@@ -312,6 +333,172 @@ export const PLAN_LIMIT_REACHED = 'PLAN_LIMIT_REACHED'
 
 /** `code` on the 402 for a feature the plan does not include. `details` is `{ key }`. */
 export const PLAN_FEATURE_REQUIRED = 'PLAN_FEATURE_REQUIRED'
+
+/** The tax document kinds, as express's `TAX_DOCUMENT_TYPES`. */
+export const TAX_DOCUMENT_TYPES = ['invoice', 'credit_note'] as const
+
+/** The held charge statuses the list filters by. */
+export const TAX_HELD_STATUSES = ['open', 'resolved'] as const
+
+/** A held charge's status filter value. */
+export type TaxHeldStatus = (typeof TAX_HELD_STATUSES)[number]
+
+/** A tax document: a tax invoice or a credit note. */
+export type TaxDocumentType = (typeof TAX_DOCUMENT_TYPES)[number]
+
+/** `intra`: CGST 9% + SGST 9%; `inter`: IGST 18%. */
+export type SupplyKind = 'intra' | 'inter'
+
+/** Whether an invoice row has its tax invoice (GC§7): `pending` is one the next tax run issues. */
+export type TaxStatus = 'issued' | 'held' | 'pending' | 'not_applicable'
+
+/** A state, as GSTINs and places of supply name it. `code` is two digits, such as `'29'`. */
+export interface GstState {
+  code: string
+  name: string
+}
+
+/** A workspace's tax details, as the contract's §2 sends them. */
+export interface TaxDetails {
+  /** 15 characters, upper case; `null` is an unregistered buyer (B2C). */
+  gstin: string | null
+  /** 1–100. */
+  legalName: string
+  /** 1–100. */
+  addressLine1: string | null
+  /** 1–100. */
+  addressLine2: string | null
+  /** 1–60. */
+  city: string | null
+  /** 6 digits, the first not 0. */
+  pincode: string | null
+  /** The billing-address state; every saved row has one. */
+  state: GstState
+  isSez: boolean
+  /** Sent back on PATCH. */
+  version: number
+  updatedAt: string
+}
+
+/** Tax details as staff read them. */
+export interface StaffTaxDetails extends TaxDetails {
+  /** `null` for a purged account. */
+  updatedBy: { userId: string; name: string } | null
+}
+
+/** A tax document named by its id and number. */
+export interface TaxDocumentRef {
+  id: string
+  number: string
+}
+
+/** A tax document's money in paise. */
+export interface TaxAmounts {
+  /** GST-inclusive: taxable + cgst + sgst + igst. */
+  totalMinor: number
+  taxableMinor: number
+  /** 0 for inter. */
+  cgstMinor: number
+  /** 0 for inter. */
+  sgstMinor: number
+  /** 0 for intra. */
+  igstMinor: number
+  ratePercent: 18
+}
+
+/** One tax invoice or credit note. */
+export interface TaxDocumentView {
+  id: string
+  type: TaxDocumentType
+  /** `INV/26-27/00001` or `CN/26-27/00001`; at most 16 characters. */
+  number: string
+  /** `26-27`. */
+  financialYear: string
+  issuedAt: string
+  amounts: TaxAmounts
+  supply: SupplyKind
+  placeOfSupply: GstState
+  /** The snapshot's, not today's tax details. */
+  buyerGstin: string | null
+  /** A credit note's invoice; `null` for an invoice. */
+  invoice: TaxDocumentRef | null
+  /** An invoice's credit notes, oldest first; `[]` for a credit note. */
+  creditNotes: TaxDocumentRef[]
+  /** An invoice's total credited so far, manual notes included; 0 for a credit note. */
+  creditedMinor: number
+  /** A credit note issued after the s.34(2) deadline; `false` for invoices. */
+  noTaxReduction: boolean
+  /** A credit note's reason; `null` for invoices. */
+  reason: string | null
+  /** The provider payment id: an invoice's, and an automatic credit note's invoice's. */
+  paymentId: string | null
+  /** An automatic credit note's refund. */
+  refundId: string | null
+}
+
+/** One row of `GET /platform/tenants/:id/billing/tax-documents`. */
+export interface StaffTaxDocumentItem extends TaxDocumentView {
+  /** A staff credit note, with no refund behind it. */
+  manual: boolean
+  /** Manual notes only; `null` otherwise, or when the account was purged. */
+  createdBy: { userId: string; name: string } | null
+}
+
+/** One row of `GET /platform/tenants/:id/billing/tax-held-charges`: an SEZ charge held instead of invoiced. */
+export interface TaxHeldCharge {
+  id: string
+  paymentId: string
+  subscriptionId: string | null
+  amountMinor: number
+  paidAt: string
+  heldAt: string
+  resolvedAt: string | null
+  resolvedBy: { userId: string; name: string } | null
+  /** The staff member's note, 1–500. */
+  resolution: string | null
+}
+
+/** A tax details change as `PATCH …/billing/tax-details` takes it (GC§4): the changed fields and the version read. */
+export interface TaxDetailsPatch {
+  /** `null` to create when no row exists; else the current version. */
+  version: number | null
+  gstin?: string | null
+  legalName?: string
+  addressLine1?: string | null
+  addressLine2?: string | null
+  city?: string | null
+  pincode?: string | null
+  /** Never null. */
+  stateCode?: string
+  isSez?: boolean
+}
+
+/** The staff PATCH body: a tax details change and the reason for it. */
+export type StaffTaxDetailsPatch = TaxDetailsPatch & { reason: string }
+
+/** `code` on the 404 for a tax route while registration is off and the workspace has no documents (or a write while it is off). */
+export const TAX_DOCUMENTS_DISABLED = 'tax_documents_disabled'
+
+/** `code` on the 404 for a tax document id that is unknown or another tenant's. */
+export const TAX_DOCUMENT_NOT_FOUND = 'tax_document_not_found'
+
+/** `code` on the 404 for a held charge id that is unknown or another tenant's. */
+export const TAX_HELD_CHARGE_NOT_FOUND = 'tax_held_charge_not_found'
+
+/** `code` on the 409 for a tax details save made against a stale version. */
+export const TAX_DETAILS_VERSION_CONFLICT = 'TAX_DETAILS_VERSION_CONFLICT'
+
+/** `code` on the 409 for a manual credit note against a credit note. */
+export const NOT_AN_INVOICE = 'NOT_AN_INVOICE'
+
+/** `code` on the 409 for a manual credit above what is left to credit. `details` is `{ remainingMinor }`. */
+export const CREDIT_EXCEEDS_INVOICE = 'CREDIT_EXCEEDS_INVOICE'
+
+/** `code` on the 409 for the same admin's repeat of a manual credit note within 10 minutes. */
+export const CREDIT_NOTE_REPEATED = 'CREDIT_NOTE_REPEATED'
+
+/** `code` on the 409 for resolving a held charge that is already resolved. */
+export const HELD_CHARGE_RESOLVED = 'HELD_CHARGE_RESOLVED'
 
 /** `code` on the 409 for a plan or billing settings edit made against a version another staff member replaced. */
 export const PLAN_VERSION_CONFLICT = 'PLAN_VERSION_CONFLICT'
