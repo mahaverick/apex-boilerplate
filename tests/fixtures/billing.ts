@@ -116,6 +116,7 @@ export const testTenantBilling: StaffTenantBilling = {
   taxDocumentsEnabled: false,
   hasTaxDocuments: false,
   openHeldCharges: 0,
+  hasHeldCharges: false,
   provider: 'razorpay',
   providerMode: 'test',
   providerSubscriptionId: 'sub_TestActive0001',

@@ -190,6 +190,19 @@ test('with registration off and documents issued, the PDF still downloads and no
   await expect(page.getByRole('region', { name: 'GST return export' })).toBeVisible()
 })
 
+test('with registration off and no documents, a resolved held charge still shows its history', async ({
+  page,
+}) => {
+  await page.goto(`/e2e/harness/?path=${ACME}/billing&tax=held-only`)
+  await billingLoaded(page)
+  const held = page.locator('#held-charges')
+  await expect(page.getByRole('heading', { name: 'Held SEZ charges', level: 2 })).toBeVisible()
+  await expect(held.getByRole('row', { name: /pay_TestHeld0001/ })).toContainText('Resolved')
+  await expect(held.getByRole('button', { name: /Mark resolved/ })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Tax details', level: 2 })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Tax documents', level: 2 })).toHaveCount(0)
+})
+
 test('the Billing tab of an SEZ tenant fits a 390px screen', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(`/e2e/harness/?path=${ACME}/billing&tax=sez`)

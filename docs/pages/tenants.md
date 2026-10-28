@@ -284,7 +284,7 @@ The Invoices card ("Razorpay lists invoices newest first and offers no search or
 
 An invoice row in the Invoices card gains a Tax documents column: its tax invoice and credit notes as PDF links, "Held: SEZ" for a held charge, or "Tax invoice on its way" for a charge paid after the GST start date that the next tax run invoices. A 404 `tax_documents_disabled` on a list (registration turned off since the billing read) shows express's sentence in a note, never `RoleDenied`.
 
-The fixtures harness sets these states with `?tax=`: `off` (the default: nothing about tax), `on` (registered, with details, four documents and a resolved held charge), `b2c` (no GSTIN or address), `sez` (an SEZ unit with one open held charge, an invoice row held for it, and its hold and refund alerts first on the Billing alerts page) and `docs-off` (registration off after documents were issued: reads answer, writes refuse). The capture's `tax` and `sez-held` states stub the same reads; their shots are taken with the next `pnpm capture:pages`.
+The fixtures harness sets these states with `?tax=`: `off` (the default: nothing about tax), `on` (registered, with details, four documents and a resolved held charge), `b2c` (no GSTIN or address), `sez` (an SEZ unit with one open held charge, an invoice row held for it, and its hold and refund alerts first on the Billing alerts page), `docs-off` (registration off after documents were issued: reads answer, writes refuse) and `held-only` (registration off, no documents, one resolved held charge: only the Held SEZ charges card shows). The capture's `tax` and `sez-held` states stub the same reads; their shots are taken with the next `pnpm capture:pages`.
 
 Every staff role reads the same tab, so there is no role-denied shot.
 

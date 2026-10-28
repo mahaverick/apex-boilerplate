@@ -204,7 +204,7 @@ function TenantBilling({
           timeZone={timeZone}
         />
       )}
-      {(billing.openHeldCharges > 0 || billing.taxDocumentsEnabled) && (
+      {(billing.hasHeldCharges || billing.taxDocumentsEnabled) && (
         <HeldChargesCard tenant={tenant} canResolve={canResolve} />
       )}
     </div>

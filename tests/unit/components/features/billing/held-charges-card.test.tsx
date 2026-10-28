@@ -25,6 +25,7 @@ const WITH_HOLDS: StaffTenantBilling = {
   taxDocumentsEnabled: true,
   hasTaxDocuments: true,
   openHeldCharges: 2,
+  hasHeldCharges: true,
 }
 
 /** Acme's platform detail. */
@@ -120,10 +121,34 @@ describe('the Held SEZ charges card', () => {
   })
 
   it('shows the card without the tax documents card when registration is off and no documents exist', async () => {
-    serve({ ...testTenantBilling, openHeldCharges: 1 })
+    serve({ ...testTenantBilling, openHeldCharges: 1, hasHeldCharges: true })
     renderAppAt(BILLING)
     expect(await screen.findByRole('heading', { name: 'Held SEZ charges' })).toBeVisible()
     expect(screen.queryByRole('heading', { name: 'Tax documents' })).toBeNull()
+  })
+
+  it('keeps the card for a resolved charge when registration is off and no documents exist', async () => {
+    serve({ ...testTenantBilling, openHeldCharges: 0, hasHeldCharges: true }, [RESOLVED])
+    renderAppAt(BILLING)
+    const table = await screen.findByRole('table', { name: 'Held SEZ charges' })
+    const row = (await within(table).findByText(RESOLVED.paymentId)).closest('tr')!
+    expect(within(row).getByText('Resolved')).toBeVisible()
+    expect(within(table).queryByRole('button', { name: /Mark resolved/ })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Tax details' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Tax documents' })).toBeNull()
+  })
+
+  it('hides the card and asks for no held charges with none held and registration off', async () => {
+    serve({ ...testTenantBilling, openHeldCharges: 0, hasHeldCharges: false })
+    const asked: string[] = []
+    server.events.on('request:start', ({ request }) => {
+      asked.push(new URL(request.url).pathname)
+    })
+    renderAppAt(BILLING)
+    await screen.findByRole('heading', { name: 'Billing', level: 2 })
+    expect(screen.queryByRole('heading', { name: 'Held SEZ charges' })).toBeNull()
+    expect(asked.some((path) => path.endsWith('/billing'))).toBe(true)
+    expect(asked.some((path) => path.endsWith('/tax-held-charges'))).toBe(false)
   })
 
   it('focuses the heading when the page opens on #held-charges', async () => {
@@ -181,7 +206,7 @@ describe('the Held SEZ charges card', () => {
   })
 
   it('lets an admin resolve a charge while registration is off', async () => {
-    serve({ ...testTenantBilling, openHeldCharges: 1 })
+    serve({ ...testTenantBilling, openHeldCharges: 1, hasHeldCharges: true })
     const bodies: unknown[] = []
     server.use(
       http.post(`${BASE}/tax-held-charges/${OPEN.id}/resolve`, async ({ request }) => {

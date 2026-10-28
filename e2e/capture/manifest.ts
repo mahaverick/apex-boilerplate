@@ -111,6 +111,7 @@ const BILLING_STATES: readonly CaptureState[] = [
           taxDocumentsEnabled: true,
           hasTaxDocuments: true,
           openHeldCharges: 1,
+          hasHeldCharges: true,
         },
       },
       {
