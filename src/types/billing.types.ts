@@ -349,7 +349,7 @@ export type TaxDocumentType = (typeof TAX_DOCUMENT_TYPES)[number]
 /** `intra`: CGST 9% + SGST 9%; `inter`: IGST 18%. */
 export type SupplyKind = 'intra' | 'inter'
 
-/** Whether an invoice row has its tax invoice (GC§7): `pending` is one the next tax run issues. */
+/** Whether an invoice row has its tax invoice, as express decides it per row: `pending` is one the next tax run issues. */
 export type TaxStatus = 'issued' | 'held' | 'pending' | 'not_applicable'
 
 /** A state, as GSTINs and places of supply name it. `code` is two digits, such as `'29'`. */
@@ -458,7 +458,7 @@ export interface TaxHeldCharge {
   resolution: string | null
 }
 
-/** A tax details change as `PATCH …/billing/tax-details` takes it (GC§4): the changed fields and the version read. */
+/** A tax details change as `PATCH …/billing/tax-details` takes it, a strict body: the changed fields and the version read. */
 export interface TaxDetailsPatch {
   /** `null` to create when no row exists; else the current version. */
   version: number | null

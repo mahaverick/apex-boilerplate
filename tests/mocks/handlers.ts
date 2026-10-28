@@ -543,7 +543,7 @@ export function ok<T>(data: T, message = 'OK', statusCode = 200) {
   return HttpResponse.json({ success: true, message, statusCode, data }, { status: statusCode })
 }
 
-/** Express's 404 sentence for a tax read while registration is off and the workspace has no documents (GC§3.1). */
+/** Express's 404 sentence for a tax read while registration is off and the workspace has no documents. */
 const TAX_DOCUMENTS_DISABLED_READ =
   'Tax documents are off, and this workspace has none to download.'
 
