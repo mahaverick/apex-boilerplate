@@ -5,7 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { apiClient } from '@/http/client'
 import { ROLE_DENIED_ACTION } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
-import { testInvoices, testTaxDocuments, testTenantBilling } from '@/tests/fixtures/billing'
+import {
+  testInvoices,
+  testTaxDetails,
+  testTaxDocuments,
+  testTenantBilling,
+} from '@/tests/fixtures/billing'
 import { TENANT_ID } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
@@ -71,6 +76,7 @@ function serve({
   server.use(
     http.get(`/api/v1/platform/tenants/${TENANT_ID}`, () => ok(detail(timezone), 'Tenant')),
     http.get(BASE, () => ok(billing, 'Billing retrieved.')),
+    http.get(`${BASE}/tax-details`, () => ok(testTaxDetails, 'Tax details retrieved.')),
     http.get(`${BASE}/tax-documents`, () => ok(listPage(documents), 'Tax documents retrieved.')),
     http.get(`${BASE}/invoices`, () => ok(listPage(invoices), 'Invoices retrieved.'))
   )

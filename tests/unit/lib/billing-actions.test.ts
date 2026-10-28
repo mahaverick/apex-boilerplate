@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { CANCEL_BUFFER_MS, cancelChoicesFor, effectiveState } from '@/lib/billing-actions'
+import {
+  CANCEL_BUFFER_MS,
+  billingActionsFor,
+  cancelChoicesFor,
+  effectiveState,
+} from '@/lib/billing-actions'
 import { testFreeTenantBilling, testTenantBilling } from '@/tests/fixtures/billing'
+import type { PlatformTenantDetail } from '@/types/api.types'
 import type { StaffTenantBilling } from '@/types/billing.types'
 
 const NOW = Date.parse('2026-11-20T12:00:00.000Z')
@@ -80,5 +86,45 @@ describe('cancelChoicesFor, with no period end on file', () => {
     expect(choices[0]?.description).toBe(
       'Acme Corp keeps Paid until its paid period ends, then moves to Free. This cancels its next subscription.'
     )
+  })
+})
+
+describe('billingActionsFor, the tax actions', () => {
+  const tenant = { lifecycleState: 'active' } as PlatformTenantDetail
+  const on: StaffTenantBilling = { ...testTenantBilling, taxDocumentsEnabled: true }
+  const off: StaffTenantBilling = { ...testTenantBilling, taxDocumentsEnabled: false }
+  /** The three tax flags for a role. */
+  const flags = (role: 'viewer' | 'manager' | 'admin', billing: StaffTenantBilling) => {
+    const { taxDetails, creditNote, resolveHeld } = billingActionsFor(
+      role,
+      tenant,
+      billing,
+      [],
+      NOW
+    )
+    return { taxDetails, creditNote, resolveHeld }
+  }
+
+  it('gives a viewer none, a manager tax details, and an admin all three', () => {
+    expect(flags('viewer', on)).toEqual({
+      taxDetails: false,
+      creditNote: false,
+      resolveHeld: false,
+    })
+    expect(flags('manager', on)).toEqual({
+      taxDetails: true,
+      creditNote: false,
+      resolveHeld: false,
+    })
+    expect(flags('admin', on)).toEqual({ taxDetails: true, creditNote: true, resolveHeld: true })
+  })
+
+  it('turns tax details and credit notes off with registration, and leaves resolve-held to the role', () => {
+    expect(flags('admin', off)).toEqual({ taxDetails: false, creditNote: false, resolveHeld: true })
+    expect(flags('manager', off)).toEqual({
+      taxDetails: false,
+      creditNote: false,
+      resolveHeld: false,
+    })
   })
 })

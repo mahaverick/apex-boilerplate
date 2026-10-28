@@ -1149,7 +1149,7 @@ describe('/tenants/$tenantId/billing with tax documents', () => {
     signIn({ ...testUser, platformRole: 'viewer' })
   })
 
-  it('mounts the Tax documents card after Invoices inside one main and one h1', async () => {
+  it('mounts the Tax details and Tax documents cards after Invoices inside one main and one h1', async () => {
     serve({ ...testTenantBilling, taxDocumentsEnabled: true, hasTaxDocuments: true })
     server.use(
       http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-documents`, () =>
@@ -1159,7 +1159,8 @@ describe('/tenants/$tenantId/billing with tax documents', () => {
     renderAppAt(BILLING)
     await screen.findByRole('table', { name: 'Tax documents' })
     const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
-    expect(headings.indexOf('Tax documents')).toBe(headings.indexOf('Invoices') + 1)
+    expect(headings.indexOf('Tax details')).toBe(headings.indexOf('Invoices') + 1)
+    expect(headings.indexOf('Tax documents')).toBe(headings.indexOf('Invoices') + 2)
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     expect(screen.getAllByRole('main')).toHaveLength(1)
   })
