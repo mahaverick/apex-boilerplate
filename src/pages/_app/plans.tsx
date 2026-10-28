@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { BillingSettingsCard } from '@/components/features/billing/billing-settings-card'
 import { PlanEditorCard } from '@/components/features/billing/plan-editor-card'
 import { PricesCard } from '@/components/features/billing/prices-card'
+import { TaxExportCard } from '@/components/features/billing/tax-export-card'
 import { DashboardPending } from '@/components/shared/pending-templates'
 import { QueryState } from '@/components/shared/query-state'
 import { SectionBoundary } from '@/components/shared/section-boundary'
@@ -48,6 +49,8 @@ function PlansSkeleton() {
  * price write is admin. Below admin the edit controls are not rendered at
  * all. A 404 is a role refusal, which `QueryState` shows as `RoleDenied`.
  * The trial and grace card has its own read, so a plans failure leaves it up.
+ * An admin also sees the GST return export, once the settings say registration
+ * is on or a tax document exists.
  */
 function PlansPage() {
   const plans = useQuery(staffPlansQueryOptions())
@@ -55,6 +58,11 @@ function PlansPage() {
     useAuthStore((state) => state.user?.platformRole),
     'admin'
   )
+  const settings = useQuery(billingSettingsQueryOptions())
+  const showExport =
+    canEdit &&
+    settings.data !== undefined &&
+    (settings.data.taxDocumentsEnabled || settings.data.hasTaxDocuments)
   return (
     <div className="grid gap-6">
       <h1 className="text-2xl font-semibold">Plans</h1>
@@ -70,6 +78,11 @@ function PlansPage() {
       <SectionBoundary name="Trials and grace">
         <BillingSettingsCard canEdit={canEdit} />
       </SectionBoundary>
+      {showExport && (
+        <SectionBoundary name="GST return export">
+          <TaxExportCard effectiveFrom={settings.data.gstEffectiveFrom} />
+        </SectionBoundary>
+      )}
     </div>
   )
 }

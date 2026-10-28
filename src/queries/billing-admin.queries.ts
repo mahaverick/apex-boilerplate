@@ -18,6 +18,7 @@ import {
 } from '@tanstack/react-query'
 import { apiClient, unwrap } from '@/http/client'
 import { codeFrom, statusFrom } from '@/lib/api-error'
+import { downloadFile } from '@/lib/download-file'
 import { isReauthRequired } from '@/lib/step-up'
 import { auditKeys } from '@/queries/audit.queries'
 import { billingAdminKeys, retryRead } from '@/queries/billing-reads.queries'
@@ -583,5 +584,20 @@ export function useResolveHeldCharge(tenantId: string) {
         await queryClient.invalidateQueries({ queryKey: held })
       }
     },
+  })
+}
+
+/**
+ * `GET /platform/billing/tax-export?period=` (admin, step-up): saves one
+ * month or quarter of tax documents as a ZIP of GSTR-1 CSV files. It
+ * resolves the name the file was saved under. Express records the download
+ * in the audit log, so the logs refresh.
+ */
+export function useDownloadTaxExport() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (period: string) =>
+      downloadFile('/platform/billing/tax-export', `gstr1-${period}.zip`, { params: { period } }),
+    onSuccess: () => invalidateAuditLogs(queryClient),
   })
 }
