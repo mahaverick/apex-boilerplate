@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import { useAuthStore } from '@/states/auth.store'
-import { testBillingAlerts } from '@/tests/fixtures/billing'
+import { testBillingAlerts, testHeldRefundAlert, testHeldSezAlert } from '@/tests/fixtures/billing'
 import { TENANT_ID } from '@/tests/fixtures/ids'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
@@ -57,6 +57,31 @@ describe('/billing-alerts', () => {
     )
     expect(seen.at(-1)?.get('sort')).toBeNull()
     expect(seen.at(-1)?.get('total')).toBe('1')
+  })
+
+  it('links a tax alert to the card that fixes it', async () => {
+    server.use(
+      http.get('/api/v1/platform/billing/alerts', () =>
+        ok(
+          listPage([
+            testHeldSezAlert,
+            { ...testHeldRefundAlert, kind: 'tax_issue_failed' as const },
+          ]),
+          'Billing alerts retrieved.'
+        )
+      )
+    )
+    renderAppAt('/billing-alerts')
+    const table = await screen.findByRole('table', { name: 'Billing alerts' })
+    const [held, failed] = within(table).getAllByRole('row').slice(1)
+    expect(within(held!).getByRole('link', { name: 'Acme Corp' })).toHaveAttribute(
+      'href',
+      `/tenants/${TENANT_ID}/billing#held-charges`
+    )
+    expect(within(failed!).getByRole('link', { name: 'Acme Corp' })).toHaveAttribute(
+      'href',
+      `/tenants/${TENANT_ID}/billing#tax-documents`
+    )
   })
 
   it('sorts oldest first from the When header, in the URL', async () => {

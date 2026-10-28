@@ -24,7 +24,7 @@ const columns = column.columns([
   }),
   column.accessor('tenant', {
     header: 'Tenant',
-    cell: ({ getValue }) => <AlertTenant tenant={getValue()} />,
+    cell: ({ getValue, row }) => <AlertTenant tenant={getValue()} kind={row.original.kind} />,
   }),
   column.accessor('message', {
     header: 'Message',

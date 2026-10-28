@@ -7,6 +7,7 @@ import { BillingEventsCard } from '@/components/features/billing/billing-events-
 import { BillingHistoryCard } from '@/components/features/billing/billing-history-card'
 import { BillingSubscriptionsCard } from '@/components/features/billing/billing-subscriptions-card'
 import { GrantsCard } from '@/components/features/billing/grants-card'
+import { HeldChargesCard } from '@/components/features/billing/held-charges-card'
 import { InvoicesCard } from '@/components/features/billing/invoices-card'
 import { RevokeGrantAction } from '@/components/features/billing/revoke-grant-dialog'
 import { TaxDetailsCard } from '@/components/features/billing/tax-details-card'
@@ -139,13 +140,11 @@ function TenantBilling({
   const heading = useRef<HTMLHeadingElement>(null)
   const now = useNow()
   const catalog = plans.data?.catalog ?? []
-  const { revoke: canRevoke, taxDetails: canEditTax } = billingActionsFor(
-    role,
-    tenant,
-    billing,
-    catalog,
-    now
-  )
+  const {
+    revoke: canRevoke,
+    taxDetails: canEditTax,
+    resolveHeld: canResolve,
+  } = billingActionsFor(role, tenant, billing, catalog, now)
   const labels = new Map(catalog.map((entry) => [entry.key, entry.label]))
   // Express and react date a tenant's billing in its zone.
   const timeZone = tenant.settings.timezone
@@ -197,6 +196,9 @@ function TenantBilling({
       />
       {showTax && <TaxDetailsCard tenant={tenant} billing={billing} canEdit={canEditTax} />}
       {showTax && <TaxDocumentsCard tenantId={tenantId} timeZone={timeZone} />}
+      {(billing.openHeldCharges > 0 || billing.taxDocumentsEnabled) && (
+        <HeldChargesCard tenant={tenant} canResolve={canResolve} />
+      )}
     </div>
   )
 }

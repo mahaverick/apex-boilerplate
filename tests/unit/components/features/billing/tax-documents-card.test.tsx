@@ -78,6 +78,7 @@ function serve({
     http.get(BASE, () => ok(billing, 'Billing retrieved.')),
     http.get(`${BASE}/tax-details`, () => ok(testTaxDetails, 'Tax details retrieved.')),
     http.get(`${BASE}/tax-documents`, () => ok(listPage(documents), 'Tax documents retrieved.')),
+    http.get(`${BASE}/tax-held-charges`, () => ok(listPage([]), 'Held charges retrieved.')),
     http.get(`${BASE}/invoices`, () => ok(listPage(invoices), 'Invoices retrieved.'))
   )
 }

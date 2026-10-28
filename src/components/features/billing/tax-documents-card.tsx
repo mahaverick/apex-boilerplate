@@ -151,7 +151,7 @@ export function TaxDocumentsCard({ tenantId }: { tenantId: string; timeZone: str
   const query = useListQuery(list, (request) => taxDocumentsListOptions(tenantId, request))
   const disabled = query.query.isError && codeFrom(query.query.error) === TAX_DOCUMENTS_DISABLED
   return (
-    <Card>
+    <Card id="tax-documents">
       <CardHeader>
         <CardTitle>
           <h2>Tax documents</h2>
