@@ -503,7 +503,7 @@ the fixtures. It needs no backend. It exists for what jsdom cannot see, because
 jsdom has no layout. `?path=` picks the route, and the harness's other query
 parameters shape the fixtures: `?role=none|viewer|manager|owner` (the default is a
 platform admin), `?member=`, `?billing=active|trialing|past_due|free|none` (every
-customer tenant's Billing tab, dated from the page load), `?tax=off|on|b2c|sez|docs-off` (GST tax documents for every customer tenant and the export; `off` is the default), `?stepup=once` (a
+customer tenant's Billing tab, dated from the page load), `?tax=off|on|b2c|sez|docs-off|held-only` (GST tax documents for every customer tenant and the export; `off` is the default; `held-only` is registration off with no documents and one resolved held charge), `?stepup=once` (a
 suspend and every staff billing write need a recent confirmation), `?flags=`, `?preview=`, `?emails=none`, `?maintenance=full|route`, `?hold=` and `?fail=` (comma-separated `/api/v1/` paths that never answer or answer 500), `?profile=stale` and
 `?onboarding=`. The harness's comments give each one's meaning.
 

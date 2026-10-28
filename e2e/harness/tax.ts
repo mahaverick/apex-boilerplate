@@ -56,10 +56,13 @@ const ACME = { name: 'Acme Corp' }
  * - `sez`: as `on`, for an SEZ unit with one open held charge, an invoice row
  *   held for it, and its hold and refund alerts first in the alerts list;
  * - `docs-off`: registration turned off after documents were issued, so reads
- *   answer and the writes answer 404 `tax_documents_disabled`.
+ *   answer and the writes answer 404 `tax_documents_disabled`;
+ * - `held-only`: registration off and no documents, with one resolved held
+ *   charge. Only its held-charge list answers; every other tax route answers
+ *   404 `tax_documents_disabled`, as under `off`.
  */
 const taxState =
-  (['on', 'b2c', 'sez', 'docs-off'] as const).find(
+  (['on', 'b2c', 'sez', 'docs-off', 'held-only'] as const).find(
     (state) => state === new URLSearchParams(location.search).get('tax')
   ) ?? ('off' as const)
 
@@ -67,7 +70,7 @@ const taxState =
 export const taxEnabled = taxState === 'on' || taxState === 'b2c' || taxState === 'sez'
 
 /** Whether any tax document exists, on the platform and on each customer tenant. */
-export const taxDocumentsExist = taxState !== 'off'
+export const taxDocumentsExist = taxState !== 'off' && taxState !== 'held-only'
 
 /**
  * Under `?tax=sez`, Acme Corp's two `tax_held_sez` alerts, newer than every
@@ -91,7 +94,7 @@ export const SEZ_ALERTS: BillingAlert[] =
     : []
 
 /**
- * The `?billing=` view with the `?tax=` state's three tax fields laid over it.
+ * The `?billing=` view with the `?tax=` state's four tax fields laid over it.
  * @param view - The view `?billing=` picked, or null for none.
  */
 export function withTaxState(view: StaffTenantBilling | null): StaffTenantBilling | null {
@@ -101,6 +104,7 @@ export function withTaxState(view: StaffTenantBilling | null): StaffTenantBillin
     taxDocumentsEnabled: taxEnabled,
     hasTaxDocuments: taxDocumentsExist,
     openHeldCharges: taxState === 'sez' ? 1 : 0,
+    hasHeldCharges: taxState !== 'off',
   }
 }
 
@@ -190,6 +194,16 @@ export function createTaxHarness(deps: TaxHarnessDeps) {
       return fail('This tenant has no billing.', 404, 'tenant_billing_not_found')
     }
     return taxDocumentsExist ? null : fail(TAX_OFF.read, 404, 'tax_documents_disabled')
+  }
+
+  /**
+   * The 404 a held-charge route answers. Held charges stay readable while
+   * registration is off, so `held-only` answers where `taxReadRefusal` would not.
+   * @param tenantId - The `:tenantId` the route was called with.
+   */
+  function heldReadRefusal(tenantId: unknown) {
+    if (taxState === 'held-only' && tenantId !== PLATFORM_TENANT_ID) return null
+    return taxReadRefusal(tenantId)
   }
 
   /**
@@ -491,7 +505,7 @@ export function createTaxHarness(deps: TaxHarnessDeps) {
    */
   function invoiceRows(): StaffInvoiceItem[] {
     const paid = testInvoices[0]!
-    if (taxState === 'off') return testInvoices
+    if (!taxDocumentsExist) return testInvoices
     const taxInvoice = tax.documents.find((document) => document.number === 'INV/26-27/00001')!
     const later: StaffInvoiceItem = {
       ...paid,
@@ -624,7 +638,7 @@ export function createTaxHarness(deps: TaxHarnessDeps) {
     http.get(
       '/api/v1/platform/tenants/:tenantId/billing/tax-held-charges',
       ({ params, request }) => {
-        const refusal = taxReadRefusal(params.tenantId)
+        const refusal = heldReadRefusal(params.tenantId)
         if (refusal) return refusal
         const query = new URLSearchParams(new URL(request.url).searchParams)
         query.set('sort', '-heldAt')
@@ -646,7 +660,7 @@ export function createTaxHarness(deps: TaxHarnessDeps) {
     http.post(
       '/api/v1/platform/tenants/:tenantId/billing/tax-held-charges/:heldId/resolve',
       async ({ params, request }) => {
-        const refusal = billingStepUpRefusal(request) ?? taxReadRefusal(params.tenantId)
+        const refusal = billingStepUpRefusal(request) ?? heldReadRefusal(params.tenantId)
         if (refusal) return refusal
         return resolveHeldCharge(params.heldId, (await request.json()) as Record<string, unknown>)
       }

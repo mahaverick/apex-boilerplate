@@ -2319,6 +2319,7 @@ describe('tenant billing', () => {
       taxDocumentsEnabled: true,
       hasTaxDocuments: true,
       openHeldCharges: 1,
+      hasHeldCharges: true,
     })
     server.use(
       http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-details`, () =>

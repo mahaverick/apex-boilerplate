@@ -189,6 +189,11 @@ export interface StaffTenantBilling extends TenantBilling {
   entitlements: TenantEntitlements
   /** Unresolved held SEZ charges, for the Held: SEZ badge. */
   openHeldCharges: number
+  /**
+   * Whether the workspace has any held SEZ charge, open or resolved. It keeps the
+   * Held SEZ charges card readable after registration turns off.
+   */
+  hasHeldCharges: boolean
   sources: Record<string, 'plan' | 'grant'>
   grants: Grant[]
   /** The newest 20; the full list is `GET …/billing/history`. */

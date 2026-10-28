@@ -82,27 +82,8 @@ const BILLING_STATES: readonly CaptureState[] = [
     ],
   },
   {
-    name: 'tax',
-    note: 'A GST-registered tenant: tax details, documents and a resolved held charge.',
-    stubs: [
-      {
-        endpoint: 'GET /platform/tenants/:id/billing',
-        data: { ...testTenantBilling, taxDocumentsEnabled: true, hasTaxDocuments: true },
-      },
-      { endpoint: 'GET /platform/tenants/:id/billing/tax-details', data: testTaxDetails },
-      {
-        endpoint: 'GET /platform/tenants/:id/billing/tax-documents',
-        data: listPage([...testTaxDocuments].reverse()),
-      },
-      {
-        endpoint: 'GET /platform/tenants/:id/billing/tax-held-charges',
-        data: listPage(testHeldCharges.filter((charge) => charge.resolvedAt !== null)),
-      },
-    ],
-  },
-  {
     name: 'sez-held',
-    note: 'An SEZ tenant with one charge held for staff.',
+    note: 'A GST-registered SEZ tenant: tax details, documents, one charge held for staff and one resolved.',
     stubs: [
       {
         endpoint: 'GET /platform/tenants/:id/billing',
@@ -111,6 +92,7 @@ const BILLING_STATES: readonly CaptureState[] = [
           taxDocumentsEnabled: true,
           hasTaxDocuments: true,
           openHeldCharges: 1,
+          hasHeldCharges: true,
         },
       },
       {
