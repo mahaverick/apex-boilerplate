@@ -32,6 +32,7 @@ import {
   testBillingAlerts,
   testBillingSettings,
   testPlans,
+  testTaxDetails,
   testTenantBilling,
 } from '@/tests/fixtures/billing'
 import { byContent } from '@/tests/fixtures/content'
@@ -2286,6 +2287,26 @@ describe('tenant billing', () => {
     renderAppAt(`/tenants/${TENANT_ID}/billing`)
     await openBillingAction(user, item)
     await screen.findByRole(role, { name })
+    await expectNoViolations()
+  })
+
+  it('the Correct tax details dialog, with a GSTIN typed and an error shown, has no axe violations', async () => {
+    serveBilling({ ...ALL_ACTIONS, taxDocumentsEnabled: true })
+    server.use(
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-details`, () =>
+        ok(testTaxDetails, 'Tax details retrieved.')
+      ),
+      http.get(`/api/v1/platform/tenants/${TENANT_ID}/billing/tax-documents`, () =>
+        ok(listPage([]), 'ok')
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(`/tenants/${TENANT_ID}/billing`)
+    await user.click(await screen.findByRole('button', { name: 'Correct tax details' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Correct tax details for Acme Corp' })
+    await user.type(within(dialog).getByLabelText('Reason'), 'Corrected certificate')
+    await user.click(within(dialog).getByRole('button', { name: 'Save tax details' }))
+    await within(dialog).findByText('Change at least one tax detail before saving.')
     await expectNoViolations()
   })
 

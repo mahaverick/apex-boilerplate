@@ -90,7 +90,23 @@ describe('cancelChoicesFor, with no period end on file', () => {
 })
 
 describe('billingActionsFor, the tax actions', () => {
-  const tenant = { lifecycleState: 'active' } as PlatformTenantDetail
+  const tenant: PlatformTenantDetail = {
+    id: '10000000-0000-4000-8000-000000000001',
+    name: 'Acme Corp',
+    slug: 'acme',
+    description: null,
+    website: null,
+    logo: null,
+    lifecycleState: 'active',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-02-01T00:00:00.000Z',
+    deletedAt: null,
+    settings: { timezone: 'UTC', locale: 'en' },
+    memberCount: 2,
+    owners: [],
+    pendingInvitationCount: 0,
+    pendingOwnerInvitation: null,
+  }
   const on: StaffTenantBilling = { ...testTenantBilling, taxDocumentsEnabled: true }
   const off: StaffTenantBilling = { ...testTenantBilling, taxDocumentsEnabled: false }
   /** The three tax flags for a role. */

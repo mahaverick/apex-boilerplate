@@ -79,7 +79,8 @@ export function effectiveState(billing: StaffTenantBilling, now: number): Billin
 /**
  * Which billing actions a role may take on this tenant, as express allows
  * them: Resync, Extend trial and Add grant from manager, Cancel from admin.
- * Correct tax details (manager) and Issue credit note (admin) need registration on; Resolve held charge (admin) does not. Resync needs payments on (it would change nothing, yet still be audited).
+ * Correct tax details (manager) and Issue credit note (admin) need
+ * registration on; Resolve held charge (admin) does not. Resync needs payments on (it would change nothing, yet still be audited).
  * Extend trial needs a tenant express serves as trialing or Free
  * (`effectiveState`, as express's extend reads it since #158): a past-due
  * tenant past its grace is Free and may start one; a paying one may not. An archived tenant can't use access, so it gets neither Extend trial

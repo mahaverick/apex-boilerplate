@@ -207,7 +207,7 @@ function TaxDetailsFormBody({
     },
   })
 
-  /** Shows a refused save: the API's sentence for a lost race or a switched-off registration, else as any billing write. */
+  /** Shows a refused save: the API's sentence in the form for a lost race, in a toast for a switched-off registration, else as any billing write. */
   async function refuse(error: unknown) {
     const code = codeFrom(error)
     if (statusFrom(error) === 409 && code === TAX_DETAILS_VERSION_CONFLICT) {
@@ -216,7 +216,9 @@ function TaxDetailsFormBody({
       return
     }
     if (statusFrom(error) === 404 && code === TAX_DOCUMENTS_DISABLED) {
-      serverErrors.setFormErrors([staffMessageFrom(error)])
+      // The refetch turns the card read-only and unmounts this dialog, so the sentence goes in a toast.
+      toast.error(staffMessageFrom(error))
+      onDone()
       await queryClient.invalidateQueries({
         queryKey: billingAdminKeys.tenant(tenant.id),
         exact: true,

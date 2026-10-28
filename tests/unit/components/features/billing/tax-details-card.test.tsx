@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { toast } from '@/lib/toast'
 import { GSTIN_CHECKSUM_MESSAGE } from '@/schemas/tax-details.schemas'
@@ -282,11 +282,11 @@ describe('the Tax details card', () => {
     await replace(user, dialog, 'GSTIN (optional)', '27ABCDE1234F1Z0')
     await user.type(within(dialog).getByLabelText('Reason'), REASON)
     await user.click(within(dialog).getByRole('button', { name: 'Save tax details' }))
-    expect(
-      await within(dialog).findByText(
-        'This GSTIN is registered in Maharashtra. Choose Maharashtra as the state.'
-      )
-    ).toBeVisible()
+    const message = 'This GSTIN is registered in Maharashtra. Choose Maharashtra as the state.'
+    expect(await within(dialog).findByText(message)).toBeVisible()
+    expect(within(dialog).getByRole('combobox', { name: 'State' })).toHaveAccessibleDescription(
+      message
+    )
     expect(bodies).toEqual([])
   })
 
@@ -303,18 +303,21 @@ describe('the Tax details card', () => {
     expect(bodies).toEqual([])
   })
 
-  it('shows express’s message when registration was turned off, and refetches the billing view', async () => {
+  it('toasts express’s message when registration was turned off, closes the dialog and leaves the card read-only', async () => {
     serve()
+    let refused = false
     let billingReads = 0
     server.use(
       http.get(BASE, () => {
         billingReads += 1
-        return ok(ENABLED, 'Billing retrieved.')
+        return ok(refused ? OFF_WITH_DOCUMENTS : ENABLED, 'Billing retrieved.')
       })
     )
-    recordPlainPatch(() =>
-      fail('Tax documents are off on this server.', 404, 'tax_documents_disabled')
-    )
+    recordPlainPatch(() => {
+      refused = true
+      return fail('Tax documents are off on this server.', 404, 'tax_documents_disabled')
+    })
+    const error = vi.spyOn(toast, 'error').mockImplementation(() => '')
     const user = userEvent.setup()
     renderAppAt(BILLING)
     const dialog = await openDialog(user)
@@ -322,12 +325,29 @@ describe('the Tax details card', () => {
     await user.type(within(dialog).getByLabelText('Reason'), REASON)
     const before = billingReads
     await user.click(within(dialog).getByRole('button', { name: 'Save tax details' }))
-    expect(await within(dialog).findByText('Tax documents are off on this server.')).toBeVisible()
+    await waitFor(() => expect(error).toHaveBeenCalledWith('Tax documents are off on this server.'))
     await waitFor(() => expect(billingReads).toBeGreaterThan(before))
+    expect(
+      await screen.findByText(
+        'This server no longer issues tax documents. These details are read-only, and every issued document stays downloadable.'
+      )
+    ).toBeVisible()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Correct tax details' })).toBeNull()
   })
 
-  it('keeps the typed legal name and shows express’s sentence on a 409', async () => {
+  it('keeps the typed legal name, shows express’s sentence and refetches the details on a 409', async () => {
+    let detailReads = 0
     serve()
+    server.use(
+      http.get(`${BASE}/tax-details`, () => {
+        detailReads += 1
+        return ok(
+          detailReads > 1 ? { ...testTaxDetails, version: 4 } : testTaxDetails,
+          'Tax details retrieved.'
+        )
+      })
+    )
     recordPlainPatch(() =>
       fail(
         'Someone else changed these details. Reload and try again.',
@@ -340,11 +360,42 @@ describe('the Tax details card', () => {
     const dialog = await openDialog(user)
     await replace(user, dialog, 'Legal name', 'Acme Holdings Private Limited')
     await user.type(within(dialog).getByLabelText('Reason'), REASON)
+    const before = detailReads
     await user.click(within(dialog).getByRole('button', { name: 'Save tax details' }))
     expect(
       await within(dialog).findByText('Someone else changed these details. Reload and try again.')
     ).toBeVisible()
     expect(within(dialog).getByLabelText('Legal name')).toHaveValue('Acme Holdings Private Limited')
+    await waitFor(() => expect(detailReads).toBeGreaterThan(before))
+  })
+
+  it('shows an API field error under State, and choosing another state clears it', async () => {
+    serve()
+    recordPlainPatch(() =>
+      HttpResponse.json(
+        {
+          success: false,
+          message: 'Validation failed.',
+          statusCode: 400,
+          errors: { stateCode: ['Choose a state from the list.'] },
+          requestId: 'test-request-id',
+        },
+        { status: 400 }
+      )
+    )
+    const user = userEvent.setup()
+    renderAppAt(BILLING)
+    const dialog = await openDialog(user)
+    await replace(user, dialog, 'PIN code', '560002')
+    await user.type(within(dialog).getByLabelText('Reason'), REASON)
+    await user.click(within(dialog).getByRole('button', { name: 'Save tax details' }))
+    const state = within(dialog).getByRole('combobox', { name: 'State' })
+    await waitFor(() => expect(state).toHaveAccessibleDescription('Choose a state from the list.'))
+    await user.click(state)
+    await user.click(await screen.findByRole('option', { name: '27 Maharashtra' }))
+    await waitFor(() =>
+      expect(state).not.toHaveAccessibleDescription('Choose a state from the list.')
+    )
   })
 
   it('shows the Required with a GSTIN hint on the address fields once a GSTIN is typed', async () => {
