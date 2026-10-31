@@ -33,10 +33,10 @@ shipping the app.
 
 ## Prerequisites
 
-- **Node 24 or later** and **pnpm** at the version `packageManager` in
+- **Node 26 or later** and **pnpm** at the version `packageManager` in
   `package.json` names. Install Corepack with
   `npm i -g corepack@0.36.0 && corepack enable`; pnpm then comes from
-  `packageManager`. `pnpm install` refuses a Node older than 24.
+  `packageManager`. `pnpm install` refuses a Node older than 26.
 - **The API running on `:4040`, with `APEX_URL` set.** See
   [Getting started](#getting-started).
 - **express-boilerplate 8.0.1 or later.** Passkeys need 8.0.0, and the staff
