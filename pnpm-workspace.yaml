@@ -14,9 +14,14 @@ overrides:
   # GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr: dompurify 3.4.16 and earlier have a
   # SAFE_FOR_TEMPLATES bypass and an IN_PLACE hook flaw. Via posthog-js. Production.
   dompurify@<3.4.17: '>=3.4.17'
-  # GHSA-q3jh-wrc6-jgq8, GHSA-8r9p-f939-6h3c: follow-redirects 1.16.0 leaks credential
-  # headers across origins. Via axios. Production.
-  follow-redirects@<1.16.1: ^1.16.1
+  # GHSA-q3jh-wrc6-jgq8, GHSA-8r9p-f939-6h3c, GHSA-mrwp-f3q8-3g9p: follow-redirects
+  # 1.16.1 and earlier leak credential headers across origins. Via axios. Production.
+  follow-redirects@<1.16.2: ^1.16.2
+  # GHSA-97r2-qh9m-474h, GHSA-wp97-x4hv-qvhp, GHSA-7rv5-mrxv-xcr9, GHSA-9wx9-5pv9-3349,
+  # GHSA-f86p-h4j2-7qgj: seroval 1.6.10 and earlier. Via @tanstack/router-core.
+  # Production. Held on 1.6, with seroval-plugins beside it: the versions move together.
+  seroval@<1.6.12: ~1.6.12
+  seroval-plugins@<1.6.12: ~1.6.12
   # GHSA-68fv-2mgg-jv7q: via vite > postcss (also shadcn, eslint-plugin-tailwindcss),
   # @tailwindcss/node, jsdom > css-tree and @vitest/coverage-v8 > magicast. Dev only.
   source-map-js@<1.2.2: ^1.2.2
