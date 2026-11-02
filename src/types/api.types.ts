@@ -241,6 +241,12 @@ export type StatsRange = '7d' | '30d'
 export interface PlatformStats {
   range: StatsRange
   /**
+   * express's `ONBOARDING_STUCK_AFTER_DAYS`: the days without progress after
+   * which a tenant counts in `totals.stuckTenants`. An API older than the
+   * field sends none, and the copy then states no number.
+   */
+  stuckAfterDays?: number
+  /**
    * Live counts. `users` is active users only; `staff` is the platform tenant's members;
    * `stuckTenants` is active, tracked tenants whose onboarding is stuck now, whatever the range.
    */
@@ -713,6 +719,12 @@ export interface OnboardingFunnel {
   completionRate: number | null
   steps: OnboardingFunnelStep[]
   trackedTenants: number
+  /**
+   * express's `ONBOARDING_STUCK_AFTER_DAYS`: the days without progress after
+   * which a tenant counts as stuck. An API older than the field sends none,
+   * and the copy then states no number.
+   */
+  stuckAfterDays?: number
 }
 
 /**
@@ -844,6 +856,12 @@ export type ErrorDropReason = 'throttled' | 'buffer_full' | 'rejected' | 'retry_
 export interface ErrorTrackingStatus {
   enabled: boolean
   window: '15m'
+  /**
+   * express's `ERROR_RETRY_LIMIT`: the sends a batch gets before it is dropped
+   * as `retry_exhausted`. An API older than the field sends none, and the
+   * label then states no number.
+   */
+  retryLimit?: number
   sent: number
   dropped: Record<ErrorDropReason, number>
   /** The last batch PostHog accepted, in the last 24 hours. */

@@ -111,6 +111,8 @@ const EMAIL_MESSAGE_DAYS: EmailMessageDay[] = FIXTURE_DAYS.map((date, index) => 
 /** Seven days ending 2026-09-29, so every widget has something to draw. */
 export const testStats: PlatformStats = {
   range: '7d',
+  // Not express's default of 7, so a test passes only by rendering the response.
+  stuckAfterDays: 14,
   totals: { tenants: 1284, users: 9730, staff: 18, stuckTenants: 6 },
   signups: ['23', '24', '25', '26', '27', '28', '29'].map((day, index) => ({
     date: `2026-09-${day}`,
@@ -126,6 +128,8 @@ export const testSystemStatus: SystemStatus = {
   errorTracking: {
     enabled: true,
     window: '15m',
+    // Not express's ERROR_RETRY_LIMIT of 5, so a test passes only by rendering the response.
+    retryLimit: 3,
     sent: 42,
     dropped: { throttled: 0, buffer_full: 0, rejected: 0, retry_exhausted: 0 },
     lastSendOkAt: '2026-10-04T10:00:00.000Z',
@@ -329,6 +333,8 @@ export const testOnboardingFunnel: OnboardingFunnel = {
     },
   ],
   trackedTenants: 52,
+  // Not express's default of 7, so a test passes only by rendering the response.
+  stuckAfterDays: 14,
 }
 
 /**

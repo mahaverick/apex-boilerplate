@@ -51,6 +51,9 @@ describe('/overview', () => {
       .getByText('Stuck tenants (all tracked)')
       .closest('[data-slot="card"]')!
     expect(within(tile as HTMLElement).getByText('6')).toBeInTheDocument()
+    expect(tile).toHaveTextContent(
+      'Active tracked tenants, not complete or dismissed, with no onboarding progress for 14 days or more (the server’s ONBOARDING_STUCK_AFTER_DAYS), whatever their start date.'
+    )
     expect(
       within(tile as HTMLElement).getByRole('link', { name: 'View stuck tenants' })
     ).toHaveAttribute('href', '/onboarding') // stuck is the default tab, so its link leaves `?state` out
@@ -396,6 +399,48 @@ describe('the Overview’s system status card', () => {
     expect(within(card).getByText('Error events dropped').nextElementSibling).toHaveTextContent(
       '4 (Throttled: 3, Refused by PostHog: 1)'
     )
+  })
+
+  it('names the API’s retry limit for batches dropped after every send', async () => {
+    serveStatus(() =>
+      ok(
+        withTracking({
+          dropped: { throttled: 0, buffer_full: 0, rejected: 0, retry_exhausted: 2 },
+        }),
+        'OK'
+      )
+    )
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'System status' })
+    expect(
+      await within(card)
+        .findByText('Error events dropped')
+        .then((term) => term.nextElementSibling)
+    ).toHaveTextContent('2 (Dropped after 3 sends: 2)')
+  })
+
+  it('states no number for the retry limit when the API sends none', async () => {
+    const older: SystemStatus['errorTracking'] = { ...testSystemStatus.errorTracking }
+    delete older.retryLimit
+    serveStatus(() =>
+      ok(
+        {
+          ...testSystemStatus,
+          errorTracking: {
+            ...older,
+            dropped: { throttled: 0, buffer_full: 0, rejected: 0, retry_exhausted: 2 },
+          },
+        },
+        'OK'
+      )
+    )
+    renderAppAt('/overview')
+    const card = await screen.findByRole('region', { name: 'System status' })
+    expect(
+      await within(card)
+        .findByText('Error events dropped')
+        .then((term) => term.nextElementSibling)
+    ).toHaveTextContent('2 (Dropped after the last retry: 2)')
   })
 
   it('warns, with the status, when the last send failed, and says when nothing was sent', async () => {

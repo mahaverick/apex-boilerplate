@@ -167,6 +167,7 @@ const testUser = {
  */
 const STATS = {
   range: '7d' as const,
+  stuckAfterDays: 7,
   totals: { tenants: 1284, users: 9730, staff: 18, stuckTenants: 6 },
   signups: ['23', '24', '25', '26', '27', '28', '29'].map((day, index) => ({
     date: `2026-09-${day}`,
@@ -1044,6 +1045,7 @@ function onboardingFunnel(range: string) {
       },
     ].map((step) => ({ ...step, title: STEP_TITLES[step.key as keyof typeof STEP_TITLES] })),
     trackedTenants: 52,
+    stuckAfterDays: 7,
   }
 }
 
@@ -1418,6 +1420,7 @@ const SYSTEM_STATUS = {
   errorTracking: {
     enabled: true,
     window: '15m',
+    retryLimit: 5,
     sent: 42,
     dropped: { throttled: 2, buffer_full: 0, rejected: 0, retry_exhausted: 0 },
     lastSendOkAt: '2026-10-04T10:00:00.000Z',
