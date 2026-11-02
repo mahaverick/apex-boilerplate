@@ -1,10 +1,13 @@
 # Local edits to the vendored shadcn components
 
 The files in `src/components/ui/` come from the shadcn registry (style
-`base-vega`). These are the places they differ, and why. `pnpm ui:drift`, a
-step of CI's `lint` job, compares each file with its registry snapshot in
-`scripts/ui-registry/` and accepts exactly the edits listed here, through
-each section's rules.
+`base-vega`). This file lists every place they differ from the registry, and
+why. It is for anyone who edits or re-pulls a vendored component.
+
+This file is also machine-read. `pnpm ui:drift`, a step of the continuous
+integration (CI) `lint` job, compares each file with its registry snapshot in
+`scripts/ui-registry/`. It accepts exactly the edits recorded here, through each
+section's rules.
 
 The rules are fenced blocks under a `### <file>` heading (`*` for every file):
 
@@ -12,7 +15,7 @@ The rules are fenced blocks under a `### <file>` heading (`*` for every file):
   line rewrites: `ours: s/<re>/<to>/` rewrites our changed lines and
   `theirs: s/<re>/<to>/` the registry's. A changed line a rewrite turns blank,
   or into a line the other side has in the same hunk, is explained, and so is
-  a blank line. Use them for an edit that recurs on many lines or files.
+  a blank line. Use them for an edit that recurs on more than one line or file.
 - A `ui-drift-hunk` block records one hunk exactly: a `reason:` line, then the
   registry's lines as `-<line>` and ours as `+<line>`, indentation included.
   What the line rewrites leave of a hunk must equal one recorded hunk, and a
@@ -20,17 +23,22 @@ The rules are fenced blocks under a `### <file>` heading (`*` for every file):
   check prints the block to paste; fill in the reason.
 
 `pnpm ui:drift:refresh` rewrites the snapshot from the registry through the
-installed `shadcn` devDependency (it needs the network), which `package.json`
-pins exactly. The snapshot's
-`manifest.json` records that version and `components.json`'s style and icon
-library, and the check fails when either moves without a refresh; Renovate
-leaves `shadcn` bumps for a human for that reason. The registry also moves
-without a CLI release, so a refresh is a change of its own, and a PR that
-touches `scripts/ui-registry/` is reviewed as one (CODEOWNERS): review the
-snapshot's diff, then run `pnpm ui:drift`. Never edit a snapshot file by hand
-to make a vendored edit pass. A refresh writes to a `scripts/ui-registry.next-*`
-directory first; one left by an interrupted run fails the check until it is
-deleted. A record the check cannot read stops it with one `ui:drift:` line.
+installed `shadcn` devDependency, which `package.json` pins exactly. It needs the
+network.
+
+- **What the snapshot pins.** Its `manifest.json` records the `shadcn` version
+  and `components.json`'s style and icon library. The check fails when either
+  moves without a refresh, which is why Renovate leaves `shadcn` bumps for a
+  human.
+- **A refresh is a change of its own.** The registry also moves without a
+  command-line interface (CLI) release. A pull request (PR) that touches
+  `scripts/ui-registry/` is reviewed as one (CODEOWNERS): review the snapshot's
+  diff, then run `pnpm ui:drift`.
+- **Never edit a snapshot file by hand** to make a vendored edit pass.
+- **An interrupted refresh blocks the check.** A refresh writes to a
+  `scripts/ui-registry.next-*` directory first. One left by an interrupted run
+  fails the check until it is deleted.
+- **A record the check cannot read** stops it with one `ui:drift:` line.
 
 Re-pulling a component (`pnpm exec shadcn add <name> --overwrite`)
 drops these edits: re-apply every one marked "re-apply: yes".
@@ -198,7 +206,8 @@ The trigger's narrowed `transition` is the `*` section's edit.
 
 Ours: the viewport sits at the top, the toast manager is `src/lib/toast.ts`'s,
 and the toasts carry the PII mask, status colours and a labelled viewport.
-The edits are too many to list line by line, so the file is skipped.
+The edits touch most of the file, so the check skips it rather than list each
+line.
 
 ```ui-drift
 skip

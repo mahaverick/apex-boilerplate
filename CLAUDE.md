@@ -1,19 +1,27 @@
 # CLAUDE.md
 
-Rules and gotchas for changing code in this repository. The decisions here look
-wrong until you know the reason; changing one is a deliberate act, not a tidy-up.
-How the app fits together is in [ARCHITECTURE.md](ARCHITECTURE.md), what it
-defends against is in [SECURITY.md](SECURITY.md), and how to run, configure and
-deploy it is in [README.md](README.md).
+Rules and traps for anyone, human or agent, changing code in this repository.
+Each rule looks wrong until you know its reason, so changing one is a deliberate
+act, not a tidy-up. How the app fits together is in
+[ARCHITECTURE.md](ARCHITECTURE.md). What it defends against is in
+[SECURITY.md](SECURITY.md). How to run, configure and deploy it is in
+[README.md](README.md).
+
+Terms used below: CI is continuous integration (`.github/workflows/ci.yml`), a PR
+is a pull request, e2e is the Playwright end-to-end suite in `e2e/`, and PII is
+personally identifiable information.
 
 ## Sibling sync
 
 `react-boilerplate`, the customer app, shares the HTTP layer, analytics, flags,
-error tracking, most of the container and several components with this app. When
-you change a shared path, change react in the same PR, and say in the description
-what happened there ("ported in react#N", or "not applicable because …"). For a
-file the two apps hold byte for byte, change react's copy first and copy it here,
-except `scrub.ts`, whose rules change in express first.
+error tracking, most of the container and a set of components with this app.
+
+- When you change a shared path, change react in the same PR. Say in the
+  description what happened there ("ported in react#N", or "not applicable
+  because …").
+- For a file the two apps hold byte for byte, change react's copy first and copy
+  it here. The exception is `scrub.ts`, whose rules change in express first.
+
 The paths are listed in
 [Sibling sync with react-boilerplate](ARCHITECTURE.md#sibling-sync-with-react-boilerplate).
 
@@ -34,12 +42,16 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   API's developer sentence.
 - **A write that may need a recent sign-in runs through `useStepUp().run`.** The
   API refuses a stale sign-in with `REAUTH_REQUIRED`, which is not a verdict.
-  The "Confirm it's you" dialog confirms by a passkey, or by an emailed link
-  (under "Use another method"), opened in this browser's session on
-  `/auth/confirm`. The confirm page posts `step_up_confirmed`, and the dialog
-  refreshes the session and retries the write once. A passkey confirmation
-  needs no message: the dialog that asked holds the new token. There is no password and no Google step-up: Google cannot prove
-  a fresh sign-in.
+  The "Confirm it's you" dialog confirms in one of two ways:
+  - by a passkey. This needs no message: the dialog that asked holds the new
+    token;
+  - by an emailed link (under "Use another method"), opened in this browser's
+    session on `/auth/confirm`. The confirm page posts `step_up_confirmed`, and
+    the dialog refreshes the session and retries the write once.
+
+  There is no password and no Google step-up: Google cannot prove a fresh
+  sign-in.
+
 - **Shared passkey and step-up modules are react's; change react first, then
   copy.** The passkey, step-up and `app-shell` files listed in
   [Sibling sync](ARCHITECTURE.md#sibling-sync-with-react-boilerplate) are byte
@@ -60,12 +72,12 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
 - **A new main-nav page is an entry in `src/constants/navigation.ts`** plus the
   pieces [The staff shell](ARCHITECTURE.md#the-staff-shell-this-app-only) lists.
   The sidebar's main nav and the command palette both read that list.
-- Settings pages are declared in `src/constants/settings.ts`; add a page there and
-  as a route under `src/pages/_app/settings/`. Main-nav pages stay in
-  `src/constants/navigation.ts`.
+- A settings page is an entry in `src/constants/settings.ts` plus a route under
+  `src/pages/_app/settings/`, not a `navigation.ts` entry.
 - **Text another party wrote renders as text.** A name, a reason, an audit entry's
-  metadata or a maintenance message is text, never markup. A rendered email stays in its `<iframe sandbox="">`: never add
-  `allow-same-origin` ([Untrusted content](SECURITY.md#untrusted-content)).
+  metadata or a maintenance message is text, never markup. A rendered email stays
+  in its `<iframe sandbox="">`: never add `allow-same-origin`
+  ([Untrusted content](SECURITY.md#untrusted-content)).
 
 ## The gate
 
@@ -74,16 +86,20 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   the 17 leftover rules, which run untyped. Oxlint fails on a warning too
   (`denyWarnings` in `vite.config.ts`). `pnpm lint` runs `vp lint`, ESLint and
   `vp fmt --check`, with the same zero-warning bar.
-- The `lint` job runs `pnpm check`, `pnpm lint:docs`, `pnpm ui:drift`, `pnpm knip`,
-  `pnpm typecheck`, `pnpm build`, `pnpm check:bundle` and the audits. Six `unit`
-  jobs run `pnpm test:shard`; the `test` job runs `pnpm test:merge`, which enforces
-  the coverage thresholds in `vitest.config.ts` on the merged result. The `e2e` job
-  runs alongside. The `image` job builds the image once, with no layer
-  cache, and uploads it; `image-checks` checks it, two `nginx-e2e` shards run the
-  `nginx` `@no-api` Playwright tests against it, and the `docker` job, the
-  required check, needs all of them. Local
-  `pnpm test:coverage` still enforces the same thresholds. The scripts are in
-  [README.md](README.md).
+- CI's jobs (the scripts are in [README.md](README.md#scripts)):
+
+  | Job                    | Runs                                                                                                                          |
+  | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+  | `lint`                 | `pnpm check`, `pnpm lint:docs`, `pnpm ui:drift`, `pnpm knip`, `pnpm typecheck`, `pnpm build`, `pnpm check:bundle`, the audits |
+  | `unit` (6 jobs)        | `pnpm test:shard`                                                                                                             |
+  | `test`                 | `pnpm test:merge`, which enforces the coverage thresholds in `vitest.config.ts` on the merged result                          |
+  | `e2e`                  | Runs alongside the others                                                                                                     |
+  | `image`                | Builds the image once, with no layer cache, and uploads it                                                                    |
+  | `image-checks`         | Checks that image                                                                                                             |
+  | `nginx-e2e` (2 shards) | The `nginx` `@no-api` Playwright tests against that image                                                                     |
+  | `docker`               | The required check; needs `image`, `image-checks` and both `nginx-e2e` shards                                                 |
+
+  Local `pnpm test:coverage` enforces the same thresholds.
 
 ## Dead code (knip)
 
@@ -112,8 +128,8 @@ When it reports something:
   (`vp config --hooks`) generates only the `_/` dispatcher, so if
   `git ls-files .vite-hooks` is empty, no hook runs.
 - Existing clone? After `pnpm install`, run `git config --unset core.hooksPath && pnpm prepare` once, or no hook runs.
-- **pre-push runs no e2e.** A long pre-push hook can outlast the SSH connection and
-  drop the push. CI runs e2e. `pnpm push [git push args]` runs `pnpm gate` first,
+- **pre-push runs no e2e.** A long pre-push hook can outlast the Secure Shell
+  (SSH) connection and drop the push. CI runs e2e. `pnpm push [git push args]` runs `pnpm gate` first,
   then pushes with `--no-verify`.
 - **Hooks call `pnpm exec`, never `npx`.** On a fresh machine `npx` downloads the
   newest version, not the one this repo tested against.
@@ -179,7 +195,7 @@ Each rule's reason is in [Analytics privacy](SECURITY.md#analytics-privacy).
   puts them on every link it mails, with values from its own constants. The
   sanitizer keeps a campaign value only when it matches `^[a-z0-9_-]{1,64}$`.
   Nothing else may be added, and never `token`, `email` or `redirect`.
-- **Never call the SDK's `reset()` directly.** It drops the super properties and
+- **Never call the posthog-js software development kit's (SDK's) `reset()` directly.** It drops the super properties and
   the consent answer. `resetKeepingConsent` restores both.
 - **Page views come from the router, not posthog-js.** The router captures
   `$pageview` once the route has resolved (`onResolved`), so a page view never
@@ -237,15 +253,16 @@ The mechanism is in [The container and run-time config](ARCHITECTURE.md#the-cont
 The reasons are in [CSP and headers](SECURITY.md#csp-and-headers) and
 [Run-time config injection safety](SECURITY.md#run-time-config-injection-safety).
 
-- **No inline script, ever.** The CSP is `script-src 'self'`. A new origin for
+- **No inline script, ever.** The Content Security Policy (CSP) is
+  `script-src 'self'`. A new origin for
   scripts, styles, images, fonts or `fetch` means changing the policy in
   `nginx.conf` in the same commit.
 - **`src/lib/zod-jitless.ts` is the first import** in `main.tsx`, `tests/setup.ts`,
   `e2e/harness/harness.tsx` and every `src/` file that imports Zod as a value
   (anything but `import type`). The entry's first import alone is not enough: a
   chunk the entry imports evaluates before the entry's body.
-  `tests/unit/lib/zod-jitless.test.ts` and `pnpm check:bundle` enforce it. Never fix Zod's JIT probe by adding
-  `'unsafe-eval'`.
+  `tests/unit/lib/zod-jitless.test.ts` and `pnpm check:bundle` enforce it. Never
+  fix Zod's just-in-time (JIT) compiler probe by adding `'unsafe-eval'`.
 - **No `location` declares `add_header`.** One that did would drop every security
   header.
 - **The image runs as uid 101 on a read-only root.** Everything it writes goes
@@ -311,25 +328,30 @@ The directory holds vendored shadcn output. An edit there is lost the next time
 the component is added again.
 
 - **The formatter skips the vendored files** (`fmt.ignorePatterns` in `vite.config.ts`).
-- **The linters relax only some rules for them**: the Tailwind rules,
+- **The linters relax five groups of rules for them**: the Tailwind rules,
   `react/only-export-components`, `local/comment-style`, the JSDoc
-  requirement and the import restrictions. Every other rule, type-aware rules at
-  error included, still applies, so a type error there fails CI. The one
-  exception is `chart.tsx`, which turns off five type-aware rules its Recharts
-  typing trips. Settle a doubt by running the linter, not by reading the config:
-  for ESLint, `pnpm exec eslint --print-config <file>`. For Oxlint, lint a probe
-  file under the glob, seeded with `import { cn as seededCn } from 'cn'`:
-  `oxlint --print-config` prints the whole config, not one file's. `form.tsx` and
-  `command.tsx` match by exact filename, so seed the real file in a scratch copy;
-  `tests/unit/eslint-ui-imports.test.ts` covers the vendored side. The exemptions live in the `vite.config.ts` overrides and in
-  `eslint.config.js`.
-- **`form.tsx` and `command.tsx` are ours**, fully linted and formatted. They are
-  named in `vite.config.ts` and `eslint.config.js`. Find them with
-  `grep -n 'form.tsx' vite.config.ts` and `grep -n '!(form|command)' eslint.config.js`:
-  the `vite.config.ts` override blocks that re-enable the `react/only-export-components`
-  rule and the import restriction, the `!` negations in `fmt.ignorePatterns`, and the
-  `!(form|command)` globs in `eslint.config.js`. A third hand-written file there
-  goes into all of them in the same change.
+  requirement and the import restrictions. Every other rule applies, type-aware
+  rules at error included, so a type error there fails CI. The one exception is
+  `chart.tsx`, which turns off five type-aware rules its Recharts typing trips.
+  The exemptions live in the `vite.config.ts` overrides and in
+  `eslint.config.js`. Settle a doubt by running the linter, not by reading the
+  config:
+  - ESLint: `pnpm exec eslint --print-config <file>`.
+  - Oxlint: lint a probe file under the glob, seeded with
+    `import { cn as seededCn } from 'cn'`, because `oxlint --print-config` prints
+    the whole config, not one file's. `form.tsx` and `command.tsx` match by
+    exact filename, so seed the real file in a scratch copy.
+    `tests/unit/eslint-ui-imports.test.ts` covers the vendored side.
+- **`form.tsx` and `command.tsx` are ours**, fully linted and formatted. Find
+  where they are named with `grep -n 'form.tsx' vite.config.ts` and
+  `grep -n '!(form|command)' eslint.config.js`. They appear in three places:
+  - the `vite.config.ts` override blocks that re-enable the
+    `react/only-export-components` rule and the import restriction;
+  - the `!` negations in `fmt.ignorePatterns`;
+  - the `!(form|command)` globs in `eslint.config.js`.
+
+  A third hand-written file there goes into all of them in the same change.
+
 - **An edit to a vendored file is recorded, or CI fails.** `pnpm ui:drift`
   compares each file with its registry snapshot in `scripts/ui-registry/` and
   accepts only the edits in `docs/ui-local-edits.md`. On drift it prints the
@@ -339,35 +361,46 @@ the component is added again.
   library change, fails the check until the snapshot is retaken, which is why
   Renovate leaves `shadcn` for a human.
 - **A re-add drops these local edits; put them back.** `docs/ui-local-edits.md`
-  is the full record. `avatar.tsx`: the fallback
-  and group count use `text-foreground` (contrast). `tabs.tsx`: the panel keeps
-  `rounded-md focus-visible:ring-3 focus-visible:ring-ring/50` (WCAG 2.4.7).
-  `badge`, `button`, `switch`, `tabs`, `toggle` and the sidebar rail name their
-  transition properties instead of `transition-all` (`toggle` keeps
-  `background-color` in its list). The sidebar rail uses `after:w-0.5` and the
-  dropdown `min-w-24`. `toast.tsx`: Tabler icons for the registry's
-  `IconPlaceholder`; `PII_CLASS_NAME` last in the root's `cn(...)`, after
-  `className`, so a caller cannot unmask a toast; top-right anchoring (`top-4`,
-  `top-0 origin-top`, every Y offset sign-flipped, `swipeDirection` up and
-  right); the `data-[type=…]` border and icon colours on `--success`,
-  `--warning-strong` and `--destructive`; the viewport's
-  `aria-label="Status messages"` (Base UI's default, "Notifications", reads as a
-  feature name); and `<Toaster>` defaulting to `toastManager` from
-  `@/lib/toast` instead of a manager of its own.
-  `tests/unit/components/ui/toast.test.tsx` fails without the mask, the icon
-  colours, the label or the shared manager. Base UI keeps the close button
-  `aria-hidden` but tabbable while the stack is collapsed; that is accepted
-  upstream behaviour, since Tab reaches the toast first and expands it. The
-  files shared with react-boilerplate stay byte for byte equal to react's.
-  Every Tabler icon in `src/components/ui/` except the one in `spinner.tsx`
-  carries `aria-hidden="true"` (the
-  guard test `tests/unit/ui-icons-aria-hidden.test.ts` fails otherwise); the combobox clear and chip-remove buttons carry
-  `aria-label` for the same reason, and the apex-only `calendar.tsx` follows
-  the same rule. `shadcn init` also overwrites `src/lib/utils.ts`,
-  `src/hooks/use-mobile.ts` and `command.tsx` (with a cmdk one),
-  rewrites every colour token in `globals.css` (`tests/unit/styles/tokens.test.ts`
-  fails), duplicates its `@import` lines and adds `cmdk` and `next-themes`, and
-  may bump unrelated dependencies: revert all of it.
+  is the full record. The files shared with react-boilerplate stay byte for byte
+  equal to react's.
+  - `avatar.tsx`: the fallback and group count use `text-foreground` (contrast).
+  - `tabs.tsx`: the panel keeps
+    `rounded-md focus-visible:ring-3 focus-visible:ring-ring/50` (Web Content
+    Accessibility Guidelines (WCAG) 2.4.7).
+  - `badge`, `button`, `switch`, `tabs`, `toggle` and the sidebar rail name their
+    transition properties instead of `transition-all` (`toggle` keeps
+    `background-color` in its list).
+  - The sidebar rail uses `after:w-0.5` and the dropdown `min-w-24`.
+  - `toast.tsx`:
+    - Tabler icons for the registry's `IconPlaceholder`;
+    - `PII_CLASS_NAME` last in the root's `cn(...)`, after `className`, so a
+      caller cannot unmask a toast;
+    - top-right anchoring (`top-4`, `top-0 origin-top`, every Y offset
+      sign-flipped, `swipeDirection` up and right);
+    - the `data-[type=…]` border and icon colours on `--success`,
+      `--warning-strong` and `--destructive`;
+    - the viewport's `aria-label="Status messages"` (Base UI's default,
+      "Notifications", reads as a feature name);
+    - `<Toaster>` defaulting to `toastManager` from `@/lib/toast` instead of a
+      manager of its own.
+
+    `tests/unit/components/ui/toast.test.tsx` fails without the mask, the icon
+    colours, the label or the shared manager. Base UI keeps the close button
+    `aria-hidden` but tabbable while the stack is collapsed. That is accepted
+    upstream behaviour, since Tab reaches the toast first and expands it.
+
+  - Every Tabler icon in `src/components/ui/` except the one in `spinner.tsx`
+    carries `aria-hidden="true"`; the guard test
+    `tests/unit/ui-icons-aria-hidden.test.ts` fails otherwise. The combobox
+    clear and chip-remove buttons carry `aria-label` for the same reason, and the
+    apex-only `calendar.tsx` follows the same rule.
+  - `shadcn init` also does the following; revert all of it:
+    - overwrites `src/lib/utils.ts`, `src/hooks/use-mobile.ts` and `command.tsx`
+      (with a cmdk one);
+    - rewrites every colour token in `globals.css`
+      (`tests/unit/styles/tokens.test.ts` fails);
+    - duplicates its `@import` lines and adds `cmdk` and `next-themes`;
+    - may bump unrelated dependencies.
 - **The vitest config's coverage `exclude` is the inverse list.** It names the
   vendored files, so a new vendored file goes there and a hand-written one stays
   out.
@@ -393,7 +426,7 @@ the component is added again.
 ## Versions
 
 - **TypeScript stays below 6.1.** `tsc` 6 and typescript-eslint 8.70.1's parser
-  peer `typescript >=4.8.4 <6.1.0`. Oxlint's type-aware engine bundles its own TS 7, so
+  declare the peer range `typescript >=4.8.4 <6.1.0`. Oxlint's type-aware engine bundles its own TS 7, so
   it does not constrain this pin. `renovate.json` holds it. Re-check the peer
   range before lifting the hold. `@types/node` is not part of this constraint.
 - **The pnpm version lives only in `packageManager`.** The Dockerfile and CI read
@@ -498,7 +531,7 @@ Playwright has five projects: `fixtures`, `live`, `contrast`, `nginx` and
   :5174, the port `pnpm dev` uses, so it fails with "already used" while `pnpm dev`
   runs. Stop `pnpm dev`, or set `APEX_E2E_PORT` to a free port.
 
-**`fixtures`** drives `e2e/harness/`: the real router and CSS, with MSW answering
+**`fixtures`** drives `e2e/harness/`: the real router and CSS, with Mock Service Worker (MSW) answering
 the fixtures. It needs no backend. It exists for what jsdom cannot see, because
 jsdom has no layout. `?path=` picks the route, and the harness's other query
 parameters shape the fixtures: `?role=none|viewer|manager|owner` (the default is a
@@ -555,8 +588,8 @@ a headless user agent). An analytics e2e test uses `HUMAN_USER_AGENT` and calls
 
 **`nginx`** runs against the production image (`pnpm test:e2e:nginx`), because the
 headers and the CSP are only real there. The `@no-api` tests also run in CI's
-two `nginx-e2e` shards with nothing behind `/api`, on four parallel workers each (the top-level
-`workers: 4` under CI is the cap). A run with `E2E_LIVE=1` (the nightly and
+two `nginx-e2e` shards with nothing behind `/api`, on four parallel workers each.
+The top-level `workers: 4` under CI is the cap. A run with `E2E_LIVE=1` (the nightly and
 `pnpm test:e2e:nginx`) uses one worker, because it shares a backend and a
 fixed-port fake PostHog. The tests that need a live API run there, not in the
 `nginx-e2e` shards.

@@ -1,15 +1,27 @@
 # CI performance
 
-Timing record for the Vite+ migration. Later tasks append their "after" tables here.
+This file records how long continuous integration (CI) and the local checks took
+before and after the Vite+ migration. It is for anyone changing CI who needs a
+baseline. Each change that affects timing adds its own "after" tables at the end.
+
+The changes measured here, all committed on 23 October 2026:
+
+| Name in this file | Commit on `main` | Pull request (PR)                                   |
+| :---------------- | :--------------- | :-------------------------------------------------- |
+| PR 1              | `b469fb3`        | #97, `ci: migrate to Vite+`                         |
+| PR 2              | `ea31402`        | #98, `perf(ci): faster tests`                       |
+| The docker split  | `889064f`        | #105, `perf(ci): take docker off the critical path` |
+
+"p90" is the 90th percentile. Times are wall-clock seconds (s).
 
 ## Method
 
 - **CI:** 20 successful `pull_request` runs of `ci.yml` on origin/main 3545e45, median and p90 of wall time.
 - **Local:** `hyperfine --warmup 1 --runs 3`; the table shows the mean of 3 runs (hyperfine's markdown export), not the median.
-- **Machine:** Apple silicon laptop, 10 cores. Load average (1 min) was 3.35 at the start of the benchmark and 14.3 at its end. Vitest and Playwright spawn their own workers, so the later commands ran under their own load plus other processes on the machine. Treat the local numbers as indicative.
+- **Machine:** Apple silicon laptop, 10 cores. Load average (1 min) was 3.35 at the start of the benchmark and 14.3 at its end. Vitest and Playwright spawn their own workers, so the commands that ran last ran under their own load plus other processes on the machine. Treat the local numbers as indicative.
 - **Exit codes:** hyperfine ran without `--ignore-failure`, so it would have aborted on a non-zero exit. All five commands exited 0, including `pnpm test`, and `pnpm build` produced `dist/` (13 MB).
 - **Build time:** `pnpm build` is `tsc -b && vp build`. `tsc -b` reuses its incremental cache after the first run, so the 6s mean is warm. A cold build takes longer.
-- **Comparison:** take later "after" tables at a comparable load, or the ratios mean little.
+- **Comparison:** take each "after" table at a load comparable to the "before" one; at a different load the ratios do not compare like with like.
 
 ## CI before
 
@@ -84,7 +96,7 @@ Load average (1 min) was 2.55 when hyperfine started; `pnpm test` workers then r
 | `pnpm test`          |     79.984 ± 1.799 |
 | `pnpm build`         |      6.869 ± 0.086 |
 
-`pnpm exec eslint .` fell from 28.7s to 5.3s because it now runs only the 17 rules Oxlint cannot. `pnpm check` (format, type-aware Oxlint, tsc) replaces the old prettier + typecheck pair (13.95s) and takes 8.4s while also doing the lint pass.
+`pnpm exec eslint .` fell from 28.7s to 5.3s because after PR 1 it runs only the 17 rules Oxlint cannot. `pnpm check` (format, type-aware Oxlint, tsc) replaces the old prettier + typecheck pair (13.95s) and takes 8.4s while also doing the lint pass.
 
 `/usr/bin/time -p pnpm gate`: `real 98.78s`, `user 639.79s`, `sys 99.48s`, started at load average about 13. The old pre-push (eslint, prettier, typecheck, unit tests) was `real 158.02s` at load 15.2.
 
@@ -112,13 +124,13 @@ Per job (median, range, 10 reruns):
 
 Shard medians: 1/6 126s, 2/6 88s, 3/6 121s, 4/6 114s, 5/6 115s, 6/6 90s.
 
-`e2e` is the longest job and sets the wall time. `lint` rose from 62-70s to 71-105s because it now also runs the build, the bundle check and the audits that used to sit in `test`.
+`e2e` is the longest job and sets the wall time. `lint` rose from 62-70s to 71-105s because PR 2 moved the build, the bundle check and the audits from `test` into `lint`.
 
 Run logs show the worker counts: `e2e` runs 165 tests on 3 workers and `docker` runs 35 tests on 4 workers. The top-level `workers` cap is 4 under CI; the `fixtures` project sets its own 3.
 
 `docker` is warm on reruns (the build step takes 8s). Cold, on the first attempt, it took 167s. On a source change it took 274s (build 146s, nginx tests 55s), about 1 minute longer than `e2e` in that run. The build layer for `vp build` re-runs on every commit because the commit SHA is a build argument. This is the next item to cut.
 
-No attempt failed. The two earlier causes of red runs, the `command-palette` and `passkey-sign-in-cancel` unit flakes, did not appear in 11 attempts.
+No attempt failed. The two causes of red runs before PR 2, the `command-palette` and `passkey-sign-in-cancel` unit flakes, did not appear in 11 attempts.
 
 ## Local after PR 2
 
@@ -131,7 +143,7 @@ On a source change, `docker` took 339s while `e2e` took 181s (run 39992137061, s
 Three changes took it off the critical path:
 
 - **No layer cache for CI's image.** On a source change the cached build took 207s. A build from scratch takes 43-50s, with `pnpm install` fetching from the registry, and there is no cache to export. deploy.yml keeps its own cache.
-- **`image`, `image-checks` and two `nginx-e2e` shards instead of one job.** `image` builds and uploads the image as an artifact named `image` (24 MB, 2s), and nothing else. `image-checks` and the shards each have `needs: image`, download it and `docker load` it (7s). `docker` is now an aggregate that fails unless all of them passed, like `test` over `unit`. The fixed artifact name is what lets "Re-run failed jobs" work: a re-run shard downloads the image the first attempt built. Run 39993638190 went red on a deliberately failing test; `gh run rerun --failed` re-ran only the failed shard and `docker`, and the shard downloaded and loaded the image before it ran.
+- **`image`, `image-checks` and two `nginx-e2e` shards instead of one job.** `image` builds and uploads the image as an artifact named `image` (24 MB, 2s), and nothing else. `image-checks` and the shards each have `needs: image`, download it and `docker load` it (7s). `docker` is an aggregate that fails unless all of them passed, like `test` over `unit`. The fixed artifact name is what lets "Re-run failed jobs" work: a re-run shard downloads the image the first attempt built. Run 39993638190 went red on a deliberately failing test; `gh run rerun --failed` re-ran only the failed shard and `docker`, and the shard downloaded and loaded the image before it ran.
 - **`beforeEach(requireServedApp)` instead of `beforeAll`.** Under `fullyParallel`, Playwright batches a file's tests that share a `beforeAll` into `ceil(n / workers)` chunks, so the slowest analytics tests ran back to back on one worker. With one check per test, each shard's test step takes 26-47s.
 
 Source-change runs, seconds from run start to job end:
@@ -143,6 +155,6 @@ Source-change runs, seconds from run start to job end:
 | 39993638190 (one failing nginx test, on purpose) |      155 |   217 |    167 |        217 |
 | 39994450316                                      |      161 |   276 |    155 |        276 |
 
-`docker` finishes 134-161s after the run starts, and no longer sets the wall-clock. `image` ends at 53-74s, `image-checks` at 75-99s, and the shards at 124-157s. `e2e` is now the longest job and varies from run to run (217-276s here against 181s before), so the wall-clock follows it. This change does not touch `e2e`.
+After the split, `docker` finishes 134-161s after the run starts and does not set the wall-clock. `image` ends at 53-74s, `image-checks` at 75-99s, and the shards at 124-157s. `e2e` is the longest job after the split and varies from run to run (217-276s here against 181s before), so the wall-clock follows it. This change does not touch `e2e`.
 
-**What to watch.** The shards split the tests by count, in file order, so one shard holds the heavier analytics tests. A long new test there lengthens `docker`. The build depends on the npm registry and releases.posthog.com on every run, not only on a lockfile change.
+**What to watch.** The shards split the tests by count, in file order, so one shard holds the heavier analytics tests. A long test added there lengthens `docker`. The build depends on the npm registry and releases.posthog.com on every run, not only on a lockfile change.
