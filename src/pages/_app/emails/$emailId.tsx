@@ -1,6 +1,7 @@
 import { IconCopy, IconSearchOff } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { AxiosError } from 'axios'
 import { EmailPreviewPanel } from '@/components/features/emails/email-preview'
 import { EmailStatusBadge } from '@/components/features/emails/email-status-badge'
 import { EmailTimeline } from '@/components/features/emails/email-timeline'
@@ -89,6 +90,39 @@ function SenderLabel({ sender }: { sender: EmailMessageDetail['senderClass'] }) 
   )
 }
 
+/**
+ * How many days the server keeps emails, from an email's 404
+ * `email_not_found`: express sends its `RETENTION_EMAIL_LOGS_DAYS` as
+ * `details.retentionDays`, 0 when it never deletes them. The role gate's 404
+ * carries none. Here, not in `email.queries.ts`, which first-visit JS loads.
+ * @param error - A failed email read.
+ * @returns The days, or `undefined` for any other failure or an API older than the field.
+ */
+function retentionDaysFrom(error: unknown): number | undefined {
+  if (!(error instanceof AxiosError)) return undefined
+  const body = error.response?.data as { code?: unknown; details?: unknown } | undefined
+  if (body?.code !== 'email_not_found') return undefined
+  const details = body.details as { retentionDays?: unknown } | null | undefined
+  const days = details?.retentionDays
+  return typeof days === 'number' && Number.isInteger(days) && days >= 0 ? days : undefined
+}
+
+/**
+ * Why an email answered 404, with the server's retention as its 404 sends it.
+ * @param retentionDays - express's `RETENTION_EMAIL_LOGS_DAYS`; 0 never deletes; `undefined` when the 404 carries none.
+ */
+function notFoundDescription(retentionDays: number | undefined): string {
+  const reload = 'If your role changed, reload the page.'
+  if (retentionDays === 0) {
+    return `It doesn’t exist or your role changed. The server never deletes emails (RETENTION_EMAIL_LOGS_DAYS is 0). ${reload}`
+  }
+  const kept =
+    retentionDays === undefined
+      ? 'the days the server’s RETENTION_EMAIL_LOGS_DAYS sets'
+      : `${retentionDays.toLocaleString('en-US')} ${retentionDays === 1 ? 'day' : 'days'} (the server’s RETENTION_EMAIL_LOGS_DAYS)`
+  return `It doesn’t exist, was deleted after ${kept}, or your role changed. ${reload}`
+}
+
 const TAB_LABELS: Record<EmailDetailTab, string> = { timeline: 'Timeline', preview: 'Preview' }
 
 /** Whether a `?tab` value names one of the detail tabs. */
@@ -114,7 +148,7 @@ function EmailDetailPage() {
       <EmptyState
         icon={<IconSearchOff aria-hidden="true" />}
         title={<h1>Email not found</h1>}
-        description="It doesn’t exist, was deleted after 90 days (the server’s RETENTION_EMAIL_LOGS_DAYS), or your role changed. If your role changed, reload the page."
+        description={notFoundDescription(retentionDaysFrom(detail.error))}
         action={
           <Link to={ROUTES.emails} className={buttonVariants({ variant: 'outline' })}>
             Back to emails

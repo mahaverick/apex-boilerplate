@@ -87,10 +87,32 @@ describe('/onboarding', () => {
         [
           'Stuck, of those started',
           '6',
-          'Started in the window, with no onboarding progress for 7 days or more (the server’s ONBOARDING_STUCK_AFTER_DAYS).',
+          'Started in the window, with no onboarding progress for 14 days or more (the server’s ONBOARDING_STUCK_AFTER_DAYS).',
         ],
         ['Dismissed', '2', 'Hid the checklist unfinished'],
       ])
+    })
+
+    it('says one day in the singular', async () => {
+      serveFunnel({ stuckAfterDays: 1 })
+      renderAppAt('/onboarding')
+      expect((await tiles())[3]?.[2]).toBe(
+        'Started in the window, with no onboarding progress for 1 day or more (the server’s ONBOARDING_STUCK_AFTER_DAYS).'
+      )
+    })
+
+    it('names the setting and no number when the API sends no stuckAfterDays', async () => {
+      const older: OnboardingFunnel = { ...testOnboardingFunnel }
+      delete older.stuckAfterDays
+      server.use(
+        http.get('/api/v1/platform/onboarding/funnel', () =>
+          ok(older, 'Onboarding funnel retrieved.')
+        )
+      )
+      renderAppAt('/onboarding')
+      expect((await tiles())[3]?.[2]).toBe(
+        'Started in the window, with no onboarding progress for the days the server’s ONBOARDING_STUCK_AFTER_DAYS sets, or more.'
+      )
     })
 
     it('labels each bar in HTML, hides the bars, and gives screen readers the same figures', async () => {
@@ -469,6 +491,25 @@ describe('/onboarding', () => {
     ])('says so when no tenant is %s', async (state, text) => {
       renderAppAt(`/onboarding?state=${state}`)
       expect(await screen.findByText(text)).toBeInTheDocument()
+    })
+
+    it('gives the stuck threshold from the funnel on the empty stuck tab', async () => {
+      renderAppAt('/onboarding')
+      expect(
+        await screen.findByText(
+          'A tenant appears here once it has had no onboarding progress for 14 days or more (the server’s ONBOARDING_STUCK_AFTER_DAYS).'
+        )
+      ).toBeInTheDocument()
+    })
+
+    it('states no number on the empty stuck tab while the funnel has not loaded', async () => {
+      server.use(http.get('/api/v1/platform/onboarding/funnel', () => fail('Boom', 500)))
+      renderAppAt('/onboarding')
+      expect(
+        await screen.findByText(
+          'A tenant appears here once it has had no onboarding progress for the days the server’s ONBOARDING_STUCK_AFTER_DAYS sets, or more.'
+        )
+      ).toBeInTheDocument()
     })
 
     it('offers the first page when a later page has emptied', async () => {

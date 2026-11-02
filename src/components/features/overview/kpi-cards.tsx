@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
+import { stuckAfter } from '@/components/features/onboarding/stuck-after'
 import { RANGE_LABELS } from '@/components/features/overview/range'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { STUCK_AFTER } from '@/constants/onboarding.constants'
 import { ROUTES } from '@/constants/routes'
 import { formatShare } from '@/lib/format'
 import type { PlatformStats } from '@/types/api.types'
@@ -30,7 +30,8 @@ function undeliveredRate(days: PlatformStats['emailMessages']): { value: string;
 /**
  * The Overview's headline numbers (express's `PlatformStatsRepository.totals`).
  * Totals are live; the undelivered rate covers the window. Stuck tenants
- * counts every tracked tenant stuck at the read, whatever the range, and links to the onboarding list's stuck tab.
+ * counts every tracked tenant stuck at the read, whatever the range, gives the
+ * threshold from `stats.stuckAfterDays`, and links to the onboarding list's stuck tab.
  */
 export function KpiCards({ stats }: { stats: PlatformStats }) {
   const rate = undeliveredRate(stats.emailMessages)
@@ -75,7 +76,7 @@ export function KpiCards({ stats }: { stats: PlatformStats }) {
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground">
           Active tracked tenants, not complete or dismissed, with no onboarding progress{' '}
-          {STUCK_AFTER}, whatever their start date.{' '}
+          {stuckAfter(stats.stuckAfterDays)}, whatever their start date.{' '}
           <Link
             to={ROUTES.onboarding}
             search={{ state: 'stuck' }}

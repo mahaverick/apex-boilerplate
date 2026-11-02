@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import { emailKeys } from '@/queries/email.queries'
 import { queryClient } from '@/router'
@@ -638,6 +638,55 @@ describe('/emails/$emailId', () => {
     expect(await screen.findByRole('heading', { name: 'Email not found', level: 1 })).toBeVisible()
     expect(screen.getByRole('link', { name: 'Back to emails' })).toHaveAttribute('href', '/emails')
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
+  })
+
+  /** A 404 as express answers an unknown email id, with `details` when given. */
+  function notFound(details?: Record<string, unknown>) {
+    return HttpResponse.json(
+      {
+        success: false,
+        message: 'This email doesn’t exist or was purged. Go back to Emails and search again.',
+        statusCode: 404,
+        code: 'email_not_found',
+        requestId: 'test-request-id',
+        ...(details === undefined ? {} : { details }),
+      },
+      { status: 404 }
+    )
+  }
+
+  it('gives the server’s retention from the 404', async () => {
+    server.use(
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => notFound({ retentionDays: 30 }))
+    )
+    renderAppAt(PAGE)
+    expect(
+      await screen.findByText(
+        'It doesn’t exist, was deleted after 30 days (the server’s RETENTION_EMAIL_LOGS_DAYS), or your role changed. If your role changed, reload the page.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('says emails are never deleted when the retention is 0', async () => {
+    server.use(
+      http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => notFound({ retentionDays: 0 }))
+    )
+    renderAppAt(PAGE)
+    expect(
+      await screen.findByText(
+        'It doesn’t exist or your role changed. The server never deletes emails (RETENTION_EMAIL_LOGS_DAYS is 0). If your role changed, reload the page.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('states no number when the 404 carries no retention', async () => {
+    server.use(http.get(`/api/v1/platform/emails/${EMAIL_ID}`, () => fail('Not found', 404)))
+    renderAppAt(PAGE)
+    expect(
+      await screen.findByText(
+        'It doesn’t exist, was deleted after the days the server’s RETENTION_EMAIL_LOGS_DAYS sets, or your role changed. If your role changed, reload the page.'
+      )
+    ).toBeInTheDocument()
   })
 
   it('offers a retry when the message fails to load', async () => {

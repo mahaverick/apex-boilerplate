@@ -32,6 +32,19 @@ const STATUS_SKELETON_ROWS = 13
 const DROP_REASONS = Object.keys(ERROR_DROP_LABELS) as ErrorDropReason[]
 
 /**
+ * A drop reason as the card names it. Here, not in `errors.constants.ts`,
+ * which the first-visit `platform.queries.ts` imports.
+ * @param reason - Why the batch was dropped.
+ * @param retryLimit - express's `ERROR_RETRY_LIMIT`, as the system status
+ *   sends it; `undefined` from an API older than the field.
+ * @returns "Dropped after 5 sends" for `retry_exhausted` with a limit, else the fixed label.
+ */
+function errorDropLabel(reason: ErrorDropReason, retryLimit: number | undefined): string {
+  if (reason !== 'retry_exhausted' || retryLimit === undefined) return ERROR_DROP_LABELS[reason]
+  return `Dropped after ${retryLimit.toLocaleString('en-US')} ${retryLimit === 1 ? 'send' : 'sends'}`
+}
+
+/**
  * Whether error tracking lost events or is failing to send: any drop in the
  * window, or a send PostHog has not accepted since the last one it did.
  * @param tracking - The status's error-tracking section.
@@ -313,7 +326,7 @@ function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: n
               {dropped
                 .map(
                   (reason) =>
-                    `${ERROR_DROP_LABELS[reason]}: ${tracking.dropped[reason].toLocaleString('en-US')}`
+                    `${errorDropLabel(reason, tracking.retryLimit)}: ${tracking.dropped[reason].toLocaleString('en-US')}`
                 )
                 .join(', ')}
               )

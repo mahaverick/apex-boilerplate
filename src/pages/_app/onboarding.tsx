@@ -4,6 +4,7 @@ import { createFileRoute, stripSearchParams } from '@tanstack/react-router'
 import { FunnelCard } from '@/components/features/onboarding/funnel-card'
 import { OnboardingKpis } from '@/components/features/onboarding/onboarding-kpis'
 import { OnboardingTenantsTable } from '@/components/features/onboarding/onboarding-tenants-table'
+import { stuckAfter } from '@/components/features/onboarding/stuck-after'
 import { useListQuery } from '@/components/shared/data-table/use-list-query'
 import { useListSearch } from '@/components/shared/data-table/use-list-search'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -19,7 +20,6 @@ import {
   ONBOARDING_NOT_STARTED,
   ONBOARDING_RANGE_LABELS,
   ONBOARDING_TAB_LABELS,
-  STUCK_AFTER,
 } from '@/constants/onboarding.constants'
 import { isRoleDenied } from '@/lib/role-denied'
 import { analyticsKey, track } from '@/observability/telemetry'
@@ -59,27 +59,35 @@ export const Route = createFileRoute('/_app/onboarding')({
   pendingComponent: DashboardPending,
 })
 
-/** What each tab says when no tenant is in its state. */
-const EMPTY_TAB: Record<OnboardingListState, { title: string; description: string }> = {
+/**
+ * What each tab says when no tenant is in its state. The stuck tab's
+ * description takes the funnel's `stuckAfterDays`, `undefined` until the
+ * funnel loads.
+ */
+const EMPTY_TAB: Record<
+  OnboardingListState,
+  { title: string; description: (stuckAfterDays: number | undefined) => string }
+> = {
   stuck: {
     title: 'No tenant is stuck.',
-    description: `A tenant appears here once it has had no onboarding progress ${STUCK_AFTER}.`,
+    description: (stuckAfterDays) =>
+      `A tenant appears here once it has had no onboarding progress ${stuckAfter(stuckAfterDays)}.`,
   },
   in_progress: {
     title: 'No tenant is in progress.',
-    description: 'Tenants appear here while they work through their steps.',
+    description: () => 'Tenants appear here while they work through their steps.',
   },
   awaiting_owner: {
     title: 'No tenant is waiting for its owner.',
-    description: 'A tenant staff created appears here until its owner accepts.',
+    description: () => 'A tenant staff created appears here until its owner accepts.',
   },
   complete: {
     title: 'No tenant has finished yet.',
-    description: 'A tenant appears here once every required step is done.',
+    description: () => 'A tenant appears here once every required step is done.',
   },
   dismissed: {
     title: 'No tenant has dismissed its checklist.',
-    description: 'An owner can hide the checklist before finishing it.',
+    description: () => 'An owner can hide the checklist before finishing it.',
   },
 }
 
@@ -161,7 +169,7 @@ function OnboardingPage() {
         )}
       </QueryState>
       {!(funnel.isError && isRoleDenied(funnel.error)) && funnel.data?.trackedTenants !== 0 && (
-        <TenantsByState />
+        <TenantsByState stuckAfterDays={funnel.data?.stuckAfterDays} />
       )}
     </div>
   )
@@ -171,9 +179,10 @@ function OnboardingPage() {
  * The tracked tenants, one tab per state. Changing tab drops the cursor: it
  * belongs to the list it was cut from. The tab list scrolls in a box of its
  * own: the list centres its tabs, and an overflowing centred row clips its
- * first tab where no scroll reaches.
+ * first tab where no scroll reaches. `stuckAfterDays` is the funnel's stuck
+ * threshold, `undefined` until it loads.
  */
-function TenantsByState() {
+function TenantsByState({ stuckAfterDays }: { stuckAfterDays: number | undefined }) {
   const { state } = Route.useSearch()
   const navigate = Route.useNavigate()
   return (
@@ -204,7 +213,7 @@ function TenantsByState() {
         </div>
         {ONBOARDING_LIST_STATES.map((value) => (
           <TabsContent key={value} value={value} className="pt-2">
-            {value === state && <TenantsPanel state={value} />}
+            {value === state && <TenantsPanel state={value} stuckAfterDays={stuckAfterDays} />}
           </TabsContent>
         ))}
       </Tabs>
@@ -213,7 +222,13 @@ function TenantsByState() {
 }
 
 /** One state's tenants, through the shared list table. */
-function TenantsPanel({ state }: { state: OnboardingListState }) {
+function TenantsPanel({
+  state,
+  stuckAfterDays,
+}: {
+  state: OnboardingListState
+  stuckAfterDays: number | undefined
+}) {
   const list = useListSearch(onboardingTenantsList)
   const query = useListQuery(list, (request) => onboardingTenantsListOptions(state, request))
   return (
@@ -224,7 +239,7 @@ function TenantsPanel({ state }: { state: OnboardingListState }) {
         <EmptyState
           icon={<IconChecklist aria-hidden="true" />}
           title={EMPTY_TAB[state].title}
-          description={EMPTY_TAB[state].description}
+          description={EMPTY_TAB[state].description(stuckAfterDays)}
         />
       }
     />
