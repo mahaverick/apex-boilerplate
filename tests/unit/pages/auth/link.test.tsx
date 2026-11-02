@@ -18,6 +18,7 @@ import { queryClient, ROUTER_DEFAULTS } from '@/router'
 import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/states/auth.store'
 import { TENANT_ID } from '@/tests/fixtures/ids'
+import { settle } from '@/tests/fixtures/timing'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
 import { server } from '@/tests/mocks/server'
 
@@ -207,16 +208,17 @@ describe('/auth/link, signed out', () => {
     expect([...texts.seen]).not.toContain('Switch account?')
   })
 
-  it('names the signed-in account, never a switch, once the verify signs in a link with no address', async () => {
+  it('names the signed-in account, never a switch, once the verify signs a link in', async () => {
     serveVerify(signedIn())
     const texts = watchTexts()
-    // No address on the link, so a page that re-read the store after the verify would ask to switch.
-    const router = renderAt(`/auth/link?token=${TOKEN}`)
+    // A page that re-read the store after the verify would answer the signed-in row, not this one.
+    const router = renderAt(`/auth/link?token=${TOKEN}&email=${encodeURIComponent(LINK_EMAIL)}`)
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/overview')
     })
     texts.stop()
+    expect([...texts.seen]).toContain(`Signing you in…This link is for ${LINK_EMAIL}.`)
     expect([...texts.seen]).not.toContain('Switch account?')
     expect(useAuthStore.getState().user).toEqual(ADA)
   })
@@ -273,24 +275,16 @@ describe('/auth/link, signed out', () => {
   it.each([
     ['a bare ?email=', `/auth/link?token=${TOKEN}&email=`],
     ['a whitespace ?email=', `/auth/link?token=${TOKEN}&email=%20%20`],
-  ])(
-    'posts { token } only for %s, which the server would count as a mismatch',
-    async (_name, path) => {
-      const bodies: unknown[] = []
-      server.use(
-        http.post('/api/v1/auth/link/verify', async ({ request }) => {
-          bodies.push(await request.json())
-          return signedIn()()
-        })
-      )
-      const router = renderAt(path)
+  ])('never posts the token for %s, and shows the dead link', async (_name, path) => {
+    const verify = serveVerify(signedIn())
+    renderAt(path)
 
-      await waitFor(() => {
-        expect(router.state.location.pathname).toBe('/overview')
-      })
-      expect(bodies).toEqual([{ token: TOKEN }])
-    }
-  )
+    expect(await screen.findByRole('button', { name: 'Email me a new link' })).toBeVisible()
+    expect(screen.getByLabelText('Email')).toHaveValue('')
+    await settle(50, 'absence has no event: nothing may post the token')
+    expect(verify.calls()).toBe(0)
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+  })
 
   it('posts the token exactly once under StrictMode', async () => {
     const bodies: unknown[] = []
@@ -496,6 +490,16 @@ describe('/auth/link, signed out', () => {
     expect(verify.calls()).toBe(2)
   })
 
+  it('refuses a link that names no address without posting it, so another person’s link signs nobody in', async () => {
+    const verify = serveVerify(signedIn())
+    renderAt(`/auth/link?token=${TOKEN}`)
+
+    expect(await screen.findByRole('button', { name: 'Email me a new link' })).toBeVisible()
+    await settle(50, 'absence has no event: nothing may post the token')
+    expect(verify.calls()).toBe(0)
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+  })
+
   it('handles a link with no token', async () => {
     const verify = serveVerify(signedIn())
     renderAt(`/auth/link?email=${encodeURIComponent(LINK_EMAIL)}`)
@@ -578,12 +582,13 @@ describe('/auth/link, signed in', () => {
     expect(verify.calls()).toBe(0)
   })
 
-  it('asks before switching when the link names no address', async () => {
+  it('sends a signed-in visitor on a link that names no address to Overview, and spends nothing', async () => {
     const verify = serveVerify(signedIn())
-    renderAt(`/auth/link?token=${TOKEN}`)
+    const router = renderAt(`/auth/link?token=${TOKEN}`)
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Switch account?' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Continue with this link' })).toBeVisible()
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/overview')
+    })
     expect(verify.calls()).toBe(0)
   })
 

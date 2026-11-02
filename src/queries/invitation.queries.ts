@@ -12,7 +12,7 @@ import type {
   ApiSuccess,
   InvitationPreview,
   InvitationSignIn,
-  InvitationVerifyResult,
+  InvitationConfirmationSent,
 } from '@/types/api.types'
 
 /** Query keys for invitation previews, one per token. */
@@ -90,36 +90,23 @@ async function signInJoined(queryClient: QueryClient, joined: InvitationSignIn):
   await queryClient.invalidateQueries({ queryKey: tenantKeys.members(joined.tenant.slug) })
 }
 
-/** True for the `202` "Check your inbox" answer of a verify, which carries no session. */
-export function isConfirmationSent(
-  result: InvitationVerifyResult
-): result is Extract<InvitationVerifyResult, { confirmationSent: true }> {
-  return 'confirmationSent' in result
-}
-
 /**
- * Opens an invitation signed out. Every staff invitation answers `202` "Check
- * your inbox": the server mails a confirmation link, and the answer sets no
- * session and switches no one out. The one-click `200`, which signs a new
- * address in and joins it, stays handled because the API keeps it. Posting
- * again with the same token is the resend. Public like the preview, so a stale
- * bearer token is never sent. A 404 is the dead invitation.
+ * Opens an invitation signed out. Every valid one answers the `202` "Check
+ * your inbox": the server mails a confirmation link to the invited address, and
+ * the answer sets no session and switches no one out. Posting again with the
+ * same token is the resend. Public like the preview, so a stale bearer token is
+ * never sent. A 404 is the dead invitation.
  */
 export function useVerifyInvitation() {
-  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (token: string) =>
       unwrap(
-        await apiClient.post<ApiSuccess<InvitationVerifyResult>>(
+        await apiClient.post<ApiSuccess<InvitationConfirmationSent>>(
           '/invitations/verify',
           { token },
           { skipAuthRetry: true, headers: { Authorization: false } }
         )
       ),
-    onSuccess: async (result) => {
-      if (isConfirmationSent(result)) return
-      await signInJoined(queryClient, result)
-    },
   })
 }
 
@@ -133,14 +120,14 @@ interface ConfirmInvitationInput {
  * Finishes joining from the emailed confirmation link: the server signs in the
  * invited address, replacing any session this browser had, and joins it. The
  * link's address goes with the token, so the server refuses a link whose
- * address was swapped; a blank one is left out. Public like the verify. A 404
+ * address was swapped or left out. Public like the verify. A 404
  * is the dead link, whatever its cause.
  */
 export function useConfirmInvitation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ token, email }: ConfirmInvitationInput) => {
-      // The API counts a blank address as a mismatch, so a link without one sends none.
+      // The page never posts a link without an address, and the API refuses one.
       const address = email?.trim()
       return unwrap(
         await apiClient.post<ApiSuccess<InvitationSignIn>>(

@@ -248,9 +248,10 @@ const linkMode = params.get('link') ?? 'ok'
  * for another address, so a signed-in user is asked before switching. `ok`
  * makes the preview the harness user's, so signed in, the page accepts.
  * Signed out, the verify answers the `202` "Check your inbox" for the
- * preview's address, as express does for every staff invitation. `dead` 404s
- * the preview, the verify and the accept. `joined` 404s the preview, as for a
- * used link, and the accept answers `alreadyMember`.
+ * preview's address, as express does for every invitation; only
+ * `/invitations/confirm` signs anyone in. `dead` 404s the preview, the verify
+ * and the accept. `joined` 404s the preview, as for a used link, and the accept
+ * answers `alreadyMember`.
  */
 const inviteMode = params.get('invite')
 
