@@ -1,7 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import { NOW_TICK_MS } from '@/hooks/use-now'
+import { beforeEach, describe, expect, it } from 'vite-plus/test'
 import { absoluteTime } from '@/lib/relative-time'
 import { maintenanceModeKeys } from '@/queries/maintenance-mode.queries'
 import { queryClient } from '@/router'
@@ -51,35 +50,15 @@ describe('the maintenance banner', () => {
     )
   })
 
-  describe('across midnight', () => {
-    afterEach(() => {
-      vi.useRealTimers()
-    })
-
-    it('adds the date to "since" once the day maintenance began has passed', async () => {
-      // Only the clock and its interval are faked: MSW and findBy* keep the real setTimeout.
-      vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
-      vi.setSystemTime(new Date(2026, 9, 19, 23, 59, 50))
-      const since = new Date(2026, 9, 19, 22, 42).toISOString()
-      const time = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(
-        new Date(since)
+  it('names the date, the time and the zone even on the day maintenance began', async () => {
+    const since = new Date().toISOString()
+    serve(fullMaintenanceView({ since }))
+    renderAppAt('/tenants')
+    expect(
+      await screen.findByText(
+        `Customers are in FULL maintenance since ${absoluteTime(since)}, set by Sam Staff.`
       )
-      serve(fullMaintenanceView({ since }))
-      renderAppAt('/tenants')
-      expect(
-        await screen.findByText(
-          `Customers are in FULL maintenance since ${time}, set by Sam Staff.`
-        )
-      ).toBeVisible()
-
-      vi.setSystemTime(new Date(2026, 9, 20, 0, 0, 10))
-      await act(() => vi.advanceTimersByTimeAsync(NOW_TICK_MS))
-      expect(
-        screen.getByText(
-          `Customers are in FULL maintenance since ${absoluteTime(since)}, set by Sam Staff.`
-        )
-      ).toBeVisible()
-    })
+    ).toBeVisible()
   })
 
   it('says READ-ONLY for read-only maintenance', async () => {

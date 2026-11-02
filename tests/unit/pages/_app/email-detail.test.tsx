@@ -299,6 +299,45 @@ describe('/emails/$emailId', () => {
     expect(screen.getByText('The email wasn’t queued, so it was never sent.')).toBeVisible()
   })
 
+  it('counts the failed send attempts', async () => {
+    const attempt = { status: 'failed' as const, errorCode: 'ECONNREFUSED' }
+    serve({
+      status: 'failed',
+      failureOrigin: 'send',
+      attempts: [
+        { ...attempt, id: 'att-1', createdAt: '2026-09-25T12:00:00.000Z' },
+        { ...attempt, id: 'att-2', createdAt: '2026-09-25T12:01:00.000Z' },
+        { ...attempt, id: 'att-3', createdAt: '2026-09-25T12:05:00.000Z' },
+      ],
+      events: [],
+    })
+    renderAppAt(PAGE)
+    await heading()
+    expect(screen.getByText('All 3 send attempts failed.')).toBeVisible()
+  })
+
+  it('names the provider that reported a delivery failure', async () => {
+    serve({
+      status: 'failed',
+      failureOrigin: 'provider',
+      events: [
+        {
+          id: 'evt-1',
+          provider: 'resend',
+          type: 'failed',
+          bounceKind: null,
+          detail: null,
+          occurredAt: '2026-09-25T12:02:00.000Z',
+        },
+      ],
+    })
+    renderAppAt(PAGE)
+    await heading()
+    expect(
+      screen.getByText('Resend couldn’t deliver this email. Check the timeline for its reason.')
+    ).toBeVisible()
+  })
+
   it('offers no Resend when the API says this staff member may not', async () => {
     serve({ canResend: false })
     renderAppAt(PAGE)

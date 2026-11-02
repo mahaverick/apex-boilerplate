@@ -17,7 +17,7 @@ export const reasonSchema = z
   .trim()
   .min(1, 'Enter a reason.')
   .max(MAX_REASON_LENGTH, `Reason must be at most ${MAX_REASON_LENGTH} characters.`)
-  .refine(safeText({ multiline: true }), notAllowedMessage('Reason'))
+  .refine(safeText({ multiline: true }), notAllowedMessage('Reason', { multiline: true }))
 
 /**
  * The reason dialog's form. With `confirmText`, the user must also type that

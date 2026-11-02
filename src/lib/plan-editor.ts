@@ -72,7 +72,7 @@ export function detailsSentence(
   const sentences = [
     changed.name === undefined
       ? null
-      : `The new name shows on the pricing page and on the Billing page of every workspace on ${planName}.`,
+      : `The new name shows on the pricing page and on the Billing page of every tenant on ${planName}.`,
     changed.description === undefined ? null : 'The new description shows on the pricing page.',
   ].filter((sentence) => sentence !== null)
   return sentences.length === 0 ? null : sentences.join(' ')

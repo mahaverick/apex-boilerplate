@@ -50,9 +50,17 @@ export const ONBOARDING_SOURCE_LABELS: Record<OnboardingSource, string> = {
  */
 export const FUNNEL_COLORS = { completed: 'var(--chart-1)', staff: 'var(--chart-2)' } as const
 
+/**
+ * How long a tenant goes without progress before it counts as stuck:
+ * express's `ONBOARDING_STUCK_AFTER_DAYS`, which the API does not send, at
+ * its default. A server that sets another value makes this sentence wrong
+ * until it changes too.
+ */
+export const STUCK_AFTER = 'for 7 days or more (the server’s ONBOARDING_STUCK_AFTER_DAYS)'
+
 /** What the onboarding page says while no tenant is tracked at all. */
 export const ONBOARDING_NOT_STARTED =
-  'Onboarding is tracked for tenants created once the server runs release 1.4.0 (2 October 2026) or later.'
+  'Onboarding is tracked for tenants created while the server runs release 1.4.0 (2 October 2026) or newer.'
 
 /** A tenant created before tracking began. */
 export const NOT_TRACKED_NOTE = 'Not tracked: created before the server ran release 1.4.0.'

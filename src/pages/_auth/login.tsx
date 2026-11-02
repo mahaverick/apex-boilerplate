@@ -103,7 +103,9 @@ function LoginPage() {
       }
     >
       {notice && sentTo === null && (
-        <Note tone="passive">Sign in with an email link or Google. Passwords no longer work.</Note>
+        <Note tone="passive">
+          Sign in with an email link or Google. Apex has no password sign-in.
+        </Note>
       )}
       <FieldGroup className="gap-6">
         <SignInLinkForm

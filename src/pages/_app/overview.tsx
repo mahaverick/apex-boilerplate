@@ -100,10 +100,19 @@ function OverviewPage() {
             </SectionBoundary>
             <div className="grid gap-4 xl:grid-cols-2">
               <SectionBoundary name="Sign-ups">
-                <SignupsChart signups={data.signups} range={data.range} />
+                <SignupsChart
+                  signups={data.signups}
+                  range={data.range}
+                  asOf={stats.dataUpdatedAt}
+                />
               </SectionBoundary>
               <SectionBoundary name="Emails">
-                <EmailsChart days={data.emailMessages} range={data.range} />
+                <EmailsChart
+                  days={data.emailMessages}
+                  range={data.range}
+                  asOf={stats.dataUpdatedAt}
+                  webhookNote
+                />
               </SectionBoundary>
             </div>
           </>

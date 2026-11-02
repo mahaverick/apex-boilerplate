@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/sidebar'
 import { navGroupsFor } from '@/constants/navigation'
 
-/** Every section an admin sees: all five, Activity log included. */
+/** Every section an admin sees: all five, Activity included. */
 const SECTIONS = navGroupsFor('admin')
 
 /** A button that collapses or expands the sidebar, as the header's trigger does. */
@@ -83,7 +83,7 @@ describe('NavMain', () => {
       'Billing alerts',
       'Onboarding',
       'Plans',
-      'Activity log',
+      'Activity',
     ])
     expect(within(nav).getByRole('link', { name: 'Overview' })).toHaveAttribute('data-active')
     expect(within(nav).getByRole('link', { name: 'Users' })).not.toHaveAttribute('data-active')

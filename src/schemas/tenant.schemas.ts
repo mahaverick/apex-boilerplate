@@ -92,13 +92,13 @@ const RESERVED = new Set<string>(RESERVED_SLUGS)
 const slugSchema = z
   .string()
   .trim()
-  .min(MIN_SLUG_LENGTH, `Slug must be at least ${MIN_SLUG_LENGTH} characters.`)
-  .max(MAX_SLUG_LENGTH, `Slug must be at most ${MAX_SLUG_LENGTH} characters.`)
+  .min(MIN_SLUG_LENGTH, `The web address must be at least ${MIN_SLUG_LENGTH} characters.`)
+  .max(MAX_SLUG_LENGTH, `The web address must be at most ${MAX_SLUG_LENGTH} characters.`)
   .regex(
     /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/,
-    'Slug must be lowercase letters, numbers and hyphens, and cannot start or end with a hyphen.'
+    'Use lowercase letters, digits and hyphens in the web address, with no hyphen at the start or end.'
   )
-  .refine((slug) => !RESERVED.has(slug), 'This slug is reserved and cannot be used.')
+  .refine((slug) => !RESERVED.has(slug), 'This web address is reserved. Choose another one.')
 
 /**
  * Which of the API's checks a field gets: `safeText` on one line or several,
@@ -147,7 +147,7 @@ function boundedText(max: number, label: string, safe?: SafeTextMode) {
   const field = multiline ? z.string().overwrite(normalizeMultilineText) : z.string()
   const bounded = field.trim().max(max, `${label} must be at most ${max} characters.`)
   if (!safe) return bounded
-  const safeField = bounded.refine(safeText({ multiline }), notAllowedMessage(label))
+  const safeField = bounded.refine(safeText({ multiline }), notAllowedMessage(label, { multiline }))
   if (safe !== 'url') return safeField
   const notHttpUrl = `${label} must be a web address that starts with http:// or https://.`
   return safeField.refine(hasNoUserinfoOrBackslash, notHttpUrl).pipe(httpUrlCheck(notHttpUrl))

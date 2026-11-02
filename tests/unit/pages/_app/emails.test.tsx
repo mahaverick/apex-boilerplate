@@ -225,7 +225,9 @@ describe('/emails', () => {
     renderAppAt('/emails?from=2026-09-01&to=2026-09-30')
     await screen.findByText('cleo@example.com')
     expect(
-      screen.getByRole('button', { name: 'Filter by date. Current: Sep 1 – Sep 30' })
+      screen.getByRole('button', {
+        name: 'Filter by date. Current: Sep 1, 2026 – Sep 30, 2026 (UTC)',
+      })
     ).toBeInTheDocument()
     expect(seen.at(-1)?.get('from')).toBe('2026-09-01')
     expect(seen.at(-1)?.get('to')).toBe('2026-09-30')

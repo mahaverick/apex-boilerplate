@@ -84,7 +84,7 @@ export function TaxDetailsCard({
         {billing.taxDocumentsEnabled && (
           <CardDescription>
             What this tenant’s tax invoices name as the buyer. A change applies to invoices issued
-            from then on; issued documents keep the details they were issued with.
+            after it is saved; issued documents keep the details they were issued with.
           </CardDescription>
         )}
         {canEdit && details !== undefined && (
@@ -132,7 +132,7 @@ export function TaxDetailsCard({
             <dd>
               {details.state.code} {details.state.name}
             </dd>
-            <dt className="text-muted-foreground">SEZ unit</dt>
+            <dt className="text-muted-foreground">Special Economic Zone (SEZ) unit</dt>
             <dd>
               {details.isSez ? 'Yes. We hold its charges for staff to invoice by hand.' : 'No'}
             </dd>

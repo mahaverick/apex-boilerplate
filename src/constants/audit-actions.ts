@@ -76,8 +76,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'billing.tax_details_updated': 'Tax details changed',
   'billing.tax_document_issued': 'Tax document issued',
   'billing.credit_note_issued_by_staff': 'Credit note issued by staff',
-  'billing.held_charge_resolved': 'Held SEZ charge resolved',
-  'billing.tax_export_downloaded': 'GST return export downloaded',
+  'billing.held_charge_resolved': 'Held Special Economic Zone (SEZ) charge resolved',
+  'billing.tax_export_downloaded': 'Goods and Services Tax (GST) return export downloaded',
 }
 
 /** An audit entry's free-form metadata, whose fields are checked before use. */
@@ -290,7 +290,7 @@ const TAX_DETAIL_FIELD_WORDS: Readonly<Record<string, string>> = {
   city: 'city',
   pincode: 'PIN code',
   stateCode: 'state',
-  isSez: 'SEZ unit',
+  isSez: 'Special Economic Zone (SEZ) unit',
 }
 
 /**
@@ -338,7 +338,7 @@ const SENTENCES: Record<AuditAction, Sentence> = {
   'invitation.accepted': (m) => `accepted an invitation as ${roleLabel(m, 'role')}`,
   'platform.member.granted': (m) => `granted a platform member the ${roleLabel(m, 'role')} role`,
   'tenant.accessed_by_platform': (m) =>
-    `opened this tenant as platform staff (${roleLabel(m, 'platformRole')})`,
+    `opened the tenant as platform staff (${roleLabel(m, 'platformRole')})`,
   'tenant.suspended': (m) => `suspended the tenant${because(m)}`,
   'tenant.reactivated': (m) => `reactivated the tenant${because(m)}`,
   'tenant.archived': (m) => `archived the tenant${because(m)}`,
@@ -412,7 +412,8 @@ const SENTENCES: Record<AuditAction, Sentence> = {
   'billing.grant_revoked': (m) => `revoked the ${grantKey(m)} grant${because(m)}`,
   'billing.cancelled_by_staff': (m) => {
     const when = text(m, 'when')
-    const at = when === 'now' ? ' now' : when === 'cycle_end' ? ' at its period end' : ''
+    const at =
+      when === 'now' ? ' with immediate effect' : when === 'cycle_end' ? ' at its period end' : ''
     return `cancelled the subscription${at}${because(m)}`
   },
   'plan.updated': (m) => {
@@ -428,8 +429,10 @@ const SENTENCES: Record<AuditAction, Sentence> = {
     return type === 'credit_note' ? 'issued a credit note' : 'issued a tax document'
   },
   'billing.credit_note_issued_by_staff': (m) => `issued a credit note by hand${because(m)}`,
-  'billing.held_charge_resolved': (m) => `marked a held SEZ charge resolved${because(m)}`,
-  'billing.tax_export_downloaded': (m) => `downloaded the GST return export${exportPeriod(m)}`,
+  'billing.held_charge_resolved': (m) =>
+    `marked a held Special Economic Zone (SEZ) charge resolved${because(m)}`,
+  'billing.tax_export_downloaded': (m) =>
+    `downloaded the Goods and Services Tax (GST) return export${exportPeriod(m)}`,
 }
 
 /**

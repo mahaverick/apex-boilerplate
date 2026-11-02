@@ -78,10 +78,12 @@ describe('/deliverability', () => {
     expect(shown[1]![2]).toBe('15 of 1,000 emails sent')
     expect(shown[5]![2]).toMatch(/^40 of 200 general-sender emails\. Approximate/)
     expect(shown[6]![2]).toMatch(/^1 of 200,000 general-sender emails\. Approximate/)
-    expect(screen.queryByText(/No provider events yet/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/rates need events from the provider’s webhook/)
+    ).not.toBeInTheDocument()
   })
 
-  it('reads "No provider data" on every provider rate without a webhook, and still shows the undelivered rate and the chart', async () => {
+  it('reads "No email provider events in the window" on every provider rate without a webhook, and still shows the undelivered rate and the chart', async () => {
     serve({
       ...testEmailHealth,
       totals: {
@@ -106,13 +108,11 @@ describe('/deliverability', () => {
     const shown = await tiles()
     expect(shown[1]).toEqual(['Undelivered rate', '1.00%', '4 of 400 emails sent'])
     for (const tile of shown.slice(2)) {
-      expect(tile.slice(1)).toEqual(['—', 'No provider data'])
+      expect(tile.slice(1)).toEqual(['—', 'No email provider events in the window'])
     }
 
-    expect(
-      screen.getByText(/No provider events yet — delivery, bounce and complaint data appear/)
-    ).toHaveTextContent(
-      'No provider events yet — delivery, bounce and complaint data appear once a provider webhook is configured.'
+    expect(screen.getByText(/rates need events from the provider’s webhook/)).toHaveTextContent(
+      /^No email provider events in \w{3} \d{1,2}, \d{4} – \w{3} \d{1,2}, \d{4} \(UTC\)\. Delivery, bounce, complaint, open and click rates need events from the provider’s webhook\./
     )
     const docs = screen.getByRole('link', { name: /How to configure one/ })
     expect(docs).toHaveAttribute('href', expect.stringMatching(/#email-tracking$/))
@@ -156,12 +156,12 @@ describe('/deliverability', () => {
     renderAppAt('/deliverability')
     const shown = await tiles()
     for (const tile of shown.slice(1)) {
-      expect(tile.slice(1)).toEqual(['—', 'No emails to measure in this window'])
+      expect(tile.slice(1)).toEqual(['—', 'No emails to measure in the window'])
     }
     const chart = screen.getByRole('figure', { name: 'Emails per day' })
     expect(within(chart).getByText('No emails in the last 7 days')).toBeInTheDocument()
     const byTemplate = screen.getByRole('region', { name: 'By template' })
-    expect(within(byTemplate).getByText('No emails in this window.')).toBeInTheDocument()
+    expect(within(byTemplate).getByText(/^No emails sent in .+ \(UTC\)\.$/)).toBeInTheDocument()
   })
 
   it('lists the window by template label and by recipient domain', async () => {
@@ -184,7 +184,7 @@ describe('/deliverability', () => {
       'Password reset600103',
       'retired_template400',
     ])
-    const byDomain = screen.getByRole('table', { name: 'Top recipient domains' })
+    const byDomain = screen.getByRole('table', { name: 'Top 10 recipient domains' })
     expect(within(byDomain).getByRole('cell', { name: 'example-corp.co.uk' })).toBeInTheDocument()
     expect(within(byDomain).getByRole('cell', { name: '1,200' })).toBeInTheDocument()
   })

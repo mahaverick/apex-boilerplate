@@ -1,6 +1,6 @@
 import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts'
 import { ChartCard } from '@/components/features/overview/chart-card'
-import { RANGE_LABELS } from '@/components/features/overview/range'
+import { chartDescription, RANGE_LABELS } from '@/components/features/overview/range'
 import {
   ChartContainer,
   ChartLegend,
@@ -13,25 +13,31 @@ import { shortDate } from '@/lib/format'
 import type { PlatformStats, StatsRange } from '@/types/api.types'
 
 const config = {
-  users: { label: 'Users', color: 'var(--chart-1)' },
-  tenants: { label: 'Tenants', color: 'var(--chart-2)' },
+  users: { label: 'Users created', color: 'var(--chart-1)' },
+  tenants: { label: 'Tenants created', color: 'var(--chart-2)' },
 } satisfies ChartConfig
 
 /**
- * Daily user and tenant sign-ups. The SVG is decorative for assistive tech;
+ * Daily user and tenant sign-ups: users created that day, inactive and staff
+ * included, and customer tenants created that day (express's `signupsByDay`),
+ * deleted ones left out. The SVG is decorative for assistive tech;
  * the visually hidden table carries the same numbers.
  */
 export function SignupsChart({
   signups,
   range,
+  asOf,
 }: {
   signups: PlatformStats['signups']
   range: StatsRange
+  /** When the data arrived (`dataUpdatedAt`), in epoch milliseconds. */
+  asOf: number
 }) {
   const empty = signups.every((day) => day.users === 0 && day.tenants === 0)
   return (
     <ChartCard
       title="Sign-ups per day"
+      description={chartDescription(asOf)}
       empty={empty ? `No sign-ups in the last ${RANGE_LABELS[range]}` : null}
     >
       <ChartContainer config={config} className="aspect-auto h-56 w-full" aria-hidden>
@@ -66,8 +72,8 @@ export function SignupsChart({
         <thead>
           <tr>
             <th scope="col">Day</th>
-            <th scope="col">Users</th>
-            <th scope="col">Tenants</th>
+            <th scope="col">{config.users.label}</th>
+            <th scope="col">{config.tenants.label}</th>
           </tr>
         </thead>
         <tbody>

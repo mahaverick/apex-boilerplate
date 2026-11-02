@@ -56,7 +56,7 @@ describe('navigation', () => {
       'Billing alerts',
       'Onboarding',
       'Plans',
-      'Activity log',
+      'Activity',
     ])
   })
 
@@ -80,7 +80,7 @@ describe('navigation', () => {
       ['Directory', ['Tenants', 'Users']],
       ['Operations', ['Emails', 'Deliverability', 'Suppressions', 'Billing alerts']],
       ['Growth', ['Onboarding', 'Plans']],
-      ['Security', ['Activity log']],
+      ['Security', ['Activity']],
     ])
   })
 

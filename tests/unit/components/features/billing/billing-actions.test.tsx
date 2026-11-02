@@ -1306,7 +1306,7 @@ describe('billing actions', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Cancel subscription' }))
       expect(
         await within(dialog).findByText(
-          'Razorpay didn’t answer. Try again in 30 seconds. If it keeps failing, check Razorpay’s status page.'
+          'Razorpay didn’t answer. Try again in 30 seconds. If it fails again, check Razorpay’s status page.'
         )
       ).toBeInTheDocument()
     })

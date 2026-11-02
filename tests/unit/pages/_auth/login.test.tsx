@@ -61,7 +61,7 @@ beforeEach(() => {
 })
 
 const DESCRIPTION = 'Enter your staff email and we’ll send you a link to sign in.'
-const NOTE = 'Sign in with an email link or Google. Passwords no longer work.'
+const NOTE = 'Sign in with an email link or Google. Apex has no password sign-in.'
 
 /**
  * Mounts the login page through a real RouterProvider rather than rendering the component alone: the

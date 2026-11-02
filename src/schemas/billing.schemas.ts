@@ -322,7 +322,7 @@ export const priceSchema = z
  * and a reason.
  */
 export const billingSettingsSchema = z.object({
-  trialEnabled: z.boolean({ error: 'Choose whether new workspaces get a Paid trial.' }),
+  trialEnabled: z.boolean({ error: 'Choose whether new tenants get a Paid trial.' }),
   trialDays: daysSchema(MAX_TRIAL_DAYS),
   pastDueGraceDays: daysSchema(MAX_PAST_DUE_GRACE_DAYS),
 })

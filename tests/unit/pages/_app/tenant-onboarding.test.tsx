@@ -670,7 +670,7 @@ describe('/tenants/$tenantId/onboarding', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Send reminder' }))
       expect(
         await within(dialog).findByText(
-          /^A reminder went out less than 24 hours ago\. The next one can go after (?!2026-10-03T)/
+          /^The last reminder went out less than 24 hours ago\. Send the next one after (?!2026-10-03T)/
         )
       ).toBeInTheDocument()
     })

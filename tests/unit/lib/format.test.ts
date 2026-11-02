@@ -23,10 +23,16 @@ describe('formatDate', () => {
 })
 
 describe('formatDateTime', () => {
-  it('formats a medium date with a short time, in the reader locale', () => {
+  it('names the date, the time and the zone, in the zone asked for', () => {
+    expect(formatDateTime(NOON_UTC, 'Asia/Kolkata')).toBe('5 March 2026 at 17:30 GMT+5:30')
+    expect(formatDateTime(NOON_UTC, 'UTC')).toBe('5 March 2026 at 12:00 UTC')
+  })
+
+  it('reads in the reader’s zone without one, and in UTC for an unknown one', () => {
     expect(formatDateTime(NOON_UTC)).toBe(
-      new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+      formatDateTime(NOON_UTC, new Intl.DateTimeFormat().resolvedOptions().timeZone)
     )
+    expect(formatDateTime(NOON_UTC, 'Not/AZone')).toBe('5 March 2026 at 12:00 UTC')
   })
 
   it('returns null for a value that is not a date', () => {

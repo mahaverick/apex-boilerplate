@@ -82,7 +82,7 @@ test('a viewer downloads INV/26-27/00001 as a PDF named after its number', async
   await page.getByRole('button', { name: 'Load more invoices' }).click()
   const invoices = page.getByRole('table', { name: 'Invoices' })
   await expect(invoices.getByRole('row', { name: /^inv_TestPaid0002/ })).toContainText(
-    'Tax invoice on its way'
+    'Tax invoice not issued yet'
   )
   await expect(
     invoices.getByRole('button', { name: 'Download CN/26-27/00002 as a PDF' })
@@ -119,7 +119,7 @@ test('an admin opens a held SEZ charge’s alert, lands on Held SEZ charges and 
   await page.goto('/e2e/harness/?path=/billing-alerts&tax=sez')
   const table = page.getByRole('table', { name: 'Billing alerts' })
   const first = table.getByRole('row').nth(1)
-  await expect(first).toContainText('SEZ charge held')
+  await expect(first).toContainText('Special Economic Zone (SEZ) charge held')
   await expect(first).toContainText('pay_TestHeld0002')
   await first.getByRole('link', { name: 'Acme Corp' }).click()
 

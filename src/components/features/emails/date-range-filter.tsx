@@ -31,7 +31,7 @@ export function DateRangeFilter({
         render={
           <Button
             variant="outline"
-            className="w-56 justify-start font-normal"
+            className="w-80 max-w-full justify-start font-normal"
             aria-label={`Filter by date. Current: ${label}`}
           />
         }

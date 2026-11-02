@@ -4,8 +4,9 @@ import { absoluteTime, relativeTime } from '@/lib/relative-time'
 const NOW = Date.parse('2026-09-25T12:00:00.000Z')
 
 describe('relativeTime', () => {
-  it('says "just now" inside the first 45 seconds', () => {
-    expect(relativeTime('2026-09-25T11:59:30.000Z', NOW)).toBe('just now')
+  it('says "under a minute" inside 45 seconds either side', () => {
+    expect(relativeTime('2026-09-25T11:59:30.000Z', NOW)).toBe('under a minute ago')
+    expect(relativeTime('2026-09-25T12:00:30.000Z', NOW)).toBe('in under a minute')
   })
 
   it('counts minutes, hours and days in the past', () => {
@@ -20,8 +21,8 @@ describe('relativeTime', () => {
 })
 
 describe('absoluteTime', () => {
-  it('renders a date and a time, and survives a bad value', () => {
-    expect(absoluteTime('2026-09-25T12:00:00.000Z')).toMatch(/2026/)
+  it('renders a date, a time and the zone, and survives a bad value', () => {
+    expect(absoluteTime('2026-09-25T12:00:00.000Z', 'UTC')).toBe('25 September 2026 at 12:00 UTC')
     expect(absoluteTime('not a date')).toBe('Unknown time')
   })
 })

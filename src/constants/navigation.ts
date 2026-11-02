@@ -105,7 +105,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // Every staff role reads plans and prices; the page hides its edit controls below admin, which the API's writes require.
   { label: 'Plans', to: ROUTES.plans, Icon: IconReceipt, minRole: 'viewer', group: 'Growth' },
   {
-    label: 'Activity log',
+    label: 'Activity',
     to: ROUTES.activity,
     Icon: IconHistory,
     minRole: 'admin',

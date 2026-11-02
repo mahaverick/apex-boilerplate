@@ -21,13 +21,15 @@ interface BreakdownCardProps {
   rows: EmailBreakdownRow[]
   /** How a row's key reads: a template's label, a domain as it is. */
   labelOf: (key: string) => string
+  /** The window's UTC days, as `rangeLabel` names them: "Oct 27, 2026 – Nov 2, 2026 (UTC)". */
+  period: string
 }
 
 /**
  * The window's emails split one way (by template, by recipient domain), with
  * the undelivered and complained counts beside each. The API orders the rows.
  */
-export function BreakdownCard({ title, keyHeader, rows, labelOf }: BreakdownCardProps) {
+export function BreakdownCard({ title, keyHeader, rows, labelOf, period }: BreakdownCardProps) {
   const headingId = useId()
   return (
     <section aria-labelledby={headingId}>
@@ -39,7 +41,7 @@ export function BreakdownCard({ title, keyHeader, rows, labelOf }: BreakdownCard
         </CardHeader>
         <CardContent>
           {rows.length === 0 ? (
-            <EmptyState size="compact" title="No emails in this window." />
+            <EmptyState size="compact" title={`No emails sent in ${period}.`} />
           ) : (
             <Table aria-labelledby={headingId}>
               <TableCaption className="sr-only">Emails, undelivered and complained</TableCaption>

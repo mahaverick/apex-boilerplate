@@ -1,5 +1,6 @@
 import { RANGE_LABELS } from '@/components/features/overview/range'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { SENDERS_EXPLAINED } from '@/constants/email.constants'
 import { formatShare } from '@/lib/format'
 import type { EmailHealth, EmailRate } from '@/types/api.types'
 
@@ -33,15 +34,14 @@ const RATE_TILES: readonly RateTile[] = [
     label: 'Open rate (approximate)',
     providerDependent: true,
     of: 'general-sender emails',
-    caveat: APPROXIMATE,
+    caveat: `${APPROXIMATE} ${SENDERS_EXPLAINED}`,
   },
   {
     key: 'clickRate',
     label: 'Click rate (approximate)',
     providerDependent: true,
     of: 'general-sender emails',
-    caveat:
-      'Approximate, and general-sender emails only: tracking is off on the sender that carries sign-in links.',
+    caveat: 'Approximate, and general-sender emails only, as for the open rate.',
   },
 ]
 
@@ -61,8 +61,8 @@ function rateText(
       value: '—',
       note:
         tile.providerDependent && providerEvents === 0
-          ? 'No provider data'
-          : 'No emails to measure in this window',
+          ? 'No email provider events in the window'
+          : 'No emails to measure in the window',
     }
   }
   const counts = `${rate.numerator.toLocaleString('en-US')} of ${rate.denominator.toLocaleString('en-US')} ${tile.of}`
@@ -76,7 +76,8 @@ function rateText(
  * The Deliverability page's headline figures: how many emails left our
  * server in the window, and each rate over them with its denominator shown.
  * The undelivered rate needs no provider (failed sends alone count); the rest
- * read "No provider data" until a provider webhook has sent an event.
+ * read "No email provider events in the window" until a provider webhook has
+ * sent an event in it.
  */
 export function DeliverabilityKpis({ health }: { health: EmailHealth }) {
   const { totals } = health

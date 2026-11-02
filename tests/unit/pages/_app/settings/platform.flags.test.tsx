@@ -133,18 +133,18 @@ describe('/settings/platform/flags', () => {
     vi.useRealTimers()
   })
 
-  // A relative time read once at render froze at "just now" while the page stayed open.
+  // A relative time read once at render froze at "under a minute ago" while the page stayed open.
   it('moves its relative times on as the clock ticks', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(Date.parse(flagsMeta().snapshot.fetchedAt!))
     serve()
     renderAppAt('/settings/platform/flags')
 
-    expect(await screen.findByText('just now')).toBeInTheDocument()
+    expect(await screen.findByText(', under a minute ago')).toBeInTheDocument()
     act(() => {
       vi.advanceTimersByTime(2 * 60_000)
     })
-    expect(screen.getByText('2 minutes ago')).toBeInTheDocument()
+    expect(screen.getByText(', 2 minutes ago')).toBeInTheDocument()
   })
 
   it('lists every registered flag with its declaration, live state and PostHog link', async () => {
@@ -252,7 +252,7 @@ describe('/settings/platform/flags', () => {
     renderAppAt('/settings/platform/flags')
     expect(
       await screen.findByText(
-        'The server hasn’t reached PostHog for over 10 minutes, so flags use the last snapshot.'
+        'The server hasn’t reached PostHog for more than 10 minutes, so flags use the last snapshot it fetched.'
       )
     ).toBeInTheDocument()
     expect(screen.getByText(/Flag definitions last changed/).querySelector('time')).toHaveAttribute(
@@ -858,7 +858,7 @@ describe('/settings/platform/flags evaluate', () => {
     await within(panel).findByRole('table', { name: 'Evaluation' })
     expect(
       within(panel).getByText(
-        'The server hasn’t reached PostHog for over 10 minutes, so flags use the last snapshot.'
+        'The server hasn’t reached PostHog for more than 10 minutes, so flags use the last snapshot it fetched.'
       )
     ).toBeInTheDocument()
     expect(within(panel).getByText('Not set')).toBeInTheDocument()

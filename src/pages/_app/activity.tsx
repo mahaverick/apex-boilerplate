@@ -138,7 +138,7 @@ function PlatformActivity() {
             query={log}
             showTenant
             filters={filters}
-            empty={<EmptyState size="compact" title="Nothing has happened yet." />}
+            empty={<EmptyState size="compact" title="No activity recorded." />}
           />
         </CardContent>
       </Card>

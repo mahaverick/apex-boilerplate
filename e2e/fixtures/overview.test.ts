@@ -40,8 +40,8 @@ test('collapses the sidebar to icons and keeps each item named', async ({ page }
   // Not vacuous: the rail really collapsed, so each link is an icon-sized button whose name is all that is left of its label.
   await expect(page.locator('[data-slot="sidebar"][data-state="collapsed"]')).toHaveCount(1)
   const nav = page.getByRole('navigation', { name: 'Main' })
-  for (const label of ['Overview', 'Tenants', 'Activity log']) {
-    const link = nav.getByRole('link', { name: label })
+  for (const label of ['Overview', 'Tenants', 'Activity']) {
+    const link = nav.getByRole('link', { name: label, exact: true })
     await expect(link).toBeVisible()
     await expect.poll(async () => (await link.boundingBox())?.width).toBeLessThanOrEqual(40)
   }

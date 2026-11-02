@@ -237,7 +237,7 @@ const SURFACES = [
   {
     name: 'link failed',
     url: signedOut('/auth/link', `token=${TOKEN}&email=a.b@example.com&link=readonly`),
-    heading: 'We couldn’t sign you in',
+    heading: 'Sign-in didn’t finish',
   },
   {
     name: 'link switch',
@@ -290,7 +290,7 @@ const SURFACES = [
       '/invitations/confirm',
       `token=${TOKEN}&email=new.staff@example.com&inviteconfirm=readonly`
     ),
-    heading: 'We couldn’t add you to your team',
+    heading: 'You weren’t added to your team',
   },
   {
     name: 'invitation confirm switch',
@@ -1082,7 +1082,7 @@ const TRACKING_SURFACES = [
     name: 'deliverability without provider events',
     path: '/deliverability?range=30d',
     heading: 'Deliverability',
-    shows: ['No provider data'],
+    shows: ['No email provider events in the window'],
   },
   {
     name: 'suppressions',
@@ -1183,7 +1183,7 @@ const NOTE_SURFACES = [
     url: '/e2e/harness/?path=/deliverability?range=30d',
     heading: 'Deliverability',
     role: null,
-    text: 'No provider events yet',
+    text: 'rates need events from the provider’s webhook',
   },
   {
     name: 'compact empty state (user emails card)',

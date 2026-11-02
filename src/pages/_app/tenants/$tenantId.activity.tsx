@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { ACTION_FILTER } from '@/components/features/activity/activity-filters'
 import { ActivityTable } from '@/components/features/activity/activity-table'
-import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
+import { LoadError } from '@/components/features/load-error'
+import { ROLE_ERROR } from '@/components/features/tenant/role-error'
 import { FrozenTenant } from '@/components/features/tenants/frozen-tenant'
 import { useListQuery } from '@/components/shared/data-table/use-list-query'
 import { useListSearch } from '@/components/shared/data-table/use-list-search'
@@ -71,7 +72,7 @@ function TenantActivity({
       query={log}
       filters={[ACTION_FILTER]}
       timeZone={timeZone}
-      empty={<EmptyState size="compact" title="Nothing has happened in this tenant yet." />}
+      empty={<EmptyState size="compact" title="No activity recorded." />}
     />
   )
 }

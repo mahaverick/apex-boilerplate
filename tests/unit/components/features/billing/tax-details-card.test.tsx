@@ -134,7 +134,7 @@ describe('the Tax details card', () => {
     expect(await screen.findByRole('heading', { name: 'Tax details', level: 2 })).toBeVisible()
     expect(
       screen.getByText(
-        'What this tenant’s tax invoices name as the buyer. A change applies to invoices issued from then on; issued documents keep the details they were issued with.'
+        'What this tenant’s tax invoices name as the buyer. A change applies to invoices issued after it is saved; issued documents keep the details they were issued with.'
       )
     ).toBeVisible()
     const card = (await screen.findByRole('heading', { name: 'Tax details' })).closest(

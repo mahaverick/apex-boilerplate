@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useRef, useState } from 'react'
+import { HeldSezBadge } from '@/components/features/billing/held-sez-badge'
 import { TaxDocumentDownload } from '@/components/features/billing/tax-document-download'
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
@@ -73,8 +74,8 @@ function InvoiceTaxDocuments({
       </div>
     )
   }
-  if (invoice.taxStatus === 'held') return <ToneBadge tone="warning">Held: SEZ</ToneBadge>
-  if (invoice.taxStatus === 'pending') return 'Tax invoice on its way'
+  if (invoice.taxStatus === 'held') return <HeldSezBadge />
+  if (invoice.taxStatus === 'pending') return 'Tax invoice not issued yet'
   return '—'
 }
 

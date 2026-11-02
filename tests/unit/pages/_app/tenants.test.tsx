@@ -573,7 +573,7 @@ describe('/tenants', () => {
       await user.click(screen.getByRole('button', { name: 'New tenant' }))
       const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
       await user.type(within(dialog).getByLabelText('Name'), 'Acme Corp')
-      await user.type(within(dialog).getByLabelText('Slug'), 'acme')
+      await user.type(within(dialog).getByLabelText('Web address'), 'acme')
       await user.type(within(dialog).getByLabelText('Owner email'), 'Owner@Acme.test')
       await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
 
@@ -599,12 +599,12 @@ describe('/tenants', () => {
       await user.click(screen.getByRole('button', { name: 'New tenant' }))
       const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
       await user.type(within(dialog).getByLabelText('Name'), 'Acme')
-      await user.type(within(dialog).getByLabelText('Slug'), 'acme')
+      await user.type(within(dialog).getByLabelText('Web address'), 'acme')
       await user.type(within(dialog).getByLabelText('Owner email'), 'o@acme.test')
       await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
 
       expect(await within(dialog).findByText('That slug is already taken')).toBeInTheDocument()
-      expect(within(dialog).getByLabelText('Slug')).toHaveAttribute('aria-invalid', 'true')
+      expect(within(dialog).getByLabelText('Web address')).toHaveAttribute('aria-invalid', 'true')
     })
 
     it('puts a deactivated owner account on the owner email field', async () => {
@@ -620,13 +620,16 @@ describe('/tenants', () => {
       await user.click(screen.getByRole('button', { name: 'New tenant' }))
       const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
       await user.type(within(dialog).getByLabelText('Name'), 'Acme')
-      await user.type(within(dialog).getByLabelText('Slug'), 'acme')
+      await user.type(within(dialog).getByLabelText('Web address'), 'acme')
       await user.type(within(dialog).getByLabelText('Owner email'), 'o@acme.test')
       await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
 
       expect(await within(dialog).findByText('That account is deactivated')).toBeInTheDocument()
       expect(within(dialog).getByLabelText('Owner email')).toHaveAttribute('aria-invalid', 'true')
-      expect(within(dialog).getByLabelText('Slug')).not.toHaveAttribute('aria-invalid', 'true')
+      expect(within(dialog).getByLabelText('Web address')).not.toHaveAttribute(
+        'aria-invalid',
+        'true'
+      )
     })
 
     it('puts any other 409 on the form', async () => {
@@ -638,12 +641,15 @@ describe('/tenants', () => {
       await user.click(screen.getByRole('button', { name: 'New tenant' }))
       const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
       await user.type(within(dialog).getByLabelText('Name'), 'Acme')
-      await user.type(within(dialog).getByLabelText('Slug'), 'acme')
+      await user.type(within(dialog).getByLabelText('Web address'), 'acme')
       await user.type(within(dialog).getByLabelText('Owner email'), 'o@acme.test')
       await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
 
       expect(await within(dialog).findByText('Conflict happened')).toBeInTheDocument()
-      expect(within(dialog).getByLabelText('Slug')).not.toHaveAttribute('aria-invalid', 'true')
+      expect(within(dialog).getByLabelText('Web address')).not.toHaveAttribute(
+        'aria-invalid',
+        'true'
+      )
       expect(within(dialog).getByLabelText('Owner email')).not.toHaveAttribute(
         'aria-invalid',
         'true'
@@ -665,12 +671,12 @@ describe('/tenants', () => {
       await user.click(screen.getByRole('button', { name: 'New tenant' }))
       const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
       await user.type(within(dialog).getByLabelText('Name'), 'Platform')
-      await user.type(within(dialog).getByLabelText('Slug'), 'platform')
+      await user.type(within(dialog).getByLabelText('Web address'), 'platform')
       await user.type(within(dialog).getByLabelText('Owner email'), 'o@acme.test')
       await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
 
       expect(
-        await within(dialog).findByText('This slug is reserved and cannot be used.')
+        await within(dialog).findByText('This web address is reserved. Choose another one.')
       ).toBeInTheDocument()
       expect(posted).toBe(false)
     })
@@ -714,7 +720,7 @@ describe('/tenants', () => {
       await user.click(screen.getByRole('button', { name: 'New tenant' }))
       const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
       await user.type(within(dialog).getByLabelText('Name'), 'Acme')
-      await user.type(within(dialog).getByLabelText('Slug'), 'acme')
+      await user.type(within(dialog).getByLabelText('Web address'), 'acme')
       await user.type(within(dialog).getByLabelText('Owner email'), 'o@acme.test')
       await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
 
@@ -745,7 +751,7 @@ describe('/tenants', () => {
       await user.click(screen.getByRole('button', { name: 'New tenant' }))
       const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
       await user.type(within(dialog).getByLabelText('Name'), 'Acme Corp')
-      await user.type(within(dialog).getByLabelText('Slug'), 'acme')
+      await user.type(within(dialog).getByLabelText('Web address'), 'acme')
       await user.type(within(dialog).getByLabelText('Owner email'), 'owner@acme.test')
       await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
 

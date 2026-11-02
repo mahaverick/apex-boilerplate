@@ -497,7 +497,8 @@ describe('signed-out pages', () => {
     [
       'login with the note',
       '/login?notice=sign-in-link',
-      () => screen.findByText('Sign in with an email link or Google. Passwords no longer work.'),
+      () =>
+        screen.findByText('Sign in with an email link or Google. Apex has no password sign-in.'),
     ],
     [
       'invitation accept without a token',
@@ -1971,8 +1972,8 @@ describe('deliverability, suppressions and the embedded email lists', () => {
       )
     )
     renderAppAt('/deliverability')
-    await screen.findByText(/No provider events yet/)
-    expect(screen.getAllByText('No provider data')).toHaveLength(5)
+    await screen.findByText(/rates need events from the provider’s webhook/)
+    expect(screen.getAllByText('No email provider events in the window')).toHaveLength(5)
     await expectNoViolations()
   })
 
@@ -2102,7 +2103,7 @@ describe('onboarding', () => {
     )
     renderAppAt('/onboarding')
     await screen.findByText(
-      'Onboarding is tracked for tenants created once the server runs release 1.4.0 (2 October 2026) or later.'
+      'Onboarding is tracked for tenants created while the server runs release 1.4.0 (2 October 2026) or newer.'
     )
     await expectNoViolations()
   })

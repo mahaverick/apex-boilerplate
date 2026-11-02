@@ -32,9 +32,12 @@ describe('maintenanceMessageSchema', () => {
     ['x'.repeat(501), 'Message must be at most 500 characters.'],
     [
       `Back ${String.fromCodePoint(0x202e)}soon`,
-      'Message contains characters that are not allowed',
+      'Message has a hidden character. Remove it. Line breaks and tabs are allowed.',
     ],
-    ['Back\u0007soon', 'Message contains characters that are not allowed'],
+    [
+      'Back\u0007soon',
+      'Message has a hidden character. Remove it. Line breaks and tabs are allowed.',
+    ],
   ])('refuses %j', (value, message) => {
     const result = maintenanceMessageSchema.safeParse(value)
     expect(result.success).toBe(false)

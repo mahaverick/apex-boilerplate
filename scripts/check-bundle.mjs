@@ -21,6 +21,10 @@ import { build } from 'vite'
  *   the billing keys: first-visit JS went from 597,445 to 603,638 bytes. After
  *   the Plans page's plan and price forms: 605,833 bytes; after the
  *   whole-branch fix round (tenant time zones): 606,030 bytes.
+ * - 2026-11-02: budget unchanged. The copy audit names the zone on every
+ *   staff time, so the maintenance banner, on every page, formats through
+ *   `formatDateTime` (`src/lib/format.ts`), and the staff copy grew. First-visit
+ *   JS went from 606,757 to 607,823 bytes, with the shared files from react copied in.
  */
 const ENTRY_BUDGET_BYTES = 608_000
 

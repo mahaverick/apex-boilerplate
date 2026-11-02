@@ -66,7 +66,7 @@ export function TenantOwners({ tenant }: { tenant: PlatformTenantDetail }) {
             invitation ? (
               <>
                 An invitation to <Pii>{invitation.email}</Pii> expires{' '}
-                {formatDate(invitation.expiresAt, 'medium') ?? 'soon'}.
+                {formatDate(invitation.expiresAt, 'medium') ?? 'on an unknown date'}.
               </>
             ) : (
               ownerlessNextStep(tenant.lifecycleState, isAdmin)

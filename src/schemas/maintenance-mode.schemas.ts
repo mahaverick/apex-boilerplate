@@ -21,7 +21,7 @@ export const maintenanceMessageSchema = z
     MAINTENANCE_TEXT_MAX_LENGTH,
     `Message must be at most ${MAINTENANCE_TEXT_MAX_LENGTH} characters.`
   )
-  .refine(safeText({ multiline: true }), notAllowedMessage('Message'))
+  .refine(safeText({ multiline: true }), notAllowedMessage('Message', { multiline: true }))
 
 /** Empty is allowed here; `maintenanceModeFormSchema` requires it for a switch-on. */
 const optionalReasonSchema = z
@@ -31,7 +31,7 @@ const optionalReasonSchema = z
     MAINTENANCE_TEXT_MAX_LENGTH,
     `Reason must be at most ${MAINTENANCE_TEXT_MAX_LENGTH} characters.`
   )
-  .refine(safeText({ multiline: true }), notAllowedMessage('Reason'))
+  .refine(safeText({ multiline: true }), notAllowedMessage('Reason', { multiline: true }))
 
 /**
  * The change dialog's form, for a change away from `from`.

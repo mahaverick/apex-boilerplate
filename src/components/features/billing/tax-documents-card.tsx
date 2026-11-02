@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { billingDate, TAX_DOCUMENT_TYPE_LABELS } from '@/constants/billing-labels'
 import { useHashFocus } from '@/hooks/use-hash-focus'
 import { useSaveTaxDocument } from '@/hooks/use-save-tax-document'
@@ -42,6 +43,22 @@ import {
 } from '@/types/billing.types'
 
 const column = createColumnHelper<DataTableFeatures, StaffTaxDocumentItem>()
+
+/** What the Tax column's acronyms stand for, in its tooltip and in hidden text. */
+const TAX_SPLIT_EXPLAINED =
+  'CGST and SGST are the Central and State Goods and Services Tax, charged on a sale within one state. IGST is the Integrated Goods and Services Tax, charged on a sale between states.'
+
+/** The Tax column's header, with its acronyms spelled out in a tooltip and, since Base UI's tooltip is not announced, in hidden text. */
+function TaxHeader() {
+  return (
+    <Tooltip>
+      <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">
+        Tax<span className="sr-only">. {TAX_SPLIT_EXPLAINED}</span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">{TAX_SPLIT_EXPLAINED}</TooltipContent>
+    </Tooltip>
+  )
+}
 
 /** What a credit note's Linked cell says: the invoice it reduces and, for a staff note, who wrote it and why. */
 function CreditNoteLink({ document }: { document: StaffTaxDocumentItem }) {
@@ -188,7 +205,7 @@ const columnsFor = (
     }),
     column.display({
       id: 'tax',
-      header: 'Tax',
+      header: () => <TaxHeader />,
       meta: { label: 'Tax' },
       cell: ({ row }) => taxSplitText(row.original.amounts, row.original.supply),
     }),
@@ -196,7 +213,7 @@ const columnsFor = (
       header: 'Buyer GSTIN',
       cell: ({ getValue }) => {
         const gstin = getValue()
-        return gstin === null ? 'None (B2C)' : <Pii>{gstin}</Pii>
+        return gstin === null ? 'None (B2C, business-to-consumer)' : <Pii>{gstin}</Pii>
       },
     }),
     column.display({
@@ -308,7 +325,7 @@ export function TaxDocumentsCard({
               <EmptyState
                 size="compact"
                 title="No tax documents yet."
-                description="We issue a tax invoice for each charge paid on or after the GST start date set on the API."
+                description="We issue a tax invoice for each charge paid on or after the Goods and Services Tax (GST) start date set on the API."
               />
             }
           />

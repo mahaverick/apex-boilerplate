@@ -55,7 +55,7 @@ describe('plan editor wording', () => {
 describe('detailsSentence', () => {
   it('says where a new name and a new description show, and nothing when neither changed', () => {
     const name =
-      'The new name shows on the pricing page and on the Billing page of every workspace on Free.'
+      'The new name shows on the pricing page and on the Billing page of every tenant on Free.'
     const description = 'The new description shows on the pricing page.'
     expect(detailsSentence({ name: 'Starter' }, 'Free')).toBe(name)
     expect(detailsSentence({ description: 'Theirs.' }, 'Free')).toBe(description)

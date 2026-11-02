@@ -409,7 +409,7 @@ describe('the This page sources', () => {
         await user.click(await within(palette).findByRole('option', { name: 'New tenant' }))
         const dialog = await screen.findByRole('dialog', { name: 'New tenant' })
         await user.type(within(dialog).getByLabelText('Name'), 'Beta Inc')
-        await user.type(within(dialog).getByLabelText('Slug'), 'beta')
+        await user.type(within(dialog).getByLabelText('Web address'), 'beta')
         await user.type(within(dialog).getByLabelText('Owner email'), 'owner@beta.test')
         await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }))
 
