@@ -25,8 +25,12 @@ import { build } from 'vite'
  *   staff time, so the maintenance banner, on every page, formats through
  *   `formatDateTime` (`src/lib/format.ts`), and the staff copy grew. First-visit
  *   JS went from 606,757 to 607,823 bytes, with the shared files from react copied in.
+ * - 2026-11-02: 608,000 → 608,100. React's shared `before_send` now swaps a
+ *   registered page title for its page-only stand-in (`sent-title.ts`), copied
+ *   here byte for byte: 607,823 to 608,023 bytes. The staff-settings copy
+ *   (stuck threshold, retention, retry limit) adds 44 bytes more: 608,067.
  */
-const ENTRY_BUDGET_BYTES = 608_000
+const ENTRY_BUDGET_BYTES = 608_100
 
 /**
  * A module inside one of the devtools packages, by its node_modules path. Module
