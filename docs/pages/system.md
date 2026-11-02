@@ -1,6 +1,6 @@
 # System
 
-The root URL and the page for a URL nothing matches. Back to the [route map](README.md#route-map).
+This file covers the root URL (`/`) and the page for a URL that matches no route. Back to the [route map](README.md#route-map).
 
 ### `/` — Root redirect
 
@@ -15,7 +15,7 @@ No shot: the route only redirects.
 | Data                | none of its own; the boot's session restore decides ([boot.md](boot.md#what-happens))                                                                                      |
 | Transitions         | → `/overview`, `/no-access` or `/login`                                                                                                                                    |
 
-The walk confirmed the signed-out exit: `/` landed on `/login`. The signed-in exits are from the code.
+The walk (a scripted pass over the routes, described in [findings.md](findings.md#all-findings)) confirmed the signed-out exit: `/` landed on `/login`. The signed-in exits are from the code.
 
 ### `/$` — Not found
 
@@ -32,7 +32,7 @@ The walk confirmed the signed-out exit: `/` landed on `/login`. The signed-in ex
 | Components          | `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardFooter`, `buttonVariants`                                           |
 | Transitions         | Go home → `/`, which redirects to `/overview` or `/login`                                                                      |
 
-The shot is taken signed in as staff (`/no-such-page`; its requests were `POST /auth/refresh` 200 and `GET /profile` 200), and still shows no sidebar or header.
+The shot is taken signed in as staff at `/no-such-page`. Its requests were `POST /auth/refresh` 200 and `GET /profile` 200, and the page still shows no sidebar or header.
 
 `RouteNotFound` is also the router's `defaultNotFoundComponent`, so a route that throws `notFound()` inside a layout shows the same card inside that layout instead.
 

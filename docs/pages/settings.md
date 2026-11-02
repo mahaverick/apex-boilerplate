@@ -1,6 +1,6 @@
 # Settings
 
-Account settings (profile, security), platform settings (staff, flags, maintenance), and the legacy paths `/flags`, `/maintenance`, `/staff` and `/profile` that redirect into them. Back to the [route map](README.md#route-map).
+This page covers account settings (profile, security), platform settings (staff, flags, maintenance), and the legacy paths `/flags`, `/maintenance`, `/staff` and `/profile` that redirect into them. It is for anyone changing a settings page or the settings shell. Back to the [route map](README.md#route-map).
 
 ## Layout
 
@@ -52,7 +52,15 @@ Findings: [F-palette-8](findings.md#f-palette-8)
 | Components          | `Card`, `Form`, `FormField`, `FormError`, `Input`, `BusyButton`, `QueryState`, `FormFieldsSkeleton`, `LoadError`, `RoleDenied`                                                                                    |
 | Transitions         | none                                                                                                                                                                                                              |
 
-The Details card reads through `QueryState`: while there is no data, `FormFieldsSkeleton` (four label-and-input pairs and the button bar, sized to the form's own spacing and not measured against it); a failed `GET /profile` shows "Profile didn’t load. Select Try again." with Try again, above the form when the stored user is on screen. The stored user paints the form at once, and a signed-in page always has it, so the skeleton is not reachable here; the error is reached through a refetch that fails, and the stored form stays beside it; a 404 from `GET /profile` is read as a role refusal (`RoleDenied`), which is this app's rule for every `QueryState`. The capture has no section for it, so there is no loading or error shot. In the walk, failing `GET /profile` on a full load failed the session restore instead and landed on `/login?redirect=%2Fsettings%2Faccount%2Fprofile`, so the page's own failure is from the code.
+The Details card reads through `QueryState`:
+
+- **No data:** `FormFieldsSkeleton`, four label-and-input pairs and the button bar, sized to the form's own spacing and not measured against it.
+- **Failed `GET /profile`:** "Profile didn’t load. Select Try again." with Try again, above the form when the stored user is on screen.
+- **404 from `GET /profile`:** read as a role refusal (`RoleDenied`), which is this app's rule for every `QueryState`.
+
+The stored user paints the form at once, and a signed-in page always has it, so the skeleton is not reachable here. The error is reached only through a refetch that fails, and the stored form stays beside it.
+
+The capture has no section for this card, so there is no loading or error shot. In the walk, failing `GET /profile` on a full load failed the session restore instead and landed on `/login?redirect=%2Fsettings%2Faccount%2Fprofile`. The page's own failure state above is read from the code.
 
 Findings: [F-settings-1](findings.md#f-settings-1)
 
@@ -71,9 +79,17 @@ Findings: [F-settings-1](findings.md#f-settings-1)
 | Components          | `Card`, `BusyButton`, `QueryState`, `CardRowsSkeleton`, `ItemGroup`, `Item` (sign-in methods), `LoadError`, `RoleDenied`, `Pii`                                                                                                                                                      |
 | Transitions         | Sign out other sessions toasts the count it signed out                                                                                                                                                                                                                               |
 
-**Passkeys** (`passkeys-section.tsx`, `passkey-dialogs.tsx`, shared with react, loaded on demand) sits between Sign-in methods and Other sessions, and renders only when the passkey mode is not `off`. Its lead reads "Sign in and confirm it’s you with Face ID, Touch ID, Windows Hello, a device PIN or a security key." Each row shows the passkey’s name inside `Pii`, "Synced" or "This device only", its created date and "Last used {date}" or "Never used", with Rename and Delete. Create a passkey runs through "Confirm it’s you" and toasts "Passkey created."; a browser without WebAuthn shows "This browser can’t create passkeys. Use a current version of Chrome, Edge, Firefox or Safari." Deleting the only passkey warns first ("This is your only passkey. You’ll sign in with an email link or Google until you create another."); in required mode the dialog refuses it instead ("Create another passkey before you delete this one. Your account needs at least one."). A failed passkey list shows "We couldn’t load your passkeys. Select Try again to load them." in the section alone. Nothing about passkeys shows anywhere else except the setup screen.
+**Passkeys** (`passkeys-section.tsx`, `passkey-dialogs.tsx`, shared with react, loaded on demand) sits between Sign-in methods and Other sessions. It renders only when the passkey mode is not `off`.
 
-There is no password control. Other sessions renders at once and does not wait on the providers request; only the sign-in methods hold their place with a heading and two method rows while it loads. A failed providers request shows `LoadError` "We couldn’t load your sign-in methods. Select Try again to load them." in their place, and a 404 from `GET /auth/providers` is read as a role refusal (`RoleDenied`) by this app's rule.
+- Its lead reads "Sign in and confirm it’s you with Face ID, Touch ID, Windows Hello, a device PIN or a security key."
+- Each row shows the passkey’s name inside `Pii`, "Synced" or "This device only", its created date and "Last used {date}" or "Never used", with Rename and Delete.
+- Create a passkey runs through "Confirm it’s you" and toasts "Passkey created." A browser without WebAuthn shows "This browser can’t create passkeys. Use a current version of Chrome, Edge, Firefox or Safari."
+- Deleting the only passkey warns first ("This is your only passkey. You’ll sign in with an email link or Google until you create another."). In required mode the dialog refuses it instead ("Create another passkey before you delete this one. Your account needs at least one.").
+- A failed passkey list shows "We couldn’t load your passkeys. Select Try again to load them." in the section alone.
+
+Nothing about passkeys shows anywhere else except the setup screen.
+
+There is no password control. Other sessions renders at once and does not wait on the providers request. Only the sign-in methods hold their place, with a heading and two method rows, while it loads. A failed providers request shows `LoadError` "We couldn’t load your sign-in methods. Select Try again to load them." in their place. A 404 from `GET /auth/providers` is read as a role refusal (`RoleDenied`) by this app's rule.
 
 | Loading                                                                                                                               | Error                                                                                                                         |
 | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -97,7 +113,11 @@ Findings: [F-settings-2](findings.md#f-settings-2)
 | Components          | `DataTable` through `MembersCard` and `PendingInvitations` (`Item` on phones), `InvitationsSection`, `Card`, `Select`, `Button`, `LoadError`, `Alert` (destructive, step-up dismissed), `ReasonDialog`, `TableRowsSkeleton`                                                                                                                                                                                                                                                                                                                                                                                   |
 | Transitions         | none                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
-The Staff members and Pending invitations lists are each paged at 20 with their own search and Role facet, and cards on a phone. A pending invitation's Resend counts down as on a tenant's [Invitations tab](tenants.md#tenantstenantidinvitations--invitations). The invite form's description reads "We email them an invitation that expires in {days} days. When they open it, we email a sign-in link that adds them to Apex as staff." ({days} is `invitationTtlSeconds` from `GET /status/client-settings` in whole days, rounded up as the invitation email rounds it; "We email them an invitation. When they open it, …" until that read loads) When the role read and the members read both fail, the Staff members card shows the role `LoadError` alone (the list is not drawn without a role), and the invitations section waits silently, so the alert shows once.
+The Staff members and Pending invitations lists are each paged at 20 rows, with their own search and Role facet, and show as cards on a phone. A pending invitation's Resend counts down as on a tenant's [Invitations tab](tenants.md#tenantstenantidinvitations--invitations).
+
+The invite form's description reads "We email them an invitation that expires in {days} days. When they open it, we email a sign-in link that adds them to Apex as staff." {days} is `invitationTtlSeconds` from `GET /status/client-settings` in whole days, rounded up as the invitation email rounds it. Until that read loads, the description reads "We email them an invitation. When they open it, …".
+
+When the role read and the members read both fail, the Staff members card shows the role `LoadError` alone, because the list is not drawn without a role. The invitations section waits silently, so the alert shows once.
 
 | Loading                                                                                                 | Error                                                          |
 | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
@@ -153,7 +173,12 @@ Findings: [F-settings-2](findings.md#f-settings-2), [F-settings-5](findings.md#f
 | Components          | `Card`, `Badge`, `Button`, `Skeleton`, `CardRowsSkeleton`, `QueryState`, `LoadError`, `RoleDenied`, `Alert` (destructive, conflict and refusal in both dialogs), `ChangeModeDialog`, `TurnOffDialog`; `EmptyState` (compact: no queues); `ItemGroup`, `Item` (the queue list)                |
 | Transitions         | none                                                                                                                                                                                                                                                                                         |
 
-The page reads through `QueryState`: while the state loads, two cards, each a title bar over three `1.25rem` rows (an outline of the content, not measured); a failed read with no data is a `LoadError`, a 404 is `RoleDenied`, and a failed refresh keeps the last answer up with the `LoadError` above it.
+The page reads through `QueryState`:
+
+- **Loading:** two cards, each a title bar over three `1.25rem` rows (an outline of the content, not measured).
+- **Failed read with no data:** a `LoadError`.
+- **404:** `RoleDenied`.
+- **Failed refresh:** the last answer stays up with the `LoadError` above it.
 
 | Loading                                                | Error                                             |
 | ------------------------------------------------------ | ------------------------------------------------- |

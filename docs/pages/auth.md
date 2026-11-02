@@ -1,8 +1,12 @@
 # Auth
 
-The signed-out pages, the pages a mailed link opens, and the page for a signed-in account that is not platform staff. Back to the [route map](README.md#route-map).
+This page covers the signed-out pages, the pages a mailed link opens, and the page for a signed-in account that is not platform staff. It is for anyone changing sign-in, invitations or step-up confirmation. Back to the [route map](README.md#route-map).
 
-All of them render inside `AuthLayout` (`src/components/layouts/auth-layout.tsx`): a muted full-height page with one narrow centred column (`max-w-sm`), which `AuthCard` (`src/components/layouts/auth-card.tsx`) fills with the app's mark and name over one card. The card's header holds the page's `h1` and description, centred, over its content. There is no brand panel and no terms line: Apex is an internal tool. `/login` sits under the `_auth` layout route, whose `beforeLoad` sends a signed-in user to `/overview` (and from there `_app` sends a non-staff account on to `/no-access`). `/auth/callback`, `/auth/link`, `/auth/confirm`, `/invitations/accept`, `/invitations/confirm` and `/no-access` are top-level routes outside `_auth`, because a signed-in user opens them too; each renders `AuthLayout` itself. None of these pages awaits a request before it renders, beyond the boot's `POST /auth/refresh` ([boot.md](boot.md#what-happens)).
+All of them render inside `AuthLayout` (`src/components/layouts/auth-layout.tsx`): a muted full-height page with one narrow centred column (`max-w-sm`). `AuthCard` (`src/components/layouts/auth-card.tsx`) fills the column with the app's mark and name over one card. The card's header holds the page's `h1` and description, centred, over its content. There is no brand panel and no terms line: Apex is an internal tool.
+
+- `/login` sits under the `_auth` layout route. Its `beforeLoad` sends a signed-in user to `/overview`, and from there `_app` sends a non-staff account on to `/no-access`.
+- `/auth/callback`, `/auth/link`, `/auth/confirm`, `/invitations/accept`, `/invitations/confirm` and `/no-access` are top-level routes outside `_auth`, because a signed-in user opens them too. Each renders `AuthLayout` itself.
+- None of these pages awaits a request before it renders, beyond the boot's `POST /auth/refresh` ([boot.md](boot.md#what-happens)).
 
 Staff sign in by emailed link, Google or, when the API turns passkeys on, a passkey. There is no password, no registration, no password reset and no email verification. Apex has no public sign-up, and an Apex link or Google sign-in never creates an account: a new staff member joins by invitation. The shots are of apex 8.1.0, with passkeys on.
 
@@ -21,9 +25,22 @@ Staff sign in by emailed link, Google or, when the API turns passkeys on, a pass
 | Components          | `Form`, `FormField`, `FormError`, `Input`, `BusyButton`, `FieldGroup`, `FieldSeparator`, `Pii`, `Note`                                                                                                                                                                                                                                                                                  |
 | Transitions         | Email me a sign-in link → Check your inbox (same URL); the mailed link → `/auth/link`; Continue with Google → the API's Google flow → `/auth/callback`; Sign in with a passkey → the browser's sheet → `?redirect` or `/overview`; another tab that opens the link → this tab lands on `?redirect` or `/overview`                                                                       |
 
-**Check your inbox.** The title becomes "Check your inbox". The status line reads "We sent a sign-in link to {address}." and the next line "The link works once and expires in {minutes} minutes.", where {minutes} is `signInLinkTtlSeconds` from `GET /status/client-settings` in whole minutes (express's `SIGN_IN_LINK_TTL`), or "The link works once." while that read is loading, failed or absent. Resend waits 60 seconds after each send ("Resend in 0:42", focusable while it waits); a 429 extends the wait to its `Retry-After`. "Use a different email" returns to the form with the address kept. While this step shows, the page listens for another tab's `signed_in` and restores the shared session when it hears one. The API answers the same `202` for an address with no staff account, so the page never says which addresses are staff.
+**Check your inbox.** The title becomes "Check your inbox".
 
-**Passkey sign-in.** With passkeys on, the Email field also asks the browser for a conditional (autofill) passkey, and the button opens the full sheet; starting either cancels the other. A dismissed sheet is tracked (`passkey_prompt_cancelled`) and says nothing. Autofill raises nothing on its own: a failure before a pick (the options request, or a browser that refuses the request) ends quietly, while the button reports its own failures. A passkey from an account with no platform role gets express's 403 `PASSKEY_NO_ACCESS`: the page toasts its message ("This account doesn't have staff access. Ask a staff owner to invite you."), stays on `/login`, and starts no session. The landing keeps `utm_*` from `?redirect`.
+- The status line reads "We sent a sign-in link to {address}."
+- The next line reads "The link works once and expires in {minutes} minutes." {minutes} is `signInLinkTtlSeconds` from `GET /status/client-settings` in whole minutes (express's `SIGN_IN_LINK_TTL`). While that read is loading, failed or absent, the line reads "The link works once."
+- Resend waits 60 seconds after each send ("Resend in 0:42", focusable while it waits). A 429 extends the wait to its `Retry-After`.
+- "Use a different email" returns to the form with the address kept.
+- While this step shows, the page listens for another tab's `signed_in` and restores the shared session when it hears one.
+
+The API answers the same `202` for an address with no staff account, so the page never says which addresses are staff.
+
+**Passkey sign-in.** With passkeys on, the Email field also asks the browser for a conditional (autofill) passkey, and the button opens the full sheet. Starting either cancels the other.
+
+- A dismissed sheet is tracked (`passkey_prompt_cancelled`) and says nothing.
+- Autofill raises nothing on its own. A failure before a pick (the options request, or a browser that refuses the request) ends quietly. The button reports its own failures.
+- A passkey from an account with no platform role gets express's 403 `PASSKEY_NO_ACCESS`. The page toasts its message ("This account doesn't have staff access. Ask a staff owner to invite you."), stays on `/login`, and starts no session.
+- The landing keeps `utm_*` from `?redirect`.
 
 **`?error=` codes** (from the API's Google callback):
 
@@ -63,8 +80,8 @@ The default shot opens the seed owner's spent link, so it is the dead link with 
 The page has these states:
 
 1. **Verifying** (signed out): "Signing you in", with "Signing you in…" and the link's address, then the address the server signed in.
-2. **Dead link** (any 400, or no `?token` while signed out): "This link expired or was already used", described as the inbox step's rules line ("The link works once and expires in {minutes} minutes."), and the sign-in form prefilled with the link's address, its button "Email me a new link". The new link keeps the old one's `redirect`. A non-staff account's link is refused with the same 400, so the page never says which.
-3. **Retryable failure** (429, 503, a network error or a 5xx): "Sign-in didn’t finish", the reason (a 429 names its wait, "Too many sign-in attempts. Try again in 42 seconds.") and Try again. The link stays usable. A read-only refusal says "We can’t create new accounts during maintenance. Sign in to an account you already have, or try again when maintenance ends."; express sends it only when the click would create an account, which only a customer-app link opened here can do.
+2. **Dead link** (any 400, or no `?token` while signed out): "This link expired or was already used", described as the inbox step's rules line ("The link works once and expires in {minutes} minutes."). Below it is the sign-in form, prefilled with the link's address, its button "Email me a new link". The new link keeps the old one's `redirect`. A non-staff account's link is refused with the same 400, so the page never says which.
+3. **Retryable failure** (429, 503, a network error or a 5xx): "Sign-in didn’t finish", the reason and Try again. A 429 names its wait: "Too many sign-in attempts. Try again in 42 seconds." The link stays usable. A read-only refusal says "We can’t create new accounts during maintenance. Sign in to an account you already have, or try again when maintenance ends." Express sends it only when the click would create an account, which only a customer-app link opened here can do.
 4. **Signed in as the link's address:** goes straight on to the link's `redirect` or `/overview`, spending nothing.
 5. **Signed in as someone else:** "Switch account?", "You’re signed in as {current}. This link is for {target}.", Continue as {target} (signs out and reloads this URL as it opened, which then verifies) and Stay signed in as {current} (→ `/overview`).
 
@@ -110,8 +127,11 @@ The page has these states:
 1. **No `?token`** (any other query included): "This link is incomplete", "Open the latest confirmation email and use its link." Nothing is posted or broadcast.
 2. **Signed out:** "Sign in to confirm", "This link works only in the browser and session that asked for it. If you signed out here, sign in and repeat the action.", and Sign in. Nothing is posted.
 3. **Confirming:** "Confirming it’s you", with "Confirming it’s you…".
-4. **Confirmed**, worded by the wait lock read before the post: a tab holds it, "You can close this tab."; none does, "Go back to Apex and try the action again." with Go to Overview; no Web Locks, "Return to the Apex tab where you started. If you closed it, try the action again."
-5. **400** (expired, used, or another session's link; the API answers all three alike): "This link didn’t confirm it’s you", "Open the link in the browser where you asked for it, within {minutes} minutes. For a new link, try the action again." ({minutes} from `stepUpLinkTtlSeconds`; without the "within" clause until the settings load) Nothing is elevated.
+4. **Confirmed**, worded by the wait lock read before the post:
+   - A tab holds the lock: "You can close this tab."
+   - No tab holds it: "Go back to Apex and try the action again." with Go to Overview.
+   - The browser has no Web Locks: "Return to the Apex tab where you started. If you closed it, try the action again."
+5. **400** (expired, used, or another session's link; the API answers all three alike): "This link didn’t confirm it’s you", "Open the link in the browser where you asked for it, within {minutes} minutes. For a new link, try the action again." {minutes} comes from `stepUpLinkTtlSeconds`; until the settings load, the line has no "within" clause. Nothing is elevated.
 6. **404** (the role gate; the link stays unspent): "Your staff access changed", "Ask a platform owner to check your role, then go to Overview.", and Go to Overview.
 7. **401** after the one refresh: "Your session ended", "Sign in again, then repeat the action.", and Sign in (a full page load).
 8. **Anything else:** "Confirmation didn’t go through", the reason and Try again. The token stays in the URL, so a reload tries again.
@@ -149,7 +169,10 @@ The page has these states (`AcceptInvitationPage` and `InvitationForToken`):
 3. **Preview pending:** "Checking your invitation" over skeleton bars: a sentence, two buttons and a hint.
 4. **Preview failed otherwise:** "This invitation wasn’t checked", a `LoadError` reading "Your invitation link still works. Select Try again.", and "Go to the home page".
 5. **Joining** (signed out, or signed in as the invited address): "Joining {tenant}" and "{inviter} invited you to join {tenant} as {role}.", then "Emailing a link to {invited address}…" signed out or "Joining {tenant} as {invited address}…" signed in. The address is the preview's, never a URL parameter.
-6. **Check your inbox** (signed out; a staff invitation's verify always answers `202`): "We sent a link to {address}.", "Open it to join {tenant}. The link works once and expires in {minutes} minutes." (the confirmation link lasts `signInLinkTtlSeconds`; "Open it to join {tenant}. The link works once." until the settings load), Resend (waits 60 seconds; a 429 extends it), and "Go to the home page". The page listens for another tab's `signed_in` from the confirmation link, including after a failed Resend, and then lands on Overview, with the join toast only when the restored account is the mailed address.
+6. **Check your inbox** (signed out; a staff invitation's verify always answers `202`): "We sent a link to {address}.", "Open it to join {tenant}. The link works once and expires in {minutes} minutes.", Resend, and "Go to the home page".
+   - The confirmation link lasts `signInLinkTtlSeconds`. Until the settings load, the second line reads "Open it to join {tenant}. The link works once."
+   - Resend waits 60 seconds; a 429 extends the wait.
+   - The page listens for another tab's `signed_in` from the confirmation link, including after a failed Resend, and then lands on Overview. It shows the join toast only when the restored account is the mailed address.
 7. **Retryable failure:** "You weren’t added to {tenant}", the reason and Try again.
 8. **Signed in as another address:** "Join {tenant}", the invitation sentence, "This invitation is for {invited}. You’re signed in as {current}.", Continue (signs out and reloads this page signed out, which then verifies) and Cancel (→ `/overview`).
 9. **Used link, signed in as the invitee:** the accept answers `alreadyMember`, and the page lands with "You’ve already joined {tenant} as {address}."
@@ -177,7 +200,13 @@ The shot has no token, so it is the incomplete link: "Part of this link is missi
 | Components          | `InvitationCard`, `SigningInStatus`, `SwitchAccountPanel`, `VerifyFailedPanel`, `ConfirmLinkDead`, `ConfirmLinkIncomplete`, `SignInLinkForm`                                                                      |
 | Transitions         | after a `200` the page posts `signed_in`, so the accept page waiting on Check your inbox lands too                                                                                                                |
 
-States: "Joining your team" while the confirm runs; "This link is incomplete" without a token or an address; "This link can’t be used" for a malformed link or a 404, described "Open your invitation email and select Join again to get a new link, or ask the person who invited you for a new invite." (signed in: "Go to Overview"; signed out: the sign-in form); "You weren’t added to your team" with Try again for anything else, a `503 MAINTENANCE_MODE` included; and "Join your team" with Continue and Cancel when someone else is signed in.
+The page has these states:
+
+- **Joining:** "Joining your team" while the confirm runs.
+- **Incomplete:** "This link is incomplete" without a token or an address.
+- **Dead link:** "This link can’t be used" for a malformed link or a 404, described "Open your invitation email and select Join again to get a new link, or ask the person who invited you for a new invite." Signed in, it offers "Go to Overview"; signed out, the sign-in form.
+- **Failed:** "You weren’t added to your team" with Try again for anything else, a `503 MAINTENANCE_MODE` included.
+- **Someone else signed in:** "Join your team" with Continue and Cancel.
 
 ### `/no-access` — No platform access
 

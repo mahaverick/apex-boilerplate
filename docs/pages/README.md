@@ -1,30 +1,87 @@
 # Apex pages
 
-This folder is the inventory of every route in the staff console: what each page is for, which file renders it, what guards it, which requests it waits on, which components it is built from, and what it looks like in its default, loading, error and empty states. The screenshots under `img/` are taken by the Playwright `capture` project in `e2e/capture/`: with the dev stack up (apex on `:5174`, the API on `:4040`, Mailpit on `:8025`), run `E2E_API_DIR=<express checkout> pnpm capture:pages`, or add `CAPTURE_ONLY=<areas>` to redo some areas (for example `CAPTURE_ONLY=auth,system`), or a route key such as `'/tenants/$tenantId/members'` (quote it, or the shell expands `$tenantId`). `E2E_API_DIR` names the express checkout in which the run grants its staff accounts their platform role. Run it only through `pnpm capture:pages`: the script sets `E2E_CAPTURE=1`, which turns Playwright's `webServer` off, and a bare `pnpm exec playwright test --project=capture` without it starts the dev server (`vp dev --force`) and then skips every test. The run writes its records to `capture-records/` (gitignored, and outside `test-results/`, which Playwright empties at the start of every run, so separate runs keep each other's records): `report.json` for the page shots, `boot.json` for the boot frames and `navigation.json` for the in-app navigation shots. The boot capture's `nginx-` scenarios run against a production build and are skipped unless `E2E_NGINX_ORIGIN` points at one (for example `vite preview` of this worktree's build); `e2e/capture/navigation.test.ts` takes the in-app navigation shots (`<shot>--nav-route.jpg`, `<shot>--nav-sections.jpg`), and `e2e/capture/boot.test.ts` takes the boot frames; run both in one invocation, `pnpm capture:pages e2e/capture/boot.test.ts e2e/capture/navigation.test.ts`, to refresh them together, and after a 429 wait 5 minutes and run `navigation.test.ts` alone. A 429 from the API stops the run with a message naming `CAPTURE_ONLY` and the 5-minute wait; the shot that saw the 429 may already be written under its real name, so restore it before the rerun with `git checkout -- docs/pages/img/<area>/<shot>--<state>.jpg`. The problems found are listed in [findings.md](findings.md). `tests/unit/docs-pages.test.ts` fails when a route is missing from the map below, when a screenshot is linked from no page, or when `img/` grows past 10 MiB.
+This folder is the inventory of every route in Apex, the staff console. It is for anyone who changes a page or reviews one. For each route it records:
 
-The shots come from `vite dev`, so the TanStack Router and Query devtools buttons show in the bottom-right corner of some of them. Those buttons are dev-only (`src/components/dev/devtools.tsx`) and are not part of any page. The default shots are full-page, so the sticky sidebar ends at the viewport's height (900 px) with blank space below it; that is a capture artifact, not the page.
+- what the page is for and which file renders it;
+- what guards it and which requests it waits on;
+- which components it is built from;
+- what it looks like in its default, loading, error and empty states.
 
-| Area                                   | Covers                                                                                                  |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| [boot.md](boot.md)                     | The cold load, from `index.html` to the first page, frame by frame                                      |
-| [auth.md](auth.md)                     | Sign-in by emailed link or Google, Confirm it’s you, invitations, the retired password paths, no access |
-| [system.md](system.md)                 | The root redirect and the not-found page                                                                |
-| [overview.md](overview.md)             | The signed-in landing page and the staff shell                                                          |
-| [tenants.md](tenants.md)               | The tenant list, a tenant's tabs and its actions menu                                                   |
-| [users.md](users.md)                   | The user list, a user's pages and its actions menu                                                      |
-| [emails.md](emails.md)                 | The sent-email log and an email's detail                                                                |
-| [suppressions.md](suppressions.md)     | Suppressed addresses                                                                                    |
-| [deliverability.md](deliverability.md) | Email health over a time range                                                                          |
-| [onboarding.md](onboarding.md)         | The onboarding funnel and its tenant lists                                                              |
-| [plans.md](plans.md)                   | The Free and Paid plans, their entitlements, Paid's prices, trials and grace, and billing alerts        |
-| [activity.md](activity.md)             | The platform activity log                                                                               |
-| [settings.md](settings.md)             | Account and platform settings, and the legacy paths that redirect into them                             |
-| [palette.md](palette.md)               | The ⌘K command palette, a shell feature with no route                                                   |
-| [findings.md](findings.md)             | Every problem found, with its evidence and the work that fixes it                                       |
+The problems found are listed in [findings.md](findings.md).
+
+## Screenshots
+
+The screenshots under `img/` are taken by the Playwright `capture` project in `e2e/capture/`.
+
+To refresh them:
+
+1. Start the dev stack: apex on `:5174`, the API on `:4040`, Mailpit (the local mail catcher) on `:8025`.
+2. Run `E2E_API_DIR=<express checkout> pnpm capture:pages`. `E2E_API_DIR` names the express checkout in which the run grants its staff accounts their platform role.
+3. To redo only part of the set, add `CAPTURE_ONLY=<areas>` (for example `CAPTURE_ONLY=auth,system`), or a route key such as `'/tenants/$tenantId/members'`. Quote the route key, or the shell expands `$tenantId`.
+
+Run it only through `pnpm capture:pages`. The script sets `E2E_CAPTURE=1`, which turns Playwright's `webServer` off. A bare `pnpm exec playwright test --project=capture` without it starts the dev server (`vp dev --force`) and then skips every test.
+
+The run writes its records to `capture-records/`, which is gitignored:
+
+| File              | Records                     |
+| ----------------- | --------------------------- |
+| `report.json`     | the page shots              |
+| `boot.json`       | the boot frames             |
+| `navigation.json` | the in-app navigation shots |
+
+`capture-records/` sits outside `test-results/`, which Playwright empties at the start of every run, so separate runs keep each other's records.
+
+Two test files take the shots outside the page set:
+
+- `e2e/capture/boot.test.ts` takes the boot frames. Its `nginx-` scenarios run against a production build and are skipped unless `E2E_NGINX_ORIGIN` points at one (for example `vite preview` of this worktree's build).
+- `e2e/capture/navigation.test.ts` takes the in-app navigation shots (`<shot>--nav-route.jpg`, `<shot>--nav-sections.jpg`).
+
+To refresh both together, run them in one invocation: `pnpm capture:pages e2e/capture/boot.test.ts e2e/capture/navigation.test.ts`. After a 429, wait 5 minutes and run `navigation.test.ts` alone.
+
+### Rate limits
+
+A 429 (Too Many Requests) from the API stops the run with a message naming `CAPTURE_ONLY` and the 5-minute wait. The shot that saw the 429 may already be written under its real name. Restore it before the rerun with `git checkout -- docs/pages/img/<area>/<shot>--<state>.jpg`.
+
+### What the shots show
+
+- The shots come from `vite dev`, so the TanStack Router and Query devtools buttons show in the bottom-right corner of some of them. Those buttons are dev-only (`src/components/dev/devtools.tsx`) and are not part of any page.
+- The default shots are full-page, so the sticky sidebar ends at the viewport's height (900 px) with blank space below it. That is a capture artifact, not the page.
+
+### What the test checks
+
+`tests/unit/docs-pages.test.ts` fails when:
+
+- a route is missing from the [route map](#route-map);
+- a screenshot is linked from no page;
+- `img/` grows past 10 MiB (mebibytes).
+
+## Areas
+
+| Area                                   | Covers                                                                                                           |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| [boot.md](boot.md)                     | The cold load, from `index.html` to the first page, frame by frame                                               |
+| [auth.md](auth.md)                     | Sign-in by emailed link, Google or passkey, Confirm it’s you, invitations, the retired password paths, no access |
+| [system.md](system.md)                 | The root redirect and the not-found page                                                                         |
+| [overview.md](overview.md)             | The signed-in landing page and the staff shell                                                                   |
+| [tenants.md](tenants.md)               | The tenant list, a tenant's tabs and its actions menu                                                            |
+| [users.md](users.md)                   | The user list, a user's pages and its actions menu                                                               |
+| [emails.md](emails.md)                 | The sent-email log and an email's detail                                                                         |
+| [suppressions.md](suppressions.md)     | Suppressed addresses                                                                                             |
+| [deliverability.md](deliverability.md) | Email health over a time range                                                                                   |
+| [onboarding.md](onboarding.md)         | The onboarding funnel and its tenant lists                                                                       |
+| [plans.md](plans.md)                   | The Free and Paid plans, their entitlements, Paid's prices, trials and grace, and billing alerts                 |
+| [activity.md](activity.md)             | The platform activity log                                                                                        |
+| [settings.md](settings.md)             | Account and platform settings, and the legacy paths that redirect into them                                      |
+| [palette.md](palette.md)               | The ⌘K command palette, a shell feature with no route                                                            |
+| [findings.md](findings.md)             | Every problem found, with its evidence and the work that fixes it                                                |
 
 ## Route map
 
-Every full path of the route tree (`FileRoutesByFullPath` in `src/routeTree.gen.ts`). API paths are relative to `/api/v1`. "Awaited" requests hold the page (or, on a cold load, the boot shell) until they settle; "started" requests run while the page renders its own skeletons. Under `_app` the only awaited request is the flags read: every page loader starts its reads without awaiting them.
+The table lists every full path of the route tree (`FileRoutesByFullPath` in `src/routeTree.gen.ts`). API paths are relative to `/api/v1`.
+
+- "Awaited" requests hold the page (or, on a cold load, the boot shell) until they settle.
+- "Started" requests run while the page renders its own skeletons.
+- Under `_app` the only awaited request is the flags read. Every page loader starts its reads without awaiting them.
 
 | Route                            | Kind                                                                                                 | File                                               | Guard                                                             | Data (awaited / started)                                                                                                                                                                                                                                              | Doc                                                                              |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -77,7 +134,13 @@ Every full path of the route tree (`FileRoutesByFullPath` in `src/routeTree.gen.
 | `/staff`                         | redirect → `/settings/platform/staff`                                                                | `src/pages/_app/staff.tsx`                         | `_app`                                                            | awaited by `_app`                                                                                                                                                                                                                                                     | [settings.md](settings.md#redirects)                                             |
 | `/profile`                       | redirect → `/settings/account/profile`                                                               | `src/pages/_app/profile.tsx`                       | `_app`                                                            | awaited by `_app`                                                                                                                                                                                                                                                     | [settings.md](settings.md#redirects)                                             |
 
-Every page also sits under `__root`, whose `beforeLoad` awaits the session restore (`POST /auth/refresh`, then `GET /profile`). The `_app` shell (`AppLayout`) starts `GET /platform/maintenance-mode` for its banner, and its command palette searches `GET /platform/tenants?search=` and `GET /platform/users?search=` while it is open with a term. The redirect routes run `_app`'s guard first, so a signed-out visitor to `/flags` lands on `/login?redirect=%2Fflags`; each redirect keeps the search and hash and replaces the history entry. [boot.md](boot.md#what-happens) has the order.
+Requests outside the table:
+
+- Every page sits under `__root`, whose `beforeLoad` awaits the session restore (`POST /auth/refresh`, then `GET /profile`).
+- The `_app` shell (`AppLayout`) starts `GET /platform/maintenance-mode` for its banner.
+- The shell's command palette searches `GET /platform/tenants?search=` and `GET /platform/users?search=` while it is open with a term.
+
+The redirect routes run `_app`'s guard first, so a signed-out visitor to `/flags` lands on `/login?redirect=%2Fflags`. Each redirect keeps the search and hash and replaces the history entry. [boot.md](boot.md#what-happens) has the order.
 
 ## Journeys
 
@@ -144,7 +207,7 @@ flowchart LR
 
 ## Per-route block
 
-Every area file describes each route with the same block, so the docs stay comparable:
+Every area file describes each route with the same block, so the docs stay comparable. Copy this template for a route you add:
 
 ```markdown
 ### `/tenants/` — Tenants
@@ -171,8 +234,14 @@ Findings: [F-tenants-1](findings.md#f-tenants-1) …
 ```
 
 - The heading is the route in backticks, an em dash, and the page's name. The name differs between routes whose paths differ only by a trailing slash, so their anchors never collide.
-- The `Data` row names each query's endpoint and its query key as the code defines it, whether it is awaited or only started, and its `staleTime` when it is not the default 30 s (`src/router.tsx`). A row with mutations only says "no query".
-- The `Loading` cell's first line is the report's `loadingUi` (`skeleton`, `spinner` or `shell`, or `none`), the `Error` cell's is its `errorUi` (`alert` or `none`). The second line names what is drawn.
+- The `Data` row names, for each query:
+  - its endpoint and its query key as the code defines it;
+  - whether it is awaited or only started;
+  - its `staleTime` when it is not the default 30 s (`src/router.tsx`).
+
+  A row with mutations only says "no query".
+
+- The `Loading` cell's first line is the report's `loadingUi`: `skeleton`, `spinner`, `shell` or `none`. The `Error` cell's first line is its `errorUi`: `alert` or `none`. The second line names what is drawn.
 - A state with no shot has no column. A route with no shot at all (a redirect) has no image.
 - Dark and mobile shots go in a second table under the first, when the route has them.
 - A route with a role gate has a `Role-denied` table: what a viewer (the seed's `viewer` session) sees instead, with its shot `img/<area>/<shot>--role-denied.jpg`.

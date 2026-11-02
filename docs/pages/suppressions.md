@@ -1,6 +1,6 @@
 # Suppressions
 
-Addresses no email is sent to after a hard bounce or a spam complaint (`/suppressions`). Back to the [route map](README.md#route-map).
+This file covers the suppressions list (`/suppressions`): addresses that get no email after a hard bounce or a spam complaint. Back to the [route map](README.md#route-map).
 
 ## Pages
 
@@ -19,7 +19,7 @@ Addresses no email is sent to after a hard bounce or a spam complaint (`/suppres
 | Components          | `DataTable` through `SuppressionsTable` (Address, Reason, Source, Suppressed, State, and a Lift button for admins), `EmptyState`, `RoleDenied`, `ReasonDialog`                                                                                                                                                                                             |
 | Transitions         | Lift → the reason dialog; the row stays, marked lifted                                                                                                                                                                                                                                                                                                     |
 
-The empty first page with nothing picked says "No suppressed addresses."; with a search or a state picked, "Nothing matches these filters." with Reset. Each row (or card, on a phone) is a focus landmark: after Lift the focus lands on it. The dev database has no suppressed address, so the default shot is the empty state.
+The empty first page with nothing picked says "No suppressed addresses." With a search or a state picked, it says "Nothing matches these filters." with Reset. Each row (or card, on a phone) is a focus landmark: after Lift the focus lands on it. The dev database has no suppressed address, so the default shot is the empty state.
 
 | Loading                                         | Error                                                                         | Empty                                         |
 | ----------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
