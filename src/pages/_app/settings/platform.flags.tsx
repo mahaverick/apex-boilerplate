@@ -8,6 +8,7 @@ import { UnregisteredFlagsTable } from '@/components/features/flags/unregistered
 import { LoadError } from '@/components/features/load-error'
 import { RoleDenied } from '@/components/features/role-denied'
 import { SettingsRouteError } from '@/components/features/route-error'
+import { Timestamp } from '@/components/features/timestamp'
 import { useListQuery } from '@/components/shared/data-table/use-list-query'
 import { useListSearch } from '@/components/shared/data-table/use-list-search'
 import { Note } from '@/components/shared/note'
@@ -20,8 +21,6 @@ import {
   FLAGS_STALE_NOTE,
 } from '@/constants/flags.constants'
 import { platformRoleAtLeast } from '@/constants/roles'
-import { useNow } from '@/hooks/use-now'
-import { relativeTime } from '@/lib/relative-time'
 import { isRoleDenied } from '@/lib/role-denied'
 import {
   FLAG_REGISTRY_READ,
@@ -101,7 +100,6 @@ function EvaluateSection({
 
 /** The loaded page: notes on the snapshot, then each section. */
 function FlagsContent({ meta, isAdmin }: { meta: FlagsMetaResponse; isAdmin: boolean }) {
-  const now = useNow()
   // Not `Route.useSearch()` or `Route.useNavigate()`: this route module imports the error screen (route-error, then observability/errors), and a page chunk importing `Route` back from it makes Rolldown split the error listener out of the entry chunk (pnpm check:bundle).
   const search = useSearch({ from: '/_app/settings/platform/flags' })
   const navigate = useNavigate({ from: '/settings/platform/flags' })
@@ -123,9 +121,8 @@ function FlagsContent({ meta, isAdmin }: { meta: FlagsMetaResponse; isAdmin: boo
         <FlagRegistryTable query={registry} />
         {snapshot.fetchedAt !== null && (
           <p className="text-xs text-muted-foreground">
-            Flag definitions last changed{' '}
-            <time dateTime={snapshot.fetchedAt}>{relativeTime(snapshot.fetchedAt, now)}</time>.
-            Rollouts are edited in PostHog.
+            Flag definitions last changed <Timestamp iso={snapshot.fetchedAt} />. Rollouts are
+            edited in PostHog.
           </p>
         )}
       </FlagsSection>

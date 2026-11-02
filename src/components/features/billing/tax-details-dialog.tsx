@@ -319,7 +319,7 @@ function TaxDetailsFormBody({
                   onCheckedChange={(checked: boolean) => field.handleChange(checked === true)}
                 />
               </FormControl>
-              SEZ unit (Special Economic Zone)
+              Special Economic Zone (SEZ) unit
             </label>
             <FormDescription>
               We hold an SEZ unit’s charges, so staff issue each tax invoice by hand.

@@ -256,7 +256,7 @@ function UserDetail({ user }: { user: PlatformUserDetail }) {
                       </ItemTitle>
                     </ItemContent>
                     <ItemActions className="text-sm text-muted-foreground">
-                      Expires {formatDate(invitation.expiresAt, 'medium') ?? 'soon'}
+                      Expires {formatDate(invitation.expiresAt, 'medium') ?? 'on an unknown date'}
                     </ItemActions>
                   </Item>
                 ))}

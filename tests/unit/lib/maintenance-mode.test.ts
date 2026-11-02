@@ -9,13 +9,8 @@ import {
 import { absoluteTime } from '@/lib/relative-time'
 import { fullMaintenanceView, maintenanceModeView } from '@/tests/fixtures/maintenance-mode'
 
-/** The same local day as the fixtures' `since`, so the label is the time alone. */
-const SAME_DAY = new Date('2026-10-06T12:00:00.000Z')
-
-/** What `sinceLabel` prints for the full fixture's start on that day, in this runner's locale. */
-const START = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(
-  new Date('2026-10-06T10:42:00.000Z')
-)
+/** What `sinceLabel` prints for the full fixture's start: the date, the time and the zone. */
+const START = absoluteTime('2026-10-06T10:42:00.000Z')
 
 describe('isSwitchOn', () => {
   it.each([
@@ -34,52 +29,37 @@ describe('isSwitchOn', () => {
 })
 
 describe('sinceLabel', () => {
-  it('says the time alone on the same day, and the date too on another', () => {
-    expect(sinceLabel('2026-10-06T10:42:00.000Z', SAME_DAY)).toBe(START)
-    expect(sinceLabel('2026-10-01T10:42:00.000Z', SAME_DAY)).toContain('2026')
+  it('names the date, the time and the zone, whatever the day', () => {
+    expect(sinceLabel('2026-10-06T10:42:00.000Z')).toBe(START)
+    expect(START).toContain('6 October 2026')
+    expect(START).toMatch(/(?:GMT|UTC)/)
   })
 
   it('names an unreadable instant rather than printing Invalid Date', () => {
-    expect(sinceLabel('not a date', SAME_DAY)).toBe('an unknown time')
+    expect(sinceLabel('not a date')).toBe('an unknown time')
   })
 })
 
 describe('bannerSentence', () => {
   it('names the mode in capitals, when it began and who set it', () => {
-    expect(bannerSentence(fullMaintenanceView(), SAME_DAY.getTime())).toBe(
+    expect(bannerSentence(fullMaintenanceView())).toBe(
       `Customers are in FULL maintenance since ${START}, set by Sam Staff.`
     )
-    expect(bannerSentence(fullMaintenanceView({ mode: 'read_only' }), SAME_DAY.getTime())).toBe(
+    expect(bannerSentence(fullMaintenanceView({ mode: 'read_only' }))).toBe(
       `Customers are in READ-ONLY maintenance since ${START}, set by Sam Staff.`
     )
   })
 
-  it('says the time alone while it is still the day maintenance began', () => {
-    // Local times, so the day boundary is the reader's midnight wherever the runner is.
-    const since = new Date(2026, 9, 19, 22, 42).toISOString()
-    const time = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(since))
-    expect(
-      bannerSentence(fullMaintenanceView({ since }), new Date(2026, 9, 19, 23, 59).getTime())
-    ).toBe(`Customers are in FULL maintenance since ${time}, set by Sam Staff.`)
-  })
-
-  it('adds the date once the day maintenance began has passed', () => {
-    const since = new Date(2026, 9, 19, 22, 42).toISOString()
-    expect(
-      bannerSentence(fullMaintenanceView({ since }), new Date(2026, 9, 20, 0, 10).getTime())
-    ).toBe(`Customers are in FULL maintenance since ${absoluteTime(since)}, set by Sam Staff.`)
-  })
-
   it('leaves out what it does not know', () => {
-    expect(
-      bannerSentence(fullMaintenanceView({ since: null, changedBy: null }), SAME_DAY.getTime())
-    ).toBe('Customers are in FULL maintenance.')
+    expect(bannerSentence(fullMaintenanceView({ since: null, changedBy: null }))).toBe(
+      'Customers are in FULL maintenance.'
+    )
   })
 })
 
 describe('conflictSentence', () => {
   it('says what the state is now, who set it and when', () => {
-    expect(conflictSentence(fullMaintenanceView(), SAME_DAY)).toBe(
+    expect(conflictSentence(fullMaintenanceView())).toBe(
       `Someone changed maintenance mode while you were editing: it is now full, set by Sam Staff at ${START}. Check the page and try again.`
     )
     expect(conflictSentence(maintenanceModeView({ changedBy: null, since: null }))).toBe(

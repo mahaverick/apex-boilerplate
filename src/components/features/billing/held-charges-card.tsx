@@ -201,7 +201,8 @@ export function HeldChargesCard({
         </CardTitle>
         <CardDescription>
           We don’t invoice charges for an SEZ (Special Economic Zone) unit automatically. Issue each
-          tax invoice by hand, then mark the charge resolved.
+          tax invoice by hand, then mark the charge resolved. Dates are in India Standard Time
+          (IST).
         </CardDescription>
       </CardHeader>
       <CardContent>

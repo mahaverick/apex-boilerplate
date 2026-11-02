@@ -39,7 +39,7 @@ test('a platform viewer signs in and sees the overview, without the admin-only i
   await expect(page.getByRole('region', { name: 'Key figures' })).toBeVisible()
   const nav = page.getByRole('navigation', { name: 'Main' })
   await expect(nav.getByRole('link', { name: 'Tenants' })).toBeVisible()
-  await expect(nav.getByRole('link', { name: 'Activity log' })).toHaveCount(0)
+  await expect(nav.getByRole('link', { name: 'Activity', exact: true })).toHaveCount(0)
 })
 
 test('a customer session restored in Apex lands on /no-access, and a reload keeps it there', async ({

@@ -218,7 +218,7 @@ describe('Plans page', () => {
 
       const dialog = await screen.findByRole('alertdialog', { name: 'Save Free?' })
       expect(dialog).toHaveTextContent(
-        'The new name shows on the pricing page and on the Billing page of every workspace on Free.'
+        'The new name shows on the pricing page and on the Billing page of every tenant on Free.'
       )
       await user.type(within(dialog).getByLabelText('Reason'), 'Rename')
       await user.click(within(dialog).getByRole('button', { name: 'Save' }))
@@ -265,7 +265,7 @@ describe('Plans page', () => {
       await user.click(within(free).getByRole('button', { name: 'Save Free' }))
       const dialog = await screen.findByRole('alertdialog', { name: 'Save Free?' })
       expect(dialog).toHaveTextContent(
-        '4 tenants are on Free. The changes apply to them now. The new name shows on the pricing page and on the Billing page of every workspace on Free.'
+        '4 tenants are on Free. The changes apply to them now. The new name shows on the pricing page and on the Billing page of every tenant on Free.'
       )
       await user.type(within(dialog).getByLabelText('Reason'), 'Rename and grow')
       await user.click(within(dialog).getByRole('button', { name: 'Save' }))
@@ -304,7 +304,7 @@ describe('Plans page', () => {
       expect(changes).toHaveTextContent('Members: 3 → 2')
       expect(changes).toHaveTextContent('Workspace insights: Off → On')
       expect(dialog).toHaveTextContent(
-        'The new name shows on the pricing page and on the Billing page of every workspace on Free.'
+        'The new name shows on the pricing page and on the Billing page of every tenant on Free.'
       )
     })
 
@@ -1129,7 +1129,7 @@ describe('Plans page: trials and grace', () => {
   })
 
   it('puts the API’s trial error under its switch, and clears it when the switch changes', async () => {
-    const message = 'Choose whether new workspaces get a Paid trial.'
+    const message = 'Choose whether new tenants get a Paid trial.'
     server.use(
       http.patch('/api/v1/platform/billing-settings', () =>
         HttpResponse.json(

@@ -54,7 +54,7 @@ const columnsFor = (timeZone: string) =>
       cell: ({ row }) => {
         const { processedAt, status } = row.original
         if (processedAt !== null) return billingDateTime(processedAt, timeZone)
-        return status === 'failed' ? 'Gave up' : status === 'pending' ? 'Not yet' : none
+        return status === 'failed' ? 'Retries ran out' : status === 'pending' ? 'Not yet' : none
       },
     }),
     column.accessor('error', {

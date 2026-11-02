@@ -76,8 +76,8 @@ export function TaxExportCard({ effectiveFrom }: { effectiveFrom: string | null 
         </CardTitle>
         <CardDescription>
           Download one month or quarter of tax invoices and credit notes as CSV files laid out for
-          GSTR-1, the GST return for sales. A document belongs to the period of its India Standard
-          Time (IST) date.
+          GSTR-1, the Goods and Services Tax (GST) return for sales. A document belongs to the
+          period of its India Standard Time (IST) date.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">

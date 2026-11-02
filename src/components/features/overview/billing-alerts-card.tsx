@@ -3,12 +3,11 @@ import { Link } from '@tanstack/react-router'
 import { useId } from 'react'
 import { AlertTenant } from '@/components/features/billing/billing-alert-tenant'
 import { LoadError } from '@/components/features/load-error'
+import { Timestamp } from '@/components/features/timestamp'
 import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BILLING_ALERT_KIND_LABELS } from '@/constants/billing-labels'
 import { ROUTES } from '@/constants/routes'
-import { useNow } from '@/hooks/use-now'
-import { absoluteTime, relativeTime } from '@/lib/relative-time'
 import { isRoleDenied } from '@/lib/role-denied'
 import { billingAlertsListOptions } from '@/queries/billing-admin.queries'
 import type { BillingAlert } from '@/types/billing.types'
@@ -23,7 +22,6 @@ const CARD_ALERTS = 5
  * failure stays in the card with a retry.
  */
 export function BillingAlertsCard() {
-  const now = useNow()
   const headingId = useId()
   const alerts = useQuery(billingAlertsListOptions({ limit: CARD_ALERTS }, { total: false }))
   if (alerts.isError && isRoleDenied(alerts.error)) return null
@@ -53,7 +51,7 @@ export function BillingAlertsCard() {
           ) : (
             <ul className="grid gap-3">
               {alerts.data.items.map((alert) => (
-                <AlertRow key={alert.id} alert={alert} now={now} />
+                <AlertRow key={alert.id} alert={alert} />
               ))}
             </ul>
           )}
@@ -63,8 +61,8 @@ export function BillingAlertsCard() {
   )
 }
 
-/** One alert: its kind, its tenant (a link to the tenant's Billing tab), when, then the message. */
-function AlertRow({ alert, now }: { alert: BillingAlert; now: number }) {
+/** One alert: its kind, its tenant (a link to the tenant's Billing tab), when (absolute, the relative time in a tooltip), then the message. */
+function AlertRow({ alert }: { alert: BillingAlert }) {
   return (
     <li className="grid gap-1 text-sm">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -76,9 +74,9 @@ function AlertRow({ alert, now }: { alert: BillingAlert; now: number }) {
         <span aria-hidden="true" className="text-muted-foreground">
           ·
         </span>
-        <time dateTime={alert.at} title={absoluteTime(alert.at)} className="text-muted-foreground">
-          {relativeTime(alert.at, now)}
-        </time>
+        <span className="text-muted-foreground">
+          <Timestamp iso={alert.at} />
+        </span>
       </div>
       <p className="wrap-break-word text-muted-foreground">{alert.message}</p>
     </li>

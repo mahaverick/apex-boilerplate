@@ -202,8 +202,8 @@ function CreditNoteForm({
                 />
               </FormControl>
               <FormDescription>
-                Printed on the customer’s credit note. Use English letters, digits and common
-                punctuation.
+                Printed on the customer’s credit note. Use letters A to Z, Western European accented
+                letters such as é, digits and keyboard punctuation.
               </FormDescription>
               <FormMessage />
             </FormItem>

@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { LoadError } from '@/components/features/load-error'
+import { Timestamp } from '@/components/features/timestamp'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Item, ItemContent, ItemGroup, ItemTitle } from '@/components/ui/item'
 import type { BadgeTone } from '@/constants/badge-tones'
@@ -10,9 +12,8 @@ import {
   MAINTENANCE_MODE_LABELS,
   MAINTENANCE_PAUSE_SETTLE_MS,
 } from '@/constants/maintenance-mode.constants'
-import { useNow } from '@/hooks/use-now'
 import { queueLine } from '@/lib/maintenance-mode'
-import { relativeTime } from '@/lib/relative-time'
+import { absoluteTime } from '@/lib/relative-time'
 import { isRoleDenied } from '@/lib/role-denied'
 import { systemStatusQueryOptions } from '@/queries/platform.queries'
 import type {
@@ -79,7 +80,6 @@ function flagCounts(counts: FlagsStatus['counts']): string {
 
 /** The feature flags section: state, when definitions were checked and last changed, counts and the last failed fetch. */
 function FlagsFacts({ flags }: { flags: FlagsStatus }) {
-  const now = useNow()
   return (
     <div className="grid gap-2">
       <h3 className="text-sm font-medium">Feature flags</h3>
@@ -97,21 +97,11 @@ function FlagsFacts({ flags }: { flags: FlagsStatus }) {
           <>
             <dt className="text-muted-foreground">Checked</dt>
             <dd>
-              {flags.checkedAt === null ? (
-                'Not yet'
-              ) : (
-                <time dateTime={flags.checkedAt}>{relativeTime(flags.checkedAt, now)}</time>
-              )}
+              {flags.checkedAt === null ? 'Not yet' : <Timestamp iso={flags.checkedAt} />}
               {flags.stale && <span className="text-muted-foreground"> (stale)</span>}
             </dd>
             <dt className="text-muted-foreground">Last changed</dt>
-            <dd>
-              {flags.snapshotAt === null ? (
-                'None yet'
-              ) : (
-                <time dateTime={flags.snapshotAt}>{relativeTime(flags.snapshotAt, now)}</time>
-              )}
-            </dd>
+            <dd>{flags.snapshotAt === null ? 'None yet' : <Timestamp iso={flags.snapshotAt} />}</dd>
             <dt className="text-muted-foreground">Flags</dt>
             <dd className="tabular-nums">
               {flagCounts(flags.counts)}
@@ -126,12 +116,12 @@ function FlagsFacts({ flags }: { flags: FlagsStatus }) {
             {flags.snapshotAt !== null &&
               flags.propertyMatchingVersion !== VALIDATED_MATCHING_VERSION && (
                 <>
-                  <dt className="text-muted-foreground">Matching</dt>
+                  <dt className="text-muted-foreground">Property matching</dt>
                   <dd>
                     {flags.propertyMatchingVersion === null
-                      ? 'PostHog did not report a property matching version'
-                      : `PostHog property matching version ${flags.propertyMatchingVersion}`}
-                    ; the server is validated for version {VALIDATED_MATCHING_VERSION}
+                      ? 'PostHog sent no property matching version.'
+                      : `PostHog uses property matching version ${flags.propertyMatchingVersion}.`}{' '}
+                    The server was tested against version {VALIDATED_MATCHING_VERSION} only.
                   </dd>
                 </>
               )}
@@ -212,7 +202,6 @@ function MaintenanceFacts({
   maintenance: MaintenanceModeStatus
   fetchedAt: number
 }) {
-  const now = useNow()
   return (
     <div className="grid gap-2">
       <h3 className="text-sm font-medium">Maintenance mode</h3>
@@ -243,7 +232,7 @@ function MaintenanceFacts({
           <>
             <dt className="text-muted-foreground">Since</dt>
             <dd>
-              <time dateTime={maintenance.since}>{relativeTime(maintenance.since, now)}</time>
+              <Timestamp iso={maintenance.since} />
             </dd>
           </>
         )}
@@ -293,7 +282,6 @@ function MaintenanceFacts({
 
 /** The status as description lists; the flags and maintenance sections appear only when the API sent them. */
 function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: number }) {
-  const now = useNow()
   const tracking = status.errorTracking
   const dropped = DROP_REASONS.filter((reason) => tracking.dropped[reason] > 0)
   const droppedTotal = dropped.reduce((sum, reason) => sum + tracking.dropped[reason], 0)
@@ -313,9 +301,9 @@ function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: n
           )}
           {needsAttention(tracking) && <ToneBadge tone="warning">Needs attention</ToneBadge>}
         </dd>
-        <dt className="text-muted-foreground">Sent</dt>
+        <dt className="text-muted-foreground">Error events sent</dt>
         <dd className="tabular-nums">{tracking.sent.toLocaleString('en-US')}</dd>
-        <dt className="text-muted-foreground">Dropped</dt>
+        <dt className="text-muted-foreground">Error events dropped</dt>
         <dd className="tabular-nums">
           {droppedTotal.toLocaleString('en-US')}
           {dropped.length > 0 && (
@@ -325,7 +313,7 @@ function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: n
               {dropped
                 .map(
                   (reason) =>
-                    `${ERROR_DROP_LABELS[reason]} ${tracking.dropped[reason].toLocaleString('en-US')}`
+                    `${ERROR_DROP_LABELS[reason]}: ${tracking.dropped[reason].toLocaleString('en-US')}`
                 )
                 .join(', ')}
               )
@@ -337,13 +325,13 @@ function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: n
           {tracking.lastSendOkAt === null ? (
             'None in the last 24 hours'
           ) : (
-            <time dateTime={tracking.lastSendOkAt}>{relativeTime(tracking.lastSendOkAt, now)}</time>
+            <Timestamp iso={tracking.lastSendOkAt} />
           )}
         </dd>
         {tracking.lastSendError !== null && (
           <>
             <dt className="text-muted-foreground">Last failed send</dt>
-            <dd>PostHog answered with status {tracking.lastSendError}</dd>
+            <dd>PostHog answered with HTTP status {tracking.lastSendError}</dd>
           </>
         )}
       </dl>
@@ -366,10 +354,9 @@ function StatusFacts({ status, fetchedAt }: { status: SystemStatus; fetchedAt: n
  * Admins and up; a 404 (a role that changed, or an API older than 1.7.0)
  * hides the card rather than the Overview. A failed first load shows a
  * retryable error; a failed refresh keeps the last status up, with a note
- * saying when it was loaded.
+ * naming when it was loaded and a Try again button.
  */
 export function SystemStatusCard() {
-  const now = useNow()
   const status = useQuery(systemStatusQueryOptions())
   if (status.isError && isRoleDenied(status.error)) return null
   return (
@@ -385,10 +372,15 @@ export function SystemStatusCard() {
           {status.isError && status.data !== undefined ? (
             <>
               <StatusFacts status={status.data} fetchedAt={status.dataUpdatedAt} />
-              <p className="mt-3 text-xs text-muted-foreground">
-                We couldn’t refresh, so this is the status from{' '}
-                {relativeTime(new Date(status.dataUpdatedAt).toISOString(), now)}.
-              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <p className="text-xs text-muted-foreground">
+                  We couldn’t refresh the status. This is the status as of{' '}
+                  {absoluteTime(new Date(status.dataUpdatedAt).toISOString())}. Select Try again.
+                </p>
+                <Button variant="outline" size="sm" onClick={() => void status.refetch()}>
+                  Try again
+                </Button>
+              </div>
             </>
           ) : status.isError ? (
             <LoadError

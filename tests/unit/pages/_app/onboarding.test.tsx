@@ -85,9 +85,9 @@ describe('/onboarding', () => {
         ['Completed', '14', 'Every required step done'],
         ['Completion rate', '35.00%', '14 of 40 started tenants'],
         [
-          'Stuck now',
+          'Stuck, of those started',
           '6',
-          'Started in this window, with no progress past the stuck limit (7 days by default).',
+          'Started in the window, with no onboarding progress for 7 days or more (the server’s ONBOARDING_STUCK_AFTER_DAYS).',
         ],
         ['Dismissed', '2', 'Hid the checklist unfinished'],
       ])
@@ -182,7 +182,7 @@ describe('/onboarding', () => {
       renderAppAt('/onboarding')
       expect(
         await screen.findByText(
-          'Onboarding is tracked for tenants created once the server runs release 1.4.0 (2 October 2026) or later.'
+          'Onboarding is tracked for tenants created while the server runs release 1.4.0 (2 October 2026) or newer.'
         )
       ).toBeInTheDocument()
       expect(screen.queryByRole('region', { name: 'Onboarding figures' })).not.toBeInTheDocument()

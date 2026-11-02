@@ -194,8 +194,8 @@ describe('platform activity page', () => {
     renderPlatformActivity()
 
     expect(await screen.findByRole('heading', { name: 'Activity', level: 1 })).toBeVisible()
-    await screen.findByText(/^opened this tenant as platform staff \(Viewer\)/)
-    const row = rowFor(/^opened this tenant as platform staff \(Viewer\)/)
+    await screen.findByText(/^opened the tenant as platform staff \(Viewer\)/)
+    const row = rowFor(/^opened the tenant as platform staff \(Viewer\)/)
     expect(screen.getByRole('table', { name: 'Activity' })).toBeVisible()
     expect(row.getByRole('link', { name: 'Acme Corp' })).toHaveAttribute(
       'href',
@@ -239,7 +239,7 @@ describe('platform activity page', () => {
     }
   )
 
-  // A relative time read once at render froze at "just now" while the page stayed open.
+  // A relative time read once at render froze at "under a minute ago" while the page stayed open.
   it('moves its relative times on as the clock ticks', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(Date.parse(STAFF_VISIT.occurredAt))
@@ -247,7 +247,7 @@ describe('platform activity page', () => {
     mockLog(() => page([STAFF_VISIT]))
     renderPlatformActivity()
 
-    expect(await screen.findByText(', just now')).toBeInTheDocument()
+    expect(await screen.findByText(', under a minute ago')).toBeInTheDocument()
     act(() => {
       vi.advanceTimersByTime(2 * 60_000)
     })
@@ -265,7 +265,7 @@ describe('platform activity page', () => {
       return element
     })
     expect(time).toHaveTextContent(absoluteTime(STAFF_VISIT.occurredAt))
-    expect(time).not.toHaveTextContent(/ago|just now|yesterday/)
+    expect(time).not.toHaveTextContent(/ago|yesterday/)
   })
 
   it('sends someone who is not staff to /no-access and never asks the API', async () => {
@@ -326,7 +326,7 @@ describe('platform activity page', () => {
 
     await user.click(retry)
     expect(
-      await screen.findByText(/^opened this tenant as platform staff \(Viewer\)/)
+      await screen.findByText(/^opened the tenant as platform staff \(Viewer\)/)
     ).toBeInTheDocument()
   })
 
@@ -335,7 +335,7 @@ describe('platform activity page', () => {
     const seen = mockLog(() => page([STAFF_VISIT]))
     const user = userEvent.setup()
     const router = renderPlatformActivity()
-    await screen.findByText(/opened this tenant/)
+    await screen.findByText(/opened the tenant/)
 
     const popup = await openFacet(user, 'access')
     await user.click(within(popup).getByRole('checkbox', { name: 'Staff' }))
@@ -349,7 +349,7 @@ describe('platform activity page', () => {
     mockLog(() => page([STAFF_VISIT]))
     const user = userEvent.setup()
     const router = renderPlatformActivity()
-    await screen.findByText(/opened this tenant/)
+    await screen.findByText(/opened the tenant/)
 
     const action = await openFacet(user, 'action')
     await user.click(within(action).getByRole('checkbox', { name: 'Staff visit' }))
@@ -383,7 +383,7 @@ describe('platform activity page', () => {
     )
     const user = userEvent.setup()
     const router = renderPlatformActivity()
-    await screen.findByText(/opened this tenant/)
+    await screen.findByText(/opened the tenant/)
 
     const popup = await openFacet(user, 'tenant')
     await user.type(within(popup).getByLabelText('Search tenant'), 'glob')
@@ -403,7 +403,7 @@ describe('platform activity page', () => {
     mockUserSearch(() => ok(listPage(STAFF), 'Users retrieved.'))
     const user = userEvent.setup()
     const router = renderPlatformActivity()
-    await screen.findByText(/opened this tenant/)
+    await screen.findByText(/opened the tenant/)
 
     const popup = await openFacet(user, 'actor')
     await user.click(await within(popup).findByRole('checkbox', { name: 'Sam Staff' }))
@@ -427,7 +427,7 @@ describe('platform activity page', () => {
     })
     const user = userEvent.setup()
     renderPlatformActivity()
-    await screen.findByText(/opened this tenant/)
+    await screen.findByText(/opened the tenant/)
 
     const popup = await openFacet(user, 'actor')
     expect(await within(popup).findByText('Actor options didn’t load.')).toBeInTheDocument()
@@ -443,7 +443,7 @@ describe('platform activity page', () => {
     )
     const user = userEvent.setup()
     const router = renderPlatformActivity()
-    await screen.findByText(/opened this tenant/)
+    await screen.findByText(/opened the tenant/)
 
     const popup = await openFacet(user, 'actor')
     await within(popup).findByRole('checkbox', { name: 'Sam Staff' })
@@ -482,7 +482,7 @@ describe('platform activity page', () => {
     mockTenantSearch(() => fail('Something went wrong', 500))
     const user = userEvent.setup()
     renderPlatformActivity()
-    await screen.findByText(/opened this tenant/)
+    await screen.findByText(/opened the tenant/)
 
     const popup = await openFacet(user, 'tenant')
     expect(await within(popup).findByText('Tenant options didn’t load.')).toBeInTheDocument()
@@ -499,7 +499,7 @@ describe('platform activity page', () => {
       })
     )
     renderPlatformActivity()
-    await screen.findByText(/opened this tenant/)
+    await screen.findByText(/opened the tenant/)
     await waitFor(() => expect(totals.length).toBeGreaterThan(0))
     expect(totals.every((total) => total === null)).toBe(true)
   })
@@ -513,7 +513,7 @@ describe('platform activity page', () => {
     )
     const user = userEvent.setup()
     const router = renderPlatformActivity()
-    await screen.findByText(/opened this tenant/)
+    await screen.findByText(/opened the tenant/)
 
     await user.click(screen.getByRole('button', { name: 'Next page' }))
 
@@ -623,13 +623,13 @@ describe('platform activity page', () => {
     signInAs('admin')
     const seen = mockLog(() => page([STAFF_VISIT]))
     const router = renderPlatformActivity()
-    await screen.findByText(/opened this tenant/)
+    await screen.findByText(/opened the tenant/)
     const before = seen.length
 
     await act(() => router.navigate({ to: '/overview' }))
     await screen.findByRole('heading', { name: 'Overview', level: 1 })
     await act(() => router.navigate({ to: '/activity' }))
-    await screen.findByText(/opened this tenant/)
+    await screen.findByText(/opened the tenant/)
     await waitFor(() => expect(seen.length).toBeGreaterThan(before))
   })
 
@@ -637,7 +637,7 @@ describe('platform activity page', () => {
     signInAs('admin')
     mockLog(() => page([]))
     renderPlatformActivity()
-    expect(await screen.findByText('Nothing has happened yet.')).toBeInTheDocument()
+    expect(await screen.findByText('No activity recorded.')).toBeInTheDocument()
     cleanup()
     renderPlatformActivity('/activity?access=member')
     expect(await screen.findByText('Nothing matches these filters.')).toBeInTheDocument()

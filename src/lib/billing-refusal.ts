@@ -57,7 +57,7 @@ export function billingOutageMessage(
   const provider = providerName(context?.provider ?? null, { sentenceStart: true })
   const owned = provider === 'Razorpay' ? 'Razorpay’s' : 'the payment provider’s'
   if (status === 503) {
-    return `${provider} didn’t answer. Try again in ${waitFrom(error)}. If it keeps failing, check ${owned} status page.`
+    return `${provider} didn’t answer. Try again in ${waitFrom(error)}. If it fails again, check ${owned} status page.`
   }
   if (status === 502) {
     const tenant = context === undefined ? 'the tenant' : context.tenantName

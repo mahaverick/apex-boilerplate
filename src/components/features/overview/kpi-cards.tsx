@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { RANGE_LABELS } from '@/components/features/overview/range'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { STUCK_AFTER } from '@/constants/onboarding.constants'
 import { ROUTES } from '@/constants/routes'
 import { formatShare } from '@/lib/format'
 import type { PlatformStats } from '@/types/api.types'
@@ -27,8 +28,9 @@ function undeliveredRate(days: PlatformStats['emailMessages']): { value: string;
 }
 
 /**
- * The Overview's headline numbers. Totals are live; the undelivered rate
- * covers the window. Stuck tenants links to the onboarding list's stuck tab.
+ * The Overview's headline numbers (express's `PlatformStatsRepository.totals`).
+ * Totals are live; the undelivered rate covers the window. Stuck tenants
+ * counts every tracked tenant stuck at the read, whatever the range, and links to the onboarding list's stuck tab.
  */
 export function KpiCards({ stats }: { stats: PlatformStats }) {
   const rate = undeliveredRate(stats.emailMessages)
@@ -36,13 +38,17 @@ export function KpiCards({ stats }: { stats: PlatformStats }) {
     {
       label: 'Tenants',
       value: stats.totals.tenants.toLocaleString('en-US'),
-      note: 'Live customer tenants',
+      note: 'Customer tenants, deleted ones left out',
     },
-    { label: 'Users', value: stats.totals.users.toLocaleString('en-US'), note: 'Active accounts' },
+    {
+      label: 'Users',
+      value: stats.totals.users.toLocaleString('en-US'),
+      note: 'Active user accounts, staff included',
+    },
     {
       label: 'Staff',
       value: stats.totals.staff.toLocaleString('en-US'),
-      note: 'Platform team members',
+      note: 'Members of the platform tenant, deactivated accounts included',
     },
     { label: `Undelivered rate (${RANGE_LABELS[stats.range]})`, ...rate },
   ]
@@ -62,13 +68,14 @@ export function KpiCards({ stats }: { stats: PlatformStats }) {
       ))}
       <Card>
         <CardHeader>
-          <CardDescription>Stuck tenants</CardDescription>
+          <CardDescription>Stuck tenants (all tracked)</CardDescription>
           <CardTitle className="text-2xl tabular-nums">
             {stats.totals.stuckTenants.toLocaleString('en-US')}
           </CardTitle>
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground">
-          No onboarding progress past the stuck limit (7 days by default).{' '}
+          Active tracked tenants, not complete or dismissed, with no onboarding progress{' '}
+          {STUCK_AFTER}, whatever their start date.{' '}
           <Link
             to={ROUTES.onboarding}
             search={{ state: 'stuck' }}

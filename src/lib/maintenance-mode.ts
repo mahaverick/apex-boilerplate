@@ -22,30 +22,23 @@ export function isSwitchOn(from: MaintenanceMode, to: MaintenanceMode): boolean 
 }
 
 /**
- * When a mode began, short: the time alone on the same local day, else the
- * date and time.
+ * When a mode began, as an absolute time with its zone, so the banner reads
+ * the same on any day and to a reader in any zone.
  * @param iso - The instant.
- * @param now - The clock, for tests.
- * @returns "10:42 AM", or "Oct 5, 2026, 10:42 AM", in the reader's locale; "an unknown time" for an invalid `iso`.
+ * @returns "6 October 2026 at 16:12 GMT+5:30" (`absoluteTime`); "an unknown time" for an invalid `iso`.
  */
-export function sinceLabel(iso: string, now: Date = new Date()): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return 'an unknown time'
-  if (date.toDateString() !== now.toDateString()) return absoluteTime(iso)
-  return new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(date)
+export function sinceLabel(iso: string): string {
+  return Number.isNaN(new Date(iso).getTime()) ? 'an unknown time' : absoluteTime(iso)
 }
 
 /**
  * The banner's sentence: the mode in capitals, since when and by whom.
- * `now` is required: the banner renders it, so the clock must come from
- * `useNow`, or a cached sentence keeps the time alone past midnight.
  * @param view - The state, whose mode is not `off`.
- * @param now - The current time, in milliseconds (`useNow`).
- * @returns "Customers are in FULL maintenance since 10:42 AM, set by Ada.", with the date too once that day has passed.
+ * @returns "Customers are in FULL maintenance since 6 October 2026 at 16:12 GMT+5:30, set by Ada."
  */
-export function bannerSentence(view: PlatformMaintenanceModeView, now: number): string {
+export function bannerSentence(view: PlatformMaintenanceModeView): string {
   const mode = MAINTENANCE_MODE_LABELS[view.mode].toUpperCase()
-  const since = view.since === null ? '' : ` since ${sinceLabel(view.since, new Date(now))}`
+  const since = view.since === null ? '' : ` since ${sinceLabel(view.since)}`
   const by = view.changedBy === null ? '' : `, set by ${view.changedBy.name}`
   return `Customers are in ${mode} maintenance${since}${by}.`
 }
@@ -53,13 +46,12 @@ export function bannerSentence(view: PlatformMaintenanceModeView, now: number): 
 /**
  * What a 409 found: the state someone else saved meanwhile.
  * @param view - The state read again after the conflict.
- * @param now - The clock, for tests.
  * @returns A sentence naming the mode, the actor and the time, and what to do.
  */
-export function conflictSentence(view: PlatformMaintenanceModeView, now?: Date): string {
+export function conflictSentence(view: PlatformMaintenanceModeView): string {
   const mode = MAINTENANCE_MODE_LABELS[view.mode].toLowerCase()
   const by = view.changedBy === null ? '' : ` by ${view.changedBy.name}`
-  const at = view.since === null ? '' : ` at ${sinceLabel(view.since, now)}`
+  const at = view.since === null ? '' : ` at ${sinceLabel(view.since)}`
   const set = by === '' && at === '' ? '' : `, set${by}${at}`
   return `Someone changed maintenance mode while you were editing: it is now ${mode}${set}. Check the page and try again.`
 }

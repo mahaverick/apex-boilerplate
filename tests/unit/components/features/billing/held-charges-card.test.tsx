@@ -88,7 +88,7 @@ describe('the Held SEZ charges card', () => {
     expect(screen.getByRole('heading', { name: 'Held SEZ charges', level: 2 })).toBeVisible()
     expect(
       screen.getByText(
-        'We don’t invoice charges for an SEZ (Special Economic Zone) unit automatically. Issue each tax invoice by hand, then mark the charge resolved.'
+        'We don’t invoice charges for an SEZ (Special Economic Zone) unit automatically. Issue each tax invoice by hand, then mark the charge resolved. Dates are in India Standard Time (IST).'
       )
     ).toBeVisible()
     const [open, resolved] = within(table).getAllByRole('row').slice(1)

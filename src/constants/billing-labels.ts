@@ -7,6 +7,7 @@
  */
 import type { BadgeTone } from '@/constants/badge-tones'
 import { formatBillingDate, invoiceStatusLabel } from '@/lib/billing-format'
+import { formatDateTime, readerZone } from '@/lib/format'
 import type {
   BillingAlertKind,
   BillingEventStatus,
@@ -39,7 +40,7 @@ export const BILLING_ALERT_KIND_LABELS: Record<BillingAlertKind, string> = {
   reconcile_repair: 'Billing job needs attention',
   dispute: 'Payment dispute',
   subscription_completed: 'Subscription ended',
-  tax_held_sez: 'SEZ charge held',
+  tax_held_sez: 'Special Economic Zone (SEZ) charge held',
   tax_issue_failed: 'Tax documents not issued',
   tax_invoice_late: 'Tax invoice issued late',
   tax_credit_note_late: 'Late credit note',
@@ -181,14 +182,6 @@ export function providerLabel(provider: BillingProvider, mode: BillingProviderMo
 const UNKNOWN_DATE = 'Unknown date'
 
 /**
- * The reader's own zone, for a date no one tenant owns: a plan's price, the
- * billing settings, an alert list across tenants.
- */
-function readerZone(): string {
-  return new Intl.DateTimeFormat().resolvedOptions().timeZone
-}
-
-/**
  * A billing date as react's billing page and express's billing emails write
  * it (`formatBillingDate`): "2 November 2026", in the tenant's zone, so staff
  * and the customer name the same day. A date no one tenant owns reads in
@@ -210,14 +203,7 @@ export function billingDate(iso: string, timeZone: string | undefined): string {
  * @returns The date and time, or `Unknown date` when `iso` is not one.
  */
 export function billingDateTime(iso: string, timeZone: string | undefined): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return UNKNOWN_DATE
-  try {
-    return dateTimeInZone(date, timeZone ?? readerZone())
-  } catch (error) {
-    if (!(error instanceof RangeError)) throw error
-    return dateTimeInZone(date, 'UTC')
-  }
+  return formatDateTime(iso, timeZone) ?? UNKNOWN_DATE
 }
 
 /**
@@ -235,23 +221,6 @@ export function zoneLabel(timeZone: string, at: number): string {
     return 'UTC'
   }
   return parts.find((part) => part.type === 'timeZoneName')?.value ?? timeZone
-}
-
-/**
- * The date and time in one zone, month spelled out and the zone named.
- * @param date - A valid moment.
- * @param timeZone - An IANA zone name; an unknown one throws `RangeError`.
- */
-function dateTimeInZone(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  }).format(date)
 }
 
 /**

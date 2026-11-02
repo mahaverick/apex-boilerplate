@@ -148,7 +148,7 @@ describe('the credit note dialog', () => {
     expect(within(dialog).getByText('From ₹1 to ₹399.')).toBeVisible()
     expect(
       within(dialog).getByText(
-        'Printed on the customer’s credit note. Use English letters, digits and common punctuation.'
+        'Printed on the customer’s credit note. Use letters A to Z, Western European accented letters such as é, digits and keyboard punctuation.'
       )
     ).toBeVisible()
     expect(within(dialog).getByLabelText('Amount (₹)')).toBeVisible()

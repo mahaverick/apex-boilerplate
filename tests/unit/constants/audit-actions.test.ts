@@ -16,9 +16,11 @@ describe('tax audit labels', () => {
     expect(AUDIT_ACTION_LABELS['billing.credit_note_issued_by_staff']).toBe(
       'Credit note issued by staff'
     )
-    expect(AUDIT_ACTION_LABELS['billing.held_charge_resolved']).toBe('Held SEZ charge resolved')
+    expect(AUDIT_ACTION_LABELS['billing.held_charge_resolved']).toBe(
+      'Held Special Economic Zone (SEZ) charge resolved'
+    )
     expect(AUDIT_ACTION_LABELS['billing.tax_export_downloaded']).toBe(
-      'GST return export downloaded'
+      'Goods and Services Tax (GST) return export downloaded'
     )
   })
 })
@@ -230,7 +232,7 @@ describe('auditSentence', () => {
     [
       'billing.cancelled_by_staff',
       { when: 'now', reason: 'fraud' },
-      'cancelled the subscription now: “fraud”',
+      'cancelled the subscription with immediate effect: “fraud”',
     ],
     [
       'billing.cancelled_by_staff',
@@ -281,7 +283,7 @@ describe('auditSentence', () => {
         changedFields: ['legalName', 'addressLine1', 'addressLine2', 'city', 'stateCode', 'isSez'],
         reason: 'Customer sent a certificate',
       },
-      'changed the tax details (legal name, address line 1, address line 2, city, state, SEZ unit): “Customer sent a certificate”',
+      'changed the tax details (legal name, address line 1, address line 2, city, state, Special Economic Zone (SEZ) unit): “Customer sent a certificate”',
     ],
     [
       'billing.tax_details_updated',
@@ -301,25 +303,33 @@ describe('auditSentence', () => {
     [
       'billing.held_charge_resolved',
       { heldChargeId: 'x', reason: 'Invoiced by hand' },
-      'marked a held SEZ charge resolved: “Invoiced by hand”',
+      'marked a held Special Economic Zone (SEZ) charge resolved: “Invoiced by hand”',
     ],
     [
       'billing.tax_export_downloaded',
       { period: '2026-09' },
-      'downloaded the GST return export for September 2026',
+      'downloaded the Goods and Services Tax (GST) return export for September 2026',
     ],
     [
       'billing.tax_export_downloaded',
       { period: '2026-Q3' },
-      'downloaded the GST return export for Q3 2026-27',
+      'downloaded the Goods and Services Tax (GST) return export for Q3 2026-27',
     ],
     [
       'billing.tax_export_downloaded',
       { period: '2026-Q4' },
-      'downloaded the GST return export for Q4 2026-27',
+      'downloaded the Goods and Services Tax (GST) return export for Q4 2026-27',
     ],
-    ['billing.tax_export_downloaded', { period: '2026-13' }, 'downloaded the GST return export'],
-    ['billing.tax_export_downloaded', {}, 'downloaded the GST return export'],
+    [
+      'billing.tax_export_downloaded',
+      { period: '2026-13' },
+      'downloaded the Goods and Services Tax (GST) return export',
+    ],
+    [
+      'billing.tax_export_downloaded',
+      {},
+      'downloaded the Goods and Services Tax (GST) return export',
+    ],
     [
       'billing.grant_added',
       { key: 'members', value: 'ten', expiresAt: null, reason: 'demo' },
@@ -368,7 +378,7 @@ describe('auditSentence', () => {
     [
       'tenant.accessed_by_platform',
       { platformRole: 'viewer' },
-      'opened this tenant as platform staff (Viewer)',
+      'opened the tenant as platform staff (Viewer)',
     ],
     ['user.created', { emailDomain: 'corp.test' }, 'created an account for someone at corp.test'],
     ['user.updated', { changed: ['firstName'] }, 'updated a user (firstName)'],

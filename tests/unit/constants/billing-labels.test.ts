@@ -46,7 +46,7 @@ describe('BILLING_ALERT_KIND_LABELS', () => {
       reconcile_repair: 'Billing job needs attention',
       dispute: 'Payment dispute',
       subscription_completed: 'Subscription ended',
-      tax_held_sez: 'SEZ charge held',
+      tax_held_sez: 'Special Economic Zone (SEZ) charge held',
       tax_issue_failed: 'Tax documents not issued',
       tax_invoice_late: 'Tax invoice issued late',
       tax_credit_note_late: 'Late credit note',
@@ -57,7 +57,7 @@ describe('BILLING_ALERT_KIND_LABELS', () => {
 describe('tax alert fixtures', () => {
   it('carry kinds this build labels, with express’s refund text', () => {
     for (const alert of [testHeldSezAlert, testHeldRefundAlert]) {
-      expect(BILLING_ALERT_KIND_LABELS[alert.kind]).toBe('SEZ charge held')
+      expect(BILLING_ALERT_KIND_LABELS[alert.kind]).toBe('Special Economic Zone (SEZ) charge held')
     }
     expect(testHeldRefundAlert.message).toMatch(
       /^Payment \S+ of a held SEZ invoice was refunded ₹500 \(refund \S+\)\. Issue a credit note by hand\.$/
@@ -140,7 +140,7 @@ describe('INVOICE_STATUS_BADGE', () => {
     expect(Object.keys(INVOICE_STATUS_BADGE).sort()).toEqual([...INVOICE_STATUSES].sort())
     expect(INVOICE_STATUS_BADGE).toEqual({
       issued: { label: 'Not paid', tone: 'neutral' },
-      paid: { label: 'Paid', tone: 'success' },
+      paid: { label: 'Payment received', tone: 'success' },
       cancelled: { label: 'Cancelled', tone: 'muted' },
       expired: { label: 'Expired', tone: 'muted' },
     })

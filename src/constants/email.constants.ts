@@ -109,6 +109,13 @@ export const EMAIL_EVENT_LABELS: Record<EmailEventType, string> = {
   failed: 'Provider failure',
 }
 
+/**
+ * What the two senders carry, said once where a page names them (express's
+ * `MAIL_FROM` and `MAIL_FROM_TRANSACTIONAL`).
+ */
+export const SENDERS_EXPLAINED =
+  'The transactional sender sends the emails with a one-time link (sign-in, confirmation, welcome, invitation), with click tracking off. The general sender sends every other email.'
+
 /** A webhook provider's display name, or the API's own id for one this build does not know. */
 export function providerLabel(provider: string): string {
   const labels: Record<string, string> = { resend: 'Resend', fake: 'Local test provider' }

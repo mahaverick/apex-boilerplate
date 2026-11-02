@@ -47,7 +47,9 @@ describe('/overview', () => {
   it('counts stuck tenants in the fifth tile, linking to the onboarding list’s stuck tab', async () => {
     renderAppAt('/overview')
     const kpis = await screen.findByRole('region', { name: 'Key figures' })
-    const tile = within(kpis).getByText('Stuck tenants').closest('[data-slot="card"]')!
+    const tile = within(kpis)
+      .getByText('Stuck tenants (all tracked)')
+      .closest('[data-slot="card"]')!
     expect(within(tile as HTMLElement).getByText('6')).toBeInTheDocument()
     expect(
       within(tile as HTMLElement).getByRole('link', { name: 'View stuck tenants' })
@@ -175,7 +177,16 @@ describe('/overview', () => {
       within(signupTable)
         .getAllByRole('columnheader')
         .map((cell) => cell.textContent)
-    ).toEqual(['Day', 'Users', 'Tenants'])
+    ).toEqual(['Day', 'Users created', 'Tenants created'])
+    // Each chart names its buckets and when its data arrived; only the Overview's emails chart adds the webhook note.
+    expect(
+      within(signups).getByText(/^Per UTC day\. As of .+ (?:GMT|UTC).*\.$/)
+    ).toBeInTheDocument()
+    expect(
+      within(emails).getByText(
+        /^Per UTC day\. As of .+\. Without an email provider webhook, delivered emails count as Sent\.$/
+      )
+    ).toBeInTheDocument()
     // Five disjoint groups by current status, so each email is in exactly one column.
     expect(
       within(emailTable)
@@ -346,7 +357,7 @@ describe('the Overview’s system status card', () => {
     expect(within(card).queryByText('Last failed send')).not.toBeInTheDocument()
   })
 
-  // A relative time read once at render froze at "just now" while the page stayed open.
+  // A relative time read once at render froze at "under a minute ago" while the page stayed open.
   it('moves its relative times on as the clock ticks', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
@@ -355,13 +366,16 @@ describe('the Overview’s system status card', () => {
       renderAppAt('/overview')
       const card = await screen.findByRole('region', { name: 'System status' })
       const lastSent = await within(card).findByText('Last sent')
-      expect(within(lastSent.nextElementSibling as HTMLElement).getByText('just now')).toBeVisible()
+      const value = lastSent.nextElementSibling as HTMLElement
+      // The time shows absolute, with its zone; the relative time is the hidden text and the tooltip.
+      expect(value.querySelector('time')).toHaveTextContent(
+        absoluteTime(testSystemStatus.errorTracking.lastSendOkAt!)
+      )
+      expect(within(value).getByText(', under a minute ago')).toBeInTheDocument()
       act(() => {
         vi.advanceTimersByTime(2 * 60_000)
       })
-      expect(
-        within(lastSent.nextElementSibling as HTMLElement).getByText('2 minutes ago')
-      ).toBeVisible()
+      expect(within(value).getByText(', 2 minutes ago')).toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }
@@ -379,8 +393,8 @@ describe('the Overview’s system status card', () => {
     renderAppAt('/overview')
     const card = await screen.findByRole('region', { name: 'System status' })
     expect(await within(card).findByText('Needs attention')).toHaveAttribute('data-tone', 'warning')
-    expect(within(card).getByText('Dropped').nextElementSibling).toHaveTextContent(
-      '4 (Throttled 3, Refused by PostHog 1)'
+    expect(within(card).getByText('Error events dropped').nextElementSibling).toHaveTextContent(
+      '4 (Throttled: 3, Refused by PostHog: 1)'
     )
   })
 
@@ -389,7 +403,7 @@ describe('the Overview’s system status card', () => {
     renderAppAt('/overview')
     const card = await screen.findByRole('region', { name: 'System status' })
     expect(await within(card).findByText('Needs attention')).toBeInTheDocument()
-    expect(within(card).getByText('PostHog answered with status 401')).toBeInTheDocument()
+    expect(within(card).getByText('PostHog answered with HTTP status 401')).toBeInTheDocument()
     expect(within(card).getByText('None in the last 24 hours')).toBeInTheDocument()
   })
 
@@ -434,12 +448,16 @@ describe('the Overview’s system status card', () => {
       await vi.waitFor(
         () =>
           expect(
-            within(card).getByText(/We couldn’t refresh, so this is the status from/)
+            within(card).getByText(
+              /^We couldn’t refresh the status\. This is the status as of .+\. Select Try again\.$/
+            )
           ).toBeInTheDocument(),
         { timeout: 4000 }
       )
       expect(calls).toBe(3)
       expect(within(card).getByText(testSystemStatus.release)).toBeInTheDocument()
+      await userEvent.setup().click(within(card).getByRole('button', { name: 'Try again' }))
+      await waitFor(() => expect(calls).toBeGreaterThan(3))
       expect(
         within(card).queryByText('We couldn’t load the system status. Select Try again.')
       ).not.toBeInTheDocument()
@@ -550,7 +568,7 @@ describe('the system status card’s feature flags', () => {
     expect(section.getByText('(stale)')).toBeInTheDocument()
     expect(
       section.getByText(
-        'PostHog property matching version 2; the server is validated for version 1'
+        'PostHog uses property matching version 2. The server was tested against version 1 only.'
       )
     ).toBeInTheDocument()
     expect(section.getByText('(4 unknown variants in 15 minutes)')).toBeInTheDocument()
@@ -560,10 +578,10 @@ describe('the system status card’s feature flags', () => {
     serveFlags({ propertyMatchingVersion: null })
     renderAppAt('/overview')
     const section = await flagsSection()
-    expect(section.getByText('Matching')).toBeInTheDocument()
+    expect(section.getByText('Property matching')).toBeInTheDocument()
     expect(
       section.getByText(
-        'PostHog did not report a property matching version; the server is validated for version 1'
+        'PostHog sent no property matching version. The server was tested against version 1 only.'
       )
     ).toBeInTheDocument()
   })
@@ -816,10 +834,11 @@ describe('the Overview’s billing alerts card', () => {
     expect(duplicate).toHaveTextContent('Duplicate refunded')
     expect(duplicate).toHaveTextContent(testBillingAlerts[0]!.message)
     expect(duplicate!.querySelector('time')).toHaveAttribute('datetime', testBillingAlerts[0]!.at)
-    expect(duplicate!.querySelector('time')).toHaveAttribute(
-      'title',
+    // Absolute with its zone, since the card is read long after it loads; the relative time is the hidden text and the tooltip.
+    expect(duplicate!.querySelector('time')).toHaveTextContent(
       absoluteTime(testBillingAlerts[0]!.at)
     )
+    expect(duplicate).toHaveTextContent(`${absoluteTime(testBillingAlerts[0]!.at)}, `)
     expect(failing).toHaveTextContent('Provider event failing')
     expect(seen.at(-1)?.get('limit')).toBe('5')
     expect(seen.at(-1)?.get('total')).toBeNull()

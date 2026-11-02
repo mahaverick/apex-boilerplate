@@ -50,7 +50,7 @@ describe('tenant link fields', () => {
   it('PATCH says only that a link field holds characters it refuses, not that it is no URL', () => {
     const result = updateTenantSchema.safeParse({ website: 'https://acme.test/\u{200B}' })
     expect(result.error?.issues.map((issue) => issue.message)).toEqual([
-      'Website contains characters that are not allowed',
+      'Website has a line break, tab or hidden character. Remove it.',
     ])
   })
 

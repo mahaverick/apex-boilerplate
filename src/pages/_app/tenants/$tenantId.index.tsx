@@ -76,7 +76,7 @@ function TenantOverviewTab() {
             <dl className="grid gap-3">
               <Row label="Description" value={data.description ?? '—'} />
               <Row label="Website" value={data.website ?? '—'} />
-              <Row label="Timezone" value={data.settings.timezone} />
+              <Row label="Time zone" value={data.settings.timezone} />
               <Row label="Locale" value={data.settings.locale} />
               <Row label="Members" value={String(data.memberCount)} />
               <Row label="Pending invitations" value={String(data.pendingInvitationCount)} />

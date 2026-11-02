@@ -8,13 +8,49 @@ export function formatDate(iso: string, dateStyle: 'medium' | 'long'): string | 
   return new Intl.DateTimeFormat(undefined, { dateStyle }).format(date)
 }
 
-/** A date and time in the reader's own locale, or `null` when `iso` is not a date. */
-export function formatDateTime(iso: string): string | null {
+/**
+ * The reader's own zone, for a time no one tenant owns: a plan's price, the
+ * billing settings, an alert list across tenants, an audit entry.
+ */
+export function readerZone(): string {
+  return new Intl.DateTimeFormat().resolvedOptions().timeZone
+}
+
+/**
+ * The date and time in one zone, month spelled out and the zone named.
+ * @param date - A valid moment.
+ * @param timeZone - An IANA zone name; an unknown one throws `RangeError`.
+ */
+function dateTimeInZone(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(date)
+}
+
+/**
+ * A date and time with its zone named, since the time depends on it:
+ * "2 November 2026 at 05:30 GMT+5:30". Every staff date-time reads in this
+ * one form, so one zone has one name on the page. An unknown zone reads as
+ * UTC, as `formatBillingDate` does. Callers supply their own fallback text.
+ * @param iso - An ISO timestamp.
+ * @param timeZone - A tenant's `settings.timezone`, or `undefined` for the reader's zone.
+ * @returns The date and time, or `null` when `iso` is not a date.
+ */
+export function formatDateTime(iso: string, timeZone?: string): string | null {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return null
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-    date
-  )
+  try {
+    return dateTimeInZone(date, timeZone ?? readerZone())
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error
+    return dateTimeInZone(date, 'UTC')
+  }
 }
 
 /**
@@ -26,6 +62,21 @@ export function shortDate(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
+/**
+ * A UTC day with its year, as a range names its ends: `2026-09-29` → `Sep 29,
+ * 2026`, in `shortDate`'s fixed locale. Formatted in UTC, so it names the day
+ * the API bucketed, whatever the reader's zone.
+ * @param date - A `YYYY-MM-DD` day.
+ */
+export function utcDayLabel(date: string): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
     timeZone: 'UTC',
   })
 }

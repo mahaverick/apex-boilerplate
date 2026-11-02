@@ -131,11 +131,11 @@ describe('refuseInForm', () => {
   it.each([
     [
       { 'retry-after': '30' },
-      'Razorpay didn’t answer. Try again in 30 seconds. If it keeps failing, check Razorpay’s status page.',
+      'Razorpay didn’t answer. Try again in 30 seconds. If it fails again, check Razorpay’s status page.',
     ],
     [
       {},
-      'Razorpay didn’t answer. Try again in a minute. If it keeps failing, check Razorpay’s status page.',
+      'Razorpay didn’t answer. Try again in a minute. If it fails again, check Razorpay’s status page.',
     ],
   ])('words a provider that didn’t answer (Retry-After %o) with the wait', (headers, text) => {
     const errors = spyErrors()

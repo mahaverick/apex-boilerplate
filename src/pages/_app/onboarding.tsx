@@ -19,6 +19,7 @@ import {
   ONBOARDING_NOT_STARTED,
   ONBOARDING_RANGE_LABELS,
   ONBOARDING_TAB_LABELS,
+  STUCK_AFTER,
 } from '@/constants/onboarding.constants'
 import { isRoleDenied } from '@/lib/role-denied'
 import { analyticsKey, track } from '@/observability/telemetry'
@@ -62,7 +63,7 @@ export const Route = createFileRoute('/_app/onboarding')({
 const EMPTY_TAB: Record<OnboardingListState, { title: string; description: string }> = {
   stuck: {
     title: 'No tenant is stuck.',
-    description: 'A tenant appears here once it goes a while without progress.',
+    description: `A tenant appears here once it has had no onboarding progress ${STUCK_AFTER}.`,
   },
   in_progress: {
     title: 'No tenant is in progress.',

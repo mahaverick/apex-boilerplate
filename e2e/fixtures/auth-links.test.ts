@@ -110,7 +110,7 @@ test.describe('sign-in link', () => {
     )
 
     await expect(
-      page.getByRole('heading', { level: 1, name: 'We couldn’t sign you in' })
+      page.getByRole('heading', { level: 1, name: 'Sign-in didn’t finish' })
     ).toBeVisible()
     await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toHaveCount(0)
@@ -245,7 +245,7 @@ test.describe('staff invitation', () => {
     )
 
     await expect(
-      page.getByRole('heading', { level: 1, name: 'We couldn’t add you to your team' })
+      page.getByRole('heading', { level: 1, name: 'You weren’t added to your team' })
     ).toBeVisible()
     await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
     await expectNoOverflow(page)

@@ -227,9 +227,7 @@ describe('billingSettingsSchema', () => {
       trialDays: 14,
       pastDueGraceDays: 7,
     })
-    expect(messageAt(result, 'trialEnabled')).toBe(
-      'Choose whether new workspaces get a Paid trial.'
-    )
+    expect(messageAt(result, 'trialEnabled')).toBe('Choose whether new tenants get a Paid trial.')
   })
 
   it('refuses a trial outside 1–90 days and a grace outside 1–30 days', () => {

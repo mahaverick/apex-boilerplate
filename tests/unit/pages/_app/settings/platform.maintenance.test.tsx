@@ -446,8 +446,10 @@ describe('/settings/platform/maintenance', () => {
           statusCode: 400,
           requestId: 'r',
           errors: {
-            message: ['Message contains characters that are not allowed.'],
-            reason: ['Reason contains characters that are not allowed.'],
+            message: [
+              'Message has a hidden character. Remove it. Line breaks and tabs are allowed.',
+            ],
+            reason: ['Reason has a hidden character. Remove it. Line breaks and tabs are allowed.'],
           },
         },
         { status: 400 }
@@ -461,10 +463,14 @@ describe('/settings/platform/maintenance', () => {
     await user.type(within(dialog).getByLabelText('Type staging to confirm'), 'staging')
     await user.click(within(dialog).getByRole('button', { name: 'Switch to read-only' }))
     expect(
-      await within(dialog).findByText('Message contains characters that are not allowed.')
+      await within(dialog).findByText(
+        'Message has a hidden character. Remove it. Line breaks and tabs are allowed.'
+      )
     ).toBeVisible()
     expect(
-      within(dialog).getByText('Reason contains characters that are not allowed.')
+      within(dialog).getByText(
+        'Reason has a hidden character. Remove it. Line breaks and tabs are allowed.'
+      )
     ).toBeVisible()
     expect(within(dialog).getByLabelText('Message for customers')).toHaveAttribute(
       'aria-invalid',

@@ -113,7 +113,7 @@ describe('CommandPalette', () => {
     await openPalette(user)
     await user.keyboard('ten')
     expect(await screen.findByRole('option', { name: 'Tenants' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: 'Activity log' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Activity' })).not.toBeInTheDocument()
     await user.keyboard('{Enter}')
     await waitFor(() => expect(router.state.location.pathname).toBe('/tenants'))
     expect(useCommandPaletteStore.getState().open).toBe(false)

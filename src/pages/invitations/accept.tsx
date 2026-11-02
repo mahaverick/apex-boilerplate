@@ -375,8 +375,8 @@ function InvitationForToken({ token }: { token: string }) {
     if (failure?.kind === 'dead') return <DeadInvitation inviter={joining.invitation?.invitedBy} />
     if (failure) {
       const title = joining.invitation
-        ? `We couldn’t add you to ${teamName(joining.invitation.tenant)}`
-        : 'We couldn’t open this invitation'
+        ? `You weren’t added to ${teamName(joining.invitation.tenant)}`
+        : 'This invitation didn’t open'
       return (
         <InvitationCard title={title}>
           <VerifyFailedPanel
@@ -412,7 +412,7 @@ function InvitationForToken({ token }: { token: string }) {
 
   if (preview.isError) {
     return (
-      <InvitationCard title="We couldn’t check this invitation">
+      <InvitationCard title="This invitation wasn’t checked">
         <div className="grid gap-3">
           <LoadError message={PREVIEW_ERROR} onRetry={() => void preview.refetch()} />
           <HomeLink />
@@ -441,7 +441,7 @@ function AcceptInvitationPage() {
     return (
       <InvitationCard
         title="This link is incomplete"
-        description="Part of this link is missing. Open the most recent invitation email and select Join."
+        description="Part of this link is missing. Open the latest invitation email and select Join."
       >
         <HomeLink />
       </InvitationCard>

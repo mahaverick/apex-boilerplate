@@ -2,6 +2,8 @@ import { IconCopy } from '@tabler/icons-react'
 import { Link, useParams } from '@tanstack/react-router'
 import { Fragment, type ReactNode, type Ref } from 'react'
 import { BillingStateBadge } from '@/components/features/billing/billing-state-badge'
+import { HeldSezBadge } from '@/components/features/billing/held-sez-badge'
+import { Timestamp } from '@/components/features/timestamp'
 import { ToneBadge } from '@/components/features/tone-badge'
 import { copyId } from '@/components/shared/command-palette/copy-id'
 import { Note } from '@/components/shared/note'
@@ -10,7 +12,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   billingDate,
-  billingDateTime,
   providerDashboard,
   providerLabel,
   providerName,
@@ -20,7 +21,6 @@ import { useNow } from '@/hooks/use-now'
 import { CANCEL_BUFFER_MS, effectiveState } from '@/lib/billing-actions'
 import { formatInr } from '@/lib/billing-format'
 import { nounFor } from '@/lib/plural'
-import { relativeTime } from '@/lib/relative-time'
 import type { StaffPlans, StaffTenantBilling } from '@/types/billing.types'
 
 /**
@@ -269,7 +269,7 @@ export function TenantBillingSummary({
             <BillingStateBadge state={lapsed ? 'free' : billing.state} />
             {billing.openHeldCharges > 0 && (
               <>
-                <ToneBadge tone="warning">Held: SEZ</ToneBadge>
+                <HeldSezBadge />
                 {tenantId !== undefined && (
                   <Link
                     to={ROUTES.tenantBilling}
@@ -325,9 +325,7 @@ export function TenantBillingSummary({
             {billing.syncedAt === null ? (
               'Never'
             ) : (
-              <time dateTime={billing.syncedAt} title={billingDateTime(billing.syncedAt, timeZone)}>
-                {relativeTime(billing.syncedAt, now)}
-              </time>
+              <Timestamp iso={billing.syncedAt} timeZone={timeZone} />
             )}
           </dd>
         </dl>

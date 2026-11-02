@@ -43,7 +43,7 @@ export const Route = createFileRoute('/_app/tenants/$tenantId/onboarding')({
   pendingComponent: DetailTabPending,
 })
 
-/** A time in the reader's locale, or a fallback when there is none. */
+/** A time with its zone (`formatDateTime`), or a fallback when there is none. */
 function when(iso: string | null): string {
   return iso === null ? 'an unknown time' : (formatDateTime(iso) ?? 'an unknown time')
 }
@@ -286,7 +286,7 @@ function TenantOnboarding({ detail }: { detail: TenantOnboardingDetail }) {
           const retryAfter = retryAfterFrom(error)
           return retryAfter === undefined
             ? undefined
-            : `A reminder went out less than 24 hours ago. The next one can go after ${when(retryAfter)}.`
+            : `The last reminder went out less than 24 hours ago. Send the next one after ${when(retryAfter)}.`
         }}
         onConfirm={async (reason) => {
           const result = await remind.mutateAsync(reason)

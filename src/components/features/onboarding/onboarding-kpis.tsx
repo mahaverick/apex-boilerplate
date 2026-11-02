@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ONBOARDING_RANGE_LABELS } from '@/constants/onboarding.constants'
+import { ONBOARDING_RANGE_LABELS, STUCK_AFTER } from '@/constants/onboarding.constants'
 import { formatShare } from '@/lib/format'
 import type { OnboardingFunnel } from '@/types/api.types'
 
@@ -34,9 +34,9 @@ export function OnboardingKpis({ funnel }: { funnel: OnboardingFunnel }) {
           : `${count(totals.complete)} of ${count(started)} started tenants`,
     },
     {
-      label: 'Stuck now',
+      label: 'Stuck, of those started',
       value: count(totals.stuck),
-      note: 'Started in this window, with no progress past the stuck limit (7 days by default).',
+      note: `Started in the window, with no onboarding progress ${STUCK_AFTER}.`,
     },
     { label: 'Dismissed', value: count(totals.dismissed), note: 'Hid the checklist unfinished' },
   ]

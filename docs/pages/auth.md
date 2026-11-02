@@ -10,16 +10,16 @@ Staff sign in by emailed link, Google or, when the API turns passkeys on, a pass
 
 ![Sign in](img/auth/login--default.jpg)
 
-|                     |                                                                                                                                                                                                                                                                                                                                                                                     |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Purpose             | Ask for a sign-in link by email, sign in with Google, or sign in with a passkey.                                                                                                                                                                                                                                                                                                    |
-| File                | `src/pages/_auth/login.tsx`, rendering `SignInLinkForm` (`src/components/features/auth/sign-in-link-form.tsx`), `SocialSignIn` and, with passkeys on, `PasskeySignInButton` (`passkey-sign-in.tsx`)                                                                                                                                                                                 |
-| Guard and redirects | `_auth`: signed in → `/overview`. `?redirect=` is sent with the link request and with Google when `safeLanding` accepts it (a same-origin path that is not a token page); an unsafe one is dropped, not sent. `?notice=sign-in-link` (from a retired password path) shows "Sign in with an email link or Google. Passwords no longer work." `?error=<code>` raises one error toast. |
-| Layout              | `AuthLayout` + `AuthCard`, titled "Sign in to Apex", described "Enter your staff email and we’ll send you a link to sign in."                                                                                                                                                                                                                                                       |
-| Data                | started: `GET /auth/passkeys/config` (no bearer; any failure reads as mode `off`). `POST /auth/link/request` (`{ email, app: 'apex', redirect? }`) on submit and on Resend. With passkeys on: `POST /auth/passkeys/sign-in/options` and `/verify` (`app: 'apex'`)                                                                                                                   |
-| Sections            | The Email field and "Email me a sign-in link", then an "or" divider, Continue with Google and, when the mode is not `off` and the browser supports WebAuthn, Sign in with a passkey. After a `202`, Check your inbox (below).                                                                                                                                                       |
-| Components          | `Form`, `FormField`, `FormError`, `Input`, `BusyButton`, `FieldGroup`, `FieldSeparator`, `Pii`, `Note`                                                                                                                                                                                                                                                                              |
-| Transitions         | Email me a sign-in link → Check your inbox (same URL); the mailed link → `/auth/link`; Continue with Google → the API's Google flow → `/auth/callback`; Sign in with a passkey → the browser's sheet → `?redirect` or `/overview`; another tab that opens the link → this tab lands on `?redirect` or `/overview`                                                                   |
+|                     |                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Purpose             | Ask for a sign-in link by email, sign in with Google, or sign in with a passkey.                                                                                                                                                                                                                                                                                                        |
+| File                | `src/pages/_auth/login.tsx`, rendering `SignInLinkForm` (`src/components/features/auth/sign-in-link-form.tsx`), `SocialSignIn` and, with passkeys on, `PasskeySignInButton` (`passkey-sign-in.tsx`)                                                                                                                                                                                     |
+| Guard and redirects | `_auth`: signed in → `/overview`. `?redirect=` is sent with the link request and with Google when `safeLanding` accepts it (a same-origin path that is not a token page); an unsafe one is dropped, not sent. `?notice=sign-in-link` (from a retired password path) shows "Sign in with an email link or Google. Apex has no password sign-in." `?error=<code>` raises one error toast. |
+| Layout              | `AuthLayout` + `AuthCard`, titled "Sign in to Apex", described "Enter your staff email and we’ll send you a link to sign in."                                                                                                                                                                                                                                                           |
+| Data                | started: `GET /auth/passkeys/config` (no bearer; any failure reads as mode `off`). `POST /auth/link/request` (`{ email, app: 'apex', redirect? }`) on submit and on Resend. With passkeys on: `POST /auth/passkeys/sign-in/options` and `/verify` (`app: 'apex'`)                                                                                                                       |
+| Sections            | The Email field and "Email me a sign-in link", then an "or" divider, Continue with Google and, when the mode is not `off` and the browser supports WebAuthn, Sign in with a passkey. After a `202`, Check your inbox (below).                                                                                                                                                           |
+| Components          | `Form`, `FormField`, `FormError`, `Input`, `BusyButton`, `FieldGroup`, `FieldSeparator`, `Pii`, `Note`                                                                                                                                                                                                                                                                                  |
+| Transitions         | Email me a sign-in link → Check your inbox (same URL); the mailed link → `/auth/link`; Continue with Google → the API's Google flow → `/auth/callback`; Sign in with a passkey → the browser's sheet → `?redirect` or `/overview`; another tab that opens the link → this tab lands on `?redirect` or `/overview`                                                                       |
 
 **Check your inbox.** The title becomes "Check your inbox". The status line reads "We sent a sign-in link to {address}." and the next line "The link works once and expires in 15 minutes." Resend waits 60 seconds after each send ("Resend in 0:42", focusable while it waits); a 429 extends the wait to its `Retry-After`. "Use a different email" returns to the form with the address kept. While this step shows, the page listens for another tab's `signed_in` and restores the shared session when it hears one. The API answers the same `202` for an address with no staff account, so the page never says which addresses are staff.
 
@@ -64,14 +64,14 @@ The page has these states:
 
 1. **Verifying** (signed out): "Signing you in", with "Signing you in…" and the link's address, then the address the server signed in.
 2. **Dead link** (any 400, or no `?token` while signed out): "This link expired or was already used", described "The link works once and expires in 15 minutes.", and the sign-in form prefilled with the link's address, its button "Email me a new link". The new link keeps the old one's `redirect`. A non-staff account's link is refused with the same 400, so the page never says which.
-3. **Retryable failure** (429, 503, a network error or a 5xx): "We couldn’t sign you in", the reason (a 429 names its wait, "Too many sign-in attempts. Try again in 42 seconds.") and Try again. The link stays usable. A read-only refusal says "We can’t create new accounts during maintenance. Sign in to an account you already have, or try again when maintenance ends."; express sends it only when the click would create an account, which only a customer-app link opened here can do.
+3. **Retryable failure** (429, 503, a network error or a 5xx): "Sign-in didn’t finish", the reason (a 429 names its wait, "Too many sign-in attempts. Try again in 42 seconds.") and Try again. The link stays usable. A read-only refusal says "We can’t create new accounts during maintenance. Sign in to an account you already have, or try again when maintenance ends."; express sends it only when the click would create an account, which only a customer-app link opened here can do.
 4. **Signed in as the link's address:** goes straight on to the link's `redirect` or `/overview`, spending nothing.
 5. **Signed in as someone else:** "Switch account?", "You’re signed in as {current}. This link is for {target}.", Continue as {target} (signs out and reloads this URL as it opened, which then verifies) and Stay signed in as {current} (→ `/overview`).
 
-| Loading                                                                  | Error                                                                                                                            |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| ![](img/auth/sign-in-link--loading.jpg)                                  | ![](img/auth/sign-in-link--error.jpg)                                                                                            |
-| spinner · Verifying: "Signing you in…" and "This link is for {address}." | Retryable failure: "We couldn’t sign you in" and Try again. The reason is the capture's stubbed 500 message, "Captured failure". |
+| Loading                                                                  | Error                                                                                                                          |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| ![](img/auth/sign-in-link--loading.jpg)                                  | ![](img/auth/sign-in-link--error.jpg)                                                                                          |
+| spinner · Verifying: "Signing you in…" and "This link is for {address}." | Retryable failure: "Sign-in didn’t finish" and Try again. The reason is the capture's stubbed 500 message, "Captured failure". |
 
 ### `/auth/callback` — Google sign-in return
 
@@ -107,19 +107,19 @@ The default shot is signed in with a token no session asked for, so it is the 40
 
 The page has these states:
 
-1. **No `?token`** (any other query included): "This link is incomplete", "Open the most recent confirmation email and use its link." Nothing is posted or broadcast.
+1. **No `?token`** (any other query included): "This link is incomplete", "Open the latest confirmation email and use its link." Nothing is posted or broadcast.
 2. **Signed out:** "Sign in to confirm", "This link works only in the browser and session that asked for it. If you signed out here, sign in and repeat the action.", and Sign in. Nothing is posted.
 3. **Confirming:** "Confirming it’s you", with "Confirming it’s you…".
 4. **Confirmed**, worded by the wait lock read before the post: a tab holds it, "You can close this tab."; none does, "Go back to Apex and try the action again." with Go to Overview; no Web Locks, "Return to the Apex tab where you started. If you closed it, try the action again."
 5. **400** (expired, used, or another session's link; the API answers all three alike): "This link didn’t confirm it’s you", "Open the link in the browser where you asked for it, within 15 minutes. For a new link, try the action again." Nothing is elevated.
 6. **404** (the role gate; the link stays unspent): "Your staff access changed", "Ask a platform owner to check your role, then go to Overview.", and Go to Overview.
 7. **401** after the one refresh: "Your session ended", "Sign in again, then repeat the action.", and Sign in (a full page load).
-8. **Anything else:** "We couldn’t confirm it’s you", the reason and Try again. The token stays in the URL, so a reload tries again.
+8. **Anything else:** "Confirmation didn’t go through", the reason and Try again. The token stays in the URL, so a reload tries again.
 
-| Loading                                      | Error                                                                                                                             |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| ![](img/auth/auth-confirm--loading.jpg)      | ![](img/auth/auth-confirm--error.jpg)                                                                                             |
-| spinner · Confirming: "Confirming it’s you…" | Anything else: "We couldn’t confirm it’s you" and Try again. The reason is the capture's stubbed 500 message, "Captured failure". |
+| Loading                                      | Error                                                                                                                               |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| ![](img/auth/auth-confirm--loading.jpg)      | ![](img/auth/auth-confirm--error.jpg)                                                                                               |
+| spinner · Confirming: "Confirming it’s you…" | Anything else: "Confirmation didn’t go through" and Try again. The reason is the capture's stubbed 500 message, "Captured failure". |
 
 ### `/register`, `/forgot-password`, `/reset-password`, `/verify-email` — retired
 
@@ -144,20 +144,20 @@ Signed out, a staff invitation always confirms by a mailed link, so the default 
 
 The page has these states (`AcceptInvitationPage` and `InvitationForToken`):
 
-1. **No `?token`:** "This link is incomplete", "Part of this link is missing. Open the most recent invitation email and select Join.", and "Go to the home page".
+1. **No `?token`:** "This link is incomplete", "Part of this link is missing. Open the latest invitation email and select Join.", and "Go to the home page".
 2. **Malformed token, or a 404** (revoked, expired or used): "This invitation can’t be used", described "Ask {inviter} for a new invite." when a live preview named one, else "Ask a platform admin for a new invite." Signed in, "Go to Overview"; signed out, "Or sign in:" and the sign-in form, with no address and no redirect.
 3. **Preview pending:** "Checking your invitation" over skeleton bars: a sentence, two buttons and a hint.
-4. **Preview failed otherwise:** "We couldn’t check this invitation", a `LoadError` reading "Your invitation link still works. Select Try again.", and "Go to the home page".
+4. **Preview failed otherwise:** "This invitation wasn’t checked", a `LoadError` reading "Your invitation link still works. Select Try again.", and "Go to the home page".
 5. **Joining** (signed out, or signed in as the invited address): "Joining {tenant}" and "{inviter} invited you to join {tenant} as {role}.", then "Emailing a link to {invited address}…" signed out or "Joining {tenant} as {invited address}…" signed in. The address is the preview's, never a URL parameter.
 6. **Check your inbox** (signed out; a staff invitation's verify always answers `202`): "We sent a link to {address}.", "Open it to join {tenant}. The link works once and expires in 15 minutes.", Resend (waits 60 seconds; a 429 extends it), and "Go to the home page". The page listens for another tab's `signed_in` from the confirmation link, including after a failed Resend, and then lands on Overview, with the join toast only when the restored account is the mailed address.
-7. **Retryable failure:** "We couldn’t add you to {tenant}", the reason and Try again.
+7. **Retryable failure:** "You weren’t added to {tenant}", the reason and Try again.
 8. **Signed in as another address:** "Join {tenant}", the invitation sentence, "This invitation is for {invited}. You’re signed in as {current}.", Continue (signs out and reloads this page signed out, which then verifies) and Cancel (→ `/overview`).
 9. **Used link, signed in as the invitee:** the accept answers `alreadyMember`, and the page lands with "You’ve already joined {tenant} as {address}."
 
-| Loading                                                                                         | Error                                                                                                                          | Empty                                      |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| ![](img/auth/invitation-accept--loading.jpg)                                                    | ![](img/auth/invitation-accept--error.jpg)                                                                                     | ![](img/auth/invitation-accept--empty.jpg) |
-| skeleton · Preview pending: "Checking your invitation" over a sentence bar and three block bars | alert · Preview failed: "We couldn’t check this invitation", `LoadError` "Your invitation link still works. Select Try again." | No `?token`: "This link is incomplete"     |
+| Loading                                                                                         | Error                                                                                                                       | Empty                                      |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| ![](img/auth/invitation-accept--loading.jpg)                                                    | ![](img/auth/invitation-accept--error.jpg)                                                                                  | ![](img/auth/invitation-accept--empty.jpg) |
+| skeleton · Preview pending: "Checking your invitation" over a sentence bar and three block bars | alert · Preview failed: "This invitation wasn’t checked", `LoadError` "Your invitation link still works. Select Try again." | No `?token`: "This link is incomplete"     |
 
 Findings: [F-auth-3](findings.md#f-auth-3), [F-auth-4](findings.md#f-auth-4)
 
@@ -165,7 +165,7 @@ Findings: [F-auth-3](findings.md#f-auth-3), [F-auth-4](findings.md#f-auth-4)
 
 ![Confirm a join](img/auth/invitation-confirm--default.jpg)
 
-The shot has no token, so it is the incomplete link: "Part of this link is missing. Open the most recent email from us and select its link." The joining, switch-account, dead and failed states need a mailed confirmation link, so they have no shot.
+The shot has no token, so it is the incomplete link: "Part of this link is missing. Open the latest email from us and select its link." The joining, switch-account, dead and failed states need a mailed confirmation link, so they have no shot.
 
 |                     |                                                                                                                                                                                                                   |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -177,7 +177,7 @@ The shot has no token, so it is the incomplete link: "Part of this link is missi
 | Components          | `InvitationCard`, `SigningInStatus`, `SwitchAccountPanel`, `VerifyFailedPanel`, `ConfirmLinkDead`, `ConfirmLinkIncomplete`, `SignInLinkForm`                                                                      |
 | Transitions         | after a `200` the page posts `signed_in`, so the accept page waiting on Check your inbox lands too                                                                                                                |
 
-States: "Joining your team" while the confirm runs; "This link is incomplete" without a token or an address; "This link can’t be used" for a malformed link or a 404, described "Open your invitation email and select Join again to get a new link, or ask the person who invited you for a new invite." (signed in: "Go to Overview"; signed out: the sign-in form); "We couldn’t add you to your team" with Try again for anything else, a `503 MAINTENANCE_MODE` included; and "Join your team" with Continue and Cancel when someone else is signed in.
+States: "Joining your team" while the confirm runs; "This link is incomplete" without a token or an address; "This link can’t be used" for a malformed link or a 404, described "Open your invitation email and select Join again to get a new link, or ask the person who invited you for a new invite." (signed in: "Go to Overview"; signed out: the sign-in form); "You weren’t added to your team" with Try again for anything else, a `503 MAINTENANCE_MODE` included; and "Join your team" with Continue and Cancel when someone else is signed in.
 
 ### `/no-access` — No platform access
 

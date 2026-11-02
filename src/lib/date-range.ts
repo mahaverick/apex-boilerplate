@@ -3,7 +3,7 @@
  * `YYYY-MM-DD`, the end inclusive.
  */
 import { format } from 'date-fns'
-import { shortDate } from '@/lib/format'
+import { utcDayLabel } from '@/lib/format'
 
 /** Both ends as the URL carries them, UTC `YYYY-MM-DD`, `to` inclusive. */
 export interface DayRange {
@@ -16,10 +16,18 @@ export function toDay(date: Date | undefined): string | undefined {
   return date === undefined ? undefined : format(date, 'yyyy-MM-dd')
 }
 
-/** "Sep 1 – Sep 30", "Sep 1" for one day, "From Sep 1" or "Until Sep 30" for an open end. */
+/**
+ * "Sep 1, 2026 – Sep 30, 2026 (UTC)", "Sep 1, 2026 (UTC)" for one day, "From
+ * Sep 1, 2026 (UTC)" or "Until Sep 30, 2026 (UTC)" for an open end: the days
+ * are UTC days, as the API filters them.
+ */
 export function rangeLabel({ from, to }: DayRange): string {
-  if (from && to) return from === to ? shortDate(from) : `${shortDate(from)} – ${shortDate(to)}`
-  if (from) return `From ${shortDate(from)}`
-  if (to) return `Until ${shortDate(to)}`
+  if (from && to) {
+    return from === to
+      ? `${utcDayLabel(from)} (UTC)`
+      : `${utcDayLabel(from)} – ${utcDayLabel(to)} (UTC)`
+  }
+  if (from) return `From ${utcDayLabel(from)} (UTC)`
+  if (to) return `Until ${utcDayLabel(to)} (UTC)`
   return 'Any date'
 }

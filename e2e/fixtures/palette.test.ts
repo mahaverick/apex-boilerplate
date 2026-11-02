@@ -35,7 +35,7 @@ test('an overflowing palette list stays keyboard-scrollable and axe-clean', asyn
 
   await page.keyboard.press('ControlOrMeta+k')
   const palette = page.getByRole('dialog', { name: 'Command palette', exact: true })
-  await expect(palette.getByRole('option', { name: 'Activity log' })).toBeVisible({
+  await expect(palette.getByRole('option', { name: 'Activity', exact: true })).toBeVisible({
     timeout: COLD_TRANSFORM_BUDGET_MS,
   })
   // Base UI's scroll viewport: the `role="presentation"` wrapper that manages its own tabindex.

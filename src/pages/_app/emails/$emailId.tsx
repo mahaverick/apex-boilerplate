@@ -17,8 +17,14 @@ import { CardRowsSkeleton } from '@/components/shared/section-skeleton'
 import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { pageTitle } from '@/constants/app'
-import { SUPPRESSION_REASON_LABELS, templateLabel } from '@/constants/email.constants'
+import {
+  providerLabel,
+  SENDERS_EXPLAINED,
+  SUPPRESSION_REASON_LABELS,
+  templateLabel,
+} from '@/constants/email.constants'
 import { ROUTES } from '@/constants/routes'
 import { useFocusAfter } from '@/hooks/use-focus-after'
 import { statusFrom } from '@/lib/api-error'
@@ -53,11 +59,34 @@ function EmailCrumb({ params }: { params: Record<string, string> }) {
 
 const SENDER_LABELS = { transactional: 'Transactional sender', general: 'General sender' } as const
 
-/** Who set a message `failed`, as the header says it. */
-const FAILURE_LABELS: Record<EmailFailureOrigin, string> = {
-  send: 'Every send attempt failed.',
-  provider: 'The provider couldn’t deliver this email.',
-  enqueue: 'The email wasn’t queued, so it was never sent.',
+/**
+ * Why a message is `failed`, as the header says it: how many send attempts
+ * failed, or which provider reported the failure.
+ * @param message - The failed message.
+ * @param origin - Who set it `failed`.
+ */
+function failureSentence(message: EmailMessageDetail, origin: EmailFailureOrigin): string {
+  if (origin === 'enqueue') return 'The email wasn’t queued, so it was never sent.'
+  if (origin === 'send') {
+    const failed = message.attempts.filter((attempt) => attempt.status === 'failed').length
+    return failed === 1 ? 'The one send attempt failed.' : `All ${failed} send attempts failed.`
+  }
+  const event = message.events.findLast((candidate) => candidate.type === 'failed')
+  const provider = event === undefined ? 'The email provider' : providerLabel(event.provider)
+  return `${provider} couldn’t deliver this email. Check the timeline for its reason.`
+}
+
+/** The sender's name, with what each sender carries in a tooltip and, since Base UI's tooltip is not announced, in hidden text. */
+function SenderLabel({ sender }: { sender: EmailMessageDetail['senderClass'] }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">
+        {SENDER_LABELS[sender]}
+        <span className="sr-only">. {SENDERS_EXPLAINED}</span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">{SENDERS_EXPLAINED}</TooltipContent>
+    </Tooltip>
+  )
 }
 
 const TAB_LABELS: Record<EmailDetailTab, string> = { timeline: 'Timeline', preview: 'Preview' }
@@ -85,7 +114,7 @@ function EmailDetailPage() {
       <EmptyState
         icon={<IconSearchOff aria-hidden="true" />}
         title={<h1>Email not found</h1>}
-        description="It doesn’t exist, was purged after the retention period (90 days by default), or your role changed. If your role changed, reload the page."
+        description="It doesn’t exist, was deleted after 90 days (the server’s RETENTION_EMAIL_LOGS_DAYS), or your role changed. If your role changed, reload the page."
         action={
           <Link to={ROUTES.emails} className={buttonVariants({ variant: 'outline' })}>
             Back to emails
@@ -161,7 +190,7 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span className="text-foreground">{templateLabel(message.templateKey)}</span>
             <EmailStatusBadge status={message.status} />
-            <span>{SENDER_LABELS[message.senderClass]}</span>
+            <SenderLabel sender={message.senderClass} />
             <span>Created {formatDateTime(message.createdAt) ?? 'at an unknown time'}</span>
           </div>
           <p className="flex flex-wrap gap-x-4 text-sm">
@@ -185,7 +214,9 @@ function EmailDetail({ message }: { message: EmailMessageDetail }) {
             )}
           </p>
           {message.status === 'failed' && message.failureOrigin !== null && (
-            <p className="text-sm text-destructive">{FAILURE_LABELS[message.failureOrigin]}</p>
+            <p className="text-sm text-destructive">
+              {failureSentence(message, message.failureOrigin)}
+            </p>
           )}
         </div>
         <ResendEmailButton

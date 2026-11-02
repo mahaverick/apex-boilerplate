@@ -157,7 +157,7 @@ describe('the Tax documents card', () => {
     )
     const interstate = within(rowOf(table, 'INV/26-27/00002'))
     expect(interstate.getByText('IGST ₹152.39')).toBeVisible()
-    expect(interstate.getByText('None (B2C)')).toBeVisible()
+    expect(interstate.getByText('None (B2C, business-to-consumer)')).toBeVisible()
     const note = within(rowOf(table, 'CN/26-27/00001'))
     expect(note.getByText('Credit note')).toBeVisible()
     expect(note.getByText('Reduces INV/26-27/00001')).toBeVisible()
@@ -223,7 +223,7 @@ describe('the Tax documents card', () => {
     expect(await screen.findByText('No tax documents yet.')).toBeVisible()
     expect(
       screen.getByText(
-        'We issue a tax invoice for each charge paid on or after the GST start date set on the API.'
+        'We issue a tax invoice for each charge paid on or after the Goods and Services Tax (GST) start date set on the API.'
       )
     ).toBeVisible()
   })
@@ -479,7 +479,7 @@ describe('the invoices card’s Tax documents column', () => {
     /** The row's last cell. */
     const last = (row: HTMLElement) => within(row).getAllByRole('cell').at(-1)!
     expect(last(rows[0]!)).toHaveTextContent('Held: SEZ')
-    expect(last(rows[1]!)).toHaveTextContent('Tax invoice on its way')
+    expect(last(rows[1]!)).toHaveTextContent('Tax invoice not issued yet')
     expect(last(rows[2]!)).toHaveTextContent('—')
   })
 })

@@ -55,7 +55,7 @@ export function EmailPreviewPanel({
         <>
           {senderClass === 'transactional' && (
             <p className="text-sm text-muted-foreground">
-              Links are masked: the real ones carried a one-time token, which is never stored.
+              Links are masked: each real link worked once and is never stored.
             </p>
           )}
           {partial && (

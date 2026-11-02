@@ -939,7 +939,7 @@ const EMAIL_PREVIEW = {
 /**
  * Deliverability: the 7-day window has provider data, so every tile has a
  * value; the 30-day one has none, so the page shows the no-provider banner
- * and "No provider data" tiles over the same chart.
+ * and "No email provider events in the window" tiles over the same chart.
  */
 function emailHealth(range: string) {
   const hasProvider = range !== '30d'

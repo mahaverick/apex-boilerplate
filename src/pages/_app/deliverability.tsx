@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { pageTitle } from '@/constants/app'
 import { templateLabel } from '@/constants/email.constants'
+import { rangeLabel } from '@/lib/date-range'
 import { emailHealthQueryOptions } from '@/queries/email.queries'
 import { STATS_RANGES } from '@/queries/platform.queries'
 
@@ -92,35 +93,40 @@ function DeliverabilityPage() {
         skeleton={<DeliverabilitySkeleton />}
         className="gap-6"
       >
-        {(data) => (
-          <>
-            {data.totals.providerEvents === 0 && <NoProviderEvents />}
-            <SectionBoundary name="Deliverability figures">
-              <DeliverabilityKpis health={data} />
-            </SectionBoundary>
-            <SectionBoundary name="Emails per day">
-              <EmailsChart days={data.days} range={data.range} />
-            </SectionBoundary>
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <SectionBoundary name="By template">
-                <BreakdownCard
-                  title="By template"
-                  keyHeader="Template"
-                  rows={data.byTemplate}
-                  labelOf={templateLabel}
-                />
+        {(data) => {
+          const period = rangeLabel({ from: data.days[0]?.date, to: data.days.at(-1)?.date })
+          return (
+            <>
+              {data.totals.providerEvents === 0 && <NoProviderEvents period={period} />}
+              <SectionBoundary name="Deliverability figures">
+                <DeliverabilityKpis health={data} />
               </SectionBoundary>
-              <SectionBoundary name="By recipient domain">
-                <BreakdownCard
-                  title="Top recipient domains"
-                  keyHeader="Domain"
-                  rows={data.byDomain}
-                  labelOf={(key) => key}
-                />
+              <SectionBoundary name="Emails per day">
+                <EmailsChart days={data.days} range={data.range} asOf={health.dataUpdatedAt} />
               </SectionBoundary>
-            </div>
-          </>
-        )}
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <SectionBoundary name="By template">
+                  <BreakdownCard
+                    title="By template"
+                    keyHeader="Template"
+                    rows={data.byTemplate}
+                    labelOf={templateLabel}
+                    period={period}
+                  />
+                </SectionBoundary>
+                <SectionBoundary name="By recipient domain">
+                  <BreakdownCard
+                    title="Top 10 recipient domains"
+                    keyHeader="Domain"
+                    rows={data.byDomain}
+                    labelOf={(key) => key}
+                    period={period}
+                  />
+                </SectionBoundary>
+              </div>
+            </>
+          )
+        }}
       </QueryState>
     </div>
   )

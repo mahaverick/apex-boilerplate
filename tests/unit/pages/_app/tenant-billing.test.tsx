@@ -802,7 +802,7 @@ describe('/tenants/$tenantId/billing', () => {
       expect(within(failed).getByText('Provider timed out on every retry')).toHaveClass(
         'text-destructive'
       )
-      expect(within(failed).getByText('Gave up')).toBeInTheDocument()
+      expect(within(failed).getByText('Retries ran out')).toBeInTheDocument()
       expect(within(failed).queryByText('Not yet')).toBeNull()
       // A processed event has no error: a dash on screen, "None" for a screen reader.
       const processed = within(table).getByText('subscription.charged').closest('tr')!
@@ -941,12 +941,17 @@ describe('/tenants/$tenantId/billing', () => {
       const cells = within(within(table).getAllByRole('row')[1]!)
         .getAllByRole('cell')
         .map((cell) => cell.textContent)
-      expect(cells.slice(0, 4)).toEqual(['inv_TestPaid0001', 'sub_TestActive0001', '₹999', 'Paid'])
+      expect(cells.slice(0, 4)).toEqual([
+        'inv_TestPaid0001',
+        'sub_TestActive0001',
+        '₹999',
+        'Payment received',
+      ])
       expect([...(seen.invoices[0]?.keys() ?? [])]).toEqual([])
 
       await user.click(screen.getByRole('button', { name: 'Filter by status, Invoices' }))
       const popup = await screen.findByRole('dialog', { name: 'Filter by status, Invoices' })
-      await user.click(within(popup).getByRole('checkbox', { name: 'Paid' }))
+      await user.click(within(popup).getByRole('checkbox', { name: 'Payment received' }))
       await waitFor(() => expect(seen.invoices.at(-1)?.get('status')).toBe('paid'))
       await user.keyboard('{Escape}')
 

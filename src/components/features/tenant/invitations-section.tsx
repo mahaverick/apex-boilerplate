@@ -1,6 +1,7 @@
-import { LoadError, ROLE_ERROR } from '@/components/features/load-error'
+import { LoadError } from '@/components/features/load-error'
 import { InviteMemberForm } from '@/components/features/tenant/invite-member-form'
 import { PendingInvitations } from '@/components/features/tenant/pending-invitations'
+import { ROLE_ERROR } from '@/components/features/tenant/role-error'
 import { Note } from '@/components/shared/note'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'

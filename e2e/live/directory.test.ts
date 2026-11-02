@@ -96,7 +96,7 @@ test('an admin creates a tenant; the invited owner accepts; suspend hides it fro
   await page.getByRole('button', { name: 'New tenant' }).click()
   const dialog = page.getByRole('dialog', { name: 'New tenant' })
   await dialog.getByLabel('Name').fill(name)
-  await dialog.getByLabel('Slug').fill(slug)
+  await dialog.getByLabel('Web address').fill(slug)
   await dialog.getByLabel('Owner email').fill(owner)
   await dialog.getByRole('button', { name: 'Create tenant' }).click()
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible()

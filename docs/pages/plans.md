@@ -48,10 +48,10 @@ Paid with no price shows "No prices yet." in the Prices card; the capture has no
 | ![](img/plans/plans--dark.jpg)             |
 | The plan cards and forms on dark surfaces. |
 
-| Role-denied                                                                                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ![](img/plans/plans--role-denied.jpg)                                                                                                             |
-| A viewer: the plans, prices, trials and grace as text, with no edit controls and no New price; the sidebar has no Billing alerts or Activity log. |
+| Role-denied                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![](img/plans/plans--role-denied.jpg)                                                                                                              |
+| A viewer: the plans, prices, trials and grace as text, with no edit controls and no New price; the sidebar has no Billing alerts or Activity item. |
 
 ### `/billing-alerts` — Billing alerts
 

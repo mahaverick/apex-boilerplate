@@ -793,7 +793,7 @@ describe('/users/$userId', () => {
       expect(state.bodies).toEqual([{ lastName: 'Smith' }])
     })
     expect(
-      screen.queryByText('This field contains characters that are not allowed')
+      screen.queryByText('This field has a line break, tab or hidden character. Remove it.')
     ).not.toBeInTheDocument()
   })
 

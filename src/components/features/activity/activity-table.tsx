@@ -1,8 +1,7 @@
 /**
  * @file An audit log as a table: when, who, what happened and what it
- * happened to. The time shows relative, with the absolute time in a tooltip
- * and, since Base UI's tooltip is not announced, in the cell's own visually
- * hidden text. The platform page adds a Tenant column; a user or tenant
+ * happened to. The time shows absolute, with its zone, and the relative
+ * time in a tooltip and hidden text (`Timestamp`). The platform page adds a Tenant column; a user or tenant
  * target links to its page unless it is the record the list sits on.
  */
 import { Link } from '@tanstack/react-router'
@@ -10,6 +9,7 @@ import { createColumnHelper } from '@tanstack/react-table'
 import { createContext, useContext, type ReactNode } from 'react'
 import { auditTargetLabel } from '@/components/features/activity/activity-filters'
 import { TenantLink } from '@/components/features/tenants/tenant-link'
+import { Timestamp } from '@/components/features/timestamp'
 import { DataTable } from '@/components/shared/data-table/data-table'
 import type {
   DataTableColumns,
@@ -19,11 +19,8 @@ import type {
 import type { ListQueryState } from '@/components/shared/data-table/use-list-query'
 import { Pii } from '@/components/shared/pii'
 import { Badge } from '@/components/ui/badge'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { actorName, auditSentence } from '@/constants/audit-actions'
 import { ROUTES } from '@/constants/routes'
-import { useNow } from '@/hooks/use-now'
-import { absoluteTime, relativeTime } from '@/lib/relative-time'
 import { analyticsKey } from '@/observability/telemetry'
 import type { AuditEntry, PlatformAuditEntry } from '@/types/api.types'
 
@@ -50,26 +47,6 @@ const ActivityContext = createContext<ActivityContextValue>({
  */
 function tenantOf(entry: AuditEntry): PlatformAuditEntry['tenant'] | undefined {
   return 'tenant' in entry ? (entry as PlatformAuditEntry).tenant : undefined
-}
-
-/**
- * The entry's time, absolute, since an audit line is read long after it is
- * written; the relative time is in a tooltip and in hidden text.
- * @param props - The entry's ISO time.
- * @param props.occurredAt - When the entry was recorded.
- */
-function When({ occurredAt }: { occurredAt: string }) {
-  const now = useNow()
-  const relative = relativeTime(occurredAt, now)
-  return (
-    <Tooltip>
-      <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">
-        <time dateTime={occurredAt}>{absoluteTime(occurredAt)}</time>
-        <span className="sr-only">, {relative}</span>
-      </TooltipTrigger>
-      <TooltipContent>{relative}</TooltipContent>
-    </Tooltip>
-  )
 }
 
 /**
@@ -134,7 +111,7 @@ const when = column.accessor('occurredAt', {
     sortName: analyticsKey('occurred'),
     sortWords: 'date',
   },
-  cell: ({ getValue }) => <When occurredAt={getValue()} />,
+  cell: ({ getValue }) => <Timestamp iso={getValue()} />,
 })
 
 const actor = column.accessor('actor', {

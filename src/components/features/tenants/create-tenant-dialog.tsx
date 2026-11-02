@@ -44,7 +44,7 @@ const TEXT_FIELDS: {
   type?: string
 }[] = [
   { name: 'name', label: 'Name' },
-  { name: 'slug', label: 'Slug' },
+  { name: 'slug', label: 'Web address' },
   { name: 'ownerEmail', label: 'Owner email', type: 'email' },
   { name: 'website', label: 'Website' },
 ]

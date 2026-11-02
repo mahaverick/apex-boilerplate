@@ -1,6 +1,6 @@
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts'
 import { ChartCard } from '@/components/features/overview/chart-card'
-import { RANGE_LABELS } from '@/components/features/overview/range'
+import { chartDescription, RANGE_LABELS } from '@/components/features/overview/range'
 import {
   ChartContainer,
   ChartLegend,
@@ -16,13 +16,32 @@ import { EMAIL_GROUP_KEYS, type EmailMessageDay, type StatsRange } from '@/types
  * Daily emails in five disjoint groups by current status, stacked: each email
  * is in exactly one bar segment, so a day's stack is that day's emails. The
  * SVG is decorative for assistive tech; the visually hidden table carries the
- * same numbers.
+ * same numbers. `webhookNote` adds the Overview's note that, with no provider
+ * webhook, a delivered email stays in Sent; the Deliverability page says it
+ * in its own banner.
  */
-export function EmailsChart({ days, range }: { days: EmailMessageDay[]; range: StatsRange }) {
+export function EmailsChart({
+  days,
+  range,
+  asOf,
+  webhookNote = false,
+}: {
+  days: EmailMessageDay[]
+  range: StatsRange
+  /** When the data arrived (`dataUpdatedAt`), in epoch milliseconds. */
+  asOf: number
+  webhookNote?: boolean
+}) {
   const empty = days.every((day) => EMAIL_GROUP_KEYS.every((group) => day[group] === 0))
+  const description = chartDescription(asOf)
   return (
     <ChartCard
       title="Emails per day"
+      description={
+        webhookNote
+          ? `${description} Without an email provider webhook, delivered emails count as Sent.`
+          : description
+      }
       empty={empty ? `No emails in the last ${RANGE_LABELS[range]}` : null}
     >
       <ChartContainer config={EMAIL_GROUPS} className="aspect-auto h-56 w-full" aria-hidden>
