@@ -10,9 +10,11 @@ import { buttonVariants } from '@/components/ui/button'
 import { pageTitle } from '@/constants/app'
 import { ROUTES } from '@/constants/routes'
 import { statusFrom } from '@/lib/api-error'
+import { inMinutes } from '@/lib/link-lifetime'
 import { staffMessageFrom } from '@/lib/staff-message'
 import { isStepUpWaitHeld } from '@/lib/step-up-presence'
 import { cn } from '@/lib/utils'
+import { useClientSettings } from '@/queries/client-settings.queries'
 import { useConfirmStepUpLink } from '@/queries/step-up.queries'
 import { useAuthStore } from '@/states/auth.store'
 
@@ -136,6 +138,7 @@ type Outcome = { confirmed: true } | { confirmed: false; error: unknown }
  * that offers Try again keeps it, so a reload tries again.
  */
 function LinkConfirm({ token }: { token: string }) {
+  const stepUpTtl = useClientSettings()?.stepUpLinkTtlSeconds
   const [signedIn] = useState(() => useAuthStore.getState().isAuthenticated)
   const confirm = useConfirmStepUpLink()
   /** The wait lock as it stood before the last post; undefined until that read settles. */
@@ -197,7 +200,11 @@ function LinkConfirm({ token }: { token: string }) {
       return (
         <ConfirmCard
           title="This link didn’t confirm it’s you"
-          description="Open the link in the browser where you asked for it, within 15 minutes. For a new link, try the action again."
+          description={
+            stepUpTtl === undefined
+              ? 'Open the link in the browser where you asked for it. For a new link, try the action again.'
+              : `Open the link in the browser where you asked for it, within ${inMinutes(stepUpTtl)}. For a new link, try the action again.`
+          }
         />
       )
     }

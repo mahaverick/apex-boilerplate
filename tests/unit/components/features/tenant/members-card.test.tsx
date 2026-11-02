@@ -986,11 +986,25 @@ describe('the invite form role select', () => {
     renderAppAt(`/tenants/${TENANT_ID}/invitations`)
     const heading = await screen.findByRole('heading', { name: 'Invite a member', level: 2 })
     const card = heading.closest('[data-slot="card"]')
-    expect(card).toHaveTextContent(
-      'We email them an invitation that expires in 3 days. After they select Join, we email them a link to confirm.'
+    await waitFor(() =>
+      expect(card).toHaveTextContent(
+        'We email them an invitation that expires in 5 days. After they select Join, we email them a link to confirm.'
+      )
     )
     expect(card).not.toHaveTextContent(/open the link again/)
     expect(screen.getByRole('button', { name: 'Invite member' })).toBeInTheDocument()
+  })
+
+  it('states no lifetime on the invite card while the client settings cannot be read', async () => {
+    server.use(http.get('/api/v1/status/client-settings', () => fail('Route not found.', 404)))
+    renderAppAt(`/tenants/${TENANT_ID}/invitations`)
+    const heading = await screen.findByRole('heading', { name: 'Invite a member', level: 2 })
+    const card = heading.closest('[data-slot="card"]')
+    await waitFor(() =>
+      expect(card).toHaveTextContent(
+        'We email them an invitation. After they select Join, we email them a link to confirm.'
+      )
+    )
   })
 
   it('points its label at the VISIBLE control, not at a hidden input', async () => {

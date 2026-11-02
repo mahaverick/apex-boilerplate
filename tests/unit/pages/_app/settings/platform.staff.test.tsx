@@ -44,8 +44,8 @@ describe('/settings/platform/staff', () => {
         slug: 'platform',
         showRoleError: false,
         inviteTitle: 'Invite staff',
-        inviteDescription:
-          'We email them an invitation that expires in 3 days. When they open it, we email a sign-in link that adds them to Apex as staff.',
+        inviteNextStep:
+          'When they open it, we email a sign-in link that adds them to Apex as staff.',
         submitLabel: 'Invite staff',
       })
     }
