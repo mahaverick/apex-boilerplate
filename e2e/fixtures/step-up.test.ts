@@ -109,10 +109,10 @@ test('signed out, the confirm page posts nothing and says where the link works',
   await expectNoOverflow(page)
 })
 
-test('the email wait counts its Resend down and opens it, then says the link expired after 15 minutes', async ({
+test('the email wait counts its Resend down and opens it, then says the link expired at the time the API named', async ({
   page,
 }) => {
-  // The fake clock runs out the 60-second resend and the 15-minute link without waiting for them.
+  // The fake clock runs out the 60-second resend and the harness's 25-minute link without waiting for them.
   await page.clock.install()
   const { stepUp } = await openStepUpOverSuspend(page)
 
@@ -124,7 +124,12 @@ test('the email wait counts its Resend down and opens it, then says the link exp
   await page.clock.fastForward('01:00')
   await expect(stepUp.getByRole('button', { name: /^Resend link/ })).toBeEnabled()
 
-  await page.clock.fastForward('14:00')
+  await expect(
+    stepUp.getByText(/^We sent the link to .+\. It expires on \d{1,2} \w+ \d{4} at \d\d:\d\d .+\.$/)
+  ).toBeVisible()
+  await page.clock.fastForward('22:00')
+  await expect(stepUp.getByText('That link expired. Send a new link to continue.')).toBeHidden()
+  await page.clock.fastForward('02:00')
   await expect(stepUp.getByText('That link expired. Send a new link to continue.')).toBeVisible()
   // The action still waits: only Cancel ends it.
   await expect(stepUp).toBeVisible()

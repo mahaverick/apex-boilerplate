@@ -29,10 +29,12 @@ import { ROUTES } from '@/constants/routes'
 import { useLeavingFinalFocus } from '@/hooks/use-arrival-focus'
 import { useStepUp } from '@/hooks/use-step-up'
 import { focusFallbackOnRemoval } from '@/lib/focus-fallback'
+import { inMinutes } from '@/lib/link-lifetime'
 import { staffMessageFrom } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
 import { availableUserActions, SIGN_IN_LINK_NOT_SENT, type UserAction } from '@/lib/user-actions'
 import { analyticsKey, type AnalyticsKey } from '@/observability/telemetry'
+import { useClientSettings } from '@/queries/client-settings.queries'
 import {
   useDeactivateUser,
   useDeleteUser,
@@ -360,6 +362,7 @@ function SendSignInLinkDialog({
   finalFocus?: ComponentProps<typeof AlertDialogContent>['finalFocus']
 }) {
   const send = useSendSignInLink()
+  const signInTtl = useClientSettings()?.signInLinkTtlSeconds
   const [refusal, setRefusal] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const target = user.platformRole === null ? 'the customer app' : 'Apex'
@@ -401,8 +404,10 @@ function SendSignInLinkDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Send a sign-in link?</AlertDialogTitle>
           <AlertDialogDescription>
-            We email <Pii>{user.email}</Pii> a link that signs them in to {target}. It works once
-            and expires in 15 minutes.
+            We email <Pii>{user.email}</Pii> a link that signs them in to {target}.
+            {signInTtl === undefined
+              ? ' It works once.'
+              : ` It works once and expires in ${inMinutes(signInTtl)}.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {refusal !== null && (

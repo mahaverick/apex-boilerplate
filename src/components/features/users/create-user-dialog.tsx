@@ -26,9 +26,11 @@ import { ROUTES } from '@/constants/routes'
 import { useLeavingFinalFocus } from '@/hooks/use-arrival-focus'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
+import { inMinutes } from '@/lib/link-lifetime'
 import { staffMessageFrom } from '@/lib/staff-message'
 import { toast } from '@/lib/toast'
 import { WELCOME_RESEND_NOT_SENT } from '@/lib/user-actions'
+import { useClientSettings } from '@/queries/client-settings.queries'
 import { useCreateUser, useSendSignInLink } from '@/queries/user-admin.queries'
 import { createUserSchema } from '@/schemas/user-admin.schemas'
 
@@ -47,6 +49,7 @@ export function CreateUserDialog() {
   const resend = useSendSignInLink()
   const serverErrors = useServerErrors()
   const leaving = useLeavingFinalFocus(undefined)
+  const signInTtl = useClientSettings()?.signInLinkTtlSeconds
 
   const form = useForm({
     defaultValues: { email: '', firstName: '', lastName: '' },
@@ -107,8 +110,9 @@ export function CreateUserDialog() {
           <DialogHeader>
             <DialogTitle>New user</DialogTitle>
             <DialogDescription>
-              We email them a sign-in link to the customer app. It expires in 15 minutes. You can
-              send a new one from their page.
+              We email them a sign-in link to the customer app.
+              {signInTtl !== undefined && ` It expires in ${inMinutes(signInTtl)}.`} You can send a
+              new one from their page.
             </DialogDescription>
           </DialogHeader>
           <Form form={form} serverErrors={serverErrors}>

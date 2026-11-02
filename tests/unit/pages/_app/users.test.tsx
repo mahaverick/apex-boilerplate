@@ -262,6 +262,20 @@ describe('/users', () => {
       signIn({ ...testUser, platformRole: 'admin' })
     })
 
+    it('states no lifetime in the New user dialog while the client settings cannot be read', async () => {
+      pages([])
+      server.use(http.get('/api/v1/status/client-settings', () => fail('Route not found.', 404)))
+      const user = userEvent.setup()
+      renderAppAt('/users')
+      await user.click(await screen.findByRole('button', { name: 'New user' }))
+      const dialog = await screen.findByRole('dialog', { name: 'New user' })
+      await waitFor(() =>
+        expect(dialog).toHaveTextContent(
+          'We email them a sign-in link to the customer app. You can send a new one from their page.'
+        )
+      )
+    })
+
     it('creates a user, toasts, and opens their page', async () => {
       pages([])
       let body: unknown
@@ -281,8 +295,10 @@ describe('/users', () => {
       const router = renderAppAt('/users')
       await user.click(await screen.findByRole('button', { name: 'New user' }))
       const dialog = await screen.findByRole('dialog', { name: 'New user' })
-      expect(dialog).toHaveTextContent(
-        'We email them a sign-in link to the customer app. It expires in 15 minutes. You can send a new one from their page.'
+      await waitFor(() =>
+        expect(dialog).toHaveTextContent(
+          'We email them a sign-in link to the customer app. It expires in 20 minutes. You can send a new one from their page.'
+        )
       )
       await user.type(within(dialog).getByLabelText('Email'), '  New@Example.com ')
       await user.type(within(dialog).getByLabelText('First name'), 'Nia')

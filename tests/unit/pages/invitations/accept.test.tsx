@@ -451,7 +451,9 @@ describe('accept page, signed out, a staff invitation confirms by email', () => 
     expect(status).toHaveTextContent(`We sent a link to ${MAILED}.`)
     expect(within(status).getByText(MAILED)).toHaveClass('ph-sensitive', 'ph-mask')
     expect(
-      screen.getByText('Open it to join Acme Corp. The link works once and expires in 15 minutes.')
+      await screen.findByText(
+        'Open it to join Acme Corp. The link works once and expires in 20 minutes.'
+      )
     ).toBeVisible()
     const resend = screen.getByRole('button', { name: /^Resend in / })
     expect(resend).toHaveAttribute('aria-disabled', 'true')
@@ -958,8 +960,8 @@ describe('a staff invitation names the staff team, never the platform tenant’s
 
     expect(await screen.findByRole('heading', { level: 1, name: CHECK_INBOX_TITLE })).toBeVisible()
     expect(
-      screen.getByText(
-        'Open it to join the staff team. The link works once and expires in 15 minutes.'
+      await screen.findByText(
+        'Open it to join the staff team. The link works once and expires in 20 minutes.'
       )
     ).toBeVisible()
     expect(screen.queryByText(/Platform/)).not.toBeInTheDocument()

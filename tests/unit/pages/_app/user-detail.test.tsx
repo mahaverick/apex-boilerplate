@@ -590,8 +590,10 @@ describe('/users/$userId', () => {
     const menu = await openActions(user)
     await user.click(within(menu).getByRole('menuitem', { name: 'Send sign-in link' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Send a sign-in link?' })
-    expect(dialog).toHaveTextContent(
-      `We email cleo@example.com a link that signs them in to ${target}. It works once and expires in 15 minutes.`
+    await waitFor(() =>
+      expect(dialog).toHaveTextContent(
+        `We email cleo@example.com a link that signs them in to ${target}. It works once and expires in 20 minutes.`
+      )
     )
     expect(within(dialog).getByText('cleo@example.com')).toHaveClass('ph-sensitive')
   })

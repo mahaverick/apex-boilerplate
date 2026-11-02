@@ -34,6 +34,7 @@ import {
   testPlans,
   testTenantBilling,
 } from '../../tests/fixtures/billing'
+import { testClientSettings } from '../../tests/fixtures/client-settings'
 import {
   AUDIT_ID_1,
   AUDIT_ID_2,
@@ -1657,6 +1658,10 @@ function passkeyList() {
  * express's 403 `PASSKEY_NO_ACCESS` for a non-staff account.
  */
 const passkeyHandlers = [
+  // The unit tests' non-default lifetimes and address, so a page that hard-codes a figure fails its fixture test.
+  http.get('/api/v1/status/client-settings', () =>
+    ok(testClientSettings, 'Client settings retrieved.')
+  ),
   http.get('/api/v1/auth/passkeys/config', () =>
     ok({ mode: passkeyMode, rpId: 'localhost' }, 'Passkey config retrieved.')
   ),
@@ -2436,7 +2441,12 @@ const worker = setupWorker(
       return fail('Invalid request body.', 400, 'VALIDATION_ERROR')
     }
     return ok(
-      { resendAvailableAt: new Date(Date.now() + 60_000).toISOString() },
+      {
+        resendAvailableAt: new Date(Date.now() + 60_000).toISOString(),
+        expiresAt: new Date(
+          Date.now() + testClientSettings.stepUpLinkTtlSeconds * 1_000
+        ).toISOString(),
+      },
       'Check your inbox for a confirmation link.',
       202
     )

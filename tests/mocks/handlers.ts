@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw'
 import type { MembershipRole } from '@/constants/roles'
 import type { ClientFlagValues } from '@/observability/flags/flag-types'
 import { testBillingSettings, testPlans, testTenantBilling } from '@/tests/fixtures/billing'
+import { testClientSettings } from '@/tests/fixtures/client-settings'
 import { flagRows, flagsMeta, unregisteredRows } from '@/tests/fixtures/flags'
 import {
   AUDIT_ID_4,
@@ -608,11 +609,20 @@ export const handlers = [
       return fail('Invalid request body.', 400, 'VALIDATION_ERROR')
     }
     return ok(
-      { resendAvailableAt: new Date(Date.now() + 60_000).toISOString() },
+      {
+        resendAvailableAt: new Date(Date.now() + 60_000).toISOString(),
+        expiresAt: new Date(
+          Date.now() + testClientSettings.stepUpLinkTtlSeconds * 1_000
+        ).toISOString(),
+      },
       'Check your inbox for a confirmation link.',
       202
     )
   }),
+  // Non-default lifetimes and address (tests/fixtures/client-settings.ts), so copy that hard-codes a figure fails.
+  http.get('/api/v1/status/client-settings', () =>
+    ok(testClientSettings, 'Client settings retrieved.')
+  ),
   // Passkeys default to optional with none created; a test for another mode or a list overrides these.
   http.get('/api/v1/auth/passkeys/config', () =>
     ok({ mode: 'optional', rpId: 'localhost' }, 'Passkey settings retrieved.')

@@ -10,6 +10,18 @@ export interface ApiSuccess<T> {
   data: T
 }
 
+/**
+ * `GET /status/client-settings`: what express is configured with and the copy
+ * states: each emailed link's lifetime in whole seconds, and the support
+ * address customer mail names. Public; the same for every caller.
+ */
+export interface ClientSettings {
+  signInLinkTtlSeconds: number
+  stepUpLinkTtlSeconds: number
+  invitationTtlSeconds: number
+  supportEmail: string
+}
+
 /** The envelope of an error response from express. */
 export interface ApiErrorBody {
   success: false
