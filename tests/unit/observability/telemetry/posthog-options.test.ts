@@ -13,6 +13,7 @@ import {
   PII_CLASS_NAME,
   type PosthogOptionsInput,
 } from '@/observability/telemetry/posthog-options'
+import { sendTitleAs } from '@/observability/telemetry/sent-title'
 import { historyList } from '@/queries/audit.queries'
 import { unregisteredFlagsList } from '@/queries/flag-inspector.queries'
 import { invitationsList } from '@/queries/tenant.queries'
@@ -129,6 +130,38 @@ describe('buildPosthogOptions', () => {
       properties: { $current_url: 'https://app.example.com/x?token=probe-token&tab=a' },
     })
     expect(sent?.properties.$current_url).toBe('https://app.example.com/x?tab=a')
+  })
+
+  it('sends a page title registered with sendTitleAs as its stand-in, under either property name', () => {
+    sendTitleAs('Members · Acme Corp · Apex', 'Members · Apex')
+    const beforeSend = buildPosthogOptions(input()).before_send as (
+      event: CaptureResult | null
+    ) => CaptureResult | null
+    const view = beforeSend({
+      uuid: 'u',
+      event: '$pageview',
+      properties: { title: 'Members · Acme Corp · Apex' },
+    })
+    const leave = beforeSend({
+      uuid: 'u',
+      event: '$pageleave',
+      properties: { $title: 'Members · Acme Corp · Apex' },
+    })
+    expect(view?.properties.title).toBe('Members · Apex')
+    expect(leave?.properties.$title).toBe('Members · Apex')
+    expect(JSON.stringify([view, leave])).not.toContain('Acme Corp')
+  })
+
+  it('sends a title nothing registered as it is', () => {
+    const beforeSend = buildPosthogOptions(input()).before_send as (
+      event: CaptureResult | null
+    ) => CaptureResult | null
+    const sent = beforeSend({
+      uuid: 'u',
+      event: '$pageview',
+      properties: { title: 'Profile · Apex' },
+    })
+    expect(sent?.properties.title).toBe('Profile · Apex')
   })
 
   it('keeps the campaign keys of a mailed sign-in link and drops its token, email and redirect', () => {
