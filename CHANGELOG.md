@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.2...v1.0.3) (2026-11-02)
+
+
+### Bug Fixes
+
+* **invitations:** say "Emailing a link" while a signed-out invitation verifies ([#127](https://github.com/mahaverick/apex-boilerplate/issues/127)) ([f6f8e56](https://github.com/mahaverick/apex-boilerplate/commit/f6f8e56c08d5ac4b49c227b0691fc3e4a03361e4))
+
 ## [1.0.2](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.1...v1.0.2) (2026-11-02)
 
 
