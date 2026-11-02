@@ -29,8 +29,12 @@ import { build } from 'vite'
  *   registered page title for its page-only stand-in (`sent-title.ts`), copied
  *   here byte for byte: 607,823 to 608,023 bytes. The staff-settings copy
  *   (stuck threshold, retention, retry limit) adds 44 bytes more: 608,067.
+ * - 2026-11-03: 608,100 → 608,222. The shared client settings read
+ *   (`client-settings.queries.ts`) and lifetime wording (`link-lifetime.ts`)
+ *   stay lazy, but the entry's preload map names both chunks under each route
+ *   that shares them (155 B); no app module joined the entry.
  */
-const ENTRY_BUDGET_BYTES = 608_100
+const ENTRY_BUDGET_BYTES = 608_222
 
 /**
  * A module inside one of the devtools packages, by its node_modules path. Module
