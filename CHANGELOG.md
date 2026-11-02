@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.5](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.4...v1.0.5) (2026-11-02)
+
+
+### Bug Fixes
+
+* **copy:** state link lifetimes from the API ([#133](https://github.com/mahaverick/apex-boilerplate/issues/133)) ([86a66fd](https://github.com/mahaverick/apex-boilerplate/commit/86a66fd75f303b9aa16d94b3d6e77112b0191e1f))
+* **copy:** state the server's stuck threshold, email retention and retry limit from the API ([#131](https://github.com/mahaverick/apex-boilerplate/issues/131)) ([142488c](https://github.com/mahaverick/apex-boilerplate/commit/142488c292129ce0688d70330589609a134f5668))
+
 ## [1.0.4](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.3...v1.0.4) (2026-11-02)
 
 
