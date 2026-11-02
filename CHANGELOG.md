@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.1...v1.0.2) (2026-11-02)
+
+
+### Bug Fixes
+
+* **auth:** follow the API's sign-in link and invitation hardening ([#125](https://github.com/mahaverick/apex-boilerplate/issues/125)) ([78d479f](https://github.com/mahaverick/apex-boilerplate/commit/78d479f1f82a3ca8873dcd807f368ea2f061c54a))
+
 ## [1.0.1](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.0...v1.0.1) (2026-10-31)
 
 
