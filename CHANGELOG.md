@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.4](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.3...v1.0.4) (2026-11-02)
+
+
+### Bug Fixes
+
+* **copy:** name time zones and sources on staff pages ([#128](https://github.com/mahaverick/apex-boilerplate/issues/128)) ([49b28c6](https://github.com/mahaverick/apex-boilerplate/commit/49b28c6b9d774350eea3ddd02237663ac7695f7b))
+
 ## [1.0.3](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.2...v1.0.3) (2026-11-02)
 
 
