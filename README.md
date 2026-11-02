@@ -39,6 +39,9 @@ shipping the app.
   `packageManager`. `pnpm install` refuses a Node older than 26.
 - **The API running on `:4040`, with `APEX_URL` set.** See
   [Getting started](#getting-started).
+- **Deploy express first when an invitation or sign-in rule changes.** This app
+  expects `POST /invitations/verify` to answer only `202`, which every staff
+  invitation has always done, and it refuses a sign-in link with no `email`.
 - **express-boilerplate 8.0.1 or later.** Passkeys need 8.0.0, and the staff
   no-access copy and the claim audit row need 8.0.1. Apex's step-up link request
   sends `{ app: 'apex' }`, which an older express refuses with 400. 6.0.0 is

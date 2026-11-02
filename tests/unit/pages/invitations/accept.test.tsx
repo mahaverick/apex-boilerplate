@@ -121,20 +121,12 @@ function serveAccept(...answers: (() => Response | Promise<Response>)[]): Seen[]
   return serve('/api/v1/invitations/accept', ...answers)
 }
 
-/** A verify that signs the invitee in and joins them: the contract keeps it, though apex staff get the 202. */
-function verified(extra: { isNewUser?: boolean } = {}) {
-  return () =>
-    ok(
-      {
-        user: testUser,
-        accessToken: 'invitation-token',
-        isNewUser: false,
-        tenant: { name: 'Acme Corp', slug: 'acme' },
-        role: 'editor',
-        ...extra,
-      },
-      'Invitation accepted.'
-    )
+/** The address the server says it mailed; deliberately not the preview's or the URL's. */
+const MAILED = 'invitee@acme.test'
+
+/** A verify that answers "Check your inbox": no session, a confirmation link mailed to `email`. */
+function confirmationSent(email = MAILED) {
+  return () => ok({ confirmationSent: true, email }, 'Check your inbox to finish joining.', 202)
 }
 
 /** An accept that joined, or found the caller a member already. */
@@ -220,7 +212,7 @@ describe('accept page: the link itself', () => {
 
   it('refuses a malformed token locally as the dead invitation, without a request', async () => {
     const previews = servePreview()
-    const verifies = serveVerify(verified())
+    const verifies = serveVerify(confirmationSent())
     renderAt('/invitations/accept?token=truncated')
 
     expect(await screen.findByRole('heading', { level: 1, name: DEAD_TITLE })).toBeVisible()
@@ -272,42 +264,6 @@ describe('accept page: the link itself', () => {
 describe('accept page, signed out', () => {
   beforeEach(arriveSignedOut)
 
-  it('joins a signed-out invitee in one load and lands on Overview with the toast', async () => {
-    const verifies = serveVerify(verified())
-    const accepts = serveAccept(accepted())
-    const router = renderAt(ACCEPT_PATH)
-
-    await expectLandedOnOverview(router)
-    expect(await screen.findAllByText(JOINED)).toHaveLength(1)
-    // The toast names the account, so its root must mask it for analytics.
-    expect(screen.getByText(JOINED).closest('.ph-sensitive.ph-mask')).not.toBeNull()
-    expect(useAuthStore.getState().user).toEqual(testUser)
-    expect(useAuthStore.getState().isAuthenticated).toBe(true)
-    expect(verifies).toEqual([{ body: { token: TEST_INVITATION_TOKEN }, authorization: null }])
-    expect(accepts).toHaveLength(0)
-  })
-
-  it('makes no accept call and shows one toast after a signed-out verify', async () => {
-    const verifies = serveVerify(verified())
-    const accepts = serveAccept(accepted())
-    const router = renderAt(ACCEPT_PATH)
-
-    await expectLandedOnOverview(router)
-    await screen.findByRole('heading', { name: 'Overview', level: 1 })
-    // The verify's own sign-in must not turn the page into its signed-in row, which would accept again.
-    expect(screen.getAllByText(JOINED)).toHaveLength(1)
-    expect(verifies).toHaveLength(1)
-    expect(accepts).toHaveLength(0)
-  })
-
-  it('lands a new account on Overview too, never on /welcome', async () => {
-    serveVerify(verified({ isNewUser: true }))
-    const router = renderAt(ACCEPT_PATH)
-
-    await expectLandedOnOverview(router)
-    expect(await screen.findByText(JOINED)).toBeInTheDocument()
-  })
-
   it('names the workspace, the inviter and the invited address while it joins', async () => {
     serveVerify(held())
     renderAt(ACCEPT_PATH)
@@ -330,29 +286,6 @@ describe('accept page, signed out', () => {
 
     const status = await screen.findByRole('status')
     expect(status).toHaveTextContent(`Joining Acme Corp as ${testUser.email}…`)
-    expect(screen.queryByText(/mallory@evil\.test/)).not.toBeInTheDocument()
-  })
-
-  it('names the account the verify signed in, from its answer, not an email in the URL', async () => {
-    const ada = { ...testUser, email: 'ada@acme.test' }
-    serveVerify(() =>
-      ok(
-        {
-          user: ada,
-          accessToken: 'invitation-token',
-          isNewUser: false,
-          tenant: { name: 'Acme Corp', slug: 'acme' },
-          role: 'editor',
-        },
-        'Invitation accepted.'
-      )
-    )
-    const router = renderAt(`${ACCEPT_PATH}&email=${encodeURIComponent('mallory@evil.test')}`)
-
-    await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/overview')
-    })
-    expect(await screen.findByText('You joined Acme Corp as ada@acme.test.')).toBeInTheDocument()
     expect(screen.queryByText(/mallory@evil\.test/)).not.toBeInTheDocument()
   })
 
@@ -431,24 +364,31 @@ describe('accept page, signed out', () => {
       () => HttpResponse.error(),
       'We couldn’t reach the server. Check your connection, then try again.',
     ],
-  ])('offers Try again on %s, and the retry joins', async (_name, failure, message) => {
-    const verifies = serveVerify(failure, verified())
-    const user = userEvent.setup()
-    const router = renderAt(ACCEPT_PATH)
+  ])(
+    'offers Try again on %s, and the retry reaches Check your inbox',
+    async (_name, failure, message) => {
+      const verifies = serveVerify(failure, confirmationSent())
+      const user = userEvent.setup()
+      renderAt(ACCEPT_PATH)
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'We couldn’t add you to Acme Corp' })
-    ).toBeVisible()
-    expect(screen.getByRole('alert')).toHaveTextContent(message)
-    expect(screen.queryByText(DEAD_TITLE)).not.toBeInTheDocument()
-    expect(verifies).toHaveLength(1)
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'We couldn’t add you to Acme Corp' })
+      ).toBeVisible()
+      expect(screen.getByRole('alert')).toHaveTextContent(message)
+      expect(screen.queryByText(DEAD_TITLE)).not.toBeInTheDocument()
+      expect(verifies).toHaveLength(1)
 
-    await user.click(screen.getByRole('button', { name: 'Try again' }))
+      await user.click(screen.getByRole('button', { name: 'Try again' }))
 
-    await expectLandedOnOverview(router)
-    expect(verifies).toHaveLength(2)
-    expect(await screen.findAllByText(JOINED)).toHaveLength(1)
-  })
+      expect(
+        await screen.findByRole('heading', { level: 1, name: CHECK_INBOX_TITLE })
+      ).toBeVisible()
+      expect(screen.getByRole('status')).toHaveTextContent(`We sent a link to ${MAILED}.`)
+      expect(verifies).toHaveLength(2)
+      expect(useAuthStore.getState().isAuthenticated).toBe(false)
+      expect(useAuthStore.getState().accessToken).toBeNull()
+    }
+  )
 
   it('offers Try again on a READ_ONLY_MODE 503', async () => {
     serveVerify(() => fail('The service is read-only for maintenance.', 503, 'READ_ONLY_MODE'))
@@ -477,14 +417,6 @@ describe('accept page, signed out', () => {
     )
   })
 })
-
-/** The address the server says it mailed; deliberately not the preview's or the URL's. */
-const MAILED = 'invitee@acme.test'
-
-/** A verify that answers "Check your inbox": no session, a confirmation link mailed to `email`. */
-function confirmationSent(email = MAILED) {
-  return () => ok({ confirmationSent: true, email }, 'Check your inbox to finish joining.', 202)
-}
 
 /** A 429 that says to wait `seconds`. */
 function rateLimited(seconds: number) {
@@ -562,24 +494,6 @@ describe('accept page, signed out, a staff invitation confirms by email', () => 
     await act(() => vi.advanceTimersByTimeAsync(0))
     expect(await screen.findByRole('button', { name: 'Resend in 1:00' })).toBeInTheDocument()
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
-  })
-
-  it('lands when a resend answers 200', async () => {
-    const user = fakeTheCountdown()
-    const verifies = serveVerify(confirmationSent(), verified())
-    const accepts = serveAccept(accepted())
-    const router = renderAt(ACCEPT_PATH)
-
-    await screen.findByRole('button', { name: 'Resend in 1:00' })
-    await act(() => vi.advanceTimersByTimeAsync(60_000))
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
-    vi.useRealTimers()
-
-    await expectLandedOnOverview(router)
-    expect(await screen.findAllByText(JOINED)).toHaveLength(1)
-    expect(useAuthStore.getState().isAuthenticated).toBe(true)
-    expect(verifies).toHaveLength(2)
-    expect(accepts).toHaveLength(0)
   })
 
   it('shows the dead invitation when a resend answers 404', async () => {
@@ -729,11 +643,13 @@ describe('accept page, signed in', () => {
   it('joins a signed-in invitee without a click', async () => {
     signIn()
     const accepts = serveAccept(accepted())
-    const verifies = serveVerify(verified())
+    const verifies = serveVerify(confirmationSent())
     const router = renderAt(ACCEPT_PATH)
 
     await expectLandedOnOverview(router)
     expect(await screen.findAllByText(JOINED)).toHaveLength(1)
+    // The toast names the account, so its root must mask it for analytics.
+    expect(screen.getByText(JOINED).closest('.ph-sensitive.ph-mask')).not.toBeNull()
     await screen.findByRole('heading', { name: 'Overview', level: 1 })
     expect(accepts).toEqual([
       { body: { token: TEST_INVITATION_TOKEN }, authorization: 'Bearer access-token' },
@@ -800,7 +716,7 @@ describe('accept page, signed in', () => {
     signIn()
     previewForSomeoneElse()
     const accepts = serveAccept(accepted())
-    const verifies = serveVerify(verified())
+    const verifies = serveVerify(confirmationSent())
     let logouts = 0
     server.use(
       http.post('/api/v1/auth/logout', () => {
@@ -838,7 +754,7 @@ describe('accept page, signed in', () => {
     signIn()
     previewForSomeoneElse()
     const accepts = serveAccept(accepted())
-    const verifies = serveVerify(verified())
+    const verifies = serveVerify(confirmationSent())
     const logouts = serve('/api/v1/auth/logout', () => ok(null, 'Signed out.'))
     const user = userEvent.setup()
     const router = renderAt(ACCEPT_PATH)
@@ -936,26 +852,32 @@ describe('posts the token exactly once under StrictMode', () => {
     expect(accepts).toHaveLength(1)
   })
 
-  it.each([
-    ['signed out, verify', 'verify'],
-    ['signed in, accept', 'accept'],
-  ] as const)(
-    'posts the token exactly once under StrictMode with the preview already cached (%s)',
-    async (_name, call) => {
-      // A cached preview settles the page at mount, where StrictMode runs the effect twice.
-      queryClient.setQueryData(invitationKeys.preview(TEST_INVITATION_TOKEN), testInvitationPreview)
-      if (call === 'verify') arriveSignedOut()
-      else signIn()
-      const verifies = serveVerify(verified())
-      const accepts = serveAccept(accepted())
-      const router = renderAt(ACCEPT_PATH)
+  // A cached preview settles the page at mount, where StrictMode runs the effect twice.
+  it('posts the token exactly once under StrictMode with the preview already cached (signed out, verify)', async () => {
+    queryClient.setQueryData(invitationKeys.preview(TEST_INVITATION_TOKEN), testInvitationPreview)
+    arriveSignedOut()
+    const verifies = serveVerify(confirmationSent())
+    const accepts = serveAccept(accepted())
+    renderAt(ACCEPT_PATH)
 
-      await expectLandedOnOverview(router)
-      expect(await screen.findAllByText(JOINED)).toHaveLength(1)
-      expect(call === 'verify' ? verifies : accepts).toHaveLength(1)
-      expect(call === 'verify' ? accepts : verifies).toHaveLength(0)
-    }
-  )
+    expect(await screen.findByRole('heading', { level: 1, name: CHECK_INBOX_TITLE })).toBeVisible()
+    await act(() => settle(50, 'a second StrictMode post has no event to wait on'))
+    expect(verifies).toHaveLength(1)
+    expect(accepts).toHaveLength(0)
+  })
+
+  it('posts the token exactly once under StrictMode with the preview already cached (signed in, accept)', async () => {
+    queryClient.setQueryData(invitationKeys.preview(TEST_INVITATION_TOKEN), testInvitationPreview)
+    signIn()
+    const verifies = serveVerify(confirmationSent())
+    const accepts = serveAccept(accepted())
+    const router = renderAt(ACCEPT_PATH)
+
+    await expectLandedOnOverview(router)
+    expect(await screen.findAllByText(JOINED)).toHaveLength(1)
+    expect(accepts).toHaveLength(1)
+    expect(verifies).toHaveLength(0)
+  })
 })
 
 describe('a used link', () => {
@@ -966,7 +888,7 @@ describe('a used link', () => {
     signIn()
     previewGone()
     const accepts = serveAccept(accepted(true))
-    const verifies = serveVerify(verified())
+    const verifies = serveVerify(confirmationSent())
     const router = renderAt(ACCEPT_PATH)
 
     await expectLandedOnOverview(router)
@@ -1008,7 +930,7 @@ describe('a used link', () => {
     arriveSignedOut()
     previewGone()
     const accepts = serveAccept(accepted(true))
-    const verifies = serveVerify(verified())
+    const verifies = serveVerify(confirmationSent())
     renderAt(ACCEPT_PATH)
 
     expect(await screen.findByRole('heading', { level: 1, name: DEAD_TITLE })).toBeVisible()

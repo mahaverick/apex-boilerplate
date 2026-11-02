@@ -39,14 +39,13 @@ import { sanitizeUrl } from '@/observability/telemetry/url-sanitizer'
 import { useLogout } from '@/queries/auth.queries'
 import {
   inviterName,
-  isConfirmationSent,
   useAcceptInvitation,
   useInvitationPreview,
   useVerifyInvitation,
 } from '@/queries/invitation.queries'
 import { invitationTokenSchema } from '@/schemas/invitation.schemas'
 import { useAuthStore } from '@/states/auth.store'
-import type { InvitationPreview, InvitationVerifyResult, User } from '@/types/api.types'
+import type { InvitationPreview, InvitationConfirmationSent, User } from '@/types/api.types'
 
 /**
  * The invitation landing page. Top level, under neither `_auth` nor `_app`:
@@ -67,7 +66,7 @@ const PREVIEW_ERROR = 'Your invitation link still works. Select Try again.'
 /** The title of every invitation that cannot join anyone, whatever the reason. */
 const DEAD_TITLE = 'This invitation can’t be used'
 
-/** Which call joins: `verify` for a signed-out invitee, `accept` for the signed-in one. */
+/** Which call the page makes: `verify` mails a signed-out invitee a link, `accept` joins the signed-in one. */
 type JoinCall = 'verify' | 'accept'
 
 /** The call the page made, and the invitation it showed while making it: null when the preview had already 404ed. */
@@ -237,17 +236,17 @@ function joinCallFor(
 
 /**
  * The page for a well-formed token. The preview is asked as a stranger, then
- * the page joins on load with no button. Signed out, it verifies: a staff
- * invitation always answers `202`, which shows "Check your inbox" and sets no
+ * the page acts on load with no button. Signed out, it verifies, which answers
+ * `202`, shows "Check your inbox" and sets no
  * session, and the mailed link finishes the join on `/invitations/confirm`.
  * Signed in as the invitee, it accepts. A used link joins nobody signed out;
  * signed in, it still accepts, because the API answers `alreadyMember` only
  * to the invitee who used it and 404 to anyone else. Signed in as another
  * address, it asks before switching. Every join lands on Overview.
  *
- * Who was signed in is read once, at mount: a verify's own sign-in changes the
- * store before the page navigates, and the signed-in rows must not take over
- * then and accept again. The call fires from a ref-guarded effect, so
+ * Who was signed in is read once, at mount: a sign-in in another tab changes the
+ * store while the page waits on the inbox, and the signed-in rows must not take
+ * over then and accept again. The call fires from a ref-guarded effect, so
  * StrictMode's second run never spends the link twice; Try again posts again
  * on purpose. Once a call has started, only its outcome drives the page.
  */
@@ -282,14 +281,10 @@ function InvitationForToken({ token }: { token: string }) {
     setFailure(dead ? { kind: 'dead' } : { kind: 'failed', error })
   }
 
-  /** A verify's answer: a `202` shows the inbox and restarts the resend clock; a one-click join lands. */
-  const verified = (result: InvitationVerifyResult) => {
+  /** A verify's `202` shows the inbox and restarts the resend clock. */
+  const verified = (result: InvitationConfirmationSent) => {
     setFailure(null)
-    if (isConfirmationSent(result)) {
-      setInbox({ email: result.email, resendAt: Date.now() + RESEND_COOLDOWN_SECONDS * 1_000 })
-      return
-    }
-    land(result.tenant, result.user.email, false)
+    setInbox({ email: result.email, resendAt: Date.now() + RESEND_COOLDOWN_SECONDS * 1_000 })
   }
 
   /** Posts the token; a 404 (and, for accept, a 403) is the dead invitation, anything else may pass. */
