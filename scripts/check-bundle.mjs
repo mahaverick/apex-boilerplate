@@ -33,8 +33,13 @@ import { build } from 'vite'
  *   (`client-settings.queries.ts`) and lifetime wording (`link-lifetime.ts`)
  *   stay lazy, but the entry's preload map names both chunks under each route
  *   that shares them (155 B); no app module joined the entry.
+ * - 2026-11-05: 608,222 → 609,425. The http layer now runs on react's shared
+ *   core (`create-api-client.ts`, `refresh-core.ts`, `auth-verdict.ts`),
+ *   copied here byte for byte, and `client.ts` hands the interceptors their
+ *   ports. Every request goes through it, so it stays in the entry: first-visit
+ *   JS went from 608,222 to 609,425 bytes.
  */
-const ENTRY_BUDGET_BYTES = 608_222
+const ENTRY_BUDGET_BYTES = 609_425
 
 /**
  * A module inside one of the devtools packages, by its node_modules path. Module
