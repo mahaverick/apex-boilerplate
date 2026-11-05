@@ -547,6 +547,7 @@ component.
 | A tenant's provider events  | `billingEventsList` (prefix `events`), `billing-reads.queries.ts`               | `/tenants/$tenantId/billing`            | `billing/billing-events-card.tsx`                                  |
 | A tenant's subscriptions    | `billingSubscriptionsList` (prefix `subscriptions`), `billing-reads.queries.ts` | `/tenants/$tenantId/billing`            | `billing/billing-subscriptions-card.tsx`                           |
 | Billing alerts              | `billingAlertsList`, `billing-reads.queries.ts`                                 | `/billing-alerts`                       | `billing/billing-alerts-list.tsx`, over `billing-alerts-table.tsx` |
+| Deletion requests           | `deletionRequestsList`, `deletion-request.queries.ts`                           | `/deletion-requests`                    | `deletion-requests/deletion-requests-table.tsx`                    |
 | A tenant's tax documents    | `taxDocumentsList` (prefix `tax`), `billing-reads.queries.ts`                   | `/tenants/$tenantId/billing`            | `billing/tax-documents-card.tsx`                                   |
 | A tenant's held SEZ charges | `taxHeldChargesList` (prefix `held`), `billing-reads.queries.ts`                | `/tenants/$tenantId/billing`            | `billing/held-charges-card.tsx`                                    |
 

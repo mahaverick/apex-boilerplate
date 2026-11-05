@@ -2736,6 +2736,41 @@ describe('billing settings and alerts', () => {
     await expectNoViolations()
   })
 
+  it('the Deletion requests page has no axe violations', async () => {
+    server.use(
+      http.get('/api/v1/platform/deletion-requests', () =>
+        ok(
+          listPage([
+            {
+              id: '95000000-0000-4000-8000-000000000001',
+              requestedAt: '2026-10-01T00:00:00.000Z',
+              dueAt: '2026-10-31T00:00:00.000Z',
+              reason: null,
+              user: {
+                id: '20000000-0000-4000-8000-000000000041',
+                email: 'dana@example.com',
+                firstName: 'Dana',
+                lastName: 'Lee',
+              },
+              soleOwnedWorkspaces: [{ id: 'w1', name: 'Acme Corp' }],
+            },
+          ]),
+          'OK'
+        )
+      )
+    )
+    open('/deletion-requests')
+    await screen.findByRole('heading', { name: 'Deletion requests', level: 1 })
+    await screen.findByRole('table', { name: 'Deletion requests' })
+    await expectNoViolations()
+  })
+
+  it('the Deletion requests page below admin has no axe violations', async () => {
+    open('/deletion-requests', 'viewer')
+    await screen.findByRole('heading', { name: 'Page not available', level: 1 })
+    await expectNoViolations()
+  })
+
   it('the Billing alerts page below admin has no axe violations', async () => {
     open('/billing-alerts', 'viewer')
     await screen.findByRole('heading', { name: 'Page not available', level: 1 })

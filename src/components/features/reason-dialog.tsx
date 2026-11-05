@@ -52,6 +52,11 @@ export interface ReasonDialogProps {
   destructive?: boolean
   /** When set, the user must type this value (a slug or an email) to confirm. */
   confirmText?: string
+  /**
+   * A reason the caller already holds, such as the id of the request being completed. The
+   * Reason field is hidden and `onConfirm` receives this value.
+   */
+  fixedReason?: string
   /** Performs the action. Resolve to close the dialog; reject to show why inline. */
   onConfirm: (reason: string) => Promise<void>
   /** Where focus goes when the dialog closes; omitted, it returns to the element that opened it. */
@@ -112,6 +117,7 @@ function ReasonForm({
   confirmLabel,
   destructive = false,
   confirmText,
+  fixedReason,
   onConfirm,
   refusalMessage,
   onBusyChange,
@@ -120,7 +126,7 @@ function ReasonForm({
   const waiting = useStepUpWaiting()
   const schema = useMemo(() => reasonFormSchema(confirmText), [confirmText])
   const form = useForm({
-    defaultValues: { reason: '', confirmation: '' },
+    defaultValues: { reason: fixedReason ?? '', confirmation: '' },
     validators: { onSubmit: schema },
     onSubmit: async ({ value }) => {
       serverErrors.reset()
@@ -173,23 +179,25 @@ function ReasonForm({
         </AlertDialogDescription>
       </AlertDialogHeader>
       <Form form={form} serverErrors={serverErrors} className="grid gap-4">
-        <FormField form={form} name="reason">
-          {(field) => (
-            <FormItem>
-              <FormLabel>Reason</FormLabel>
-              <FormControl>
-                <Textarea
-                  rows={3}
-                  value={fieldValue(field.state.value)}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-              </FormControl>
-              <ReasonHint />
-              <FormMessage />
-            </FormItem>
-          )}
-        </FormField>
+        {fixedReason === undefined && (
+          <FormField form={form} name="reason">
+            {(field) => (
+              <FormItem>
+                <FormLabel>Reason</FormLabel>
+                <FormControl>
+                  <Textarea
+                    rows={3}
+                    value={fieldValue(field.state.value)}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                  />
+                </FormControl>
+                <ReasonHint />
+                <FormMessage />
+              </FormItem>
+            )}
+          </FormField>
+        )}
         {confirmText !== undefined && (
           <FormField form={form} name="confirmation">
             {(field) => (

@@ -8,6 +8,7 @@
 import {
   IconAlertTriangle,
   IconBuilding,
+  IconUserMinus,
   IconGauge,
   IconHistory,
   IconLayoutDashboard,
@@ -41,6 +42,7 @@ export type NavPath =
   | typeof ROUTES.onboarding
   | typeof ROUTES.plans
   | typeof ROUTES.billingAlerts
+  | typeof ROUTES.deletionRequests
   | typeof ROUTES.activity
 
 /** One page in the staff navigation, with who sees it and where it sits. */
@@ -92,6 +94,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Billing alerts',
     to: ROUTES.billingAlerts,
     Icon: IconAlertTriangle,
+    minRole: 'admin',
+    group: 'Operations',
+  },
+  // The API lists open requests to admins only, so the page and its entry are admin-only.
+  {
+    label: 'Deletion requests',
+    to: ROUTES.deletionRequests,
+    Icon: IconUserMinus,
     minRole: 'admin',
     group: 'Operations',
   },

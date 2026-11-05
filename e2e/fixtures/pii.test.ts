@@ -38,6 +38,7 @@ const BOUNCED = '/emails/70000000-0000-4000-8000-000000000002'
 for (const [name, path, ready] of [
   ['the overview', '/overview', 'Overview'],
   ['users', '/users', 'Users'],
+  ['deletion requests', '/deletion-requests', 'Deletion requests'],
   ['a user', CLEO, 'Cleo D'],
   ['a deleted user', DELETED, 'Evangeline Featherstonehaugh'],
   ['staff', '/settings/platform/staff', 'Staff'],

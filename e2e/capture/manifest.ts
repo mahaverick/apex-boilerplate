@@ -237,6 +237,30 @@ export const CAPTURES: Record<keyof FileRoutesByFullPath, RouteCapture> = {
       ],
     },
   },
+  '/deletion-requests': {
+    kind: 'page',
+    area: 'users',
+    shot: 'deletion-requests',
+    roleDenied: {
+      as: 'viewer',
+      note: 'A viewer: the platform-not-found card; no requests request.',
+    },
+    url: '/deletion-requests',
+    as: 'staff',
+    responsive: true,
+    sections: [{ name: 'Deletion requests', endpoints: ['GET /platform/deletion-requests'] }],
+    empty: {
+      stubs: [
+        {
+          endpoint: 'GET /platform/deletion-requests',
+          data: {
+            items: [],
+            page: { nextCursor: null, prevCursor: null, hasNext: false, hasPrev: false, limit: 20 },
+          },
+        },
+      ],
+    },
+  },
   '/profile': { kind: 'redirect', to: '/settings/account/profile' },
   '/settings': {
     kind: 'layout',
