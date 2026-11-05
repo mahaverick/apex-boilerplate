@@ -38,8 +38,11 @@ import { build } from 'vite'
  *   copied here byte for byte, and `client.ts` hands the interceptors their
  *   ports. Every request goes through it, so it stays in the entry: first-visit
  *   JS went from 608,222 to 609,425 bytes.
+ * - 2026-11-05: 609,425 → 610,418. The Deletion requests nav item
+ *   (`IconUserMinus`, its `NAV_ITEMS` entry) and its route-tree entry: the
+ *   sidebar is in the entry by design. The page itself stays lazy.
  */
-const ENTRY_BUDGET_BYTES = 609_425
+const ENTRY_BUDGET_BYTES = 610_418
 
 /**
  * A module inside one of the devtools packages, by its node_modules path. Module
