@@ -30,7 +30,7 @@ section gives the table and the rules. This app keeps no copy of the table.
   description what happened there ("ported in react#N", or "not applicable
   because …").
 - `sse.ts` is react's alone, and `client.ts`, `session.ts` and `src/ports/*`
-  are this app's own ports.
+  are this app's own ports, though today all of them equal react's.
 
 This app's own files at shared paths, and the paths shared in part, are in
 [Sibling sync with react-boilerplate](ARCHITECTURE.md#sibling-sync-with-react-boilerplate).

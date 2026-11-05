@@ -1391,7 +1391,9 @@ table, so the list cannot go stale here.
 `pnpm sync:check` (`scripts/sync-check.mjs`) checks two things:
 
 1. Every `files` and `tests` row that names `apex` matches react's copy byte for
-   byte. A finding reads `path: missing` or `path: differs from react-boilerplate`.
+   byte. A finding reads `path: missing`, `path: missing in react-boilerplate`
+   or `path: differs from react-boilerplate`. A manifest that is not valid JSON,
+   or whose apps value is not an array, is one finding naming the manifest.
 2. The copied `scripts/check-shared.mjs` runs without `--app`, so only the
    expo-row rules run (no browser global, no banned package, imports only
    another shared file or a declared port export). Only findings on rows this
@@ -1479,11 +1481,17 @@ table lists the rest.
 - `vitest.config.ts`'s React Compiler plugin block.
 - `index.html`'s `<style id="boot-shell">` block and `#root` markup, not its
   `<style id="boot-tokens">` colours.
-- `pnpm-workspace.yaml`, `e2e/nginx/cors.test.ts` and `scripts/lint-docs.mjs`.
+- `pnpm-workspace.yaml` and `e2e/nginx/cors.test.ts`.
+- `scripts/lint-docs.mjs`. It is identical to react's today, but no manifest
+  row covers it, so it is kept in step by hand.
 - `src/observability/telemetry/config.ts`'s shared constants and
   `event-registry.ts`'s guards; each app keeps its own registry.
-- `tests/unit/observability/telemetry/url-sanitizer.test.ts` and the
-  `tests/unit/http/` suites, which test shared files with this app's mocks.
+- `tests/unit/observability/telemetry/url-sanitizer.test.ts` and this app's
+  own suites in `tests/unit/http/`: `interceptors*.test.ts`,
+  `session*.test.ts`, `client.test.ts`, `load-order-*.test.ts`,
+  `traceparent.test.ts` and `blob-staff-errors.test.ts`. They test shared
+  files with this app's mocks. `auth-verdict.test.ts` and
+  `refresh-core.test.ts` are manifest rows, so the sync check compares them.
 
 The error scrubber is also held in step with express-boilerplate; see
 [The scrubber](SECURITY.md#the-scrubber).

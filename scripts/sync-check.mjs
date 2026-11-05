@@ -32,6 +32,37 @@ function sameBytes(a, b) {
 }
 
 /**
+ * The apex rows of a manifest, or why the manifest cannot be read.
+ * @param manifestPath - The manifest's absolute path.
+ * @returns The rows naming apex, or an error naming the manifest.
+ */
+function readApexRows(manifestPath) {
+  let manifest
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+  } catch (error) {
+    return { error: `${manifestPath}: not valid JSON (${error.message})` }
+  }
+  if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    return { error: `${manifestPath}: not a JSON object` }
+  }
+  const rows = []
+  for (const section of ['files', 'tests']) {
+    const entries = manifest[section] ?? {}
+    if (entries === null || typeof entries !== 'object' || Array.isArray(entries)) {
+      return { error: `${manifestPath}: "${section}" is not an object` }
+    }
+    for (const [file, apps] of Object.entries(entries)) {
+      if (!Array.isArray(apps) || !apps.every((app) => typeof app === 'string')) {
+        return { error: `${manifestPath}: the apps of "${file}" are not an array of names` }
+      }
+      if (apps.includes(APP)) rows.push(file)
+    }
+  }
+  return { rows }
+}
+
+/**
  * Check apex's copies of react's shared rows.
  * @param options - What to check.
  * @param options.root - Apex's root (default: this repository).
@@ -54,21 +85,16 @@ export function syncCheck({
     warn(`${message}; skipped`)
     return []
   }
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
-  const apexRows = [
-    ...Object.entries(manifest.files ?? {}),
-    ...Object.entries(manifest.tests ?? {}),
-  ]
-    .filter(([, apps]) => apps.includes(APP))
-    .map(([file]) => file)
+  const { rows: apexRows, error } = readApexRows(manifestPath)
+  if (error) return [`sync-check: ${error}`]
 
   const findings = []
   for (const file of apexRows) {
     const ours = path.join(root, file)
+    const theirs = path.join(react, file)
     if (!fs.existsSync(ours)) findings.push(`${file}: missing`)
-    else if (!fs.existsSync(path.join(react, file)) || !sameBytes(ours, path.join(react, file))) {
-      findings.push(`${file}: differs from react-boilerplate`)
-    }
+    else if (!fs.existsSync(theirs)) findings.push(`${file}: missing in react-boilerplate`)
+    else if (!sameBytes(ours, theirs)) findings.push(`${file}: differs from react-boilerplate`)
   }
 
   // No `app`: only the expo-row rules run, and only on rows apex holds, since apex-only rows are byte copies, not core.
@@ -92,9 +118,14 @@ function parseArguments(argv) {
   throw new Error(`sync-check: unknown or incomplete arguments ${argv.join(' ')}`)
 }
 
-/** Print each finding and exit 1 when there is any. */
+/** Print each finding and exit 1 when there is any; a bad argument is one line too. */
 function main() {
-  const findings = syncCheck(parseArguments(process.argv.slice(2)))
+  let findings
+  try {
+    findings = syncCheck(parseArguments(process.argv.slice(2)))
+  } catch (error) {
+    findings = [error instanceof Error ? error.message : String(error)]
+  }
   if (findings.length > 0) {
     console.error(findings.join('\n'))
     // exitCode, not exit(): exit() drops stderr still queued for a pipe.

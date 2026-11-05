@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -6,6 +7,25 @@ import { syncCheck } from '../../../scripts/sync-check.mjs'
 
 /** The copied check-shared script, an apex row in the fixture manifest. */
 const CHECK_SHARED = path.resolve(import.meta.dirname, '../../../scripts/check-shared.mjs')
+
+/** The CLI under test. */
+const SCRIPT = path.resolve(import.meta.dirname, '../../../scripts/sync-check.mjs')
+
+/**
+ * Runs the CLI with no inherited `CI` or `REACT_BOILERPLATE_DIR`.
+ * @param args - Its arguments.
+ * @param env - Variables to set.
+ * @returns Its exit status and output.
+ */
+function runCli(args: string[], env: Record<string, string> = {}) {
+  const inherited = { ...process.env }
+  delete inherited.CI
+  delete inherited.REACT_BOILERPLATE_DIR
+  return spawnSync(process.execPath, [SCRIPT, ...args], {
+    encoding: 'utf8',
+    env: { ...inherited, ...env },
+  })
+}
 
 /** Temporary directories made by a test, removed after it. */
 const made: string[] = []
@@ -103,6 +123,83 @@ describe('syncCheck', () => {
     const { react, apex } = trees()
     writeTree(react, { 'src/lib/expo-only.ts': 'export const changed = 2\n' })
     expect(syncCheck({ react, root: apex, env: {} })).toEqual([])
+  })
+
+  it('names a file that react lacks', () => {
+    const { react, apex } = trees()
+    fs.rmSync(path.join(react, 'src/lib/plural.ts'))
+    expect(syncCheck({ react, root: apex, env: {} })).toEqual([
+      'src/lib/plural.ts: missing in react-boilerplate',
+    ])
+  })
+
+  it('reports a check-shared finding on an expo row apex holds', () => {
+    const browserOnly = 'export const title = () => document.title\n'
+    const { react, apex } = trees({ 'src/lib/plural.ts': browserOnly })
+    writeTree(react, { 'src/lib/plural.ts': browserOnly })
+    expect(syncCheck({ react, root: apex, env: {} })).toEqual([
+      'src/lib/plural.ts:1: uses the browser global document',
+    ])
+  })
+
+  it.each([
+    ['is not JSON', '{ "files": '],
+    ['lists apps as a string', JSON.stringify({ files: { 'src/lib/plural.ts': 'apex' } })],
+  ])('reports one finding when the manifest %s', (_case, manifest) => {
+    const { react, apex } = trees()
+    writeTree(react, { 'shared-core.json': manifest })
+    const findings = syncCheck({ react, root: apex, env: {} })
+    expect(findings).toHaveLength(1)
+    expect(findings[0]).toContain('shared-core.json')
+  })
+
+  it('prints one line and exits 1, with no stack trace, on a malformed manifest', () => {
+    const { react } = trees()
+    writeTree(react, { 'shared-core.json': '{ "files": ' })
+    const result = runCli(['--react', react])
+    expect(result.status).toBe(1)
+    expect(result.stderr.trim().split('\n')).toHaveLength(1)
+    expect(result.stderr).toContain('shared-core.json')
+    expect(result.stderr).not.toMatch(/\n\s+at /)
+  })
+
+  it('reads --react before REACT_BOILERPLATE_DIR', () => {
+    const base = tempDir()
+    const result = runCli(['--react', path.join(base, 'from-flag')], {
+      CI: 'true',
+      REACT_BOILERPLATE_DIR: path.join(base, 'from-env'),
+    })
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('from-flag')
+    expect(result.stderr).not.toContain('from-env')
+  })
+
+  it('reads REACT_BOILERPLATE_DIR before the default', () => {
+    const base = tempDir()
+    const apex = path.join(base, 'apex')
+    const { react } = trees()
+    writeTree(apex, SHARED)
+    // The default ../react-boilerplate holds a differing copy, so reading it would report a finding.
+    writeTree(path.join(base, 'react-boilerplate'), {
+      'shared-core.json': MANIFEST,
+      ...SHARED,
+      'src/lib/plural.ts': 'export const plural = () => "s"\n',
+    })
+    expect(syncCheck({ root: apex, env: { REACT_BOILERPLATE_DIR: react } })).toEqual([])
+  })
+
+  it('falls back to ../react-boilerplate beside the root', () => {
+    const base = tempDir()
+    const apex = path.join(base, 'apex')
+    writeTree(apex, SHARED)
+    writeTree(path.join(base, 'react-boilerplate'), {
+      'shared-core.json': MANIFEST,
+      ...SHARED,
+      'src/lib/plural.ts': 'export const plural = () => "s"\n',
+    })
+    expect(syncCheck({ root: apex, env: {} })).toEqual([
+      'src/lib/plural.ts: differs from react-boilerplate',
+    ])
   })
 
   it('warns and passes with no react directory', () => {
