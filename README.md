@@ -251,10 +251,15 @@ means the default too, except `API_UPSTREAM`: the container refuses an empty one
 | `ANALYTICS_CONSENT_MODE`    | `VITE_ANALYTICS_CONSENT_MODE`    | `opt_out`, `required` or `off`                | `opt_out`                | No effect in Apex. The entrypoint validates it and the parser reads it, then `analyticsConfigFrom` ignores it.          |
 | `ANALYTICS_HANDOFF_ORIGINS` | `VITE_ANALYTICS_HANDOFF_ORIGINS` | comma-separated `https://` origins, no spaces | empty                    | No effect in Apex, which takes no handoff from a website.                                                               |
 | `APP_ENVIRONMENT`           | `VITE_APP_ENVIRONMENT`           | `[a-z][a-z0-9-]` up to 32                     | `development`            | Sent as `environment` on every browser event and exception. Set it to express's `APP_ENV` value.                        |
+| `IOS_APP_IDS`               | none                             | comma-separated `TEAMID10CH.bundle.id`        | empty                    | iOS app IDs for `/.well-known/apple-app-site-association` ([how](#app-association-files)).                              |
+| `ANDROID_APP_LINKS`         | none                             | comma-separated `package:SHA-256 fingerprint` | empty                    | Android apps for `/.well-known/assetlinks.json` ([how](#app-association-files)).                                        |
 
 - `docker/10-runtime-config.sh` checks every value against its pattern at start.
   An invalid value **stops the container**, so a typo fails the rollout instead
   of switching analytics off without an error.
+- `docker/15-app-links.sh` checks `IOS_APP_IDS` and `ANDROID_APP_LINKS` the same
+  way, and stops the container with
+  `15-app-links.sh: <NAME> must be ...; the value given does not match (not shown)`.
 - `docker/05-prepare.sh` checks `API_UPSTREAM`. A path, even a trailing `/`,
   stops the container with
   `05-prepare.sh: API_UPSTREAM must be scheme://host[:port] with no path; the value given does not match (not shown)`.
@@ -265,6 +270,31 @@ means the default too, except `API_UPSTREAM`: the container refuses an empty one
   always runs `opt_out` ([Analytics privacy](SECURITY.md#analytics-privacy)).
 - Every value is public: each browser receives `/runtime-config.js`
   ([why that is safe](SECURITY.md#run-time-config-injection-safety)).
+
+### App-association files
+
+`IOS_APP_IDS` and `ANDROID_APP_LINKS` are read by no browser code. The
+container turns them into the two files that iOS and Android fetch to trust
+this site for universal links, app links and password autofill. The script is
+react-boilerplate's, copied byte for byte; leave both unset unless a mobile app
+needs this site's links.
+
+- `IOS_APP_IDS` is a comma-separated list of `<team id>.<bundle id>`, where the
+  team id is ten uppercase letters or digits. It becomes
+  `/.well-known/apple-app-site-association`.
+- `ANDROID_APP_LINKS` is a comma-separated list of
+  `<package>:<SHA-256 certificate fingerprint>`, the fingerprint being 32
+  uppercase hex pairs joined by colons. It becomes `/.well-known/assetlinks.json`,
+  with one statement per entry.
+- A variable that is unset or empty writes no file, so nginx answers `404` for
+  its path.
+- Both files are served as `application/json`, with no redirect and `no-store`.
+- Apple's content delivery network (CDN) caches the
+  `apple-app-site-association` file, and iOS reads it from there rather than
+  from this site. A change to `IOS_APP_IDS` can therefore take a while to reach
+  devices, even after the container serves the new file at once.
+
+The dev server and `pnpm preview` serve neither file.
 
 The dev server, `pnpm preview` and the unit tests read the `VITE_` names from
 `.env`; `.env.example` lists them all.
@@ -354,7 +384,8 @@ The `pnpm` scripts in `package.json`. "CI" is continuous integration, the
 | `pnpm check:bundle`     | Builds in memory; fails on one JS chunk, first-visit JS over budget or holding posthog-js, `@posthog/core`, `@simplewebauthn/browser` or `billing-admin.queries.ts`, the error listener over 1 KB gzipped, or devtools in a chunk. CI runs it                                                                                                                                                                                                                  |
 | `pnpm ui:drift`         | Compares each vendored `src/components/ui/` file with its registry snapshot in `scripts/ui-registry/`; fails on a change `docs/ui-local-edits.md` does not record. CI runs it                                                                                                                                                                                                                                                                                  |
 | `pnpm ui:drift:refresh` | Retakes the registry snapshot through the installed `shadcn` devDependency; needs the network. Review its diff                                                                                                                                                                                                                                                                                                                                                 |
-| `pnpm gate`             | CI's lint job plus the unit suite: `check`, `typecheck`, `lint:docs`, `ui:drift`, `knip`, `test`. pre-push runs it                                                                                                                                                                                                                                                                                                                                             |
+| `pnpm sync:check`       | Compares every react-boilerplate `shared-core.json` row naming `apex` with react's copy, byte for byte, then runs the expo-row `check-shared` rules. Reads `REACT_BOILERPLATE_DIR` or `../react-boilerplate`, on whatever branch it has. CI's `sync` job runs it                                                                                                                                                                                               |
+| `pnpm gate`             | CI's lint job plus the unit suite: `check`, `typecheck`, `lint:docs`, `sync:check`, `ui:drift`, `knip`, `test`. pre-push runs it                                                                                                                                                                                                                                                                                                                               |
 | `pnpm push`             | Runs `pnpm gate`, then `git push --no-verify` with your arguments; nothing is pushed if the gate fails                                                                                                                                                                                                                                                                                                                                                         |
 | `pnpm prepare`          | Installs the `.vite-hooks/` git hooks (`vp config --hooks`); `pnpm install` runs it                                                                                                                                                                                                                                                                                                                                                                            |
 

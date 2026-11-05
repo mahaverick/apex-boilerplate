@@ -13,16 +13,26 @@ personally identifiable information.
 
 ## Sibling sync
 
-`react-boilerplate`, the customer app, shares the HTTP layer, analytics, flags,
-error tracking, most of the container and a set of components with this app.
+`react-boilerplate`, the customer app, is the source of the shared core: the
+HTTP layer, analytics, flags, error tracking, most of the container and a set of
+components. React's `shared-core.json` lists every shared path, and its
+[Shared core](https://github.com/mahaverick/react-boilerplate/blob/main/ARCHITECTURE.md#shared-core)
+section gives the table and the rules. This app keeps no copy of the table.
 
+- **Every manifest row that names `apex` is react's exact copy.** Change react's
+  copy first, then copy it here. Never edit one here alone. The exception is
+  `scrub.ts`, whose rules change in express first.
+- **`pnpm sync:check` proves it**, and CI's `sync` job runs it against react's
+  `main`. Locally it compares against whichever branch `../react-boilerplate`
+  has checked out. From a git worktree, set `REACT_BOILERPLATE_DIR` to the react
+  checkout.
 - When you change a shared path, change react in the same PR. Say in the
   description what happened there ("ported in react#N", or "not applicable
   because …").
-- For a file the two apps hold byte for byte, change react's copy first and copy
-  it here. The exception is `scrub.ts`, whose rules change in express first.
+- `sse.ts` is react's alone, and `client.ts`, `session.ts` and `src/ports/*`
+  are this app's own ports.
 
-The paths are listed in
+This app's own files at shared paths, and the paths shared in part, are in
 [Sibling sync with react-boilerplate](ARCHITECTURE.md#sibling-sync-with-react-boilerplate).
 
 ## Staff access
@@ -53,13 +63,10 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   sign-in.
 
 - **Shared passkey and step-up modules are react's; change react first, then
-  copy.** The passkey, step-up and `app-shell` files listed in
-  [Sibling sync](ARCHITECTURE.md#sibling-sync-with-react-boilerplate) are byte
-  for byte react's at its passkeys merge. Never edit one here alone. After a
-  copy, run `bash -c 'for f in <paths>; do git -C ../react-boilerplate show
-  <react-sha>:$f | cmp -s - $f || echo "DRIFT $f"; done'` and expect no
-  output. Apex's own seams are `src/constants/frontend-app.ts`,
-  `src/lib/action-message.ts` and `tests/mocks/setup-refusal.ts`.
+  copy.** They are manifest rows, so they are byte for byte react's, and
+  `pnpm sync:check` reports any drift. Never edit one here alone. Apex's own
+  seams are `src/constants/frontend-app.ts`, `src/lib/action-message.ts` and
+  `tests/mocks/setup-refusal.ts`.
 - **A member or invitation write through platform access carries a reason.** When
   `useMyRole` reports `access: 'platform'`, the write goes through `ReasonDialog`
   and sends `reason` in the body, DELETE included. A member of the tenant, the
@@ -91,6 +98,7 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   | Job                    | Runs                                                                                                                          |
   | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
   | `lint`                 | `pnpm check`, `pnpm lint:docs`, `pnpm ui:drift`, `pnpm knip`, `pnpm typecheck`, `pnpm build`, `pnpm check:bundle`, the audits |
+  | `sync`                 | `pnpm sync:check` against react-boilerplate `main`, checked out beside this repo                                              |
   | `unit` (6 jobs)        | `pnpm test:shard`                                                                                                             |
   | `test`                 | `pnpm test:merge`, which enforces the coverage thresholds in `vitest.config.ts` on the merged result                          |
   | `e2e`                  | Runs alongside the others                                                                                                     |

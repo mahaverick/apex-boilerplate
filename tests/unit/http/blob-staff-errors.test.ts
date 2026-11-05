@@ -6,7 +6,7 @@
 import axios from 'axios'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import { installInterceptors } from '@/http/interceptors'
+import { installInterceptors } from '@/http/client'
 import { resetSessionForTests } from '@/http/session'
 import { codeFrom } from '@/lib/api-error'
 import { downloadFile } from '@/lib/download-file'

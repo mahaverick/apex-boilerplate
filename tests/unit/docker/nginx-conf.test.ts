@@ -4,10 +4,11 @@ import path from 'node:path'
 import { describe, expect, it } from 'vite-plus/test'
 
 /**
- * nginx.conf's error-log pins, read from the template the image ships. nginx
- * writes the request line, query string included, into every upstream error, at
- * the `error` level, so only a location's own `error_log … crit` keeps a query
- * out of the log. docker/check-image.sh proves the callback's in a running image.
+ * nginx.conf's error-log and app-association pins, read from the template the
+ * image ships. nginx writes the request line, query string included, into every
+ * upstream error, at the `error` level, so only a location's own
+ * `error_log … crit` keeps a query out of the log. docker/check-image.sh proves
+ * the callback's in a running image, and the app-association files' headers.
  */
 
 const CONF = readFileSync(path.resolve(import.meta.dirname, '../../../nginx.conf'), 'utf8')
@@ -44,5 +45,29 @@ describe('nginx.conf', () => {
     const api = proxyDirectives(locationBody(API))
     expect(api).toContain('proxy_pass ${API_UPSTREAM};')
     expect(proxyDirectives(locationBody(CALLBACK))).toEqual(api)
+  })
+
+  it.each([
+    ['apple-app-site-association', 'application/json'],
+    ['assetlinks.json', 'application/json'],
+  ])(
+    'serves /.well-known/%s from an exact-match location as %s, with no add_header',
+    (file, type) => {
+      const body = locationBody(`location = /.well-known/${file}`)
+      expect(body).toContain(`default_type ${type};`)
+      expect(body).toContain(`alias /tmp/runtime/well-known/${file};`)
+      expect(body).not.toContain('add_header')
+      expect(body).not.toContain('try_files')
+    }
+  )
+
+  it('keeps every well-known location from falling through to the SPA fallback', () => {
+    const wellKnown = [...CONF.matchAll(/^ {2}location (\S.*) \{$/gm)]
+      .map((match) => match[1]!)
+      .filter((opening) => opening.includes('/.well-known/'))
+    expect(wellKnown).toEqual([
+      '= /.well-known/apple-app-site-association',
+      '= /.well-known/assetlinks.json',
+    ])
   })
 })

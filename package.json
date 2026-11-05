@@ -43,8 +43,9 @@
     "capture:pages": "E2E_CAPTURE=1 E2E_LIVE=1 playwright test --project=capture",
     "check:bundle": "node scripts/check-bundle.mjs",
     "ui:drift": "node scripts/ui-drift.mjs",
+    "sync:check": "node scripts/sync-check.mjs",
     "ui:drift:refresh": "node scripts/ui-drift.mjs --refresh",
-    "gate": "pnpm check && pnpm typecheck && pnpm lint:docs && pnpm ui:drift && pnpm knip && pnpm test",
+    "gate": "pnpm check && pnpm typecheck && pnpm lint:docs && pnpm sync:check && pnpm ui:drift && pnpm knip && pnpm test",
     "push": "bash scripts/push.sh"
   },
   "dependencies": {
