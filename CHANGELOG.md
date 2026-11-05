@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.5...v1.1.0) (2026-11-05)
+
+
+### Features
+
+* **deletion-requests:** take react's shared core and add a staff deletion queue ([#137](https://github.com/mahaverick/apex-boilerplate/issues/137)) ([b46460a](https://github.com/mahaverick/apex-boilerplate/commit/b46460ae772ee259c3c3397fc490347db21ac2e0))
+
 ## [1.0.5](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.4...v1.0.5) (2026-11-02)
 
 
