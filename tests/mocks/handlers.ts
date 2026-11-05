@@ -734,6 +734,9 @@ export const handlers = [
   http.get('/api/v1/platform/billing-settings', () =>
     ok(testBillingSettings, 'Billing settings retrieved.')
   ),
+  http.get('/api/v1/platform/deletion-requests', () =>
+    ok(listPage([]), 'Deletion requests retrieved.')
+  ),
   http.get('/api/v1/platform/billing/alerts', () => ok(listPage([]), 'Billing alerts retrieved.')),
   http.get('/api/v1/platform/tenants/:tenantId/billing', () =>
     ok(testTenantBilling, 'Billing retrieved.')

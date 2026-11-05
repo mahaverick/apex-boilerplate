@@ -32,11 +32,13 @@ function apiFailure(status: number, message: string, code?: string): AxiosError 
 function Harness({
   onConfirm,
   confirmText,
+  fixedReason,
   refusalMessage,
   description = 'Members lose access until it is reactivated.',
 }: {
   onConfirm: (reason: string) => Promise<void>
   confirmText?: string
+  fixedReason?: string
   description?: ReactNode
   refusalMessage?: (error: unknown) => string | undefined
 }) {
@@ -52,6 +54,7 @@ function Harness({
         confirmLabel="Suspend"
         destructive
         confirmText={confirmText}
+        fixedReason={fixedReason}
         refusalMessage={refusalMessage}
         onConfirm={onConfirm}
       />
@@ -60,6 +63,34 @@ function Harness({
 }
 
 describe('ReasonDialog', () => {
+  it.each([
+    ['REASON_REQUIRED', 'Enter a reason.', undefined],
+    ['a field error on reason', 'Reason is not allowed.', { reason: ['Reason is not allowed.'] }],
+  ] as const)(
+    'shows a fixed reason\u2019s refusal (%s) at form level',
+    async (_name, message, errors) => {
+      const failure = apiFailure(400, message, errors === undefined ? 'REASON_REQUIRED' : undefined)
+      if (errors !== undefined) (failure.response!.data as { errors?: unknown }).errors = errors
+      const user = userEvent.setup()
+      render(<Harness onConfirm={() => Promise.reject(failure)} fixedReason="req-1" />)
+      const dialog = await screen.findByRole('alertdialog', { name: 'Suspend Acme?' })
+      await user.click(within(dialog).getByRole('button', { name: 'Suspend' }))
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent(message)
+      expect(screen.getByText('open: true')).toBeInTheDocument()
+    }
+  )
+
+  it('hides the Reason field and confirms with the fixed reason', async () => {
+    const onConfirm = vi.fn().mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    render(<Harness onConfirm={onConfirm} fixedReason="req-1" confirmText="a@example.com" />)
+    const dialog = await screen.findByRole('alertdialog', { name: 'Suspend Acme?' })
+    expect(within(dialog).queryByLabelText('Reason')).toBeNull()
+    await user.type(within(dialog).getByLabelText(/Type .* to confirm/), 'a@example.com')
+    await user.click(within(dialog).getByRole('button', { name: 'Suspend' }))
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledWith('req-1'))
+  })
+
   it('requires a reason before calling onConfirm', async () => {
     const onConfirm = vi.fn(async () => {})
     const user = userEvent.setup()

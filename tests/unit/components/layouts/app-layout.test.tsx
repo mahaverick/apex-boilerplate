@@ -103,6 +103,7 @@ describe('AppLayout', () => {
         'Deliverability',
         'Suppressions',
         'Billing alerts',
+        'Deletion requests',
         'Onboarding',
         'Plans',
         'Activity',

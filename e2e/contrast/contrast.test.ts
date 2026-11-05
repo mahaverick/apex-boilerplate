@@ -177,6 +177,11 @@ const SURFACES = [
     url: '/e2e/harness/?path=/billing-alerts',
     heading: /^Billing alerts$/,
   },
+  {
+    name: 'deletion requests',
+    url: '/e2e/harness/?path=/deletion-requests',
+    heading: /^Deletion requests$/,
+  },
   // The flags inspector: state and reason badges, the traits' copy buttons and an evaluation.
   {
     name: 'flags',

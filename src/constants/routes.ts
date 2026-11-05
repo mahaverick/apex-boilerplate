@@ -37,6 +37,7 @@ export const ROUTES = {
   onboarding: '/onboarding',
   plans: '/plans',
   billingAlerts: '/billing-alerts',
+  deletionRequests: '/deletion-requests',
   flags: '/settings/platform/flags',
   maintenance: '/settings/platform/maintenance',
   noAccess: '/no-access',

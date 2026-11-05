@@ -1,6 +1,6 @@
 # Users
 
-This file covers the user list (`/users/`), one user's page, and the user actions menu. Back to the [route map](README.md#route-map).
+This file covers the user list (`/users/`), one user's page, the user actions menu, and the staff queue of account deletion requests (`/deletion-requests`). Back to the [route map](README.md#route-map).
 
 ## Layout
 
@@ -120,3 +120,20 @@ Findings: [F-users-1](findings.md#f-users-1), [F-users-2](findings.md#f-users-2)
 | A viewer: no Flags or Actions, and no History card. The Emails card stays. |
 
 Findings: [F-users-3](findings.md#f-users-3), [F-users-5](findings.md#f-users-5), [F-overview-4](findings.md#f-overview-4), [F-palette-6](findings.md#f-palette-6)
+
+### `/deletion-requests` — Deletion requests
+
+Screenshots arrive with the next `pnpm capture:pages` run.
+
+|                     |                                                                                                                                                                                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Purpose             | The customers who asked to delete their account, soonest due first, so an admin deletes each by its due date.                                                                                                                                                                  |
+| File                | `src/pages/_app/deletion-requests.tsx`                                                                                                                                                                                                                                         |
+| Guard and redirects | `_app`; admin and up (express's `GET /platform/deletion-requests` is an admin route). Below admin the page shows the not-found card and sends no request; a 404 after that shows `RoleDenied`. Reached from the sidebar's Operations section, where only admins and up see it. |
+| Layout              | `AppLayout`                                                                                                                                                                                                                                                                    |
+| Data                | started on mount (no loader): `GET /platform/deletion-requests` (`['platform', 'deletion-requests', …]`) with the list's `sort` (`due` by default, or `-due`) and `cursor` from the URL.                                                                                       |
+| Sections            | One card with the `h1` and a `DataTable`: Person (name and email in `<Pii>`, linked to the user), Requested, Due (with an Overdue badge once it has passed), Sole owner of (workspace names, or "None") and Delete account.                                                    |
+| Components          | `DeletionRequestsTable` (`src/components/features/deletion-requests/deletion-requests-table.tsx`), `Card`, `DataTable`, `EmptyState`, `ReasonDialog`, `PlatformNotFound`                                                                                                       |
+| Transitions         | a person → `/users/$userId`; Delete account → the dialog                                                                                                                                                                                                                       |
+
+**Delete account** opens a `ReasonDialog` with the typed-email confirmation and no Reason field: the reason is the request id (`fixedReason`), which is all express's audit holds. It runs behind step-up and sends `DELETE /platform/users/:id`. A refusal shows inside the dialog and keeps the row: a 409 for the last owner of a workspace, or `REQUESTER_PAYS_SUBSCRIPTION` for a requester who still pays. A delete toasts "Account deleted." and the row leaves the queue.

@@ -54,6 +54,7 @@ describe('navigation', () => {
       'Deliverability',
       'Suppressions',
       'Billing alerts',
+      'Deletion requests',
       'Onboarding',
       'Plans',
       'Activity',
@@ -78,7 +79,10 @@ describe('navigation', () => {
     ).toEqual([
       ['General', ['Overview']],
       ['Directory', ['Tenants', 'Users']],
-      ['Operations', ['Emails', 'Deliverability', 'Suppressions', 'Billing alerts']],
+      [
+        'Operations',
+        ['Emails', 'Deliverability', 'Suppressions', 'Billing alerts', 'Deletion requests'],
+      ],
       ['Growth', ['Onboarding', 'Plans']],
       ['Security', ['Activity']],
     ])

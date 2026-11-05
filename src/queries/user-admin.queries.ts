@@ -8,6 +8,7 @@ import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query
 import { apiClient, unwrap } from '@/http/client'
 import { isRoleDenied } from '@/lib/role-denied'
 import { analyticsKey } from '@/observability/telemetry'
+import { deletionRequestKeys } from '@/queries/deletion-request.queries'
 import { listQueryOptions } from '@/queries/list.queries'
 import { invalidateDirectory } from '@/queries/platform.queries'
 import { booleanFilter, defineList, listFilter } from '@/schemas/list.schemas'
@@ -167,14 +168,22 @@ export function useSendSignInLink() {
   })
 }
 
-/** Soft delete (admin; behind step-up). The account stays readable but read-only, so its page refreshes. */
+/**
+ * Soft delete (admin; behind step-up). The account stays readable but read-only, so its page
+ * refreshes. The delete completes the person's open deletion request, so that queue refreshes too.
+ */
 export function useDeleteUser() {
+  const queryClient = useQueryClient()
   const invalidate = useInvalidateUsers()
   return useMutation({
     mutationFn: async ({ userId, reason }: { userId: string; reason: string }) => {
       await apiClient.delete(`/platform/users/${userId}`, { data: { reason } })
     },
-    onSuccess: () => invalidate(),
+    onSuccess: () =>
+      Promise.all([
+        invalidate(),
+        queryClient.invalidateQueries({ queryKey: deletionRequestKeys.all }),
+      ]),
   })
 }
 

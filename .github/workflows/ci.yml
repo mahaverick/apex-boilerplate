@@ -20,10 +20,11 @@ permissions:
   contents: read
 
 jobs:
-  # Jobs: lint (static gate, build, bundle check, audits), unit (six test
-  # shards) then test (merges the shards, enforces coverage), e2e, and image
-  # then image-checks and two nginx-e2e shards then docker (requires all of
-  # them). lint, unit, e2e and image start in parallel. Actions are pinned
+  # Jobs: lint (static gate, build, bundle check, audits), sync (the shared
+  # core against react-boilerplate main), unit (six test shards) then test
+  # (merges the shards, enforces coverage), e2e, and image then image-checks
+  # and two nginx-e2e shards then docker (requires all of them). lint, sync,
+  # unit, e2e and image start in parallel. Actions are pinned
   # to commit SHAs, and Renovate keeps the pins current. actions/cache and
   # actions/upload-artifact need an Actions Runner of at least 2.327.1, which
   # matters only for self-hosted runners; these jobs run on ubuntu-latest.
@@ -69,6 +70,39 @@ jobs:
       - name: Audit all dependencies (non-blocking)
         continue-on-error: true
         run: pnpm audit --audit-level critical
+
+  # The shared core: every shared-core.json row naming apex is byte for byte
+  # react-boilerplate main's copy, and the rows apex shares with expo pass the
+  # copied check-shared rules. A job of its own, with react checked out under
+  # react-boilerplate/, so `eslint .`, `vp check` and knip in `lint` never scan
+  # react's tree.
+  sync:
+    # PRs only: deploy.yml calls this workflow on a push, where drift in react's main must not block a deploy.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: mahaverick/react-boilerplate
+          ref: main
+          path: react-boilerplate
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
+        with:
+          node-version-file: .node-version
+          cache: true
+          run-install: false
+      - run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: '0'
+          VP_GIT_HOOKS: '0'
+      - run: pnpm sync:check
+        env:
+          REACT_BOILERPLATE_DIR: ${{ github.workspace }}/react-boilerplate
 
   # The unit suite in six shards. Each writes a blob report and a coverage
   # fragment, with no threshold: a shard sees part of the suite.

@@ -328,6 +328,20 @@ export interface PlatformUserRow {
 }
 
 /**
+ * One open account deletion request (`GET /platform/deletion-requests`): who asked, when it is
+ * due, and the workspaces whose only owner is that person. `reason` is the customer's own words;
+ * the page never shows it, and the staff delete records only `id`.
+ */
+export interface DeletionRequestRow {
+  id: string
+  requestedAt: string
+  dueAt: string
+  reason: string | null
+  user: Pick<PlatformUserRow, 'id' | 'email' | 'firstName' | 'lastName'>
+  soleOwnedWorkspaces: { id: string; name: string }[]
+}
+
+/**
  * `GET /platform/users?status=`. Omitted means active and inactive live
  * accounts; `deleted` reaches soft-deleted ones, which only a purge removes.
  */

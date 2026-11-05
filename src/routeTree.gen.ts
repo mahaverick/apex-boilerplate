@@ -20,6 +20,7 @@ import { Route as ResetPasswordRouteImport } from './pages/reset-password'
 import { Route as VerifyEmailRouteImport } from './pages/verify-email'
 import { Route as AppActivityRouteImport } from './pages/_app/activity'
 import { Route as AppBillingAlertsRouteImport } from './pages/_app/billing-alerts'
+import { Route as AppDeletionRequestsRouteImport } from './pages/_app/deletion-requests'
 import { Route as AppDeliverabilityRouteImport } from './pages/_app/deliverability'
 import { Route as AppFlagsRouteImport } from './pages/_app/flags'
 import { Route as AppMaintenanceRouteImport } from './pages/_app/maintenance'
@@ -111,6 +112,11 @@ const AppActivityRoute = AppActivityRouteImport.update({
 const AppBillingAlertsRoute = AppBillingAlertsRouteImport.update({
   id: '/billing-alerts',
   path: '/billing-alerts',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDeletionRequestsRoute = AppDeletionRequestsRouteImport.update({
+  id: '/deletion-requests',
+  path: '/deletion-requests',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDeliverabilityRoute = AppDeliverabilityRouteImport.update({
@@ -331,6 +337,7 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof VerifyEmailRoute
   '/activity': typeof AppActivityRoute
   '/billing-alerts': typeof AppBillingAlertsRoute
+  '/deletion-requests': typeof AppDeletionRequestsRoute
   '/deliverability': typeof AppDeliverabilityRoute
   '/flags': typeof AppFlagsRoute
   '/maintenance': typeof AppMaintenanceRoute
@@ -381,6 +388,7 @@ export interface FileRoutesByTo {
   '/verify-email': typeof VerifyEmailRoute
   '/activity': typeof AppActivityRoute
   '/billing-alerts': typeof AppBillingAlertsRoute
+  '/deletion-requests': typeof AppDeletionRequestsRoute
   '/deliverability': typeof AppDeliverabilityRoute
   '/flags': typeof AppFlagsRoute
   '/maintenance': typeof AppMaintenanceRoute
@@ -431,6 +439,7 @@ export interface FileRoutesById {
   '/verify-email': typeof VerifyEmailRoute
   '/_app/activity': typeof AppActivityRoute
   '/_app/billing-alerts': typeof AppBillingAlertsRoute
+  '/_app/deletion-requests': typeof AppDeletionRequestsRoute
   '/_app/deliverability': typeof AppDeliverabilityRoute
   '/_app/flags': typeof AppFlagsRoute
   '/_app/maintenance': typeof AppMaintenanceRoute
@@ -483,6 +492,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/activity'
     | '/billing-alerts'
+    | '/deletion-requests'
     | '/deliverability'
     | '/flags'
     | '/maintenance'
@@ -533,6 +543,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/activity'
     | '/billing-alerts'
+    | '/deletion-requests'
     | '/deliverability'
     | '/flags'
     | '/maintenance'
@@ -582,6 +593,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/_app/activity'
     | '/_app/billing-alerts'
+    | '/_app/deletion-requests'
     | '/_app/deliverability'
     | '/_app/flags'
     | '/_app/maintenance'
@@ -717,6 +729,13 @@ declare module '@tanstack/react-router' {
       path: '/billing-alerts'
       fullPath: '/billing-alerts'
       preLoaderRoute: typeof AppBillingAlertsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/deletion-requests': {
+      id: '/_app/deletion-requests'
+      path: '/deletion-requests'
+      fullPath: '/deletion-requests'
+      preLoaderRoute: typeof AppDeletionRequestsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/deliverability': {
@@ -1061,6 +1080,7 @@ const AppUsersUserIdRouteWithChildren = AppUsersUserIdRoute._addFileChildren(
 interface AppRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
   AppBillingAlertsRoute: typeof AppBillingAlertsRoute
+  AppDeletionRequestsRoute: typeof AppDeletionRequestsRoute
   AppDeliverabilityRoute: typeof AppDeliverabilityRoute
   AppFlagsRoute: typeof AppFlagsRoute
   AppMaintenanceRoute: typeof AppMaintenanceRoute
@@ -1082,6 +1102,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppActivityRoute: AppActivityRoute,
   AppBillingAlertsRoute: AppBillingAlertsRoute,
+  AppDeletionRequestsRoute: AppDeletionRequestsRoute,
   AppDeliverabilityRoute: AppDeliverabilityRoute,
   AppFlagsRoute: AppFlagsRoute,
   AppMaintenanceRoute: AppMaintenanceRoute,
