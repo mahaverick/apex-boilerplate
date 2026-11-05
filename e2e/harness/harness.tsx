@@ -18,6 +18,7 @@ import { authTimeOf } from '@/lib/step-up'
 import { profileKeys } from '@/queries/profile.queries'
 import { queryClient, router } from '@/router'
 import { useAuthStore } from '@/states/auth.store'
+import type { DeletionRequestRow } from '@/types/api.types'
 import type {
   BillingAlert,
   BillingSettings,
@@ -332,6 +333,26 @@ const billingSettings: { value: BillingSettings } = {
     gstEffectiveFrom: taxDocumentsExist ? '2026-04-01' : null,
   },
 }
+
+/** Two open deletion requests, dated from the page load: Cleo D's is overdue and Sam Staff's is not; Cleo solely owns Acme Corp. */
+const DELETION_REQUESTS: DeletionRequestRow[] = [
+  {
+    id: '95000000-0000-4000-8000-000000000001',
+    requestedAt: new Date(Date.now() - 32 * 24 * 60 * 60 * 1000).toISOString(),
+    dueAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    reason: null,
+    user: { id: USER_ID_2, email: 'cleo.d@example.com', firstName: 'Cleo', lastName: 'D' },
+    soleOwnedWorkspaces: [{ id: '10000000-0000-4000-8000-000000000001', name: 'Acme Corp' }],
+  },
+  {
+    id: '95000000-0000-4000-8000-000000000002',
+    requestedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    dueAt: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString(),
+    reason: null,
+    user: { id: STAFF_USER_ID, email: 'sam@platform.test', firstName: 'Sam', lastName: 'Staff' },
+    soleOwnedWorkspaces: [],
+  },
+]
 
 /**
  * Seven billing alerts, newest first, so the Overview card shows five and
@@ -2089,6 +2110,16 @@ const worker = setupWorker(
     }
     return ok(billingSettings.value, 'Billing settings saved.')
   }),
+  // The open deletion requests, soonest due first, as express serves them.
+  http.get('/api/v1/platform/deletion-requests', ({ request }) =>
+    ok(
+      serveList(DELETION_REQUESTS, new URL(request.url).searchParams, {
+        searchIn: (row) => [row.user.email],
+        sorts: { due: (a, b) => a.dueAt.localeCompare(b.dueAt) },
+      }),
+      'Deletion requests retrieved.'
+    )
+  ),
   // The billing alerts, searched by message and sorted by time, as express serves them.
   http.get('/api/v1/platform/billing/alerts', ({ request }) =>
     ok(

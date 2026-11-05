@@ -8,7 +8,6 @@
 import {
   IconAlertTriangle,
   IconBuilding,
-  IconUserMinus,
   IconGauge,
   IconHistory,
   IconLayoutDashboard,
@@ -16,6 +15,7 @@ import {
   IconMail,
   IconMailX,
   IconReceipt,
+  IconUserMinus,
   IconUsers,
   type TablerIcon,
 } from '@tabler/icons-react'

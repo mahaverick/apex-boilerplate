@@ -1,7 +1,7 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import { beforeEach, describe, expect, it } from 'vite-plus/test'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -52,7 +52,7 @@ describe('/deletion-requests', () => {
     signIn({ ...testUser, platformRole: 'admin' })
   })
 
-  it('lists requests oldest due first', async () => {
+  it('shows the rows in the order the server sends and asks for no sort', async () => {
     const seen: URLSearchParams[] = []
     serve(
       [
@@ -83,6 +83,40 @@ describe('/deletion-requests', () => {
     )
     expect(seen.at(-1)?.get('sort')).toBeNull()
     expect(seen.at(-1)?.get('total')).toBe('1')
+  })
+
+  it('requests the latest due first from the Due header', async () => {
+    const seen: URLSearchParams[] = []
+    serve([request()], seen)
+    const user = userEvent.setup()
+    const router = renderAppAt('/deletion-requests')
+    const table = await screen.findByRole('table', { name: 'Deletion requests' })
+    await user.click(within(table).getByRole('button', { name: 'Due' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ sort: '-due' }))
+    await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('-due'))
+  })
+
+  it('shows Overdue only after the due moment, not at it', async () => {
+    const due = new Date('2026-11-10T12:00:00.000Z')
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(due)
+      serve([request({ dueAt: due.toISOString() })])
+      renderAppAt('/deletion-requests')
+      await screen.findByRole('table', { name: 'Deletion requests' })
+      expect(screen.queryByText('Overdue')).toBeNull()
+      cleanup()
+    } finally {
+      vi.useRealTimers()
+    }
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date(due.getTime() + 1))
+      renderAppAt('/deletion-requests')
+      expect(await screen.findAllByText('Overdue')).not.toHaveLength(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('marks a request past its due date as Overdue', async () => {
@@ -175,7 +209,11 @@ describe('/deletion-requests', () => {
       await screen.findByRole('heading', { level: 1, name: 'Page not available' })
     ).toBeInTheDocument()
     // The breadcrumb names the page too; only the sidebar's links are the nav item.
-    expect(screen.queryByRole('link', { name: 'Deletion requests', current: false })).toBeNull()
+    expect(
+      within(screen.getByRole('navigation', { name: 'Main' })).queryByRole('link', {
+        name: 'Deletion requests',
+      })
+    ).toBeNull()
     expect(seen).toHaveLength(0)
   })
 

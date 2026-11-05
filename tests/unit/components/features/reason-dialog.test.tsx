@@ -32,11 +32,13 @@ function apiFailure(status: number, message: string, code?: string): AxiosError 
 function Harness({
   onConfirm,
   confirmText,
+  fixedReason,
   refusalMessage,
   description = 'Members lose access until it is reactivated.',
 }: {
   onConfirm: (reason: string) => Promise<void>
   confirmText?: string
+  fixedReason?: string
   description?: ReactNode
   refusalMessage?: (error: unknown) => string | undefined
 }) {
@@ -52,6 +54,7 @@ function Harness({
         confirmLabel="Suspend"
         destructive
         confirmText={confirmText}
+        fixedReason={fixedReason}
         refusalMessage={refusalMessage}
         onConfirm={onConfirm}
       />
@@ -60,6 +63,17 @@ function Harness({
 }
 
 describe('ReasonDialog', () => {
+  it('hides the Reason field and confirms with the fixed reason', async () => {
+    const onConfirm = vi.fn().mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    render(<Harness onConfirm={onConfirm} fixedReason="req-1" confirmText="a@example.com" />)
+    const dialog = await screen.findByRole('alertdialog', { name: 'Suspend Acme?' })
+    expect(within(dialog).queryByLabelText('Reason')).toBeNull()
+    await user.type(within(dialog).getByLabelText(/Type .* to confirm/), 'a@example.com')
+    await user.click(within(dialog).getByRole('button', { name: 'Suspend' }))
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledWith('req-1'))
+  })
+
   it('requires a reason before calling onConfirm', async () => {
     const onConfirm = vi.fn(async () => {})
     const user = userEvent.setup()
