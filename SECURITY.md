@@ -816,6 +816,10 @@ off, or add a price.
 grant, revoke grant, cancel, plan edit, new price and billing settings. The
 plan preview writes nothing and takes neither a reason nor step-up.
 
+**The deletion queue's delete sends the request id as the reason**, with
+nothing typed, because express's audit keeps only the request id and never the
+customer's words.
+
 **These staff writes take no reason:**
 
 - creating a user or a tenant;

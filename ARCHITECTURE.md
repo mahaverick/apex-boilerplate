@@ -1408,7 +1408,9 @@ out react's `main` to see what CI sees. From a git worktree, `../react-boilerpla
 does not resolve to the sibling checkout; set `REACT_BOILERPLATE_DIR`. With no
 react checkout, it warns and passes, except under `CI=true`, where it fails.
 
-CI's `sync` job checks out `mahaverick/react-boilerplate` at `main` under
+CI's `sync` job runs on pull requests only (`if: github.event_name ==
+'pull_request'`): `deploy.yml` calls `ci.yml` on a push, where drift in react's
+`main` must not block a deploy. The job checks out `mahaverick/react-boilerplate` at `main` under
 `react-boilerplate/` and runs the check. It is a job of its own, so `eslint .`,
 `vp check` and knip in the `lint` job never scan react's tree. `pnpm gate` runs
 it after `pnpm lint:docs`.
@@ -1433,7 +1435,7 @@ it after `pnpm lint:docs`.
 - **Some suites at shared paths are this app's own.**
   `tests/unit/queries/step-up.queries.test.tsx` and
   `tests/unit/components/features/step-up-staff.test.tsx` are not copies, and
-  `src/lib/write-failure.ts` stays react's.
+  this app has no `src/lib/write-failure.ts`; react shares that file with expo only.
 
 ### This app's own files at shared paths
 
@@ -1470,6 +1472,9 @@ on purpose. The sync check does not compare them.
   exists here.
 
 ### Shared in part
+
+`public/boot-variant.js` lists `/delete-account`, a route this app lacks. It is
+harmless as a byte copy.
 
 These paths are not in the manifest, so the sync check does not compare them.
 Keep the shared part in step by hand, in the same pull request as react's

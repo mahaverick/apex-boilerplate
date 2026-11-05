@@ -340,7 +340,7 @@ const DELETION_REQUESTS: DeletionRequestRow[] = [
     id: '95000000-0000-4000-8000-000000000001',
     requestedAt: new Date(Date.now() - 32 * 24 * 60 * 60 * 1000).toISOString(),
     dueAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    reason: null,
+    reason: 'I no longer use it.',
     user: { id: USER_ID_2, email: 'cleo.d@example.com', firstName: 'Cleo', lastName: 'D' },
     soleOwnedWorkspaces: [{ id: '10000000-0000-4000-8000-000000000001', name: 'Acme Corp' }],
   },

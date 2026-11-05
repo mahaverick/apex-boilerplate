@@ -276,8 +276,13 @@ means the default too, except `API_UPSTREAM`: the container refuses an empty one
 `IOS_APP_IDS` and `ANDROID_APP_LINKS` are read by no browser code. The
 container turns them into the two files that iOS and Android fetch to trust
 this site for universal links, app links and password autofill. The script is
-react-boilerplate's, copied byte for byte; leave both unset unless a mobile app
-needs this site's links.
+react-boilerplate's, copied byte for byte.
+
+**Never set `IOS_APP_IDS` or `ANDROID_APP_LINKS` on Apex.** The paths the iOS
+file lists (`/auth/link`, `/auth/confirm` and `/tenants/*`) and its
+`webcredentials` belong to the customer app. On the staff host they would send
+staff sign-in links and passkey autofill to the customer mobile app. Leave both
+unset, so nginx answers `404` for both files.
 
 - `IOS_APP_IDS` is a comma-separated list of `<team id>.<bundle id>`, where the
   team id is ten uppercase letters or digits. It becomes
@@ -774,7 +779,9 @@ Three manual steps, once:
     conventional commits.
   - Enable "Automatically delete head branches".
   - Add a ruleset on `main`, with no bypass list, requiring the checks `lint`,
-    `test`, `e2e`, `docker`, `gitleaks` and `pr-title`. Without it,
+    `sync`, `test`, `e2e`, `docker`, `gitleaks` and `pr-title`. `sync` runs on
+    pull requests only: `deploy.yml` calls `ci.yml` on a push, where drift in
+    react's `main` must not block a deploy, so the job is skipped there. Without it,
     `release.yml`'s fallback merges the release PR without waiting for CI.
 
 With those rules, the squashed commit on `main` is the PR's title alone, so PR

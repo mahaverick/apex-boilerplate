@@ -77,6 +77,8 @@ jobs:
   # react-boilerplate/, so `eslint .`, `vp check` and knip in `lint` never scan
   # react's tree.
   sync:
+    # PRs only: deploy.yml calls this workflow on a push, where drift in react's main must not block a deploy.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

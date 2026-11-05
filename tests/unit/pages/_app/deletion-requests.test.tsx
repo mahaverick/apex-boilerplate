@@ -2,6 +2,7 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
+import { toast } from '@/lib/toast'
 import { listPage } from '@/tests/fixtures/list-page'
 import { renderAppAt, signIn } from '@/tests/fixtures/render-app'
 import { fail, ok, testUser } from '@/tests/mocks/handlers'
@@ -81,6 +82,8 @@ describe('/deletion-requests', () => {
       'href',
       `/users/${PERSON_ID}`
     )
+    // The customer's own words are never rendered.
+    expect(screen.queryByText('I no longer use it.')).toBeNull()
     expect(seen.at(-1)?.get('sort')).toBeNull()
     expect(seen.at(-1)?.get('total')).toBe('1')
   })
@@ -165,6 +168,7 @@ describe('/deletion-requests', () => {
         return ok(null, 'User deleted.')
       })
     )
+    const success = vi.spyOn(toast, 'success')
     const user = userEvent.setup()
     renderAppAt('/deletion-requests')
     const dialog = await openDelete(user)
@@ -173,6 +177,7 @@ describe('/deletion-requests', () => {
     await confirmStepUp(user)
     await waitFor(() => expect(bodies).toHaveLength(2))
     expect(bodies).toEqual([{ reason: REQUEST_ID }, { reason: REQUEST_ID }])
+    await waitFor(() => expect(success).toHaveBeenCalledWith('Account deleted.'))
     expect(await screen.findByText('No one has asked to delete their account.')).toBeInTheDocument()
     expect(screen.queryByText('dana@example.com')).toBeNull()
   })

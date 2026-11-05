@@ -26,7 +26,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { fieldValue } from '@/hooks/use-form-field'
 import { useServerErrors } from '@/hooks/use-server-errors'
 import { STEP_UP_WAITING_LABEL, useStepUpWaiting } from '@/hooks/use-step-up'
-import { codeFrom, statusFrom } from '@/lib/api-error'
+import { codeFrom, fieldErrorsFrom, statusFrom } from '@/lib/api-error'
 import { ROLE_DENIED_ACTION, staffMessageFrom } from '@/lib/staff-message'
 import { isReauthRequired, stepUpRefusal } from '@/lib/step-up'
 import { reasonFormSchema } from '@/schemas/reason.schemas'
@@ -77,13 +77,16 @@ export interface ReasonDialogProps {
  * through it (removing a member of the platform tenant, leaving a tenant and the
  * maintenance dialogs have their own `AlertDialog`); SECURITY.md "Reason prompts"
  * lists which do. The form mounts only while open, so each opening starts blank.
+ * With `fixedReason` (the id of the request being completed, say) the Reason field
+ * is hidden and `onConfirm` receives that value; nothing is typed.
  *
  * A refusal shows inside the dialog, which stays open. A 403 or 409 is the
  * server's own sentence (staff-on-staff refusal, invalid transition, last
  * owner) unless `refusalMessage` returns a sentence to replace it; a 404 with
  * the route code `not_found`, or no code, is the role gate's, and one with any
  * other code is the server's sentence as is. A 400 `REASON_REQUIRED` goes on
- * the Reason field. Anything else reads as `refusalMessage` words it (a
+ * the Reason field, or on the form when `fixedReason` hides that field, as does
+ * any other field error on `reason`. Anything else reads as `refusalMessage` words it (a
  * billing outage, whose 5xx body express masks), else through `capture`.
  *
  * A refusal that means the row is gone is the caller's to catch and resolve: a
@@ -142,7 +145,10 @@ function ReasonForm({
           return
         }
         if (codeFrom(error) === REASON_REQUIRED) {
-          serverErrors.setFieldError('reason', [staffMessageFrom(error)])
+          // With a fixed reason there is no Reason field to hold the message, so it goes to the form.
+          if (fixedReason === undefined)
+            serverErrors.setFieldError('reason', [staffMessageFrom(error)])
+          else serverErrors.setFormErrors([staffMessageFrom(error)])
           return
         }
         const status = statusFrom(error)
@@ -163,6 +169,12 @@ function ReasonForm({
         const own = refusalMessage?.(error)
         if (own !== undefined) {
           serverErrors.setFormErrors([own])
+          return
+        }
+        // A field error on `reason` has no field to sit on when the reason is fixed.
+        const reasonErrors = fixedReason === undefined ? undefined : fieldErrorsFrom(error).reason
+        if (reasonErrors !== undefined && reasonErrors.length > 0) {
+          serverErrors.setFormErrors(reasonErrors)
           return
         }
         serverErrors.capture(error)

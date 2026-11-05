@@ -22,7 +22,8 @@ section gives the table and the rules. This app keeps no copy of the table.
 - **Every manifest row that names `apex` is react's exact copy.** Change react's
   copy first, then copy it here. Never edit one here alone. The exception is
   `scrub.ts`, whose rules change in express first.
-- **`pnpm sync:check` proves it**, and CI's `sync` job runs it against react's
+- **`pnpm sync:check` proves it**, and CI's `sync` job runs it on pull requests
+  only (a deploy's push skips it) against react's
   `main`. Locally it compares against whichever branch `../react-boilerplate`
   has checked out. From a git worktree, set `REACT_BOILERPLATE_DIR` to the react
   checkout.
@@ -98,7 +99,7 @@ may do. The reasons are in [Staff-only access](SECURITY.md#staff-only-access),
   | Job                    | Runs                                                                                                                          |
   | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
   | `lint`                 | `pnpm check`, `pnpm lint:docs`, `pnpm ui:drift`, `pnpm knip`, `pnpm typecheck`, `pnpm build`, `pnpm check:bundle`, the audits |
-  | `sync`                 | `pnpm sync:check` against react-boilerplate `main`, checked out beside this repo                                              |
+  | `sync`                 | On pull requests only: `pnpm sync:check` against react-boilerplate `main`, checked out beside this repo                       |
   | `unit` (6 jobs)        | `pnpm test:shard`                                                                                                             |
   | `test`                 | `pnpm test:merge`, which enforces the coverage thresholds in `vitest.config.ts` on the merged result                          |
   | `e2e`                  | Runs alongside the others                                                                                                     |
