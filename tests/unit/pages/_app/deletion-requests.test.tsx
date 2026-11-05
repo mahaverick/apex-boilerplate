@@ -180,6 +180,7 @@ describe('/deletion-requests', () => {
     await waitFor(() => expect(success).toHaveBeenCalledWith('Account deleted.'))
     expect(await screen.findByText('No one has asked to delete their account.')).toBeInTheDocument()
     expect(screen.queryByText('dana@example.com')).toBeNull()
+    success.mockRestore()
   })
 
   it.each([

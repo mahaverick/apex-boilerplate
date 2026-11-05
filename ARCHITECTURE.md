@@ -1470,11 +1470,10 @@ on purpose. The sync check does not compare them.
 - **`src/types/api.types.ts`.** The files differ, but the `ClientSettings`
   interface matches react's, and every type a shared file imports from it
   exists here.
+- **`public/boot-variant.js`** is a manifest row, so it is react's byte for
+  byte. It lists `/delete-account`, a route this app lacks, which is harmless.
 
 ### Shared in part
-
-`public/boot-variant.js` lists `/delete-account`, a route this app lacks. It is
-harmless as a byte copy.
 
 These paths are not in the manifest, so the sync check does not compare them.
 Keep the shared part in step by hand, in the same pull request as react's
