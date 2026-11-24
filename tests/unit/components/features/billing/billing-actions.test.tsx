@@ -878,7 +878,7 @@ describe('billing actions', () => {
       const bodies = recordWrite('cancel', {
         ...testTenantBilling,
         cancelAtPeriodEnd: true,
-        currentPeriodEnd: '2026-12-20T00:00:00.000Z',
+        currentPeriodEnd: '2036-12-20T00:00:00.000Z',
       })
       const user = userEvent.setup()
       renderAppAt(BILLING)
@@ -886,7 +886,7 @@ describe('billing actions', () => {
       const dialog = await screen.findByRole('alertdialog', {
         name: 'Cancel the subscription for Acme Corp?',
       })
-      const end = billingDate('2026-11-20T00:00:00.000Z', 'UTC')
+      const end = billingDate('2036-11-20T00:00:00.000Z', 'UTC')
       expect(
         within(dialog).getByRole('radio', { name: `At the end of the paid period (${end})` })
       ).toBeChecked()
@@ -901,7 +901,7 @@ describe('billing actions', () => {
       // From the answered view, not the cached period end.
       await waitFor(() =>
         expect(success).toHaveBeenCalledWith(
-          `Paid for Acme Corp ends on ${billingDate('2026-12-20T00:00:00.000Z', 'UTC')}.`
+          `Paid for Acme Corp ends on ${billingDate('2036-12-20T00:00:00.000Z', 'UTC')}.`
         )
       )
       expect(bodies).toEqual([
@@ -915,7 +915,7 @@ describe('billing actions', () => {
       const cancelling: StaffTenantBilling = {
         ...testTenantBilling,
         cancelAtPeriodEnd: true,
-        currentPeriodEnd: '2026-12-20T00:00:00.000Z',
+        currentPeriodEnd: '2036-12-20T00:00:00.000Z',
       }
       recordWrite('cancel', cancelling)
       const user = userEvent.setup()
@@ -935,7 +935,7 @@ describe('billing actions', () => {
       await confirmStepUp(user)
       await waitFor(() =>
         expect(success).toHaveBeenCalledWith(
-          `Paid for Acme Corp ends on ${billingDate('2026-12-20T00:00:00.000Z', 'UTC')}.`
+          `Paid for Acme Corp ends on ${billingDate('2036-12-20T00:00:00.000Z', 'UTC')}.`
         )
       )
     })
@@ -978,7 +978,7 @@ describe('billing actions', () => {
       })
       expect(within(dialog).queryAllByRole('radio')).toHaveLength(0)
       expect(dialog).toHaveTextContent(
-        `Paid already ends on ${billingDate('2026-11-20T00:00:00.000Z', 'UTC')}. Acme Corp moves to Free now.`
+        `Paid already ends on ${billingDate('2036-11-20T00:00:00.000Z', 'UTC')}. Acme Corp moves to Free now.`
       )
       expect(within(dialog).getByLabelText('Type acme to confirm')).toBeInTheDocument()
     })
@@ -1058,7 +1058,7 @@ describe('billing actions', () => {
         ...testTenantBilling,
         cancelAtPeriodEnd: true,
         nextSubscriptionId: 'sub_TestNext0001',
-        nextSwitch: { interval: 'year', startsAt: '2026-11-20T00:00:00.000Z' },
+        nextSwitch: { interval: 'year', startsAt: '2036-11-20T00:00:00.000Z' },
       }
       serve(ending)
       const bodies = recordWrite('cancel', {
@@ -1072,7 +1072,7 @@ describe('billing actions', () => {
       const dialog = await screen.findByRole('alertdialog', {
         name: 'Cancel the subscription for Acme Corp?',
       })
-      const end = billingDate('2026-11-20T00:00:00.000Z', 'UTC')
+      const end = billingDate('2036-11-20T00:00:00.000Z', 'UTC')
       expect(
         within(dialog).getByRole('radio', { name: 'Only the next subscription' })
       ).toBeChecked()
@@ -1245,7 +1245,7 @@ describe('billing actions', () => {
       serve({
         ...testTenantBilling,
         nextSubscriptionId: 'sub_TestNext0001',
-        nextSwitch: { interval: 'year', startsAt: '2026-11-20T00:00:00.000Z' },
+        nextSwitch: { interval: 'year', startsAt: '2036-11-20T00:00:00.000Z' },
       })
       const user = userEvent.setup()
       renderAppAt(BILLING)
