@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/mahaverick/apex-boilerplate/compare/v1.1.0...v1.1.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **deps:** force patched dev dependencies and repair the expired billing fixture ([#140](https://github.com/mahaverick/apex-boilerplate/issues/140)) ([ee14de7](https://github.com/mahaverick/apex-boilerplate/commit/ee14de7946800dc90fa084a8e6c26de149f463f4))
+
 ## [1.1.0](https://github.com/mahaverick/apex-boilerplate/compare/v1.0.5...v1.1.0) (2026-11-05)
 
 
